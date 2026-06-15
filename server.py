@@ -1222,8 +1222,38 @@ def sd_neon():
 # ==========================================
 # 🖥️ GUI 관리자 및 로그인 창
 # ==========================================
+def start_self_ping():
+    import urllib.request
+    import threading
+    import time
+    
+    url = os.environ.get('RENDER_EXTERNAL_URL')
+    if not url:
+        return
+        
+    def ping_loop():
+        # 서버 시작 후 첫 30초 대기
+        time.sleep(30)
+        print(f"⏰ [Self-Ping] Starting self-ping daemon to keep Render service awake at: {url}")
+        while True:
+            try:
+                req = urllib.request.Request(
+                    url,
+                    headers={'User-Agent': 'LiveMaster-KeepAwake/1.0'}
+                )
+                with urllib.request.urlopen(req, timeout=15) as response:
+                    # 응답 코드가 200이든 다른 것이든 요청이 가고 돌아왔으므로 활성화 상태 유지 성공
+                    pass
+            except Exception as e:
+                print(f"⚠️ [Self-Ping] Ping failed: {e}")
+            time.sleep(600)  # 10분마다 실행 (Render 무료 비활성화 임계치인 15분보다 짧음)
+            
+    ping_thread = threading.Thread(target=ping_loop, daemon=True)
+    ping_thread.start()
+
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
+    start_self_ping()
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def has_gui_support():
