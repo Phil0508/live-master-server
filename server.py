@@ -305,7 +305,8 @@ def load_data():
             bjs = [{"name": row[0], "score": row[1], "contribution": row[2]} for row in cursor.fetchall()]
     except Exception as e:
         print(f"⚠️ [DB 로드 오류] {e}")
-        kv_data, bjs = {}, []
+        # DB 로드 실패 시 데이터를 덮어써서 날려버리는 것을 막기 위해 예외를 상위로 전파합니다.
+        raise e
 
     if not kv_data and not bjs:
         MEMORY_STATE = DEFAULT_STATE.copy()
