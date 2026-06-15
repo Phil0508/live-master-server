@@ -639,7 +639,7 @@
         async function fetchAPI() {
             if (isPushing || (Date.now() - lastPushTime < 200)) return; 
             try { 
-                const res = await fetch('http://localhost:5000/api/data'); const newData = await res.json(); 
+                const res = await fetch('/api/data'); const newData = await res.json(); 
                 if (gd && gd.reaction_mode !== newData.reaction_mode) {
                     let audio = document.getElementById('bgm-audio');
                     if (newData.reaction_mode) { 
@@ -684,7 +684,7 @@
             if(!gd) return;
             lastPushTime = Date.now(); // 🚀 푸시 타임 기록으로 SSE 덮어쓰기 무력화
             isPushing = true; gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); renderUI(); 
-            fetch('http://localhost:5000/api/data', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gd) }).catch(e => console.error("⚠️ pushAPI Error:", e));
+            fetch('/api/data', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gd) }).catch(e => console.error("⚠️ pushAPI Error:", e));
             setTimeout(() => { isPushing = false; }, 80); // 락 해제를 80ms로 최소화하여 즉시 클릭 가능
         }
 
@@ -1436,7 +1436,7 @@
             if (names.length === 0) return;
             
             try {
-                let res = await fetch('http://localhost:5000/api/bjs/import', {
+                let res = await fetch('/api/bjs/import', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ names: names, overwrite: overwrite })
@@ -1483,7 +1483,7 @@
                 sseSource.close();
             }
             updateConnectionStatus('connecting'); // 🟢 재연결 중 상태 스위칭
-            sseSource = new EventSource('http://localhost:5000/api/stream');
+            sseSource = new EventSource('/api/stream');
             
             sseSource.onopen = function() {
                 updateConnectionStatus('connected');
@@ -1739,7 +1739,7 @@
             if(!await premiumConfirm(`⚠️ [시간여행 경고]\n정말로 ${ts} 시점의 상태로 롤백 복구하시겠습니까?\n이 작업은 현재 상태를 덮어씁니다.`, "시간여행 경고", "warning")) return;
             
             try {
-                const res = await fetch('http://localhost:5000/api/snapshots/restore', {
+                const res = await fetch('/api/snapshots/restore', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({id: sid})
@@ -1766,7 +1766,7 @@
             }
             
             try {
-                const res = await fetch('http://localhost:5000/api/snapshots/manual', {
+                const res = await fetch('/api/snapshots/manual', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({label: label})
@@ -1789,7 +1789,7 @@
             if(!await premiumConfirm(`정말로 [${ts}] 세이브포인트를 삭제하시겠습니까?`, "스냅샷 삭제", "warning")) return;
             
             try {
-                const res = await fetch('http://localhost:5000/api/snapshots/delete', {
+                const res = await fetch('/api/snapshots/delete', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({id: sid})
@@ -1817,7 +1817,7 @@
             if(!await premiumConfirm(`⚠️ [시간여행 경고]\n정말로 오늘 [${timeVal}] 시점의 상태로 롤백 복구하시겠습니까?\n이 작업은 현재 점수판을 덮어씁니다.`, "시간여행 경고", "warning")) return;
             
             try {
-                const res = await fetch('http://localhost:5000/api/time_machine/restore_by_time', {
+                const res = await fetch('/api/time_machine/restore_by_time', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({time: timeVal})
@@ -1839,7 +1839,7 @@
         async function startExtraGame() {
             if(!await premiumConfirm("🟢 번외 임시 게임을 개시하겠습니까?\n\n메인 점수판은 보존되며, 0점짜리 임시 점수판이 생성됩니다.", "번외 게임 개시", "question")) return;
             try {
-                let res = await fetch('http://localhost:5000/api/extra_game/start', {method: 'POST'});
+                let res = await fetch('/api/extra_game/start', {method: 'POST'});
                 let data = await res.json();
                 if(data.status !== 'success') await premiumAlert("오류: " + data.message, "오류", "warning");
             } catch(e) {
@@ -1850,7 +1850,7 @@
         async function endExtraGame() {
             if(!await premiumConfirm("🧹 번외 임시 게임을 종료하고 점수를 본판에 누적 합산합니까?\n\n번외 점수가 원래 랭킹판에 이름 기준으로 고스란히 덧셈 합산됩니다.", "번외 게임 종료 및 합산", "confirm")) return;
             try {
-                let res = await fetch('http://localhost:5000/api/extra_game/end', {method: 'POST'});
+                let res = await fetch('/api/extra_game/end', {method: 'POST'});
                 let data = await res.json();
                 if(data.status !== 'success') await premiumAlert("오류: " + data.message, "오류", "warning");
             } catch(e) {
@@ -1861,7 +1861,7 @@
         async function cancelExtraGame() {
             if(!await premiumConfirm("⚠️ 번외 게임을 파기하겠습니까?\n\n번외 게임 동안 쌓인 모든 점수가 반영되지 않고 버려집니다!", "번외 게임 파기", "warning")) return;
             try {
-                let res = await fetch('http://localhost:5000/api/extra_game/cancel', {method: 'POST'});
+                let res = await fetch('/api/extra_game/cancel', {method: 'POST'});
                 let data = await res.json();
                 if(data.status !== 'success') await premiumAlert("오류: " + data.message, "오류", "warning");
             } catch(e) {

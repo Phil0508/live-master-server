@@ -1463,7 +1463,7 @@
             if (sseSource) {
                 sseSource.close();
             }
-            sseSource = new EventSource('http://localhost:5000/api/stream');
+            sseSource = new EventSource('/api/stream');
             
             sseSource.addEventListener('init', function(e) {
                 const newData = JSON.parse(e.data);
