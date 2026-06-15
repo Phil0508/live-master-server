@@ -121,6 +121,7 @@ def require_login():
         '/api/donation',
         '/api/streamdeck/neon',
         '/api/streamdeck/save',
+        '/api/roulette/winner',
         '/setup'
     ]
     
@@ -912,6 +913,7 @@ def api_roulette_winner():
             state['roulette']['command'] = 'ended'
             state['roulette']['is_spinning'] = False
             state['roulette']['command_time'] = int(time.time() * 1000)
+            state['roulette_enabled'] = False
             
             # 랭킹 로그에 기록 추가
             time_str = time.strftime('%H:%M:%S')

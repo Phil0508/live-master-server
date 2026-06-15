@@ -1343,14 +1343,9 @@
                     setTimeout(() => { winMsgEl.classList.remove('show'); }, 4000);
                 }
                 
-                // 당첨 시 즉시 룰렛위젯 꺼주기 (딜레이 없이 바로 서버에 roulette_enabled = false 전송)
+                // 당첨 시 즉시 룰렛위젯 꺼짐 처리 (로컬 상태만 업데이트, 실제 비활성화는 winner API 완료 시 SSE로 자동 동기화)
                 if (globalData) {
                     globalData.roulette_enabled = false;
-                    fetch('/api/data', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(globalData)
-                    }).catch(e => console.error("Error disabling roulette:", e));
                 }
             }
         };
