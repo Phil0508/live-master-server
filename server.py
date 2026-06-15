@@ -70,8 +70,12 @@ def get_db_connection():
         conn.close()
 from flask import Flask, jsonify, request, send_from_directory, redirect, url_for, session
 from flask_cors import CORS
-import tkinter as tk
-from tkinter import messagebox
+try:
+    import tkinter as tk
+    from tkinter import messagebox
+except ImportError:
+    tk = None
+    messagebox = None
 import webbrowser
 
 # ==========================================
@@ -1224,6 +1228,8 @@ def run_flask():
 
 def has_gui_support():
     if os.environ.get('DATABASE_URL'):
+        return False
+    if tk is None:
         return False
     try:
         temp_root = tk.Tk()
