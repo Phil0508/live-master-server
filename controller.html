@@ -257,7 +257,7 @@
         <h1>
             <i class="fa-solid fa-layer-group"></i> 방송 제어 센터 V12
             <span id="connection-status-badge" style="font-size: 11px; font-weight: 800; background: rgba(52, 199, 89, 0.15); border: 1px solid #34c759; color: #34c759; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; vertical-align: middle; transition: all 0.3s ease;">
-                <span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; margin-right: 6px;"></span> 실시간 통신망 무결 (0ms)
+                <span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; margin-right: 6px;"></span> 실시간 통신망 무결 (<span id="latency-val">--ms</span>)
             </span>
         </h1>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -1524,6 +1524,34 @@
 
 
 
+        let latencyInterval = null;
+        async function checkLatency() {
+            try {
+                const start = performance.now();
+                const res = await fetch('/api/ping');
+                if (res.ok) {
+                    const rtt = Math.round(performance.now() - start);
+                    const el = document.getElementById('latency-val');
+                    if (el) {
+                        el.innerText = `${rtt}ms`;
+                    }
+                }
+            } catch (e) {
+                console.error("Latency check failed:", e);
+            }
+        }
+        function startLatencyCheck() {
+            if (latencyInterval) clearInterval(latencyInterval);
+            checkLatency();
+            latencyInterval = setInterval(checkLatency, 10000); // Check every 10 seconds
+        }
+        function stopLatencyCheck() {
+            if (latencyInterval) {
+                clearInterval(latencyInterval);
+                latencyInterval = null;
+            }
+        }
+
         // 🟢 실시간 연결 상태 표시등 제어 함수
         function updateConnectionStatus(status) {
             const badge = document.getElementById('connection-status-badge');
@@ -1533,17 +1561,20 @@
                 badge.style.background = 'rgba(52, 199, 89, 0.15)';
                 badge.style.borderColor = '#34c759';
                 badge.style.color = '#34c759';
-                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; margin-right: 6px;"></span> 실시간 통신망 무결 (0ms)`;
+                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; margin-right: 6px;"></span> 실시간 통신망 무결 (<span id="latency-val">--ms</span>)`;
+                startLatencyCheck();
             } else if (status === 'connecting') {
                 badge.style.background = 'rgba(255, 204, 0, 0.15)';
                 badge.style.borderColor = '#ffcc00';
                 badge.style.color = '#ffcc00';
                 badge.innerHTML = `<span style="width: 7px; height: 7px; background: #ffcc00; border-radius: 50%; display: inline-block; animation: pulseYellow 1.5s infinite; margin-right: 6px;"></span> 심폐소생 재연결 시도 중...`;
+                stopLatencyCheck();
             } else {
                 badge.style.background = 'rgba(255, 69, 58, 0.15)';
                 badge.style.borderColor = '#ff453a';
                 badge.style.color = '#ff453a';
                 badge.innerHTML = `<span style="width: 7px; height: 7px; background: #ff453a; border-radius: 50%; display: inline-block; animation: pulseRed 1.5s infinite; margin-right: 6px;"></span> 통신 단절 ⚠️ (복원 대기)`;
+                stopLatencyCheck();
             }
         }
 

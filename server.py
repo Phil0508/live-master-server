@@ -117,6 +117,7 @@ def require_login():
         '/overlay',
         '/overlay.html',
         '/api/stream',
+        '/api/ping',
         '/api/donation',
         '/api/streamdeck/neon',
         '/api/streamdeck/save',
@@ -426,6 +427,10 @@ def sse_stream():
                 sse_clients.remove(q)
                 
     return app.response_class(event_generator(), mimetype='text/event-stream')
+
+@app.route('/api/ping')
+def api_ping():
+    return jsonify({'status': 'pong'})
 
 # ==========================================
 # 👥 BJ 일괄 등록 API
