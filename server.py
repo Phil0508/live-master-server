@@ -1497,7 +1497,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def has_gui_support():
-    if os.environ.get('DATABASE_URL'):
+    if os.environ.get('HEADLESS') or os.environ.get('DATABASE_URL'):
         return False
     if tk is None:
         return False
