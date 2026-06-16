@@ -1650,6 +1650,8 @@
         }
 
         let sseSource = null;
+        window.userInitiatedEnd = false;
+        window.restorePromptShown = false;
         function initSSE() {
             if (sseSource) {
                 sseSource.close();
@@ -1733,6 +1735,69 @@
             if(!gd.bottom_fixed) gd.bottom_fixed = {name: "운영비", score: 0};
             if(!gd.account) gd.account = {bank: "", acc_num: "", name: ""};
             if(!gd.pending_donations) gd.pending_donations = []; 
+
+            // --- 브라우저 자동 백업 및 복구 로직 ---
+            if (gd.broadcast_active) {
+                localStorage.setItem('active_broadcast_backup', JSON.stringify(gd));
+                localStorage.setItem('active_broadcast_backup_time', Date.now().toString());
+            } else {
+                if (window.userInitiatedEnd) {
+                    localStorage.removeItem('active_broadcast_backup');
+                    localStorage.removeItem('active_broadcast_backup_time');
+                    window.userInitiatedEnd = false;
+                } else {
+                    let backupStr = localStorage.getItem('active_broadcast_backup');
+                    let backupTimeStr = localStorage.getItem('active_broadcast_backup_time');
+                    if (backupStr && backupTimeStr && !window.restorePromptShown) {
+                        let backupTime = parseInt(backupTimeStr || "0");
+                        // 24시간 초과 백업은 만료 처리
+                        if (Date.now() - backupTime > 24 * 60 * 60 * 1000) {
+                            localStorage.removeItem('active_broadcast_backup');
+                            localStorage.removeItem('active_broadcast_backup_time');
+                        } else {
+                            window.restorePromptShown = true;
+                            let backupData = JSON.parse(backupStr);
+                            let timeDesc = "";
+                            try {
+                                timeDesc = " (" + new Date(backupTime).toLocaleString() + " 저장됨)";
+                            } catch(e){}
+                            
+                            let playersInfo = (backupData.bjs || []).map(p => `${p.name}: ${p.score}점`).join(', ');
+                            let msg = `⚠️ 서버 초기화 또는 재기동이 감지되었습니다.\n\n` +
+                                      `브라우저 백업에 저장된 최근 방송 데이터를 복구하시겠습니까?\n` +
+                                      `복구 대상 플레이어: ${playersInfo || "없음"}${timeDesc}\n\n` +
+                                      `[확인]을 누르면 이전 상태가 서버에 즉시 복구됩니다. [취소]를 누르면 백업이 삭제됩니다.`;
+                            
+                            premiumConfirm(msg, "서버 재기동/초기화 감지", "question").then(async (confirmed) => {
+                                if (confirmed) {
+                                    try {
+                                        let res = await fetch('/api/data', {
+                                            method: 'POST',
+                                            headers: {'Content-Type': 'application/json'},
+                                            body: JSON.stringify(backupData)
+                                        });
+                                        let resData = await res.json();
+                                        if (resData.status === 'success') {
+                                            await premiumAlert("성공적으로 백업 데이터가 복구되었습니다!", "복구 완료", "success");
+                                            window.restorePromptShown = false;
+                                        } else {
+                                            await premiumAlert("복구 실패: " + resData.message, "복구 실패", "warning");
+                                            window.restorePromptShown = false;
+                                        }
+                                    } catch(err) {
+                                        await premiumAlert("서버 통신 실패: " + err.message, "복구 실패", "warning");
+                                        window.restorePromptShown = false;
+                                    }
+                                } else {
+                                    localStorage.removeItem('active_broadcast_backup');
+                                    localStorage.removeItem('active_broadcast_backup_time');
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
             renderUI();
         }
 
@@ -2445,18 +2510,23 @@
             }
             
             try {
+                window.userInitiatedEnd = true;
                 const res = await fetch('/api/server/reset', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'}
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
+                    localStorage.removeItem('active_broadcast_backup');
+                    localStorage.removeItem('active_broadcast_backup_time');
                     await premiumAlert("⚙️ [공장 초기화 완료]\n서버 데이터베이스가 성공적으로 완전히 리셋되었습니다.", "초기화 성공", "success");
                     refreshSystemStatus();
                 } else {
+                    window.userInitiatedEnd = false;
                     await premiumAlert(`초기화 실패: ${data.message}`, "오류", "warning");
                 }
             } catch (e) {
+                window.userInitiatedEnd = false;
                 await premiumAlert(`서버 통신 실패: ${e.message}`, "통신 실패", "warning");
             }
         }
@@ -2562,17 +2632,22 @@
             if (!confirm) return;
             
             try {
+                window.userInitiatedEnd = true;
                 let res = await fetch('/api/server/end_broadcast', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'}
                 });
                 let data = await res.json();
                 if (data.status === 'success') {
+                    localStorage.removeItem('active_broadcast_backup');
+                    localStorage.removeItem('active_broadcast_backup_time');
                     await premiumAlert("방송이 안전하게 종료되었습니다. 모든 데이터가 초기화되었습니다.", "방송 종료", "success");
                 } else {
+                    window.userInitiatedEnd = false;
                     await premiumAlert("오류 발생: " + data.message, "오류", "warning");
                 }
             } catch (e) {
+                window.userInitiatedEnd = false;
                 await premiumAlert("서버 통신 실패: " + e.message, "통신 실패", "warning");
             }
         }
