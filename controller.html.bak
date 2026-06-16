@@ -13,300 +13,26 @@
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root { 
-            --bg-body: #0d0d0f; 
-            --bg-panel: #141416; 
-            --bg-card: #1c1c1e; 
-            --bg-input: #08080a; 
-            --border-light: rgba(255, 255, 255, 0.06); 
-            --text-main: #f5f5f7; 
-            --text-muted: #86868b; 
-            --accent: #00ffcc; 
-            --accent-glow: rgba(0, 255, 204, 0.25); 
-            --danger: #ff453a; 
-            --danger-glow: rgba(255, 69, 58, 0.25);
-            --gold: #FFD700; 
-            --gold-glow: rgba(255, 215, 0, 0.25);
-            --radius-lg: 16px; 
-            --radius-md: 10px; 
-            --radius-sm: 6px; 
-            --transition-smooth: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+        :root { --bg-body: #111113; --bg-panel: #18181b; --bg-card: #222225; --bg-input: #111113; --border-light: rgba(255, 255, 255, 0.08); --text-main: #f5f5f7; --text-muted: #8e8e93; --accent: #00ffcc; --accent-glow: rgba(0, 255, 204, 0.3); --danger: #ff453a; --gold: #FFD700; --radius-lg: 16px; --radius-md: 10px; --radius-sm: 6px; }
         body.theme-pink {
             --accent: #ff007f;
             --accent-glow: rgba(255, 0, 127, 0.3);
             --gold: #ff007f;
         }
         body { background: var(--bg-body); color: var(--text-main); font-family: 'Pretendard', sans-serif; margin: 0; padding: 25px; -webkit-font-smoothing: antialiased; letter-spacing: -0.3px; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #3a3a3c; border-radius: 4px; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--border-light); } .header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; } .header h1 i { color: var(--accent); filter: drop-shadow(0 0 3px var(--accent-glow)); } .header-buttons { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .tabs { 
-            display: inline-flex; 
-            gap: 6px; 
-            background: rgba(255, 255, 255, 0.02); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            padding: 6px; 
-            border-radius: 16px; 
-            margin-bottom: 25px; 
-            overflow-x: auto; 
-            white-space: nowrap; 
-            border: 1px solid var(--border-light); 
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.15); 
-        }
-        .tab-btn { 
-            background: transparent; 
-            color: var(--text-muted); 
-            border: 1px solid transparent; 
-            padding: 10px 18px; 
-            border-radius: 12px; 
-            font-size: 14.5px; 
-            font-weight: 700; 
-            cursor: pointer; 
-            transition: var(--transition-smooth); 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            letter-spacing: -0.2px;
-        } 
-        .tab-btn.active { 
-            background: rgba(255, 255, 255, 0.05); 
-            color: var(--accent); 
-            border-color: rgba(0, 255, 204, 0.4);
-            box-shadow: 0 4px 12px rgba(0, 255, 204, 0.1), inset 0 1px 1px rgba(255,255,255,0.05);
-            text-shadow: 0 0 10px var(--accent-glow);
-        } 
-        body.theme-pink .tab-btn.active {
-            color: var(--accent);
-            border-color: rgba(255, 0, 127, 0.4);
-            box-shadow: 0 4px 12px rgba(255, 0, 127, 0.1), inset 0 1px 1px rgba(255,255,255,0.05);
-            text-shadow: 0 0 10px var(--accent-glow);
-        }
-        .tab-btn:hover:not(.active) { 
-            color: #fff; 
-            background: rgba(255,255,255,0.04); 
-            transform: translateY(-1px);
-        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--border-light); } .header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; } .header h1 i { color: var(--accent); } .header-buttons { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .tabs { display: inline-flex; gap: 5px; background: rgba(255, 255, 255, 0.03); padding: 6px; border-radius: 14px; margin-bottom: 25px; overflow-x: auto; white-space: nowrap; border: 1px solid var(--border-light); box-shadow: inset 0 2px 5px rgba(0,0,0,0.2); }
+        .tab-btn { background: transparent; color: var(--text-muted); border: none; padding: 10px 18px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 8px; } .tab-btn.active { background: #333336; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.3); } .tab-btn:hover:not(.active) { color: #fff; background: rgba(255,255,255,0.05); }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .group-box { 
-            background: linear-gradient(135deg, rgba(28, 28, 32, 0.8), rgba(20, 20, 22, 0.8)); 
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-light); 
-            border-top: 1px solid rgba(255, 255, 255, 0.07);
-            border-radius: var(--radius-lg); 
-            padding: 24px; 
-            margin-bottom: 20px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); 
-            transition: var(--transition-smooth);
-        } 
-        .group-box:hover {
-            box-shadow: 0 12px 35px rgba(0,0,0,0.35);
-        }
-        .group-title { 
-            color: var(--text-main); 
-            font-weight: 800; 
-            font-size: 16.5px; 
-            margin-bottom: 20px; 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            border-bottom: 1px solid var(--border-light); 
-            padding-bottom: 12px; 
-            letter-spacing: -0.3px;
-        } 
-        .group-title i { 
-            color: var(--accent); 
-            filter: drop-shadow(0 0 4px var(--accent-glow));
-        }
+        .group-box { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 25px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); } .group-title { color: var(--text-main); font-weight: 800; font-size: 17px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-light); padding-bottom: 12px; } .group-title i { color: var(--accent); }
         .control-group { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-        button { 
-            background: rgba(255, 255, 255, 0.05); 
-            color: #f5f5f7; 
-            border: 1px solid var(--border-light); 
-            border-top: 1px solid rgba(255,255,255,0.08);
-            border-radius: var(--radius-md); 
-            padding: 10px 16px; 
-            font-weight: 700; 
-            font-size: 14px; 
-            cursor: pointer; 
-            transition: var(--transition-smooth); 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-        } 
-        button:hover { 
-            background: rgba(255, 255, 255, 0.08); 
-            border-color: rgba(255, 255, 255, 0.15);
-            transform: translateY(-1.5px) scale(1.02); 
-            box-shadow: 0 6px 15px rgba(0,0,0,0.25);
-            color: #fff;
-        } 
-        button:active {
-            transform: translateY(0.5px) scale(0.98);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-        }
-        button.primary { 
-            background: var(--accent); 
-            color: #000; 
-            border-color: var(--accent); 
-            border-top: 1px solid rgba(255,255,255,0.2);
-            text-shadow: none;
-        } 
-        button.primary:hover {
-            background: #26ffd5;
-            border-color: #26ffd5;
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
-        body.theme-pink button.primary:hover {
-            background: #ff2692;
-            border-color: #ff2692;
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
-        button.danger { 
-            background: var(--danger); 
-            color: #fff; 
-            border-color: var(--danger); 
-            border-top: 1px solid rgba(255,255,255,0.15);
-        }
-        button.danger:hover {
-            background: #ff5b52;
-            border-color: #ff5b52;
-            box-shadow: 0 0 15px var(--danger-glow);
-        }
-        input[type="text"], input[type="number"], select, textarea { 
-            background: var(--bg-input); 
-            border: 1px solid rgba(255, 255, 255, 0.1); 
-            border-radius: var(--radius-md); 
-            padding: 10px 14px; 
-            color: white; 
-            font-size: 14px; 
-            font-weight: 500; 
-            font-family: 'Pretendard', sans-serif; 
-            transition: var(--transition-smooth); 
-        } 
-        input:focus, select:focus, textarea:focus { 
-            outline: none; 
-            border-color: var(--accent); 
-            box-shadow: 0 0 10px var(--accent-glow); 
-            background: #000;
-        }
-        .toggle-row { 
-            display: flex; 
-            align-items: center; 
-            justify-content: space-between; 
-            gap: 12px; 
-            background: rgba(255, 255, 255, 0.02); 
-            padding: 12px 18px; 
-            border-radius: var(--radius-md); 
-            cursor: pointer; 
-            user-select: none; 
-            border: 1px solid var(--border-light); 
-            transition: var(--transition-smooth);
-        }
-        .toggle-row:hover {
-            background: rgba(255, 255, 255, 0.04);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-        .apple-switch { position: relative; display: inline-block; width: 52px; height: 30px; flex-shrink: 0; } 
-        .apple-switch input { opacity: 0; width: 0; height: 0; } 
-        .apple-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2c2c2e; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 30px; } 
-        .apple-slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 3px; top: 3px; background-color: white; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.3); } 
-        .apple-switch input:checked + .apple-slider { background-color: #34C759; box-shadow: 0 0 10px rgba(52, 199, 89, 0.4); } 
-        .apple-switch input:checked + .apple-slider:before { transform: translateX(22px); }
-        .table-responsive { 
-            width: 100%; 
-            overflow-x: auto; 
-            border-radius: var(--radius-lg); 
-            border: 1px solid var(--border-light); 
-            background: rgba(24, 24, 27, 0.5); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            margin-bottom: 20px; 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-        } 
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            min-width: 650px; 
-        } 
-        th, td { 
-            padding: 14px 16px; 
-            text-align: center; 
-            border-bottom: 1px solid var(--border-light); 
-        } 
-        th { 
-            background: rgba(0,0,0,0.35); 
-            color: var(--text-muted); 
-            font-weight: 700; 
-            font-size: 13px; 
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        } 
-        tr {
-            transition: var(--transition-smooth);
-        }
-        tr:hover {
-            background: rgba(255, 255, 255, 0.015);
-        }
-        td input { 
-            width: 85%; 
-            text-align: center; 
-            background: rgba(0, 0, 0, 0.3); 
-            border: 1px solid rgba(255, 255, 255, 0.08); 
-            border-radius: 8px;
-            padding: 6px 12px;
-            color: #fff;
-            font-size: 14px;
-            font-weight: 600;
-            transition: var(--transition-smooth);
-        } 
-        td input:focus { 
-            border-color: var(--accent); 
-            background: #000; 
-            box-shadow: 0 0 8px var(--accent-glow);
-            outline: none;
-        } 
-        .score-display { 
-            font-size: 18px; 
-            font-weight: 800; 
-            color: #fff; 
-        } 
-        td button { 
-            padding: 6px 12px; 
-            font-size: 13px; 
-            background: rgba(255,255,255,0.03); 
-            border: 1px solid rgba(255,255,255,0.08); 
-            border-radius: 8px;
-            box-shadow: none;
-            transition: var(--transition-smooth);
-        } 
-        td button:hover { 
-            background: rgba(255, 69, 58, 0.15); 
-            border-color: var(--danger); 
-            color: var(--danger); 
-            transform: scale(1.05);
-            box-shadow: 0 0 10px var(--danger-glow);
-        }
+        button { background: #333336; color: white; border: 1px solid var(--border-light); border-radius: var(--radius-md); padding: 10px 16px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; } button:hover { background: #444448; transform: translateY(-1px); } button.primary { background: var(--accent); color: #000; border-color: var(--accent); } button.danger { background: var(--danger); color: #fff; border-color: var(--danger); }
+        input[type="text"], input[type="number"], select, textarea { background: var(--bg-input); border: 1px solid #333; border-radius: var(--radius-sm); padding: 10px 14px; color: white; font-size: 14px; font-weight: 500; font-family: 'Pretendard', sans-serif; transition: 0.2s; } input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-card); padding: 12px 18px; border-radius: var(--radius-md); cursor: pointer; user-select: none; border: 1px solid var(--border-light); }
+        .apple-switch { position: relative; display: inline-block; width: 52px; height: 30px; flex-shrink: 0; } .apple-switch input { opacity: 0; width: 0; height: 0; } .apple-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3a3a3c; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 30px; } .apple-slider:before { position: absolute; content: ""; height: 24px; width: 24px; left: 3px; top: 3px; background-color: white; transition: .3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%; box-shadow: 0 3px 8px rgba(0,0,0,0.15); } .apple-switch input:checked + .apple-slider { background-color: #34C759; } .apple-switch input:checked + .apple-slider:before { transform: translateX(22px); }
+        .table-responsive { width: 100%; overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border-light); background: var(--bg-card); margin-bottom: 15px; } table { width: 100%; border-collapse: collapse; min-width: 650px; } th, td { padding: 14px 12px; text-align: center; border-bottom: 1px solid var(--border-light); } th { background: rgba(0,0,0,0.2); color: var(--text-muted); font-weight: 600; font-size: 13px; } td input { width: 85%; text-align: center; background: rgba(0,0,0,0.2); border: 1px solid transparent; } td input:focus { border-color: #555; background: #000; } .score-display { font-size: 18px; font-weight: 800; color: #fff; } td button { padding: 6px 10px; font-size: 13px; background: transparent; border: 1px solid #444; } td button:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
         .contrib-cell span { display: inline-block; padding: 4px 10px; border-radius: 6px; transition: 0.2s; cursor: pointer; } .contrib-cell span:hover { background: rgba(255, 215, 0, 0.15); transform: scale(1.05); }
-
-        /* 🥇 순위별 배지 비주얼 스타일 추가 */
-        .rank-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            font-size: 12px;
-            font-weight: 800;
-            margin-right: 8px;
-        }
-        .badge-1st { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; box-shadow: 0 0 10px rgba(255,215,0,0.4); }
-        .badge-2nd { background: linear-gradient(135deg, #C0C0C0, #808080); color: #000; box-shadow: 0 0 10px rgba(192,192,192,0.3); }
-        .badge-3rd { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; box-shadow: 0 0 10px rgba(205,127,50,0.3); }
-        .badge-normal { background: rgba(255,255,255,0.08); color: #aaa; }
         .log-box { background: var(--bg-input); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 15px; height: 250px; overflow-y: auto; font-size: 13px; color: #aaa; line-height: 1.8; }
         .ml-filter-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(0, 255, 204, 0.15) !important; color: var(--accent) !important; }
         .ml-row { transition: background 0.15s; } .ml-row:hover { background: rgba(255,255,255,0.04) !important; } .ml-row td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); } .ml-amount-plus { color: #4caf50; font-weight: 700; } .ml-amount-minus { color: #ff5252; font-weight: 700; } .ml-source-mobile { background: rgba(255, 152, 0, 0.12); color: #ff9800; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; } .ml-source-toonation { background: rgba(0, 191, 255, 0.12); color: #00bfff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
@@ -536,8 +262,8 @@
         </h1>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <!-- 📱 iOS 미니 미디어 제어센터 패널 -->
-            <div id="ios-mini-media-panel" style="display: flex; align-items: center; gap: 12px; background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 6px 15px; height: 42px; box-sizing: border-box; box-shadow: inset 0 8px 16px rgba(255,255,255,0.03), 0 4px 12px rgba(0,0,0,0.3); max-width: 480px;">
-                <i class="fa-solid fa-music" id="yt-card-icon" style="font-size: 14px; color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow));"></i>
+            <div id="ios-mini-media-panel" style="display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 6px 15px; height: 42px; box-sizing: border-box; box-shadow: inset 0 2px 4px rgba(255,255,255,0.03); max-width: 480px;">
+                <i class="fa-solid fa-music" id="yt-card-icon" style="font-size: 14px; color: var(--accent); flex-shrink: 0;"></i>
                 <div style="flex: 1; min-width: 80px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 700; color: #fff;" id="yt-video-title">재생 중인 미디어 없음</div>
                 
                 <div style="font-size: 11px; color: #8e8e93; font-weight: 600; white-space: nowrap;" id="yt-time-display">
@@ -547,22 +273,22 @@
                 <input type="range" id="yt-progress-bar" min="0" max="100" value="0" class="ios-slider-progress" oninput="seekYtVideo(this.value)" style="width: 60px; height: 4px; cursor: pointer; flex-shrink: 0;">
 
                 <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 5px;">
-                    <button onclick="skipYtVideo(-10)" style="background: transparent; border: none; font-size: 12px; color: #aaa; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; box-shadow: none; transform: none;"><i class="fa-solid fa-backward-step"></i></button>
+                    <button onclick="skipYtVideo(-10)" style="background: transparent; border: none; font-size: 12px; color: #aaa; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center;"><i class="fa-solid fa-backward-step"></i></button>
                     <button onclick="toggleYtPlay()" id="yt-play-btn" style="background: #fff; border: none; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #000; cursor: pointer; box-shadow: 0 2px 6px rgba(255,255,255,0.2);"><i class="fa-solid fa-play"></i></button>
-                    <button onclick="skipYtVideo(10)" style="background: transparent; border: none; font-size: 12px; color: #aaa; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; box-shadow: none; transform: none;"><i class="fa-solid fa-forward-step"></i></button>
+                    <button onclick="skipYtVideo(10)" style="background: transparent; border: none; font-size: 12px; color: #aaa; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center;"><i class="fa-solid fa-forward-step"></i></button>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: 5px;">
-                    <button onclick="toggleYtMute()" id="yt-mute-btn" style="background: transparent; border: none; color: #8e8e93; font-size: 12px; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center; box-shadow: none; transform: none;"><i class="fa-solid fa-volume-high"></i></button>
+                    <button onclick="toggleYtMute()" id="yt-mute-btn" style="background: transparent; border: none; color: #8e8e93; font-size: 12px; cursor: pointer; padding: 4px; display: inline-flex; align-items: center; justify-content: center;"><i class="fa-solid fa-volume-high"></i></button>
                     <input type="range" id="yt-volume-slider" min="0" max="100" value="50" class="ios-slider-volume" oninput="setYtVolume(this.value)" style="width: 50px; height: 6px; cursor: pointer;">
                 </div>
             </div>
 
             <button id="btn-end-broadcast" onclick="endBroadcast()" style="display: none; background: var(--danger); border-color: var(--danger); color: #fff; height: 42px; font-weight: bold;"><i class="fa-solid fa-power-off"></i> 방송 종료</button>
-            <label class="toggle-row" id="lbl-reaction-wrapper" style="border-color: rgba(156, 39, 176, 0.4); background: rgba(156, 39, 176, 0.05); height: 42px; padding: 0 15px; box-sizing: border-box;"><span class="toggle-label" id="lbl-reaction" style="color:#fff; font-weight:bold; font-size: 14px;"><i class="fa-solid fa-eye"></i> 수동 리액션 모드</span><div class="apple-switch"><input type="checkbox" id="chk-reaction" onchange="toggleOption('reaction_mode')"><span class="apple-slider"></span></div></label>
-            <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px; background: rgba(255,255,255,0.05); color: #fff; border-color: var(--border-light);"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
-            <button onclick="window.location.href='/controller?mode=mobile'" style="height: 42px; background: rgba(0, 191, 255, 0.1); border-color: rgba(0, 191, 255, 0.3); color: #00bfff; font-weight: bold;"><i class="fa-solid fa-mobile-screen-button"></i> 모바일 버전</button>
-            <button onclick="triggerServerLogout()" style="height: 42px; background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
+            <label class="toggle-row" id="lbl-reaction-wrapper" style="border-color: #9c27b0; height: 42px; padding: 0 15px; box-sizing: border-box;"><span class="toggle-label" id="lbl-reaction" style="color:#fff; font-weight:bold; font-size: 14px;"><i class="fa-solid fa-eye"></i> 수동 리액션 모드</span><div class="apple-switch"><input type="checkbox" id="chk-reaction" onchange="toggleOption('reaction_mode')"><span class="apple-slider"></span></div></label>
+            <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px;"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
+            <button onclick="window.location.href='/controller?mode=mobile'" style="height: 42px; background: rgba(0, 191, 255, 0.15); border-color: #00bfff; color: #00bfff; font-weight: bold;"><i class="fa-solid fa-mobile-screen-button"></i> 모바일 버전</button>
+            <button onclick="triggerServerLogout()" style="height: 42px; background: rgba(255, 69, 58, 0.15); border-color: var(--danger); color: var(--danger); font-weight: bold;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
         </div>
     </div>
 
@@ -1238,22 +964,9 @@
             // 2. 바디 동적 렌더링
             let rHtml = '';
             targetList.forEach((bj, i) => { 
-                let badgeClass = '';
-                if (i === 0) badgeClass = 'badge-1st';
-                else if (i === 1) badgeClass = 'badge-2nd';
-                else if (i === 2) badgeClass = 'badge-3rd';
-                else badgeClass = 'badge-normal';
-                
-                let badgeHtml = `<span class="rank-badge ${badgeClass}">${i + 1}</span>`;
-                
                 if (isExtra) {
                     rHtml += `<tr>
-                        <td>
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                                ${badgeHtml}
-                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI();" disabled style="flex: 1; text-align: left; padding-left: 10px;">
-                            </div>
-                        </td>
+                        <td><input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI();" disabled></td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('rank', ${i})"></td>
@@ -1261,12 +974,7 @@
                     </tr>`; 
                 } else {
                     rHtml += `<tr>
-                        <td>
-                            <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                                ${badgeHtml}
-                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI();" style="flex: 1; text-align: left; padding-left: 10px;">
-                            </div>
-                        </td>
+                        <td><input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI();"></td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('rank', ${i})"></td>
@@ -1275,18 +983,7 @@
                 }
             });
             if (!isExtra) {
-                rHtml += `<tr style="background:rgba(255,255,255,0.035);">
-                    <td>
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <span class="rank-badge badge-normal" style="background:rgba(0, 255, 204, 0.1); color:var(--accent); border: 1px dashed rgba(0, 255, 204, 0.3);"><i class="fa-solid fa-anchor" style="font-size:10px;"></i></span>
-                            <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI();" style="flex: 1; text-align: left; padding-left: 10px;">
-                        </div>
-                    </td>
-                    <td class="score-display" style="color:var(--accent);">${gd.bottom_fixed.score.toLocaleString()}</td>
-                    <td class="score-display" style="color:var(--gold);">-</td>
-                    <td><input type="number" id="rank-add-bot" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('bot', 0)"></td>
-                    <td><i class="fa-solid fa-lock" style="color:var(--text-muted);"></i></td>
-                </tr>`; 
+                rHtml += `<tr style="background:rgba(255,255,255,0.03);"><td><input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI();"></td><td class="score-display" style="color:var(--accent);">${gd.bottom_fixed.score.toLocaleString()}</td><td class="score-display" style="color:var(--gold);">-</td><td><input type="number" id="rank-add-bot" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('bot', 0)"></td><td><i class="fa-solid fa-lock" style="color:var(--text-muted);"></i></td></tr>`; 
             }
             if (lastRHtml !== rHtml) { document.getElementById('ranking-tbody').innerHTML = rHtml; lastRHtml = rHtml; }
 
