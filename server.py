@@ -165,6 +165,11 @@ LAYOUT_FILE = os.path.join(BASE_DIR, 'layout.json')
 AUTH_CONFIG_FILE = os.path.join(BASE_DIR, 'auth_config.json')
 
 def get_or_create_totp_secret():
+    # 1. Render 등 클라우드 환경에서 재부팅 시에도 OTP가 고정되도록 환경변수 우선 적용
+    env_secret = os.environ.get('TOTP_SECRET')
+    if env_secret:
+        return env_secret.strip()
+        
     if os.path.exists(AUTH_CONFIG_FILE):
         try:
             with open(AUTH_CONFIG_FILE, 'r', encoding='utf-8') as f:
