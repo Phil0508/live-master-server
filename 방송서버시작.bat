@@ -8,5 +8,6 @@ echo     🚀 방송 마스터 서버를 시작합니다 🚀
 echo.
 echo =======================================
 echo.
+set HEADLESS=1
 python server.py
 pause
