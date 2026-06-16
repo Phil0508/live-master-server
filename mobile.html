@@ -462,54 +462,52 @@
 
     <div id="active-broadcast-area" style="display: none;">
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i><span>랭킹</span></button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-stopwatch"></i><span>대결</span></button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i><span>이펙트</span></button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-news')"><i class="fa-solid fa-bullhorn"></i><span>전광판</span></button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i><span>로그</span></button>
+        <button class="tab-btn active" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-stopwatch"></i><span>대결 제어</span></button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i><span>조명 & 이펙트</span></button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-news')"><i class="fa-solid fa-bullhorn"></i><span>설정 & 로그</span></button>
     </div>
 
-    <div id="tab-ranking" class="tab-content active">
-        <div class="status-grid">
-            <div class="stat-card"><span>총점</span><strong id="stat-total">0</strong></div>
-            <div class="stat-card"><span>목표</span><strong id="stat-goal">0</strong></div>
-            <div class="stat-card"><span>참가자</span><strong id="stat-members">0</strong></div>
-            <div class="stat-card"><span>모드</span><strong id="stat-mode">대기</strong></div>
-        </div>
-        <div class="group-box">
-            <div class="group-title"><i class="fa-solid fa-sliders"></i> 기능 설정</div>
-            <div class="control-row" style="margin-bottom: 10px;">
-                <select id="sel-theme" onchange="updateTheme()"><option value="default">기본 다크</option><option value="pink">네온 핑크</option></select>
-            </div>
-            <div class="control-row">
-                <label class="toggle-row" style="flex: 1;"><span>점수 팝업</span><div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div></label>
-                <label class="toggle-row" style="flex: 1;"><span>1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
-            </div>
-        </div>
-        <div class="group-box">
-            <div class="group-title"><i class="fa-solid fa-rocket"></i> 방송 목표 & 특수 자막</div>
-            <div class="control-group">
-                <input type="number" id="in-goal" placeholder="목표 점수" onchange="updateGoal()">
-                <div class="control-row launch-row">
-                    <input type="text" id="in-up-text" placeholder="화면 중앙 발사 문구" onkeydown="if(event.key==='Enter') triggerUpText()">
-                    <button class="launch-btn" style="background: var(--gold); color: #fff;" onclick="triggerUpText()"><i class="fa-solid fa-paper-plane"></i> 발사</button>
-                </div>
-            </div>
-        </div>
-        <div class="plain-section">
-            <div class="section-head">
-                <h3><i class="fa-solid fa-users"></i> 참가자</h3>
-                <button class="primary icon-only" onclick="addRankPlayer()" aria-label="참가자 추가"><i class="fa-solid fa-plus"></i></button>
-            </div>
-            <div id="ranking-list"></div>
-        </div>
-    </div>
-
-    <div id="tab-match" class="tab-content">
+    <!-- 1. 대결 제어 탭 (기본 활성화) -->
+    <div id="tab-match" class="tab-content active">
         <div class="status-grid">
             <div class="stat-card"><span>타이머</span><strong id="stat-timer">00:00</strong></div>
-            <div class="stat-card"><span>상태</span><strong id="stat-match-state">대기</strong></div>
+            <div class="stat-card"><span>대결 상태</span><strong id="stat-match-state">대기</strong></div>
+            <div class="stat-card"><span>총합 점수</span><strong id="stat-total">0</strong></div>
+            <div class="stat-card"><span>방송 목표</span><strong id="stat-goal">0</strong></div>
         </div>
+        
+        <div class="group-box">
+            <div class="group-title"><i class="fa-solid fa-stopwatch"></i> 타이머 제어</div>
+            
+            <!-- 원터치 퀵 프리셋 설정 -->
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">시간 퀵 설정</div>
+            <div class="control-row" style="margin-bottom: 15px; flex-wrap: wrap; gap: 6px;">
+                <button type="button" onclick="quickSetTimer(3)" style="padding: 8px 0;">3분</button>
+                <button type="button" onclick="quickSetTimer(5)" style="padding: 8px 0;">5분</button>
+                <button type="button" onclick="quickSetTimer(10)" style="padding: 8px 0;">10분</button>
+                <button type="button" onclick="quickSetTimer(1)" style="padding: 8px 0;">1분</button>
+            </div>
+            
+            <!-- 시간 추가 제어 -->
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">시간 추가</div>
+            <div class="control-row" style="margin-bottom: 20px; gap: 6px;">
+                <button type="button" onclick="addTimerTime(30)" style="padding: 8px 0; background: rgba(229,193,88,0.1); color: var(--accent); border-color: rgba(229,193,88,0.2);">+30초</button>
+                <button type="button" onclick="addTimerTime(60)" style="padding: 8px 0; background: rgba(229,193,88,0.1); color: var(--accent); border-color: rgba(229,193,88,0.2);">+1분</button>
+            </div>
+            
+            <!-- 수동 입력 제어 -->
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">수동 시간 설정</div>
+            <div class="control-row" style="margin-bottom: 15px;">
+                <input type="number" id="in-timer-m" value="3" placeholder="분" style="text-align: center;"> <span style="font-weight:bold;">분</span>
+                <input type="number" id="in-timer-s" value="0" placeholder="초" style="text-align: center;"> <span style="font-weight:bold;">초</span>
+            </div>
+            
+            <div class="control-row">
+                <button onclick="setTimer()"><i class="fa-solid fa-rotate-right"></i> 시간 적용</button>
+                <button class="primary" onclick="toggleTimer()" id="btn-timer-toggle"><i class="fa-solid fa-play"></i> 시작</button>
+            </div>
+        </div>
+
         <div class="group-box">
             <div class="group-title"><i class="fa-solid fa-tv"></i> 대결 화면 설정</div>
             <div class="control-row" style="margin-bottom: 10px;">
@@ -520,28 +518,10 @@
             </div>
             <input type="text" id="in-match-title" placeholder="대결 타이틀 (선택)" oninput="updateMatchTitle()">
         </div>
-        <div class="group-box">
-            <div class="group-title"><i class="fa-solid fa-stopwatch"></i> 타이머 제어</div>
-            <div class="control-row" style="margin-bottom: 10px;">
-                <input type="number" id="in-timer-m" value="3" placeholder="분"> <span style="font-weight:bold;">분</span>
-                <input type="number" id="in-timer-s" value="0" placeholder="초"> <span style="font-weight:bold;">초</span>
-            </div>
-            <div class="control-row">
-                <button onclick="setTimer()"><i class="fa-solid fa-rotate-right"></i> 적용</button>
-                <button class="primary" onclick="toggleTimer()" id="btn-timer-toggle"><i class="fa-solid fa-play"></i> 시작</button>
-            </div>
-        </div>
-        <div class="plain-section">
-            <div class="section-head">
-                <h3><i class="fa-solid fa-users"></i> 대결자</h3>
-                <button class="primary icon-only" onclick="addMatchPlayer()" aria-label="대결자 추가"><i class="fa-solid fa-plus"></i></button>
-            </div>
-            <div id="match-list"></div>
-        </div>
     </div>
 
+    <!-- 2. 조명 & 이펙트 탭 -->
     <div id="tab-neon" class="tab-content">
-
         <div class="group-box">
             <div class="group-title"><i class="fa-solid fa-lightbulb"></i> 리액션 조명 제어</div>
             <div class="control-group">
@@ -554,9 +534,36 @@
             <div style="height: 1px; background: var(--border-light); margin: 20px 0;"></div>
             <div id="color-slots" class="color-grid"></div>
         </div>
+
+        <div class="group-box">
+            <div class="group-title"><i class="fa-solid fa-rocket"></i> 특수 자막 발사기</div>
+            <div class="control-group">
+                <div class="control-row launch-row">
+                    <input type="text" id="in-up-text" placeholder="화면 중앙 발사 문구" onkeydown="if(event.key==='Enter') triggerUpText()">
+                    <button class="primary" style="flex: none; width: 85px;" onclick="triggerUpText()"><i class="fa-solid fa-paper-plane"></i> 발사</button>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- 3. 설정 & 로그 탭 -->
     <div id="tab-news" class="tab-content">
+        <div class="group-box">
+            <div class="group-title"><i class="fa-solid fa-sliders"></i> 기능 & 환경 설정</div>
+            <div class="control-row" style="margin-bottom: 12px;">
+                <label style="flex: none; font-size: 13px; font-weight:600; color:var(--text-muted); width: 70px;">테마 설정:</label>
+                <select id="sel-theme" onchange="updateTheme()"><option value="default">기본 다크</option><option value="pink">네온 핑크</option></select>
+            </div>
+            <div class="control-row" style="margin-bottom: 12px;">
+                <label style="flex: none; font-size: 13px; font-weight:600; color:var(--text-muted); width: 70px;">목표 설정:</label>
+                <input type="number" id="in-goal" placeholder="목표 점수" onchange="updateGoal()">
+            </div>
+            <div class="control-row">
+                <label class="toggle-row" style="flex: 1;"><span>점수 팝업</span><div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1;"><span>1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
+            </div>
+        </div>
+
         <div class="group-box">
             <div class="group-title"><i class="fa-solid fa-bullhorn"></i> 전광판 설정</div>
             <label class="toggle-row" style="margin-bottom: 15px;"><span style="font-weight:bold;">화면에 표시하기</span><div class="apple-switch"><input type="checkbox" id="chk-ticker" onchange="toggleOption('ticker_enabled')"><span class="apple-slider"></span></div></label>
@@ -564,22 +571,18 @@
                 <label style="font-size: 13px; font-weight:bold; color:var(--text-muted);">스크롤 속도: <span id="lbl-speed">70</span></label>
                 <input type="range" id="in-speed" min="1" max="100" onchange="updateSpeed(this.value)" style="width:100%; margin-top:10px; accent-color: var(--accent);">
             </div>
-            <textarea id="in-ticker" placeholder="문구를 입력하세요. (엔터로 구분)" style="height: 150px;" oninput="updateTickerText()"></textarea>
+            <textarea id="in-ticker" placeholder="문구를 입력하세요. (엔터로 구분)" style="height: 120px;" oninput="updateTickerText()"></textarea>
         </div>
-    </div>
 
-
-
-    <div id="tab-logs" class="tab-content">
         <div class="group-box">
-            <div class="group-title"><i class="fa-solid fa-list-ol"></i> 랭킹 로그</div>
-            <div id="log-box-ranking" class="log-box"></div>
-            <button style="width: 100%;" onclick="clearLogs('rank')"><i class="fa-solid fa-trash-can"></i> 랭킹 로그 비우기</button>
-        </div>
-        <div class="group-box">
-            <div class="group-title"><i class="fa-solid fa-swords"></i> 대결 로그</div>
-            <div id="log-box-match" class="log-box"></div>
-            <button style="width: 100%;" onclick="clearLogs('match')"><i class="fa-solid fa-trash-can"></i> 대결 로그 비우기</button>
+            <div class="group-title"><i class="fa-solid fa-list-ol"></i> 실시간 로그</div>
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">랭킹 로그</div>
+            <div id="log-box-ranking" class="log-box" style="height: 120px;"></div>
+            <button style="width: 100%; margin-bottom: 15px; padding: 6px;" onclick="clearLogs('rank')"><i class="fa-solid fa-trash-can"></i> 랭킹 로그 비우기</button>
+            
+            <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">대결 로그</div>
+            <div id="log-box-match" class="log-box" style="height: 120px;"></div>
+            <button style="width: 100%; padding: 6px;" onclick="clearLogs('match')"><i class="fa-solid fa-trash-can"></i> 대결 로그 비우기</button>
         </div>
     </div>
     </div>
@@ -607,7 +610,7 @@
         
         let gd = null; let isPushing = false; 
         let serverTimeOffset = 0;
-        let lastRHtml = ""; let lastMHtml = ""; let lastColorHtml = ""; let lastRankLogHtml = ""; let lastMatchLogHtml = "";
+        let lastColorHtml = ""; let lastRankLogHtml = ""; let lastMatchLogHtml = "";
 
         async function fetchAPI() {
             if (isPushing) return; 
@@ -627,7 +630,7 @@
 
         function pushAPI() {
             if(!gd) return;
-            isPushing = true; gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); renderUI(); 
+            isPushing = true;
             fetch('/api/data', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gd) }).catch(e => console.error("⚠️ pushAPI Error:", e));
             setTimeout(() => { isPushing = false; }, 80); 
         }
@@ -679,8 +682,6 @@
             let totalScore = (gd.bottom_fixed?.score || 0) + gd.bjs.reduce((sum, bj) => sum + (bj.score || 0), 0);
             setHtml('stat-total', totalScore.toLocaleString());
             setHtml('stat-goal', (gd.target_goal || 0).toLocaleString());
-            setHtml('stat-members', gd.bjs.length.toLocaleString());
-            setHtml('stat-mode', gd.reaction_mode ? '리액션' : '대기');
 
             let currentNeon = (gd.effect_trigger && gd.effect_trigger.color !== 'OFF') ? gd.effect_trigger.color : ''; 
             let rbBtn = document.getElementById('btn-rainbow'); 
@@ -704,40 +705,6 @@
             }); 
             if (lastColorHtml !== colorHtml) { document.getElementById('color-slots').innerHTML = colorHtml; lastColorHtml = colorHtml; }
 
-            let rHtml = '';
-            gd.bjs.forEach((bj, i) => { 
-                rHtml += `
-                <div class="m-card">
-                    <div class="m-card-top">
-                        <input type="text" value="${bj.name}" onchange="gd.bjs[${i}].name=this.value; pushAPI();" style="flex:1; font-weight:900;">
-                        <button class="danger icon-only" onclick="gd.bjs.splice(${i},1); pushAPI();" aria-label="참가자 삭제"><i class="fa-solid fa-trash-can"></i></button>
-                    </div>
-                    <div class="m-card-mid">
-                        <div class="metric accent">점수<span>${bj.score.toLocaleString()}</span></div>
-                        <div class="metric gold" style="position: relative;" onclick="editContrib(${i}, this, event)">기여<span>${(bj.contribution||0).toLocaleString()}</span></div>
-                    </div>
-                    <div class="m-card-bot">
-                        <input type="number" id="rank-add-${i}" placeholder="+ 점수 (엔터)" onkeydown="if(event.key==='Enter') addScore('rank', ${i})">
-                        <button class="primary" onclick="addScore('rank', ${i})"><i class="fa-solid fa-plus"></i> 추가</button>
-                    </div>
-                </div>`; 
-            });
-            rHtml += `
-            <div class="m-card locked-card">
-                <div class="m-card-top">
-                    <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI();" style="flex:1; font-weight:900; color:var(--accent);">
-                    <button disabled class="icon-only" aria-label="고정 항목"><i class="fa-solid fa-lock" style="color:var(--text-muted);"></i></button>
-                </div>
-                <div class="m-card-mid">
-                    <div class="metric accent full">누적 점수<span>${gd.bottom_fixed.score.toLocaleString()}</span></div>
-                </div>
-                <div class="m-card-bot">
-                    <input type="number" id="rank-add-bot" placeholder="+ 점수 (엔터)" onkeydown="if(event.key==='Enter') addScore('bot', 0)">
-                    <button class="primary" onclick="addScore('bot', 0)"><i class="fa-solid fa-plus"></i> 추가</button>
-                </div>
-            </div>`;
-            if (lastRHtml !== rHtml) { document.getElementById('ranking-list').innerHTML = rHtml; lastRHtml = rHtml; }
-
             let md = gd.match_data; 
             setVal('in-match-title', md.title || ''); 
             
@@ -758,30 +725,9 @@
             }
             setHtml('stat-match-state', md.active ? (md.is_running ? '진행' : '표시') : '숨김');
 
-            let mHtml = ''; 
-            md.players.forEach((p, i) => { 
-                mHtml += `
-                <div class="m-card">
-                    <div class="m-card-top">
-                        <input type="text" value="${p.name}" onchange="gd.match_data.players[${i}].name=this.value; pushAPI();" style="flex:1; font-weight:900;">
-                        <button class="danger icon-only" onclick="gd.match_data.players.splice(${i},1); pushAPI();" aria-label="대결자 삭제"><i class="fa-solid fa-trash-can"></i></button>
-                    </div>
-                    <div class="m-card-mid">
-                        <div class="metric accent full">현재 점수<span>${p.score.toLocaleString()}</span></div>
-                    </div>
-                    <div class="m-card-bot">
-                        <input type="number" id="match-add-${i}" placeholder="+ 점수 (엔터)" onkeydown="if(event.key==='Enter') addScore('match', ${i})">
-                        <button class="primary" onclick="addScore('match', ${i})"><i class="fa-solid fa-plus"></i> 추가</button>
-                    </div>
-                </div>`; 
-            }); 
-            if (lastMHtml !== mHtml) { document.getElementById('match-list').innerHTML = mHtml; lastMHtml = mHtml; }
-
             setVal('in-speed', gd.ticker_speed || 70); 
             setHtml('lbl-speed', gd.ticker_speed || 70); 
             setVal('in-ticker', (gd.ticker_text||'').replace(/ \/ /g, '\n')); 
-            
-
 
             if (gd.logs) {
                 let rankLogHtml = gd.logs.map(log => `<div class="log-item"><span style="color:var(--text-muted);">[${log.time}]</span> <span style="font-weight:900;">${log.name}</span> <span style="color:var(--accent); font-weight:900;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
@@ -793,133 +739,6 @@
             }
         }
 
-        function editContrib(idx, el, event) {
-            if (event && event.target.closest('#contrib-popover')) return;
-            
-            let popover = el.querySelector('#contrib-popover');
-            if (popover) {
-                popover.remove();
-                return;
-            }
-            
-            // Remove any existing popover in the document
-            let existing = document.getElementById('contrib-popover');
-            if (existing) {
-                existing.remove();
-            }
-            
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-            let currentVal = targetList[idx].contribution || 0;
-            
-            let pop = document.createElement('div');
-            pop.id = 'contrib-popover';
-            pop.style.cssText = `
-                position: absolute;
-                top: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 9999;
-                background: var(--bg-body);
-                border: 2px solid var(--gold);
-                padding: 10px;
-                border-radius: var(--radius-md);
-                box-shadow: var(--shadow-float);
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                align-items: center;
-                min-width: 150px;
-                margin-top: 8px;
-            `;
-            
-            pop.innerHTML = `
-                <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; user-select: none;">기여도 수정</div>
-                <input type="number" id="edit-contrib-popover-input" value="${currentVal}" style="width: 100px; text-align: center; color: var(--gold); border: 1px solid var(--border-light); padding: 4px; font-size: 16px; font-weight: 800; background: var(--bg-input); border-radius: var(--radius-sm); outline: none; box-sizing: border-box;" onkeydown="if(event.key==='Enter') confirmContribChange(${idx})">
-                <div style="display: flex; gap: 4px; justify-content: center; width: 100%;">
-                    <button type="button" onclick="adjustContrib(${idx}, -50)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(255, 59, 48, 0.15); border: 1px solid rgba(255, 59, 48, 0.3); color: var(--danger); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; display: inline-flex; justify-content: center; align-items: center;">-50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(0, 122, 255, 0.15); border: 1px solid rgba(0, 122, 255, 0.3); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; display: inline-flex; justify-content: center; align-items: center;">+50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 100)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(255, 159, 10, 0.15); border: 1px solid rgba(255, 159, 10, 0.3); color: var(--gold); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; display: inline-flex; justify-content: center; align-items: center;">+100</button>
-                </div>
-                <div style="display: flex; gap: 6px; width: 100%; justify-content: center; margin-top: 4px;">
-                    <button type="button" onclick="confirmContribChange(${idx})" style="flex: 1; padding: 6px 0; font-size: 12px; background: var(--accent); border: 1px solid var(--accent); color: #fff; border-radius: var(--radius-sm); font-weight: bold; cursor: pointer; display: inline-flex; justify-content: center; align-items: center;">확인</button>
-                    <button type="button" onclick="cancelContribEdit()" style="flex: 1; padding: 6px 0; font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-light); color: var(--text-main); border-radius: var(--radius-sm); cursor: pointer; display: inline-flex; justify-content: center; align-items: center;">취소</button>
-                </div>
-            `;
-            
-            // Add style rules for arrow dynamically if not already present
-            let style = document.getElementById('contrib-popover-arrow-style');
-            if (!style) {
-                style = document.createElement('style');
-                style.id = 'contrib-popover-arrow-style';
-                style.innerHTML = `
-                    #contrib-popover::after {
-                        content: "";
-                        position: absolute;
-                        top: -6px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        border-width: 0 6px 6px 6px;
-                        border-style: solid;
-                        border-color: transparent transparent var(--bg-body) transparent;
-                    }
-                `;
-                document.head.appendChild(style);
-            }
-            
-            el.appendChild(pop);
-            
-            setTimeout(() => {
-                let inputEl = document.getElementById('edit-contrib-popover-input');
-                if (inputEl) {
-                    inputEl.focus();
-                    inputEl.select();
-                }
-            }, 10);
-        }
-
-        function confirmContribChange(idx) {
-            let inputEl = document.getElementById('edit-contrib-popover-input');
-            if (inputEl) {
-                let parsed = parseInt(inputEl.value);
-                if (!isNaN(parsed)) {
-                    let isExtra = gd.extra_game_active || false;
-                    let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-                    targetList[idx].contribution = parsed;
-                    pushAPI();
-                } else {
-                    cancelContribEdit();
-                }
-            }
-        }
-
-        function adjustContrib(idx, amount) {
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-            let currentVal = targetList[idx].contribution || 0;
-            targetList[idx].contribution = currentVal + amount;
-            
-            pushAPI();
-        }
-
-        function cancelContribEdit() {
-            let existing = document.getElementById('contrib-popover');
-            if (existing) {
-                existing.remove();
-            }
-        }
-
-        function saveContrib(idx, val) {
-            let parsed = parseInt(val);
-            if (!isNaN(parsed)) {
-                let isExtra = gd.extra_game_active || false;
-                let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-                targetList[idx].contribution = parsed;
-                pushAPI();
-            } else {
-                renderUI();
-            }
-        }
         function triggerUpText() { let txt = document.getElementById('in-up-text').value; if (txt.trim() === "") { alert("문구를 먼저 입력해주세요!"); return; } gd.up_trigger = { time: Date.now(), text: txt }; pushAPI(); document.getElementById('in-up-text').value = ''; }
         
         function toggleOption(key) { 
@@ -952,33 +771,30 @@
         function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
         function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
         function updateGoal() { gd.target_goal = parseInt(document.getElementById('in-goal').value)||0; pushAPI(); }
-        function addRankPlayer() {
-            if (gd.bjs.length >= 10) {
-                alert("플레이어는 최대 10명까지만 추가할 수 있습니다.");
-                return;
-            }
-            gd.bjs.push({name:"새 참가자", score:0, contribution:0});
-            pushAPI();
-        }
         function triggerNeon(color) { if (!gd.reaction_mode && color !== 'OFF') { alert("👀 리액션 모드(눈알 아이콘)가 켜져있어야 화면에 보입니다."); return; } gd.effect_trigger = {time: Date.now(), color: color, infinite: true}; pushAPI(); }
-        
-        function addScore(type, idx) {
-            let val = 0; let target = null; let elId = '';
-            if(type === 'rank') { elId = `rank-add-${idx}`; target = gd.bjs[idx]; } else if(type === 'bot') { elId = `rank-add-bot`; target = gd.bottom_fixed; } else if(type === 'match') { elId = `match-add-${idx}`; target = gd.match_data.players[idx]; }
-            val = parseInt(document.getElementById(elId).value); if(isNaN(val) || val===0) return;
-            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (type === 'rank' || type === 'bot') { if (!gd.logs) gd.logs = []; gd.logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.logs.length > 200) gd.logs.pop(); } else if (type === 'match') { if (!gd.match_logs) gd.match_logs = []; gd.match_logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.match_logs.length > 200) gd.match_logs.pop(); }
-            let prev1st = (type === 'rank' && gd.bjs.length > 0) ? gd.bjs[0].name : null; 
-            target.score += val;
-            if (type === 'rank') { if (target.contribution === undefined) target.contribution = 0; target.contribution += val; }
-            if(val > 0) gd.latest_popup = {time: Date.now(), name: target.name, diff: val};
-            if (type === 'rank') { gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); let curr1st = gd.bjs.length > 0 ? gd.bjs[0].name : null; if (val > 0 && prev1st && curr1st && prev1st !== curr1st && curr1st === target.name) { gd.latest_takeover = {time: Date.now(), name: curr1st}; } }
-            document.getElementById(elId).value = ''; document.getElementById(elId).blur(); pushAPI();
-        }
 
         function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI(); }
         function updateMatchTitle() { gd.match_data.title = document.getElementById('in-match-title').value; pushAPI(); }
-        function addMatchPlayer() { if(gd.match_data.players.length<4) { gd.match_data.players.push({name:"새 팀", score:0}); pushAPI(); } }
+        
+        function quickSetTimer(m) {
+            let ms = m * 60 * 1000;
+            gd.match_data.paused_time_left = ms;
+            gd.match_data.time_left_ms = ms;
+            gd.match_data.is_running = false;
+            pushAPI();
+        }
+
+        function addTimerTime(seconds) {
+            let md = gd.match_data;
+            let msToAdd = seconds * 1000;
+            if (md.is_running) {
+                md.end_time_ms += msToAdd;
+            } else {
+                md.time_left_ms += msToAdd;
+            }
+            pushAPI();
+        }
+
         function setTimer() { let ms = ((parseInt(document.getElementById('in-timer-m').value)||0)*60 + (parseInt(document.getElementById('in-timer-s').value)||0))*1000; gd.match_data.paused_time_left = ms; gd.match_data.time_left_ms = ms; gd.match_data.is_running = false; pushAPI(); }
         
         function toggleTimer() { 
@@ -999,17 +815,7 @@
         function updateSpeed(val) { gd.ticker_speed = parseInt(val); document.getElementById('lbl-speed').innerText = val; pushAPI(); }
         function updateTickerText() { gd.ticker_text = document.getElementById('in-ticker').value.replace(/\n/g, ' / '); pushAPI(); }
 
-
-        fetchAPI(); setInterval(fetchAPI, 250); 
-
-        document.addEventListener('mousedown', function(event) {
-            let popover = document.getElementById('contrib-popover');
-            if (popover) {
-                if (!popover.contains(event.target) && !event.target.closest('.metric.gold')) {
-                    popover.remove();
-                }
-            }
-        });
+        fetchAPI(); setInterval(fetchAPI, 250);
     </script>
 </body>
 </html>
