@@ -1117,7 +1117,7 @@
             launch() {
                 this.launched = true;
                 this.isRolling = true;
-                this.angularVelocity = 4 * 360; // 초당 4회전
+                this.angularVelocity = 2 * 360; // 초당 2회전
                 this.angularDamping = 0;
                 this.stopping = null;
                 this.selectAngle = 0;
@@ -1141,8 +1141,8 @@
                     let addAngle = 360 - this.selectAngle - this.rotation;
                     if (addAngle < 0) addAngle += 360;
                     
-                    let startDp = 222.2;
-                    let endDp = 204.91;
+                    let startDp = 132.94;
+                    let endDp = 110.08;
                     let capDp = (startDp - endDp) / 360;
                     
                     let fixDp = 0.375;
@@ -1154,7 +1154,7 @@
                     
                     this.angularDamping = startDp - addAngle * capDp - fixDp;
                 } else {
-                    this.angularDamping = 360 * (0.5 + 0.1 * Math.random());
+                    this.angularDamping = 110 + 23 * Math.random();
                 }
             },
 
