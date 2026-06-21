@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         🎯 투네이션 마스터 V10.6 (안정된 스마트 추적 & 자동 재전송)
+// @name         🎯 투네이션 마스터 V10.7 (시그니처 지원 및 락 오염 방지)
 // @namespace    http://tampermonkey.net/
-// @version      10.6
-// @description  애니메이션/타이핑 중 중복 전송을 완벽 방지하고, 비동기 재시도 및 오정산 방지를 지원합니다.
+// @version      10.7
+// @description  시그니처 후원 파싱을 완벽 지원하며, DOM 재사용으로 인한 락 씹힘을 메모리 락 구조로 해결했습니다.
 // @match        https://toon.at/widget/alertbox/14460fd01a5dfbeca46ec0bf85263efc*
 // @noframes
 // @grant        GM_xmlhttpRequest
@@ -18,18 +18,20 @@
         return;
     }
 
-    console.log("🎯 [투네이션 마스터] V10.6 (안정화 연동 모드) 가동 완료!");
+    console.log("🎯 [투네이션 마스터] V10.7 (시그니처 & 전역 락 개선) 가동 완료!");
+
+    // DOM 노드 속성이 아닌 메모리 전역 변수로 상태 및 락 관리 (DOM 재사용 시 락 먹통 방지)
+    let lastSentState = "";      // 이미 성공적으로 서버 전송 완료된 상태 (name_amount_message)
+    let lastFilteredState = "";  // 이미 1만원 미만 등으로 필터링되어 무시된 상태
+    let sendingState = "";       // 현재 서버 전송을 시도 중인 상태
+    
+    let lastSeenState = "";      // 이전 틱에서 확인한 후원 텍스트 상태
+    let stableTicks = 0;         // 텍스트 변화가 없는 안정된 프레임 수
 
     setInterval(() => {
         const texts = document.querySelectorAll('.template-animated-text');
 
         if (texts.length < 2) {
-            return;
-        }
-
-        // 1. DOM 요소 획득 및 전송 상태 체크
-        const rootElement = texts[0];
-        if (rootElement.getAttribute('data-v10-sent') === 'true' || rootElement.getAttribute('data-v10-sending') === 'true') {
             return;
         }
 
@@ -40,29 +42,53 @@
             return; // 렌더링 대기
         }
 
-        // 2. 이름 및 금액 구분 (통화 기호, 공백, 콤마 등 제거 후 숫자로만 판별)
-        const isNumericAmount = (str) => {
-            const cleaned = str.replace(/[\s,원₩$]/g, '');
-            return cleaned.length > 0 && /^\d+$/.test(cleaned);
-        };
+        // 1. 시그니처 신청 패턴 정규식 검출 (예: '홍길동님이 "시그니처1"을 신청하셨어요')
+        const signatureRegex = /^(.+?)님이\s+["'“]?(.*?)["'”?]?(?:을|를)\s+신청하셨어요/;
+        let isSignature = false;
+        let sigName = "";
+        let sigProduct = "";
+
+        if (signatureRegex.test(t1)) {
+            const match = t1.match(signatureRegex);
+            sigName = match[1].trim();
+            sigProduct = match[2].trim();
+            isSignature = true;
+        } else if (signatureRegex.test(t2)) {
+            const match = t2.match(signatureRegex);
+            sigName = match[1].trim();
+            sigProduct = match[2].trim();
+            isSignature = true;
+        }
 
         let name = "";
         let amountText = "";
 
-        if (isNumericAmount(t1) && !isNumericAmount(t2)) {
-            amountText = t1;
-            name = t2;
-        } else if (isNumericAmount(t2) && !isNumericAmount(t1)) {
-            amountText = t2;
-            name = t1;
+        if (isSignature) {
+            name = sigName;
+            // 시그니처 텍스트 매칭이 t1이면 t2가 금액, t2가 매칭이면 t1이 금액
+            amountText = signatureRegex.test(t1) ? t2 : t1;
         } else {
-            const numDigits = (str) => (str.match(/\d/g) || []).length;
-            if (numDigits(t1) > numDigits(t2)) {
+            // 2. 일반 후원 파싱 로직 (숫자 영역 구분)
+            const isNumericAmount = (str) => {
+                const cleaned = str.replace(/[\s,원₩$]/g, '');
+                return cleaned.length > 0 && /^\d+$/.test(cleaned);
+            };
+
+            if (isNumericAmount(t1) && !isNumericAmount(t2)) {
                 amountText = t1;
                 name = t2;
-            } else {
-                name = t1;
+            } else if (isNumericAmount(t2) && !isNumericAmount(t1)) {
                 amountText = t2;
+                name = t1;
+            } else {
+                const numDigits = (str) => (str.match(/\d/g) || []).length;
+                if (numDigits(t1) > numDigits(t2)) {
+                    amountText = t1;
+                    name = t2;
+                } else {
+                    name = t1;
+                    amountText = t2;
+                }
             }
         }
 
@@ -75,36 +101,45 @@
             message = msgSpan.innerText.trim();
         }
 
+        // 시그니처 신청 정보 메시지에 병합
+        if (isSignature && sigProduct) {
+            message = `[시그니처 신청: ${sigProduct}]` + (message ? ` ${message}` : "");
+        }
+
         if (amount <= 0 || !name) {
             return;
         }
 
-        // 4. 애니메이션/타이프라이터 텍스트 안정화 검증 (Debounce)
+        // 고유 후원 텍스트 상태 키 생성
         const currentTextState = `${name}_${amount}_${message}`;
-        const lastSeenState = rootElement.getAttribute('data-v10-last-state') || "";
-        let stableTicks = parseInt(rootElement.getAttribute('data-v10-stable-ticks') || "0");
 
+        // 4. 전송 락 및 중복 처리 검증
+        if (currentTextState === lastSentState || currentTextState === lastFilteredState || currentTextState === sendingState) {
+            return; // 이미 정산되었거나 처리 중인 후원이면 패스
+        }
+
+        // 5. 애니메이션/타이프라이터 텍스트 안정화 검증 (Debounce)
         if (currentTextState === lastSeenState) {
             stableTicks += 1;
         } else {
             stableTicks = 0; 
-            rootElement.setAttribute('data-v10-last-state', currentTextState);
+            lastSeenState = currentTextState;
         }
-        rootElement.setAttribute('data-v10-stable-ticks', stableTicks.toString());
 
-        // 5번의 틱(1초) 동안 텍스트 상태가 완벽히 유지되어야 완료된 텍스트로 판정
+        // 5번의 틱(1초) 동안 텍스트 상태가 완벽히 유지되어야 안정된 데이터로 취급
         if (stableTicks < 5) {
             return; 
         }
 
-        // 5. 후원 필터링 및 비동기 전송
+        // 6. 후원 필터링 (1만원 미만 무시)
         if (amount < 10000) {
-            console.log(`🗑️ [필터 컷] ${name}님 ${amount}원 (1만원 미만 무시)`);
-            rootElement.setAttribute('data-v10-sent', 'true'); 
+            console.log(`🗑️ [필터 컷] ${name}님 ${amount}원 (1만원 미만 무시) - 상태: ${currentTextState}`);
+            lastFilteredState = currentTextState; // 필터 락 등록
             return;
         }
 
-        rootElement.setAttribute('data-v10-sending', 'true');
+        // 7. 서버 비동기 전송 시도
+        sendingState = currentTextState;
         console.log(`📡 [서버 전송 시도] ${name}님 ${amount}원 ("${message}")`);
 
         const sendDonation = () => {
@@ -114,7 +149,7 @@
                 url: "https://live-master-server.onrender.com/api/donation",
                 headers: { 
                     "Content-Type": "application/json",
-                    "Authorization": "Bearer isacbin_master_key_0508" // 만약 auth_config.json에서 session_secret을 수정하셨다면 이 부분을 변경하십시오.
+                    "Authorization": "Bearer isacbin_master_key_0508"
                 },
                 data: JSON.stringify({
                     name: name,
@@ -125,8 +160,8 @@
                 onload: function(response) {
                     if (response.status === 200) {
                         console.log(`✅ [서버 전송 성공] ${name}님 ${amount}원 (TX: ${txId})`);
-                        rootElement.removeAttribute('data-v10-sending');
-                        rootElement.setAttribute('data-v10-sent', 'true');
+                        lastSentState = currentTextState; // 전송 완료 락 등록
+                        sendingState = ""; // 전송 중 락 해제
                     } else {
                         console.error(`❌ [서버 응답 오류] 상태코드: ${response.status}. 3초 후 재시도합니다.`);
                         setTimeout(sendDonation, 3000);
