@@ -1204,6 +1204,32 @@
     </div>
 
     <script>
+        // HTML 특수기호 이스케이프 (XSS 방어 및 기호 깨짐 방지)
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // 전역 fetch 인터셉터 (인증 토큰 자동 주입)
+        const originalFetch = window.fetch;
+        window.fetch = function(resource, init) {
+            if (window.apiToken && typeof resource === 'string' && resource.startsWith('/api/')) {
+                init = init || {};
+                init.headers = init.headers || {};
+                if (init.headers instanceof Headers) {
+                    init.headers.set('Authorization', 'Bearer ' + window.apiToken);
+                } else {
+                    init.headers['Authorization'] = 'Bearer ' + window.apiToken;
+                }
+            }
+            return originalFetch(resource, init);
+        };
+
         function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         let lastReactionToastTime = 0;
@@ -1227,6 +1253,9 @@
             if (isPushing || (Date.now() - lastPushTime < 200)) return; 
             try { 
                 const res = await fetch('/api/data'); const newData = await res.json(); 
+                if (newData && newData.api_token) {
+                    window.apiToken = newData.api_token;
+                }
                 if (newData && newData.server_time) {
                     serverTimeOffset = newData.server_time - Date.now();
                 }
@@ -1270,11 +1299,27 @@
             } catch (e) { console.error("⚠️ fetchAPI Error:", e); }
         }
 
-        function pushAPI() {
+        async function pushAPI() {
             if(!gd) return;
             lastPushTime = Date.now(); // 🚀 푸시 타임 기록으로 SSE 덮어쓰기 무력화
             isPushing = true; gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); renderUI(); 
-            fetch('/api/data', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(gd) }).catch(e => console.error("⚠️ pushAPI Error:", e));
+            try {
+                const res = await fetch('/api/data', { 
+                    method: 'POST', 
+                    headers:{'Content-Type':'application/json'}, 
+                    body: JSON.stringify(gd) 
+                });
+                if (res.status === 409) {
+                    const errData = await res.json();
+                    alert("⚠️ " + errData.message);
+                    isPushing = false;
+                    lastPushTime = 0; // 즉시 fetchAPI 동기화 허용
+                    await fetchAPI();
+                    return;
+                }
+            } catch(e) {
+                console.error("⚠️ pushAPI Error:", e);
+            }
             setTimeout(() => { isPushing = false; }, 80); // 락 해제를 80ms로 최소화하여 즉시 클릭 가능
         }
 
@@ -1335,8 +1380,8 @@
                 if(pbox.style.display !== 'block') pbox.style.display = 'block';
                 let pHtml = '';
                 gd.pending_donations.forEach(don => {
-                    let bjBtns = gd.bjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${bj.name}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${don.name}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${don.message}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 215, 0, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    let bjBtns = gd.bjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 215, 0, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
             } else {
@@ -3064,10 +3109,10 @@
                     
                     html += `<tr class="ml-row">
                         <td style="text-align: left; color: var(--text-muted); white-space: nowrap; font-size: 12px;">${log.timestamp}</td>
-                        <td style="text-align: left; color: #fff; font-weight: 600;">${log.name}</td>
+                        <td style="text-align: left; color: #fff; font-weight: 600;">${escapeHTML(log.name)}</td>
                         <td style="text-align: right;" class="${amountClass}">${amountStr}</td>
                         <td style="text-align: right; color: #aaa;">${log.current_total.toLocaleString()}</td>
-                        <td style="text-align: left; color: #888; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${msgDisplay}">${msgDisplay}</td>
+                        <td style="text-align: left; color: #888; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(msgDisplay)}">${escapeHTML(msgDisplay)}</td>
                         <td style="text-align: center;"><span class="${sourceClass}">${sourceLabel}</span></td>
                     </tr>`;
                 });

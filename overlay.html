@@ -435,6 +435,28 @@
     </div>
 
     <script>
+        // URL에서 token 파라미터 추출 및 window.apiToken 저장
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        if (urlToken) {
+            window.apiToken = urlToken;
+        }
+
+        // 전역 fetch 인터셉터 (인증 토큰 자동 주입)
+        const originalFetch = window.fetch;
+        window.fetch = function(resource, init) {
+            if (window.apiToken && typeof resource === 'string' && resource.startsWith('/api/')) {
+                init = init || {};
+                init.headers = init.headers || {};
+                if (init.headers instanceof Headers) {
+                    init.headers.set('Authorization', 'Bearer ' + window.apiToken);
+                } else {
+                    init.headers['Authorization'] = 'Bearer ' + window.apiToken;
+                }
+            }
+            return originalFetch(resource, init);
+        };
+
         // ==========================================
         // 기존 오버레이 로직
         // ==========================================

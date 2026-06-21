@@ -7,3 +7,4 @@
 __pycache__/
 *.spec
 방송정산기록_*.csv
+auth_config.json

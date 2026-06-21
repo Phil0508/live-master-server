@@ -78,6 +78,61 @@ except ImportError:
     messagebox = None
 import webbrowser
 
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+    BUNDLE_DIR = getattr(sys, '_MEIPASS', BASE_DIR)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    BUNDLE_DIR = BASE_DIR
+
+DB_FILE = os.path.join(BASE_DIR, 'live_master.db')
+LAYOUT_FILE = os.path.join(BASE_DIR, 'layout.json')
+AUTH_CONFIG_FILE = os.path.join(BASE_DIR, 'auth_config.json')
+
+def load_auth_config():
+    config = {
+        'admin_password': '0508',
+        'session_secret': 'isacbin_master_key_0508',
+        'totp_secret': ''
+    }
+    if os.path.exists(AUTH_CONFIG_FILE):
+        try:
+            with open(AUTH_CONFIG_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if 'admin_password' in data:
+                    config['admin_password'] = data['admin_password']
+                if 'session_secret' in data:
+                    config['session_secret'] = data['session_secret']
+                if 'totp_secret' in data:
+                    config['totp_secret'] = data['totp_secret']
+        except Exception as e:
+            print(f"Error reading auth config: {e}")
+            
+    env_password = os.environ.get('ADMIN_PASSWORD')
+    if env_password:
+        config['admin_password'] = env_password.strip()
+        
+    env_session_secret = os.environ.get('SESSION_SECRET')
+    if env_session_secret:
+        config['session_secret'] = env_session_secret.strip()
+        
+    env_totp_secret = os.environ.get('TOTP_SECRET')
+    if env_totp_secret:
+        config['totp_secret'] = env_totp_secret.strip()
+        
+    if not config['totp_secret']:
+        config['totp_secret'] = pyotp.random_base32()
+        save_auth_config(config)
+        
+    return config
+
+def save_auth_config(config):
+    try:
+        with open(AUTH_CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4)
+    except Exception as e:
+        print(f"Error writing auth config: {e}")
+
 # ==========================================
 # 🤫 서버 로그 제어
 # ==========================================
@@ -86,7 +141,7 @@ log.setLevel(logging.ERROR)
 log.disabled = True 
 
 app = Flask(__name__)
-app.secret_key = "isacbin_master_key_0508"
+app.secret_key = load_auth_config()['session_secret']
 CORS(app)
 file_lock = threading.Lock()
 
@@ -128,8 +183,18 @@ def require_login():
     if path in exempt_routes:
         return
         
+    # HTTP Authorization Bearer 토큰 및 ?token= 파라미터 검증 지원
+    auth_header = request.headers.get('Authorization')
+    token = None
+    if auth_header and auth_header.startswith('Bearer '):
+        token = auth_header.split(' ')[1]
+    else:
+        token = request.args.get('token')
+        
+    is_token_valid = (token and token == load_auth_config()['session_secret'])
+        
     # 비인증 사용자 제약
-    if not session.get('authenticated'):
+    if not session.get('authenticated') and not is_token_valid:
         if path.startswith('/api/'):
             return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
         if request.query_string:
@@ -152,42 +217,8 @@ def broadcast_event(event_name, data):
             except queue.Full:
                 pass
 
-if getattr(sys, 'frozen', False):
-    BASE_DIR = os.path.dirname(sys.executable)
-    BUNDLE_DIR = getattr(sys, '_MEIPASS', BASE_DIR)
-else:
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    BUNDLE_DIR = BASE_DIR
-
-# 📂 JSON 대신 튼튼한 DB 파일 사용
-DB_FILE = os.path.join(BASE_DIR, 'live_master.db')
-LAYOUT_FILE = os.path.join(BASE_DIR, 'layout.json')
-AUTH_CONFIG_FILE = os.path.join(BASE_DIR, 'auth_config.json')
-
 def get_or_create_totp_secret():
-    # 1. Render 등 클라우드 환경에서 재부팅 시에도 OTP가 고정되도록 환경변수 우선 적용
-    env_secret = os.environ.get('TOTP_SECRET')
-    if env_secret:
-        return env_secret.strip()
-        
-    if os.path.exists(AUTH_CONFIG_FILE):
-        try:
-            with open(AUTH_CONFIG_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                secret = data.get('totp_secret')
-                if secret:
-                    return secret
-        except Exception as e:
-            print(f"Error reading auth config: {e}")
-            
-    # Generate new secret
-    secret = pyotp.random_base32()
-    try:
-        with open(AUTH_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump({'totp_secret': secret}, f, indent=4)
-    except Exception as e:
-        print(f"Error writing auth config: {e}")
-    return secret
+    return load_auth_config()['totp_secret']
 
 def serve_html_file(filename):
     local_path = os.path.join(BASE_DIR, filename)
@@ -215,6 +246,7 @@ DEFAULT_STATE = {
     "roulette_enabled": False,
     "broadcast_active": False,
     "saved_colors": ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff'],
+    "version": 1,
     "roulette": {
         "command": None,
         "command_time": 0,
@@ -262,7 +294,8 @@ def init_db():
                     amount INTEGER,
                     current_total INTEGER, 
                     message TEXT,
-                    source TEXT
+                    source TEXT,
+                    tx_id TEXT
                 )
             """)
             cursor.execute("""
@@ -282,7 +315,8 @@ def init_db():
                     amount INTEGER,
                     current_total INTEGER, 
                     message TEXT,
-                    source TEXT
+                    source TEXT,
+                    tx_id TEXT
                 )
             """)
             cursor.execute("""
@@ -294,11 +328,15 @@ def init_db():
                 )
             """)
         
-        # 💡 [스키마 마이그레이션 패치] 기존 snapshots 테이블에 summary 컬럼이 없을 경우를 대비한 동적 추가
+        # 💡 [스키마 마이그레이션 패치] 기존 테이블 스키마 동적 추가 및 안전성 유지
         try:
             cursor.execute("ALTER TABLE snapshots ADD COLUMN summary TEXT")
         except Exception:
-            pass # 이미 컬럼이 존재하면 무시
+            pass
+        try:
+            cursor.execute("ALTER TABLE donation_history ADD COLUMN tx_id TEXT")
+        except Exception:
+            pass
 
 def load_data():
     global MEMORY_STATE
@@ -350,11 +388,13 @@ def save_data(new_data, is_initial=False):
     global MEMORY_STATE
     old_data = MEMORY_STATE if MEMORY_STATE else DEFAULT_STATE
     
-    if not is_initial:
-        old_scores = {p["name"]: p["score"] for p in old_data.get("bjs", [])}
-        try:
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 1. 수동 조작 시 장부 누적 (영수증 발급)
+            if not is_initial:
+                old_scores = {p["name"]: p["score"] for p in old_data.get("bjs", [])}
                 for new_p in new_data.get("bjs", []):
                     p_name = new_p["name"]
                     p_score = new_p["score"]
@@ -366,18 +406,13 @@ def save_data(new_data, is_initial=False):
                             db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source) VALUES (?, ?, ?, ?, ?, ?)"),
                             (time.strftime('%Y-%m-%d %H:%M:%S'), p_name, diff, p_score, "수동 점수 조작", "mobile")
                         )
-        except Exception as e:
-            print(f"⚠️ [수동조작 영수증 발급 오류] {e}")
-
-    MEMORY_STATE = new_data
-
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
+            
+            # 2. 플레이어 테이블 갱신
             cursor.execute(db_query("DELETE FROM players"))
             for bj in new_data.get("bjs", []):
                 cursor.execute(db_query("INSERT INTO players (name, score, contribution) VALUES (?, ?, ?)"), (bj["name"], bj["score"], bj.get("contribution", 0)))
             
+            # 3. 설정 상태 키-값 저장
             for key, value in new_data.items():
                 if key != "bjs":
                     if IS_POSTGRES:
@@ -390,8 +425,13 @@ def save_data(new_data, is_initial=False):
                             "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
                             (key, json.dumps(value, ensure_ascii=False))
                         )
+                        
+        # DB 저장(트랜잭션 commit) 성공 시에만 메모리 최신화
+        MEMORY_STATE = new_data
+        
     except Exception as e:
-        print(f"❌ [DB 전광판 저장 실패] {e}")
+        print(f"❌ [DB 트랜잭션 저장 실패 - 메모리 롤백 처리] {e}")
+        raise e
 
 def time_machine_recovery():
     try:
@@ -501,7 +541,7 @@ def serve_setup():
         try:
             data = request.get_json() or {}
             p = data.get('password', '').strip()
-            if p == '0508':
+            if p == load_auth_config()['admin_password']:
                 session['setup_authorized'] = True
                 return jsonify({'status': 'success'})
             else:
@@ -706,7 +746,7 @@ def serve_login():
             otp_code = data.get('otp', '').strip()
             
             # PW 검증
-            if p == '0508':
+            if p == load_auth_config()['admin_password']:
                 # TOTP OTP 검증
                 totp_secret = get_or_create_totp_secret()
                 totp = pyotp.TOTP(totp_secret)
@@ -782,11 +822,28 @@ def serve_dynamic_file(filename):
 @app.route('/api/donation', methods=['POST'])
 def receive_donation():
     try:
-        new_don = request.json
+        new_don = request.json or {}
+        amount = int(new_don.get('amount', 0))
+        tx_id = new_don.get('tx_id')
+        
+        # 1. 음수(0원 이하) 후원 금액 차단
+        if amount <= 0:
+            return jsonify({"status": "error", "message": "Invalid amount"}), 400
+            
+        # 2. tx_id 중복 검사로 중복 처리 차단
+        if tx_id:
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(db_query("SELECT id FROM donation_history WHERE tx_id = ?"), (tx_id,))
+                    if cursor.fetchone():
+                        return jsonify({"status": "success", "message": "Duplicate donation ignored."})
+            except Exception as dbe:
+                print(f"⚠️ [tx_id 중복 확인 오류] {dbe}")
+
         with file_lock:
             state = load_data()
             don_id = f"don_{int(time.time() * 1000)}"
-            amount = int(new_don.get('amount', 0))
             name = new_don.get('name', '익명')
             msg = new_don.get('message', '')
             
@@ -840,8 +897,8 @@ def receive_donation():
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
-                        db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source) VALUES (?, ?, ?, ?, ?, ?)"),
-                        (time.strftime('%Y-%m-%d %H:%M:%S'), parsed_name, amount, current_total, cleaned_msg, "toonation")
+                        db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source, tx_id) VALUES (?, ?, ?, ?, ?, ?, ?)"),
+                        (time.strftime('%Y-%m-%d %H:%M:%S'), parsed_name, amount, current_total, cleaned_msg, "toonation", tx_id)
                     )
             except Exception as dbe:
                 print(f"[장부 기록 오류] {dbe}")
@@ -906,14 +963,31 @@ def yt_search():
 def api_data():
     if request.method == 'POST':
         with file_lock:
-            state = request.json
+            state = request.json or {}
+            current_state = load_data()
+            
+            # 낙관적 락 검증: 클라이언트 버전과 서버 버전 비교
+            client_version = state.get('version', 0)
+            server_version = current_state.get('version', 1)
+            
+            if client_version != server_version:
+                return jsonify({
+                    "status": "conflict", 
+                    "message": "다른 기기에서 데이터가 변경되었습니다. 최신 상태로 새로고침합니다."
+                }), 409
+                
+            state['version'] = server_version + 1
             save_data(state)
             broadcast_event('update', state)
         return jsonify({"status": "success"})
+        
     state = load_data()
     if isinstance(state, dict):
         state = state.copy()
         state['server_time'] = int(time.time() * 1000)
+        # 조종실 웹에 로그인 세션이 있을 경우 보안 API 토큰을 제공
+        if session.get('authenticated'):
+            state['api_token'] = load_auth_config()['session_secret']
     return jsonify(state)
 
 @app.route('/api/roulette/winner', methods=['POST'])
@@ -1412,8 +1486,11 @@ def restore_by_time():
             goal_row = cursor.fetchone()
             target_goal = json.loads(goal_row[1]) if goal_row else 50000
             
-        restored_state = DEFAULT_STATE.copy()
+        import copy
+        current_state = load_data()
+        restored_state = copy.deepcopy(current_state)
         restored_state['target_goal'] = target_goal
+        restored_state['bjs'] = []
         
         for name, score in history_rows:
             restored_state['bjs'].append({

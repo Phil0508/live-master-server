@@ -108,18 +108,23 @@
         console.log(`📡 [서버 전송 시도] ${name}님 ${amount}원 ("${message}")`);
 
         const sendDonation = () => {
+            const txId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
             GM_xmlhttpRequest({
                 method: "POST",
                 url: "https://live-master-server.onrender.com/api/donation",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer isacbin_master_key_0508" // 만약 auth_config.json에서 session_secret을 수정하셨다면 이 부분을 변경하십시오.
+                },
                 data: JSON.stringify({
                     name: name,
                     amount: amount,
-                    message: message
+                    message: message,
+                    tx_id: txId
                 }),
                 onload: function(response) {
                     if (response.status === 200) {
-                        console.log(`✅ [서버 전송 성공] ${name}님 ${amount}원`);
+                        console.log(`✅ [서버 전송 성공] ${name}님 ${amount}원 (TX: ${txId})`);
                         rootElement.removeAttribute('data-v10-sending');
                         rootElement.setAttribute('data-v10-sent', 'true');
                     } else {
