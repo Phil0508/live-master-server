@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         🎯 투네이션 마스터 V10.8 (시그니처 캐시 돔 완벽 연동)
+// @name         🎯 투네이션 마스터 V10.9 (실시간 정밀 디버깅 로그 탑재)
 // @namespace    http://tampermonkey.net/
-// @version      10.8
-// @description  시그니처 전용 캐시 클래스(_SignatureCash_) 감지 및 시그니처 정규식 파싱을 완벽히 지원합니다.
+// @version      10.9
+// @description  시그니처 및 일반 캐시 후원 감지 시 디버그 로그를 상세히 출력하여 인식이 안 되는 구간을 명확히 추적합니다.
 // @match        https://toon.at/widget/alertbox/14460fd01a5dfbeca46ec0bf85263efc*
 // @noframes
 // @grant        GM_xmlhttpRequest
@@ -18,15 +18,14 @@
         return;
     }
 
-    console.log("🎯 [투네이션 마스터] V10.8 (시그니처 캐시 정밀 연동) 가동 완료!");
+    console.log("🎯 [투네이션 마스터] V10.9 (실시간 디버깅 모드) 가동 완료!");
 
-    // 메모리 상에서 완료/처리 중 상태 추적 (DOM 재사용 시 상태 초기화 안 되는 현상 영구 방지)
-    let lastSentState = "";      // 성공적으로 전송 완료된 후원 상태 (name_amount_message)
-    let lastFilteredState = "";  // 필터링되어(1만원 미만 등) 스킵 처리 완료된 상태
-    let sendingState = "";       // 현재 전송 처리 중인 상태
+    let lastSentState = "";      
+    let lastFilteredState = "";  
+    let sendingState = "";       
     
-    let lastSeenState = "";      // 이전 프레임에서 조회된 텍스트 상태
-    let stableTicks = 0;         // 텍스트 상태가 변화 없이 유지된 누적 카운트
+    let lastSeenState = "";      
+    let stableTicks = 0;         
 
     setInterval(() => {
         // 1. 필요한 DOM 요소 추출
@@ -34,8 +33,11 @@
         const sigCashEl = document.querySelector('[class*="SignatureCash"]');
         const sigCashText = sigCashEl ? sigCashEl.innerText.trim() : "";
 
-        // 텍스트 영역이 하나도 로드되지 않았으면 대기
-        if (animTexts.length === 0) {
+        // 텍스트 영역이 감지되었을 때 디버깅 로그 출력
+        if (animTexts.length > 0) {
+            console.log(`🔍 [감지 로그] 텍스트 노드 개수: ${animTexts.length} | 시그니처 돔 존재: ${!!sigCashEl} ("${sigCashText}")`);
+            console.log(`  ▶ 텍스트 목록:`, animTexts);
+        } else {
             return;
         }
 
@@ -62,17 +64,17 @@
 
         if (isSignature) {
             name = sigName;
-            // 시그니처 캐시 전용 클래스 돔이 존재하면 거기서 금액을 가져옴
             if (sigCashText) {
                 amountText = sigCashText;
             } else {
-                // 없을 경우 차선책으로 시그니처 텍스트가 아닌 다른 애니메이션 텍스트에서 금액 파싱 시도
                 const otherTexts = animTexts.filter(t => t !== matchedAnimText);
                 amountText = otherTexts.length > 0 ? otherTexts[0] : "";
             }
+            console.log(`  ⭐ [시그니처 판정] 이름: ${name} | 금액 텍스트 후보: ${amountText} | 상품명: ${sigProduct}`);
         } else {
-            // 3. 일반 후원 파싱 로직 (최소 2개 이상의 텍스트가 존재해야 함)
+            // 일반 후원 파싱 로직 (최소 2개 이상의 텍스트가 존재해야 함)
             if (animTexts.length < 2) {
+                console.log(`  ⚠️ [일반 후원 대기] 텍스트가 2개 미만이라 파싱을 보류합니다.`);
                 return;
             }
             const t1 = animTexts[0];
@@ -99,6 +101,7 @@
                     amountText = t2;
                 }
             }
+            console.log(`  👤 [일반 후원 판정] 이름 후보: ${name} | 금액 후보: ${amountText}`);
         }
 
         let amount = parseInt(amountText.replace(/[^\d]/g, '')) || 0;
@@ -110,46 +113,49 @@
             message = msgSpan.innerText.trim();
         }
 
-        // 시그니처 상품 정보가 있으면 메시지 영역에 동봉
         if (isSignature && sigProduct) {
             message = `[시그니처 신청: ${sigProduct}]` + (message ? ` ${message}` : "");
         }
 
+        console.log(`  📝 [최종 파싱 데이터] 이름: ${name} | 금액: ${amount}원 | 메시지: "${message}"`);
+
         if (amount <= 0 || !name) {
+            console.log(`  ❌ [데이터 오류] 금액 또는 이름이 올바르지 않아 중단합니다.`);
             return;
         }
 
-        // 현재 추출된 후원 텍스트 상태 키 생성
         const currentTextState = `${name}_${amount}_${message}`;
 
         // 5. 전송 락 및 중복 정산 검증 (메모리 락 검사)
         if (currentTextState === lastSentState || currentTextState === lastFilteredState || currentTextState === sendingState) {
+            console.log(`  🔒 [락 검증] 이미 처리되었거나 처리 중인 상태입니다. 무시합니다. (State: ${currentTextState})`);
             return;
         }
 
         // 6. 애니메이션/타이프라이터 텍스트 안정화 검증 (Debounce)
         if (currentTextState === lastSeenState) {
             stableTicks += 1;
+            console.log(`  ⏳ [안정화 진행 중] 동일 상태 유지 틱: ${stableTicks}/5`);
         } else {
             stableTicks = 0; 
             lastSeenState = currentTextState;
+            console.log(`  🔄 [상태 변화 감지] 새로운 상태로 틱 초기화: ${currentTextState}`);
         }
 
-        // 5번의 틱(1초) 동안 텍스트 상태가 변화 없이 고정되어야 완료된 데이터로 신뢰
         if (stableTicks < 5) {
             return; 
         }
 
         // 7. 후원 필터링 (1만원 미만 무시)
         if (amount < 10000) {
-            console.log(`🗑️ [필터 컷] ${name}님 ${amount}원 (1만원 미만 무시) - 상태: ${currentTextState}`);
-            lastFilteredState = currentTextState; // 필터 락 등록
+            console.log(`  🗑️ [필터 컷] 1만원 미만 후원은 서버로 전송하지 않고 필터 락 처리합니다. (금액: ${amount}원)`);
+            lastFilteredState = currentTextState; 
             return;
         }
 
         // 8. 서버로 비동기 후원 접수 전송
         sendingState = currentTextState;
-        console.log(`📡 [서버 전송 시도] ${name}님 ${amount}원 ("${message}")`);
+        console.log(`  📡 [서버 전송 트리거] ${name}님 ${amount}원 전송 프로세스 가동`);
 
         const sendDonation = () => {
             const txId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
@@ -168,16 +174,16 @@
                 }),
                 onload: function(response) {
                     if (response.status === 200) {
-                        console.log(`✅ [서버 전송 성공] ${name}님 ${amount}원 (TX: ${txId})`);
-                        lastSentState = currentTextState; // 전송 완료 락 등록
-                        sendingState = ""; // 전송 중 락 해제
+                        console.log(`  ✅ [서버 전송 성공] ${name}님 ${amount}원 (TX: ${txId})`);
+                        lastSentState = currentTextState; 
+                        sendingState = ""; 
                     } else {
-                        console.error(`❌ [서버 응답 오류] 상태코드: ${response.status}. 3초 후 재시도합니다.`);
+                        console.error(`  ❌ [서버 응답 오류] 상태코드: ${response.status}. 3초 후 재시도합니다.`);
                         setTimeout(sendDonation, 3000);
                     }
                 },
                 onerror: function(err) {
-                    console.error("❌ [네트워크 연결 실패] 서버 연결 오류. 5초 후 재시도합니다.", err);
+                    console.error("  ❌ [네트워크 연결 실패] 서버 연결 오류. 5초 후 재시도합니다.", err);
                     setTimeout(sendDonation, 5000);
                 }
             });
