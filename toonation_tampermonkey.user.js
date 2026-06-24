@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🎯 투네이션 마스터 V11.3 (실시간 정밀 디버깅 로그 탑재)
+// @name         🎯 투네이션 마스터 V11.4 (실시간 정밀 디버깅 로그 탑재)
 // @namespace    http://tampermonkey.net/
-// @version      11.3
+// @version      11.4
 // @description  시그니처 및 일반 캐시 후원 감지 시 디버그 로그를 상세히 출력하여 인식이 안 되는 구간을 명확히 추적합니다.
 // @match        https://toon.at/widget/alertbox/14460fd01a5dfbeca46ec0bf85263efc*
 // @noframes
@@ -28,7 +28,7 @@
         }
     }
 
-    console.log("🎯 [투네이션 마스터] V11.3 (상세 로그 비활성화 모드 - 서버 전송 결과만 기록) 가동 완료!");
+    console.log("🎯 [투네이션 마스터] V11.4 (상세 로그 비활성화 모드 - 서버 전송 결과만 기록) 가동 완료!");
 
     let lastSentState = "";      
     let lastFilteredState = "";  
@@ -40,7 +40,13 @@
 
     setInterval(() => {
         // 1. 필요한 DOM 요소 추출
-        const animTexts = Array.from(document.querySelectorAll('.template-animated-text')).map(el => el.innerText.trim());
+        const animTextsRaw = Array.from(document.querySelectorAll('.template-animated-text')).map(el => el.innerText.trim());
+        const titleEl = document.querySelector('.title-name-effect');
+        const titleText = titleEl ? titleEl.innerText.trim() : "";
+
+        // [등급 제외 필터] 노블레스 등급 명칭(예: "그린노블레스")이 텍스트 목록에 포함되어 있다면 이를 제외하고 실제 닉네임과 상품명만 남깁니다.
+        const animTexts = animTextsRaw.filter(txt => txt && txt !== titleText);
+
         const sigCashEl = document.querySelector('.signature-amount') || document.querySelector('[class*="SignatureCash"]') || document.querySelector('[class*="signature-cash"]');
         const sigCashText = sigCashEl ? sigCashEl.innerText.trim() : "";
 
