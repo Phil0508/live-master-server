@@ -792,21 +792,24 @@
                     const actionTextEl = document.getElementById('toon-action-text');
                     const amountEl = document.getElementById('toon-amount');
                     
-                    if (d.latest_donation.amount === 0) {
-                        if (finalMsg.startsWith("[시그니처 신청:")) {
-                            let match = finalMsg.match(/^\[시그니처 신청:\s*(.*?)\]/);
-                            let prod = match ? match[1] : "시그니처";
-                            if (actionTextEl) actionTextEl.innerText = "님이 신청하셨습니다!";
-                            amountEl.innerText = `"${prod}"`;
-                            // 본문 메시지에서 시그니처 태그 삭제
-                            finalMsg = finalMsg.replace(/^\[시그니처 신청:\s*.*?\]\s*/, '');
+                    if (finalMsg.startsWith("[시그니처 신청:")) {
+                        let match = finalMsg.match(/^\[시그니처 신청:\s*(.*?)\]/);
+                        let prod = match ? match[1] : "시그니처";
+                        if (actionTextEl) actionTextEl.innerText = "님이 신청하셨습니다!";
+                        if (d.latest_donation.amount > 0) {
+                            amountEl.innerText = `"${prod}" (${formatNum(d.latest_donation.amount)}원)`;
                         } else {
-                            if (actionTextEl) actionTextEl.innerText = "님이 후원하셨습니다!";
-                            amountEl.innerText = '후원';
+                            amountEl.innerText = `"${prod}"`;
                         }
+                        // 본문 메시지에서 시그니처 태그 삭제
+                        finalMsg = finalMsg.replace(/^\[시그니처 신청:\s*.*?\]\s*/, '');
                     } else {
                         if (actionTextEl) actionTextEl.innerText = "님이 후원하셨습니다!";
-                        amountEl.innerText = formatNum(d.latest_donation.amount) + '원';
+                        if (d.latest_donation.amount === 0) {
+                            amountEl.innerText = '후원';
+                        } else {
+                            amountEl.innerText = formatNum(d.latest_donation.amount) + '원';
+                        }
                     }
                     
                     let msgEl = document.getElementById('toon-msg');

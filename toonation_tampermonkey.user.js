@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🎯 투네이션 마스터 V11.0 (실시간 정밀 디버깅 로그 탑재)
+// @name         🎯 투네이션 마스터 V11.1 (실시간 정밀 디버깅 로그 탑재)
 // @namespace    http://tampermonkey.net/
-// @version      11.0
+// @version      11.1
 // @description  시그니처 및 일반 캐시 후원 감지 시 디버그 로그를 상세히 출력하여 인식이 안 되는 구간을 명확히 추적합니다.
 // @match        https://toon.at/widget/alertbox/14460fd01a5dfbeca46ec0bf85263efc*
 // @noframes
@@ -18,7 +18,7 @@
         return;
     }
 
-    console.log("🎯 [투네이션 마스터] V11.0 (실시간 디버깅 모드) 가동 완료!");
+    console.log("🎯 [투네이션 마스터] V11.1 (실시간 디버깅 모드) 가동 완료!");
 
     let lastSentState = "";      
     let lastFilteredState = "";  
@@ -31,7 +31,7 @@
     setInterval(() => {
         // 1. 필요한 DOM 요소 추출
         const animTexts = Array.from(document.querySelectorAll('.template-animated-text')).map(el => el.innerText.trim());
-        const sigCashEl = document.querySelector('[class*="SignatureCash"]');
+        const sigCashEl = document.querySelector('.signature-amount') || document.querySelector('[class*="SignatureCash"]') || document.querySelector('[class*="signature-cash"]');
         const sigCashText = sigCashEl ? sigCashEl.innerText.trim() : "";
 
         // 텍스트 영역이 감지되었을 때 디버깅 로그 출력
@@ -49,14 +49,27 @@
         let sigProduct = "";
         let matchedAnimText = "";
 
-        for (const txt of animTexts) {
-            if (signatureRegex.test(txt)) {
-                const match = txt.match(signatureRegex);
-                sigName = match[1].trim();
-                sigProduct = match[2].trim();
-                isSignature = true;
-                matchedAnimText = txt;
-                break;
+        // 방법 A: 돔(DOM)에 시그니처 금액란(.signature-amount)이 존재하는 경우 (가장 확실함)
+        if (sigCashEl) {
+            isSignature = true;
+            if (animTexts.length >= 2) {
+                sigName = animTexts[0].trim();
+                sigProduct = animTexts[1].trim();
+            } else if (animTexts.length === 1) {
+                sigName = animTexts[0].trim();
+                sigProduct = "시그니처";
+            }
+        } else {
+            // 방법 B: 정규식을 통한 폴백 판정
+            for (const txt of animTexts) {
+                if (signatureRegex.test(txt)) {
+                    const match = txt.match(signatureRegex);
+                    sigName = match[1].trim();
+                    sigProduct = match[2].trim();
+                    isSignature = true;
+                    matchedAnimText = txt;
+                    break;
+                }
             }
         }
 
