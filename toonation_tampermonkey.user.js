@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         🎯 투네이션 마스터 V11.1 (실시간 정밀 디버깅 로그 탑재)
+// @name         🎯 투네이션 마스터 V11.2 (실시간 정밀 디버깅 로그 탑재)
 // @namespace    http://tampermonkey.net/
-// @version      11.1
+// @version      11.2
 // @description  시그니처 및 일반 캐시 후원 감지 시 디버그 로그를 상세히 출력하여 인식이 안 되는 구간을 명확히 추적합니다.
 // @match        https://toon.at/widget/alertbox/14460fd01a5dfbeca46ec0bf85263efc*
 // @noframes
@@ -18,7 +18,17 @@
         return;
     }
 
-    console.log("🎯 [투네이션 마스터] V11.1 (실시간 디버깅 모드) 가동 완료!");
+    // 💡 [성능 최적화] 디버그 모드가 켜져 있을 때만 콘솔에 상세 로그를 출력합니다.
+    // 콘솔 로그가 과도하게 쌓여 탭이 느려지는 현상을 막기 위해 기본값은 false(비활성화)입니다.
+    const DEBUG_LOG = false; 
+
+    function log(...args) {
+        if (DEBUG_LOG) {
+            console.log(...args);
+        }
+    }
+
+    console.log("🎯 [투네이션 마스터] V11.2 (상세 로그 비활성화 모드 - 서버 전송 결과만 기록) 가동 완료!");
 
     let lastSentState = "";      
     let lastFilteredState = "";  
@@ -36,8 +46,8 @@
 
         // 텍스트 영역이 감지되었을 때 디버깅 로그 출력
         if (animTexts.length > 0) {
-            console.log(`🔍 [감지 로그] 텍스트 노드 개수: ${animTexts.length} | 시그니처 돔 존재: ${!!sigCashEl} ("${sigCashText}")`);
-            console.log(`  ▶ 텍스트 목록:`, animTexts);
+            log(`🔍 [감지 로그] 텍스트 노드 개수: ${animTexts.length} | 시그니처 돔 존재: ${!!sigCashEl} ("${sigCashText}")`);
+            log(`  ▶ 텍스트 목록:`, animTexts);
         } else {
             return;
         }
@@ -84,11 +94,11 @@
                 const otherTexts = animTexts.filter(t => t !== matchedAnimText);
                 amountText = otherTexts.length > 0 ? otherTexts[0] : "";
             }
-            console.log(`  ⭐ [시그니처 판정] 이름: ${name} | 금액 텍스트 후보: ${amountText} | 상품명: ${sigProduct}`);
+            log(`  ⭐ [시그니처 판정] 이름: ${name} | 금액 텍스트 후보: ${amountText} | 상품명: ${sigProduct}`);
         } else {
             // 일반 후원 파싱 로직 (최소 2개 이상의 텍스트가 존재해야 함)
             if (animTexts.length < 2) {
-                console.log(`  ⚠️ [일반 후원 대기] 텍스트가 2개 미만이라 파싱을 보류합니다.`);
+                log(`  ⚠️ [일반 후원 대기] 텍스트가 2개 미만이라 파싱을 보류합니다.`);
                 return;
             }
             const t1 = animTexts[0];
@@ -115,7 +125,7 @@
                     amountText = t2;
                 }
             }
-            console.log(`  👤 [일반 후원 판정] 이름 후보: ${name} | 금액 후보: ${amountText}`);
+            log(`  👤 [일반 후원 판정] 이름 후보: ${name} | 금액 후보: ${amountText}`);
         }
 
         let amount = parseInt(amountText.replace(/[^\d]/g, '')) || 0;
@@ -141,11 +151,11 @@
             message = `[시그니처 신청: ${zeroAmountSigProduct}]` + (message ? ` ${message}` : "");
         }
 
-        console.log(`  📝 [최종 파싱 데이터] 이름: ${name} | 금액: ${amount}원 | 메시지: "${message}"`);
+        log(`  📝 [최종 파싱 데이터] 이름: ${name} | 금액: ${amount}원 | 메시지: "${message}"`);
 
         // 금액이 0원 이하이더라도 시그니처 신청인 경우 통과시킵니다.
         if (!name || (amount <= 0 && !isZeroAmountSignature)) {
-            console.log(`  ❌ [데이터 오류] 금액 또는 이름이 올바르지 않아 중단합니다.`);
+            log(`  ❌ [데이터 오류] 금액 또는 이름이 올바르지 않아 중단합니다.`);
             return;
         }
 
@@ -154,7 +164,7 @@
         // 5. 전송 락 및 중복 정산 검증 (메모리 락 검사)
         if (currentTextState === lastSentState || currentTextState === lastFilteredState || currentTextState === sendingState) {
             if (lastLoggedLockState !== currentTextState) {
-                console.log(`  🔒 [락 검증] 이미 처리되었거나 처리 중인 상태입니다. 무시합니다. (State: ${currentTextState})`);
+                log(`  🔒 [락 검증] 이미 처리되었거나 처리 중인 상태입니다. 무시합니다. (State: ${currentTextState})`);
                 lastLoggedLockState = currentTextState;
             }
             return;
@@ -163,11 +173,11 @@
         // 6. 애니메이션/타이프라이터 텍스트 안정화 검증 (Debounce)
         if (currentTextState === lastSeenState) {
             stableTicks += 1;
-            console.log(`  ⏳ [안정화 진행 중] 동일 상태 유지 틱: ${stableTicks}/5`);
+            log(`  ⏳ [안정화 진행 중] 동일 상태 유지 틱: ${stableTicks}/5`);
         } else {
             stableTicks = 0; 
             lastSeenState = currentTextState;
-            console.log(`  🔄 [상태 변화 감지] 새로운 상태로 틱 초기화: ${currentTextState}`);
+            log(`  🔄 [상태 변화 감지] 새로운 상태로 틱 초기화: ${currentTextState}`);
         }
 
         if (stableTicks < 5) {
@@ -177,7 +187,7 @@
         // 7. 후원 필터링 (1만원 미만 무시 - 단, 시그니처 신청은 0원이라도 필터 통과)
         const isSig = isSignature || isZeroAmountSignature;
         if (!isSig && amount < 10000) {
-            console.log(`  🗑️ [필터 컷] 1만원 미만 후원은 서버로 전송하지 않고 필터 락 처리합니다. (금액: ${amount}원)`);
+            log(`  🗑️ [필터 컷] 1만원 미만 후원은 서버로 전송하지 않고 필터 락 처리합니다. (금액: ${amount}원)`);
             lastFilteredState = currentTextState; 
             return;
         }
