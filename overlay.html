@@ -796,11 +796,7 @@
                         let match = finalMsg.match(/^\[시그니처 신청:\s*(.*?)\]/);
                         let prod = match ? match[1] : "시그니처";
                         if (actionTextEl) actionTextEl.innerText = "님이 신청하셨습니다!";
-                        if (d.latest_donation.amount > 0) {
-                            amountEl.innerText = `"${prod}" (${formatNum(d.latest_donation.amount)}원)`;
-                        } else {
-                            amountEl.innerText = `"${prod}"`;
-                        }
+                        amountEl.innerText = `"${prod}"`;
                         // 본문 메시지에서 시그니처 태그 삭제
                         finalMsg = finalMsg.replace(/^\[시그니처 신청:\s*.*?\]\s*/, '');
                     } else {
