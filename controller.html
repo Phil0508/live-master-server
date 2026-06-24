@@ -960,13 +960,13 @@
                     <button class="primary" id="btn-roulette-spin" onclick="controlRoulette('spin')" style="width: 100%; justify-content: center; height: 50px; font-size: 16px; font-weight: 800;"><i class="fa-solid fa-play"></i> 룰렛 회전 시작</button>
                     <button class="danger" id="btn-roulette-stop" onclick="controlRoulette('stop')" style="width: 100%; justify-content: center; height: 50px; font-size: 16px; font-weight: 800; display: none; animation: shake-y 0.2s linear infinite;"><i class="fa-solid fa-stop"></i> 정지!!</button>
                     <button onclick="controlRoulette('reset')" style="width: 100%; justify-content: center; background: #222; border-color: #444;"><i class="fa-solid fa-rotate-right"></i> 회전판 초기화</button>
-                    <button onclick="toggleRouletteRemote(this)" style="width: 100%; justify-content: center; background: rgba(255, 215, 0, 0.08); border-color: rgba(255, 215, 0, 0.25); color: var(--gold); height: 40px; font-weight: bold;"><i class="fa-solid fa-user-gear"></i> 당첨 조작 리모컨 열기</button>
+                    <button onclick="toggleRouletteRemote(this)" style="width: 100%; justify-content: center; background: rgba(255, 215, 0, 0.08); border-color: rgba(255, 215, 0, 0.25); color: var(--gold); height: 40px; font-weight: bold;"><i class="fa-solid fa-square-check"></i> 선관위버튼</button>
                 </div>
             </div>
 
             <!-- 당첨 조작 리모컨 카드 -->
             <div class="group-box" id="roulette-remote-card" style="display: none; flex-direction: column; gap: 15px; min-height: 380px;">
-                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 215, 0, 0.2);"><i class="fa-solid fa-user-gear"></i> 당첨 조작 콘솔 (리모컨 내장)</div>
+                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 215, 0, 0.2);"><i class="fa-solid fa-square-check"></i> 선거관리위원회 콘솔</div>
                 <p style="color: var(--text-muted); font-size: 13px; margin: 0; line-height: 1.5;">
                     * 룰렛을 회전시키고 정지하기 전에 아래에서 우승자를 미리 터치하여 지정할 수 있습니다.<br>
                     * 지정 시 룰렛판이 해당 슬롯의 각도 영역으로 <b>자연스럽고 부드럽게 감속되어</b> 멈춥니다.
@@ -1772,11 +1772,11 @@
             if (remoteCard.style.display === 'none') {
                 remoteCard.style.display = 'flex';
                 gridContainer.style.gridTemplateColumns = '1fr 1.5fr';
-                btn.innerHTML = '<i class="fa-solid fa-user-gear"></i> 당첨 조작 리모컨 닫기';
+                btn.innerHTML = '<i class="fa-solid fa-square-check"></i> 선관위버튼 (닫기)';
             } else {
                 remoteCard.style.display = 'none';
                 gridContainer.style.gridTemplateColumns = '1fr';
-                btn.innerHTML = '<i class="fa-solid fa-user-gear"></i> 당첨 조작 리모컨 열기';
+                btn.innerHTML = '<i class="fa-solid fa-square-check"></i> 선관위버튼';
             }
         }
 
