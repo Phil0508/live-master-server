@@ -1301,7 +1301,7 @@
 
         async function pushAPI() {
             if(!gd) return;
-            lastPushTime = Date.now(); // 🚀 푸시 타임 기록으로 SSE 덮어쓰기 무력화
+            lastPushTime = Date.now();
             isPushing = true; gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); renderUI(); 
             try {
                 const res = await fetch('/api/data', { 
@@ -1310,17 +1310,34 @@
                     body: JSON.stringify(gd) 
                 });
                 if (res.status === 409) {
-                    const errData = await res.json();
-                    alert("⚠️ " + errData.message);
+                    // 🔄 버전 충돌 시 최신 데이터를 받아와서 버전만 갱신 후 자동 재전송
+                    console.warn("⚠️ 버전 충돌 감지, 자동 동기화 후 재전송...");
                     isPushing = false;
-                    lastPushTime = 0; // 즉시 fetchAPI 동기화 허용
-                    await fetchAPI();
-                    return;
+                    lastPushTime = 0;
+                    const freshRes = await fetch('/api/data');
+                    const freshData = await freshRes.json();
+                    gd.version = freshData.version; // 서버 최신 버전으로 갱신
+                    // 즉시 재전송
+                    lastPushTime = Date.now();
+                    isPushing = true;
+                    const retryRes = await fetch('/api/data', {
+                        method: 'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify(gd)
+                    });
+                    if (retryRes.status === 409) {
+                        // 두 번째 충돌 시에만 조용히 전체 동기화
+                        console.warn("⚠️ 재시도에서도 충돌, 전체 동기화 수행");
+                        isPushing = false;
+                        lastPushTime = 0;
+                        await fetchAPI();
+                        return;
+                    }
                 }
             } catch(e) {
                 console.error("⚠️ pushAPI Error:", e);
             }
-            setTimeout(() => { isPushing = false; }, 80); // 락 해제를 80ms로 최소화하여 즉시 클릭 가능
+            setTimeout(() => { isPushing = false; }, 80);
         }
 
         function renderUI() {

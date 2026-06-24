@@ -669,11 +669,23 @@
                     body: JSON.stringify(gd) 
                 });
                 if (res.status === 409) {
-                    const errData = await res.json();
-                    alert("⚠️ " + errData.message);
+                    console.warn("⚠️ 버전 충돌 감지, 자동 동기화 후 재전송...");
                     isPushing = false;
-                    await fetchAPI();
-                    return;
+                    const freshRes = await fetch('/api/data');
+                    const freshData = await freshRes.json();
+                    gd.version = freshData.version; // 서버 최신 버전으로 갱신
+                    isPushing = true;
+                    const retryRes = await fetch('/api/data', {
+                        method: 'POST',
+                        headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify(gd)
+                    });
+                    if (retryRes.status === 409) {
+                        console.warn("⚠️ 재시도에서도 충돌, 전체 동기화 수행");
+                        isPushing = false;
+                        await fetchAPI();
+                        return;
+                    }
                 }
             } catch(e) {
                 console.error("⚠️ pushAPI Error:", e);
