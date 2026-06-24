@@ -966,17 +966,12 @@ def api_data():
             state = request.json or {}
             current_state = load_data()
             
-            # 낙관적 락 검증: 클라이언트 버전과 서버 버전 비교
+            # [수정] 409 conflict로 인한 경고창(Alert) 발생을 원천 차단하기 위해 409 검증을 제거하고,
+            # 마지막으로 전송된 상태를 기준으로 버전을 갱신하여 저장합니다. (Last-Write-Wins)
             client_version = state.get('version', 0)
             server_version = current_state.get('version', 1)
             
-            if client_version != server_version:
-                return jsonify({
-                    "status": "conflict", 
-                    "message": "다른 기기에서 데이터가 변경되었습니다. 최신 상태로 새로고침합니다."
-                }), 409
-                
-            state['version'] = server_version + 1
+            state['version'] = max(client_version, server_version) + 1
             save_data(state)
             broadcast_event('update', state)
         return jsonify({"status": "success"})
