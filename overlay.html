@@ -835,7 +835,7 @@
                     }
 
                     clearTimeout(toonPopupTimer);
-                    toonPopupTimer = setTimeout(() => p.classList.remove('show'), 6000); 
+                    toonPopupTimer = setTimeout(() => p.classList.remove('show'), 2000); 
                 }
 
                 if (d.takeover_enabled && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
