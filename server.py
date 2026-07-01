@@ -908,13 +908,14 @@ def receive_donation():
             if target_list_key == 'extra_bjs' and not state.get('extra_bjs'):
                 state['extra_bjs'] = [{"name": bj['name'], "score": 0, "contribution": 0} for bj in state.get('bjs', [])]
                 
-            for bj in state.get(target_list_key, []):
-                if bj['name'] == parsed_name:
-                    add_point = int(amount / 10000 + 0.5)
-                    bj['score'] += add_point
-                    bj['contribution'] = bj.get('contribution', 0) + add_point
-                    current_total = bj['score']
-                    break
+            # [비활성화] 닉네임 직접 매칭 자동 점수 가산 기능 해제 (모든 후원이 승인 대기함으로 모이도록 설정)
+            # for bj in state.get(target_list_key, []):
+            #     if bj['name'] == parsed_name:
+            #         add_point = int(amount / 10000 + 0.5)
+            #         bj['score'] += add_point
+            #         bj['contribution'] = bj.get('contribution', 0) + add_point
+            #         current_total = bj['score']
+            #         break
                     
             try:
                 with get_db_connection() as conn:
