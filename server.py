@@ -384,7 +384,21 @@ def load_data():
     MEMORY_STATE = state
     return MEMORY_STATE
 
-def save_data(new_data, is_initial=False):
+db_write_queue = queue.Queue()
+
+def db_worker():
+    while True:
+        try:
+            new_data, is_initial = db_write_queue.get()
+            save_data_sync(new_data, is_initial)
+            db_write_queue.task_done()
+        except Exception as e:
+            print(f"❌ [비동기 DB 저장 백그라운드 오류] {e}")
+            time.sleep(1)
+
+threading.Thread(target=db_worker, daemon=True).start()
+
+def save_data_sync(new_data, is_initial=False):
     global MEMORY_STATE
     old_data = MEMORY_STATE if MEMORY_STATE else DEFAULT_STATE
     
@@ -412,26 +426,34 @@ def save_data(new_data, is_initial=False):
             for bj in new_data.get("bjs", []):
                 cursor.execute(db_query("INSERT INTO players (name, score, contribution) VALUES (?, ?, ?)"), (bj["name"], bj["score"], bj.get("contribution", 0)))
             
-            # 3. 설정 상태 키-값 저장
+            # 3. 설정 상태 키-값 저장 (변경된 값만 필터링하여 데이터베이스 트래픽 최소화)
             for key, value in new_data.items():
                 if key != "bjs":
-                    if IS_POSTGRES:
-                        cursor.execute(
-                            "INSERT INTO kv_store (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                            (key, json.dumps(value, ensure_ascii=False))
-                        )
-                    else:
-                        cursor.execute(
-                            "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
-                            (key, json.dumps(value, ensure_ascii=False))
-                        )
-                        
-        # DB 저장(트랜잭션 commit) 성공 시에만 메모리 최신화
-        MEMORY_STATE = new_data
-        
+                    new_val_str = json.dumps(value, ensure_ascii=False)
+                    old_val = old_data.get(key)
+                    old_val_str = json.dumps(old_val, ensure_ascii=False) if old_val is not None else None
+                    
+                    if is_initial or old_val_str != new_val_str:
+                        if IS_POSTGRES:
+                            cursor.execute(
+                                "INSERT INTO kv_store (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                                (key, new_val_str)
+                            )
+                        else:
+                            cursor.execute(
+                                "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
+                                (key, new_val_str)
+                            )
+                            
     except Exception as e:
-        print(f"❌ [DB 트랜잭션 저장 실패 - 메모리 롤백 처리] {e}")
-        raise e
+        print(f"❌ [DB 동기화 저장 실패] {e}")
+
+def save_data(new_data, is_initial=False):
+    global MEMORY_STATE
+    # 메모리 상의 캐시 상태는 즉시 최신화하여 조종실과 오버레이에 즉시 전송되게 함 (0ms 레이턴시)
+    MEMORY_STATE = new_data
+    # 실제 원격 DB 저장은 백그라운드 큐에 넣어 비동기로 처리
+    db_write_queue.put((new_data, is_initial))
 
 def time_machine_recovery():
     try:
@@ -888,7 +910,7 @@ def receive_donation():
                 
             for bj in state.get(target_list_key, []):
                 if bj['name'] == parsed_name:
-                    add_point = round(amount / 10000)
+                    add_point = int(amount / 10000 + 0.5)
                     bj['score'] += add_point
                     bj['contribution'] = bj.get('contribution', 0) + add_point
                     current_total = bj['score']
@@ -1412,11 +1434,11 @@ def get_manual_logs():
             # Paginated fetch
             offset = (page - 1) * per_page
             if IS_POSTGRES:
-                param_idx_offset = len(params) + 1
-                param_idx_limit = len(params) + 2
+                param_idx_limit = len(params) + 1
+                param_idx_offset = len(params) + 2
                 data_q = f"SELECT id, timestamp, name, amount, current_total, message, source FROM donation_history{where_clause} ORDER BY id DESC LIMIT ${param_idx_limit} OFFSET ${param_idx_offset}"
                 pg_data_q = data_q
-                all_params = params + [offset, per_page]
+                all_params = params + [per_page, offset]
                 for i in range(len(all_params)):
                     pg_data_q = pg_data_q.replace(f"${i+1}", "%s", 1)
                 cursor.execute(pg_data_q, all_params)
