@@ -668,6 +668,7 @@
         <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-reaction')"><i class="fa-solid fa-compact-disc"></i> 리액션</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
@@ -903,6 +904,61 @@
                     <div style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255,255,255,0.02); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-light); width: fit-content; margin: 0 auto;">
                         <i class="fa-solid fa-volume-high" style="color: var(--accent); font-size: 11px;"></i>
                         <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="document.getElementById('bgm-audio').volume = this.value" class="ios-slider-volume" style="width: 80px; height: 6px; cursor: pointer;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-reaction" class="tab-content">
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
+            <!-- 좌측: 리액션 등록 폼 -->
+            <div class="group-box" style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="group-title"><i class="fa-solid fa-plus-circle" style="color: var(--accent);"></i> 신규 리액션 등록</div>
+                
+                <form id="reaction-upload-form" onsubmit="handleReactionSubmit(event)" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">리액션 제목</label>
+                        <input type="text" id="reaction-title" placeholder="예: 예지랑 제로투, 행복한걸 코카인" required style="width: 100%;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">자동 발동 후원금액 (원 단위)</label>
+                        <input type="number" id="reaction-amount" placeholder="예: 10000 (해당 금액 후원 시 자동 송출)" style="width: 100%;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">음원 파일 (.mp3, .wav)</label>
+                        <div class="upload-dropzone" onclick="document.getElementById('reaction-audio-file').click()" style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(0,0,0,0.1);">
+                            <i class="fa-solid fa-file-audio" style="font-size: 24px; color: var(--accent); margin-bottom: 8px;"></i>
+                            <div id="reaction-audio-label" style="font-size: 12px; color: #999;">음원 파일 선택 또는 드래그</div>
+                            <input type="file" id="reaction-audio-file" accept="audio/*" style="display: none;" onchange="updateUploadLabel('reaction-audio-file', 'reaction-audio-label')">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">사진/움짤 파일 (.png, .jpg, .gif)</label>
+                        <div class="upload-dropzone" onclick="document.getElementById('reaction-image-file').click()" style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(0,0,0,0.1);">
+                            <i class="fa-solid fa-file-image" style="font-size: 24px; color: var(--danger); margin-bottom: 8px;"></i>
+                            <div id="reaction-image-label" style="font-size: 12px; color: #999;">이미지 파일 선택 또는 드래그</div>
+                            <input type="file" id="reaction-image-file" accept="image/*" style="display: none;" onchange="updateUploadLabel('reaction-image-file', 'reaction-image-label')">
+                        </div>
+                    </div>
+                    <button type="submit" class="primary" style="height: 42px; font-weight: bold; font-size: 14px; border-radius: 12px; justify-content: center; width: 100%;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> 리액션 등록하기
+                    </button>
+                </form>
+            </div>
+            
+            <!-- 우측: 등록된 리액션 리스트 -->
+            <div class="group-box" style="display: flex; flex-direction: column; gap: 15px; min-height: 500px;">
+                <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 등록된 리액션 음원/사진 라이브러리</span>
+                    <button onclick="loadReactionList()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+                </div>
+                
+                <div id="reaction-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; max-height: 520px; overflow-y: auto; padding: 5px;">
+                    <!-- 리액션 카드 로딩 상태 -->
+                    <div style="color: #666; text-align: center; grid-column: 1 / -1; padding: 50px 0;">
+                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; color: var(--accent); margin-bottom: 10px; display: block;"></i>
+                        불러오는 중...
                     </div>
                 </div>
             </div>
@@ -1231,7 +1287,7 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
+        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); } if (tabId === 'tab-logs') { loadManualLogs(1); } if (tabId === 'tab-reaction') { loadReactionList(); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         let lastReactionToastTime = 0;
         let serverTimeOffset = 0;
@@ -3413,6 +3469,159 @@
             } catch (e) {
                 window.userInitiatedEnd = false;
                 await premiumAlert("서버 통신 실패: " + e.message, "통신 실패", "warning");
+            }
+        }
+
+        // ==========================================
+        // 🎵 커스텀 리액션 플레이어 제어 스크립트
+        // ==========================================
+        function updateUploadLabel(inputId, labelId) {
+            const input = document.getElementById(inputId);
+            const label = document.getElementById(labelId);
+            if (input && input.files && input.files[0]) {
+                label.innerText = input.files[0].name;
+                label.style.color = 'var(--accent)';
+            } else {
+                label.innerText = "파일 선택 또는 드래그";
+                label.style.color = '#999';
+            }
+        }
+
+        async function handleReactionSubmit(event) {
+            event.preventDefault();
+            const title = document.getElementById('reaction-title').value.trim();
+            const amount = document.getElementById('reaction-amount').value || 0;
+            const audioFile = document.getElementById('reaction-audio-file').files[0];
+            const imageFile = document.getElementById('reaction-image-file').files[0];
+
+            if (!title) {
+                premiumAlert("제목을 입력해주세요.", "입력 오류", "warning");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('amount', amount);
+            if (audioFile) formData.append('audio', audioFile);
+            if (imageFile) formData.append('image', imageFile);
+
+            try {
+                const submitBtn = event.target.querySelector('button[type="submit"]');
+                const origHtml = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 업로드 중...';
+
+                let res = await fetch('/api/reaction/add', {
+                    method: 'POST',
+                    body: formData
+                });
+                let data = await res.json();
+                
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = origHtml;
+
+                if (data.status === 'success') {
+                    premiumAlert(data.message, "성공", "success");
+                    document.getElementById('reaction-upload-form').reset();
+                    document.getElementById('reaction-audio-label').innerText = "음원 파일 선택 또는 드래그";
+                    document.getElementById('reaction-audio-label').style.color = '#999';
+                    document.getElementById('reaction-image-label').innerText = "이미지 파일 선택 또는 드래그";
+                    document.getElementById('reaction-image-label').style.color = '#999';
+                    loadReactionList();
+                } else {
+                    premiumAlert("등록 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("서버 전송 실패: " + e.message, "통신 오류", "warning");
+            }
+        }
+
+        async function loadReactionList() {
+            const container = document.getElementById('reaction-list-container');
+            if (!container) return;
+
+            try {
+                let res = await fetch('/api/reaction/list');
+                let list = await res.json();
+                
+                if (list.status === 'error') {
+                    container.innerHTML = `<div style="color: var(--danger); text-align: center; grid-column: 1 / -1; padding: 50px 0;">목록 로드 실패: ${list.message}</div>`;
+                    return;
+                }
+
+                if (list.length === 0) {
+                    container.innerHTML = `
+                        <div style="color: #666; text-align: center; grid-column: 1 / -1; padding: 80px 0;">
+                            <i class="fa-solid fa-music" style="font-size: 36px; color: #333; margin-bottom: 10px; display: block;"></i>
+                            등록된 리액션이 없습니다. 좌측 폼에서 음원과 사진을 등록해 주세요!
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = list.map(item => {
+                    const amountText = item.amount > 0 ? `${item.amount.toLocaleString()}원` : "수동 발동 전용";
+                    const thumbnail = item.image_url ? 
+                        `<div style="width: 100%; height: 110px; background: url('${item.image_url}') center/cover no-repeat; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);"></div>` :
+                        `<div style="width: 100%; height: 110px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+                            <i class="fa-solid fa-image" style="font-size: 24px; color: #444;"></i>
+                            <span style="font-size: 11px; color: #666;">이미지 없음</span>
+                         </div>`;
+
+                    return `
+                        <div class="reaction-card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-light); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                            ${thumbnail}
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: bold; font-size: 13px; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${item.title}</div>
+                                <div style="font-size: 11px; color: var(--accent); font-weight: 600; margin-top: 3px;">
+                                    <i class="fa-solid fa-coins"></i> ${amountText}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 6px; margin-top: 5px;">
+                                <button class="primary" onclick="playReaction(${item.id})" style="flex: 1; height: 30px; font-size: 11px; font-weight: bold; border-radius: 8px; justify-content: center; padding: 0;">
+                                    <i class="fa-solid fa-play"></i> 방송 송출
+                                </button>
+                                <button class="danger" onclick="deleteReaction(${item.id}, '${item.title}')" style="width: 30px; height: 30px; border-radius: 8px; justify-content: center; padding: 0; flex-shrink: 0;">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                container.innerHTML = `<div style="color: var(--danger); text-align: center; grid-column: 1 / -1; padding: 50px 0;">통신 실패: ${e.message}</div>`;
+            }
+        }
+
+        async function playReaction(itemId) {
+            try {
+                let res = await fetch(`/api/reaction/play/${itemId}`, { method: 'POST' });
+                let data = await res.json();
+                if (data.status === 'success') {
+                    showReactionToast();
+                } else {
+                    premiumAlert("송출 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("송출 실패: " + e.message, "통신 오류", "warning");
+            }
+        }
+
+        async function deleteReaction(itemId, title) {
+            let confirm = await premiumConfirm(`'${title}' 리액션을 정말로 삭제하시겠습니까?\n서버 DB 및 저장된 음원/사진 파일이 완전히 삭제됩니다.`, "리액션 삭제 확인", "danger");
+            if (!confirm) return;
+
+            try {
+                let res = await fetch(`/api/reaction/delete/${itemId}`, { method: 'POST' });
+                let data = await res.json();
+                if (data.status === 'success') {
+                    premiumAlert("리액션이 삭제되었습니다.", "삭제 성공", "success");
+                    loadReactionList();
+                } else {
+                    premiumAlert("삭제 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("삭제 실패: " + e.message, "통신 오류", "warning");
             }
         }
     </script>

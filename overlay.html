@@ -303,11 +303,68 @@
         .donator-name { color: #ff3366; text-shadow: 0 0 15px rgba(255, 51, 102, 0.8); }
         .donation-amount { font-size: 70px; font-weight: 900; color: #FFD700; text-shadow: 0 0 20px #FFD700, 0 0 40px #ffaa00; margin: 15px 0; letter-spacing: -2px; }
         .donation-message { background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 12px; padding: 15px 35px; font-size: 28px; font-weight: 700; color: #ffffff; max-width: 700px; word-break: break-all; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
+
+        /* 🎵 리액션 음원/사진 송출 화면 오버레이 스타일 */
+        .reaction-screen-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 500px;
+            height: 500px;
+            background: rgba(10, 10, 12, 0.4);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 2px solid rgba(0, 255, 204, 0.3);
+            box-shadow: 0 0 40px rgba(0, 255, 204, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.05);
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100010;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .reaction-screen-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+            border-color: rgba(0, 255, 204, 0.8);
+            box-shadow: 0 0 50px rgba(0, 255, 204, 0.4), inset 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+        .reaction-screen-overlay img {
+            max-width: 100%;
+            max-height: 80%;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .reaction-screen-title {
+            margin-top: 15px;
+            font-size: 24px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8), 0 0 15px rgba(0, 255, 204, 0.6);
+            font-family: 'Malgun Gothic', sans-serif;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
     <div id="fire-vignette" class="fire-vignette"></div>
     <div id="neon-overlay" class="neon-layer"></div>
+    
+    <!-- 🎵 리액션 음원/사진 송출 전광판 및 오디오 객체 -->
+    <div id="reaction-screen-overlay" class="reaction-screen-overlay">
+        <img id="reaction-screen-image" src="" alt="Reaction Image">
+        <div id="reaction-screen-title" class="reaction-screen-title"></div>
+    </div>
+    <audio id="reaction-audio" style="display:none;"></audio>
     
     <div id="audi-overlay" class="audi-layer">
         <div class="audi-container left">
@@ -1506,6 +1563,64 @@
         // 초기화
         RouletteWidget.init();
 
+        // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
+        let reactionTimeout = null;
+        function playReaction(data) {
+            console.log("Playing reaction:", data);
+            
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            const titleEl = document.getElementById('reaction-screen-title');
+            const audio = document.getElementById('reaction-audio');
+            
+            if (!overlay || !img || !titleEl || !audio) return;
+            
+            // 1. 기존 진행 중인 리액션 및 오디오 강제 중지
+            if (reactionTimeout) {
+                clearTimeout(reactionTimeout);
+                reactionTimeout = null;
+            }
+            audio.pause();
+            audio.src = "";
+            
+            // 2. 새로운 리액션 데이터 입력
+            titleEl.innerText = data.title || "리액션!";
+            
+            if (data.image_url) {
+                img.src = data.image_url;
+                img.style.display = 'block';
+            } else {
+                img.src = "";
+                img.style.display = 'none';
+            }
+            
+            // 3. 카드 노출 (페이드인 & 스케일 바운스)
+            overlay.classList.add('show');
+            
+            // 4. 음원 재생 및 종료 콜백 설정
+            if (data.audio_url) {
+                audio.src = data.audio_url;
+                audio.onended = function() {
+                    overlay.classList.remove('show');
+                    setTimeout(() => { img.src = ""; }, 500);
+                };
+                audio.play().catch(err => {
+                    console.error("Audio autoplay block fallback:", err);
+                    // 오디오 자동재생 제한 우회 타이머
+                    reactionTimeout = setTimeout(() => {
+                        overlay.classList.remove('show');
+                        setTimeout(() => { img.src = ""; }, 500);
+                    }, 5000);
+                });
+            } else {
+                // 음원 파일이 없는 경우, 5초 동안만 이미지를 보여주고 종료
+                reactionTimeout = setTimeout(() => {
+                    overlay.classList.remove('show');
+                    setTimeout(() => { img.src = ""; }, 500);
+                }, 5000);
+            }
+        }
+
         let sseSource = null;
         function initSSE() {
             if (sseSource) {
@@ -1526,6 +1641,11 @@
             sseSource.addEventListener('layout', function(e) {
                 const layoutData = JSON.parse(e.data);
                 applyLayout(layoutData);
+            });
+
+            sseSource.addEventListener('reaction_play', function(e) {
+                const playData = JSON.parse(e.data);
+                playReaction(playData);
             });
             
             sseSource.onerror = function(err) {

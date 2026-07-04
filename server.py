@@ -180,9 +180,9 @@ def require_login():
         '/setup'
     ]
     
-    if path in exempt_routes:
+    if path in exempt_routes or path.startswith('/uploads/'):
         return
-        
+         
     # HTTP Authorization Bearer 토큰 및 ?token= 파라미터 검증 지원
     auth_header = request.headers.get('Authorization')
     token = None
@@ -927,6 +927,26 @@ def receive_donation():
             except Exception as dbe:
                 print(f"[장부 기록 오류] {dbe}")
                 
+            # 🎵 자동 리액션 송 연동 감지
+            if amount > 0:
+                try:
+                    with get_db_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(db_query("SELECT title, audio_file_id, image_file_id FROM reaction_items WHERE amount = ? LIMIT 1"), (amount,))
+                        row = cursor.fetchone()
+                        if row:
+                            r_title, r_audio_file_id, r_image_file_id = row
+                            audio_url = f"/uploads/{r_audio_file_id}" if r_audio_file_id else ""
+                            image_url = f"/uploads/{r_image_file_id}" if r_image_file_id else ""
+                            threading.Timer(0.5, lambda: broadcast_event('reaction_play', {
+                                "title": r_title,
+                                "audio_url": audio_url,
+                                "image_url": image_url
+                            })).start()
+                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 매칭 ➡️ '{r_title}' 방송 송출 대기")
+                except Exception as e:
+                    print(f"⚠️ [자동 리액션 감지 오류] {e}")
+                
             save_data(state)
             broadcast_event('update', state)
             
@@ -1576,6 +1596,153 @@ def sd_neon():
         print(f"  💡 [스트림덱 명령] 네온 이펙트 조명 전환: {color}")
         return jsonify({"status": "success", "color": color})
     except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ==========================================
+# 🎵 커스텀 리액션 플랫폼 API (영구 보존형)
+# ==========================================
+import uuid
+
+@app.route('/uploads/<file_id>', methods=['GET'])
+def get_reaction_file(file_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT filename, content_type, file_data FROM reaction_files WHERE id = ?"), (file_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"status": "error", "message": "File not found"}), 404
+            
+            filename, content_type, file_data = row
+            data_bytes = bytes(file_data)
+            
+            from flask import make_response
+            response = make_response(data_bytes)
+            response.headers.set('Content-Type', content_type)
+            response.headers.set('Content-Disposition', f'inline; filename="{urllib.parse.quote(filename)}"')
+            response.headers.set('Cache-Control', 'public, max-age=31536000')
+            return response
+    except Exception as e:
+        print(f"Error serving reaction file {file_id}: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/list', methods=['GET'])
+def get_reactions_list():
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
+            rows = cursor.fetchall()
+            reactions = []
+            for r in rows:
+                reactions.append({
+                    "id": r[0],
+                    "title": r[1],
+                    "amount": r[2],
+                    "audio_url": f"/uploads/{r[3]}" if r[3] else "",
+                    "image_url": f"/uploads/{r[4]}" if r[4] else ""
+                })
+            return jsonify(reactions)
+    except Exception as e:
+        print(f"Error listing reactions: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/add', methods=['POST'])
+def add_reaction():
+    try:
+        title = request.form.get('title', '').strip()
+        amount = int(request.form.get('amount', 0))
+        
+        if not title:
+            return jsonify({"status": "error", "message": "제목을 입력해주세요."}), 400
+            
+        audio_file = request.files.get('audio')
+        image_file = request.files.get('image')
+        
+        audio_file_id = None
+        image_file_id = None
+        
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            if audio_file and audio_file.filename:
+                audio_file_id = f"aud_{uuid.uuid4().hex}"
+                audio_data = audio_file.read()
+                cursor.execute(
+                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
+                    (audio_file_id, audio_file.filename, audio_file.content_type, psycopg2.Binary(audio_data) if IS_POSTGRES else audio_data)
+                )
+                
+            if image_file and image_file.filename:
+                image_file_id = f"img_{uuid.uuid4().hex}"
+                image_data = image_file.read()
+                cursor.execute(
+                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
+                    (image_file_id, image_file.filename, image_file.content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
+                )
+                
+            cursor.execute(
+                db_query("INSERT INTO reaction_items (title, amount, audio_file_id, image_file_id) VALUES (?, ?, ?, ?)"),
+                (title, amount, audio_file_id, image_file_id)
+            )
+            conn.commit()
+            
+        return jsonify({"status": "success", "message": "리액션 곡 등록 완료!"})
+    except Exception as e:
+        print(f"Error adding reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/delete/<int:item_id>', methods=['POST', 'DELETE'])
+def delete_reaction(item_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
+                
+            audio_file_id, image_file_id = row
+            
+            cursor.execute(db_query("DELETE FROM reaction_items WHERE id = ?"), (item_id,))
+            
+            if audio_file_id:
+                cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (audio_file_id,))
+            if image_file_id:
+                cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (image_file_id,))
+                
+            conn.commit()
+            
+        return jsonify({"status": "success", "message": "리액션 곡 삭제 완료!"})
+    except Exception as e:
+        print(f"Error deleting reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/play/<int:item_id>', methods=['POST'])
+def play_reaction(item_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT title, audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
+                
+            title, audio_file_id, image_file_id = row
+            
+            audio_url = f"/uploads/{audio_file_id}" if audio_file_id else ""
+            image_url = f"/uploads/{image_file_id}" if image_file_id else ""
+            
+            broadcast_event('reaction_play', {
+                "id": item_id,
+                "title": title,
+                "audio_url": audio_url,
+                "image_url": image_url
+            })
+            
+        return jsonify({"status": "success", "message": "방송 송출 완료!"})
+    except Exception as e:
+        print(f"Error playing reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
