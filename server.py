@@ -936,15 +936,15 @@ def receive_donation():
             except Exception as dbe:
                 print(f"[장부 기록 오류] {dbe}")
                 
-            # 🎵 자동 리액션 송 연동 감지
+            # 🎵 자동 리액션 송 연동 감지 (근사치 매칭: 후원금액 이하 중 가장 가까운 리액션)
             if amount > 0:
                 try:
                     with get_db_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id FROM reaction_items WHERE amount = ? LIMIT 1"), (amount,))
+                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id, amount FROM reaction_items WHERE amount <= ? ORDER BY amount DESC LIMIT 1"), (amount,))
                         row = cursor.fetchone()
                         if row:
-                            r_id, r_title, r_audio_file_id, r_image_file_id = row
+                            r_id, r_title, r_audio_file_id, r_image_file_id, r_amount = row
                             audio_url = f"/uploads/{r_audio_file_id}" if r_audio_file_id else ""
                             image_url = f"/uploads/{r_image_file_id}" if r_image_file_id else ""
                             
@@ -960,7 +960,7 @@ def receive_donation():
                                 "message": cleaned_msg
                             })
                             state['reaction_mode'] = True
-                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 매칭 ➡️ '{r_title}' 큐 추가 완료")
+                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 → 근사치 {r_amount}원 매칭 ➡️ '{r_title}' 큐 추가 완료")
                 except Exception as e:
                     print(f"⚠️ [자동 리액션 감지 오류] {e}")
                 
