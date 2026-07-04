@@ -912,39 +912,45 @@
 
     <div id="tab-reaction" class="tab-content">
         <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
-            <!-- 좌측: 리액션 등록 폼 -->
+            <!-- 좌측: 리액션 상태 제어 및 수동 후원, 대기열 -->
             <div class="group-box" style="display: flex; flex-direction: column; gap: 15px;">
-                <div class="group-title"><i class="fa-solid fa-plus-circle" style="color: var(--accent);"></i> 신규 리액션 등록</div>
+                <div class="group-title"><i class="fa-solid fa-sliders" style="color: var(--accent);"></i> 리액션 제어 센터</div>
                 
-                <form id="reaction-upload-form" onsubmit="handleReactionSubmit(event)" style="display: flex; flex-direction: column; gap: 15px;">
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">리액션 제목</label>
-                        <input type="text" id="reaction-title" placeholder="예: 예지랑 제로투, 행복한걸 코카인" required style="width: 100%;">
+                <!-- 1. 리액션 오디오 볼륨 및 중단 -->
+                <div style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; font-weight: bold; color: #fff;"><i class="fa-solid fa-volume-high"></i> 리액션 볼륨</span>
+                        <span id="reaction-vol-text" style="font-size: 12px; font-weight: bold; color: var(--accent);">50%</span>
                     </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">자동 발동 후원금액 (원 단위)</label>
-                        <input type="number" id="reaction-amount" placeholder="예: 10000 (해당 금액 후원 시 자동 송출)" style="width: 100%;">
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">음원 파일 (.mp3, .wav)</label>
-                        <div class="upload-dropzone" onclick="document.getElementById('reaction-audio-file').click()" style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(0,0,0,0.1);">
-                            <i class="fa-solid fa-file-audio" style="font-size: 24px; color: var(--accent); margin-bottom: 8px;"></i>
-                            <div id="reaction-audio-label" style="font-size: 12px; color: #999;">음원 파일 선택 또는 드래그</div>
-                            <input type="file" id="reaction-audio-file" accept="audio/*" style="display: none;" onchange="updateUploadLabel('reaction-audio-file', 'reaction-audio-label')">
-                        </div>
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #ccc;">사진/움짤 파일 (.png, .jpg, .gif)</label>
-                        <div class="upload-dropzone" onclick="document.getElementById('reaction-image-file').click()" style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; transition: all 0.3s ease; background: rgba(0,0,0,0.1);">
-                            <i class="fa-solid fa-file-image" style="font-size: 24px; color: var(--danger); margin-bottom: 8px;"></i>
-                            <div id="reaction-image-label" style="font-size: 12px; color: #999;">이미지 파일 선택 또는 드래그</div>
-                            <input type="file" id="reaction-image-file" accept="image/*" style="display: none;" onchange="updateUploadLabel('reaction-image-file', 'reaction-image-label')">
-                        </div>
-                    </div>
-                    <button type="submit" class="primary" style="height: 42px; font-weight: bold; font-size: 14px; border-radius: 12px; justify-content: center; width: 100%;">
-                        <i class="fa-solid fa-cloud-arrow-up"></i> 리액션 등록하기
+                    <input type="range" id="reaction-volume-slider" min="0" max="1" step="0.05" value="0.5" oninput="changeReactionVolume(this.value)" style="width: 100%; accent-color: var(--accent);">
+                    
+                    <button onclick="stopReaction()" class="danger" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px;">
+                        <i class="fa-solid fa-circle-stop"></i> 리액션 긴급 중단
                     </button>
-                </form>
+                </div>
+
+                <!-- 2. 수동 후원 송출 (금액 입력 시 리액션 연동) -->
+                <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
+                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px;"><i class="fa-solid fa-coins" style="color: #ffd700;"></i> 수동 후원 (리액션 자동 매칭)</div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="manual-donator" placeholder="후원자명" style="width: 40%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
+                        <input type="number" id="manual-amount" placeholder="후원금액" style="width: 60%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
+                    </div>
+                    <button onclick="triggerManualDonation()" class="primary" style="height: 34px; font-weight: bold; font-size: 12px; border-radius: 8px; justify-content: center; width: 100%;">
+                        <i class="fa-solid fa-paper-plane"></i> 후원 리액션 즉시 송출
+                    </button>
+                </div>
+
+                <!-- 3. 쌓인 리액션 목록 (대기열) -->
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <div style="font-size: 13px; font-weight: bold; color: #fff; display: flex; justify-content: space-between; align-items: center;">
+                        <span><i class="fa-solid fa-list-ol" style="color: var(--accent);"></i> 대기 중인 리액션 큐</span>
+                        <span id="reaction-queue-count" style="font-size: 11px; background: rgba(0,255,204,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
+                    </div>
+                    <div id="reaction-queue-container" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
+                        <!-- 대기 목록이 스크립트로 렌더링됨 -->
+                    </div>
+                </div>
             </div>
             
             <!-- 우측: 등록된 리액션 리스트 -->
@@ -1640,6 +1646,16 @@
                 let matchLogHtml = gd.match_logs.map(log => `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px;"><span style="color:#888;">&gt;</span> <span style="color:#666; font-size: 11px;">[${log.time}]</span> <i class="fa-solid fa-bolt" style="color:var(--gold); font-size: 10px;"></i> <span style="color:#fff; font-weight: bold;">${log.name}</span> <span style="color:var(--accent); font-weight: bold;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
                 if (lastMatchLogHtml !== matchLogHtml) { document.getElementById('log-box-match').innerHTML = matchLogHtml; lastMatchLogHtml = matchLogHtml; }
             }
+            
+            // 🎵 리액션 큐 및 슬라이더 렌더링
+            if (document.getElementById('reaction-volume-slider')) {
+                if (document.activeElement.id !== 'reaction-volume-slider') {
+                    document.getElementById('reaction-volume-slider').value = gd.reaction_volume !== undefined ? gd.reaction_volume : 0.5;
+                }
+                document.getElementById('reaction-vol-text').innerText = Math.round((gd.reaction_volume !== undefined ? gd.reaction_volume : 0.5) * 100) + '%';
+            }
+            renderReactionQueue();
+
             renderRouletteTab();
         }
 
@@ -3622,6 +3638,112 @@
                 }
             } catch (e) {
                 premiumAlert("삭제 실패: " + e.message, "통신 오류", "warning");
+            }
+        }
+
+        // ==========================================
+        // 🎵 리액션 큐 제어 스크립트
+        // ==========================================
+        function renderReactionQueue() {
+            const queue = gd.reaction_queue || [];
+            const container = document.getElementById('reaction-queue-container');
+            const countEl = document.getElementById('reaction-queue-count');
+            
+            if (!container || !countEl) return;
+            
+            countEl.innerText = queue.length + '개';
+            
+            if (queue.length === 0) {
+                container.innerHTML = `
+                    <div style="color: #666; font-size: 11px; text-align: center; padding: 25px 0;">
+                        대기 중인 리액션이 없습니다.
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = queue.map((item, idx) => {
+                const isPlaying = (idx === 0);
+                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(0, 255, 204, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
+                const badge = isPlaying ? '<span style="font-size:9px; background:var(--accent); color:#000; padding:1px 4px; border-radius:4px; font-weight:bold; margin-right:5px; vertical-align:middle;">재생중</span>' : `<span style="font-size:9px; background:#444; color:#ccc; padding:1px 4px; border-radius:4px; font-weight:bold; margin-right:5px; vertical-align:middle;">대기 ${idx}</span>`;
+                
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; ${borderStyle}">
+                        <div style="flex: 1; min-width: 0; font-size: 12px; color: #fff;">
+                            ${badge}<span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:inline-block; max-width:110px; vertical-align:middle;">${item.title}</span>
+                        </div>
+                        <button onclick="removeFromQueue('${item.id}')" style="background:none; border:none; color:#ff3b30; cursor:pointer; font-size:12px; padding: 0 4px; flex-shrink: 0; display: inline-flex; align-items: center;">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function changeReactionVolume(val) {
+            const vol = parseFloat(val);
+            const textEl = document.getElementById('reaction-vol-text');
+            if (textEl) textEl.innerText = Math.round(vol * 100) + '%';
+            gd.reaction_volume = vol;
+            pushAPI();
+        }
+
+        async function stopReaction() {
+            try {
+                let res = await fetch('/api/reaction/stop', { method: 'POST' });
+                let data = await res.json();
+                if (data.status === 'success') {
+                    showReactionToast();
+                } else {
+                    premiumAlert("리액션 중단 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
+            }
+        }
+
+        async function removeFromQueue(rqId) {
+            try {
+                let res = await fetch(`/api/reaction/queue/remove/${rqId}`, { method: 'POST' });
+                let data = await res.json();
+                if (data.status !== 'success') {
+                    premiumAlert("삭제 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
+            }
+        }
+
+        async function triggerManualDonation() {
+            const name = document.getElementById('manual-donator').value.trim() || "수동후원";
+            const amountInput = document.getElementById('manual-amount');
+            const amount = parseInt(amountInput.value) || 0;
+
+            if (amount <= 0) {
+                premiumAlert("후원 금액을 입력해주세요.", "입력 오류", "warning");
+                return;
+            }
+
+            try {
+                let res = await fetch('/api/donation', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        amount: amount,
+                        message: "수동 후원 송출",
+                        tx_id: "manual_" + Date.now()
+                    })
+                });
+                let data = await res.json();
+                if (data.status === 'success') {
+                    amountInput.value = "";
+                    document.getElementById('manual-donator').value = "";
+                } else {
+                    premiumAlert("송출 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
             }
         }
     </script>

@@ -237,6 +237,8 @@ DEFAULT_STATE = {
     "target_goal": 50000,
     "theme": "default",
     "reaction_mode": False,
+    "reaction_queue": [],
+    "reaction_volume": 0.5,
     "popup_enabled": True,
     "takeover_enabled": True,
     "ticker_enabled": True,
@@ -924,7 +926,6 @@ def receive_donation():
             #         bj['contribution'] = bj.get('contribution', 0) + add_point
             #         current_total = bj['score']
             #         break
-                    
             try:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
@@ -940,18 +941,24 @@ def receive_donation():
                 try:
                     with get_db_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute(db_query("SELECT title, audio_file_id, image_file_id FROM reaction_items WHERE amount = ? LIMIT 1"), (amount,))
+                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id FROM reaction_items WHERE amount = ? LIMIT 1"), (amount,))
                         row = cursor.fetchone()
                         if row:
-                            r_title, r_audio_file_id, r_image_file_id = row
+                            r_id, r_title, r_audio_file_id, r_image_file_id = row
                             audio_url = f"/uploads/{r_audio_file_id}" if r_audio_file_id else ""
                             image_url = f"/uploads/{r_image_file_id}" if r_image_file_id else ""
-                            threading.Timer(0.5, lambda: broadcast_event('reaction_play', {
+                            
+                            reaction_uuid = f"rq_{uuid.uuid4().hex}"
+                            state['reaction_queue'].append({
+                                "id": reaction_uuid,
+                                "item_id": r_id,
                                 "title": r_title,
                                 "audio_url": audio_url,
-                                "image_url": image_url
-                            })).start()
-                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 매칭 ➡️ '{r_title}' 방송 송출 대기")
+                                "image_url": image_url,
+                                "amount": amount
+                            })
+                            state['reaction_mode'] = True
+                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 매칭 ➡️ '{r_title}' 큐 추가 완료")
                 except Exception as e:
                     print(f"⚠️ [자동 리액션 감지 오류] {e}")
                 
@@ -1737,20 +1744,82 @@ def play_reaction(item_id):
                 return jsonify({"status": "error", "message": "Reaction item not found"}), 404
                 
             title, audio_file_id, image_file_id = row
-            
             audio_url = f"/uploads/{audio_file_id}" if audio_file_id else ""
             image_url = f"/uploads/{image_file_id}" if image_file_id else ""
             
-            broadcast_event('reaction_play', {
-                "id": item_id,
-                "title": title,
-                "audio_url": audio_url,
-                "image_url": image_url
-            })
-            
+            with file_lock:
+                state = load_data()
+                reaction_uuid = f"rq_{uuid.uuid4().hex}"
+                state['reaction_queue'].append({
+                    "id": reaction_uuid,
+                    "item_id": item_id,
+                    "title": title,
+                    "audio_url": audio_url,
+                    "image_url": image_url
+                })
+                state['reaction_mode'] = True
+                save_data(state)
+                broadcast_event('update', state)
+                
         return jsonify({"status": "success", "message": "방송 송출 완료!"})
     except Exception as e:
         print(f"Error playing reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/next', methods=['POST'])
+def next_reaction():
+    try:
+        with file_lock:
+            state = load_data()
+            if state.get('reaction_queue'):
+                state['reaction_queue'].pop(0)
+                
+            if not state.get('reaction_queue'):
+                state['reaction_mode'] = False
+                
+            save_data(state)
+            broadcast_event('update', state)
+        return jsonify({"status": "success", "message": "Popped reaction"})
+    except Exception as e:
+        print(f"Error in next_reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/stop', methods=['POST'])
+def stop_reaction():
+    try:
+        with file_lock:
+            state = load_data()
+            state['reaction_queue'] = []
+            state['reaction_mode'] = False
+            save_data(state)
+            broadcast_event('update', state)
+            broadcast_event('reaction_stop', {})
+        return jsonify({"status": "success", "message": "All reactions stopped"})
+    except Exception as e:
+        print(f"Error in stop_reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/queue/remove/<string:rq_id>', methods=['POST'])
+def remove_from_queue(rq_id):
+    try:
+        with file_lock:
+            state = load_data()
+            queue = state.get('reaction_queue', [])
+            if queue:
+                is_currently_playing = (queue[0]['id'] == rq_id)
+                state['reaction_queue'] = [item for item in queue if item['id'] != rq_id]
+                
+                if is_currently_playing:
+                    broadcast_event('reaction_stop', {})
+                    
+                if not state['reaction_queue']:
+                    state['reaction_mode'] = False
+                    
+                save_data(state)
+                broadcast_event('update', state)
+        return jsonify({"status": "success", "message": "Removed from queue"})
+    except Exception as e:
+        print(f"Error in remove_from_queue: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================

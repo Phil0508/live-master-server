@@ -324,7 +324,7 @@
             justify-content: center;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
             z-index: 100010;
             padding: 20px;
             box-sizing: border-box;
@@ -335,6 +335,13 @@
             transform: translate(-50%, -50%) scale(1);
             border-color: rgba(0, 255, 204, 0.8);
             box-shadow: 0 0 50px rgba(0, 255, 204, 0.4), inset 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+        .reaction-screen-overlay.show.minimize {
+            left: 180px;
+            top: 600px;
+            transform: translate(-50%, -50%) scale(0.6);
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.3);
+            border-color: rgba(0, 255, 204, 0.5);
         }
         .reaction-screen-overlay img {
             max-width: 100%;
@@ -661,6 +668,12 @@
                 document.documentElement.style.setProperty('--neon-speed', `${neonSpeedSec}s`);
                 document.documentElement.style.setProperty('--audi-speed', `${neonSpeedSec * 0.56}s`);
 
+                // 💡 [실시간 리액션 볼륨 연동]
+                if (d.reaction_volume !== undefined) {
+                    const audio = document.getElementById('reaction-audio');
+                    if (audio) audio.volume = d.reaction_volume;
+                }
+
                 // 💡 [번외 게임 활성화 상태 동적 체킹 및 슬라이딩 트리거]
                 let extraActive = d.extra_game_active || false;
                 if (currentExtraActiveState !== extraActive) {
@@ -826,6 +839,7 @@
 
                 // 🎁 투네이션 팝업
                 if (d.latest_donation && d.latest_donation.time !== lastDonationTime && d.popup_enabled) { 
+                    isDonationPopupShowing = true;
                     console.log("🎯 [투네이션 팝업 트리거 수신]:", d.latest_donation);
                     lastDonationTime = d.latest_donation.time;
                     
@@ -892,7 +906,11 @@
                     }
 
                     clearTimeout(toonPopupTimer);
-                    toonPopupTimer = setTimeout(() => p.classList.remove('show'), 2000); 
+                    toonPopupTimer = setTimeout(() => {
+                        p.classList.remove('show');
+                        isDonationPopupShowing = false;
+                        checkReactionQueue();
+                    }, 2000);
                 }
 
                 if (d.takeover_enabled && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
@@ -1040,6 +1058,7 @@
                     handleRouletteState(d);
                 }
                 
+                checkReactionQueue();
             } catch(e) { console.error("⚠️ handleData Error:", e); }
         }
 
@@ -1565,6 +1584,52 @@
 
         // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
         let reactionTimeout = null;
+        let reactionMinimizeTimeout = null;
+        let currentPlayingId = null;
+        let isDonationPopupShowing = false;
+
+        function checkReactionQueue() {
+            if (isDonationPopupShowing) return;
+            
+            if (!globalData || !globalData.reaction_queue || globalData.reaction_queue.length === 0) {
+                if (currentPlayingId !== null) {
+                    currentPlayingId = null;
+                    stopReactionVisuals();
+                }
+                return;
+            }
+            
+            const firstItem = globalData.reaction_queue[0];
+            if (currentPlayingId !== firstItem.id) {
+                currentPlayingId = firstItem.id;
+                playReaction(firstItem);
+            }
+        }
+
+        function stopReactionVisuals() {
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            const audio = document.getElementById('reaction-audio');
+            
+            if (overlay) {
+                overlay.classList.remove('show');
+                overlay.classList.remove('minimize');
+            }
+            if (audio) {
+                audio.pause();
+                audio.src = "";
+            }
+            if (reactionTimeout) {
+                clearTimeout(reactionTimeout);
+                reactionTimeout = null;
+            }
+            if (reactionMinimizeTimeout) {
+                clearTimeout(reactionMinimizeTimeout);
+                reactionMinimizeTimeout = null;
+            }
+            setTimeout(() => { if (img) img.src = ""; }, 500);
+        }
+
         function playReaction(data) {
             console.log("Playing reaction:", data);
             
@@ -1576,10 +1641,8 @@
             if (!overlay || !img || !titleEl || !audio) return;
             
             // 1. 기존 진행 중인 리액션 및 오디오 강제 중지
-            if (reactionTimeout) {
-                clearTimeout(reactionTimeout);
-                reactionTimeout = null;
-            }
+            if (reactionTimeout) clearTimeout(reactionTimeout);
+            if (reactionMinimizeTimeout) clearTimeout(reactionMinimizeTimeout);
             audio.pause();
             audio.src = "";
             
@@ -1594,31 +1657,40 @@
                 img.style.display = 'none';
             }
             
-            // 3. 카드 노출 (페이드인 & 스케일 바운스)
+            // 3. 카드 노출 (페이드인 & 스케일 바운스) - 중앙에 크게
+            overlay.classList.remove('minimize');
             overlay.classList.add('show');
             
-            // 4. 음원 재생 및 종료 콜백 설정
+            // 4. 2.5초 후 좌측으로 부드럽게 이동/축소 (BJ 가림 방지)
+            reactionMinimizeTimeout = setTimeout(() => {
+                overlay.classList.add('minimize');
+            }, 2500);
+            
+            // 5. 음원 재생 및 종료 콜백 설정
             if (data.audio_url) {
                 audio.src = data.audio_url;
                 audio.onended = function() {
-                    overlay.classList.remove('show');
-                    setTimeout(() => { img.src = ""; }, 500);
+                    onReactionEnded();
                 };
                 audio.play().catch(err => {
                     console.error("Audio autoplay block fallback:", err);
                     // 오디오 자동재생 제한 우회 타이머
                     reactionTimeout = setTimeout(() => {
-                        overlay.classList.remove('show');
-                        setTimeout(() => { img.src = ""; }, 500);
+                        onReactionEnded();
                     }, 5000);
                 });
             } else {
                 // 음원 파일이 없는 경우, 5초 동안만 이미지를 보여주고 종료
                 reactionTimeout = setTimeout(() => {
-                    overlay.classList.remove('show');
-                    setTimeout(() => { img.src = ""; }, 500);
+                    onReactionEnded();
                 }, 5000);
             }
+        }
+
+        function onReactionEnded() {
+            fetch('/api/reaction/next', { method: 'POST' }).catch(err => {
+                console.error("Failed to pop reaction:", err);
+            });
         }
 
         let sseSource = null;
@@ -1643,9 +1715,9 @@
                 applyLayout(layoutData);
             });
 
-            sseSource.addEventListener('reaction_play', function(e) {
-                const playData = JSON.parse(e.data);
-                playReaction(playData);
+            sseSource.addEventListener('reaction_stop', function(e) {
+                currentPlayingId = null;
+                stopReactionVisuals();
             });
             
             sseSource.onerror = function(err) {
