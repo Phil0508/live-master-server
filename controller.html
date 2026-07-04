@@ -1397,8 +1397,10 @@
             if (gd.pending_donations && gd.pending_donations.length > 0) {
                 if(pbox.style.display !== 'block') pbox.style.display = 'block';
                 let pHtml = '';
+                let isExtra = gd.extra_game_active || false;
+                let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
                 gd.pending_donations.forEach(don => {
-                    let bjBtns = gd.bjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
+                    let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
                     pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 215, 0, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
@@ -1788,15 +1790,23 @@
             let don = gd.pending_donations[donIdx];
 
             let addPoint = Math.round(don.amount / 10000);
+            
+            let isExtra = gd.extra_game_active || false;
+            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
 
-            gd.bjs[bjIdx].score += addPoint;
-            if(gd.bjs[bjIdx].contribution === undefined) gd.bjs[bjIdx].contribution = 0;
-            gd.bjs[bjIdx].contribution += addPoint;
+            if (targetList[bjIdx]) {
+                targetList[bjIdx].score += addPoint;
+                if(targetList[bjIdx].contribution === undefined) targetList[bjIdx].contribution = 0;
+                targetList[bjIdx].contribution += addPoint;
 
-            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (!gd.logs) gd.logs = [];
-            gd.logs.unshift({time: timeStr, name: gd.bjs[bjIdx].name, val: addPoint});
-            if(gd.logs.length > 200) gd.logs.pop();
+                targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
+                if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
+
+                let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+                if (!gd.logs) gd.logs = [];
+                gd.logs.unshift({time: timeStr, name: targetList[bjIdx].name, val: addPoint});
+                if(gd.logs.length > 200) gd.logs.pop();
+            }
 
             gd.pending_donations.splice(donIdx, 1);
             pushAPI();
@@ -1818,8 +1828,11 @@
             let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
             if (!gd.logs) gd.logs = [];
 
+            let isExtra = gd.extra_game_active || false;
+            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
+
             names.forEach(n => {
-                let targetBj = gd.bjs.find(b => b.name === n);
+                let targetBj = targetList.find(b => b.name === n);
                 if(targetBj) {
                     targetBj.score += addPoint;
                     if(targetBj.contribution === undefined) targetBj.contribution = 0;
@@ -1827,6 +1840,9 @@
                     gd.logs.unshift({time: timeStr, name: targetBj.name, val: addPoint});
                 }
             });
+
+            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
+            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
 
             if(gd.logs.length > 200) gd.logs.splice(200);
             gd.pending_donations.splice(donIdx, 1);
@@ -2154,8 +2170,11 @@
             let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
             if (!gd.logs) gd.logs = [];
 
+            let isExtra = gd.extra_game_active || false;
+            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
+
             names.forEach(n => {
-                let targetBj = gd.bjs.find(b => b.name === n);
+                let targetBj = targetList.find(b => b.name === n);
                 if(targetBj) {
                     targetBj.score += addPoint;
                     if(targetBj.contribution === undefined) targetBj.contribution = 0;
@@ -2163,6 +2182,9 @@
                     gd.logs.unshift({time: timeStr, name: targetBj.name, val: addPoint});
                 }
             });
+
+            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
+            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
 
             if(gd.logs.length > 200) gd.logs.splice(200);
             gd.pending_donations.splice(donIdx, 1);
