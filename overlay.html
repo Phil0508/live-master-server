@@ -1585,69 +1585,11 @@
                     // 이름 일치 인덱스 실시간 추적
                     let targetIndex = -1;
                     if (rState.select_name) {
-                        targetIndex = roster.findIndex(bj => bj.name === rState.select_name);
-                    }
-                    RouletteWidget.stop(targetIndex);
-                } else if (cmd === 'reset') {
-                    RouletteWidget.rotation = 0;
-                    RouletteWidget.angularVelocity = 0;
-                    RouletteWidget.isRolling = false;
-                    RouletteWidget.launched = false;
-                    RouletteWidget.stopping = null;
-                    if (!d.roulette_enabled) {
-                        hideRouletteWidget();
-                    }
-                }
-            }
-        }
-
-        function showRouletteWidget() {
-            isRouletteWidgetShown = true;
-            const container = document.getElementById('roulette-container');
-            const backdrop = document.getElementById('roulette-overlay-backdrop');
-            if (container) {
-                container.style.opacity = '1';
-                container.style.visibility = 'visible';
-                
-                let scale = 1.0;
-                if (lastLayoutData && lastLayoutData['roulette']) {
-                    scale = lastLayoutData['roulette'].scale || 1.0;
-                }
-                container.style.transform = `scale(${scale * 1.1})`;
-            }
-            if (backdrop) {
-                backdrop.style.opacity = '1';
-                backdrop.style.visibility = 'visible';
-            }
-        }
-
-        function hideRouletteWidget() {
-            isRouletteWidgetShown = false;
-            const container = document.getElementById('roulette-container');
-            const backdrop = document.getElementById('roulette-overlay-backdrop');
-            if (container) {
-                container.style.opacity = '0';
-                container.style.visibility = 'hidden';
-                
-                let scale = 1.0;
-                if (lastLayoutData && lastLayoutData['roulette']) {
-                    scale = lastLayoutData['roulette'].scale || 1.0;
-                }
-                container.style.transform = `scale(${scale})`;
-            }
-            if (backdrop) {
-                backdrop.style.opacity = '0';
-                backdrop.style.visibility = 'hidden';
-            }
-        }
-
-        // 초기화
-        RouletteWidget.init();
-
-        // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
+                        targetIndex = roster.findIndex(bj => bj.name === rState.sele        // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
         let reactionTimeout = null;
         let reactionMinimizeTimeout = null;
         let reactionImgClearTimeout = null;
+        let audioSafetyTimeout = null;
         let currentPlayingId = null;
         let isDonationPopupShowing = false;
 
@@ -1683,6 +1625,7 @@
             if (audio) {
                 audio.onended = null;
                 audio.onerror = null;
+                audio.onloadedmetadata = null;
                 audio.pause();
                 audio.src = "";
             }
@@ -1693,6 +1636,10 @@
             if (reactionMinimizeTimeout) {
                 clearTimeout(reactionMinimizeTimeout);
                 reactionMinimizeTimeout = null;
+            }
+            if (audioSafetyTimeout) {
+                clearTimeout(audioSafetyTimeout);
+                audioSafetyTimeout = null;
             }
             // 이미지 초기화를 취소 가능한 타이머로 변경 (다음 playReaction에서 취소 가능)
             if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
@@ -1716,8 +1663,10 @@
             // ⚠️ 이전 stopReactionVisuals의 지연된 img.src="" 타이머를 반드시 취소!
             // 안 하면 500ms 후에 새 리액션의 사진이 지워져 버립니다.
             if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
+            if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
             audio.onended = null;
             audio.onerror = null;
+            audio.onloadedmetadata = null;
             audio.pause();
             audio.src = "";
             
@@ -1760,29 +1709,44 @@
                 // Add a cache buster parameter to bypass OBS/browser caching of previously broken streams
                 audio.src = data.audio_url + '?t=' + (data.id || Date.now());
                 
-                // ⚠️ 핵심: onerror/onended를 play() 성공 전에 등록하지 않습니다!
-                // play()가 실패(autoplay 차단)하면 브라우저가 비동기로 onerror를 발생시켜
-                // 서버 큐를 날려버리는 치명적 버그가 있었기 때문입니다.
-                audio.onended = null;
-                audio.onerror = null;
+                audio.onended = function() {
+                    console.log("Audio play ended naturally.");
+                    if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                    onReactionEnded();
+                };
+                
+                audio.onerror = function(err) {
+                    console.error("Audio error event fired:", err);
+                    if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                    onReactionEnded();
+                };
+                
+                const setupSafetyTimer = () => {
+                    if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
+                    const duration = audio.duration;
+                    const safetyDuration = (isFinite(duration) && duration > 0) ? (duration * 1000 + 2000) : 30000;
+                    console.log(`Setting audio safety timeout for ${safetyDuration}ms (audio duration: ${duration}s)`);
+                    audioSafetyTimeout = setTimeout(() => {
+                        console.warn("Audio safety timeout reached! Forcing onReactionEnded.");
+                        onReactionEnded();
+                    }, safetyDuration);
+                };
+
+                if (audio.readyState >= 1) { // HAVE_METADATA or higher
+                    setupSafetyTimer();
+                } else {
+                    audio.onloadedmetadata = setupSafetyTimer;
+                }
                 
                 audio.play().then(() => {
-                    // ✅ 재생 성공! 이제야 안전하게 종료/에러 핸들러를 등록합니다.
                     console.log("Audio playback started successfully.");
-                    audio.onended = function() {
-                        console.log("Audio play ended naturally.");
-                        onReactionEnded();
-                    };
-                    audio.onerror = function(err) {
-                        console.error("Audio error during playback:", err);
-                        onReactionEnded();
-                    };
                 }).catch(err => {
                     // ❌ 재생 실패 (autoplay 차단 등)
-                    // onerror/onended를 완전히 해제하여 비동기 에러가 서버 큐를 날리는 것을 방지
                     console.error("Audio autoplay blocked. Local cleanup only:", err);
                     audio.onended = null;
                     audio.onerror = null;
+                    audio.onloadedmetadata = null;
+                    if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
                     audio.pause();
                     audio.src = "";
                     showAutoplayWarning();
@@ -1797,7 +1761,6 @@
                     onReactionEnded();
                 }, 5000);
             }
-        }
 
         function onReactionEnded() {
             const popId = currentPlayingId;
@@ -1833,17 +1796,15 @@
         window.addEventListener('click', () => {
             console.log("User clicked screen. Attempting to clear autoplay warning and resume audio.");
             hideAutoplayWarning();
-            const audio = document.getElementById('reaction-audio');
-            if (audio && audio.src && audio.paused) {
-                audio.play().then(() => {
-                    console.log("Audio successfully resumed after user click interaction.");
-                    if (reactionTimeout) {
-                        clearTimeout(reactionTimeout);
-                        reactionTimeout = null;
-                    }
-                }).catch(e => {
-                    console.error("Failed to play audio even after click interaction:", e);
-                });
+            
+            if (globalData && globalData.reaction_queue && globalData.reaction_queue.length > 0) {
+                const firstItem = globalData.reaction_queue[0];
+                const audio = document.getElementById('reaction-audio');
+                
+                if (audio && (audio.paused || !audio.src)) {
+                    console.log("Re-triggering playReaction from click interaction.");
+                    playReaction(firstItem);
+                }
             }
         });
 
@@ -1870,8 +1831,20 @@
             });
 
             sseSource.addEventListener('reaction_stop', function(e) {
-                currentPlayingId = null;
-                stopReactionVisuals();
+                try {
+                    const data = e.data ? JSON.parse(e.data) : {};
+                    if (data.id && data.id !== currentPlayingId) {
+                        console.log(`Ignoring reaction_stop for ID ${data.id} (current playing: ${currentPlayingId})`);
+                        return;
+                    }
+                    console.log("Stopping reaction visuals via SSE reaction_stop event.");
+                    currentPlayingId = null;
+                    stopReactionVisuals();
+                } catch(err) {
+                    console.error("Error parsing reaction_stop data:", err);
+                    currentPlayingId = null;
+                    stopReactionVisuals();
+                }
             });
             
             sseSource.onerror = function(err) {

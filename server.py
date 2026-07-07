@@ -1838,7 +1838,7 @@ def remove_from_queue(rq_id):
                 state['reaction_queue'] = [item for item in queue if item['id'] != rq_id]
                 
                 if is_currently_playing:
-                    broadcast_event('reaction_stop', {})
+                    broadcast_event('reaction_stop', {'id': rq_id})
                     
                 if not state['reaction_queue']:
                     state['reaction_mode'] = False

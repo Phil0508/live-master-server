@@ -927,6 +927,9 @@
                     <button onclick="stopReaction()" class="danger" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px;">
                         <i class="fa-solid fa-circle-stop"></i> 리액션 긴급 중단
                     </button>
+                    <button id="skip-reaction-btn-main" onclick="skipCurrentReaction()" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px; background: #ff9500; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
+                        <i class="fa-solid fa-forward-step"></i> 다음 후원 넘기기 (Skip)
+                    </button>
                 </div>
 
                 <!-- 2. 수동 후원 송출 (금액 입력 시 리액션 연동) -->
@@ -946,7 +949,12 @@
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <div style="font-size: 13px; font-weight: bold; color: #fff; display: flex; justify-content: space-between; align-items: center;">
                         <span><i class="fa-solid fa-list-ol" style="color: var(--accent);"></i> 대기 중인 리액션 큐</span>
-                        <span id="reaction-queue-count" style="font-size: 11px; background: rgba(0,255,204,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button id="skip-reaction-btn" onclick="skipCurrentReaction()" style="font-size: 10px; background: rgba(255,149,0,0.15); color: #ff9500; border: 1px solid rgba(255,149,0,0.3); padding: 2px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; display: none;" title="현재 재생 중인 후원을 건너뛰고 다음으로 넘깁니다">
+                                <i class="fa-solid fa-forward-step"></i> 넘기기
+                            </button>
+                            <span id="reaction-queue-count" style="font-size: 11px; background: rgba(0,255,204,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
+                        </div>
                     </div>
                     <div id="reaction-queue-container" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
                         <!-- 대기 목록이 스크립트로 렌더링됨 -->
@@ -3654,6 +3662,23 @@
             
             countEl.innerText = queue.length + '개';
             
+            // 넘기기 버튼: 큐에 재생 중인 아이템이 있을 때만 표시
+            const skipBtn = document.getElementById('skip-reaction-btn');
+            if (skipBtn) skipBtn.style.display = queue.length > 0 ? 'inline-flex' : 'none';
+            
+            const skipBtnMain = document.getElementById('skip-reaction-btn-main');
+            if (skipBtnMain) {
+                if (queue.length > 0) {
+                    skipBtnMain.disabled = false;
+                    skipBtnMain.style.opacity = '1';
+                    skipBtnMain.style.cursor = 'pointer';
+                } else {
+                    skipBtnMain.disabled = true;
+                    skipBtnMain.style.opacity = '0.4';
+                    skipBtnMain.style.cursor = 'not-allowed';
+                }
+            }
+            
             if (queue.length === 0) {
                 container.innerHTML = `
                     <div style="color: #666; font-size: 11px; text-align: center; padding: 25px 0;">
@@ -3687,6 +3712,20 @@
             if (textEl) textEl.innerText = Math.round(vol * 100) + '%';
             gd.reaction_volume = vol;
             pushAPI();
+        }
+
+        async function skipCurrentReaction() {
+            try {
+                let res = await fetch('/api/reaction/next', { method: 'POST' });
+                let data = await res.json();
+                if (data.status === 'success') {
+                    premiumAlert("다음 후원으로 넘겼습니다!", "넘기기 성공", "success");
+                } else {
+                    premiumAlert("넘기기 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
+            }
         }
 
         async function stopReaction() {
