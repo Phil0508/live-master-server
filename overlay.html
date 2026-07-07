@@ -1669,6 +1669,8 @@
                 overlay.classList.remove('minimize');
             }
             if (audio) {
+                audio.onended = null;
+                audio.onerror = null;
                 audio.pause();
                 audio.src = "";
             }
@@ -1697,6 +1699,8 @@
             // 1. 기존 진행 중인 리액션 및 오디오 강제 중지
             if (reactionTimeout) clearTimeout(reactionTimeout);
             if (reactionMinimizeTimeout) clearTimeout(reactionMinimizeTimeout);
+            audio.onended = null;
+            audio.onerror = null;
             audio.pause();
             audio.src = "";
             
@@ -1747,10 +1751,10 @@
                     onReactionEnded();
                 };
                 audio.play().catch(err => {
-                    console.error("Audio autoplay block fallback:", err);
-                    // 오디오 자동재생 제한 우회 타이머
+                    console.error("Audio autoplay block fallback (local cleanup only):", err);
+                    // 오디오 자동재생 제한 우회 타이머 - 전체 큐를 팝하지 않고 이 로컬 클라이언트에서만 화면을 닫아줍니다.
                     reactionTimeout = setTimeout(() => {
-                        onReactionEnded();
+                        stopReactionVisuals();
                     }, 5000);
                 });
             } else {
