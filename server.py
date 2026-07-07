@@ -1789,12 +1789,20 @@ def play_reaction(item_id):
 @app.route('/api/reaction/next', methods=['POST'])
 def next_reaction():
     try:
+        data = request.get_json(silent=True) or {}
+        pop_id = data.get('id')
+        
         with file_lock:
             state = load_data()
-            if state.get('reaction_queue'):
-                state['reaction_queue'].pop(0)
+            queue = state.get('reaction_queue', [])
+            
+            if queue:
+                # ID가 지정된 경우: 첫 번째 아이템의 ID가 일치할 때만 pop (이중 pop 방지)
+                # ID가 없는 경우: 기존 방식대로 무조건 pop (하위 호환)
+                if not pop_id or queue[0].get('id') == pop_id:
+                    queue.pop(0)
                 
-            if not state.get('reaction_queue'):
+            if not queue:
                 state['reaction_mode'] = False
                 
             save_data(state)

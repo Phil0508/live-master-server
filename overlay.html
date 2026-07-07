@@ -1800,8 +1800,22 @@
         }
 
         function onReactionEnded() {
-            fetch('/api/reaction/next', { method: 'POST' }).catch(err => {
-                console.error("Failed to pop reaction:", err);
+            const popId = currentPlayingId;
+            currentPlayingId = null;
+            
+            // 서버에 현재 아이템 ID를 보내서 정확히 해당 아이템만 pop (이중 pop 방지)
+            fetch('/api/reaction/next', { 
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: popId})
+            }).then(res => res.json()).then(() => {
+                // SSE 업데이트가 늦을 수 있으므로, 직접 최신 상태를 가져와서 다음 후원 즉시 재생
+                return fetch('/api/data');
+            }).then(res => res.json()).then(data => {
+                globalData = data;
+                checkReactionQueue();
+            }).catch(err => {
+                console.error("Failed to advance reaction queue:", err);
             });
         }
 
