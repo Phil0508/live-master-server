@@ -1647,6 +1647,7 @@
         // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
         let reactionTimeout = null;
         let reactionMinimizeTimeout = null;
+        let reactionImgClearTimeout = null;
         let currentPlayingId = null;
         let isDonationPopupShowing = false;
 
@@ -1693,7 +1694,9 @@
                 clearTimeout(reactionMinimizeTimeout);
                 reactionMinimizeTimeout = null;
             }
-            setTimeout(() => { if (img) img.src = ""; }, 500);
+            // 이미지 초기화를 취소 가능한 타이머로 변경 (다음 playReaction에서 취소 가능)
+            if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
+            reactionImgClearTimeout = setTimeout(() => { if (img) img.src = ""; }, 500);
         }
 
         function playReaction(data) {
@@ -1710,6 +1713,9 @@
             // 1. 기존 진행 중인 리액션 및 오디오 강제 중지
             if (reactionTimeout) clearTimeout(reactionTimeout);
             if (reactionMinimizeTimeout) clearTimeout(reactionMinimizeTimeout);
+            // ⚠️ 이전 stopReactionVisuals의 지연된 img.src="" 타이머를 반드시 취소!
+            // 안 하면 500ms 후에 새 리액션의 사진이 지워져 버립니다.
+            if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
             audio.onended = null;
             audio.onerror = null;
             audio.pause();
