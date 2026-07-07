@@ -1585,7 +1585,66 @@
                     // 이름 일치 인덱스 실시간 추적
                     let targetIndex = -1;
                     if (rState.select_name) {
-                        targetIndex = roster.findIndex(bj => bj.name === rState.sele        // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
+                        targetIndex = roster.findIndex(bj => bj.name === rState.select_name);
+                    }
+                    RouletteWidget.stop(targetIndex);
+                } else if (cmd === 'reset') {
+                    RouletteWidget.rotation = 0;
+                    RouletteWidget.angularVelocity = 0;
+                    RouletteWidget.isRolling = false;
+                    RouletteWidget.launched = false;
+                    RouletteWidget.stopping = null;
+                    if (!d.roulette_enabled) {
+                        hideRouletteWidget();
+                    }
+                }
+            }
+        }
+
+        function showRouletteWidget() {
+            isRouletteWidgetShown = true;
+            const container = document.getElementById('roulette-container');
+            const backdrop = document.getElementById('roulette-overlay-backdrop');
+            if (container) {
+                container.style.opacity = '1';
+                container.style.visibility = 'visible';
+                
+                let scale = 1.0;
+                if (lastLayoutData && lastLayoutData['roulette']) {
+                    scale = lastLayoutData['roulette'].scale || 1.0;
+                }
+                container.style.transform = `scale(${scale * 1.1})`;
+            }
+            if (backdrop) {
+                backdrop.style.opacity = '1';
+                backdrop.style.visibility = 'visible';
+            }
+        }
+
+        function hideRouletteWidget() {
+            isRouletteWidgetShown = false;
+            const container = document.getElementById('roulette-container');
+            const backdrop = document.getElementById('roulette-overlay-backdrop');
+            if (container) {
+                container.style.opacity = '0';
+                container.style.visibility = 'hidden';
+                
+                let scale = 1.0;
+                if (lastLayoutData && lastLayoutData['roulette']) {
+                    scale = lastLayoutData['roulette'].scale || 1.0;
+                }
+                container.style.transform = `scale(${scale})`;
+            }
+            if (backdrop) {
+                backdrop.style.opacity = '0';
+                backdrop.style.visibility = 'hidden';
+            }
+        }
+
+        // 초기화
+        RouletteWidget.init();
+
+        // 🎵 리액션 음원/사진 즉시 재생 기능 및 타이머
         let reactionTimeout = null;
         let reactionMinimizeTimeout = null;
         let reactionImgClearTimeout = null;
@@ -1599,7 +1658,7 @@
             // 💡 [개조] 리액션 모드(reaction_mode)가 꺼져있거나 대기열이 비었으면 리액션 화면을 즉시 내립니다.
             if (!globalData || !globalData.reaction_mode || !globalData.reaction_queue || globalData.reaction_queue.length === 0) {
                 if (currentPlayingId !== null) {
-                    console.log("checkReactionQueue: Reaction mode OFF or queue empty. Stopping visuals.");
+                    console.log('checkReactionQueue: Reaction mode OFF or queue empty. Stopping visuals.');
                     currentPlayingId = null;
                     stopReactionVisuals();
                 }
@@ -1627,7 +1686,7 @@
                 audio.onerror = null;
                 audio.onloadedmetadata = null;
                 audio.pause();
-                audio.src = "";
+                audio.src = '';
             }
             if (reactionTimeout) {
                 clearTimeout(reactionTimeout);
@@ -1647,7 +1706,7 @@
         }
 
         function playReaction(data) {
-            console.log("Playing reaction:", data);
+            console.log('Playing reaction:', data);
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -1668,21 +1727,21 @@
             audio.onerror = null;
             audio.onloadedmetadata = null;
             audio.pause();
-            audio.src = "";
+            audio.src = '';
             
             // 2. 새로운 리액션 데이터 입력 (후원자명 + 금액 / 메시지)
-            let donatorName = data.donator || "익명";
+            let donatorName = data.donator || '익명';
             let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
             if (donatorEl) {
                 donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
             }
-            let msgText = data.message || "";
+            let msgText = data.message || '';
             if (messageEl) {
-                if (msgText && msgText !== "수동 후원 송출") {
+                if (msgText && msgText !== '수동 후원 송출') {
                     messageEl.innerText = msgText;
                     messageEl.style.display = 'block';
                 } else {
-                    messageEl.innerText = "";
+                    messageEl.innerText = '';
                     messageEl.style.display = 'none';
                 }
             }
@@ -1691,7 +1750,7 @@
                 img.src = data.image_url;
                 img.style.display = 'block';
             } else {
-                img.src = "";
+                img.src = '';
                 img.style.display = 'none';
             }
             
@@ -1710,13 +1769,13 @@
                 audio.src = data.audio_url + '?t=' + (data.id || Date.now());
                 
                 audio.onended = function() {
-                    console.log("Audio play ended naturally.");
+                    console.log('Audio play ended naturally.');
                     if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
                     onReactionEnded();
                 };
                 
                 audio.onerror = function(err) {
-                    console.error("Audio error event fired:", err);
+                    console.error('Audio error event fired:', err);
                     if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
                     onReactionEnded();
                 };
@@ -1727,7 +1786,7 @@
                     const safetyDuration = (isFinite(duration) && duration > 0) ? (duration * 1000 + 2000) : 30000;
                     console.log(`Setting audio safety timeout for ${safetyDuration}ms (audio duration: ${duration}s)`);
                     audioSafetyTimeout = setTimeout(() => {
-                        console.warn("Audio safety timeout reached! Forcing onReactionEnded.");
+                        console.warn('Audio safety timeout reached! Forcing onReactionEnded.');
                         onReactionEnded();
                     }, safetyDuration);
                 };
@@ -1739,16 +1798,16 @@
                 }
                 
                 audio.play().then(() => {
-                    console.log("Audio playback started successfully.");
+                    console.log('Audio playback started successfully.');
                 }).catch(err => {
                     // ❌ 재생 실패 (autoplay 차단 등)
-                    console.error("Audio autoplay blocked. Local cleanup only:", err);
+                    console.error('Audio autoplay blocked. Local cleanup only:', err);
                     audio.onended = null;
                     audio.onerror = null;
                     audio.onloadedmetadata = null;
                     if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
                     audio.pause();
-                    audio.src = "";
+                    audio.src = '';
                     showAutoplayWarning();
                     // 로컬 화면만 5초 후 닫기 (서버 큐는 건드리지 않음)
                     reactionTimeout = setTimeout(() => {
