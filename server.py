@@ -1633,10 +1633,18 @@ def get_reaction_file(file_id):
             filename, content_type, file_data = row
             data_bytes = bytes(file_data)
             
-            from flask import make_response
-            response = make_response(data_bytes)
-            response.headers.set('Content-Type', content_type)
-            response.headers.set('Content-Disposition', f'inline; filename="{urllib.parse.quote(filename)}"')
+            import io
+            from flask import send_file
+            
+            # Use send_file with BytesIO and conditional=True to support HTTP range requests (206 Partial Content)
+            # This is critical for HTML5 audio/video buffering and streaming!
+            response = send_file(
+                io.BytesIO(data_bytes),
+                mimetype=content_type,
+                as_attachment=False,
+                download_name=filename,
+                conditional=True
+            )
             response.headers.set('Cache-Control', 'public, max-age=31536000')
             return response
     except Exception as e:
