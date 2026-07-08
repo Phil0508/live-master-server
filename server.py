@@ -1678,7 +1678,7 @@ def get_reactions_list():
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id, is_enabled FROM reaction_items ORDER BY id ASC"))
+            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id, is_enabled FROM reaction_items ORDER BY amount ASC"))
             rows = cursor.fetchall()
             reactions = []
             for r in rows:
@@ -1694,6 +1694,43 @@ def get_reactions_list():
     except Exception as e:
         print(f"Error listing reactions: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def optimize_uploaded_image(file_stream, filename):
+    try:
+        from PIL import Image
+        import io
+        
+        file_stream.seek(0)
+        img = Image.open(file_stream)
+        
+        if img.mode in ('RGBA', 'LA', 'P'):
+            pass
+        else:
+            img = img.convert('RGB')
+            
+        MAX_DIM = 400
+        w, h = img.size
+        if max(w, h) > MAX_DIM:
+            if w > h:
+                new_w = MAX_DIM
+                new_h = int(h * (MAX_DIM / w))
+            else:
+                new_h = MAX_DIM
+                new_w = int(w * (MAX_DIM / h))
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            
+        out_buf = io.BytesIO()
+        img.save(out_buf, format='WEBP', quality=65)
+        webp_data = out_buf.getvalue()
+        
+        base_name = os.path.splitext(filename)[0]
+        webp_filename = f"{base_name}.webp"
+        
+        return webp_data, webp_filename, 'image/webp'
+    except Exception as e:
+        print(f"Error optimizing image in server: {e}")
+        file_stream.seek(0)
+        return file_stream.read(), filename, None
 
 @app.route('/api/reaction/add', methods=['POST'])
 def add_reaction():
@@ -1723,10 +1760,12 @@ def add_reaction():
                 
             if image_file and image_file.filename:
                 image_file_id = f"img_{uuid.uuid4().hex}"
-                image_data = image_file.read()
+                image_data, opt_filename, opt_content_type = optimize_uploaded_image(image_file, image_file.filename)
+                content_type = opt_content_type or image_file.content_type
+                filename = opt_filename or image_file.filename
                 cursor.execute(
                     db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
-                    (image_file_id, image_file.filename, image_file.content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
+                    (image_file_id, filename, content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
                 )
                 
             cursor.execute(
@@ -1802,10 +1841,12 @@ def edit_reaction(item_id):
                 
             if image_file and image_file.filename:
                 image_file_id = f"img_{uuid.uuid4().hex}"
-                image_data = image_file.read()
+                image_data, opt_filename, opt_content_type = optimize_uploaded_image(image_file, image_file.filename)
+                content_type = opt_content_type or image_file.content_type
+                filename = opt_filename or image_file.filename
                 cursor.execute(
                     db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
-                    (image_file_id, image_file.filename, image_file.content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
+                    (image_file_id, filename, content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
                 )
                 if old_image_id:
                     cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (old_image_id,))

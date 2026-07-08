@@ -9,8 +9,8 @@ from PIL import Image
 IMAGE_DIR = "사진"
 POSTGRES_URL = "postgresql://my_postgres_db_jeaa_user:xL43VYSA3keTiELFls2VzflbiGsPeeKi@dpg-d92bdla8qa3s73d4hle0-a.oregon-postgres.render.com/my_postgres_db_jeaa"
 SQLITE_DB = "live_master.db"
-MAX_DIM = 800  # maximum width or height
-WEBP_QUALITY = 80
+MAX_DIM = 400  # maximum width or height
+WEBP_QUALITY = 65
 
 def parse_filename(filename):
     name_part = os.path.splitext(filename)[0]
