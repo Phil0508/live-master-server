@@ -113,16 +113,16 @@ def main():
 
     # 중복 체크 및 데이터 다운로드/임포트 도우미 함수
     def download_file(url):
-        print(f"      📥 다운로드 중: {url}")
+        print(f"      [Download] {url}")
         file_req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         try:
             with urllib.request.urlopen(file_req, timeout=15) as resp:
                 return resp.read()
         except urllib.error.HTTPError as he:
-            print(f"      ⚠️ 다운로드 실패 (HTTP {he.code}): {he.reason}")
+            print(f"      [Error] Download Failed (HTTP {he.code}): {he.reason}")
             return None
         except Exception as ex:
-            print(f"      ⚠️ 다운로드 에러: {ex}")
+            print(f"      [Error] Download Exception: {ex}")
             return None
 
     def import_item(title, amount, img_url=None, snd_url=None):
@@ -132,7 +132,7 @@ def main():
             print(f"    [건너뜀] '{title}' ({amount}원) - 이미 등록된 리액션이 존재합니다.")
             return
 
-        print(f"    🚀 리액션 등록 시작: '{title}' ({amount}원)")
+        print(f"    [*] 리액션 등록 시작: '{title}' ({amount}원)")
         
         img_id = None
         if img_url:
@@ -199,9 +199,8 @@ def main():
     print("\n[6] 일반 후원 리액션 파싱 중...")
     
     imported_items = 0
-    for key in ["item1", "item2", "item3"]:
-        if key in donation:
-            val = donation[key]
+    for key, val in donation.items():
+        if key.startswith("item") and isinstance(val, dict):
             if val.get('enabled') == 1:
                 cash = val.get('donation_min') or 0
                 title = f"{cash}원 리액션"
@@ -231,7 +230,7 @@ def main():
     conn.close()
     
     print("\n" + "="*60)
-    print(" 🎉 투네이션 본계정 자산 마이그레이션이 완전히 성공했습니다! 🎉 ")
+    print(" [성공] 투네이션 본계정 자산 마이그레이션이 완전히 성공했습니다! ")
     print("="*60)
 
 if __name__ == "__main__":
