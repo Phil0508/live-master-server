@@ -177,6 +177,8 @@ def require_login():
         '/api/streamdeck/neon',
         '/api/streamdeck/save',
         '/api/roulette/winner',
+        '/api/data',
+        '/api/reaction/next',
         '/setup'
     ]
     
