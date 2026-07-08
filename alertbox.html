@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>🚨 라이브 마스터 리액션 전용 알림창 (Alertbox)</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            overflow: hidden;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        /* ⚠️ 자동재생 차단(Autoplay Block) 경고 배너 */
+        #autoplay-warning-banner {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 85, 0.9);
+            color: white;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: 800;
+            border-radius: 50px;
+            box-shadow: 0 10px 30px rgba(255, 0, 85, 0.5);
+            z-index: 999999;
+            cursor: pointer;
+            animation: bounce 1.5s infinite alternate ease-in-out;
+            display: none;
+            border: 2px solid white;
+        }
+
+        @keyframes bounce {
+            0% { transform: translate(-50%, 0); }
+            100% { transform: translate(-50%, -10px); }
+        }
+
+        /* 🎁 대형 투네이션 스타일 후원 알림 팝업 */
+        #toon-popup-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .donation-popup-content {
+            background: rgba(15, 15, 20, 0.96);
+            border: 5px solid #ff0055;
+            border-radius: 28px;
+            padding: 50px 75px;
+            text-align: center;
+            box-shadow: 0 0 45px rgba(255, 0, 85, 0.75), inset 0 0 25px rgba(255, 0, 85, 0.45);
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.7) translateY(50px);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 650px;
+        }
+
+        .donation-popup-content.show {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1) translateY(0);
+        }
+
+        .donator-text {
+            font-size: 42px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.9);
+            letter-spacing: -0.5px;
+        }
+
+        .donator-name {
+            color: #ff3366;
+            text-shadow: 0 0 20px rgba(255, 51, 102, 0.9);
+        }
+
+        .donation-amount {
+            font-size: 85px;
+            font-weight: 900;
+            color: #FFD700;
+            text-shadow: 0 0 25px #FFD700, 0 0 50px #ffaa00;
+            margin: 20px 0;
+            letter-spacing: -2.5px;
+        }
+
+        .donation-message {
+            background: rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 16px;
+            padding: 20px 45px;
+            font-size: 34px;
+            font-weight: 700;
+            color: #ffffff;
+            max-width: 850px;
+            word-break: break-all;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            line-height: 1.4;
+        }
+
+        /* 🎵 대형 리액션 오버레이 (사진 및 자막) */
+        .reaction-screen-overlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 750px;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 110;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .reaction-screen-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .reaction-screen-overlay img {
+            max-width: 100%;
+            max-height: 520px;
+            object-fit: contain;
+            border-radius: 24px;
+            box-shadow: 0 12px 45px rgba(0,0,0,0.4);
+        }
+
+        /* 개선된 초고시인성 리액션 텍스트 */
+        .reaction-text-donator {
+            margin-top: 25px;
+            font-size: 42px;
+            font-weight: 900;
+            color: #ffffff;
+            /* 2.5px 검은 외곽선 + 15px 부드러운 그림자 효과로 어떤 배경에서도 글자가 또렷이 보임 */
+            text-shadow: 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000, 0 4px 20px rgba(0,0,0,0.95);
+            text-align: center;
+            letter-spacing: -0.5px;
+        }
+
+        .reaction-text-message {
+            margin-top: 20px;
+            font-size: 32px;
+            font-weight: 700;
+            color: #ffffff;
+            background: rgba(10, 10, 15, 0.88);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            padding: 15px 35px;
+            border-radius: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.85);
+            text-align: center;
+            max-width: 720px;
+            word-break: break-all;
+            line-height: 1.45;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.65);
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ⚠️ 자동재생 해제 유도 배너 -->
+    <div id="autoplay-warning-banner" onclick="handleBannerDismiss()">
+        🔊 브라우저 자동재생 차단을 해제하려면 화면 아무 곳이나 클릭하세요!
+    </div>
+
+    <!-- 🎁 투네이션 스타일 후원 알림 팝업 영역 -->
+    <div id="toon-popup-container">
+        <div id="toon-popup" class="donation-popup-content">
+            <div class="donator-text">
+                <span id="toon-name" class="donator-name">홍길동</span>
+                <span id="toon-action-text">님이 후원하셨습니다!</span>
+            </div>
+            <div id="toon-amount" class="donation-amount">10,000원</div>
+            <div id="toon-msg" class="donation-message">후원 메시지 내용</div>
+        </div>
+    </div>
+
+    <!-- 🎵 대형 리액션 오버레이 영역 -->
+    <div id="reaction-screen-overlay" class="reaction-screen-overlay">
+        <img id="reaction-screen-image" src="" alt="Reaction Image">
+        <div id="reaction-donator-info" class="reaction-text-donator"></div>
+        <div id="reaction-message-info" class="reaction-text-message"></div>
+    </div>
+
+    <!-- 🔊 숨겨진 오디오 엘리먼트 -->
+    <audio id="reaction-audio" style="display:none;"></audio>
+
+    <script>
+        let globalData = null;
+        let isDonationPopupShowing = false;
+        let toonPopupTimer = null;
+
+        // 리액션 핸들러 상태
+        let reactionTimeout = null;
+        let reactionImgClearTimeout = null;
+        let audioSafetyTimeout = null;
+        let currentPlayingId = null;
+
+        function formatNum(n) {
+            return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        // SSE 연동 수신 설정
+        function connectSSE() {
+            console.log("Connecting to SSE /api/stream...");
+            const sse = new EventSource('/api/stream');
+            
+            sse.onmessage = function(e) {
+                try {
+                    const data = jsonParse(e.data);
+                    if (!data) return;
+                    globalData = data;
+                    checkReactionQueue();
+                } catch(err) {
+                    console.error("SSE parse error:", err);
+                }
+            };
+
+            sse.onerror = function() {
+                console.warn("SSE disconnected. Retrying in 3 seconds...");
+                sse.close();
+                setTimeout(connectSSE, 3000);
+            };
+        }
+
+        function jsonParse(str) {
+            try { return JSON.parse(str); } catch(e) { return null; }
+        }
+
+        function checkReactionQueue() {
+            if (isDonationPopupShowing) return;
+            
+            // 리액션 큐가 비어있거나 모드가 꺼져있으면 정리
+            if (!globalData || !globalData.reaction_mode || !globalData.reaction_queue || globalData.reaction_queue.length === 0) {
+                if (currentPlayingId !== null) {
+                    console.log('checkReactionQueue: Stopping visuals.');
+                    currentPlayingId = null;
+                    stopReactionVisuals();
+                }
+                return;
+            }
+            
+            const firstItem = globalData.reaction_queue[0];
+            if (currentPlayingId !== firstItem.id) {
+                currentPlayingId = firstItem.id;
+                playReaction(firstItem);
+            }
+        }
+
+        function stopReactionVisuals() {
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            const audio = document.getElementById('reaction-audio');
+            
+            if (overlay) {
+                overlay.classList.remove('show');
+            }
+            if (audio) {
+                audio.onended = null;
+                audio.onerror = null;
+                audio.onloadedmetadata = null;
+                audio.pause();
+                audio.src = '';
+            }
+            if (reactionTimeout) {
+                clearTimeout(reactionTimeout);
+                reactionTimeout = null;
+            }
+            if (audioSafetyTimeout) {
+                clearTimeout(audioSafetyTimeout);
+                audioSafetyTimeout = null;
+            }
+            
+            // 투네이션 팝업 강제 종료 및 타이머 리셋
+            const toonPopup = document.getElementById('toon-popup');
+            if (toonPopup) toonPopup.classList.remove('show');
+            if (toonPopupTimer) {
+                clearTimeout(toonPopupTimer);
+                toonPopupTimer = null;
+            }
+            isDonationPopupShowing = false;
+            
+            if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
+            reactionImgClearTimeout = setTimeout(() => { if (img) img.src = ""; }, 500);
+        }
+
+        function playReaction(data) {
+            console.log('Playing reaction:', data);
+            
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            const donatorEl = document.getElementById('reaction-donator-info');
+            const messageEl = document.getElementById('reaction-message-info');
+            const audio = document.getElementById('reaction-audio');
+            
+            if (!overlay || !img || !audio) return;
+            
+            // 기존 오디오 정지 및 정리
+            if (reactionTimeout) clearTimeout(reactionTimeout);
+            if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
+            if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+            audio.onended = null;
+            audio.onerror = null;
+            audio.onloadedmetadata = null;
+            audio.pause();
+            audio.src = '';
+            
+            // 1. 투네이션 후원 정보 팝업 선행 연출
+            showToonPopup({
+                name: data.donator || '익명',
+                amount: data.amount || 0,
+                message: data.message || ''
+            }, () => {
+                // 팝업 연출이 완료된 후 콜백으로 리액션 재생
+                
+                let donatorName = data.donator || '익명';
+                let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
+                if (donatorEl) {
+                    donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
+                }
+                
+                let msgText = data.message || '';
+                if (messageEl) {
+                    if (msgText && msgText !== '수동 후원 송출') {
+                        messageEl.innerText = msgText;
+                        messageEl.style.display = 'inline-block';
+                    } else {
+                        messageEl.innerText = '';
+                        messageEl.style.display = 'none';
+                    }
+                }
+                
+                if (data.image_url) {
+                    img.src = data.image_url;
+                    img.style.display = 'block';
+                } else {
+                    img.src = '';
+                    img.style.display = 'none';
+                }
+                
+                // 리액션 페이드인 노출 (중앙 고정 대형 스케일)
+                overlay.classList.add('show');
+                
+                // 오디오 소스 설정 및 재상
+                if (data.audio_url) {
+                    audio.src = data.audio_url + '?t=' + (data.id || Date.now());
+                    
+                    audio.onended = function() {
+                        console.log('Audio finished.');
+                        if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                        onReactionEnded();
+                    };
+                    
+                    audio.onerror = function(err) {
+                        console.error('Audio load error:', err);
+                        if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                        onReactionEnded();
+                    };
+                    
+                    const setupSafetyTimer = () => {
+                        if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
+                        const duration = audio.duration;
+                        const safetyDuration = (isFinite(duration) && duration > 0) ? (duration * 1000 + 2000) : 30000;
+                        audioSafetyTimeout = setTimeout(() => {
+                            console.warn('Safety timeout reached!');
+                            onReactionEnded();
+                        }, safetyDuration);
+                    };
+
+                    if (audio.readyState >= 1) {
+                        setupSafetyTimer();
+                    } else {
+                        audio.onloadedmetadata = setupSafetyTimer;
+                    }
+                    
+                    audio.play().then(() => {
+                        hideAutoplayWarning();
+                    }).catch(err => {
+                        console.error('Audio autoplay blocked:', err);
+                        showAutoplayWarning();
+                        
+                        // 화면 클릭 활성화를 위해 5초 대기
+                        reactionTimeout = setTimeout(() => {
+                            stopReactionVisuals();
+                        }, 5000);
+                    });
+                } else {
+                    // 음원이 없는 리액션인 경우 5초 후 종료
+                    reactionTimeout = setTimeout(() => {
+                        onReactionEnded();
+                    }, 5000);
+                }
+            });
+        }
+
+        function onReactionEnded() {
+            const popId = currentPlayingId;
+            currentPlayingId = null;
+            
+            fetch('/api/reaction/next', { 
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: popId})
+            }).then(res => res.json()).then(() => {
+                return fetch('/api/data');
+            }).then(res => res.json()).then(data => {
+                globalData = data;
+                checkReactionQueue();
+            }).catch(err => {
+                console.error("Failed to pop reaction:", err);
+            });
+        }
+
+        // 투네이션 후원 공통 팝업 노출 로직
+        function showToonPopup(donation, callback) {
+            isDonationPopupShowing = true;
+            console.log("Toon popup showing:", donation);
+            
+            let finalName = donation.name || "익명";
+            let finalMsg = donation.message || "";
+
+            let hasColon = finalMsg.includes(":") || finalMsg.includes("：");
+            if (hasColon && !finalMsg.startsWith("[시그니처 신청:")) {
+                let splitChar = finalMsg.includes(":") ? ":" : "：";
+                let parts = finalMsg.split(splitChar);
+                let potentialName = parts[0].trim();
+                if (potentialName.length > 0 && potentialName.length <= 15) {
+                    finalName = potentialName; 
+                    finalMsg = parts.slice(1).join(splitChar).trim(); 
+                }
+            }
+
+            document.getElementById('toon-name').innerText = finalName;
+            
+            const actionTextEl = document.getElementById('toon-action-text');
+            const amountEl = document.getElementById('toon-amount');
+            
+            if (finalMsg.startsWith("[시그니처 신청:")) {
+                let match = finalMsg.match(/^\[시그니처 신청:\s*(.*?)\]/);
+                let prod = match ? match[1] : "시그니처";
+                if (actionTextEl) actionTextEl.innerText = "님이 신청하셨습니다!";
+                amountEl.innerText = `"${prod}"`;
+                finalMsg = finalMsg.replace(/^\[시그니처 신청:\s*.*?\]\s*/, '');
+            } else {
+                if (actionTextEl) actionTextEl.innerText = "님이 후원하셨습니다!";
+                if (donation.amount === 0) {
+                    amountEl.innerText = '후원';
+                } else {
+                    amountEl.innerText = formatNum(donation.amount) + '원';
+                }
+            }
+            
+            let msgEl = document.getElementById('toon-msg');
+            if (finalMsg) { 
+                msgEl.innerText = finalMsg; 
+                msgEl.style.display = 'block'; 
+            } else { 
+                msgEl.style.display = 'none'; 
+            }
+
+            const p = document.getElementById('toon-popup'); 
+            if (p) {
+                p.classList.remove('show'); 
+                void p.offsetWidth; 
+                p.classList.add('show'); 
+            }
+            
+            // 폭죽 효과 애니메이션
+            try {
+                let end = Date.now() + 1500; 
+                (function f() { 
+                    if (typeof confetti === 'function') {
+                        confetti({ particleCount: 7, angle: 60, spread: 80, origin: { x: 0.2, y: 0.8 }, zIndex: 100000 }); 
+                        confetti({ particleCount: 7, angle: 120, spread: 80, origin: { x: 0.8, y: 0.8 }, zIndex: 100000 }); 
+                        if (Date.now() < end) requestAnimationFrame(f); 
+                    }
+                }());
+            } catch(err) {
+                console.warn("confetti animation error:", err);
+            }
+
+            // 2초 노출 후 리액션 재생으로 콜백 전환
+            toonPopupTimer = setTimeout(() => {
+                if (p) p.classList.remove('show');
+                isDonationPopupShowing = false;
+                toonPopupTimer = null;
+                
+                // 리액션 이미지/소리 연출 개시
+                callback();
+            }, 2000);
+        }
+
+        function showAutoplayWarning() {
+            document.getElementById('autoplay-warning-banner').style.display = 'block';
+        }
+
+        function hideAutoplayWarning() {
+            document.getElementById('autoplay-warning-banner').style.display = 'none';
+        }
+
+        function handleBannerDismiss() {
+            hideAutoplayWarning();
+            // 오디오 컨텍스트 락 해제를 위해 빈 가상 오디오 재생 및 지우기
+            const audio = document.getElementById('reaction-audio');
+            if (audio) {
+                audio.play().then(() => {
+                    console.log("Audio lock released by user click.");
+                }).catch(e => {
+                    console.log("Still blocked:", e);
+                });
+            }
+        }
+
+        // 전체 화면 클릭 시 락 해제
+        window.addEventListener('click', handleBannerDismiss);
+
+        // 연동 시작
+        connectSSE();
+    </script>
+</body>
+</html>

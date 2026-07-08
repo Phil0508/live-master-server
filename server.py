@@ -171,6 +171,8 @@ def require_login():
         '/',
         '/overlay',
         '/overlay.html',
+        '/alertbox',
+        '/alertbox.html',
         '/api/stream',
         '/api/ping',
         '/api/donation',
@@ -807,6 +809,11 @@ def serve_root():
 @app.route('/overlay.html')
 def serve_overlay():
     return serve_html_file('overlay.html')
+
+@app.route('/alertbox')
+@app.route('/alertbox.html')
+def serve_alertbox():
+    return serve_html_file('alertbox.html')
 
 @app.route('/streamdeck')
 @app.route('/streamdeck.html')
