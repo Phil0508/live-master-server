@@ -349,6 +349,10 @@ def init_db():
             cursor.execute("ALTER TABLE donation_history ADD COLUMN tx_id TEXT")
         except Exception:
             pass
+        try:
+            cursor.execute("ALTER TABLE reaction_items ADD COLUMN is_enabled BOOLEAN DEFAULT TRUE")
+        except Exception:
+            pass
 
 def load_data():
     global MEMORY_STATE
@@ -951,7 +955,7 @@ def receive_donation():
                 try:
                     with get_db_connection() as conn:
                         cursor = conn.cursor()
-                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id, amount FROM reaction_items WHERE amount <= ? ORDER BY amount DESC LIMIT 1"), (amount,))
+                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id, amount FROM reaction_items WHERE is_enabled = TRUE AND amount <= ? ORDER BY amount DESC LIMIT 1"), (amount,))
                         row = cursor.fetchone()
                         if row:
                             r_id, r_title, r_audio_file_id, r_image_file_id, r_amount = row
@@ -1674,7 +1678,7 @@ def get_reactions_list():
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
+            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id, is_enabled FROM reaction_items ORDER BY id ASC"))
             rows = cursor.fetchall()
             reactions = []
             for r in rows:
@@ -1683,7 +1687,8 @@ def get_reactions_list():
                     "title": r[1],
                     "amount": r[2],
                     "audio_url": f"/uploads/{r[3]}" if r[3] else "",
-                    "image_url": f"/uploads/{r[4]}" if r[4] else ""
+                    "image_url": f"/uploads/{r[4]}" if r[4] else "",
+                    "is_enabled": bool(r[5]) if r[5] is not None else True
                 })
             return jsonify(reactions)
     except Exception as e:
@@ -1759,6 +1764,129 @@ def delete_reaction(item_id):
         return jsonify({"status": "success", "message": "리액션 곡 삭제 완료!"})
     except Exception as e:
         print(f"Error deleting reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/edit/<int:item_id>', methods=['POST'])
+def edit_reaction(item_id):
+    try:
+        title = request.form.get('title', '').strip()
+        amount = int(request.form.get('amount', 0))
+        
+        if not title:
+            return jsonify({"status": "error", "message": "제목을 입력해주세요."}), 400
+            
+        audio_file = request.files.get('audio')
+        image_file = request.files.get('image')
+        
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            cursor.execute(db_query("SELECT audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
+                
+            old_audio_id, old_image_id = row
+            audio_file_id = old_audio_id
+            image_file_id = old_image_id
+            
+            if audio_file and audio_file.filename:
+                audio_file_id = f"aud_{uuid.uuid4().hex}"
+                audio_data = audio_file.read()
+                cursor.execute(
+                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
+                    (audio_file_id, audio_file.filename, audio_file.content_type, psycopg2.Binary(audio_data) if IS_POSTGRES else audio_data)
+                )
+                if old_audio_id:
+                    cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (old_audio_id,))
+                
+            if image_file and image_file.filename:
+                image_file_id = f"img_{uuid.uuid4().hex}"
+                image_data = image_file.read()
+                cursor.execute(
+                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
+                    (image_file_id, image_file.filename, image_file.content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
+                )
+                if old_image_id:
+                    cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (old_image_id,))
+                    
+            cursor.execute(
+                db_query("UPDATE reaction_items SET title = ?, amount = ?, audio_file_id = ?, image_file_id = ? WHERE id = ?"),
+                (title, amount, audio_file_id, image_file_id, item_id)
+            )
+            conn.commit()
+            
+        return jsonify({"status": "success", "message": "리액션 곡 수정 완료!"})
+    except Exception as e:
+        print(f"Error editing reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/toggle/<int:item_id>', methods=['POST'])
+def toggle_reaction(item_id):
+    try:
+        data = request.json or {}
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT is_enabled FROM reaction_items WHERE id = ?"), (item_id,))
+            row = cursor.fetchone()
+            if not row:
+                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
+                
+            if 'is_enabled' in data:
+                new_state = bool(data['is_enabled'])
+            else:
+                new_state = not (bool(row[0]) if row[0] is not None else True)
+                
+            cursor.execute(db_query("UPDATE reaction_items SET is_enabled = ? WHERE id = ?"), (new_state, item_id))
+            conn.commit()
+            
+        return jsonify({"status": "success", "is_enabled": new_state, "message": "리액션 활성화 상태 변경 완료!"})
+    except Exception as e:
+        print(f"Error toggling reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/delete_batch', methods=['POST'])
+def delete_reactions_batch():
+    try:
+        data = request.json or {}
+        item_ids = data.get('item_ids', [])
+        if not item_ids:
+            return jsonify({"status": "error", "message": "삭제할 리액션이 선택되지 않았습니다."}), 400
+            
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            
+            placeholders = ",".join(["?"] * len(item_ids))
+            query = f"SELECT audio_file_id, image_file_id FROM reaction_items WHERE id IN ({placeholders})"
+            cursor.execute(db_query(query), tuple(item_ids))
+            rows = cursor.fetchall()
+            
+            file_ids_to_delete = []
+            for r in rows:
+                if r[0]: file_ids_to_delete.append(r[0])
+                if r[1]: file_ids_to_delete.append(r[1])
+                
+            del_query = f"DELETE FROM reaction_items WHERE id IN ({placeholders})"
+            cursor.execute(db_query(del_query), tuple(item_ids))
+            
+            if file_ids_to_delete:
+                cursor.execute(db_query("SELECT audio_file_id, image_file_id FROM reaction_items"))
+                remaining = set()
+                for rem in cursor.fetchall():
+                    if rem[0]: remaining.add(rem[0])
+                    if rem[1]: remaining.add(rem[1])
+                    
+                orphaned = [fid for fid in file_ids_to_delete if fid not in remaining]
+                if orphaned:
+                    file_placeholders = ",".join(["?"] * len(orphaned))
+                    file_del_query = f"DELETE FROM reaction_files WHERE id IN ({file_placeholders})"
+                    cursor.execute(db_query(file_del_query), tuple(orphaned))
+                    
+            conn.commit()
+            
+        return jsonify({"status": "success", "message": f"{len(item_ids)}개의 리액션 삭제 완료!"})
+    except Exception as e:
+        print(f"Error batch deleting reactions: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/reaction/play/<int:item_id>', methods=['POST'])

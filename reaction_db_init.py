@@ -28,7 +28,8 @@ def init_tables():
                 title TEXT NOT NULL,
                 amount INTEGER DEFAULT 0,
                 audio_file_id VARCHAR(64) REFERENCES reaction_files(id) ON DELETE SET NULL,
-                image_file_id VARCHAR(64) REFERENCES reaction_files(id) ON DELETE SET NULL
+                image_file_id VARCHAR(64) REFERENCES reaction_files(id) ON DELETE SET NULL,
+                is_enabled BOOLEAN DEFAULT TRUE
             )
         """)
         
