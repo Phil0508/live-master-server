@@ -137,9 +137,28 @@ def main():
         img_id = None
         if img_url:
             img_data = download_file(img_url)
+            if not img_data:
+                # If download fails, try common alternative extensions sequentially
+                base_img_url, _ = os.path.splitext(img_url)
+                for fallback_ext in ['.gif', '.png', '.jpg', '.jpeg', '.webp']:
+                    fallback_url = base_img_url + fallback_ext
+                    print(f"      [Fallback] Trying alternative image URL: {fallback_url}")
+                    img_data = download_file(fallback_url)
+                    if img_data:
+                        img_url = fallback_url
+                        break
+            
             if img_data:
                 img_id = f"img_{uuid.uuid4().hex}"
-                content_type = "image/gif" if ".gif" in img_url else "image/png"
+                if ".gif" in img_url:
+                    content_type = "image/gif"
+                elif ".jpg" in img_url or ".jpeg" in img_url:
+                    content_type = "image/jpeg"
+                elif ".webp" in img_url:
+                    content_type = "image/webp"
+                else:
+                    content_type = "image/png"
+                
                 filename = os.path.basename(img_url).split('?')[0]
                 cursor.execute(
                     "INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (%s, %s, %s, %s)",
@@ -207,9 +226,10 @@ def main():
                 
                 hash_img = val.get('hash_image')
                 custom_img = val.get('customized_image')
+                ext_img = val.get('customized_image_ext', 'png')
                 img_url = None
                 if hash_img and (custom_img == 1 or custom_img is True):
-                    img_url = f"{UPLOAD_HOST}/{uid}/{hash_img}.img"
+                    img_url = f"{UPLOAD_HOST}/{uid}/{hash_img}.{ext_img}"
                     
                 hash_snd = val.get('hash_sound')
                 custom_snd = val.get('customized_sound')
