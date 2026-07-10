@@ -1637,6 +1637,36 @@ import uuid
 @app.route('/uploads/<file_id>', methods=['GET'])
 def get_reaction_file(file_id):
     try:
+        import os
+        import json
+        from flask import send_file
+        
+        cache_dir = os.path.join(app.root_path, 'media_cache')
+        cache_path = os.path.join(cache_dir, file_id)
+        meta_path = cache_path + ".meta"
+        
+        # Check cache first
+        if os.path.exists(cache_path) and os.path.exists(meta_path):
+            try:
+                with open(meta_path, 'r', encoding='utf-8') as f:
+                    meta = json.load(f)
+                content_type = meta.get('content_type')
+                filename = meta.get('filename')
+                
+                response = send_file(
+                    cache_path,
+                    mimetype=content_type,
+                    as_attachment=False,
+                    download_name=filename,
+                    conditional=True
+                )
+                response.headers.set('Cache-Control', 'public, max-age=31536000')
+                return response
+            except Exception as e:
+                print(f"Error reading cache for {file_id}: {e}")
+                pass
+
+        # Database fallback
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(db_query("SELECT filename, content_type, file_data FROM reaction_files WHERE id = ?"), (file_id,))
@@ -1647,18 +1677,12 @@ def get_reaction_file(file_id):
             filename, content_type, file_data = row
             data_bytes = bytes(file_data)
             
-            import os
-            from flask import send_file
-            
-            # Save file to a local cache directory to serve as a real static file.
-            # This perfectly resolves HTML5 audio Range requests and buffering stream aborts.
-            cache_dir = os.path.join(app.root_path, 'media_cache')
             os.makedirs(cache_dir, exist_ok=True)
-            cache_path = os.path.join(cache_dir, file_id)
-            
-            if not os.path.exists(cache_path):
-                with open(cache_path, 'wb') as f:
-                    f.write(data_bytes)
+            with open(cache_path, 'wb') as f:
+                f.write(data_bytes)
+                
+            with open(meta_path, 'w', encoding='utf-8') as f:
+                json.dump({"filename": filename, "content_type": content_type}, f, ensure_ascii=False)
             
             response = send_file(
                 cache_path,
