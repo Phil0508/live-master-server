@@ -668,7 +668,6 @@
         <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-reaction')"><i class="fa-solid fa-compact-disc"></i> 리액션</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
@@ -904,94 +903,6 @@
                     <div style="display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255,255,255,0.02); padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-light); width: fit-content; margin: 0 auto;">
                         <i class="fa-solid fa-volume-high" style="color: var(--accent); font-size: 11px;"></i>
                         <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="document.getElementById('bgm-audio').volume = this.value" class="ios-slider-volume" style="width: 80px; height: 6px; cursor: pointer;">
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="tab-reaction" class="tab-content">
-        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
-            <!-- 좌측: 리액션 상태 제어 및 수동 후원, 대기열 -->
-            <div class="group-box" style="display: flex; flex-direction: column; gap: 15px;">
-                <div class="group-title"><i class="fa-solid fa-sliders" style="color: var(--accent);"></i> 리액션 제어 센터</div>
-                
-                <!-- 1. 리액션 오디오 볼륨 및 중단 -->
-                <div style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 13px; font-weight: bold; color: #fff;"><i class="fa-solid fa-volume-high"></i> 리액션 볼륨</span>
-                        <span id="reaction-vol-text" style="font-size: 12px; font-weight: bold; color: var(--accent);">50%</span>
-                    </div>
-                    <input type="range" id="reaction-volume-slider" min="0" max="1" step="0.05" value="0.5" oninput="changeReactionVolume(this.value)" style="width: 100%; accent-color: var(--accent);">
-                    
-                    <button onclick="stopReaction()" class="danger" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px;">
-                        <i class="fa-solid fa-circle-stop"></i> 리액션 긴급 중단
-                    </button>
-                    <button id="skip-reaction-btn-main" onclick="skipCurrentReaction()" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px; background: #ff9500; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
-                        <i class="fa-solid fa-forward-step"></i> 다음 후원 넘기기 (Skip)
-                    </button>
-                </div>
-
-                <!-- 2. 수동 후원 송출 (금액 입력 시 리액션 연동) -->
-                <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px;"><i class="fa-solid fa-coins" style="color: #ffd700;"></i> 수동 후원 (리액션 자동 매칭)</div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="manual-donator" placeholder="후원자명" style="width: 40%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
-                        <input type="number" id="manual-amount" placeholder="후원금액" style="width: 60%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
-                    </div>
-                    <input type="text" id="manual-message" placeholder="후원 메시지 입력 (선택사항)" style="width: 100%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
-                    <button onclick="triggerManualDonation()" class="primary" style="height: 34px; font-weight: bold; font-size: 12px; border-radius: 8px; justify-content: center; width: 100%;">
-                        <i class="fa-solid fa-paper-plane"></i> 후원 리액션 즉시 송출
-                    </button>
-                </div>
-
-                <!-- 3. 쌓인 리액션 목록 (대기열) -->
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; display: flex; justify-content: space-between; align-items: center;">
-                        <span><i class="fa-solid fa-list-ol" style="color: var(--accent);"></i> 대기 중인 리액션 큐</span>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <button id="skip-reaction-btn" onclick="skipCurrentReaction()" style="font-size: 10px; background: rgba(255,149,0,0.15); color: #ff9500; border: 1px solid rgba(255,149,0,0.3); padding: 2px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; display: none;" title="현재 재생 중인 후원을 건너뛰고 다음으로 넘깁니다">
-                                <i class="fa-solid fa-forward-step"></i> 넘기기
-                            </button>
-                            <span id="reaction-queue-count" style="font-size: 11px; background: rgba(0,255,204,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
-                        </div>
-                    </div>
-                    <div id="reaction-queue-container" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
-                        <!-- 대기 목록이 스크립트로 렌더링됨 -->
-                    </div>
-                </div>
-
-                <!-- 4. 템퍼몽키 투네이션 연동 가이드 카드 -->
-                <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px;"><i class="fa-solid fa-plug" style="color: var(--accent);"></i> 투네이션 템퍼몽키 자동 연동</div>
-                    <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">
-                        투네이션 알림창 위젯과 실시간 연동되어 1천 원 이상의 후원 시 지정된 금액의 리액션이 자동 송출됩니다. (최저 금액 1,000원 적용 완료)
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 5px;">
-                        <a href="/toonation_tampermonkey.user.js" target="_blank" style="flex: 1; text-decoration: none;">
-                            <button class="primary" style="height: 32px; font-weight: bold; font-size: 11px; border-radius: 8px; justify-content: center; width: 100%; cursor: pointer;">
-                                <i class="fa-solid fa-download"></i> 스크립트 설치
-                            </button>
-                        </a>
-                        <button onclick="copyTampermonkeyCode()" class="secondary" style="flex: 1; height: 32px; font-weight: bold; font-size: 11px; border-radius: 8px; justify-content: center; cursor: pointer;">
-                            <i class="fa-solid fa-copy"></i> 코드 복사
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 우측: 등록된 리액션 리스트 -->
-            <div class="group-box" style="display: flex; flex-direction: column; gap: 15px; min-height: 500px;">
-                <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 등록된 리액션 음원/사진 라이브러리</span>
-                    <button onclick="loadReactionList()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
-                </div>
-                
-                <div id="reaction-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; max-height: 520px; overflow-y: auto; padding: 5px;">
-                    <!-- 리액션 카드 로딩 상태 -->
-                    <div style="color: #666; text-align: center; grid-column: 1 / -1; padding: 50px 0;">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; color: var(--accent); margin-bottom: 10px; display: block;"></i>
-                        불러오는 중...
                     </div>
                 </div>
             </div>
@@ -1320,7 +1231,7 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); } if (tabId === 'tab-logs') { loadManualLogs(1); } if (tabId === 'tab-reaction') { loadReactionList(); } }
+        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         let lastReactionToastTime = 0;
         let serverTimeOffset = 0;
@@ -1486,10 +1397,8 @@
             if (gd.pending_donations && gd.pending_donations.length > 0) {
                 if(pbox.style.display !== 'block') pbox.style.display = 'block';
                 let pHtml = '';
-                let isExtra = gd.extra_game_active || false;
-                let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
                 gd.pending_donations.forEach(don => {
-                    let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
+                    let bjBtns = gd.bjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
                     pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 215, 0, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
@@ -1673,16 +1582,6 @@
                 let matchLogHtml = gd.match_logs.map(log => `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px;"><span style="color:#888;">&gt;</span> <span style="color:#666; font-size: 11px;">[${log.time}]</span> <i class="fa-solid fa-bolt" style="color:var(--gold); font-size: 10px;"></i> <span style="color:#fff; font-weight: bold;">${log.name}</span> <span style="color:var(--accent); font-weight: bold;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
                 if (lastMatchLogHtml !== matchLogHtml) { document.getElementById('log-box-match').innerHTML = matchLogHtml; lastMatchLogHtml = matchLogHtml; }
             }
-            
-            // 🎵 리액션 큐 및 슬라이더 렌더링
-            if (document.getElementById('reaction-volume-slider')) {
-                if (document.activeElement.id !== 'reaction-volume-slider') {
-                    document.getElementById('reaction-volume-slider').value = gd.reaction_volume !== undefined ? gd.reaction_volume : 0.5;
-                }
-                document.getElementById('reaction-vol-text').innerText = Math.round((gd.reaction_volume !== undefined ? gd.reaction_volume : 0.5) * 100) + '%';
-            }
-            renderReactionQueue();
-
             renderRouletteTab();
         }
 
@@ -1889,23 +1788,15 @@
             let don = gd.pending_donations[donIdx];
 
             let addPoint = Math.round(don.amount / 10000);
-            
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
 
-            if (targetList[bjIdx]) {
-                targetList[bjIdx].score += addPoint;
-                if(targetList[bjIdx].contribution === undefined) targetList[bjIdx].contribution = 0;
-                targetList[bjIdx].contribution += addPoint;
+            gd.bjs[bjIdx].score += addPoint;
+            if(gd.bjs[bjIdx].contribution === undefined) gd.bjs[bjIdx].contribution = 0;
+            gd.bjs[bjIdx].contribution += addPoint;
 
-                targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
-                if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
-
-                let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-                if (!gd.logs) gd.logs = [];
-                gd.logs.unshift({time: timeStr, name: targetList[bjIdx].name, val: addPoint});
-                if(gd.logs.length > 200) gd.logs.pop();
-            }
+            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+            if (!gd.logs) gd.logs = [];
+            gd.logs.unshift({time: timeStr, name: gd.bjs[bjIdx].name, val: addPoint});
+            if(gd.logs.length > 200) gd.logs.pop();
 
             gd.pending_donations.splice(donIdx, 1);
             pushAPI();
@@ -1927,11 +1818,8 @@
             let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
             if (!gd.logs) gd.logs = [];
 
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-
             names.forEach(n => {
-                let targetBj = targetList.find(b => b.name === n);
+                let targetBj = gd.bjs.find(b => b.name === n);
                 if(targetBj) {
                     targetBj.score += addPoint;
                     if(targetBj.contribution === undefined) targetBj.contribution = 0;
@@ -1939,9 +1827,6 @@
                     gd.logs.unshift({time: timeStr, name: targetBj.name, val: addPoint});
                 }
             });
-
-            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
-            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
 
             if(gd.logs.length > 200) gd.logs.splice(200);
             gd.pending_donations.splice(donIdx, 1);
@@ -2269,11 +2154,8 @@
             let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
             if (!gd.logs) gd.logs = [];
 
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-
             names.forEach(n => {
-                let targetBj = targetList.find(b => b.name === n);
+                let targetBj = gd.bjs.find(b => b.name === n);
                 if(targetBj) {
                     targetBj.score += addPoint;
                     if(targetBj.contribution === undefined) targetBj.contribution = 0;
@@ -2281,9 +2163,6 @@
                     gd.logs.unshift({time: timeStr, name: targetBj.name, val: addPoint});
                 }
             });
-
-            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
-            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
 
             if(gd.logs.length > 200) gd.logs.splice(200);
             gd.pending_donations.splice(donIdx, 1);
@@ -3512,312 +3391,6 @@
             } catch (e) {
                 window.userInitiatedEnd = false;
                 await premiumAlert("서버 통신 실패: " + e.message, "통신 실패", "warning");
-            }
-        }
-
-        // ==========================================
-        // 🎵 커스텀 리액션 플레이어 제어 스크립트
-        // ==========================================
-        function updateUploadLabel(inputId, labelId) {
-            const input = document.getElementById(inputId);
-            const label = document.getElementById(labelId);
-            if (input && input.files && input.files[0]) {
-                label.innerText = input.files[0].name;
-                label.style.color = 'var(--accent)';
-            } else {
-                label.innerText = "파일 선택 또는 드래그";
-                label.style.color = '#999';
-            }
-        }
-
-        async function handleReactionSubmit(event) {
-            event.preventDefault();
-            const title = document.getElementById('reaction-title').value.trim();
-            const amount = document.getElementById('reaction-amount').value || 0;
-            const audioFile = document.getElementById('reaction-audio-file').files[0];
-            const imageFile = document.getElementById('reaction-image-file').files[0];
-
-            if (!title) {
-                premiumAlert("제목을 입력해주세요.", "입력 오류", "warning");
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('title', title);
-            formData.append('amount', amount);
-            if (audioFile) formData.append('audio', audioFile);
-            if (imageFile) formData.append('image', imageFile);
-
-            try {
-                const submitBtn = event.target.querySelector('button[type="submit"]');
-                const origHtml = submitBtn.innerHTML;
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 업로드 중...';
-
-                let res = await fetch('/api/reaction/add', {
-                    method: 'POST',
-                    body: formData
-                });
-                let data = await res.json();
-                
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = origHtml;
-
-                if (data.status === 'success') {
-                    premiumAlert(data.message, "성공", "success");
-                    document.getElementById('reaction-upload-form').reset();
-                    document.getElementById('reaction-audio-label').innerText = "음원 파일 선택 또는 드래그";
-                    document.getElementById('reaction-audio-label').style.color = '#999';
-                    document.getElementById('reaction-image-label').innerText = "이미지 파일 선택 또는 드래그";
-                    document.getElementById('reaction-image-label').style.color = '#999';
-                    loadReactionList();
-                } else {
-                    premiumAlert("등록 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("서버 전송 실패: " + e.message, "통신 오류", "warning");
-            }
-        }
-
-        async function loadReactionList() {
-            const container = document.getElementById('reaction-list-container');
-            if (!container) return;
-
-            try {
-                let res = await fetch('/api/reaction/list');
-                let list = await res.json();
-                
-                if (list.status === 'error') {
-                    container.innerHTML = `<div style="color: var(--danger); text-align: center; grid-column: 1 / -1; padding: 50px 0;">목록 로드 실패: ${list.message}</div>`;
-                    return;
-                }
-
-                if (list.length === 0) {
-                    container.innerHTML = `
-                        <div style="color: #666; text-align: center; grid-column: 1 / -1; padding: 80px 0;">
-                            <i class="fa-solid fa-music" style="font-size: 36px; color: #333; margin-bottom: 10px; display: block;"></i>
-                            등록된 리액션이 없습니다. 좌측 폼에서 음원과 사진을 등록해 주세요!
-                        </div>
-                    `;
-                    return;
-                }
-
-                container.innerHTML = list.map(item => {
-                    const amountText = item.amount > 0 ? `${item.amount.toLocaleString()}원` : "수동 발동 전용";
-                    const thumbnail = item.image_url ? 
-                        `<div style="width: 100%; height: 110px; background: url('${item.image_url}') center/cover no-repeat; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);"></div>` :
-                        `<div style="width: 100%; height: 110px; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
-                            <i class="fa-solid fa-image" style="font-size: 24px; color: #444;"></i>
-                            <span style="font-size: 11px; color: #666;">이미지 없음</span>
-                         </div>`;
-
-                    return `
-                        <div class="reaction-card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-light); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-                            ${thumbnail}
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-weight: bold; font-size: 13px; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${item.title}</div>
-                                <div style="font-size: 11px; color: var(--accent); font-weight: 600; margin-top: 3px;">
-                                    <i class="fa-solid fa-coins"></i> ${amountText}
-                                </div>
-                            </div>
-                            <div style="display: flex; gap: 6px; margin-top: 5px;">
-                                <button class="primary" onclick="playReaction(${item.id})" style="flex: 1; height: 30px; font-size: 11px; font-weight: bold; border-radius: 8px; justify-content: center; padding: 0;">
-                                    <i class="fa-solid fa-play"></i> 방송 송출
-                                </button>
-                                <button class="danger" onclick="deleteReaction(${item.id}, '${item.title}')" style="width: 30px; height: 30px; border-radius: 8px; justify-content: center; padding: 0; flex-shrink: 0;">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            } catch (e) {
-                container.innerHTML = `<div style="color: var(--danger); text-align: center; grid-column: 1 / -1; padding: 50px 0;">통신 실패: ${e.message}</div>`;
-            }
-        }
-
-        async function playReaction(itemId) {
-            try {
-                let res = await fetch(`/api/reaction/play/${itemId}`, { method: 'POST' });
-                let data = await res.json();
-                if (data.status === 'success') {
-                    showReactionToast();
-                } else {
-                    premiumAlert("송출 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("송출 실패: " + e.message, "통신 오류", "warning");
-            }
-        }
-
-        async function deleteReaction(itemId, title) {
-            let confirm = await premiumConfirm(`'${title}' 리액션을 정말로 삭제하시겠습니까?\n서버 DB 및 저장된 음원/사진 파일이 완전히 삭제됩니다.`, "리액션 삭제 확인", "danger");
-            if (!confirm) return;
-
-            try {
-                let res = await fetch(`/api/reaction/delete/${itemId}`, { method: 'POST' });
-                let data = await res.json();
-                if (data.status === 'success') {
-                    premiumAlert("리액션이 삭제되었습니다.", "삭제 성공", "success");
-                    loadReactionList();
-                } else {
-                    premiumAlert("삭제 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("삭제 실패: " + e.message, "통신 오류", "warning");
-            }
-        }
-
-        // ==========================================
-        // 🎵 리액션 큐 제어 스크립트
-        // ==========================================
-        function renderReactionQueue() {
-            const queue = gd.reaction_queue || [];
-            const container = document.getElementById('reaction-queue-container');
-            const countEl = document.getElementById('reaction-queue-count');
-            
-            if (!container || !countEl) return;
-            
-            countEl.innerText = queue.length + '개';
-            
-            // 넘기기 버튼: 큐에 재생 중인 아이템이 있을 때만 표시
-            const skipBtn = document.getElementById('skip-reaction-btn');
-            if (skipBtn) skipBtn.style.display = queue.length > 0 ? 'inline-flex' : 'none';
-            
-            const skipBtnMain = document.getElementById('skip-reaction-btn-main');
-            if (skipBtnMain) {
-                if (queue.length > 0) {
-                    skipBtnMain.disabled = false;
-                    skipBtnMain.style.opacity = '1';
-                    skipBtnMain.style.cursor = 'pointer';
-                } else {
-                    skipBtnMain.disabled = true;
-                    skipBtnMain.style.opacity = '0.4';
-                    skipBtnMain.style.cursor = 'not-allowed';
-                }
-            }
-            
-            if (queue.length === 0) {
-                container.innerHTML = `
-                    <div style="color: #666; font-size: 11px; text-align: center; padding: 25px 0;">
-                        대기 중인 리액션이 없습니다.
-                    </div>
-                `;
-                return;
-            }
-            
-            container.innerHTML = queue.map((item, idx) => {
-                const isPlaying = (idx === 0);
-                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(0, 255, 204, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
-                const badge = isPlaying ? '<span style="font-size:9px; background:var(--accent); color:#000; padding:1px 4px; border-radius:4px; font-weight:bold; margin-right:5px; vertical-align:middle;">재생중</span>' : `<span style="font-size:9px; background:#444; color:#ccc; padding:1px 4px; border-radius:4px; font-weight:bold; margin-right:5px; vertical-align:middle;">대기 ${idx}</span>`;
-                
-                return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 8px; ${borderStyle}">
-                        <div style="flex: 1; min-width: 0; font-size: 12px; color: #fff;">
-                            ${badge}<span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:inline-block; max-width:110px; vertical-align:middle;">${item.title}</span>
-                        </div>
-                        <button onclick="removeFromQueue('${item.id}')" style="background:none; border:none; color:#ff3b30; cursor:pointer; font-size:12px; padding: 0 4px; flex-shrink: 0; display: inline-flex; align-items: center;">
-                            <i class="fa-solid fa-xmark"></i>
-                        </button>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        async function changeReactionVolume(val) {
-            const vol = parseFloat(val);
-            const textEl = document.getElementById('reaction-vol-text');
-            if (textEl) textEl.innerText = Math.round(vol * 100) + '%';
-            gd.reaction_volume = vol;
-            pushAPI();
-        }
-
-        async function skipCurrentReaction() {
-            try {
-                let res = await fetch('/api/reaction/next', { method: 'POST' });
-                let data = await res.json();
-                if (data.status === 'success') {
-                    premiumAlert("다음 후원으로 넘겼습니다!", "넘기기 성공", "success");
-                } else {
-                    premiumAlert("넘기기 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("통신 실패: " + e.message, "오류", "warning");
-            }
-        }
-
-        async function stopReaction() {
-            try {
-                let res = await fetch('/api/reaction/stop', { method: 'POST' });
-                let data = await res.json();
-                if (data.status === 'success') {
-                    showReactionToast();
-                } else {
-                    premiumAlert("리액션 중단 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("통신 실패: " + e.message, "오류", "warning");
-            }
-        }
-
-        async function removeFromQueue(rqId) {
-            try {
-                let res = await fetch(`/api/reaction/queue/remove/${rqId}`, { method: 'POST' });
-                let data = await res.json();
-                if (data.status !== 'success') {
-                    premiumAlert("삭제 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("통신 실패: " + e.message, "오류", "warning");
-            }
-        }
-
-        async function triggerManualDonation() {
-            const name = document.getElementById('manual-donator').value.trim() || "수동후원";
-            const amountInput = document.getElementById('manual-amount');
-            const amount = parseInt(amountInput.value) || 0;
-            const messageInput = document.getElementById('manual-message');
-            const message = messageInput.value.trim() || "수동 후원 송출";
-
-            if (amount <= 0) {
-                premiumAlert("후원 금액을 입력해주세요.", "입력 오류", "warning");
-                return;
-            }
-
-            try {
-                let res = await fetch('/api/donation', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        name: name,
-                        amount: amount,
-                        message: message,
-                        tx_id: "manual_" + Date.now()
-                    })
-                });
-                let data = await res.json();
-                if (data.status === 'success') {
-                    amountInput.value = "";
-                    document.getElementById('manual-donator').value = "";
-                    messageInput.value = "";
-                } else {
-                    premiumAlert("송출 실패: " + data.message, "오류", "warning");
-                }
-            } catch (e) {
-                premiumAlert("통신 실패: " + e.message, "오류", "warning");
-            }
-        }
-
-        async function copyTampermonkeyCode() {
-            try {
-                let res = await fetch('/toonation_tampermonkey.user.js');
-                if (!res.ok) throw new Error("HTTP " + res.status);
-                let code = await res.text();
-                await navigator.clipboard.writeText(code);
-                premiumAlert("템퍼몽키 연동 스크립트가 클립보드에 복사되었습니다!\n템퍼몽키 [새 유저스크립트 추가] 화면에 붙여넣어주세요.", "복사 완료", "success");
-            } catch (err) {
-                console.error("복사 실패:", err);
-                premiumAlert("스크립트 코드 복사 실패: " + err.message, "오류", "warning");
             }
         }
     </script>

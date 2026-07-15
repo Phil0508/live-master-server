@@ -171,28 +171,18 @@ def require_login():
         '/',
         '/overlay',
         '/overlay.html',
-        '/alertbox',
-        '/alertbox.html',
         '/api/stream',
         '/api/ping',
         '/api/donation',
         '/api/streamdeck/neon',
         '/api/streamdeck/save',
         '/api/roulette/winner',
-        '/api/data',
-        '/api/reaction/next',
-        '/toonation_tampermonkey.user.js',
         '/setup'
     ]
     
-    decoded_path = urllib.parse.unquote(path)
-    if (path in exempt_routes or 
-        path.startswith('/uploads/') or 
-        path == '/upload' or 
-        decoded_path == '/노래등록' or 
-        path == '/api/reaction/add'):
+    if path in exempt_routes:
         return
-         
+        
     # HTTP Authorization Bearer 토큰 및 ?token= 파라미터 검증 지원
     auth_header = request.headers.get('Authorization')
     token = None
@@ -242,8 +232,6 @@ DEFAULT_STATE = {
     "target_goal": 50000,
     "theme": "default",
     "reaction_mode": False,
-    "reaction_queue": [],
-    "reaction_volume": 0.5,
     "popup_enabled": True,
     "takeover_enabled": True,
     "ticker_enabled": True,
@@ -810,11 +798,6 @@ def serve_root():
 def serve_overlay():
     return serve_html_file('overlay.html')
 
-@app.route('/alertbox')
-@app.route('/alertbox.html')
-def serve_alertbox():
-    return serve_html_file('alertbox.html')
-
 @app.route('/streamdeck')
 @app.route('/streamdeck.html')
 def serve_streamdeck():
@@ -846,10 +829,7 @@ def serve_mobile():
 def serve_admin():
     return serve_html_file('admin.html')
 
-@app.route('/upload')
-@app.route('/노래등록')
-def serve_upload():
-    return serve_html_file('upload.html')
+
 
 @app.route('/<path:filename>')
 def serve_dynamic_file(filename):
@@ -936,6 +916,7 @@ def receive_donation():
             #         bj['contribution'] = bj.get('contribution', 0) + add_point
             #         current_total = bj['score']
             #         break
+                    
             try:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
@@ -945,34 +926,6 @@ def receive_donation():
                     )
             except Exception as dbe:
                 print(f"[장부 기록 오류] {dbe}")
-                
-            # 🎵 자동 리액션 송 연동 감지 (근사치 매칭: 후원금액 이하 중 가장 가까운 리액션)
-            if amount > 0:
-                try:
-                    with get_db_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id, amount FROM reaction_items WHERE amount <= ? ORDER BY amount DESC LIMIT 1"), (amount,))
-                        row = cursor.fetchone()
-                        if row:
-                            r_id, r_title, r_audio_file_id, r_image_file_id, r_amount = row
-                            audio_url = f"/uploads/{r_audio_file_id}" if r_audio_file_id else ""
-                            image_url = f"/uploads/{r_image_file_id}" if r_image_file_id else ""
-                            
-                            reaction_uuid = f"rq_{uuid.uuid4().hex}"
-                            state['reaction_queue'].append({
-                                "id": reaction_uuid,
-                                "item_id": r_id,
-                                "title": r_title,
-                                "audio_url": audio_url,
-                                "image_url": image_url,
-                                "amount": amount,
-                                "donator": parsed_name,
-                                "message": cleaned_msg
-                            })
-                            state['reaction_mode'] = True
-                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 → 근사치 {r_amount}원 매칭 ➡️ '{r_title}' 큐 추가 완료")
-                except Exception as e:
-                    print(f"⚠️ [자동 리액션 감지 오류] {e}")
                 
             save_data(state)
             broadcast_event('update', state)
@@ -1623,241 +1576,6 @@ def sd_neon():
         print(f"  💡 [스트림덱 명령] 네온 이펙트 조명 전환: {color}")
         return jsonify({"status": "success", "color": color})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# ==========================================
-# 🎵 커스텀 리액션 플랫폼 API (영구 보존형)
-# ==========================================
-import uuid
-
-@app.route('/uploads/<file_id>', methods=['GET'])
-def get_reaction_file(file_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT filename, content_type, file_data FROM reaction_files WHERE id = ?"), (file_id,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"status": "error", "message": "File not found"}), 404
-            
-            filename, content_type, file_data = row
-            data_bytes = bytes(file_data)
-            
-            import os
-            from flask import send_file
-            
-            # Save file to a local cache directory to serve as a real static file.
-            # This perfectly resolves HTML5 audio Range requests and buffering stream aborts.
-            cache_dir = os.path.join(app.root_path, 'media_cache')
-            os.makedirs(cache_dir, exist_ok=True)
-            cache_path = os.path.join(cache_dir, file_id)
-            
-            if not os.path.exists(cache_path):
-                with open(cache_path, 'wb') as f:
-                    f.write(data_bytes)
-            
-            response = send_file(
-                cache_path,
-                mimetype=content_type,
-                as_attachment=False,
-                download_name=filename,
-                conditional=True
-            )
-            response.headers.set('Cache-Control', 'public, max-age=31536000')
-            return response
-    except Exception as e:
-        print(f"Error serving reaction file {file_id}: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/list', methods=['GET'])
-def get_reactions_list():
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
-            rows = cursor.fetchall()
-            reactions = []
-            for r in rows:
-                reactions.append({
-                    "id": r[0],
-                    "title": r[1],
-                    "amount": r[2],
-                    "audio_url": f"/uploads/{r[3]}" if r[3] else "",
-                    "image_url": f"/uploads/{r[4]}" if r[4] else ""
-                })
-            return jsonify(reactions)
-    except Exception as e:
-        print(f"Error listing reactions: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/add', methods=['POST'])
-def add_reaction():
-    try:
-        title = request.form.get('title', '').strip()
-        amount = int(request.form.get('amount', 0))
-        
-        if not title:
-            return jsonify({"status": "error", "message": "제목을 입력해주세요."}), 400
-            
-        audio_file = request.files.get('audio')
-        image_file = request.files.get('image')
-        
-        audio_file_id = None
-        image_file_id = None
-        
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            if audio_file and audio_file.filename:
-                audio_file_id = f"aud_{uuid.uuid4().hex}"
-                audio_data = audio_file.read()
-                cursor.execute(
-                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
-                    (audio_file_id, audio_file.filename, audio_file.content_type, psycopg2.Binary(audio_data) if IS_POSTGRES else audio_data)
-                )
-                
-            if image_file and image_file.filename:
-                image_file_id = f"img_{uuid.uuid4().hex}"
-                image_data = image_file.read()
-                cursor.execute(
-                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
-                    (image_file_id, image_file.filename, image_file.content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
-                )
-                
-            cursor.execute(
-                db_query("INSERT INTO reaction_items (title, amount, audio_file_id, image_file_id) VALUES (?, ?, ?, ?)"),
-                (title, amount, audio_file_id, image_file_id)
-            )
-            conn.commit()
-            
-        return jsonify({"status": "success", "message": "리액션 곡 등록 완료!"})
-    except Exception as e:
-        print(f"Error adding reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/delete/<int:item_id>', methods=['POST', 'DELETE'])
-def delete_reaction(item_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
-                
-            audio_file_id, image_file_id = row
-            
-            cursor.execute(db_query("DELETE FROM reaction_items WHERE id = ?"), (item_id,))
-            
-            if audio_file_id:
-                cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (audio_file_id,))
-            if image_file_id:
-                cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (image_file_id,))
-                
-            conn.commit()
-            
-        return jsonify({"status": "success", "message": "리액션 곡 삭제 완료!"})
-    except Exception as e:
-        print(f"Error deleting reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/play/<int:item_id>', methods=['POST'])
-def play_reaction(item_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT title, audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
-                
-            title, audio_file_id, image_file_id = row
-            audio_url = f"/uploads/{audio_file_id}" if audio_file_id else ""
-            image_url = f"/uploads/{image_file_id}" if image_file_id else ""
-            
-            with file_lock:
-                state = load_data()
-                reaction_uuid = f"rq_{uuid.uuid4().hex}"
-                state['reaction_queue'].append({
-                    "id": reaction_uuid,
-                    "item_id": item_id,
-                    "title": title,
-                    "audio_url": audio_url,
-                    "image_url": image_url,
-                    "donator": "수동송출",
-                    "message": ""
-                })
-                state['reaction_mode'] = True
-                save_data(state)
-                broadcast_event('update', state)
-                
-        return jsonify({"status": "success", "message": "방송 송출 완료!"})
-    except Exception as e:
-        print(f"Error playing reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/next', methods=['POST'])
-def next_reaction():
-    try:
-        data = request.get_json(silent=True) or {}
-        pop_id = data.get('id')
-        
-        with file_lock:
-            state = load_data()
-            queue = state.get('reaction_queue', [])
-            
-            if queue:
-                # ID가 지정된 경우: 첫 번째 아이템의 ID가 일치할 때만 pop (이중 pop 방지)
-                # ID가 없는 경우: 기존 방식대로 무조건 pop (하위 호환)
-                if not pop_id or queue[0].get('id') == pop_id:
-                    queue.pop(0)
-                
-            if not queue:
-                state['reaction_mode'] = False
-                
-            save_data(state)
-            broadcast_event('update', state)
-        return jsonify({"status": "success", "message": "Popped reaction"})
-    except Exception as e:
-        print(f"Error in next_reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/stop', methods=['POST'])
-def stop_reaction():
-    try:
-        with file_lock:
-            state = load_data()
-            state['reaction_queue'] = []
-            state['reaction_mode'] = False
-            save_data(state)
-            broadcast_event('update', state)
-            broadcast_event('reaction_stop', {})
-        return jsonify({"status": "success", "message": "All reactions stopped"})
-    except Exception as e:
-        print(f"Error in stop_reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/queue/remove/<string:rq_id>', methods=['POST'])
-def remove_from_queue(rq_id):
-    try:
-        with file_lock:
-            state = load_data()
-            queue = state.get('reaction_queue', [])
-            if queue:
-                is_currently_playing = (queue[0]['id'] == rq_id)
-                state['reaction_queue'] = [item for item in queue if item['id'] != rq_id]
-                
-                if is_currently_playing:
-                    broadcast_event('reaction_stop', {'id': rq_id})
-                    
-                if not state['reaction_queue']:
-                    state['reaction_mode'] = False
-                    
-                save_data(state)
-                broadcast_event('update', state)
-        return jsonify({"status": "success", "message": "Removed from queue"})
-    except Exception as e:
-        print(f"Error in remove_from_queue: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================

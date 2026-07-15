@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      11.4
 // @description  시그니처 및 일반 캐시 후원 감지 시 디버그 로그를 상세히 출력하여 인식이 안 되는 구간을 명확히 추적합니다.
-// @match        https://toon.at/widget/alertbox/*
+// @match        https://toon.at/widget/alertbox/0ff7d51634720c364b007009dd564dff*
 // @noframes
 // @grant        GM_xmlhttpRequest
 // @connect      live-master-server.onrender.com
@@ -201,10 +201,10 @@
             return; 
         }
 
-        // 7. 후원 필터링 (1천원 미만 무시 - 단, 시그니처 신청은 0원이라도 필터 통과)
+        // 7. 후원 필터링 (1만원 미만 무시 - 단, 시그니처 신청은 0원이라도 필터 통과)
         const isSig = isSignature || isZeroAmountSignature;
-        if (!isSig && amount < 1000) {
-            log(`  🗑️ [필터 컷] 1천원 미만 후원은 서버로 전송하지 않고 필터 락 처리합니다. (금액: ${amount}원)`);
+        if (!isSig && amount < 10000) {
+            log(`  🗑️ [필터 컷] 1만원 미만 후원은 서버로 전송하지 않고 필터 락 처리합니다. (금액: ${amount}원)`);
             lastFilteredState = currentTextState; 
             return;
         }
