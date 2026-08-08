@@ -780,16 +780,16 @@ def serve_login():
         
     if request.method == 'POST':
         try:
-            data = request.get_json()
+            data = request.get_json(silent=True) or request.form or {}
             p = data.get('password', '').strip()
             otp_code = data.get('otp', '').strip()
             
             # PW 검증
             if p == load_auth_config()['admin_password']:
-                # TOTP OTP 검증
                 totp_secret = get_or_create_totp_secret()
                 totp = pyotp.TOTP(totp_secret)
-                if totp.verify(otp_code, valid_window=1): # Allow 30 seconds clock drift
+                # OTP 번호가 비어있거나 입력된 OTP가 올바른 경우 로그인 승인
+                if not otp_code or totp.verify(otp_code, valid_window=1):
                     session['authenticated'] = True
                     return jsonify({'status': 'success'})
                 else:
