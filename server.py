@@ -57,7 +57,11 @@ def get_db_connection():
     if IS_POSTGRES:
         if psycopg2 is None:
             raise ImportError("psycopg2 is not installed but DATABASE_URL is set.")
-        conn = psycopg2.connect(DATABASE_URL)
+        db_url = DATABASE_URL
+        if 'sslmode=' not in db_url.lower():
+            sep = '&' if '?' in db_url else '?'
+            db_url += f"{sep}sslmode=require"
+        conn = psycopg2.connect(db_url)
     else:
         conn = sqlite3.connect(DB_FILE)
     try:
