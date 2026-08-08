@@ -858,6 +858,8 @@ def serve_upload():
 
 @app.route('/<path:filename>')
 def serve_dynamic_file(filename):
+    if filename.startswith('api/'):
+        return jsonify({"status": "error", "message": "API endpoint not found"}), 404
     for root in [BASE_DIR, BUNDLE_DIR]:
         if os.path.exists(os.path.join(root, filename)):
             return send_from_directory(root, filename)
