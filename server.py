@@ -181,6 +181,7 @@ def require_login():
         '/api/roulette/winner',
         '/api/data',
         '/api/reaction/next',
+        '/api/reaction/list',
         '/toonation_tampermonkey.user.js',
         '/setup'
     ]
