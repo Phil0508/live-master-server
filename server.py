@@ -323,6 +323,25 @@ def init_db():
                     summary TEXT
                 )
             """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reaction_files (
+                    id VARCHAR(64) PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    content_type VARCHAR(128) NOT NULL,
+                    file_data BYTEA NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reaction_items (
+                    id SERIAL PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    amount INTEGER DEFAULT 0,
+                    audio_file_id VARCHAR(64),
+                    image_file_id VARCHAR(64),
+                    is_enabled BOOLEAN DEFAULT TRUE
+                )
+            """)
         else:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS donation_history (
@@ -342,6 +361,25 @@ def init_db():
                     timestamp TEXT,
                     state_json TEXT,
                     summary TEXT
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reaction_files (
+                    id TEXT PRIMARY KEY,
+                    filename TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    file_data BLOB NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS reaction_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    amount INTEGER DEFAULT 0,
+                    audio_file_id TEXT,
+                    image_file_id TEXT,
+                    is_enabled INTEGER DEFAULT 1
                 )
             """)
         
