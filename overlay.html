@@ -1911,6 +1911,10 @@
             sseSource.addEventListener('slot_spin', function(e) {
                 try {
                     const data = JSON.parse(e.data);
+                    if (window.currentLayoutData && window.currentLayoutData.slot_enabled === false) {
+                        console.log("Slot Machine widget is disabled (OFF). Skipping slot animation.");
+                        return;
+                    }
                     handleSlotSpinOverlay(data);
                 } catch(err){ console.error("Error in slot_spin handler:", err); }
             });
