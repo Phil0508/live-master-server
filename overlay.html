@@ -1908,6 +1908,13 @@
                 }
             });
             
+            sseSource.addEventListener('slot_spin', function(e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    handleSlotSpinOverlay(data);
+                } catch(err){ console.error("Error in slot_spin handler:", err); }
+            });
+
             sseSource.onerror = function(err) {
                 console.error("SSE connection error. Retrying in 3 seconds...", err);
                 sseSource.close();

@@ -1273,120 +1273,29 @@
 
     <!-- 🎰 슬롯머신 탭 -->
     <div id="tab-slot" class="tab-content" style="display: none;">
-        <div class="group-box">
-            <div class="group-title" style="color: var(--accent); font-size: 18px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
-                <span><i class="fa-solid fa-gem"></i> 시그니처 슬롯머신 제어판</span>
-                <a href="/slot" target="_blank" style="font-size: 13px; color: var(--accent); text-decoration: none; border: 1px solid var(--accent); padding: 6px 12px; border-radius: 8px; font-weight: bold;"><i class="fa-solid fa-tv"></i> OBS 슬롯 오버레이 열기 (/slot)</a>
+        <div class="group-box" style="text-align: center; padding: 40px 20px;">
+            <div class="group-title" style="color: var(--accent); font-size: 20px; justify-content: center; margin-bottom: 25px;">
+                <i class="fa-solid fa-gem"></i> 랜덤 시그니처 슬롯머신
             </div>
+
+            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 30px; line-height: 1.6;">
+                버튼을 누르면 OBS 방송 화면에서 슬롯머신이 두루루룩 스크롤되고,<br>
+                당첨 문구와 함께 해당 시그니처의 사진과 노래가 즉시 송출됩니다!
+            </p>
 
             <!-- 메인 돌리기 버튼 -->
-            <div style="text-align: center; margin: 25px 0;">
-                <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, #00ffcc, #00bfff); color: #000; font-size: 22px; font-weight: 900; padding: 20px 45px; border: none; border-radius: 18px; cursor: pointer; box-shadow: 0 0 30px rgba(0, 255, 204, 0.5); transition: all 0.2s;">
-                    <i class="fa-solid fa-play"></i> 🎰 슬롯머신 돌리기!
-                </button>
-            </div>
-
-            <!-- 모드 선택 (올랜덤 vs 지정 후보) -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); border-radius: 14px; padding: 18px; margin-bottom: 20px;">
-                <label style="font-weight: 800; font-size: 15px; margin-bottom: 12px; display: block; color: #fff;">🎰 슬롯 후보 모드 선택</label>
-                <div style="display: flex; gap: 20px;">
-                    <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="radio" name="slot-mode" value="random" checked onclick="toggleSlotMode('random')">
-                        <strong>🎲 올랜덤 모드</strong> (전체 시그니처에서 무작위)
-                    </label>
-                    <label style="cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px;">
-                        <input type="radio" name="slot-mode" value="selected" onclick="toggleSlotMode('selected')">
-                        <strong>🎯 지정 후보 모드</strong> (아래 체크한 시그니처 중에서만 뽑힘)
-                    </label>
-                </div>
-            </div>
-
-            <!-- 지정 후보 셀렉터 패널 -->
-            <div id="slot-candidates-panel" style="opacity: 0.5; pointer-events: none; transition: all 0.3s;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-                    <span style="font-size: 14px; font-weight: 800; color: #fff;">🎯 슬롯 후보 선택 (<span id="slot-sel-count" style="color: var(--accent); font-weight: 900;">0</span>개 선택됨)</span>
-                    <div>
-                        <button type="button" onclick="selectAllSlotCandidates(true)" class="btn-action" style="padding: 6px 12px; font-size: 12px; border-radius: 6px;">전체 선택</button>
-                        <button type="button" onclick="selectAllSlotCandidates(false)" class="btn-action" style="padding: 6px 12px; font-size: 12px; margin-left: 6px; border-radius: 6px;">전체 해제</button>
-                    </div>
-                </div>
-                <div id="slot-candidates-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto; padding-right: 4px;">
-                    <div style="color: var(--text-muted); padding: 20px; text-align: center;">시그니처 목록을 불러오는 중...</div>
-                </div>
-            </div>
+            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, #00ffcc, #00bfff); color: #000; font-size: 24px; font-weight: 900; padding: 22px 55px; border: none; border-radius: 20px; cursor: pointer; box-shadow: 0 0 35px rgba(0, 255, 204, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
+                <i class="fa-solid fa-play"></i> 🎰 슬롯머신 돌리기!
+            </button>
         </div>
     </div>
 
     <script>
-        function toggleSlotMode(mode) {
-            const panel = document.getElementById('slot-candidates-panel');
-            if (mode === 'selected') {
-                panel.style.opacity = '1';
-                panel.style.pointerEvents = 'auto';
-            } else {
-                panel.style.opacity = '0.5';
-                panel.style.pointerEvents = 'none';
-            }
-        }
-
-        let allSlotItems = [];
-
-        function loadSlotCandidates() {
-            fetch('/api/reaction/list')
-                .then(res => res.json())
-                .then(data => {
-                    allSlotItems = data || [];
-                    renderSlotCandidatesGrid(allSlotItems);
-                })
-                .catch(err => console.error(err));
-        }
-
-        function renderSlotCandidatesGrid(items) {
-            const grid = document.getElementById('slot-candidates-grid');
-            if (!grid) return;
-            if (items.length === 0) {
-                grid.innerHTML = `<div style="color: var(--text-muted); padding: 20px; text-align: center;">등록된 시그니처가 없습니다.</div>`;
-                return;
-            }
-            grid.innerHTML = items.map(item => `
-                <label style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); padding: 8px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;">
-                    <input type="checkbox" class="slot-item-chk" value="${item.id}" onchange="updateSlotSelectedCount()">
-                    <span style="font-weight: bold; color: var(--accent);">${(item.amount||0).toLocaleString()}원</span>
-                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff;">${item.title || '시그'}</span>
-                </label>
-            `).join('');
-            updateSlotSelectedCount();
-        }
-
-        function updateSlotSelectedCount() {
-            const chks = document.querySelectorAll('.slot-item-chk:checked');
-            const cntSpan = document.getElementById('slot-sel-count');
-            if (cntSpan) cntSpan.innerText = chks.length;
-        }
-
-        function selectAllSlotCandidates(flag) {
-            document.querySelectorAll('.slot-item-chk').forEach(c => c.checked = flag);
-            updateSlotSelectedCount();
-        }
-
         function triggerSlotSpin() {
-            const modeElem = document.querySelector('input[name="slot-mode"]:checked');
-            const mode = modeElem ? modeElem.value : 'random';
-            const selected_ids = [];
-            if (mode === 'selected') {
-                document.querySelectorAll('.slot-item-chk:checked').forEach(c => {
-                    selected_ids.push(parseInt(c.value));
-                });
-                if (selected_ids.length === 0) {
-                    alert("지정 후보 모드에서는 최소 1개 이상의 시그니처를 선택하셔야 합니다!");
-                    return;
-                }
-            }
-
             fetch('/api/slot/spin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: mode, selected_ids: selected_ids })
+                body: JSON.stringify({})
             })
             .then(res => res.json())
             .then(data => {

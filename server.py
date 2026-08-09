@@ -1894,10 +1894,6 @@ def stop_reaction():
 @app.route('/api/slot/spin', methods=['POST'])
 def api_slot_spin():
     try:
-        data = request.json or {}
-        mode = data.get('mode', 'random')
-        selected_ids = data.get('selected_ids', [])
-
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
@@ -1915,26 +1911,18 @@ def api_slot_spin():
         if not reactions:
             return jsonify({"status": "error", "message": "등록된 시그니처가 없습니다."}), 400
 
-        candidates = reactions
-        if mode == 'selected' and selected_ids:
-            sel_set = set(int(x) for x in selected_ids if str(x).isdigit())
-            filtered = [r for r in reactions if r['id'] in sel_set]
-            if filtered:
-                candidates = filtered
-
         import random
-        winner = random.choice(candidates)
+        winner = random.choice(reactions)
 
         payload = {
             "type": "slot_spin",
             "event": "slot_spin",
-            "winner": winner,
-            "candidates": candidates
+            "winner": winner
         }
 
         broadcast_event('slot_spin', payload)
 
-        return jsonify({"status": "success", "winner": winner, "candidates_count": len(candidates)})
+        return jsonify({"status": "success", "winner": winner})
     except Exception as e:
         print(f"Error spinning slot: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
