@@ -1894,6 +1894,20 @@ def stop_reaction():
 @app.route('/api/slot/spin', methods=['POST'])
 def api_slot_spin():
     try:
+        data = request.json or {}
+        winner = data.get('winner')
+        candidates = data.get('candidates', [])
+
+        if winner:
+            payload = {
+                "type": "slot_spin",
+                "event": "slot_spin",
+                "winner": winner,
+                "candidates": candidates
+            }
+            broadcast_event('slot_spin', payload)
+            return jsonify({"status": "success", "winner": winner})
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))

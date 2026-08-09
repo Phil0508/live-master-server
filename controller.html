@@ -1303,10 +1303,30 @@
 
     <script>
         function triggerSlotSpin() {
+            const LOCAL_SIG_API = 'http://localhost:8388/api/signatures';
+
+            fetch(LOCAL_SIG_API)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.status === 'success' && data.signatures && data.signatures.length > 0) {
+                        const sigs = data.signatures;
+                        const winner = sigs[Math.floor(Math.random() * sigs.length)];
+                        sendSlotSpinPayload({ winner: winner, candidates: sigs });
+                    } else {
+                        sendSlotSpinPayload({});
+                    }
+                })
+                .catch(err => {
+                    console.warn("Local signature server offline, falling back to server spin:", err);
+                    sendSlotSpinPayload({});
+                });
+        }
+
+        function sendSlotSpinPayload(payload) {
             fetch('/api/slot/spin', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
+                body: JSON.stringify(payload)
             })
             .then(res => res.json())
             .then(data => {
