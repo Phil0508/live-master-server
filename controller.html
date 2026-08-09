@@ -1278,10 +1278,18 @@
                 <i class="fa-solid fa-gem"></i> 랜덤 시그니처 슬롯머신
             </div>
 
-            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 30px; line-height: 1.6;">
-                버튼을 누르면 OBS 방송 화면에서 슬롯머신이 두루루룩 스크롤되고,<br>
-                당첨 문구와 함께 해당 시그니처의 사진과 노래가 즉시 송출됩니다!
-            </p>
+            <!-- 연동된 시그니처 목록 박스 -->
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-size: 14px; font-weight: 800; color: #fff;">
+                        <i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 연동된 시그니처 목록 (<span id="slot-linked-count" style="color: var(--accent); font-weight: 900;">0</span>개)
+                    </span>
+                    <button onclick="loadSlotCandidates()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px; cursor: pointer;"><i class="fa-solid fa-rotate"></i> 목록 새로고침</button>
+                </div>
+                <div id="slot-linked-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                    <div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">시그니처 목록을 불러오는 중...</div>
+                </div>
+            </div>
 
             <!-- 슬롯머신 위젯 켜기/끄기 스위치 -->
             <div style="margin-bottom: 25px; display: flex; justify-content: center;">
@@ -1302,6 +1310,39 @@
     </div>
 
     <script>
+        function loadSlotCandidates() {
+            const LOCAL_SIG_API = 'http://localhost:8388/api/signatures';
+            const countSpan = document.getElementById('slot-linked-count');
+            const grid = document.getElementById('slot-linked-grid');
+
+            fetch(LOCAL_SIG_API)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.status === 'success' && data.signatures) {
+                        const sigs = data.signatures;
+                        if (countSpan) countSpan.innerText = sigs.length;
+                        if (grid) {
+                            if (sigs.length === 0) {
+                                grid.innerHTML = `<div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">등록된 시그니처가 없습니다.</div>`;
+                            } else {
+                                grid.innerHTML = sigs.map(s => `
+                                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); padding: 8px 10px; border-radius: 8px; font-size: 12px;">
+                                        <span style="font-weight: 900; color: var(--accent); white-space: nowrap;">${(s.amount||0).toLocaleString()}원</span>
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff;">${s.title || '시그니처'}</span>
+                                    </div>
+                                `).join('');
+                            }
+                        }
+                    }
+                })
+                .catch(err => {
+                    if (countSpan) countSpan.innerText = '0';
+                    if (grid) {
+                        grid.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center; grid-column: 1 / -1;"><i class="fa-solid fa-triangle-exclamation"></i> 로컬 시그니처 서버 (http://localhost:8388) 가동 필요</div>`;
+                    }
+                });
+        }
+
         function triggerSlotSpin() {
             const LOCAL_SIG_API = 'http://localhost:8388/api/signatures';
 
