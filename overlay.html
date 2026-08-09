@@ -1932,6 +1932,10 @@
                 } catch(err) {
                     console.error("Error parsing reaction_stop data:", err);
                     currentPlayingId = null;
+                    stopReactionVisuals();
+                }
+            });
+            
             sseSource.addEventListener('slot_spin', function(e) {
                 try {
                     const data = JSON.parse(e.data);
