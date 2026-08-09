@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎰 시그니처 슬롯머신 오버레이</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;800;900&family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+            font-family: 'Noto Sans KR', 'Outfit', sans-serif;
+            user-select: none;
+        }
+
+        #slot-wrapper {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+
+        #slot-wrapper.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* 🎰 슬롯 머신 프레임 */
+        .slot-machine-cabinet {
+            background: linear-gradient(145deg, #18181b, #09090b);
+            border: 4px solid rgba(0, 255, 204, 0.6);
+            border-radius: 28px;
+            padding: 30px 40px;
+            box-shadow: 0 0 60px rgba(0, 255, 204, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .slot-header {
+            font-size: 32px;
+            font-weight: 900;
+            color: #00ffcc;
+            text-shadow: 0 0 20px rgba(0, 255, 204, 0.8);
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* 릴 3개 컨테이너 */
+        .reels-container {
+            display: flex;
+            gap: 20px;
+            background: #000;
+            padding: 16px;
+            border-radius: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
+            position: relative;
+        }
+
+        .reel-window {
+            width: 200px;
+            height: 240px;
+            background: #121215;
+            border-radius: 14px;
+            overflow: hidden;
+            position: relative;
+            border: 2px solid rgba(0, 255, 204, 0.3);
+            box-shadow: inset 0 10px 20px rgba(0,0,0,0.8), inset 0 -10px 20px rgba(0,0,0,0.8);
+        }
+
+        .reel-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.1s linear;
+        }
+
+        .reel-card {
+            width: 200px;
+            height: 240px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 12px;
+            background: #18181c;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .reel-card img {
+            width: 140px;
+            height: 140px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid rgba(0, 255, 204, 0.4);
+            margin-bottom: 8px;
+            background: #000;
+        }
+
+        .reel-card .title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+            text-align: center;
+        }
+
+        .reel-card .amount {
+            font-size: 14px;
+            font-weight: 900;
+            color: #00ffcc;
+            margin-top: 2px;
+        }
+
+        /* 🎊 당첨 배너 */
+        .winner-banner {
+            margin-top: 24px;
+            font-size: 36px;
+            font-weight: 900;
+            color: #ff007f;
+            text-shadow: 0 0 25px rgba(255, 0, 127, 0.9), 0 0 10px #fff;
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .winner-banner.show {
+            opacity: 1;
+            transform: scale(1.1);
+            animation: pulseBanner 0.8s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulseBanner {
+            0% { transform: scale(1.05); }
+            100% { transform: scale(1.15); text-shadow: 0 0 40px rgba(255, 0, 127, 1), 0 0 20px #00ffcc; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="slot-wrapper">
+        <div class="slot-machine-cabinet">
+            <div class="slot-header">
+                <i class="fa-solid fa-gem"></i> 시그니처 슬롯머신 <i class="fa-solid fa-gem"></i>
+            </div>
+
+            <div class="reels-container">
+                <div class="reel-window"><div class="reel-strip" id="reel-1"></div></div>
+                <div class="reel-window"><div class="reel-strip" id="reel-2"></div></div>
+                <div class="reel-window"><div class="reel-strip" id="reel-3"></div></div>
+            </div>
+
+            <div class="winner-banner" id="winner-banner">
+                🎊 [시그니처] 당첨!! 🎊
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const wrapper = document.getElementById('slot-wrapper');
+        const banner = document.getElementById('winner-banner');
+        const reelStrips = [
+            document.getElementById('reel-1'),
+            document.getElementById('reel-2'),
+            document.getElementById('reel-3')
+        ];
+
+        let isSpinning = false;
+        const LOCAL_SIG_SERVER = 'http://localhost:8388/api/donation';
+
+        function connectSSE() {
+            const evtSource = new EventSource('/api/stream');
+
+            evtSource.addEventListener('message', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'slot_spin' || data.event === 'slot_spin') {
+                        startSlotSpin(data);
+                    }
+                } catch(err){}
+            });
+
+            evtSource.onerror = () => {
+                setTimeout(connectSSE, 2000);
+                evtSource.close();
+            };
+        }
+
+        function createCardHTML(item) {
+            const imgUrl = item.image_file ? `/uploads/${item.image_file}` : (item.image_url || '/money.png');
+            return `
+                <div class="reel-card">
+                    <img src="${imgUrl}" onerror="this.src='/money.png'">
+                    <div class="title">${item.title || '시그니처'}</div>
+                    <div class="amount">${(item.amount || 0).toLocaleString()}원</div>
+                </div>
+            `;
+        }
+
+        function startSlotSpin(data) {
+            if (isSpinning) return;
+            isSpinning = true;
+
+            const winner = data.winner;
+            const pool = data.candidates && data.candidates.length > 0 ? data.candidates : [winner];
+
+            // 릴 빌드 (충분한 길이의 임의 서열 생성)
+            const cardHeight = 240;
+            const repeatCount = 20;
+
+            reelStrips.forEach((strip, index) => {
+                let html = '';
+                for (let i = 0; i < repeatCount; i++) {
+                    const randItem = pool[Math.floor(Math.random() * pool.length)];
+                    html += createCardHTML(randItem);
+                }
+                // 마지막 카드는 무조건 당첨 카드로 설정!
+                html += createCardHTML(winner);
+                strip.innerHTML = html;
+
+                // 시작 위치 초기화
+                strip.style.transition = 'none';
+                strip.style.transform = 'translateY(0px)';
+            });
+
+            wrapper.classList.add('active');
+            banner.classList.remove('show');
+
+            // 스핀 애니메이션 실행
+            setTimeout(() => {
+                const totalCards = repeatCount + 1;
+                const finalOffset = -((totalCards - 1) * cardHeight);
+
+                // 릴 1, 2, 3 순차 정지 (2.0초, 2.6초, 3.2초)
+                const delays = [2000, 2600, 3200];
+
+                reelStrips.forEach((strip, idx) => {
+                    setTimeout(() => {
+                        strip.style.transition = `transform ${1.5 + idx * 0.4}s cubic-bezier(0.1, 0.9, 0.2, 1.0)`;
+                        strip.style.transform = `translateY(${finalOffset}px)`;
+                    }, idx * 300);
+                });
+
+                // 당첨 연출 및 시그니처 서버 전송
+                setTimeout(() => {
+                    banner.innerText = `🎊 [${winner.title || (winner.amount.toLocaleString() + '원')}] 당첨!! 🎊`;
+                    banner.classList.add('show');
+
+                    // 로컬 시그니처 서버(8388)로 당첨 시그니처 자동 송출!
+                    sendToLocalSignatureServer(winner);
+
+                    // 4초 후 슬롯창 숨기기
+                    setTimeout(() => {
+                        wrapper.classList.remove('active');
+                        banner.classList.remove('show');
+                        isSpinning = false;
+                    }, 4500);
+
+                }, 3500);
+            }, 100);
+        }
+
+        function sendToLocalSignatureServer(winner) {
+            fetch(LOCAL_SIG_SERVER, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: '🎰 슬롯머신',
+                    amount: winner.amount || 10000,
+                    message: `[슬롯머신 당첨] ${winner.title || ''}`
+                })
+            }).then(res => res.json())
+            .then(data => console.log('Local signature triggered:', data))
+            .catch(err => console.warn('Local signature server offline or blocked:', err));
+        }
+
+        window.onload = connectSSE;
+    </script>
+</body>
+</html>

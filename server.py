@@ -857,6 +857,11 @@ def serve_root():
 def serve_overlay():
     return serve_html_file('overlay.html')
 
+@app.route('/slot')
+@app.route('/slot.html')
+def serve_slot():
+    return serve_html_file('slot.html')
+
 @app.route('/alertbox')
 @app.route('/alertbox.html')
 def serve_alertbox():
@@ -1884,6 +1889,54 @@ def stop_reaction():
         return jsonify({"status": "success", "message": "All reactions stopped"})
     except Exception as e:
         print(f"Error in stop_reaction: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/slot/spin', methods=['POST'])
+def api_slot_spin():
+    try:
+        data = request.json or {}
+        mode = data.get('mode', 'random')
+        selected_ids = data.get('selected_ids', [])
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
+            rows = cursor.fetchall()
+            reactions = []
+            for r in rows:
+                reactions.append({
+                    "id": r[0],
+                    "title": r[1],
+                    "amount": r[2],
+                    "audio_file": r[3] if r[3] else "",
+                    "image_file": r[4] if r[4] else ""
+                })
+
+        if not reactions:
+            return jsonify({"status": "error", "message": "등록된 시그니처가 없습니다."}), 400
+
+        candidates = reactions
+        if mode == 'selected' and selected_ids:
+            sel_set = set(int(x) for x in selected_ids if str(x).isdigit())
+            filtered = [r for r in reactions if r['id'] in sel_set]
+            if filtered:
+                candidates = filtered
+
+        import random
+        winner = random.choice(candidates)
+
+        payload = {
+            "type": "slot_spin",
+            "event": "slot_spin",
+            "winner": winner,
+            "candidates": candidates
+        }
+
+        broadcast_event('slot_spin', payload)
+
+        return jsonify({"status": "success", "winner": winner, "candidates_count": len(candidates)})
+    except Exception as e:
+        print(f"Error spinning slot: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/reaction/queue/remove/<string:rq_id>', methods=['POST'])
