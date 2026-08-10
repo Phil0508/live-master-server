@@ -643,7 +643,7 @@
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette'].forEach(id => { 
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot'].forEach(id => { 
                 const el = document.getElementById(id + '-container'); 
                 if(ly && el) { 
                     let coord = ly[id];

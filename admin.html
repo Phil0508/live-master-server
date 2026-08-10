@@ -128,6 +128,12 @@
                         <span style="font-size: 16px; font-weight: 800; color: #fff; margin-top: 10px;">행운의 룰렛</span>
                     </div>
                 </div>
+                <div class="widget" id="slot" data-id="slot" style="left:210px; top:680px; display: none;">
+                    <div style="width: 280px; height: 160px; border-radius: 20px; border: 4px solid var(--accent); background: rgba(20,20,25,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--accent-glow);">
+                        <span style="font-size: 36px;">🎰</span>
+                        <span style="font-size: 16px; font-weight: 800; color: #00ffcc; margin-top: 8px;">시그니처 슬롯머신</span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -135,7 +141,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신' };
             function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
             
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; scaleRatio = Math.min(availableW / 1080, availableH / 1920); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; }
@@ -223,6 +229,12 @@
                         document.getElementById('roulette').style.display = 'flex';
                     } else {
                         document.getElementById('roulette').style.display = 'none';
+                    }
+
+                    if (d.slot_enabled !== false) {
+                        document.getElementById('slot').style.display = 'flex';
+                    } else {
+                        document.getElementById('slot').style.display = 'none';
                     }
                 } catch(e) {}
             }
