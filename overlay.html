@@ -519,16 +519,16 @@
 
             <!-- 🎰 슬롯머신 위젯 레이어 -->
             <div id="slot-container" class="widget-container" style="position: absolute; left: 210px; top: 680px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s, left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto;">
-                <div class="slot-wrap" style="position: relative; width: 660px; height: 440px; background: rgba(18, 18, 24, 0.96); border: 4px solid var(--accent, #00ffcc); border-radius: 30px; padding: 25px; box-shadow: 0 0 40px var(--accent-glow, rgba(0,255,204,0.4)), inset 0 0 15px rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <h1 id="slot-title" style="font-family: 'Pretendard', sans-serif; font-size: 32px; font-weight: 900; color: #00ffcc; margin: 0 0 20px 0; text-shadow: 0 0 15px rgba(0, 255, 204, 0.8); text-align: center; display: flex; align-items: center; gap: 10px;">
+                <div class="slot-wrap" style="position: relative; width: 660px; height: 360px; background: rgba(18, 18, 24, 0.96); border: 4px solid var(--accent, #00ffcc); border-radius: 30px; padding: 25px; box-shadow: 0 0 40px var(--accent-glow, rgba(0,255,204,0.4)), inset 0 0 15px rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
+                    <h1 id="slot-title" style="font-family: 'Pretendard', sans-serif; font-size: 32px; font-weight: 900; color: #00ffcc; margin: 0 0 15px 0; text-shadow: 0 0 15px rgba(0, 255, 204, 0.8); text-align: center; display: flex; align-items: center; gap: 10px;">
                         🎰 시그니처 슬롯머신
                     </h1>
 
                     <!-- 3개 릴 박스 -->
-                    <div style="display: flex; gap: 15px; background: #000; padding: 15px; border-radius: 20px; border: 2px solid rgba(0,255,204,0.3); margin-bottom: 20px;">
-                        <div style="width: 170px; height: 200px; background: #121215; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);"><div id="ov-reel-1" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
-                        <div style="width: 170px; height: 200px; background: #121215; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);"><div id="ov-reel-2" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
-                        <div style="width: 170px; height: 200px; background: #121215; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);"><div id="ov-reel-3" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
+                    <div style="display: flex; gap: 15px; background: #000; padding: 12px; border-radius: 20px; border: 2px solid rgba(0,255,204,0.3); margin-bottom: 15px;">
+                        <div style="width: 170px; height: 120px; background: #121215; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);"><div id="ov-reel-1" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
+                        <div style="width: 170px; height: 120px; background: #121215; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);"><div id="ov-reel-2" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
+                        <div style="width: 170px; height: 120px; background: #121215; border-radius: 12px; overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.1);"><div id="ov-reel-3" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
                     </div>
 
                     <div id="slot-winner-text" style="font-size: 24px; font-weight: 900; color: #ff007f; text-shadow: 0 0 20px rgba(255,0,127,0.8); height: 35px; text-align: center;">
@@ -1970,7 +1970,7 @@
 
             const candidates = (data.candidates && data.candidates.length > 0) ? data.candidates : [winner];
             const reels = [reel1, reel2, reel3];
-            const cardHeight = 200;
+            const cardHeight = 120;
             const repeatCount = 15;
 
             reels.forEach((strip) => {
@@ -1978,18 +1978,17 @@
                 let html = '';
                 for (let i = 0; i < repeatCount; i++) {
                     const randItem = candidates[Math.floor(Math.random() * candidates.length)];
-                    const rImg = randItem.image_url || (randItem.image_file ? (`/uploads/${randItem.image_file}`) : '/money.png');
                     html += `
-                        <div style="width: 170px; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; background: #18181c; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                            <img src="${rImg}" onerror="this.src='/money.png'" style="width: 110px; height: 110px; object-fit: cover; border-radius: 10px; border: 2px solid #00ffcc; margin-bottom: 6px;">
-                            <div style="font-size: 13px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; text-align: center;">${randItem.title || '시그'}</div>
+                        <div style="width: 170px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; background: #141418; border-bottom: 2px solid rgba(0,255,204,0.2);">
+                            <div style="font-size: 18px; font-weight: 900; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 155px; text-align: center;">${randItem.title || '시그니처'}</div>
+                            <div style="font-size: 13px; font-weight: 800; color: #ffd700; margin-top: 4px;">${(randItem.amount || 0).toLocaleString()}원</div>
                         </div>
                     `;
                 }
                 html += `
-                    <div style="width: 170px; height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; background: #18181c; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        <img src="${imgUrl}" onerror="this.src='/money.png'" style="width: 110px; height: 110px; object-fit: cover; border-radius: 10px; border: 2px solid #ff007f; margin-bottom: 6px;">
-                        <div style="font-size: 13px; font-weight: bold; color: #ff007f; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; text-align: center;">${title}</div>
+                    <div style="width: 170px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; background: #1a0914; border-bottom: 2px solid rgba(255,0,127,0.5);">
+                        <div style="font-size: 18px; font-weight: 900; color: #ff007f; text-shadow: 0 0 12px rgba(255,0,127,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 155px; text-align: center;">${title}</div>
+                        <div style="font-size: 13px; font-weight: 800; color: #ffd700; margin-top: 4px;">${(winner.amount || 0).toLocaleString()}원</div>
                     </div>
                 `;
                 strip.innerHTML = html;
