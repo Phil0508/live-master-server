@@ -696,8 +696,16 @@
                 if (el) el.style.display = isActive ? '' : 'none';
             });
             
-            if (!isActive) return;
-            
+            // ⚠️ [중요 버그 수정] 예전에는 여기서 그냥 return 해버려서,
+            // '방송 시작'을 누르지 않은 상태에서는 시그니처를 아무리 송출해도
+            // 재생 로직(checkReactionQueue)에 도달조차 못 했다. 에러도 안 나서 원인 파악이 어려웠던 부분.
+            // 랭킹/게이지 같은 위젯은 방송 중에만 보이는 게 맞지만,
+            // 시그니처 재생은 방송 시작 여부와 무관하게 항상 동작해야 한다.
+            if (!isActive) {
+                checkReactionQueue();
+                return;
+            }
+
             try {
                 // 🎨 실시간 테마 스위칭
                 if (d.theme === 'pink') {
@@ -1585,6 +1593,12 @@
         let currentPlayingId = null;
 
 
+        // 🔇 모니터 모드: /overlay?monitor=1 로 열면 소리 재생과 큐 넘김을 하지 않는다.
+        // OBS는 기존 주소 그대로 쓰고, 확인용 브라우저 탭만 ?monitor=1 로 열면
+        // 두 곳에서 동시에 소리가 나거나 큐가 두 번 넘어가는 사고를 막을 수 있다.
+        const IS_MONITOR = new URLSearchParams(location.search).get('monitor') === '1';
+        if (IS_MONITOR) console.log('🔇 [모니터 모드] 소리 재생과 큐 넘김이 비활성화되었습니다.');
+
         function checkReactionQueue() {
             if (isDonationPopupShowing) return;
             
@@ -1715,22 +1729,35 @@
                 }, 2500);
                 
                 // 5. 음원 재생 및 종료 콜백 설정
+                // ⚠️ [중요] 이 아이템의 id를 클로저에 고정한다.
+                // 늦게 도착한 이전 아이템의 onended/onerror/타이머가 '현재' 아이템의 큐를 넘겨버리는
+                // 사고(엉뚱한 후원이 통째로 건너뛰어짐)를 막기 위한 가드다.
+                const thisPlayId = data.id;
+                const finishOnce = (reason) => {
+                    if (currentPlayingId !== thisPlayId) {
+                        console.log(`[가드] 지난 아이템(${thisPlayId})의 ${reason} 무시 — 현재는 ${currentPlayingId}`);
+                        return;
+                    }
+                    if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                    onReactionEnded();
+                };
+
                 if (data.audio_url) {
                     // Supabase Storage(CDN)는 안정적이므로 캐시버스터 없이 그대로 사용 → 브라우저 캐싱/미리받기 활용
                     audio.src = data.audio_url;
-                    
+                    audio.muted = IS_MONITOR;
+
                     audio.onended = function() {
                         console.log('Audio play ended naturally.');
-                        if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
-                        onReactionEnded();
+                        finishOnce('재생 종료');
                     };
-                    
+
                     audio.onerror = function(err) {
+                        // 음원 404 등으로 실패해도 큐가 멈추지 않고 다음으로 진행되게 한다
                         console.error('Audio error event fired:', err);
-                        if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
-                        onReactionEnded();
+                        finishOnce('재생 오류');
                     };
-                    
+
                     const setupSafetyTimer = () => {
                         if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
                         const duration = audio.duration;
@@ -1738,7 +1765,7 @@
                         console.log(`Setting audio safety timeout for ${safetyDuration}ms (audio duration: ${duration}s)`);
                         audioSafetyTimeout = setTimeout(() => {
                             console.warn('Audio safety timeout reached! Forcing onReactionEnded.');
-                            onReactionEnded();
+                            finishOnce('안전 타이머');
                         }, safetyDuration);
                     };
 
@@ -1747,7 +1774,7 @@
                     } else {
                         audio.onloadedmetadata = setupSafetyTimer;
                     }
-                    
+
                     audio.play().then(() => {
                         console.log('Audio playback started successfully.');
                     }).catch(err => {
@@ -1766,10 +1793,12 @@
                         }, 5000);
                     });
                 } else {
-                    // 음원 파일이 없는 경우, 5초 동안만 이미지를 보여주고 종료
+                    // 음원이 없는 경우: 시그니처에 설정된 재생시간(duration)만큼 사진을 보여준다
+                    const showMs = (parseInt(data.duration) > 0 ? parseInt(data.duration) : 5) * 1000;
+                    console.log(`No audio — showing image for ${showMs}ms (duration field)`);
                     reactionTimeout = setTimeout(() => {
-                        onReactionEnded();
-                    }, 5000);
+                        finishOnce('사진 표시 종료');
+                    }, showMs);
                 }
             });
         }
@@ -1777,7 +1806,13 @@
         function onReactionEnded() {
             const popId = currentPlayingId;
             currentPlayingId = null;
-            
+
+            // 모니터 모드에서는 서버 큐를 건드리지 않는다 (이중 pop 방지)
+            if (IS_MONITOR) {
+                stopReactionVisuals();
+                return;
+            }
+
             // 서버에 현재 아이템 ID를 보내서 정확히 해당 아이템만 pop (이중 pop 방지)
             fetch('/api/reaction/next', { 
                 method: 'POST',
@@ -2059,6 +2094,7 @@
             };
             if (soundUrl) {
                 audio.src = soundUrl;
+                audio.muted = IS_MONITOR;
                 audio.onended = endSlot;
                 audio.onerror = endSlot;
                 const setupSafety = () => {

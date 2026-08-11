@@ -190,16 +190,141 @@ def supabase_list_signatures():
     r.raise_for_status()
     return r.json()
 
+SIG_FIELDS = 'id,amount,title,image_url,sound_url,duration'
+
+def _supabase_query(params, retries=1):
+    """PostgREST GET 헬퍼. 결과 리스트 반환.
+       후원 매칭은 방송 중 필수 경로라 일시적 네트워크 오류 시 1회 재시도한다."""
+    last_err = None
+    for attempt in range(retries + 1):
+        try:
+            r = requests.get(f"{SUPABASE['url']}/rest/v1/signatures?{params}",
+                             headers=_supabase_headers(), timeout=12)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            last_err = e
+            if attempt < retries:
+                print(f"⚠️ [Supabase 조회 재시도] {e}")
+                time.sleep(0.5)
+    raise last_err
+
 def supabase_match_signature(amount):
-    """후원 금액 이하 중 가장 가까운 시그니처 1개 (없으면 None)."""
+    """금액 매칭: ① 정확히 일치 → ② 없으면 올림(이상 중 가장 가까운)
+       → ③ 그래도 없으면(최고가 초과 후원) 가장 비싼 시그니처."""
     if not _supabase_ready():
         return None
-    url = (f"{SUPABASE['url']}/rest/v1/signatures?amount=lte.{int(amount)}"
-           f"&order=amount.desc&limit=1&select=id,amount,title,image_url,sound_url,duration")
-    r = requests.get(url, headers=_supabase_headers(), timeout=8)
+    amount = int(amount)
+    rows = _supabase_query(f"amount=eq.{amount}&limit=1&select={SIG_FIELDS}")
+    if rows:
+        return rows[0]
+    rows = _supabase_query(f"amount=gte.{amount}&order=amount.asc&limit=1&select={SIG_FIELDS}")
+    if rows:
+        return rows[0]
+    rows = _supabase_query(f"order=amount.desc&limit=1&select={SIG_FIELDS}")
+    return rows[0] if rows else None
+
+def supabase_get_signature(sig_id):
+    """id로 시그니처 1개 조회."""
+    if not _supabase_ready():
+        return None
+    rows = _supabase_query(f"id=eq.{int(sig_id)}&limit=1&select={SIG_FIELDS}")
+    return rows[0] if rows else None
+
+def supabase_insert_signature(fields):
+    """시그니처 행 삽입 후 생성된 행(id 포함) 반환."""
+    r = requests.post(f"{SUPABASE['url']}/rest/v1/signatures",
+                      headers={**_supabase_headers(),
+                               'Content-Type': 'application/json',
+                               'Prefer': 'return=representation'},
+                      json=fields, timeout=15)
     r.raise_for_status()
     rows = r.json()
     return rows[0] if rows else None
+
+def supabase_update_signature(sig_id, fields):
+    r = requests.patch(f"{SUPABASE['url']}/rest/v1/signatures?id=eq.{int(sig_id)}",
+                       headers={**_supabase_headers(),
+                                'Content-Type': 'application/json',
+                                'Prefer': 'return=representation'},
+                       json=fields, timeout=15)
+    r.raise_for_status()
+    rows = r.json()
+    return rows[0] if rows else None
+
+def supabase_delete_signature(sig_id):
+    r = requests.delete(f"{SUPABASE['url']}/rest/v1/signatures?id=eq.{int(sig_id)}",
+                        headers=_supabase_headers(), timeout=15)
+    r.raise_for_status()
+    return True
+
+# ------- Supabase Storage (media 버킷) -------
+STORAGE_BUCKET = 'media'
+
+def storage_upload(path, data, content_type):
+    """Storage 업로드 후 공개 URL 반환."""
+    r = requests.post(f"{SUPABASE['url']}/storage/v1/object/{STORAGE_BUCKET}/{path}",
+                      data=data,
+                      headers={**_supabase_headers(),
+                               'Content-Type': content_type,
+                               'x-upsert': 'true'},
+                      timeout=120)
+    if r.status_code not in (200, 201):
+        raise RuntimeError(f"Storage 업로드 실패 {r.status_code}: {r.text[:200]}")
+    return f"{SUPABASE['url']}/storage/v1/object/public/{STORAGE_BUCKET}/{path}"
+
+def storage_delete_by_url(url):
+    """공개 URL로부터 Storage 경로를 역산해 삭제 (실패는 무시)."""
+    if not url:
+        return
+    marker = f"/storage/v1/object/public/{STORAGE_BUCKET}/"
+    if marker not in url:
+        return
+    path = url.split(marker, 1)[1].split('?')[0]
+    try:
+        requests.delete(f"{SUPABASE['url']}/storage/v1/object/{STORAGE_BUCKET}/{path}",
+                        headers=_supabase_headers(), timeout=30)
+    except Exception as e:
+        print(f"[Storage 삭제 무시] {e}")
+
+def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
+    """업로드된 이미지를 WebP로 축소·압축. Pillow 없으면 원본 바이트 그대로."""
+    raw = file_storage.read()
+    try:
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw))
+        if im.mode in ('P', 'LA'):
+            im = im.convert('RGBA')
+        elif im.mode == 'CMYK':
+            im = im.convert('RGB')
+        w, h = im.size
+        scale = min(1.0, max_dim / max(w, h))
+        if scale < 1.0:
+            im = im.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, format='WEBP', quality=quality, method=6)
+        return buf.getvalue(), 'webp', 'image/webp'
+    except Exception as e:
+        print(f"[이미지 압축 실패 - 원본 사용] {e}")
+        ext = (file_storage.filename or 'img.png').rsplit('.', 1)[-1].lower()
+        return raw, ext, (file_storage.content_type or 'application/octet-stream')
+
+def enqueue_signature(state, sig, amount, donator, message):
+    """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유)."""
+    reaction_uuid = f"rq_{uuid.uuid4().hex}"
+    state.setdefault('reaction_queue', []).append({
+        "id": reaction_uuid,
+        "item_id": sig.get('id'),
+        "title": sig.get('title'),
+        "audio_url": sig.get('sound_url') or "",
+        "image_url": sig.get('image_url') or "",
+        "duration": sig.get('duration') or 10,
+        "amount": amount,
+        "donator": donator,
+        "message": message
+    })
+    state['reaction_mode'] = True
+    return reaction_uuid
 
 # ==========================================
 # 🤫 서버 로그 제어
@@ -255,12 +380,10 @@ def require_login():
         '/setup'
     ]
     
-    decoded_path = urllib.parse.unquote(path)
-    if (path in exempt_routes or 
-        path.startswith('/uploads/') or 
-        path == '/upload' or 
-        decoded_path == '/노래등록' or 
-        path == '/api/reaction/add'):
+    # 시그니처 등록(/upload, /노래등록)은 관리 기능이므로 로그인 필요로 변경했다.
+    # (등록 API가 /api/signatures/add 로 바뀌면서 인증이 필요해졌기 때문)
+    if (path in exempt_routes or
+        path.startswith('/uploads/')):
         return
          
     # HTTP Authorization Bearer 토큰 및 ?token= 파라미터 검증 지원
@@ -650,6 +773,147 @@ def api_signatures():
     except Exception as e:
         print(f"[시그니처 목록 조회 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e), 'signatures': []}), 500
+
+# ==========================================
+# 🎵 시그니처 관리 (등록 / 수정 / 삭제) — 로그인 필요 (exempt 목록에 없음)
+# ==========================================
+def _save_signature_files(sig_id, image_file, sound_file):
+    """업로드된 파일을 Storage에 올리고 {image_url, sound_url} 조각 반환.
+
+    ⚠️ 파일 경로는 id 기준으로 고정이라 교체 시 URL이 같아진다.
+    그러면 Supabase CDN 캐시 때문에 방송 화면에 '옛 사진/옛 음원'이 최대 1시간 계속 나온다.
+    저장하는 URL 끝에 버전(?v=타임스탬프)을 붙여 교체 즉시 반영되게 한다.
+    """
+    ver = int(time.time())
+    out = {}
+    if image_file and image_file.filename:
+        data, ext, ctype = compress_image_to_webp(image_file)
+        out['image_url'] = storage_upload(f"images/{sig_id}.{ext}", data, ctype) + f"?v={ver}"
+    if sound_file and sound_file.filename:
+        ext = (sound_file.filename.rsplit('.', 1)[-1] or 'mp3').lower()
+        # 클라이언트가 보낸 content_type은 신뢰하지 않고 확장자로 결정한다.
+        # (octet-stream으로 올라가면 일부 브라우저에서 오디오 재생이 실패함)
+        AUDIO_TYPES = {'mp3': 'audio/mpeg', 'm4a': 'audio/mp4', 'aac': 'audio/aac',
+                       'ogg': 'audio/ogg', 'wav': 'audio/wav', 'webm': 'audio/webm',
+                       'mp4': 'video/mp4'}
+        ctype = AUDIO_TYPES.get(ext)
+        if not ctype:
+            ctype = sound_file.content_type or 'application/octet-stream'
+        out['sound_url'] = storage_upload(f"sounds/{sig_id}.{ext}", sound_file.read(), ctype) + f"?v={ver}"
+    return out
+
+@app.route('/api/signatures/add', methods=['POST'])
+def api_signature_add():
+    try:
+        if not _supabase_ready():
+            return jsonify({'status': 'error', 'message': 'Supabase가 설정되지 않았습니다.'}), 500
+
+        amount = int(request.form.get('amount') or 0)
+        title = (request.form.get('title') or '').strip() or f"{amount:,}원 시그니처"
+        duration = int(request.form.get('duration') or 10)
+        if amount <= 0:
+            return jsonify({'status': 'error', 'message': '후원 금액을 입력해주세요.'}), 400
+
+        # 1) 행 먼저 삽입해서 id 확보 (파일 경로에 id를 쓰기 때문)
+        row = supabase_insert_signature({'amount': amount, 'title': title, 'duration': duration})
+        if not row:
+            return jsonify({'status': 'error', 'message': '시그니처 생성에 실패했습니다.'}), 500
+        sig_id = row['id']
+
+        # 2) 파일 업로드 후 URL 반영
+        urls = _save_signature_files(sig_id, request.files.get('image'), request.files.get('sound'))
+        if urls:
+            row = supabase_update_signature(sig_id, urls) or row
+
+        print(f"  ✅ [시그니처 등록] #{sig_id} '{title}' {amount}원")
+        return jsonify({'status': 'success', 'message': '시그니처가 등록되었습니다.', 'signature': row})
+    except Exception as e:
+        print(f"[시그니처 등록 오류] {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/signatures/update/<int:sig_id>', methods=['POST'])
+def api_signature_update(sig_id):
+    try:
+        current = supabase_get_signature(sig_id)
+        if not current:
+            return jsonify({'status': 'error', 'message': '시그니처를 찾을 수 없습니다.'}), 404
+
+        fields = {}
+        if request.form.get('amount') is not None and request.form.get('amount') != '':
+            fields['amount'] = int(request.form.get('amount'))
+        if request.form.get('title') is not None and request.form.get('title').strip():
+            fields['title'] = request.form.get('title').strip()
+        if request.form.get('duration'):
+            fields['duration'] = int(request.form.get('duration'))
+
+        image_file = request.files.get('image')
+        sound_file = request.files.get('sound')
+        # 파일 교체 시 기존 Storage 파일 정리 (확장자가 바뀔 수 있으므로 URL 기준 삭제)
+        if image_file and image_file.filename:
+            storage_delete_by_url(current.get('image_url'))
+        if sound_file and sound_file.filename:
+            storage_delete_by_url(current.get('sound_url'))
+        fields.update(_save_signature_files(sig_id, image_file, sound_file))
+
+        if not fields:
+            return jsonify({'status': 'success', 'message': '변경 사항이 없습니다.', 'signature': current})
+
+        row = supabase_update_signature(sig_id, fields)
+        print(f"  ✏️ [시그니처 수정] #{sig_id} {list(fields.keys())}")
+        return jsonify({'status': 'success', 'message': '시그니처가 수정되었습니다.', 'signature': row})
+    except Exception as e:
+        print(f"[시그니처 수정 오류] {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/signatures/delete/<int:sig_id>', methods=['POST', 'DELETE'])
+def api_signature_delete(sig_id):
+    try:
+        current = supabase_get_signature(sig_id)
+        if not current:
+            return jsonify({'status': 'error', 'message': '시그니처를 찾을 수 없습니다.'}), 404
+        storage_delete_by_url(current.get('image_url'))
+        storage_delete_by_url(current.get('sound_url'))
+        supabase_delete_signature(sig_id)
+        print(f"  🗑️ [시그니처 삭제] #{sig_id} '{current.get('title')}'")
+        return jsonify({'status': 'success', 'message': '시그니처가 삭제되었습니다.'})
+    except Exception as e:
+        print(f"[시그니처 삭제 오류] {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/signature/play', methods=['POST'])
+def api_signature_play():
+    """수동 송출 (정산 장부 기록 없음).
+       sig_id 지정 시 해당 시그니처 그대로, 아니면 amount로 매칭."""
+    try:
+        data = request.get_json(silent=True) or {}
+        sig_id = data.get('sig_id')
+        amount = int(data.get('amount') or 0)
+        donator = (data.get('name') or '수동송출').strip() or '수동송출'
+        message = (data.get('message') or '').strip()
+
+        if sig_id:
+            sig = supabase_get_signature(sig_id)
+            if sig and not amount:
+                amount = sig.get('amount') or 0
+        else:
+            if amount <= 0:
+                return jsonify({'status': 'error', 'message': '후원 금액을 입력해주세요.'}), 400
+            sig = supabase_match_signature(amount)
+
+        if not sig:
+            return jsonify({'status': 'error', 'message': '재생할 시그니처를 찾지 못했습니다.'}), 404
+
+        with file_lock:
+            state = load_data()
+            enqueue_signature(state, sig, amount, donator, message)
+            save_data(state)
+            broadcast_event('update', state)
+
+        print(f"  ▶️ [수동 송출] {amount}원 → '{sig.get('title')}' (#{sig.get('id')})")
+        return jsonify({'status': 'success', 'message': '송출했습니다.', 'signature': sig})
+    except Exception as e:
+        print(f"[수동 송출 오류] {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 # ==========================================
 # 👥 BJ 일괄 등록 API
@@ -1080,18 +1344,7 @@ def receive_donation():
                 try:
                     sig = supabase_match_signature(amount)
                     if sig:
-                        reaction_uuid = f"rq_{uuid.uuid4().hex}"
-                        state['reaction_queue'].append({
-                            "id": reaction_uuid,
-                            "item_id": sig.get('id'),
-                            "title": sig.get('title'),
-                            "audio_url": sig.get('sound_url') or "",
-                            "image_url": sig.get('image_url') or "",
-                            "amount": amount,
-                            "donator": parsed_name,
-                            "message": cleaned_msg
-                        })
-                        state['reaction_mode'] = True
+                        enqueue_signature(state, sig, amount, parsed_name, cleaned_msg)
                         print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{sig.get('title')}' (#{sig.get('id')}, {sig.get('amount')}원) 큐 추가 완료")
                 except Exception as e:
                     print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
