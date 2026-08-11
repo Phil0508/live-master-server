@@ -55,7 +55,11 @@
             --accent-glow: rgba(255, 133, 162, 0.4);
         }
 
-        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: transparent; font-family: 'Pretendard', sans-serif; overflow: hidden; transition: opacity 0.4s ease-in-out; }
+        /* 🔍 [투명 배경 보장] 시스템이 다크 모드면 크롬/OBS의 CEF가 페이지 캔버스를
+           투명이 아니라 '어두운 색'으로 칠해버려서 방송 화면이 가려진다.
+           only light 로 고정해 캔버스가 강제로 칠해지는 것을 막는다. */
+        :root { color-scheme: only light; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: transparent !important; background-color: rgba(0,0,0,0) !important; font-family: 'Pretendard', sans-serif; overflow: hidden; transition: opacity 0.4s ease-in-out; }
         #scale-wrapper { position: absolute; top: 0; left: 0; width: 1080px; height: 1920px; transform-origin: top left; }
         #master-container { width: 100%; height: 100%; position: relative; will-change: transform; }
         
