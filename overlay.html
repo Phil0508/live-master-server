@@ -1604,9 +1604,14 @@
             
             // 💡 [개조] 리액션 모드(reaction_mode)가 꺼져있거나 대기열이 비었으면 리액션 화면을 즉시 내립니다.
             if (!globalData || !globalData.reaction_mode || !globalData.reaction_queue || globalData.reaction_queue.length === 0) {
-                if (currentPlayingId !== null) {
-                    console.log('checkReactionQueue: Reaction mode OFF or queue empty. Stopping visuals.');
-                    currentPlayingId = null;
+                currentPlayingId = null;
+                // ⚠️ 예전에는 `currentPlayingId !== null` 일 때만 화면을 내렸다.
+                // 그런데 onReactionEnded()가 큐를 넘기기 전에 이미 currentPlayingId를 null로 만들기 때문에,
+                // 마지막 시그니처가 끝나면 이 조건이 거짓이 되어 화면이 영영 안 내려갔다(카드가 계속 자리 차지).
+                // 실제로 떠 있는지를 기준으로 판단한다. stopReactionVisuals()는 여러 번 불려도 안전하다.
+                const ov = document.getElementById('reaction-screen-overlay');
+                if (ov && ov.classList.contains('show')) {
+                    console.log('checkReactionQueue: 큐가 비었으므로 리액션 화면을 내립니다.');
                     stopReactionVisuals();
                 }
                 return;
@@ -1995,6 +2000,13 @@
             };
         }
 
+        // 시그니처 제목을 HTML에 넣기 전 특수문자 처리 (제목에 <, & 등이 있어도 깨지지 않게)
+        function escapeSlotText(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         function handleSlotSpinOverlay(data) {
             const winner = data.winner || {};
             const title = winner.title || (winner.amount ? (winner.amount.toLocaleString() + '원') : '시그니처');
@@ -2018,24 +2030,34 @@
             const cardHeight = 120;
             const repeatCount = 15;
 
+            // 릴 카드 1장 그리기 — 시그니처 사진을 꽉 채우고 하단에 제목·금액을 얹는다.
+            // ⚠️ 높이는 반드시 cardHeight(120px)와 같아야 한다.
+            //    애니메이션이 -(repeatCount × cardHeight)로 정지 위치를 계산하므로
+            //    한 장이라도 높이가 다르면 릴이 당첨 칸에 정확히 멈추지 않는다.
+            const slotCard = (item, isWinner) => {
+                const t = item.title || '시그니처';
+                const amt = (item.amount || 0).toLocaleString();
+                const img = item.image_url || (item.image_file ? `/uploads/${item.image_file}` : '/money.png');
+                const accent = isWinner ? '#ff007f' : '#00ffcc';
+                const border = isWinner ? 'rgba(255,0,127,0.6)' : 'rgba(0,255,204,0.2)';
+                return `
+                    <div style="width: 170px; height: ${cardHeight}px; position: relative; overflow: hidden; box-sizing: border-box; background: ${isWinner ? '#1a0914' : '#141418'}; border-bottom: 2px solid ${border};">
+                        <img src="${img}" onerror="this.src='/money.png'" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 8px 6px; box-sizing: border-box; background: linear-gradient(to top, rgba(0,0,0,0.92) 55%, rgba(0,0,0,0));">
+                            <div style="font-size: 14px; font-weight: 900; color: ${accent}; text-shadow: 0 0 10px ${accent}, 0 1px 3px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${escapeSlotText(t)}</div>
+                            <div style="font-size: 12px; font-weight: 800; color: #ffd700; text-shadow: 0 1px 3px #000; text-align: center;">${amt}원</div>
+                        </div>
+                    </div>
+                `;
+            };
+
             reels.forEach((strip) => {
                 if (!strip) return;
                 let html = '';
                 for (let i = 0; i < repeatCount; i++) {
-                    const randItem = candidates[Math.floor(Math.random() * candidates.length)];
-                    html += `
-                        <div style="width: 170px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; background: #141418; border-bottom: 2px solid rgba(0,255,204,0.2);">
-                            <div style="font-size: 18px; font-weight: 900; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 155px; text-align: center;">${randItem.title || '시그니처'}</div>
-                            <div style="font-size: 13px; font-weight: 800; color: #ffd700; margin-top: 4px;">${(randItem.amount || 0).toLocaleString()}원</div>
-                        </div>
-                    `;
+                    html += slotCard(candidates[Math.floor(Math.random() * candidates.length)], false);
                 }
-                html += `
-                    <div style="width: 170px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; box-sizing: border-box; background: #1a0914; border-bottom: 2px solid rgba(255,0,127,0.5);">
-                        <div style="font-size: 18px; font-weight: 900; color: #ff007f; text-shadow: 0 0 12px rgba(255,0,127,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 155px; text-align: center;">${title}</div>
-                        <div style="font-size: 13px; font-weight: 800; color: #ffd700; margin-top: 4px;">${(winner.amount || 0).toLocaleString()}원</div>
-                    </div>
-                `;
+                html += slotCard({ title: title, amount: winner.amount, image_url: imgUrl }, true);
                 strip.innerHTML = html;
                 strip.style.transition = 'none';
                 strip.style.transform = 'translateY(0px)';

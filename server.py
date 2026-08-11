@@ -480,6 +480,10 @@ DEFAULT_STATE = {
     "extra_game_active": False,
     "extra_bjs": [],
     "roulette_enabled": False,
+    # 🎰 슬롯머신
+    # load_data()는 DEFAULT_STATE에 있는 키만 복원하므로, 여기 없으면 재시작 때 조용히 사라진다.
+    "slot_enabled": True,
+    "slot_pool": [],   # 이번 방송에 쓸 시그니처 id 목록. 비어 있으면 전체를 후보로 사용.
     "broadcast_active": False,
     "saved_colors": ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff'],
     "version": 1,
@@ -2387,13 +2391,24 @@ def api_slot_spin():
         candidates = data.get('candidates', [])
 
         if not winner:
-            # winner 미지정 시: 서버가 Supabase 시그니처 중 무작위 선택
+            # winner 미지정 시: 서버가 무작위 선택.
+            # 이번 방송용으로 고른 후보(slot_pool)가 있으면 그 안에서만 뽑는다.
             try:
                 sigs = supabase_list_signatures()
             except Exception as e:
                 return jsonify({"status": "error", "message": f"시그니처 조회 실패: {e}"}), 500
             if not sigs:
                 return jsonify({"status": "error", "message": "등록된 시그니처가 없습니다."}), 400
+
+            pool_ids = load_data().get('slot_pool') or []
+            if pool_ids:
+                pool_set = {int(i) for i in pool_ids}
+                filtered = [s for s in sigs if s.get('id') in pool_set]
+                if filtered:
+                    sigs = filtered
+                else:
+                    print("⚠️ [슬롯] 선택된 후보가 목록에 없어 전체에서 뽑습니다.")
+
             import random
             winner = random.choice(sigs)
             candidates = sigs

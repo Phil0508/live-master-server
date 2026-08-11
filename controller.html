@@ -1328,15 +1328,25 @@
                 <i class="fa-solid fa-gem"></i> 랜덤 시그니처 슬롯머신
             </div>
 
-            <!-- 연동된 시그니처 목록 박스 -->
+            <!-- 이번 방송에 돌릴 시그니처 고르기 -->
             <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); border-radius: 16px; padding: 20px; margin-bottom: 25px; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 10px;">
                     <span style="font-size: 14px; font-weight: 800; color: #fff;">
-                        <i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 연동된 시그니처 목록 (<span id="slot-linked-count" style="color: var(--accent); font-weight: 900;">0</span>개)
+                        <i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 이번 방송에 돌릴 시그니처
+                        <span style="font-size: 13px; color: var(--accent); font-weight: 900; margin-left: 6px;">선택 <span id="slot-pool-count">0</span></span>
+                        <span style="font-size: 12px; color: var(--text-muted);"> / <span id="slot-linked-count">0</span>개</span>
                     </span>
-                    <button onclick="loadSlotCandidates()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px; cursor: pointer;"><i class="fa-solid fa-rotate"></i> 목록 새로고침</button>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <button onclick="slotPoolPickRandom(20)" class="primary" style="height: 28px; font-size: 11px; padding: 0 12px; border-radius: 8px; cursor: pointer;"><i class="fa-solid fa-shuffle"></i> 랜덤 20개</button>
+                        <button onclick="slotPoolSelectAll(true)" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px; cursor: pointer;">전체 선택</button>
+                        <button onclick="slotPoolSelectAll(false)" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px; cursor: pointer;">전체 해제</button>
+                        <button onclick="loadSlotCandidates()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px; cursor: pointer;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+                    </div>
                 </div>
-                <div id="slot-linked-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+                    선택한 것들 중에서만 당첨돼요. <b>하나도 안 고르면 전체</b>에서 뽑혀요. 선택은 자동 저장됩니다.
+                </div>
+                <div id="slot-linked-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 320px; overflow-y: auto; padding-right: 4px;">
                     <div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">시그니처 목록을 불러오는 중...</div>
                 </div>
             </div>
@@ -1360,55 +1370,104 @@
     </div>
 
     <script>
-        function loadSlotCandidates() {
-            const LOCAL_SIG_API = '/api/signatures';
-            const countSpan = document.getElementById('slot-linked-count');
-            const grid = document.getElementById('slot-linked-grid');
+        // 슬롯 후보 선택 (이번 방송에 돌릴 시그니처 목록)
+        let slotAllSignatures = [];
 
-            fetch(LOCAL_SIG_API)
+        function getSlotPool() {
+            return (typeof gd !== 'undefined' && gd && Array.isArray(gd.slot_pool)) ? gd.slot_pool : [];
+        }
+
+        function loadSlotCandidates() {
+            const grid = document.getElementById('slot-linked-grid');
+            fetch('/api/signatures')
                 .then(res => res.json())
                 .then(data => {
                     if (data && data.status === 'success' && data.signatures) {
-                        const sigs = data.signatures;
-                        if (countSpan) countSpan.innerText = sigs.length;
-                        if (grid) {
-                            if (sigs.length === 0) {
-                                grid.innerHTML = `<div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">등록된 시그니처가 없습니다.</div>`;
-                            } else {
-                                grid.innerHTML = sigs.map(s => `
-                                    <div style="display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); padding: 8px 10px; border-radius: 8px; font-size: 12px;">
-                                        <span style="font-weight: 900; color: var(--accent); white-space: nowrap;">${(s.amount||0).toLocaleString()}원</span>
-                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff;">${s.title || '시그니처'}</span>
-                                    </div>
-                                `).join('');
-                            }
-                        }
+                        slotAllSignatures = data.signatures;
+                        renderSlotCandidates();
                     }
                 })
                 .catch(err => {
-                    if (countSpan) countSpan.innerText = '0';
                     if (grid) {
                         grid.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center; grid-column: 1 / -1;"><i class="fa-solid fa-triangle-exclamation"></i> 시그니처 목록을 불러오지 못했습니다 (서버/Supabase 연결 확인)</div>`;
                     }
                 });
         }
 
-        function triggerSlotSpin() {
-            const LOCAL_SIG_API = '/api/signatures';
+        function renderSlotCandidates() {
+            const grid = document.getElementById('slot-linked-grid');
+            const totalSpan = document.getElementById('slot-linked-count');
+            const poolSpan = document.getElementById('slot-pool-count');
+            if (!grid) return;
 
-            fetch(LOCAL_SIG_API)
+            const pool = new Set(getSlotPool().map(Number));
+            if (totalSpan) totalSpan.innerText = slotAllSignatures.length;
+            if (poolSpan) poolSpan.innerText = pool.size;
+
+            if (slotAllSignatures.length === 0) {
+                grid.innerHTML = `<div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">등록된 시그니처가 없습니다.</div>`;
+                return;
+            }
+
+            grid.innerHTML = slotAllSignatures.map(s => {
+                const on = pool.has(Number(s.id));
+                const thumb = s.image_url
+                    ? `<div style="width:100%;height:64px;background:url('${s.image_url}') center/cover no-repeat;border-radius:6px;"></div>`
+                    : `<div style="width:100%;height:64px;background:rgba(0,0,0,0.35);border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-image" style="color:#444;"></i></div>`;
+                return `
+                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(0,255,204,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:10px;font-size:12px;display:flex;flex-direction:column;gap:6px;transition:all .15s;">
+                        ${thumb}
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <i class="fa-solid ${on ? 'fa-circle-check' : 'fa-circle'}" style="color:${on ? 'var(--accent)' : '#555'};font-size:13px;flex-shrink:0;"></i>
+                            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;">${escapeHTML(s.title || '시그니처')}</span>
+                        </div>
+                        <span style="font-weight:900;color:var(--accent);font-size:11px;">${(s.amount||0).toLocaleString()}원</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function slotPoolSave(ids) {
+            gd.slot_pool = ids;
+            renderSlotCandidates();
+            pushAPI();   // 기존 저장 경로 재사용 (DB에 영속)
+        }
+
+        function slotPoolToggle(id) {
+            const pool = new Set(getSlotPool().map(Number));
+            if (pool.has(Number(id))) pool.delete(Number(id)); else pool.add(Number(id));
+            slotPoolSave([...pool]);
+        }
+
+        function slotPoolSelectAll(on) {
+            slotPoolSave(on ? slotAllSignatures.map(s => Number(s.id)) : []);
+        }
+
+        function slotPoolPickRandom(n) {
+            const shuffled = [...slotAllSignatures].sort(() => Math.random() - 0.5);
+            slotPoolSave(shuffled.slice(0, n).map(s => Number(s.id)));
+        }
+
+        function triggerSlotSpin() {
+            fetch('/api/signatures')
                 .then(res => res.json())
                 .then(data => {
-                    if (data && data.status === 'success' && data.signatures && data.signatures.length > 0) {
-                        const sigs = data.signatures;
+                    let sigs = (data && data.status === 'success' && data.signatures) ? data.signatures : [];
+                    // 이번 방송용으로 고른 후보가 있으면 그 안에서만 뽑는다
+                    const pool = new Set(getSlotPool().map(Number));
+                    if (pool.size > 0) {
+                        const filtered = sigs.filter(s => pool.has(Number(s.id)));
+                        if (filtered.length > 0) sigs = filtered;
+                    }
+                    if (sigs.length > 0) {
                         const winner = sigs[Math.floor(Math.random() * sigs.length)];
                         sendSlotSpinPayload({ winner: winner, candidates: sigs });
                     } else {
-                        sendSlotSpinPayload({});
+                        sendSlotSpinPayload({});   // 서버가 알아서 뽑도록
                     }
                 })
                 .catch(err => {
-                    console.warn("Local signature server offline, falling back to server spin:", err);
+                    console.warn("시그니처 목록 조회 실패, 서버 측 선택으로 진행:", err);
                     sendSlotSpinPayload({});
                 });
         }
@@ -1641,6 +1700,10 @@
             setChk('chk-ticker', gd.ticker_enabled);
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
+            // 슬롯 후보 선택 상태를 서버 상태와 맞춘다 (슬롯 탭이 열려 있을 때만 다시 그림)
+            if (slotAllSignatures.length > 0 && document.getElementById('tab-slot')?.classList.contains('active')) {
+                renderSlotCandidates();
+            }
             // 조명 속도 슬라이더 갱신
             if (document.getElementById('in-neon-speed')) {
                 document.getElementById('in-neon-speed').value = gd.neon_speed || 1.5;
