@@ -22,6 +22,7 @@ else:
         pass
 
 import json
+import copy
 import threading
 import logging
 import pyotp
@@ -309,8 +310,12 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
         ext = (file_storage.filename or 'img.png').rsplit('.', 1)[-1].lower()
         return raw, ext, (file_storage.content_type or 'application/octet-stream')
 
-def enqueue_signature(state, sig, amount, donator, message):
-    """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유)."""
+def enqueue_signature(state, sig, amount, donator, message, skip_popup=False):
+    """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유).
+
+    큐를 태우면 reaction_mode가 켜지고, 재생이 끝나 큐가 비면 자동으로 꺼진다.
+    skip_popup: 슬롯 당첨처럼 이미 자체 연출을 보여준 경우 후원 팝업을 건너뛴다.
+    """
     reaction_uuid = f"rq_{uuid.uuid4().hex}"
     state.setdefault('reaction_queue', []).append({
         "id": reaction_uuid,
@@ -321,10 +326,29 @@ def enqueue_signature(state, sig, amount, donator, message):
         "duration": sig.get('duration') or 10,
         "amount": amount,
         "donator": donator,
-        "message": message
+        "message": message,
+        "skip_popup": bool(skip_popup)
     })
     state['reaction_mode'] = True
     return reaction_uuid
+
+# 슬롯 릴 정지 + 당첨 배너(약 3.3초) 뒤 결과 처리까지의 대기 시간
+SLOT_RESULT_DELAY_SEC = 4.0
+
+def _slot_finish(winner):
+    """슬롯 당첨 확정 처리: 슬롯 위젯을 끄고 당첨 시그니처를 리액션 큐에 넣는다."""
+    try:
+        title = winner.get('title') or '시그니처'
+        with file_lock:
+            state = load_data()
+            state['slot_enabled'] = False
+            enqueue_signature(state, winner, winner.get('amount') or 0,
+                              '🎰 슬롯머신', f'[슬롯 당첨] {title}', skip_popup=True)
+            save_data(state)
+            broadcast_event('update', state)
+        print(f"  🎰 [슬롯 당첨 처리] '{title}' → 슬롯 위젯 OFF, 리액션 큐 투입")
+    except Exception as e:
+        print(f"❌ [슬롯 당첨 처리 실패] {e}")
 
 # ==========================================
 # 🤫 서버 로그 제어
@@ -571,22 +595,44 @@ def init_db():
                 )
             """)
         
-        # 💡 [스키마 마이그레이션 패치] 기존 테이블 스키마 동적 추가 및 안전성 유지
+        # 📚 [영구 보관 장부] 방송 종료 시 donation_history는 초기화되지만,
+        # 여기로 먼저 복사해 두므로 지난 방송 기록이 영구히 남는다. (append-only, 절대 삭제하지 않음)
+        pk = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS donation_archive (
+                id {pk},
+                archived_at TEXT,
+                session_label TEXT,
+                timestamp TEXT,
+                name TEXT,
+                amount INTEGER,
+                current_total INTEGER,
+                message TEXT,
+                source TEXT,
+                tx_id TEXT
+            )
+        """)
+
+    # 💡 [스키마 마이그레이션 패치] 기존 테이블에 컬럼 동적 추가
+    # ⚠️ Postgres는 트랜잭션 안에서 한 문장이 실패하면 그 트랜잭션 전체가 취소된다.
+    # 예전처럼 위 CREATE TABLE들과 같은 트랜잭션에서 ALTER를 시도하면,
+    # "컬럼이 이미 존재" 오류 하나 때문에 앞서 만든 테이블이 전부 롤백되어
+    # 빈 DB에서는 테이블이 하나도 생기지 않는다. (SQLite에서는 발생하지 않아 발견이 늦었다)
+    # 따라서 ALTER는 각각 별도 연결(트랜잭션)에서 실행한다.
+    for stmt in ("ALTER TABLE snapshots ADD COLUMN summary TEXT",
+                 "ALTER TABLE donation_history ADD COLUMN tx_id TEXT"):
         try:
-            cursor.execute("ALTER TABLE snapshots ADD COLUMN summary TEXT")
+            with get_db_connection() as conn2:
+                conn2.cursor().execute(stmt)
         except Exception:
-            pass
-        try:
-            cursor.execute("ALTER TABLE donation_history ADD COLUMN tx_id TEXT")
-        except Exception:
-            pass
+            pass  # 이미 존재하면 정상적으로 무시
 
 def load_data():
-    global MEMORY_STATE
+    global MEMORY_STATE, LAST_PERSISTED
     if MEMORY_STATE is not None:
         return MEMORY_STATE
     init_db()
-    
+
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -600,8 +646,10 @@ def load_data():
         raise e
 
     if not kv_data and not bjs:
-        MEMORY_STATE = DEFAULT_STATE.copy()
-        save_data(MEMORY_STATE, is_initial=True)
+        # ⚠️ 반드시 깊은 복사. 얕은 복사면 중첩 객체(bjs/account/pending_donations 등)가
+        # DEFAULT_STATE와 공유되어, 이후 append/수정이 기본값 자체를 오염시킨다.
+        MEMORY_STATE = copy.deepcopy(DEFAULT_STATE)
+        save_data(MEMORY_STATE, is_initial=True, sync=True)
         return MEMORY_STATE
 
     state = {}
@@ -625,9 +673,19 @@ def load_data():
         state['saved_colors'] = default_colors
     
     MEMORY_STATE = state
+    # DB에서 막 읽어온 값이 곧 "DB에 저장된 내용"이므로 비교 기준을 여기에 맞춘다.
+    # (초기화하지 않으면 첫 저장 때 모든 점수가 '수동 점수 조작'으로 장부에 잘못 기록된다)
+    LAST_PERSISTED = copy.deepcopy(state)
     return MEMORY_STATE
 
 db_write_queue = queue.Queue()
+
+# 마지막 DB 저장 실패 정보 (조용한 실패 방지 — /api/server/status 로 노출)
+LAST_DB_ERROR = {"message": None, "time": None}
+
+# 마지막으로 DB에 성공적으로 기록한 상태의 깊은 복사본.
+# 변경분만 저장하기 위한 비교 기준이며, MEMORY_STATE와 별개여야 한다.
+LAST_PERSISTED = None
 
 def db_worker():
     while True:
@@ -642,9 +700,14 @@ def db_worker():
 threading.Thread(target=db_worker, daemon=True).start()
 
 def save_data_sync(new_data, is_initial=False):
-    global MEMORY_STATE
-    old_data = MEMORY_STATE if MEMORY_STATE else DEFAULT_STATE
-    
+    global LAST_PERSISTED
+    # ⚠️ 반드시 "마지막으로 DB에 쓴 내용"과 비교해야 한다.
+    # 예전에는 MEMORY_STATE와 비교했는데, 호출부가 load_data()가 돌려준 객체를
+    # 그 자리에서 수정하므로 MEMORY_STATE와 new_data가 같은 객체가 되어
+    # "변경된 키 없음"으로 판정 → kv_store에 아무것도 저장되지 않았다.
+    # (플레이어 테이블은 매번 통째로 다시 쓰기 때문에 이 문제가 드러나지 않았다)
+    old_data = LAST_PERSISTED if LAST_PERSISTED is not None else DEFAULT_STATE
+
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -688,15 +751,52 @@ def save_data_sync(new_data, is_initial=False):
                                 (key, new_val_str)
                             )
                             
+        # 커밋 성공 후에만 비교 기준을 갱신한다 (실패 시 다음 저장에서 다시 시도되도록)
+        LAST_PERSISTED = new_data
+        LAST_DB_ERROR["message"] = None
     except Exception as e:
-        print(f"❌ [DB 동기화 저장 실패] {e}")
+        # 조용히 넘어가면 저장된 줄 알고 방송을 계속하게 된다. 상태에 남겨 컨트롤러가 경고할 수 있게 한다.
+        LAST_DB_ERROR["message"] = str(e)
+        LAST_DB_ERROR["time"] = time.strftime('%Y-%m-%d %H:%M:%S')
+        print(f"❌ [DB 저장 실패] {e}")
+        raise
 
-def save_data(new_data, is_initial=False):
+def create_snapshot(state, label):
+    """복구 지점 저장 (append-only). 실패해도 방송은 계속되어야 하므로 예외를 삼킨다."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                db_query("INSERT INTO snapshots (timestamp, state_json, summary) VALUES (?, ?, ?)"),
+                (time.strftime('%Y-%m-%d %H:%M:%S'), json.dumps(state, ensure_ascii=False), label)
+            )
+        print(f"  💾 [스냅샷 저장] {label}")
+        return True
+    except Exception as e:
+        print(f"⚠️ [스냅샷 저장 실패] {e}")
+        return False
+
+def save_data(new_data, is_initial=False, sync=False):
+    """상태 저장.
+
+    sync=True: 후원 접수·점수 변경·방송 시작/종료처럼 잃으면 안 되는 기록은
+               응답을 돌려주기 전에 DB에 직접 쓴다.
+               (비동기 큐에만 넣으면 프로세스가 죽을 때 마지막 쓰기가 사라진다)
+    sync=False: 슬라이더·전광판 문구 같은 잦은 UI 갱신은 기존대로 백그라운드 처리.
+    """
     global MEMORY_STATE
-    # 메모리 상의 캐시 상태는 즉시 최신화하여 조종실과 오버레이에 즉시 전송되게 함 (0ms 레이턴시)
+    # 메모리 캐시는 즉시 최신화하여 조종실과 오버레이에 0ms로 반영
     MEMORY_STATE = new_data
-    # 실제 원격 DB 저장은 백그라운드 큐에 넣어 비동기로 처리
-    db_write_queue.put((new_data, is_initial))
+    # ⚠️ 큐에 넣는 것은 스냅샷(깊은 복사)이어야 한다.
+    # 같은 객체를 넘기면 워커가 순회하는 동안 요청 스레드가 계속 수정해 저장 내용이 섞인다.
+    snapshot = copy.deepcopy(new_data)
+    if sync:
+        try:
+            save_data_sync(snapshot, is_initial)
+        except Exception:
+            pass  # 실패는 LAST_DB_ERROR에 기록됨 (방송은 계속되어야 하므로 예외는 삼킨다)
+    else:
+        db_write_queue.put((snapshot, is_initial))
 
 def time_machine_recovery():
     try:
@@ -945,7 +1045,7 @@ def import_bjs():
                     if new_bj['name'] not in existing_names:
                         state['bjs'].append(new_bj)
                         
-            save_data(state)
+            save_data(state, sync=True)
             broadcast_event('update', state)
             
         return jsonify({'status': 'success', 'count': len(new_bjs)})
@@ -1349,7 +1449,7 @@ def receive_donation():
                 except Exception as e:
                     print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
                 
-            save_data(state)
+            save_data(state, sync=True)
             broadcast_event('update', state)
             
             print("  🎯 [최종 처리 결과]")
@@ -1418,7 +1518,17 @@ def api_data():
             server_version = current_state.get('version', 1)
             
             state['version'] = max(client_version, server_version) + 1
-            save_data(state)
+
+            # 점수·승인대기함이 바뀐 저장은 잃으면 안 되므로 즉시 DB에 쓴다.
+            # 볼륨/전광판 문구 같은 잦은 UI 갱신까지 동기로 쓰면 조작이 굼떠지므로 그때는 비동기 유지.
+            def _ledger_fingerprint(s):
+                return (
+                    [(b.get('name'), b.get('score')) for b in (s.get('bjs') or [])],
+                    len(s.get('pending_donations') or []),
+                )
+            is_critical = _ledger_fingerprint(state) != _ledger_fingerprint(current_state)
+
+            save_data(state, sync=is_critical)
             broadcast_event('update', state)
         return jsonify({"status": "success"})
         
@@ -1599,7 +1709,7 @@ def restore_snapshot():
             
         with file_lock:
             state = json.loads(state_json)
-            save_data(state)
+            save_data(state, sync=True)
             broadcast_event('update', state)
             
         return jsonify({"status": "success"})
@@ -1635,6 +1745,13 @@ def get_server_status():
             # Get snapshot count
             cursor.execute(db_query("SELECT COUNT(*) FROM snapshots"))
             snapshot_count = cursor.fetchone()[0]
+
+            # 영구 보관 장부 누적 건수 (방송 종료/시작으로도 지워지지 않음)
+            try:
+                cursor.execute(db_query("SELECT COUNT(*) FROM donation_archive"))
+                archive_count = cursor.fetchone()[0]
+            except Exception:
+                archive_count = 0
             
             # Get last 30 logs from donation_history
             cursor.execute(db_query("SELECT id, timestamp, name, amount, current_total, message, source FROM donation_history ORDER BY id DESC LIMIT 30"))
@@ -1654,9 +1771,14 @@ def get_server_status():
         return jsonify({
             'status': 'success',
             'is_postgres': IS_POSTGRES,
+            # 영구 저장 여부. False면 임시 디스크 SQLite라 재시작 시 데이터가 사라진다.
+            'persistent_storage': IS_POSTGRES,
+            'last_db_error': LAST_DB_ERROR.get('message'),
+            'last_db_error_time': LAST_DB_ERROR.get('time'),
             'player_count': player_count,
             'history_count': history_count,
             'snapshot_count': snapshot_count,
+            'archive_count': archive_count,
             'logs': history_list
         })
     except Exception as e:
@@ -1673,8 +1795,9 @@ def reset_server_database():
             cursor.execute(db_query("DELETE FROM donation_history"))
             cursor.execute(db_query("DELETE FROM snapshots"))
             
-        MEMORY_STATE = DEFAULT_STATE.copy()
-        save_data(MEMORY_STATE, is_initial=True)
+        # 얕은 복사면 중첩 객체가 DEFAULT_STATE와 공유되어 기본값 자체가 오염된다
+        MEMORY_STATE = copy.deepcopy(DEFAULT_STATE)
+        save_data(MEMORY_STATE, is_initial=True, sync=True)
         broadcast_event('update', MEMORY_STATE)
         return jsonify({"status": "success", "message": "데이터베이스가 성공적으로 완전히 리셋되었습니다."})
     except Exception as e:
@@ -1685,6 +1808,27 @@ def end_broadcast():
     try:
         global MEMORY_STATE
         with file_lock:
+            # 0. ⚠️ 지우기 전에 반드시 보존한다.
+            #    예전에는 방송 종료 시 장부(donation_history)를 그냥 삭제해서 기록이 영구히 사라졌다.
+            session_label = time.strftime('%Y-%m-%d %H:%M:%S') + " 방송분"
+            create_snapshot(load_data(), f"방송 종료 자동 백업 ({session_label})")
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(db_query("""
+                        INSERT INTO donation_archive
+                            (archived_at, session_label, timestamp, name, amount, current_total, message, source, tx_id)
+                        SELECT ?, ?, timestamp, name, amount, current_total, message, source, tx_id
+                        FROM donation_history
+                    """), (time.strftime('%Y-%m-%d %H:%M:%S'), session_label))
+                    cursor.execute(db_query("SELECT COUNT(*) FROM donation_archive"))
+                    print(f"  📚 [장부 영구 보관] 누적 {cursor.fetchone()[0]}건")
+            except Exception as arch_e:
+                # 보관에 실패하면 삭제를 진행하지 않는다 (기록 유실 방지)
+                print(f"❌ [장부 보관 실패 - 방송 종료 중단] {arch_e}")
+                return jsonify({"status": "error",
+                                "message": f"장부 백업에 실패해 방송 종료를 중단했습니다: {arch_e}"}), 500
+
             # 1. Clear database tables (donation history, snapshots, players)
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -1719,7 +1863,7 @@ def end_broadcast():
             state['logs'] = []
             state['match_logs'] = []
             
-            save_data(state)
+            save_data(state, sync=True)
             broadcast_event('update', state)
             
         return jsonify({"status": "success", "message": "방송이 종료되고 오늘의 데이터가 리셋되었습니다."})
@@ -1738,6 +1882,22 @@ def start_broadcast():
             return jsonify({"status": "error", "message": "플레이어는 최대 10명까지 등록할 수 있습니다."}), 400
             
         with file_lock:
+            # 0. ⚠️ 방송 시작도 장부를 지우므로, 지우기 전에 지난 기록을 영구 보관한다.
+            session_label = time.strftime('%Y-%m-%d %H:%M:%S') + " 방송 시작 전"
+            try:
+                with get_db_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(db_query("""
+                        INSERT INTO donation_archive
+                            (archived_at, session_label, timestamp, name, amount, current_total, message, source, tx_id)
+                        SELECT ?, ?, timestamp, name, amount, current_total, message, source, tx_id
+                        FROM donation_history
+                    """), (time.strftime('%Y-%m-%d %H:%M:%S'), session_label))
+            except Exception as arch_e:
+                print(f"❌ [장부 보관 실패 - 방송 시작 중단] {arch_e}")
+                return jsonify({"status": "error",
+                                "message": f"장부 백업에 실패해 방송 시작을 중단했습니다: {arch_e}"}), 500
+
             # 1. Clear database tables (donation history, snapshots, players)
             with get_db_connection() as conn:
                 cursor = conn.cursor()
@@ -1772,7 +1932,7 @@ def start_broadcast():
             state['logs'] = []
             state['match_logs'] = []
             
-            save_data(state)
+            save_data(state, sync=True)
             broadcast_event('update', state)
             
         return jsonify({"status": "success", "message": "방송이 활성화되었습니다."})
@@ -1944,7 +2104,7 @@ def restore_by_time():
         
         global MEMORY_STATE
         MEMORY_STATE = restored_state
-        save_data(restored_state)
+        save_data(restored_state, sync=True)
         broadcast_event('update', restored_state)
         
         return jsonify({
@@ -2219,36 +2379,37 @@ def api_slot_spin():
         winner = data.get('winner')
         candidates = data.get('candidates', [])
 
-        if winner:
-            payload = {
-                "type": "slot_spin",
-                "event": "slot_spin",
-                "winner": winner,
-                "candidates": candidates
-            }
-            broadcast_event('slot_spin', payload)
-            return jsonify({"status": "success", "winner": winner})
+        if not winner:
+            # winner 미지정 시: 서버가 Supabase 시그니처 중 무작위 선택
+            try:
+                sigs = supabase_list_signatures()
+            except Exception as e:
+                return jsonify({"status": "error", "message": f"시그니처 조회 실패: {e}"}), 500
+            if not sigs:
+                return jsonify({"status": "error", "message": "등록된 시그니처가 없습니다."}), 400
+            import random
+            winner = random.choice(sigs)
+            candidates = sigs
 
-        # winner 미지정 시: 서버가 Supabase 시그니처 중 무작위 선택
-        try:
-            sigs = supabase_list_signatures()
-        except Exception as e:
-            return jsonify({"status": "error", "message": f"시그니처 조회 실패: {e}"}), 500
+        # 릴이 도는 동안 슬롯 위젯이 확실히 보이도록 켠다.
+        # (오버레이는 매 업데이트마다 slot_enabled로 표시를 다시 칠하므로 상태로 켜야 한다)
+        with file_lock:
+            state = load_data()
+            state['slot_enabled'] = True
+            save_data(state)
+            broadcast_event('update', state)
 
-        if not sigs:
-            return jsonify({"status": "error", "message": "등록된 시그니처가 없습니다."}), 400
-
-        import random
-        winner = random.choice(sigs)
-
-        payload = {
+        broadcast_event('slot_spin', {
             "type": "slot_spin",
             "event": "slot_spin",
             "winner": winner,
-            "candidates": sigs
-        }
+            "candidates": candidates
+        })
 
-        broadcast_event('slot_spin', payload)
+        # 당첨 발표(약 3.3초) 뒤에 슬롯을 끄고 시그니처를 리액션 큐에 넣는다.
+        # 큐를 태우면 reaction_mode가 켜지고, 재생이 끝나면 큐가 비면서 자동으로 꺼진다.
+        # 오버레이는 비인증이라 스스로 재생 API를 부를 수 없으므로 서버가 예약한다.
+        threading.Timer(SLOT_RESULT_DELAY_SEC, _slot_finish, args=(winner,)).start()
 
         return jsonify({"status": "success", "winner": winner})
     except Exception as e:
