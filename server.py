@@ -495,6 +495,10 @@ DEFAULT_STATE = {
     # 🎯 목표 100% 달성 연출 (달성하면 pending, 운영자가 승인해야 송출)
     "goal_event_pending": False,
     "goal_event_approved": False,
+    # 🏃 퇴근전쟁(퇴근빵): 켜면 랭킹판 자리에 개인별 목표 진행바가 뜬다
+    "home_race_enabled": False,
+    "home_goals": {},         # {플레이어 이름: 퇴근 목표 점수}
+    "home_race_notified": [], # 이미 퇴근 카드를 띄운 사람 (송출 후 다시 생기는 것 방지)
     "broadcast_active": False,
     "saved_colors": ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff'],
     "version": 1,
@@ -1213,6 +1217,19 @@ def delete_vip():
         return jsonify({"status": "success", "message": "특별 후원자 해제 완료!"})
     except Exception as e:
         print(f"[VIP 삭제 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/offwork/broadcast', methods=['POST'])
+def broadcast_offwork():
+    """🏃 퇴근 성공 연출 송출. 운영자가 승인대기함에서 [송출하기]를 누를 때 호출된다."""
+    try:
+        data = request.get_json(silent=True) or {}
+        name = (data.get('name') or '선수').strip()
+        broadcast_event('off_work_event', {'name': name})
+        print(f"  🏃 [퇴근 송출] {name}")
+        return jsonify({"status": "success", "message": f"{name}님 퇴근 이벤트를 송출했습니다."})
+    except Exception as e:
+        print(f"[퇴근 송출 오류] {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/goal/approve_event', methods=['POST'])

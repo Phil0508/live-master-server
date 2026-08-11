@@ -706,6 +706,24 @@
                 <div id="extra-game-btns" style="display: flex; gap: 10px;"></div>
             </div>
         </div>
+        <!-- 🏃 퇴근전쟁(퇴근빵) 제어 -->
+        <div class="group-box" id="home-race-box" style="margin-bottom: 15px; border-color: rgba(255, 111, 165, 0.4); background: rgba(255, 111, 165, 0.04);">
+            <div class="group-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer;" onclick="toggleHomeRacePanel(event)">
+                <span style="color: #ff8fc0;"><i class="fa-solid fa-chevron-down" id="home-race-collapse-icon" style="transition: transform 0.25s ease; margin-right: 6px; transform: rotate(-90deg);"></i><i class="fa-solid fa-person-running"></i> 🏃 퇴근전쟁(퇴근빵)</span>
+                <div class="apple-switch" onclick="event.stopPropagation();">
+                    <input type="checkbox" id="chk-home-race" onchange="toggleOption('home_race_enabled')">
+                    <span class="apple-slider"></span>
+                </div>
+            </div>
+            <div id="home-race-panel-body" style="display: none;">
+                <p style="color: var(--text-muted); font-size: 13px; margin: 14px 0 12px; line-height: 1.6; padding-top: 14px; border-top: 1px solid var(--border-light);">
+                    플레이어별 <b>퇴근 목표 점수</b>를 정하면, 방송 화면의 랭킹판 자리에 개인별 진행바가 나옵니다.<br>
+                    목표를 채우면 <b>승인 대기함</b>에 퇴근 카드가 뜨고, 송출하면 축하 팝업이 나가요.
+                </p>
+                <div id="home-race-goal-inputs" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+        </div>
+
         <div class="group-box" id="pending-box" style="display: none; border-color: rgba(255, 204, 0, 0.5); background: rgba(255, 204, 0, 0.03);">
             <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 204, 0, 0.2); display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span><i class="fa-solid fa-inbox"></i> 후원 결재 대기함 (미확인 후원)</span>
@@ -1811,7 +1829,12 @@
             setChk('chk-ticker', gd.ticker_enabled);
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
+            setChk('chk-home-race', gd.home_race_enabled || false);
             renderGoalAchievementNotice();   // 🎯 목표 달성 승인 알림 표시 여부 갱신
+            checkHomeRaceGoals();            // 🏃 퇴근 목표 도달 확인
+            if (document.getElementById('home-race-panel-body')?.style.display !== 'none') {
+                renderHomeGoalInputs();
+            }
             // 슬롯 후보 선택 상태를 서버 상태와 맞춘다 (슬롯 탭이 열려 있을 때만 다시 그림)
             if (slotAllSignatures.length > 0 && document.getElementById('tab-slot')?.classList.contains('active')) {
                 renderSlotCandidates();
@@ -1835,6 +1858,21 @@
                 let isExtra = gd.extra_game_active || false;
                 let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
                 gd.pending_donations.forEach(don => {
+                    // 🏃 퇴근 성공 카드는 후원이 아니라 '송출' 버튼만 있는 별도 형태로 그린다
+                    if (don.type === 'off_work') {
+                        const nm = escapeHTML(don.name);
+                        pHtml += `<div class="pending-item" style="border-left-color:#ffd700; background:linear-gradient(90deg, rgba(255,215,0,0.08), rgba(26,26,29,1));">
+                            <div class="pending-info">
+                                <span style="display:inline-block; background:linear-gradient(90deg,#ffd700,#ff8c00); color:#000; font-size:11px; font-weight:900; padding:2px 10px; border-radius:12px; margin-right:8px;">🏆 퇴근전쟁 승리</span>
+                                <span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:16px;">🎉 ${nm}님 퇴근 성공!</b><br>
+                                <span style="color:#ffd700; font-weight:700; font-size:12px;">[송출하기]를 누르면 방송 화면에 축하 팝업이 나갑니다.</span>
+                            </div>
+                            <div class="bj-buttons">
+                                <button class="bj-btn" style="background:linear-gradient(90deg,#ffd700,#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCard('${don.id}', '${nm.replace(/'/g, "\\'")}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
+                                <button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 삭제</button>
+                            </div></div>`;
+                        return;
+                    }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
                     pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 215, 0, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
@@ -2471,6 +2509,106 @@
             gd.goal_event_pending = false;
             gd.goal_event_approved = false;
             pushAPI();
+        }
+
+        // ==========================================
+        // 🏃 퇴근전쟁(퇴근빵)
+        // ==========================================
+        function toggleHomeRacePanel(event) {
+            if (event) event.stopPropagation();
+            const body = document.getElementById('home-race-panel-body');
+            const icon = document.getElementById('home-race-collapse-icon');
+            if (!body) return;
+            const isOpen = body.style.display !== 'none';
+            body.style.display = isOpen ? 'none' : 'block';
+            if (icon) icon.style.transform = isOpen ? 'rotate(-90deg)' : 'rotate(0deg)';
+            if (!isOpen) renderHomeGoalInputs();
+        }
+
+        function renderHomeGoalInputs() {
+            const box = document.getElementById('home-race-goal-inputs');
+            if (!box || !gd) return;
+            if (!gd.home_goals) gd.home_goals = {};
+            const bjs = gd.bjs || [];
+            if (bjs.length === 0) {
+                box.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">등록된 플레이어가 없습니다.</span>`;
+                return;
+            }
+            box.innerHTML = bjs.map(b => {
+                const n = escapeHTML(b.name);
+                const goal = gd.home_goals[b.name] || 0;
+                const cur = b.score || 0;
+                const done = goal > 0 && cur >= goal;
+                return `<div style="display:flex; align-items:center; gap:10px;">
+                    <span style="width:110px; font-size:13px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${n}</span>
+                    <span style="font-size:12px; color:${done ? '#ffd700' : 'var(--text-muted)'}; width:70px;">현재 ${cur}</span>
+                    <input type="number" value="${goal}" placeholder="목표 점수"
+                        onchange="setHomeGoal('${n.replace(/'/g, "\\'")}', this.value)"
+                        style="flex:1; height:34px; font-size:13px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; padding:0 10px; box-sizing:border-box;">
+                    ${done ? '<span style="font-size:12px; color:#ffd700; font-weight:900;">퇴근! 🎉</span>' : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function setHomeGoal(name, val) {
+            if (!gd.home_goals) gd.home_goals = {};
+            gd.home_goals[name] = parseInt(val) || 0;
+            // 목표를 새로 정하면 다시 퇴근 알림을 받을 수 있게 기록을 지운다
+            if (gd.home_race_notified) {
+                gd.home_race_notified = gd.home_race_notified.filter(n => n !== name);
+            }
+            pushAPI();
+            renderHomeGoalInputs();
+        }
+
+        // 목표를 채운 플레이어를 승인 대기함에 '퇴근 성공' 카드로 올린다.
+        // ⚠️ 한 번 알린 사람은 home_race_notified에 기록한다.
+        //    안 그러면 송출로 카드를 지워도 점수가 여전히 목표 이상이라 즉시 다시 생긴다.
+        function addOffWorkPendingCard(playerName) {
+            if (!gd.pending_donations) gd.pending_donations = [];
+            if (!gd.home_race_notified) gd.home_race_notified = [];
+            if (gd.home_race_notified.includes(playerName)) return;
+            if (gd.pending_donations.some(d => d.type === 'off_work' && d.name === playerName)) return;
+            gd.home_race_notified.push(playerName);
+            gd.pending_donations.unshift({
+                id: `off_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                type: 'off_work',
+                name: playerName,
+                amount: 0,
+                message: '퇴근전쟁 목표 달성!',
+                time: new Date().toLocaleTimeString('ko-KR', { hour12: false })
+            });
+            pushAPI();
+        }
+
+        async function broadcastOffWorkCard(donId, name) {
+            try {
+                const res = await fetch('/api/offwork/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    premiumAlert(`🎉 ${name}님 퇴근 연출을 방송에 송출했습니다!`, "송출 성공", "success");
+                    const idx = (gd.pending_donations || []).findIndex(d => d.id === donId);
+                    if (idx !== -1) { gd.pending_donations.splice(idx, 1); pushAPI(); }
+                } else {
+                    premiumAlert("송출 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
+            }
+        }
+
+        // 점수가 바뀔 때마다 퇴근 목표 도달 여부를 확인한다
+        function checkHomeRaceGoals() {
+            if (!gd || !gd.home_race_enabled) return;
+            const goals = gd.home_goals || {};
+            (gd.bjs || []).forEach(b => {
+                const goal = parseInt(goals[b.name]) || 0;
+                if (goal > 0 && (b.score || 0) >= goal) addOffWorkPendingCard(b.name);
+            });
         }
 
         // ==========================================

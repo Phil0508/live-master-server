@@ -290,6 +290,50 @@
         body.reaction-mode #match-container { opacity: 0 !important; visibility: hidden !important; }
 
         .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.6s ease-in-out; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
+        /* --------------------------------------------------
+            🏃 퇴근전쟁(퇴근빵) 목표 달성 레이스 위젯
+        -------------------------------------------------- */
+        .home-race-box {
+            background: linear-gradient(160deg, rgba(30, 15, 30, 0.95), rgba(15, 8, 18, 0.97));
+            border: 3px solid #ff6fa5; border-radius: 22px; padding: 14px 18px; width: 380px;
+            box-shadow: 0 15px 40px rgba(255, 105, 180, 0.35);
+        }
+        .home-race-title {
+            text-align: center; font-size: 16px; font-weight: 900; color: #fff;
+            background: linear-gradient(90deg, #ff5da2, #ff8fc0);
+            border-radius: 20px; padding: 6px 0; margin-bottom: 12px; letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(255, 93, 162, 0.5);
+        }
+        .home-race-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .home-race-name {
+            width: 68px; font-size: 14px; font-weight: 800; color: #ffe0ef;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .home-race-bar-bg {
+            flex: 1; height: 16px; background: rgba(0,0,0,0.5); border-radius: 10px;
+            border: 1px solid rgba(255, 182, 213, 0.35); overflow: hidden; position: relative;
+        }
+        .home-race-bar-fill {
+            height: 100%; border-radius: 10px;
+            background: linear-gradient(90deg, #ff5da2, #ffb6d5);
+            box-shadow: 0 0 10px rgba(255, 93, 162, 0.6);
+            transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); width: 0%;
+        }
+        .home-race-bar-fill.goal-reached {
+            background: linear-gradient(90deg, #ffd700, #fff3b0);
+            box-shadow: 0 0 14px rgba(255, 215, 0, 0.8);
+        }
+        .home-race-nums { width: 108px; text-align: right; font-size: 13px; font-weight: 800; color: #fff; white-space: nowrap; }
+        .home-race-nums .cur { color: #ffb6d5; }
+        .home-race-nums .goal { color: #8e8e93; font-size: 11px; }
+        .home-race-goal-line {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            margin-top: 8px; padding: 8px 12px; background: rgba(255, 105, 180, 0.12);
+            border: 1px solid rgba(255, 182, 213, 0.4); border-radius: 16px;
+            font-size: 13px; font-weight: 800; color: #fff;
+        }
+        .home-race-goal-badge { background: #ffd700; color: #3a2000; font-weight: 900; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         #toon-popup.vip-premium-card {
             border: 4px solid var(--vip-glow-color, #ffd700) !important;
@@ -411,6 +455,14 @@
 
 
     <div id="fire-vignette" class="fire-vignette"></div>
+
+    <!-- 🏆 퇴근 성공 초대형 팝업 (화면 상단 1/5 지점) -->
+    <div id="offwork-popup-layer" style="position: fixed; inset: 0; top: 20vh; z-index: 999999; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+        <div id="offwork-popup-box" style="background: linear-gradient(135deg, rgba(20, 20, 28, 0.96), rgba(35, 30, 15, 0.98)); backdrop-filter: blur(25px); border: 4px solid #ffd76b; border-radius: 30px; padding: 28px 55px; box-shadow: 0 20px 60px rgba(255, 215, 107, 0.6), inset 0 0 25px rgba(255, 255, 255, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 440px; text-align: center; transform: scale(0.6); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+            <div style="font-size: 24px; font-weight: 800; color: #ffd76b; letter-spacing: -0.5px; text-shadow: 0 0 12px rgba(255, 215, 107, 0.9);">🎉 퇴근을 축하합니다! 🥳</div>
+            <div id="offwork-player-name" style="font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: 0 4px 22px rgba(0, 0, 0, 0.9), 0 0 28px rgba(255, 215, 107, 0.95); word-break: keep-all;">🎉 플레이어 퇴근! 🏆</div>
+        </div>
+    </div>
     <div id="neon-overlay" class="neon-layer"></div>
     
     <!-- ⚠️ 자동재생 차단 경고 배너 -->
@@ -477,6 +529,18 @@
                 
                 <div id="takeover-container" class="widget-container"><div id="takeover-popup" class="takeover-popup-content"><span style="color:var(--theme-neon);" id="takeover-text"></span></div></div>
                 
+                <!-- 🏃 퇴근전쟁(퇴근빵) 위젯 — 켜지면 랭킹판 자리를 대신 차지한다 -->
+                <div id="home-race-container" class="widget-container" style="opacity: 0; visibility: hidden;">
+                    <div class="home-race-box">
+                        <div class="home-race-title">🏃 퇴근빵</div>
+                        <div id="home-race-rows"></div>
+                        <div class="home-race-goal-line" id="home-race-goal-line" style="display:none;">
+                            <span class="home-race-goal-badge">GOAL</span>
+                            <span id="home-race-goal-text">-</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="ranking-container" class="widget-container">
                     <div class="excel-board" id="excel-board">
                         <div class="excel-grid-container">
@@ -905,6 +969,8 @@
                 }
 
                 if (d.reaction_mode) document.body.classList.add('reaction-mode'); else document.body.classList.remove('reaction-mode');
+
+                renderHomeRace(d);   // 🏃 퇴근전쟁 진행바 (켜져 있으면 랭킹판 대신 표시)
                 let md = d.match_data || {active: false, players: [], fire_effect: false}; if (md.active && md.fire_effect) document.body.classList.add('match-fire-on'); else document.body.classList.remove('match-fire-on');
 
                 const accBox = document.getElementById('account-box-ui');
@@ -2089,11 +2155,92 @@
                 loadVipsToCache();
             });
 
+            sseSource.addEventListener('off_work_event', function(e) {
+                try {
+                    const data = e.data ? JSON.parse(e.data) : {};
+                    const name = data.name || '선수';
+                    console.log(`🏃 [퇴근 성공 연출 수신] ${name}`);
+                    showOffWorkPopup(name);
+                } catch (err) {
+                    console.error("off_work_event 처리 오류:", err);
+                }
+            });
+
             sseSource.onerror = function(err) {
                 console.error("SSE connection error. Retrying in 3 seconds...", err);
                 sseSource.close();
                 setTimeout(initSSE, 3000);
             };
+        }
+
+        // 🏃 [퇴근전쟁] 퇴근 성공 초대형 팝업
+        let offWorkTimer = null;
+        function showOffWorkPopup(name) {
+            const layer = document.getElementById('offwork-popup-layer');
+            const box = document.getElementById('offwork-popup-box');
+            const nameEl = document.getElementById('offwork-player-name');
+            if (!layer || !nameEl) return;
+
+            nameEl.innerText = `🎉 ${name} 퇴근! 🏆`;
+            layer.style.opacity = '1';
+            layer.style.visibility = 'visible';
+            if (box) box.style.transform = 'scale(1)';
+
+            if (offWorkTimer) clearTimeout(offWorkTimer);
+            offWorkTimer = setTimeout(() => {
+                layer.style.opacity = '0';
+                layer.style.visibility = 'hidden';
+                if (box) box.style.transform = 'scale(0.6)';
+                offWorkTimer = null;
+            }, 4000);
+        }
+
+        // 🏃 [퇴근전쟁] 개인별 목표 진행바 렌더링 (켜지면 랭킹판을 감추고 이 위젯을 띄운다)
+        function renderHomeRace(d) {
+            const raceEl = document.getElementById('home-race-container');
+            const rankEl = document.getElementById('ranking-container');
+            if (!raceEl) return;
+
+            const bjs = d.bjs || [];
+            const on = !!d.home_race_enabled && bjs.length > 0;
+
+            raceEl.style.opacity = on ? '1' : '0';
+            raceEl.style.visibility = on ? 'visible' : 'hidden';
+            // 랭킹판과 자리를 나눠 쓰므로 켜져 있는 동안에는 랭킹판을 숨긴다
+            if (rankEl && !currentExtraActiveState) {
+                rankEl.style.opacity = on ? '0' : '1';
+                rankEl.style.visibility = on ? 'hidden' : 'visible';
+            }
+            if (!on) return;
+
+            const goals = d.home_goals || {};
+            const rowsEl = document.getElementById('home-race-rows');
+            const goalLineEl = document.getElementById('home-race-goal-line');
+            const goalTextEl = document.getElementById('home-race-goal-text');
+            if (!rowsEl) return;
+
+            let html = '';
+            let firstReached = null;
+            bjs.forEach(b => {
+                const goal = parseInt(goals[b.name]) || 0;
+                const cur = b.score || 0;   // 진행 기준은 점수(score)
+                const pct = goal > 0 ? Math.min(100, (cur / goal) * 100) : 0;
+                const reached = goal > 0 && cur >= goal;
+                if (reached && !firstReached) firstReached = b.name;
+                html += `<div class="home-race-row">
+                    <div class="home-race-name">${escapeSlotText(b.name)}</div>
+                    <div class="home-race-bar-bg"><div class="home-race-bar-fill ${reached ? 'goal-reached' : ''}" style="width:${pct}%;"></div></div>
+                    <div class="home-race-nums"><span class="cur">${formatNum(cur)}</span> <span class="goal">/ ${formatNum(goal)}</span></div>
+                </div>`;
+            });
+            rowsEl.innerHTML = html;
+
+            if (firstReached && goalLineEl && goalTextEl) {
+                goalLineEl.style.display = 'flex';
+                goalTextEl.innerText = `${firstReached} 퇴근! 🎉`;
+            } else if (goalLineEl) {
+                goalLineEl.style.display = 'none';
+            }
         }
 
         // 👑 [특별 후원자(VIP) 캐시] 후원 팝업이 뜰 때마다 조회하면 느리므로 미리 받아둔다
