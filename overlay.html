@@ -229,12 +229,46 @@
         /* --------------------------------------------------
             ⚔️ 퓨처리스트 네온 아크릴 대결판 (리뉴얼)
         -------------------------------------------------- */
-        .match-wrapper { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            gap: 25px; 
-        } 
+        /* ⚔️ 대결판 — 목업 그대로: 게임 프레임 + MATCH 탭 + VS 레이아웃 */
+        .match-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background:
+                repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px),
+                var(--game-bg);
+            clip-path: polygon(var(--game-cut) 0, 100% 0, 100% calc(100% - var(--game-cut)), calc(100% - var(--game-cut)) 100%, 0 100%, 0 var(--game-cut));
+            padding: 38px 44px 28px;
+            min-width: 620px;
+            box-sizing: border-box;
+            box-shadow: 0 18px 44px rgba(0,0,0,0.6);
+        }
+        .match-game-tag {
+            position: absolute; top: 0; left: 26px; transform: translateY(-52%) skewX(-14deg);
+            padding: 5px 18px; font-size: 13px; font-weight: 900; letter-spacing: 2px; color: #0e0e14;
+            background: linear-gradient(100deg, var(--gold), var(--gold-deep));
+            box-shadow: 0 6px 18px var(--gold-glow);
+            z-index: 3;
+        }
+        .match-game-tag span { display: inline-block; transform: skewX(14deg); }
+        .m-vs {
+            align-self: center;
+            font-size: 26px; font-weight: 900; font-style: italic; color: var(--tx-3);
+            position: relative; padding: 0 8px;
+        }
+        .m-vs::before {
+            content:''; position:absolute; left:50%; top:-28px; bottom:-28px; width:2px;
+            background: linear-gradient(180deg, transparent, rgba(255,255,255,0.16), transparent);
+            transform: skewX(-14deg);
+        }
+        .m-team-bar {
+            width: 100%; height: 7px; margin-top: 10px;
+            clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+            background: linear-gradient(90deg, rgba(var(--team-color-rgb, 255,255,255), 0.25), var(--team-color, #fff));
+            box-shadow: 0 0 12px rgba(var(--team-color-rgb, 255,255,255), 0.6);
+        }
         
         /* ⚔️ e스포츠 타이머 — 각진 절단 프레임 + 이탤릭 숫자 */
         .m-timer-pill {
@@ -260,33 +294,34 @@
             justify-content: center; /* 1명만 있거나 할 때도 정가운데 정렬 */
         } 
         
-        .m-team-box { 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
+        .m-team-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 180px;
             transition: transform 0.2s ease;
-        } 
-        
-        /* ⚔️ e스포츠 스코어 보드 — 절단 모서리 + 사선 질감 */
+        }
+
+        /* ⚔️ 점수 — 목업처럼 상자 없이 팀 컬러로 크게 발광하는 이탤릭 숫자 */
         .m-score-box {
-            background:
-                repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px),
-                var(--game-bg);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            width: 200px;
-            height: 110px;
-            clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+            background: none;
+            border: none;
+            width: auto;
+            height: auto;
+            min-height: 70px;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #ffffff;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 55px;
+            color: var(--team-color, #ffffff);
+            font-family: 'Orbitron', 'Pretendard', sans-serif;
+            font-size: 58px;
             font-weight: 900;
-            text-shadow: 0 5px 15px rgba(0,0,0,0.8), 0 0 24px var(--team-color, transparent);
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(255,255,255,0.05);
+            font-style: italic; /* Orbitron엔 이탤릭이 없어 브라우저가 기울여줌 */
+            line-height: 1.05;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 26px rgba(var(--team-color-rgb, 255,255,255), 0.55), 0 4px 12px rgba(0,0,0,0.7);
             position: relative;
-            overflow: hidden;
+            overflow: visible;
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
@@ -303,51 +338,24 @@
             100% { transform: scale(1); }
         }
 
-        /* 쉴드 테두리 반짝임 네온 아우라 그라데이션 */
-        .m-score-box::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 0; /* 절단 모서리는 clip-path가 담당 */
-            padding: 2px;
-            background: linear-gradient(to bottom, var(--team-color, #444), transparent 70%);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            pointer-events: none;
-            opacity: 0.85;
-            box-shadow: 0 0 20px var(--team-color, transparent);
-        }
+        /* (구) 상자형 점수판의 테두리 장식 — 목업 스타일(상자 없음)로 바뀌며 제거 */
+        .m-score-box::before { content: none; }
 
-        /* ⚔️ e스포츠 이름표 — 기울어진 탭 배지 */
+        /* ⚔️ 이름 — 목업처럼 점수 위에 팀 컬러 이탤릭 텍스트 */
         .m-name-box {
-            background: #0d0d12;
-            color: #ffffff;
-            font-family: 'Chakra Petch', 'Pretendard', sans-serif;
-            font-size: 22px;
-            font-weight: 800;
+            background: none;
+            border: none;
+            color: var(--team-color, #ffffff);
+            font-family: 'Pretendard', sans-serif;
+            font-size: 21px;
+            font-weight: 900;
             font-style: italic;
-            padding: 7px 28px;
-            border: 2px solid var(--team-color, #444);
-            clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%);
-            margin-top: -20px;
+            padding: 0;
+            margin: 0 0 2px 0;
             z-index: 2;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 14px var(--team-color, transparent);
+            letter-spacing: 0.3px;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
             transition: all 0.3s ease;
-        }
-        
-        .m-team-box:hover .m-score-box {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 15px var(--team-color);
-        }
-        .m-team-box:hover .m-name-box {
-            background: var(--team-color);
-            color: #000;
-            text-shadow: none;
-            box-shadow: 0 8px 25px var(--team-color);
         }
 
         @keyframes explodeTimer { 0% { transform: scale(1.3); opacity: 1; filter: drop-shadow(0 0 20px #ff0000); color: #ff0000; background: rgba(255,0,0,0.5); } 20% { transform: scale(1.6); opacity: 1; filter: drop-shadow(0 0 50px #ff5500); color: #fff; background: #ff0000; border-color: #fff; } 100% { transform: scale(0); opacity: 0; filter: drop-shadow(0 0 100px #ffff00); } }
@@ -697,6 +705,7 @@
             
             <div id="match-container" class="widget-container" style="opacity: 0; visibility: hidden;">
                 <div class="match-wrapper">
+                    <div class="match-game-tag"><span>⚔ MATCH</span></div>
                     <div class="m-timer-pill" id="m-timer">00:00</div>
                     <div class="match-main-row" style="display: flex; align-items: center; justify-content: center; gap: 30px; position: relative;">
                         <div class="m-team-container" id="m-players-area"></div>
@@ -1128,13 +1137,20 @@
                 let mc = document.getElementById('match-container');
                 if(md.active) { 
                     mc.style.opacity = 1; mc.style.visibility = 'visible';
-                    let ma = document.getElementById('m-players-area'); 
-                    let cols = ['#ff4d4d', '#00e676', '#3399ff', '#FFD700']; 
-                    let colsRgb = ['255, 77, 77', '0, 230, 118', '51, 153, 255', '255, 215, 0'];
-                    if(ma.children.length !== md.players.length) { 
-                        ma.innerHTML = ''; 
-                        md.players.forEach((p, i) => ma.innerHTML += `<div class="m-team-box" style="--team-color:${cols[i%4]}; --team-color-rgb:${colsRgb[i%4]};"><div class="m-score-box" id="mp-${i}">0</div><div class="m-name-box" id="mp-name-${i}">${p.name}</div></div>`); 
-                    } 
+                    let ma = document.getElementById('m-players-area');
+                    // 목업 팔레트: 1:1 대결이 레드 vs 블루가 되도록 순서 배치
+                    let cols = ['#ff3b5c', '#3ba7ff', '#00e676', '#f6c453'];
+                    let colsRgb = ['255, 59, 92', '59, 167, 255', '0, 230, 118', '246, 196, 83'];
+                    // 2인 대결이면 사이에 VS 구분 요소가 하나 더 들어가므로 기대 개수에 반영
+                    let expectedChildren = md.players.length + (md.players.length === 2 ? 1 : 0);
+                    if(ma.children.length !== expectedChildren) {
+                        ma.innerHTML = '';
+                        md.players.forEach((p, i) => {
+                            if (i > 0 && md.players.length === 2) ma.innerHTML += `<div class="m-vs">VS</div>`;
+                            // 목업 구조: 이름(위) → 점수(대형 이탤릭) → 팀 컬러 바
+                            ma.innerHTML += `<div class="m-team-box" style="--team-color:${cols[i%4]}; --team-color-rgb:${colsRgb[i%4]};"><div class="m-name-box" id="mp-name-${i}">${p.name}</div><div class="m-score-box" id="mp-${i}">0</div><div class="m-team-bar"></div></div>`;
+                        });
+                    }
                     md.players.forEach((p, i) => { 
                         let nameEl = document.getElementById(`mp-name-${i}`); 
                         if(nameEl && nameEl.innerText !== p.name) nameEl.innerText = p.name; 

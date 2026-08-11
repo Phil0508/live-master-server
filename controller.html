@@ -710,10 +710,12 @@
         <div class="group-box" id="home-race-box" style="margin-bottom: 15px; border-color: rgba(255, 111, 165, 0.4); background: rgba(255, 111, 165, 0.04);">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer;" onclick="toggleHomeRacePanel(event)">
                 <span style="color: #ff8fc0;"><i class="fa-solid fa-chevron-down" id="home-race-collapse-icon" style="transition: transform 0.25s ease; margin-right: 6px; transform: rotate(-90deg);"></i><i class="fa-solid fa-person-running"></i> 🏃 퇴근전쟁(퇴근빵)</span>
-                <div class="apple-switch" onclick="event.stopPropagation();">
+                <!-- ⚠️ 반드시 label이어야 한다. 체크박스가 투명(크기 0)이라
+                     label이 클릭을 전달해주지 않으면 슬라이더를 눌러도 아무 일도 안 일어난다 -->
+                <label class="apple-switch" onclick="event.stopPropagation();">
                     <input type="checkbox" id="chk-home-race" onchange="toggleOption('home_race_enabled')">
                     <span class="apple-slider"></span>
-                </div>
+                </label>
             </div>
             <div id="home-race-panel-body" style="display: none;">
                 <p style="color: var(--text-muted); font-size: 13px; margin: 14px 0 12px; line-height: 1.6; padding-top: 14px; border-top: 1px solid var(--border-light);">
