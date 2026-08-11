@@ -7,7 +7,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        :root { --bg-body: #0d0d0f; --bg-panel: #18181b; --bg-card: #222225; --bg-canvas: #000000; --border-light: rgba(255, 255, 255, 0.08); --text-main: #ffffff; --text-muted: #8e8e93; --accent: #00ffcc; --accent-glow: rgba(0, 255, 204, 0.4); --danger: #ff453a; --excel-yellow: #FFD700; --excel-dark: rgba(20, 20, 20, 0.85); --excel-border: #FFD700; --theme-neon: #ff0055; --text-secondary: #00E5B5; }
+        :root { --bg-body: #0d0d0f; --bg-panel: #18181b; --bg-card: #222225; --bg-canvas: #000000; --border-light: rgba(255, 255, 255, 0.08); --text-main: #ffffff; --text-muted: #8e8e93; --accent: #00ffcc; --accent-glow: rgba(0, 255, 204, 0.4); --danger: #ff453a; --theme-neon: #ff0055; --text-secondary: #00E5B5;
+            /* 🎨 오버레이 리뉴얼과 동일한 토큰 — 미리보기가 실제 방송 화면과 같게 보이도록 */
+            --gold: #f6c453; --gold-deep: #dfa63e; --gold-glow: rgba(246,196,83,0.45);
+            --glass-bg: linear-gradient(160deg, rgba(30,30,40,0.80), rgba(14,14,20,0.88));
+            --glass-border: rgba(255,255,255,0.14);
+            --game-bg: linear-gradient(165deg, #16161f 0%, #0d0d14 100%);
+            /* (구) 변수 재지정 → 랭킹/게이지/계좌 미리보기가 골드·유리로 바뀜 */
+            --excel-yellow: #f6c453; --excel-dark: rgba(17,17,24,0.9); --excel-border: rgba(255,255,255,0.14); }
         body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: var(--bg-body); color: var(--text-main); font-family: 'Pretendard', sans-serif; overflow: hidden; display: flex; -webkit-font-smoothing: antialiased; }
         ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
         
@@ -28,23 +35,30 @@
 
         .excel-board { background: var(--excel-dark); border: 2px solid var(--excel-border); border-radius: 15px; padding: 12px; width: max-content; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
         .excel-grid-container { display: flex; gap: 10px; } .excel-col { display: flex; flex-direction: column; width: 330px; }
-        .excel-header { background: var(--excel-yellow); color: #000; font-weight: 900; font-size: 16px; display: grid; grid-template-columns: 40px 110px 80px 100px; text-align: center; padding: 6px 0; border-radius: 20px; margin-bottom: 8px; } .excel-header div { display: flex; align-items: center; justify-content: center; letter-spacing: -0.5px; }
-        .excel-row { display: grid; grid-template-columns: 40px 110px 80px 100px; text-align: center; height: 42px; border-bottom: 1px solid rgba(255,255,255,0.15); font-size: 22px; font-weight: 800; align-items: center; padding: 0; } .r-rank { color: #fff; font-size: 22px; } .r-name { color: #fff; font-weight: 900; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;} .r-score { color: #fff; font-size: 20px;} .r-contrib { color: var(--excel-yellow); font-weight: 900; font-size: 20px;}
+        .excel-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 15px; display: grid; grid-template-columns: 40px 110px 80px 100px; text-align: center; padding: 7px 0; border-radius: 12px; margin-bottom: 6px; } .excel-header div { display: flex; align-items: center; justify-content: center; letter-spacing: -0.5px; }
+        .excel-row { display: grid; grid-template-columns: 40px 110px 80px 100px; text-align: center; height: 42px; border-bottom: 1px solid rgba(255,255,255,0.10); font-size: 22px; font-weight: 800; align-items: center; padding: 0; } .excel-row > div:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.07); height: 60%; display:flex; align-items:center; justify-content:center; } .r-rank { color: rgba(235,235,245,0.62); font-size: 20px; } .r-name { color: #fff; font-weight: 800; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;} .r-score { color: #fff; font-size: 20px;} .r-contrib { color: var(--gold); font-weight: 900; font-size: 20px;}
         
-        .row-bottom { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: rgba(0, 198, 255, 0.1); border: 1px solid var(--text-secondary); border-radius: 8px; margin-top: 5px; box-shadow: inset 0 0 10px rgba(0, 198, 255, 0.2); } .row-bottom .b-name { color: var(--text-secondary); font-weight: 900; font-size: 20px; text-shadow: 0 0 5px var(--text-secondary); } .row-bottom .b-score { color: var(--text-secondary); font-weight: 900; font-size: 24px; text-shadow: 0 0 10px var(--text-secondary); position: relative; }
+        .row-bottom { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: rgba(246, 196, 83, 0.06); border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 5px; } .row-bottom .b-name { color: rgba(235,235,245,0.62); font-weight: 800; font-size: 18px; } .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 24px; position: relative; }
 
-        .excel-gauge-box { background: var(--excel-dark); border: 2px solid var(--excel-border); border-radius: 15px; padding: 15px 20px; min-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); } .total-row { display: flex; justify-content: space-between; font-size: 22px; font-weight: 900; margin-bottom: 12px; } .goal-bar-bg { background: rgba(0,0,0,0.8); border: 2px solid #555; border-radius: 12px; height: 22px; padding: 3px; } .goal-bar-fill { background: linear-gradient(90deg, #ff0055, #ff5500); height: 100%; border-radius: 8px; width: 50%; box-shadow: 0 0 15px #ff0055; } .goal-text { display: flex; justify-content: space-between; font-size: 14px; font-weight: bold; color: #ccc; margin-top: 8px; }
+        .excel-gauge-box { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 17px 22px; min-width: 380px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); } .total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 21px; font-weight: 800; margin-bottom: 12px; } .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; height: 18px; padding: 3px; } .goal-bar-fill { background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0); height: 100%; border-radius: 7px; width: 50%; box-shadow: 0 0 14px var(--gold-glow); } .goal-text { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: rgba(235,235,245,0.35); margin-top: 8px; }
 
-        .acc-box-v2 { background: var(--excel-dark); border: 2px solid var(--excel-yellow); border-radius: 15px; padding: 15px 20px; width: 280px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.8); } .acc-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; } .acc-bank-tag { background: var(--excel-yellow); color: #000; font-weight: 900; font-size: 18px; padding: 4px 10px; border-radius: 8px; box-shadow: 2px 2px 5px rgba(0,0,0,0.5); } .acc-name-tag { color: #fff; font-size: 18px; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); } .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 1px; text-shadow: 3px 3px 6px rgba(0,0,0,0.9); word-break: break-all; line-height: 1.2; }
+        .acc-box-v2 { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 18px 22px; width: 280px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.55); } .acc-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; } .acc-bank-tag { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 15px; padding: 4px 12px; border-radius: 9px; box-shadow: 0 4px 14px var(--gold-glow); } .acc-name-tag { color: rgba(235,235,245,0.62); font-size: 15px; font-weight: 700; } .acc-num-v2 { font-size: 34px; font-weight: 800; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.25; }
 
-        .match-wrapper { display: flex; flex-direction: column; align-items: center; gap: 15px; } .m-timer-pill { background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(8px); border: 2px solid rgba(255,255,255,0.4); border-radius: 40px; padding: 8px 35px; color: #fff; font-size: 40px; font-weight: 900; transition: all 0.2s linear; } .m-team-container { display: flex; gap: 20px; } .m-team-box { display: flex; flex-direction: column; align-items: center; } .m-score-box { background: rgba(30, 30, 35, 0.9); border: 2px solid #444; width: 180px; height: 90px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 50px; font-weight: 900; } .m-name-box { background: #111; color: #fff; font-size: 24px; font-weight: 900; padding: 6px 25px; border: 3px solid var(--team-color); border-radius: 8px; margin-top: -15px; }
+        .match-wrapper { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .m-timer-pill { background: linear-gradient(180deg, #23232e, #14141c); border: 1px solid rgba(255,255,255,0.14); clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); padding: 8px 42px; color: #fff; font-size: 40px; font-weight: 900; font-style: italic; }
+        .m-team-container { display: flex; align-items: center; gap: 6px; }
+        .m-team-box { display: flex; flex-direction: column; align-items: center; min-width: 180px; }
+        .m-score-box { background: none; border: none; min-height: 70px; display: flex; align-items: center; justify-content: center; color: var(--team-color, #fff); font-size: 58px; font-weight: 900; font-style: italic; text-shadow: 0 0 26px rgba(var(--team-color-rgb,255,255,255),0.55), 0 2px 4px rgba(0,0,0,0.95); }
+        .m-name-box { background: none; border: none; color: var(--team-color, #fff); font-size: 21px; font-weight: 900; font-style: italic; margin: 0 0 2px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
+        .m-team-bar { width: 100%; height: 7px; margin-top: 10px; clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%); background: linear-gradient(90deg, rgba(var(--team-color-rgb,255,255,255),0.25), var(--team-color,#fff)); box-shadow: 0 0 12px rgba(var(--team-color-rgb,255,255,255),0.6); }
+        .m-vs { align-self: center; font-size: 26px; font-weight: 900; font-style: italic; color: rgba(255,255,255,0.75); padding: 0 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
         
         .timer-explode { transform: scale(0) !important; opacity: 0 !important; }
         .time-up-message { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%) scale(0.3); opacity: 0; font-size: 130px; font-weight: 900; color: #fff; text-shadow: 0 0 20px #ff0055, 0 0 40px #ff0055, 0 0 80px #ff0055, 6px 6px 0px #000; z-index: 100000; pointer-events: none; white-space: nowrap; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .time-up-message.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
-        .center-popup-content { background: rgba(0, 0, 0, 0.9); border: 4px solid #00E5B5; border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 900; color: white; white-space: nowrap; } .takeover-popup-content { background: rgba(0, 0, 0, 0.95); border: 4px solid var(--theme-neon); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: white; white-space: nowrap; }
-        .ticker-bar { width: 1080px; height: 70px; background: rgba(0, 0, 0, 0.7); border-top: 2px solid var(--theme-neon); border-bottom: 2px solid var(--theme-neon); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 900; color: #fff; }
+        .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: 0 18px 50px rgba(0,0,0,0.55); } .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(246,196,83,0.5); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 0 34px var(--gold-glow); }
+        .ticker-bar { width: 1080px; height: 70px; background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 1px solid rgba(246,196,83,0.45); border-bottom: 1px solid rgba(246,196,83,0.45); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #fff; }
         .guide-text { position: absolute; top: 15px; left: 30px; color: #888; font-size: 14px; font-weight: bold; pointer-events: none; }
     </style>
 </head>
@@ -123,15 +137,28 @@
                 <div class="widget" id="ticker_top" data-id="ticker_top" style="left:0px; top:1400px;"><div class="ticker-bar" id="ticker_top-text">📢 상단 전광판</div></div>
                 <div class="widget" id="ticker_bottom" data-id="ticker_bottom" style="left:0px; top:1500px;"><div class="ticker-bar" id="ticker_bottom-text">📢 하단 전광판</div></div>
                 <div class="widget" id="roulette" data-id="roulette" style="left:240px; top:600px; display: none;">
-                    <div style="width: 250px; height: 250px; border-radius: 50%; border: 4px solid var(--accent); background: rgba(20,20,25,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--accent-glow);">
+                    <div style="width: 250px; height: 250px; border-radius: 50%; border: 3px solid var(--gold); background: var(--game-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--gold-glow);">
                         <span style="font-size: 40px;">🎡</span>
-                        <span style="font-size: 16px; font-weight: 800; color: #fff; margin-top: 10px;">행운의 룰렛</span>
+                        <span style="font-size: 16px; font-weight: 900; font-style: italic; color: var(--gold); margin-top: 10px;">행운의 룰렛</span>
                     </div>
                 </div>
+                <!-- 🎰 슬롯: 실제 크기(660×360)에 가깝게 — 타이틀 칩 + 릴 3칸 -->
                 <div class="widget" id="slot" data-id="slot" style="left:210px; top:680px; display: none;">
-                    <div style="width: 280px; height: 160px; border-radius: 20px; border: 4px solid var(--accent); background: rgba(20,20,25,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--accent-glow);">
-                        <span style="font-size: 36px;">🎰</span>
-                        <span style="font-size: 16px; font-weight: 800; color: #00ffcc; margin-top: 8px;">시그니처 슬롯머신</span>
+                    <div style="width: 640px; height: 340px; background: var(--game-bg); clip-path: polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;">
+                        <span style="display:inline-block; font-size: 22px; font-weight: 900; font-style: italic; color: #0e0e14; padding: 5px 24px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);">🎰 시그니처 슬롯머신</span>
+                        <div style="display:flex; gap:14px;">
+                            <div style="width:150px; height:105px; background:#0a0a10; clip-path: polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%); box-shadow:0 10px 26px rgba(0,0,0,0.7);"></div>
+                            <div style="width:150px; height:105px; background:#0a0a10; clip-path: polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%); box-shadow:0 10px 26px rgba(0,0,0,0.7);"></div>
+                            <div style="width:150px; height:105px; background:#0a0a10; clip-path: polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%); box-shadow:0 10px 26px rgba(0,0,0,0.7);"></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 🏃 퇴근빵: 랭킹판 자리를 대신 차지 (기본 위치는 랭킹판 근처) -->
+                <div class="widget" id="home-race" data-id="home-race" style="left:50px; top:50px; display: none;">
+                    <div style="width: 400px; background: var(--game-bg); clip-path: polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px); padding: 30px 22px 16px; position:relative;">
+                        <div style="position:absolute; top:0; left:24px; transform: translateY(-46%) skewX(-14deg); padding:5px 20px; font-size:14px; font-weight:900; letter-spacing:2px; color:#2a0714; background: linear-gradient(100deg, #ff6f9d, #e0447a);">🏃 퇴근빵</div>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:11px;"><span style="width:64px; font-size:14px; font-weight:900; font-style:italic; color:#ffd7e5;">플레이어</span><div style="flex:1; height:15px; background:rgba(0,0,0,0.5); clip-path: polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);"><div style="height:100%; width:70%; background:linear-gradient(90deg,#e0447a,#ff8fb5);"></div></div><span style="width:96px; text-align:right; font-size:12.5px; font-weight:800; color:#ff9dbd;">140 <span style="color:rgba(235,235,245,0.35); font-size:11px;">/ 200</span></span></div>
+                        <div style="display:flex; align-items:center; gap:10px;"><span style="width:64px; font-size:14px; font-weight:900; font-style:italic; color:#ffd7e5;">플레이어2</span><div style="flex:1; height:15px; background:rgba(0,0,0,0.5); clip-path: polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);"><div style="height:100%; width:40%; background:linear-gradient(90deg,#e0447a,#ff8fb5);"></div></div><span style="width:96px; text-align:right; font-size:12.5px; font-weight:800; color:#ff9dbd;">80 <span style="color:rgba(235,235,245,0.35); font-size:11px;">/ 200</span></span></div>
                     </div>
                 </div>
             </div>
@@ -141,7 +168,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신' };
             function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
             
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; scaleRatio = Math.min(availableW / 1080, availableH / 1920); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; }
@@ -190,9 +217,15 @@
                     let md = d.match_data || {active: false, players: []};
                     if(md.active) {
                         document.getElementById('match').style.display = 'flex';
-                        let ma = document.getElementById('m-players-area'); let cols = ['#ff4d4d', '#00e676', '#3399ff', '#FFD700']; let mHtml = '';
-                        md.players.forEach((p, i) => { mHtml += `<div class="m-team-box"><div class="m-score-box">${formatNum(p.score)}</div><div class="m-name-box" style="--team-color:${cols[i%4]};">${p.name}</div></div>`; });
-                        ma.innerHTML = mHtml; 
+                        let ma = document.getElementById('m-players-area');
+                        let cols = ['#ff3b5c', '#3ba7ff', '#00e676', '#f6c453'];
+                        let colsRgb = ['255, 59, 92', '59, 167, 255', '0, 230, 118', '246, 196, 83'];
+                        let mHtml = '';
+                        md.players.forEach((p, i) => {
+                            if (i > 0 && md.players.length === 2) mHtml += `<div class="m-vs">VS</div>`;
+                            mHtml += `<div class="m-team-box" style="--team-color:${cols[i%4]}; --team-color-rgb:${colsRgb[i%4]};"><div class="m-name-box">${p.name}</div><div class="m-score-box">${formatNum(p.score)}</div><div class="m-team-bar"></div></div>`;
+                        });
+                        ma.innerHTML = mHtml;
                         
                         let left = md.is_running ? Math.max(0, md.end_time_ms - Date.now()) : (md.time_left_ms || 0); let sec = Math.ceil(left/1000); 
                         let timerEl = document.getElementById('m-timer');
@@ -236,6 +269,10 @@
                     } else {
                         document.getElementById('slot').style.display = 'none';
                     }
+
+                    // 🏃 퇴근빵: 켜져 있을 때만 편집 캔버스에 표시
+                    const raceW = document.getElementById('home-race');
+                    if (raceW) raceW.style.display = d.home_race_enabled ? 'flex' : 'none';
                 } catch(e) {}
             }
 

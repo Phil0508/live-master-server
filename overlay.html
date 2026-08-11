@@ -160,7 +160,6 @@
             border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius);
             box-shadow: var(--glass-shadow);
-            backdrop-filter: blur(22px) saturate(1.4);
         }
         .excel-board::before, .excel-gauge-box::before, .acc-box-v2::before {
             content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
@@ -357,12 +356,12 @@
         .timer-explode { animation: explodeTimer 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important; }
         .score-pop { position: absolute; right: -20px; top: -15px; color: var(--theme-neon); font-weight: 900; font-size: 22px; text-shadow: 0 0 10px var(--theme-neon); animation: fu 1s ease-out forwards; z-index:100; pointer-events:none; } @keyframes fu { 0%{opacity:1; transform:translateY(0) scale(1)} 50%{transform:translateY(-15px) scale(1.2)} 100%{opacity:0; transform:translateY(-30px) scale(1)} }
         
-        .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: var(--glass-shadow); backdrop-filter: blur(20px) saturate(1.4); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.4s; transform: translateY(30px) scale(0.8); }
+        .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: var(--glass-shadow); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.4s; transform: translateY(30px) scale(0.8); }
         .center-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 
-        .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(246,196,83,0.5); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); backdrop-filter: blur(20px) saturate(1.4); opacity: 0; transition: 0.4s; transform: translateY(40px) scale(0.7); } .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
+        .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(246,196,83,0.5); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); opacity: 0; transition: 0.4s; transform: translateY(40px) scale(0.7); } .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 
-        .ticker-bar { width: 1080px; height: 70px; background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 1px solid rgba(246,196,83,0.45); border-bottom: 1px solid rgba(246,196,83,0.45); display: flex; align-items: center; overflow: hidden; backdrop-filter: blur(8px); box-shadow: 0 5px 20px rgba(0,0,0,0.5);} .ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.8); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; } @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
+        .ticker-bar { width: 1080px; height: 70px; background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 1px solid rgba(246,196,83,0.45); border-bottom: 1px solid rgba(246,196,83,0.45); display: flex; align-items: center; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.5);} .ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.8); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; } @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
         
         #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; color: var(--text-main); pointer-events: none; } 
         /* 대결 컨테이너: 기본 숨김, .match-visible 클래스로만 표시 */
@@ -469,7 +468,6 @@
             border-radius: var(--glass-radius);
             padding: 36px 56px; text-align: center;
             box-shadow: var(--glass-shadow), 0 0 40px rgba(0,0,0,0.35);
-            backdrop-filter: blur(22px) saturate(1.4);
             opacity: 0; visibility: hidden; transform: scale(0.8) translateY(30px);
             transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0.5s;
             display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 500px;
@@ -563,7 +561,7 @@
 
     <!-- 🏆 퇴근 성공 초대형 팝업 (화면 상단 1/5 지점) -->
     <div id="offwork-popup-layer" style="position: fixed; inset: 0; top: 20vh; z-index: 999999; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-        <div id="offwork-popup-box" style="background: linear-gradient(135deg, rgba(20, 20, 28, 0.96), rgba(35, 30, 15, 0.98)); backdrop-filter: blur(25px); border: 4px solid #ffd76b; border-radius: 30px; padding: 28px 55px; box-shadow: 0 20px 60px rgba(255, 215, 107, 0.6), inset 0 0 25px rgba(255, 255, 255, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 440px; text-align: center; transform: scale(0.6); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+        <div id="offwork-popup-box" style="background: linear-gradient(135deg, rgba(20, 20, 28, 0.96), rgba(35, 30, 15, 0.98)); border: 4px solid #ffd76b; border-radius: 30px; padding: 28px 55px; box-shadow: 0 20px 60px rgba(255, 215, 107, 0.6), inset 0 0 25px rgba(255, 255, 255, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 440px; text-align: center; transform: scale(0.6); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
             <div style="font-size: 24px; font-weight: 800; color: #ffd76b; letter-spacing: -0.5px; text-shadow: 0 0 12px rgba(255, 215, 107, 0.9);">🎉 퇴근을 축하합니다! 🥳</div>
             <div id="offwork-player-name" style="font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: 0 4px 22px rgba(0, 0, 0, 0.9), 0 0 28px rgba(255, 215, 107, 0.95); word-break: keep-all;">🎉 플레이어 퇴근! 🏆</div>
         </div>
@@ -710,7 +708,7 @@
 
 
             <!-- 🎡 팝업형 내장 룰렛 레이어 -->
-            <div id="roulette-overlay-backdrop" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 99999; opacity: 0; visibility: hidden; transition: all 0.5s ease; width: 100%; height: 100%;"></div>
+            <div id="roulette-overlay-backdrop" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 99999; opacity: 0; visibility: hidden; transition: all 0.5s ease; width: 100%; height: 100%;"></div>
             
             <div id="roulette-container" class="widget-container" style="position: absolute; left: 240px; top: 600px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s, left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto;">
                 <div class="roulette-wrap" style="position: relative; width: 660px; height: 740px; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px), linear-gradient(165deg, #16161f 0%, #0d0d14 100%); clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px); padding: 25px; box-shadow: 0 18px 44px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
@@ -886,6 +884,17 @@
                 extraEl.style.top = (ly['ranking'].y_px || 0) + 'px';
                 extraEl.style.transform = `scale(${ly['ranking'].scale || 1})`;
                 extraEl.style.left = isExtra ? ((ly['ranking'].x_px || 0) + 'px') : '1500px';
+            }
+
+            // 🏃 퇴근빵은 랭킹판 자리를 대신 차지하므로, 에디터에서 따로 배치하지 않았으면 랭킹판 위치를 따른다
+            const raceEl = document.getElementById('home-race-container');
+            if (raceEl && ly) {
+                const coord = ly['home-race'] || ly['ranking'];
+                if (coord) {
+                    raceEl.style.left = (coord.x_px || 0) + 'px';
+                    raceEl.style.top = (coord.y_px || 0) + 'px';
+                    raceEl.style.transform = `scale(${coord.scale || 1})`;
+                }
             }
         }
 
