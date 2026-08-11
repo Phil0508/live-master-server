@@ -58,8 +58,14 @@ def db_query(query):
         return query.replace('?', '%s')
     return query
 
-@contextmanager
-def get_db_connection():
+# ⚡ [연결 재사용] 예전에는 DB 작업마다 새 연결을 열고 닫았다.
+# Render(오레곤)에서 Supabase(서울)까지는 TLS 핸드셰이크만 왕복 여러 번이라
+# 연결 생성 하나가 쿼리 10개보다 비쌌고, 점수 저장이 2초를 넘겼다.
+# 스레드마다 연결을 하나씩 살려두고 재사용한다. (Flask가 스레드로 요청을 처리하므로
+# 연결을 공유하면 안 되고, 스레드 로컬이어야 안전하다)
+_db_local = threading.local()
+
+def _new_db_connection():
     if IS_POSTGRES:
         if psycopg2 is None:
             raise ImportError("psycopg2 is not installed but DATABASE_URL is set.")
@@ -67,17 +73,39 @@ def get_db_connection():
         if 'sslmode=' not in db_url.lower():
             sep = '&' if '?' in db_url else '?'
             db_url += f"{sep}sslmode=require"
-        conn = psycopg2.connect(db_url)
-    else:
-        conn = sqlite3.connect(DB_FILE)
+        return psycopg2.connect(db_url, connect_timeout=15)
+    return sqlite3.connect(DB_FILE)
+
+def _get_live_connection():
+    """스레드에 살아있는 연결을 돌려준다. 끊겼으면 새로 연다.
+
+    ⚠️ 여기서 'SELECT 1' 같은 확인 쿼리를 보내면 안 된다.
+    매 작업마다 왕복이 하나 더 붙어서 연결 재사용으로 아낀 시간을 도로 까먹는다.
+    서버가 유휴 연결을 끊은 경우는 실제 쿼리에서 예외로 드러나므로,
+    호출부(save_data_sync 등)에서 한 번 재시도해 자가복구한다.
+    """
+    conn = getattr(_db_local, 'conn', None)
+    if conn is not None and IS_POSTGRES and conn.closed:
+        conn = None
+    if conn is None:
+        conn = _new_db_connection()
+        _db_local.conn = conn
+    return conn
+
+@contextmanager
+def get_db_connection():
+    conn = _get_live_connection()
     try:
         yield conn
         conn.commit()
     except Exception:
-        conn.rollback()
+        # 실패한 연결은 상태가 오염됐을 수 있으므로 버리고 다음에 새로 연다
+        try: conn.rollback()
+        except Exception: pass
+        try: conn.close()
+        except Exception: pass
+        _db_local.conn = None
         raise
-    finally:
-        conn.close()
 from flask import Flask, jsonify, request, send_from_directory, redirect, url_for, session
 from flask_cors import CORS
 try:
@@ -755,7 +783,7 @@ def db_worker():
 
 threading.Thread(target=db_worker, daemon=True).start()
 
-def save_data_sync(new_data, is_initial=False):
+def save_data_sync(new_data, is_initial=False, _retry=True):
     global LAST_PERSISTED
     # ⚠️ 반드시 "마지막으로 DB에 쓴 내용"과 비교해야 한다.
     # 예전에는 MEMORY_STATE와 비교했는데, 호출부가 load_data()가 돌려준 객체를
@@ -773,6 +801,7 @@ def save_data_sync(new_data, is_initial=False):
                 old_scores = {p["name"]: p.get("score", 0) for p in old_data.get("bjs", [])}
                 old_contribs = {p["name"]: p.get("contribution", 0) for p in old_data.get("bjs", [])}
                 now_str = time.strftime('%Y-%m-%d %H:%M:%S')
+                hist_rows, ledger_rows = [], []
                 for new_p in new_data.get("bjs", []):
                     p_name = new_p["name"]
                     p_score = int(new_p.get("score") or 0)
@@ -781,21 +810,28 @@ def save_data_sync(new_data, is_initial=False):
                     contrib_diff = p_contrib - old_contribs.get(p_name, 0)
 
                     if score_diff != 0:
-                        cursor.execute(
-                            db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source) VALUES (?, ?, ?, ?, ?, ?)"),
-                            (now_str, p_name, score_diff, p_score, "수동 점수 조작", "mobile")
-                        )
+                        hist_rows.append((now_str, p_name, score_diff, p_score, "수동 점수 조작", "mobile"))
                     # 🏦 은행 원장: 변동분과 거래 후 잔액을 남겨 나중에 재정산할 수 있게 한다
                     if score_diff != 0 or contrib_diff != 0:
-                        cursor.execute(
-                            db_query("""INSERT INTO bank_ledger
-                                (timestamp, player_name, tx_type, score_change, score_balance,
-                                 contrib_change, contrib_balance, description)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""),
-                            (now_str, p_name, "MANUAL_CHANGE", score_diff, p_score,
-                             contrib_diff, p_contrib,
-                             f"점수 {score_diff:+} / 기여도 {contrib_diff:+}")
-                        )
+                        ledger_rows.append((now_str, p_name, "MANUAL_CHANGE", score_diff, p_score,
+                                            contrib_diff, p_contrib,
+                                            f"점수 {score_diff:+} / 기여도 {contrib_diff:+}"))
+
+                # N분할처럼 여러 명이 한꺼번에 바뀔 때 왕복이 인원수만큼 늘지 않도록 묶어서 넣는다
+                if hist_rows:
+                    ph = ', '.join([('(%s, %s, %s, %s, %s, %s)' if IS_POSTGRES else '(?, ?, ?, ?, ?, ?)')] * len(hist_rows))
+                    cursor.execute(
+                        f"INSERT INTO donation_history (timestamp, name, amount, current_total, message, source) VALUES {ph}",
+                        [v for r in hist_rows for v in r]
+                    )
+                if ledger_rows:
+                    ph = ', '.join([('(%s, %s, %s, %s, %s, %s, %s, %s)' if IS_POSTGRES else '(?, ?, ?, ?, ?, ?, ?, ?)')] * len(ledger_rows))
+                    cursor.execute(
+                        f"""INSERT INTO bank_ledger
+                            (timestamp, player_name, tx_type, score_change, score_balance,
+                             contrib_change, contrib_balance, description) VALUES {ph}""",
+                        [v for r in ledger_rows for v in r]
+                    )
 
             # 2. 플레이어 테이블 갱신
             # ⚠️ 예전에는 DELETE 전체 후 재INSERT였다. 이제는 사라진 플레이어만 지우고
@@ -811,43 +847,60 @@ def save_data_sync(new_data, is_initial=False):
             else:
                 cursor.execute(db_query("DELETE FROM players"))
 
-            for bj in new_bjs:
+            # ⚡ 플레이어를 한 명씩 저장하면 인원수만큼 왕복이 생긴다.
+            #    한 문장에 여러 행을 담아 왕복을 1회로 줄인다.
+            if new_bjs:
+                rows = [(bj["name"], bj.get("score", 0), bj.get("contribution", 0)) for bj in new_bjs]
                 if IS_POSTGRES:
+                    ph = ', '.join(['(%s, %s, %s)'] * len(rows))
                     cursor.execute(
-                        "INSERT INTO players (name, score, contribution) VALUES (%s, %s, %s) "
+                        f"INSERT INTO players (name, score, contribution) VALUES {ph} "
                         "ON CONFLICT (name) DO UPDATE SET score = EXCLUDED.score, contribution = EXCLUDED.contribution",
-                        (bj["name"], bj.get("score", 0), bj.get("contribution", 0))
+                        [v for r in rows for v in r]
                     )
                 else:
+                    ph = ', '.join(['(?, ?, ?)'] * len(rows))
                     cursor.execute(
-                        "INSERT INTO players (name, score, contribution) VALUES (?, ?, ?) "
+                        f"INSERT INTO players (name, score, contribution) VALUES {ph} "
                         "ON CONFLICT(name) DO UPDATE SET score = excluded.score, contribution = excluded.contribution",
-                        (bj["name"], bj.get("score", 0), bj.get("contribution", 0))
+                        [v for r in rows for v in r]
                     )
 
-            # 3. 설정 상태 키-값 저장 (변경된 값만 필터링하여 데이터베이스 트래픽 최소화)
+            # 3. 설정 상태 키-값 저장 (변경된 값만) — 이것도 한 문장으로 묶어 왕복을 줄인다
+            kv_rows = []
             for key, value in new_data.items():
-                if key != "bjs":
-                    new_val_str = json.dumps(value, ensure_ascii=False)
-                    old_val = old_data.get(key)
-                    old_val_str = json.dumps(old_val, ensure_ascii=False) if old_val is not None else None
-                    
-                    if is_initial or old_val_str != new_val_str:
-                        if IS_POSTGRES:
-                            cursor.execute(
-                                "INSERT INTO kv_store (key, value) VALUES (%s, %s) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
-                                (key, new_val_str)
-                            )
-                        else:
-                            cursor.execute(
-                                "INSERT OR REPLACE INTO kv_store (key, value) VALUES (?, ?)",
-                                (key, new_val_str)
-                            )
+                if key == "bjs":
+                    continue
+                new_val_str = json.dumps(value, ensure_ascii=False)
+                old_val = old_data.get(key)
+                old_val_str = json.dumps(old_val, ensure_ascii=False) if old_val is not None else None
+                if is_initial or old_val_str != new_val_str:
+                    kv_rows.append((key, new_val_str))
+
+            if kv_rows:
+                if IS_POSTGRES:
+                    ph = ', '.join(['(%s, %s)'] * len(kv_rows))
+                    cursor.execute(
+                        f"INSERT INTO kv_store (key, value) VALUES {ph} "
+                        "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+                        [v for r in kv_rows for v in r]
+                    )
+                else:
+                    ph = ', '.join(['(?, ?)'] * len(kv_rows))
+                    cursor.execute(
+                        f"INSERT OR REPLACE INTO kv_store (key, value) VALUES {ph}",
+                        [v for r in kv_rows for v in r]
+                    )
                             
         # 커밋 성공 후에만 비교 기준을 갱신한다 (실패 시 다음 저장에서 다시 시도되도록)
         LAST_PERSISTED = new_data
         LAST_DB_ERROR["message"] = None
     except Exception as e:
+        # 재사용하던 연결을 서버가 끊어둔 경우일 수 있다.
+        # get_db_connection이 이미 죽은 연결을 버렸으므로, 한 번만 새 연결로 다시 시도한다.
+        if _retry:
+            print(f"⚠️ [DB 저장 재시도] {e}")
+            return save_data_sync(new_data, is_initial, _retry=False)
         # 조용히 넘어가면 저장된 줄 알고 방송을 계속하게 된다. 상태에 남겨 컨트롤러가 경고할 수 있게 한다.
         LAST_DB_ERROR["message"] = str(e)
         LAST_DB_ERROR["time"] = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -1791,16 +1844,12 @@ def api_data():
             
             state['version'] = max(client_version, server_version) + 1
 
-            # 점수·승인대기함이 바뀐 저장은 잃으면 안 되므로 즉시 DB에 쓴다.
-            # 볼륨/전광판 문구 같은 잦은 UI 갱신까지 동기로 쓰면 조작이 굼떠지므로 그때는 비동기 유지.
-            def _ledger_fingerprint(s):
-                return (
-                    [(b.get('name'), b.get('score')) for b in (s.get('bjs') or [])],
-                    len(s.get('pending_donations') or []),
-                )
-            is_critical = _ledger_fingerprint(state) != _ledger_fingerprint(current_state)
-
-            save_data(state, sync=is_critical)
+            # ⚠️ 여기서 동기 저장을 하면 안 된다.
+            # 점수 버튼은 방송 중 연타하는 조작인데, Render(오레곤)→Supabase(서울) 왕복 때문에
+            # 클릭 한 번에 2초 넘게 걸려 점수 반영이 눈에 띄게 밀렸다.
+            # 저장은 백그라운드 큐에 맡기고(수 ms 내 반영), 화면에는 즉시 브로드캐스트한다.
+            # 잃으면 안 되는 기록은 방송 시작/종료·리셋·복구 쪽에서 동기로 처리한다.
+            save_data(state)
             broadcast_event('update', state)
         return jsonify({"status": "success"})
         
