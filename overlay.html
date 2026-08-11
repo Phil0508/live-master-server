@@ -233,33 +233,21 @@
         /* --------------------------------------------------
             ⚔️ 퓨처리스트 네온 아크릴 대결판 (리뉴얼)
         -------------------------------------------------- */
-        /* ⚔️ 대결판 — 목업 그대로: 게임 프레임 + MATCH 탭 + VS 레이아웃 */
+        /* ⚔️ 대결판 — 배경 판 없이 요소들만 게임 화면 위에 떠 있는 형태.
+           (검은 카드 프레임은 방송 화면을 가려서 제거. 가독성은 요소별 그림자로 확보) */
         .match-wrapper {
             position: relative;
             display: flex;
             flex-direction: column;
             align-items: center;
             gap: 20px;
-            background:
-                repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px),
-                var(--game-bg);
-            clip-path: polygon(var(--game-cut) 0, 100% 0, 100% calc(100% - var(--game-cut)), calc(100% - var(--game-cut)) 100%, 0 100%, 0 var(--game-cut));
-            padding: 38px 44px 28px;
-            min-width: 620px;
-            box-sizing: border-box;
-            box-shadow: 0 18px 44px rgba(0,0,0,0.6);
         }
-        .match-game-tag {
-            position: absolute; top: 0; left: 26px; transform: translateY(-52%) skewX(-14deg);
-            padding: 5px 18px; font-size: 13px; font-weight: 900; letter-spacing: 2px; color: #0e0e14;
-            background: linear-gradient(100deg, var(--gold), var(--gold-deep));
-            box-shadow: 0 6px 18px var(--gold-glow);
-            z-index: 3;
-        }
-        .match-game-tag span { display: inline-block; transform: skewX(14deg); }
+        .match-game-tag { display: none; } /* 프레임이 사라지며 탭도 제거 */
         .m-vs {
             align-self: center;
-            font-size: 26px; font-weight: 900; font-style: italic; color: var(--tx-3);
+            font-size: 26px; font-weight: 900; font-style: italic;
+            color: rgba(255,255,255,0.75);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7);
             position: relative; padding: 0 8px;
         }
         .m-vs::before {
@@ -323,7 +311,10 @@
             font-style: italic; /* Orbitron엔 이탤릭이 없어 브라우저가 기울여줌 */
             line-height: 1.05;
             font-variant-numeric: tabular-nums;
-            text-shadow: 0 0 26px rgba(var(--team-color-rgb, 255,255,255), 0.55), 0 4px 12px rgba(0,0,0,0.7);
+            /* 배경판이 없으므로 밝은 게임 화면 위에서도 읽히게 어두운 외곽 그림자를 겹겹이 */
+            text-shadow:
+                0 0 26px rgba(var(--team-color-rgb, 255,255,255), 0.55),
+                0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.85), 2px 2px 0 rgba(0,0,0,0.6);
             position: relative;
             overflow: visible;
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -358,7 +349,7 @@
             margin: 0 0 2px 0;
             z-index: 2;
             letter-spacing: 0.3px;
-            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.6);
             transition: all 0.3s ease;
         }
 
