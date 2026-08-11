@@ -663,6 +663,25 @@
     </div>
 
     <div id="active-broadcast-area" style="display: none;">
+
+    <!-- 🎯 목표 100% 달성 알림 (승인해야 오버레이에 연출이 나감) -->
+    <div class="group-box" id="goal-alert-box" style="display: none; margin-bottom: 15px; border-color: rgba(255, 215, 0, 0.8); background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 152, 0, 0.1)); box-shadow: 0 0 25px rgba(255, 215, 0, 0.3);">
+        <div class="group-title" style="color: #ffd700; border-bottom-color: rgba(255, 215, 0, 0.3); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <span><i class="fa-solid fa-trophy"></i> 🎯 목표치 100% 달성!</span>
+            <span style="font-size: 11px; background: #ffd700; color: #000; padding: 2px 8px; border-radius: 10px; font-weight: 900;">축하합니다! 🎉</span>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 10px; flex-wrap: wrap;">
+            <p style="color: #fff; font-size: 14px; font-weight: 700; margin: 0; flex: 1;">
+                오늘 설정한 목표치를 달성했어요!<br>
+                <span style="font-size: 12.5px; font-weight: normal; color: #aaa;">방송 화면에 <strong>게이지가 중앙으로 커지는 축하 연출</strong>을 띄울까요?</span>
+            </p>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="approveGoalEvent()" style="background: linear-gradient(135deg, #ffd700, #ff9800); color: #000; font-weight: 900; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);"><i class="fa-solid fa-play"></i> 승인 (송출)</button>
+                <button onclick="dismissGoalEvent()" style="background: rgba(255, 255, 255, 0.1); color: #ccc; border: 1px solid #555; padding: 10px 14px; border-radius: 8px; cursor: pointer;">닫기</button>
+            </div>
+        </div>
+    </div>
+
     <div class="tabs">
         <button class="tab-btn active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
@@ -1700,6 +1719,7 @@
             setChk('chk-ticker', gd.ticker_enabled);
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
+            renderGoalAchievementNotice();   // 🎯 목표 달성 승인 알림 표시 여부 갱신
             // 슬롯 후보 선택 상태를 서버 상태와 맞춘다 (슬롯 탭이 열려 있을 때만 다시 그림)
             if (slotAllSignatures.length > 0 && document.getElementById('tab-slot')?.classList.contains('active')) {
                 renderSlotCandidates();
@@ -2353,7 +2373,50 @@
         function toggleMatch() { gd.match_data.active = !gd.match_data.active; pushAPI(); }
         function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
         function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
-        function updateGoal() { gd.target_goal = parseInt(document.getElementById('in-goal').value)||0; pushAPI(); }
+        function updateGoal() {
+            gd.target_goal = parseInt(document.getElementById('in-goal').value)||0;
+            // 목표를 바꾸면 달성 알림을 다시 받을 수 있게 초기화
+            gd.goal_event_pending = false;
+            gd.goal_event_approved = false;
+            pushAPI();
+        }
+
+        // 🎯 목표 100% 달성 연출 승인/닫기
+        async function approveGoalEvent() {
+            try {
+                const res = await fetch('/api/goal/approve_event', { method: 'POST' });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    premiumAlert(data.message, "송출 성공", "success");
+                    const box = document.getElementById('goal-alert-box');
+                    if (box) box.style.display = 'none';
+                } else {
+                    premiumAlert("송출 실패: " + data.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
+            }
+        }
+
+        function dismissGoalEvent() {
+            // 서버 상태만 승인 처리해 다시 뜨지 않게 한다 (연출은 송출하지 않음)
+            gd.goal_event_pending = false;
+            gd.goal_event_approved = true;
+            pushAPI();
+            const box = document.getElementById('goal-alert-box');
+            if (box) box.style.display = 'none';
+        }
+
+        // 총 기여도가 목표치를 넘으면 승인 알림을 띄운다 (renderUI에서 매번 호출)
+        function renderGoalAchievementNotice() {
+            const box = document.getElementById('goal-alert-box');
+            if (!box || !gd) return;
+            const tgt = gd.target_goal || 0;
+            const totalContrib = (gd.bjs || []).reduce((acc, b) => acc + (b.contribution || 0), 0);
+            const isGoalReached = (tgt > 0 && totalContrib >= tgt);
+            const shouldShow = (gd.goal_event_pending || isGoalReached) && !gd.goal_event_approved;
+            box.style.display = shouldShow ? 'block' : 'none';
+        }
         function addRankPlayer() {
             if (gd.bjs.length >= 10) {
                 premiumAlert("플레이어는 최대 10명까지만 추가할 수 있습니다.", "추가 불가", "warning");

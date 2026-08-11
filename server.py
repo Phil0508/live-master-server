@@ -484,6 +484,9 @@ DEFAULT_STATE = {
     # load_data()는 DEFAULT_STATE에 있는 키만 복원하므로, 여기 없으면 재시작 때 조용히 사라진다.
     "slot_enabled": True,
     "slot_pool": [],   # 이번 방송에 쓸 시그니처 id 목록. 비어 있으면 전체를 후보로 사용.
+    # 🎯 목표 100% 달성 연출 (달성하면 pending, 운영자가 승인해야 송출)
+    "goal_event_pending": False,
+    "goal_event_approved": False,
     "broadcast_active": False,
     "saved_colors": ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff'],
     "version": 1,
@@ -990,6 +993,26 @@ def api_signature_delete(sig_id):
     except Exception as e:
         print(f"[시그니처 삭제 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/goal/approve_event', methods=['POST'])
+def approve_goal_event():
+    """🎯 목표 100% 달성 연출 송출 승인. 운영자가 눌러야 오버레이에 연출이 나간다."""
+    try:
+        with file_lock:
+            state = load_data()
+            state['goal_event_pending'] = False
+            state['goal_event_approved'] = True
+            save_data(state)
+            broadcast_event('goal_celebration', {
+                'timestamp': time.time(),
+                'target_goal': state.get('target_goal', 50000)
+            })
+            broadcast_event('update', state)
+        print("  🎯 [목표 달성 연출 송출]")
+        return jsonify({"status": "success", "message": "목표 달성 연출을 방송 화면에 송출했습니다!"})
+    except Exception as e:
+        print(f"[목표 연출 송출 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/signature/play', methods=['POST'])
 def api_signature_play():
