@@ -188,7 +188,7 @@
         ];
 
         let isSpinning = false;
-        const LOCAL_SIG_SERVER = 'http://localhost:8388/api/donation';
+        let slotAudio = null;
 
         function connectSSE() {
             const evtSource = new EventSource('/api/stream');
@@ -209,7 +209,7 @@
         }
 
         function createCardHTML(item) {
-            const imgUrl = item.image_file ? `/uploads/${item.image_file}` : (item.image_url || '/money.png');
+            const imgUrl = item.image_url || (item.image_file ? `/uploads/${item.image_file}` : '/money.png');
             return `
                 <div class="reel-card">
                     <img src="${imgUrl}" onerror="this.src='/money.png'">
@@ -268,8 +268,8 @@
                     banner.innerText = `🎊 [${winner.title || (winner.amount.toLocaleString() + '원')}] 당첨!! 🎊`;
                     banner.classList.add('show');
 
-                    // 로컬 시그니처 서버(8388)로 당첨 시그니처 자동 송출!
-                    sendToLocalSignatureServer(winner);
+                    // 당첨 시그니처 음원을 Supabase URL로 직접 재생 (로컬 8388 의존 제거)
+                    playWinnerSignature(winner);
 
                     // 4초 후 슬롯창 숨기기
                     setTimeout(() => {
@@ -282,18 +282,16 @@
             }, 100);
         }
 
-        function sendToLocalSignatureServer(winner) {
-            fetch(LOCAL_SIG_SERVER, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: '🎰 슬롯머신',
-                    amount: winner.amount || 10000,
-                    message: `[슬롯머신 당첨] ${winner.title || ''}`
-                })
-            }).then(res => res.json())
-            .then(data => console.log('Local signature triggered:', data))
-            .catch(err => console.warn('Local signature server offline or blocked:', err));
+        function playWinnerSignature(winner) {
+            const soundUrl = winner.sound_url || winner.audio_url || '';
+            if (!soundUrl) return;
+            try {
+                if (slotAudio) { slotAudio.pause(); slotAudio = null; }
+                slotAudio = new Audio(soundUrl);
+                slotAudio.play().catch(err => console.warn('Slot audio autoplay blocked:', err));
+            } catch (e) {
+                console.warn('Slot audio play error:', e);
+            }
         }
 
         window.onload = connectSSE;

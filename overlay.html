@@ -1716,8 +1716,8 @@
                 
                 // 5. 음원 재생 및 종료 콜백 설정
                 if (data.audio_url) {
-                    // Add a cache buster parameter to bypass OBS/browser caching of previously broken streams
-                    audio.src = data.audio_url + '?t=' + (data.id || Date.now());
+                    // Supabase Storage(CDN)는 안정적이므로 캐시버스터 없이 그대로 사용 → 브라우저 캐싱/미리받기 활용
+                    audio.src = data.audio_url;
                     
                     audio.onended = function() {
                         console.log('Audio play ended naturally.');
@@ -2013,22 +2013,96 @@
                         confetti({ particleCount: 80, spread: 70, origin: { y: 0.4 } });
                     }
 
-                    fetch('http://localhost:8388/api/donation', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: '🎰 슬롯머신',
-                            amount: winner.amount || 10000,
-                            message: `[슬롯 당첨] ${title}`
-                        })
-                    }).catch(e => console.warn(e));
+                    // 🎵 당첨 시그니처를 Supabase URL로 오버레이에서 직접 재생 (로컬 8388 의존 제거)
+                    playSlotWinnerSignature(winner, title);
 
                 }, 3200);
 
             }, 100);
         }
 
+        // 🎰 슬롯 당첨 시그니처를 오버레이에서 직접 재생 (리액션 큐와 독립 — 큐 pop 안 함)
+        function playSlotWinnerSignature(winner, title) {
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            const donatorEl = document.getElementById('reaction-donator-info');
+            const messageEl = document.getElementById('reaction-message-info');
+            const audio = document.getElementById('reaction-audio');
+            if (!overlay || !img || !audio) return;
+
+            // 진행 중 리액션/타이머 정리
+            if (reactionTimeout) clearTimeout(reactionTimeout);
+            if (reactionMinimizeTimeout) clearTimeout(reactionMinimizeTimeout);
+            if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
+            if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+            audio.onended = null; audio.onerror = null; audio.onloadedmetadata = null;
+            audio.pause(); audio.src = '';
+
+            if (donatorEl) donatorEl.innerText = '🎰 슬롯머신 당첨';
+            if (messageEl) {
+                messageEl.innerText = title || '';
+                messageEl.style.display = title ? 'block' : 'none';
+            }
+
+            const imageUrl = winner.image_url || '';
+            if (imageUrl) { img.src = imageUrl; img.style.display = 'block'; }
+            else { img.src = ''; img.style.display = 'none'; }
+
+            overlay.classList.remove('minimize');
+            overlay.classList.add('show');
+            reactionMinimizeTimeout = setTimeout(() => overlay.classList.add('minimize'), 2500);
+
+            const soundUrl = winner.sound_url || winner.audio_url || '';
+            const endSlot = () => {
+                if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                stopReactionVisuals();
+            };
+            if (soundUrl) {
+                audio.src = soundUrl;
+                audio.onended = endSlot;
+                audio.onerror = endSlot;
+                const setupSafety = () => {
+                    if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
+                    const dur = audio.duration;
+                    const ms = (isFinite(dur) && dur > 0) ? (dur * 1000 + 2000) : 30000;
+                    audioSafetyTimeout = setTimeout(endSlot, ms);
+                };
+                if (audio.readyState >= 1) setupSafety(); else audio.onloadedmetadata = setupSafety;
+                audio.play().catch(err => {
+                    console.error('Slot audio autoplay blocked:', err);
+                    showAutoplayWarning();
+                    reactionTimeout = setTimeout(stopReactionVisuals, 5000);
+                });
+            } else {
+                reactionTimeout = setTimeout(stopReactionVisuals, 5000);
+            }
+        }
+
+        // 🔥 미리받기(warm-up): 방송 시작 시 시그니처 미디어를 브라우저 캐시에 미리 넣어 후원 시 즉시 재생
+        async function preloadSignatures() {
+            try {
+                const res = await fetch('/api/signatures');
+                const data = await res.json();
+                const sigs = (data && data.signatures) || [];
+                window.__sigCache = sigs;
+                // 이미지: 즉시 병렬 프리로드 (총 ~8MB, 가벼움)
+                sigs.forEach(s => { if (s.image_url) { const im = new Image(); im.src = s.image_url; } });
+                // 사운드: 백그라운드 순차 프리캐시 (대역폭 스파이크 방지)
+                (async () => {
+                    for (const s of sigs) {
+                        if (!s.sound_url) continue;
+                        try { await fetch(s.sound_url, { cache: 'force-cache' }); } catch (e) {}
+                    }
+                    console.log('[미리받기] 사운드 프리캐시 완료');
+                })();
+                console.log(`[미리받기] 시그니처 ${sigs.length}개 프리로드 시작`);
+            } catch (e) {
+                console.warn('[미리받기] 실패(무시하고 진행):', e);
+            }
+        }
+
         initSSE();
+        preloadSignatures();
     </script>
 </body>
 </html>

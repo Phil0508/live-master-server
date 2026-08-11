@@ -1311,7 +1311,7 @@
 
     <script>
         function loadSlotCandidates() {
-            const LOCAL_SIG_API = 'http://localhost:8388/api/signatures';
+            const LOCAL_SIG_API = '/api/signatures';
             const countSpan = document.getElementById('slot-linked-count');
             const grid = document.getElementById('slot-linked-grid');
 
@@ -1338,13 +1338,13 @@
                 .catch(err => {
                     if (countSpan) countSpan.innerText = '0';
                     if (grid) {
-                        grid.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center; grid-column: 1 / -1;"><i class="fa-solid fa-triangle-exclamation"></i> 로컬 시그니처 서버 (http://localhost:8388) 가동 필요</div>`;
+                        grid.innerHTML = `<div style="color: var(--danger); padding: 20px; text-align: center; grid-column: 1 / -1;"><i class="fa-solid fa-triangle-exclamation"></i> 시그니처 목록을 불러오지 못했습니다 (서버/Supabase 연결 확인)</div>`;
                     }
                 });
         }
 
         function triggerSlotSpin() {
-            const LOCAL_SIG_API = 'http://localhost:8388/api/signatures';
+            const LOCAL_SIG_API = '/api/signatures';
 
             fetch(LOCAL_SIG_API)
                 .then(res => res.json())

@@ -38,6 +38,11 @@ import ssl
 import urllib.request
 import urllib.parse
 
+try:
+    import requests
+except ImportError:
+    requests = None
+
 # Try importing psycopg2 for PostgreSQL support
 try:
     import psycopg2
@@ -138,6 +143,65 @@ def save_auth_config(config):
         print(f"Error writing auth config: {e}")
 
 # ==========================================
+# 🟢 Supabase 시그니처 연동 (Storage + PostgREST)
+#    - 시그니처 데이터/미디어는 Supabase 에 있고, 서버는 secret 키로 대신 조회한다.
+#    - 브라우저(오버레이/컨트롤러)는 같은 서버의 /api/signatures 만 호출 → 키 노출/CORS/Mixed-Content 없음
+# ==========================================
+def load_supabase_config():
+    cfg = {
+        'url': (os.environ.get('SUPABASE_URL') or '').strip().rstrip('/'),
+        'key': (os.environ.get('SUPABASE_SECRET_KEY') or '').strip(),
+    }
+    # 로컬 개발 편의: 환경변수가 없으면 SUPABASE_CREDENTIALS.txt 에서 읽는다 (git 제외 파일)
+    if not cfg['url'] or not cfg['key']:
+        cred_path = os.path.join(BASE_DIR, 'SUPABASE_CREDENTIALS.txt')
+        if os.path.exists(cred_path):
+            try:
+                with open(cred_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('#') or '=' not in line:
+                            continue
+                        k, v = line.split('=', 1)
+                        k = k.strip(); v = v.split('#')[0].strip()
+                        if k == 'SUPABASE_URL' and not cfg['url']:
+                            cfg['url'] = v.rstrip('/')
+                        elif k == 'SUPABASE_SECRET_KEY' and not cfg['key']:
+                            cfg['key'] = v
+            except Exception as e:
+                print(f"[Supabase 설정 읽기 오류] {e}")
+    return cfg
+
+SUPABASE = load_supabase_config()
+
+def _supabase_ready():
+    return bool(SUPABASE['url'] and SUPABASE['key'] and requests)
+
+def _supabase_headers():
+    return {'apikey': SUPABASE['key'], 'Authorization': f"Bearer {SUPABASE['key']}"}
+
+def supabase_list_signatures():
+    """전체 시그니처 목록 (금액 오름차순). 실패/미설정 시 빈 리스트."""
+    if not _supabase_ready():
+        return []
+    url = (f"{SUPABASE['url']}/rest/v1/signatures"
+           f"?select=id,amount,title,image_url,sound_url,duration&order=amount.asc")
+    r = requests.get(url, headers=_supabase_headers(), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def supabase_match_signature(amount):
+    """후원 금액 이하 중 가장 가까운 시그니처 1개 (없으면 None)."""
+    if not _supabase_ready():
+        return None
+    url = (f"{SUPABASE['url']}/rest/v1/signatures?amount=lte.{int(amount)}"
+           f"&order=amount.desc&limit=1&select=id,amount,title,image_url,sound_url,duration")
+    r = requests.get(url, headers=_supabase_headers(), timeout=8)
+    r.raise_for_status()
+    rows = r.json()
+    return rows[0] if rows else None
+
+# ==========================================
 # 🤫 서버 로그 제어
 # ==========================================
 log = logging.getLogger('werkzeug')
@@ -184,6 +248,7 @@ def require_login():
         '/api/streamdeck/save',
         '/api/roulette/winner',
         '/api/data',
+        '/api/signatures',
         '/api/reaction/next',
         '/api/reaction/list',
         '/toonation_tampermonkey.user.js',
@@ -575,6 +640,16 @@ def sse_stream():
 @app.route('/api/ping')
 def api_ping():
     return jsonify({'status': 'pong'})
+
+# 🟢 시그니처 목록 (Supabase 대리 조회) — 오버레이/컨트롤러/슬롯이 공통으로 사용
+@app.route('/api/signatures')
+def api_signatures():
+    try:
+        sigs = supabase_list_signatures()
+        return jsonify({'status': 'success', 'signatures': sigs, 'count': len(sigs)})
+    except Exception as e:
+        print(f"[시그니처 목록 조회 오류] {e}")
+        return jsonify({'status': 'error', 'message': str(e), 'signatures': []}), 500
 
 # ==========================================
 # 👥 BJ 일괄 등록 API
@@ -1000,33 +1075,26 @@ def receive_donation():
             except Exception as dbe:
                 print(f"[장부 기록 오류] {dbe}")
                 
-            # 🎵 자동 리액션 송 연동 감지 (근사치 매칭: 후원금액 이하 중 가장 가까운 리액션)
+            # 🎵 자동 시그니처 리액션 연동 (Supabase: 후원금액 이하 중 가장 가까운 시그니처)
             if amount > 0:
                 try:
-                    with get_db_connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(db_query("SELECT id, title, audio_file_id, image_file_id, amount FROM reaction_items WHERE amount <= ? ORDER BY amount DESC LIMIT 1"), (amount,))
-                        row = cursor.fetchone()
-                        if row:
-                            r_id, r_title, r_audio_file_id, r_image_file_id, r_amount = row
-                            audio_url = f"/uploads/{r_audio_file_id}" if r_audio_file_id else ""
-                            image_url = f"/uploads/{r_image_file_id}" if r_image_file_id else ""
-                            
-                            reaction_uuid = f"rq_{uuid.uuid4().hex}"
-                            state['reaction_queue'].append({
-                                "id": reaction_uuid,
-                                "item_id": r_id,
-                                "title": r_title,
-                                "audio_url": audio_url,
-                                "image_url": image_url,
-                                "amount": amount,
-                                "donator": parsed_name,
-                                "message": cleaned_msg
-                            })
-                            state['reaction_mode'] = True
-                            print(f"  🎵 [자동 리액션 발동] 후원금액 {amount}원 → 근사치 {r_amount}원 매칭 ➡️ '{r_title}' 큐 추가 완료")
+                    sig = supabase_match_signature(amount)
+                    if sig:
+                        reaction_uuid = f"rq_{uuid.uuid4().hex}"
+                        state['reaction_queue'].append({
+                            "id": reaction_uuid,
+                            "item_id": sig.get('id'),
+                            "title": sig.get('title'),
+                            "audio_url": sig.get('sound_url') or "",
+                            "image_url": sig.get('image_url') or "",
+                            "amount": amount,
+                            "donator": parsed_name,
+                            "message": cleaned_msg
+                        })
+                        state['reaction_mode'] = True
+                        print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{sig.get('title')}' (#{sig.get('id')}, {sig.get('amount')}원) 큐 추가 완료")
                 except Exception as e:
-                    print(f"⚠️ [자동 리액션 감지 오류] {e}")
+                    print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
                 
             save_data(state)
             broadcast_event('update', state)
@@ -1908,30 +1976,23 @@ def api_slot_spin():
             broadcast_event('slot_spin', payload)
             return jsonify({"status": "success", "winner": winner})
 
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
-            rows = cursor.fetchall()
-            reactions = []
-            for r in rows:
-                reactions.append({
-                    "id": r[0],
-                    "title": r[1],
-                    "amount": r[2],
-                    "audio_file": r[3] if r[3] else "",
-                    "image_file": r[4] if r[4] else ""
-                })
+        # winner 미지정 시: 서버가 Supabase 시그니처 중 무작위 선택
+        try:
+            sigs = supabase_list_signatures()
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"시그니처 조회 실패: {e}"}), 500
 
-        if not reactions:
+        if not sigs:
             return jsonify({"status": "error", "message": "등록된 시그니처가 없습니다."}), 400
 
         import random
-        winner = random.choice(reactions)
+        winner = random.choice(sigs)
 
         payload = {
             "type": "slot_spin",
             "event": "slot_spin",
-            "winner": winner
+            "winner": winner,
+            "candidates": sigs
         }
 
         broadcast_event('slot_spin', payload)
