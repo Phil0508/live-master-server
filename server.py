@@ -617,6 +617,27 @@ def init_db():
                 )
             """)
         
+        # 아래 신규 테이블들이 공통으로 쓰는 자동증가 기본키 표현
+        pk = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
+
+        # 🏦 [은행 원장] 점수/기여도 변동을 통장처럼 한 줄씩 남긴다.
+        # 절대값을 덮어쓰는 대신 "변동분 + 거래 후 잔액"을 쌓아두므로,
+        # 잔액이 어긋나면 원장을 다시 합산해 복구할 수 있다. (append-only)
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS bank_ledger (
+                id {pk},
+                timestamp TEXT NOT NULL,
+                player_name TEXT NOT NULL,
+                tx_type TEXT NOT NULL,
+                score_change INTEGER NOT NULL,
+                score_balance INTEGER NOT NULL,
+                contrib_change INTEGER NOT NULL,
+                contrib_balance INTEGER NOT NULL,
+                description TEXT
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_bank_ledger_player ON bank_ledger(player_name)")
+
         # 👑 [특별 후원자(VIP)] 닉네임별 등급/색상/뱃지. 방송 데이터와 무관하게 계속 유지된다.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vip_donators (
@@ -629,7 +650,6 @@ def init_db():
 
         # 📚 [영구 보관 장부] 방송 종료 시 donation_history는 초기화되지만,
         # 여기로 먼저 복사해 두므로 지난 방송 기록이 영구히 남는다. (append-only, 절대 삭제하지 않음)
-        pk = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
         cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS donation_archive (
                 id {pk},
@@ -744,26 +764,63 @@ def save_data_sync(new_data, is_initial=False):
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
-            # 1. 수동 조작 시 장부 누적 (영수증 발급)
+            # 1. 점수/기여도 변동을 장부 + 은행 원장에 기록 (영수증 발급)
             if not is_initial:
-                old_scores = {p["name"]: p["score"] for p in old_data.get("bjs", [])}
+                old_scores = {p["name"]: p.get("score", 0) for p in old_data.get("bjs", [])}
+                old_contribs = {p["name"]: p.get("contribution", 0) for p in old_data.get("bjs", [])}
+                now_str = time.strftime('%Y-%m-%d %H:%M:%S')
                 for new_p in new_data.get("bjs", []):
                     p_name = new_p["name"]
-                    p_score = new_p["score"]
-                    o_score = old_scores.get(p_name, 0)
-                    diff = p_score - o_score
-                    
-                    if diff != 0:
+                    p_score = int(new_p.get("score") or 0)
+                    p_contrib = int(new_p.get("contribution") or 0)
+                    score_diff = p_score - old_scores.get(p_name, 0)
+                    contrib_diff = p_contrib - old_contribs.get(p_name, 0)
+
+                    if score_diff != 0:
                         cursor.execute(
                             db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source) VALUES (?, ?, ?, ?, ?, ?)"),
-                            (time.strftime('%Y-%m-%d %H:%M:%S'), p_name, diff, p_score, "수동 점수 조작", "mobile")
+                            (now_str, p_name, score_diff, p_score, "수동 점수 조작", "mobile")
                         )
-            
+                    # 🏦 은행 원장: 변동분과 거래 후 잔액을 남겨 나중에 재정산할 수 있게 한다
+                    if score_diff != 0 or contrib_diff != 0:
+                        cursor.execute(
+                            db_query("""INSERT INTO bank_ledger
+                                (timestamp, player_name, tx_type, score_change, score_balance,
+                                 contrib_change, contrib_balance, description)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""),
+                            (now_str, p_name, "MANUAL_CHANGE", score_diff, p_score,
+                             contrib_diff, p_contrib,
+                             f"점수 {score_diff:+} / 기여도 {contrib_diff:+}")
+                        )
+
             # 2. 플레이어 테이블 갱신
-            cursor.execute(db_query("DELETE FROM players"))
-            for bj in new_data.get("bjs", []):
-                cursor.execute(db_query("INSERT INTO players (name, score, contribution) VALUES (?, ?, ?)"), (bj["name"], bj["score"], bj.get("contribution", 0)))
-            
+            # ⚠️ 예전에는 DELETE 전체 후 재INSERT였다. 이제는 사라진 플레이어만 지우고
+            #    나머지는 UPSERT한다 (원장과 잔액을 함께 다루므로 통째로 지우면 위험하다)
+            new_bjs = new_data.get("bjs", [])
+            valid_names = [bj["name"] for bj in new_bjs if bj.get("name")]
+            if valid_names:
+                if IS_POSTGRES:
+                    cursor.execute("DELETE FROM players WHERE NOT (name = ANY(%s))", (valid_names,))
+                else:
+                    placeholders = ', '.join(['?'] * len(valid_names))
+                    cursor.execute(f"DELETE FROM players WHERE name NOT IN ({placeholders})", valid_names)
+            else:
+                cursor.execute(db_query("DELETE FROM players"))
+
+            for bj in new_bjs:
+                if IS_POSTGRES:
+                    cursor.execute(
+                        "INSERT INTO players (name, score, contribution) VALUES (%s, %s, %s) "
+                        "ON CONFLICT (name) DO UPDATE SET score = EXCLUDED.score, contribution = EXCLUDED.contribution",
+                        (bj["name"], bj.get("score", 0), bj.get("contribution", 0))
+                    )
+                else:
+                    cursor.execute(
+                        "INSERT INTO players (name, score, contribution) VALUES (?, ?, ?) "
+                        "ON CONFLICT(name) DO UPDATE SET score = excluded.score, contribution = excluded.contribution",
+                        (bj["name"], bj.get("score", 0), bj.get("contribution", 0))
+                    )
+
             # 3. 설정 상태 키-값 저장 (변경된 값만 필터링하여 데이터베이스 트래픽 최소화)
             for key, value in new_data.items():
                 if key != "bjs":
@@ -1011,6 +1068,84 @@ def api_signature_delete(sig_id):
     except Exception as e:
         print(f"[시그니처 삭제 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ==========================================
+# 🏦 은행 원장 (플레이어별 통장 내역 / 잔액 재정산)
+# ==========================================
+@app.route('/api/bank/statement/<path:player_name>', methods=['GET'])
+def get_bank_statement(player_name):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                db_query("""SELECT timestamp, tx_type, score_change, score_balance,
+                                   contrib_change, contrib_balance, description
+                            FROM bank_ledger WHERE player_name = ? ORDER BY id DESC LIMIT 50"""),
+                (player_name,)
+            )
+            statement = [{
+                "timestamp": r[0], "tx_type": r[1],
+                "score_change": r[2], "score_balance": r[3],
+                "contrib_change": r[4], "contrib_balance": r[5],
+                "description": r[6]
+            } for r in cursor.fetchall()]
+
+            cursor.execute(db_query("SELECT score, contribution FROM players WHERE name = ?"), (player_name,))
+            row = cursor.fetchone()
+
+        return jsonify({
+            "status": "success",
+            "player_name": player_name,
+            "current_score_balance": row[0] if row else 0,
+            "current_contrib_balance": row[1] if row else 0,
+            "statement_history": statement
+        })
+    except Exception as e:
+        print(f"[통장 내역 조회 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/bank/recalculate', methods=['POST'])
+def recalculate_bank_balances():
+    """원장에 쌓인 변동분을 처음부터 다시 합산해 현재 잔액을 재구성한다.
+       점수가 어긋났다고 의심될 때 쓰는 복구 수단."""
+    try:
+        global MEMORY_STATE, LAST_PERSISTED
+        with file_lock:
+            with get_db_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(db_query("""
+                    SELECT player_name, SUM(score_change), SUM(contrib_change)
+                    FROM bank_ledger GROUP BY player_name
+                """))
+                totals = {r[0]: (r[1] or 0, r[2] or 0) for r in cursor.fetchall()}
+
+                for name, (score_sum, contrib_sum) in totals.items():
+                    if IS_POSTGRES:
+                        cursor.execute(
+                            "INSERT INTO players (name, score, contribution) VALUES (%s, %s, %s) "
+                            "ON CONFLICT (name) DO UPDATE SET score = EXCLUDED.score, contribution = EXCLUDED.contribution",
+                            (name, score_sum, contrib_sum)
+                        )
+                    else:
+                        cursor.execute(
+                            "INSERT INTO players (name, score, contribution) VALUES (?, ?, ?) "
+                            "ON CONFLICT(name) DO UPDATE SET score = excluded.score, contribution = excluded.contribution",
+                            (name, score_sum, contrib_sum)
+                        )
+
+            # DB에서 다시 읽어 메모리 상태를 맞춘다
+            MEMORY_STATE = None
+            LAST_PERSISTED = None
+            state = load_data()
+            broadcast_event('update', state)
+
+        print(f"  🏦 [원장 재정산] {len(totals)}명 잔액 복구")
+        return jsonify({"status": "success",
+                        "message": f"{len(totals)}명의 잔액을 원장 기준으로 재정산했습니다.",
+                        "updated": len(totals)})
+    except Exception as e:
+        print(f"[원장 재정산 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
 # 👑 특별 후원자(VIP) 관리

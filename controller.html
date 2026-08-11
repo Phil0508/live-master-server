@@ -1203,6 +1203,20 @@
     </div>
 
     <div id="tab-system" class="tab-content">
+        <!-- 🏦 은행 원장: 플레이어별 점수 변동 내역 + 잔액 재정산 -->
+        <div class="group-box" style="margin-bottom: 20px;">
+            <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span><i class="fa-solid fa-building-columns" style="color: var(--accent);"></i> 점수 통장 내역 (은행 원장)</span>
+                <button class="secondary" onclick="recalcBankBalances()" style="height: 30px; font-size: 12px; padding: 0 14px; border-radius: 10px;"><i class="fa-solid fa-rotate-left"></i> 잔액 재정산</button>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin: 10px 0 14px; line-height: 1.6;">
+                점수가 바뀔 때마다 <b>변동분과 그때의 잔액</b>이 통장처럼 기록돼요.<br>
+                숫자가 이상해졌을 때 <b>[잔액 재정산]</b>을 누르면 이 기록을 다시 합산해서 정확한 값으로 되돌립니다.
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;" id="bank-player-buttons"></div>
+            <div id="bank-statement-area" style="display:none; background: rgba(0,0,0,0.2); border-radius: 10px; padding: 12px; max-height: 320px; overflow-y: auto;"></div>
+        </div>
+
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
             <div class="group-box" style="margin-bottom: 0;">
                 <div class="group-title"><i class="fa-solid fa-shield-halved"></i> OTP 보안 설정</div>
@@ -1646,7 +1660,7 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); } if (tabId === 'tab-logs') { loadManualLogs(1); } if (tabId === 'tab-reaction') { loadSignatureLibrary(); } }
+        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); } if (tabId === 'tab-logs') { loadManualLogs(1); } if (tabId === 'tab-reaction') { loadSignatureLibrary(); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         let lastReactionToastTime = 0;
         let serverTimeOffset = 0;
@@ -2457,6 +2471,81 @@
             gd.goal_event_pending = false;
             gd.goal_event_approved = false;
             pushAPI();
+        }
+
+        // ==========================================
+        // 🏦 은행 원장 (통장 내역 / 재정산)
+        // ==========================================
+        function renderBankPlayerButtons() {
+            const box = document.getElementById('bank-player-buttons');
+            if (!box || !gd) return;
+            const bjs = gd.bjs || [];
+            if (bjs.length === 0) {
+                box.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">등록된 플레이어가 없습니다.</span>`;
+                return;
+            }
+            box.innerHTML = bjs.map(b => {
+                const n = escapeHTML(b.name);
+                return `<button class="secondary" onclick="showBankStatement('${n.replace(/'/g, "\\'")}')" style="height: 32px; font-size: 12px; padding: 0 14px; border-radius: 10px;">
+                    <i class="fa-solid fa-receipt"></i> ${n}</button>`;
+            }).join('');
+        }
+
+        async function showBankStatement(name) {
+            const area = document.getElementById('bank-statement-area');
+            if (!area) return;
+            area.style.display = 'block';
+            area.innerHTML = `<div style="text-align:center; color: var(--text-muted); padding: 20px;"><i class="fa-solid fa-spinner fa-spin"></i> 불러오는 중...</div>`;
+            try {
+                const res = await fetch(`/api/bank/statement/${encodeURIComponent(name)}`);
+                const d = await res.json();
+                if (d.status !== 'success') {
+                    area.innerHTML = `<div style="color: var(--danger); padding: 15px;">조회 실패: ${escapeHTML(d.message || '')}</div>`;
+                    return;
+                }
+                const rows = (d.statement_history || []).map(h => {
+                    const up = h.score_change > 0;
+                    return `<tr style="border-top: 1px solid var(--border-light);">
+                        <td style="padding: 7px 10px; color: #888; font-size: 11px; white-space: nowrap;">${escapeHTML(h.timestamp || '')}</td>
+                        <td style="padding: 7px 10px; text-align: right; font-weight: 900; color: ${up ? '#4cd964' : '#ff453a'};">${up ? '+' : ''}${h.score_change}</td>
+                        <td style="padding: 7px 10px; text-align: right; color: #fff; font-weight: 700;">${h.score_balance}</td>
+                        <td style="padding: 7px 10px; color: var(--text-muted); font-size: 11px;">${escapeHTML(h.description || '')}</td>
+                    </tr>`;
+                }).join('');
+                area.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span style="font-weight: 900; color: #fff;">${escapeHTML(name)}</span>
+                        <span style="font-size: 13px;">현재 잔액 <b style="color: var(--accent); font-size: 16px;">${d.current_score_balance}</b>점</span>
+                    </div>
+                    ${rows ? `<table style="width:100%; border-collapse: collapse; font-size: 12px;">
+                        <thead><tr style="background: rgba(255,255,255,0.03);">
+                            <th style="padding:6px 10px; text-align:left; color:var(--text-muted); font-weight:600;">시각</th>
+                            <th style="padding:6px 10px; text-align:right; color:var(--text-muted); font-weight:600;">변동</th>
+                            <th style="padding:6px 10px; text-align:right; color:var(--text-muted); font-weight:600;">잔액</th>
+                            <th style="padding:6px 10px; text-align:left; color:var(--text-muted); font-weight:600;">사유</th>
+                        </tr></thead><tbody>${rows}</tbody></table>`
+                    : `<div style="color: var(--text-muted); padding: 15px; text-align:center;">아직 변동 기록이 없습니다.</div>`}`;
+            } catch (e) {
+                area.innerHTML = `<div style="color: var(--danger); padding: 15px;">통신 실패: ${escapeHTML(e.message)}</div>`;
+            }
+        }
+
+        async function recalcBankBalances() {
+            const ok = await premiumConfirm(
+                "통장 기록을 처음부터 다시 합산해서 모든 플레이어의 점수를 맞춥니다.\n점수가 이상해졌을 때 사용하세요. 계속할까요?",
+                "잔액 재정산", "danger");
+            if (!ok) return;
+            try {
+                const res = await fetch('/api/bank/recalculate', { method: 'POST' });
+                const d = await res.json();
+                if (d.status === 'success') {
+                    premiumAlert(d.message, "재정산 완료", "success");
+                } else {
+                    premiumAlert("재정산 실패: " + d.message, "오류", "warning");
+                }
+            } catch (e) {
+                premiumAlert("통신 실패: " + e.message, "오류", "warning");
+            }
         }
 
         // ==========================================
