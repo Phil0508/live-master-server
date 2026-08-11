@@ -41,12 +41,16 @@ SUPABASE_URL = CREDS['SUPABASE_URL']
 SECRET = CREDS['SUPABASE_SECRET_KEY']
 DATABASE_URL = CREDS['DATABASE_URL']
 
+# 1년 캐시 (Supabase 기본 1시간이면 오버레이 새로고침마다 전체를 다시 받아 전송량이 폭증한다)
+MEDIA_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+
 def storage_upload(path, data, content_type):
     endpoint = f"{SUPABASE_URL}/storage/v1/object/{BUCKET}/{path}"
     r = requests.post(endpoint, data=data, headers={
         "apikey": SECRET,
         "Authorization": f"Bearer {SECRET}",
         "Content-Type": content_type,
+        "Cache-Control": MEDIA_CACHE_CONTROL,
         "x-upsert": "true",
     }, timeout=120)
     if r.status_code not in (200, 201):

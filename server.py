@@ -262,12 +262,19 @@ def supabase_delete_signature(sig_id):
 # ------- Supabase Storage (media 버킷) -------
 STORAGE_BUCKET = 'media'
 
+# 미디어 캐시 기간: 1년.
+# Supabase 기본값은 1시간이라, 오버레이를 새로고침할 때마다 99개(약 70MB)를 다시 받아
+# 무료 전송량 5GB를 금방 소진한다. 파일을 교체하면 URL 뒤에 ?v=타임스탬프가 새로 붙으므로
+# 길게 캐시해도 변경은 즉시 반영된다.
+MEDIA_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+
 def storage_upload(path, data, content_type):
     """Storage 업로드 후 공개 URL 반환."""
     r = requests.post(f"{SUPABASE['url']}/storage/v1/object/{STORAGE_BUCKET}/{path}",
                       data=data,
                       headers={**_supabase_headers(),
                                'Content-Type': content_type,
+                               'Cache-Control': MEDIA_CACHE_CONTROL,
                                'x-upsert': 'true'},
                       timeout=120)
     if r.status_code not in (200, 201):
