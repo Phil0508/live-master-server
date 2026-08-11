@@ -411,6 +411,14 @@ def require_login():
         '/setup'
     ]
     
+    # 메서드까지 봐야 하는 예외: 조회는 오버레이가 써야 해서 공개, 변경은 로그인 필요.
+    # (경로만으로 예외를 주면 POST/DELETE까지 무인증으로 열려버린다)
+    method_exempt = {
+        '/api/vips': ('GET',),
+    }
+    if path in method_exempt and request.method in method_exempt[path]:
+        return
+
     # 시그니처 등록(/upload, /노래등록)은 관리 기능이므로 로그인 필요로 변경했다.
     # (등록 API가 /api/signatures/add 로 바뀌면서 인증이 필요해졌기 때문)
     if (path in exempt_routes or
@@ -609,6 +617,16 @@ def init_db():
                 )
             """)
         
+        # 👑 [특별 후원자(VIP)] 닉네임별 등급/색상/뱃지. 방송 데이터와 무관하게 계속 유지된다.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vip_donators (
+                name TEXT PRIMARY KEY,
+                grade TEXT NOT NULL,
+                custom_color TEXT DEFAULT '#ffd700',
+                badge TEXT DEFAULT '👑'
+            )
+        """)
+
         # 📚 [영구 보관 장부] 방송 종료 시 donation_history는 초기화되지만,
         # 여기로 먼저 복사해 두므로 지난 방송 기록이 영구히 남는다. (append-only, 절대 삭제하지 않음)
         pk = "SERIAL PRIMARY KEY" if IS_POSTGRES else "INTEGER PRIMARY KEY AUTOINCREMENT"
@@ -993,6 +1011,74 @@ def api_signature_delete(sig_id):
     except Exception as e:
         print(f"[시그니처 삭제 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ==========================================
+# 👑 특별 후원자(VIP) 관리
+#    조회는 오버레이가 써야 하므로 공개, 등록/삭제는 로그인 필요(exempt 목록에 없음)
+# ==========================================
+@app.route('/api/vips', methods=['GET'])
+def get_vips():
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("SELECT name, grade, custom_color, badge FROM vip_donators ORDER BY name ASC"))
+            vips = [{"name": r[0], "grade": r[1], "custom_color": r[2], "badge": r[3]}
+                    for r in cursor.fetchall()]
+        return jsonify({"status": "success", "vips": vips})
+    except Exception as e:
+        print(f"[VIP 목록 조회 오류] {e}")
+        return jsonify({"status": "error", "message": str(e), "vips": []}), 500
+
+@app.route('/api/vips', methods=['POST'])
+def add_or_update_vip():
+    try:
+        data = request.get_json(silent=True) or {}
+        name = (data.get('name') or '').strip()
+        grade = (data.get('grade') or '').strip()
+        custom_color = data.get('custom_color') or '#ffd700'
+        badge = data.get('badge') or '👑'
+        if not name or not grade:
+            return jsonify({"status": "error", "message": "닉네임과 등급은 필수입니다."}), 400
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            if IS_POSTGRES:
+                cursor.execute("""
+                    INSERT INTO vip_donators (name, grade, custom_color, badge)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (name) DO UPDATE
+                    SET grade = EXCLUDED.grade,
+                        custom_color = EXCLUDED.custom_color,
+                        badge = EXCLUDED.badge
+                """, (name, grade, custom_color, badge))
+            else:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO vip_donators (name, grade, custom_color, badge)
+                    VALUES (?, ?, ?, ?)
+                """, (name, grade, custom_color, badge))
+
+        broadcast_event('vips_updated', {})
+        print(f"  👑 [VIP 저장] {name} ({grade})")
+        return jsonify({"status": "success", "message": "특별 후원자 정보가 저장되었습니다."})
+    except Exception as e:
+        print(f"[VIP 저장 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/vips', methods=['DELETE'])
+def delete_vip():
+    try:
+        name = request.args.get('name')
+        if not name:
+            return jsonify({"status": "error", "message": "닉네임이 누락되었습니다."}), 400
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(db_query("DELETE FROM vip_donators WHERE name = ?"), (name,))
+        broadcast_event('vips_updated', {})
+        print(f"  👑 [VIP 해제] {name}")
+        return jsonify({"status": "success", "message": "특별 후원자 해제 완료!"})
+    except Exception as e:
+        print(f"[VIP 삭제 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/goal/approve_event', methods=['POST'])
 def approve_goal_event():

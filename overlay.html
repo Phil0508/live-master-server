@@ -290,6 +290,34 @@
         body.reaction-mode #match-container { opacity: 0 !important; visibility: hidden !important; }
 
         .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.6s ease-in-out; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
+        /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
+        #toon-popup.vip-premium-card {
+            border: 4px solid var(--vip-glow-color, #ffd700) !important;
+            background: linear-gradient(135deg, #1c1c1e 0%, var(--vip-glow-color-bg, rgba(255, 215, 0, 0.15)) 100%) !important;
+            box-shadow: 0 0 34px var(--vip-glow-color-border, rgba(255, 215, 0, 0.45)), inset 0 0 22px var(--vip-glow-color-bg, rgba(255, 215, 0, 0.14)) !important;
+            animation: vip-gold-glow 2s infinite alternate !important;
+        }
+        /* 우리 팝업의 이름 요소는 #toon-name (클래스는 donator-name) 이라 id로 지정한다 */
+        #toon-popup.vip-premium-card #toon-name {
+            color: var(--vip-glow-color, #ffd700) !important;
+            text-shadow: 0 0 14px var(--vip-glow-color-border, rgba(255, 215, 0, 0.6));
+        }
+        @keyframes vip-gold-glow {
+            0% { box-shadow: 0 0 18px var(--vip-glow-color-border, rgba(255, 215, 0, 0.35)), inset 0 0 10px var(--vip-glow-color-bg, rgba(255, 215, 0, 0.08)); }
+            100% { box-shadow: 0 0 38px var(--vip-glow-color-border, rgba(255, 215, 0, 0.7)), inset 0 0 24px var(--vip-glow-color-bg, rgba(255, 215, 0, 0.18)); }
+        }
+        #toon-name.vip-vvip-text { color: #ffd700 !important; text-shadow: 0 0 12px rgba(255, 215, 0, 0.8); font-weight: 900 !important; }
+        #toon-name.vip-vip-text  { color: #ffcc00 !important; text-shadow: 0 0 10px rgba(255, 204, 0, 0.6); font-weight: 900 !important; }
+        #toon-name.vip-gold-text { color: #ffeb3b !important; text-shadow: 0 0 8px rgba(255, 235, 59, 0.5); font-weight: 900 !important; }
+        .vip-badge-tag {
+            display: inline-block;
+            background: var(--vip-glow-color-bg, rgba(255, 215, 0, 0.15));
+            color: #ffd700;
+            border: 1px solid var(--vip-glow-color-border, rgba(255, 215, 0, 0.3));
+            padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 800; margin-right: 6px;
+            vertical-align: middle;
+        }
+
         /* 🔥 [피버 타임] 대결 남은 시간 60초 미만이면 자동으로 불꽃 테두리.
            기존 fire-vignette 요소를 그대로 재사용하되, 수동 스위치(match-fire-on)와
            서로 껐다 켰다 싸우지 않도록 별도 클래스를 쓴다. */
@@ -1895,8 +1923,45 @@
                 }
             }
 
-            document.getElementById('toon-name').innerText = finalName;
-            
+            // 👑 [특별 후원자] 등록된 닉네임이면 팝업을 등급 색/뱃지로 꾸민다
+            const popupEl = document.getElementById('toon-popup');
+            const nameEl = document.getElementById('toon-name');
+            const vipInfo = window.vipCache ? window.vipCache[finalName.trim()] : null;
+
+            // 먼저 이전 후원자의 VIP 흔적을 깨끗이 지운다 (안 지우면 다음 일반 후원에도 남는다)
+            if (popupEl) {
+                popupEl.classList.remove('vip-premium-card');
+                popupEl.style.removeProperty('--vip-glow-color');
+                popupEl.style.removeProperty('--vip-glow-color-bg');
+                popupEl.style.removeProperty('--vip-glow-color-border');
+            }
+            if (nameEl) nameEl.className = 'donator-name';
+
+            if (vipInfo && popupEl && nameEl) {
+                const color = vipInfo.custom_color || '#ffd700';
+                let r = 255, g = 215, b = 0;
+                const hex = String(color).replace('#', '');
+                if (hex.length === 6) {
+                    r = parseInt(hex.substring(0, 2), 16);
+                    g = parseInt(hex.substring(2, 4), 16);
+                    b = parseInt(hex.substring(4, 6), 16);
+                }
+                popupEl.classList.add('vip-premium-card');
+                popupEl.style.setProperty('--vip-glow-color', color);
+                popupEl.style.setProperty('--vip-glow-color-bg', `rgba(${r}, ${g}, ${b}, 0.15)`);
+                popupEl.style.setProperty('--vip-glow-color-border', `rgba(${r}, ${g}, ${b}, 0.3)`);
+
+                const grade = vipInfo.grade || 'VIP';
+                const badge = vipInfo.badge || '👑';
+                const gradeClass = grade === 'VVIP' ? 'vip-vvip-text' : (grade === 'VIP' ? 'vip-vip-text' : 'vip-gold-text');
+                nameEl.className = `donator-name ${gradeClass}`;
+                nameEl.innerHTML = `<span class="vip-badge-tag">${escapeSlotText(grade)}</span>${escapeSlotText(badge)} ${escapeSlotText(finalName)}`;
+                console.log(`👑 [특별 후원자] ${finalName} (${grade})`);
+            } else {
+                document.getElementById('toon-name').innerText = finalName;
+            }
+
+
             const actionTextEl = document.getElementById('toon-action-text');
             const amountEl = document.getElementById('toon-amount');
             
@@ -2019,12 +2084,37 @@
                 triggerGoalCelebrationEffect();
             });
 
+            sseSource.addEventListener('vips_updated', function(e) {
+                console.log("👑 [특별 후원자 변경 감지] 캐시를 새로 받습니다.");
+                loadVipsToCache();
+            });
+
             sseSource.onerror = function(err) {
                 console.error("SSE connection error. Retrying in 3 seconds...", err);
                 sseSource.close();
                 setTimeout(initSSE, 3000);
             };
         }
+
+        // 👑 [특별 후원자(VIP) 캐시] 후원 팝업이 뜰 때마다 조회하면 느리므로 미리 받아둔다
+        window.vipCache = {};
+        async function loadVipsToCache() {
+            try {
+                const res = await fetch('/api/vips');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    const temp = {};
+                    (data.vips || []).forEach(v => {
+                        temp[v.name] = { grade: v.grade, custom_color: v.custom_color, badge: v.badge };
+                    });
+                    window.vipCache = temp;
+                    console.log(`👑 [특별 후원자 동기화] ${Object.keys(temp).length}명`);
+                }
+            } catch (e) {
+                console.warn("VIP 목록을 불러오지 못했습니다:", e);
+            }
+        }
+        loadVipsToCache();
 
         // 🎯 [목표 100% 달성 연출] 후원 게이지를 화면 중앙으로 1.6배 확대 → 1.5초 유지 → 원위치
         let goalCelebrationTimer = null;
