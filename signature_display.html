@@ -3,19 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📺 방송 출연진 전용 시그니처 전광판 (Signature Display)</title>
+    <title>📺 시그니처 위젯 전용 오버레이</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <style>
-        :root {
-            --bg-dark: #0a0a0f;
-            --accent-neon: #00ffcc;
-            --accent-pink: #ff007f;
-            --accent-gold: #ffd700;
-            --card-bg: rgba(18, 18, 26, 0.88);
-            --border-neon: rgba(0, 255, 204, 0.4);
-            --glow-neon: rgba(0, 255, 204, 0.35);
-        }
-
         * {
             box-sizing: border-box;
             margin: 0;
@@ -27,427 +17,211 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: var(--bg-dark);
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            color: #ffffff;
-            color-scheme: only dark;
+            background: transparent;
+            font-family: 'Pretendard', sans-serif;
+            color-scheme: only light;
         }
 
-        /* 🌌 배경 앰비언트 글로우 애니메이션 */
-        .ambient-bg {
+        /* 🎵 리액션 음원/사진 송출 화면 오버레이 스타일 (overlay.html 원본 동일) */
+        .reaction-screen-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            pointer-events: none;
-            z-index: 1;
-            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 204, 0.08) 0%, rgba(255, 0, 127, 0.05) 40%, rgba(10, 10, 15, 1) 90%);
-            transition: opacity 1s ease;
-        }
-
-        .ambient-bg.active {
-            animation: pulseBg 3s infinite alternate ease-in-out;
-        }
-
-        @keyframes pulseBg {
-            0% { background: radial-gradient(circle at 50% 50%, rgba(0, 255, 204, 0.18) 0%, rgba(255, 0, 127, 0.1) 50%, rgba(10, 10, 15, 1) 90%); }
-            100% { background: radial-gradient(circle at 50% 50%, rgba(255, 0, 127, 0.22) 0%, rgba(0, 255, 204, 0.12) 50%, rgba(10, 10, 15, 1) 90%); }
-        }
-
-        /* 📺 메인 메인 뷰포트 컨테이너 */
-        #display-viewport {
-            position: relative;
-            z-index: 10;
-            width: 100vw;
-            height: 100vh;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 550px;
+            background: transparent;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 40px;
-        }
-
-        /* 😴 대기 화면 (Idle State) */
-        #idle-screen {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 20px;
-            opacity: 1;
-            transition: opacity 0.5s ease;
-        }
-
-        #idle-screen.hidden {
             opacity: 0;
-            pointer-events: none;
-            display: none;
-        }
-
-        .idle-icon {
-            font-size: 80px;
-            filter: drop-shadow(0 0 20px rgba(0, 255, 204, 0.5));
-            animation: floatIcon 3s infinite ease-in-out;
-        }
-
-        @keyframes floatIcon {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-15px); }
-        }
-
-        .idle-title {
-            font-size: 36px;
-            font-weight: 900;
-            color: rgba(255, 255, 255, 0.85);
-            letter-spacing: 2px;
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
-        }
-
-        .idle-subtitle {
-            font-size: 20px;
-            font-weight: 500;
-            color: var(--accent-neon);
-            opacity: 0.8;
-        }
-
-        /* 🔔 풀스크린 시그니처 카운터/알림 카드 (Active State) */
-        #signature-card {
-            position: relative;
-            width: 90%;
-            max-width: 1100px;
-            background: var(--card-bg);
-            border: 4px solid var(--accent-neon);
-            border-radius: 36px;
-            padding: 50px 40px;
-            box-shadow: 0 0 60px var(--glow-neon), inset 0 0 30px rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(25px);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 30px;
-            opacity: 0;
-            transform: scale(0.85) translateY(30px);
             visibility: hidden;
-            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 100010;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        #signature-card.active {
+        .reaction-screen-overlay.show {
             opacity: 1;
-            transform: scale(1) translateY(0);
             visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
         }
 
-        /* 🏷️ 시그니처 뱃지 헤더 */
-        .card-badge {
-            background: linear-gradient(135deg, var(--accent-pink), #8a2be2);
-            color: #ffffff;
-            font-size: 22px;
-            font-weight: 900;
-            padding: 10px 28px;
-            border-radius: 50px;
-            box-shadow: 0 0 20px rgba(255, 0, 127, 0.6);
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
+        .reaction-screen-overlay img {
+            max-width: 100%;
+            max-height: 450px;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
 
-        /* 🖼️ 시그니처 이미지/영상 박스 */
-        .media-frame {
-            position: relative;
-            width: 100%;
-            max-width: 480px;
-            height: 380px;
-            border-radius: 24px;
-            overflow: hidden;
-            border: 3px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 0 40px rgba(0, 0, 0, 0.8), 0 0 20px var(--accent-neon);
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .media-frame img, .media-frame video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* 🎤 시그니처 제목 및 금액 */
-        .title-box {
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            width: 100%;
-        }
-
-        .sig-title {
-            font-size: 64px;
-            font-weight: 900;
-            color: var(--accent-neon);
-            text-shadow: 0 0 25px rgba(0, 255, 204, 0.8), 0 0 50px rgba(0, 255, 204, 0.4);
-            line-height: 1.2;
-            word-break: keep-all;
-        }
-
-        .sig-amount {
+        .reaction-text-donator {
+            margin-top: 20px;
             font-size: 42px;
             font-weight: 900;
-            color: var(--accent-gold);
-            text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+            color: #ffffff;
+            text-shadow: 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000, 0 4px 20px rgba(0,0,0,0.9);
+            font-family: 'Pretendard', sans-serif;
+            text-align: center;
+            letter-spacing: -0.5px;
         }
 
-        .sig-donor {
-            font-size: 24px;
-            font-weight: 700;
-            color: rgba(255, 255, 255, 0.85);
-            margin-top: 5px;
-        }
-
-        /* 🎛️ 하단 상태 및 콘트롤바 */
-        .control-bar {
-            position: fixed;
-            bottom: 25px;
-            right: 30px;
-            z-index: 100;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            background: rgba(18, 18, 26, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 50px;
-            padding: 10px 22px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        .status-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
+        .reaction-text-message {
+            margin-top: 15px;
+            font-size: 30px;
             font-weight: 700;
             color: #00ffcc;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background-color: #00ffcc;
-            box-shadow: 0 0 10px #00ffcc;
-        }
-
-        .btn-ctrl {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: #fff;
-            padding: 8px 14px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .btn-ctrl:hover {
-            background: rgba(0, 255, 204, 0.25);
-            color: #00ffcc;
-        }
-
-        input[type="range"] {
-            width: 90px;
-            accent-color: var(--accent-neon);
-            cursor: pointer;
+            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 15px rgba(0,255,204,0.6);
+            font-family: 'Pretendard', sans-serif;
+            text-align: center;
+            word-break: break-all;
+            padding: 0 20px;
         }
     </style>
 </head>
 <body>
-    <div class="ambient-bg" id="ambient-bg"></div>
 
-    <main id="display-viewport">
-        <!-- 😴 대기 화면 -->
-        <div id="idle-screen">
-            <div class="idle-icon">📺</div>
-            <div class="idle-title">시그니처 실시간 전광판</div>
-            <div class="idle-subtitle">출연진 모니터링 준비 완료 (SSE 연결됨)</div>
-        </div>
-
-        <!-- 🔔 풀스크린 시그니처 카드 -->
-        <div id="signature-card">
-            <div class="card-badge" id="card-badge">✨ 시그니처 리액션</div>
-            
-            <div class="media-frame" id="media-frame">
-                <img id="sig-img" src="" alt="시그니처 이미지" style="display: none;">
-                <video id="sig-video" src="" style="display: none;" autoplay loop muted></video>
-            </div>
-
-            <div class="title-box">
-                <div class="sig-title" id="sig-title">시그니처 제목</div>
-                <div class="sig-amount" id="sig-amount">0원</div>
-                <div class="sig-donor" id="sig-donor" style="display: none;">후원자: 홍길동</div>
-            </div>
-        </div>
-    </main>
-
-    <!-- 🎛️ 하단 툴바 -->
-    <div class="control-bar">
-        <div class="status-pill">
-            <span class="status-dot" id="status-dot"></span>
-            <span id="status-text">LIVE</span>
-        </div>
-        <div style="width: 1px; height: 18px; background: rgba(255,255,255,0.2);"></div>
-        
-        <button class="btn-ctrl" id="btn-mute" onclick="toggleMute()">
-            <span id="mute-icon">🔊</span>
-            <span id="mute-text">소리 켬</span>
-        </button>
-
-        <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1.0" oninput="setVolume(this.value)">
-
-        <button class="btn-ctrl" onclick="toggleFullscreen()">⛶ 전체화면</button>
-        <button class="btn-ctrl" onclick="testAlert()">⚡ 테스트</button>
+    <!-- 🎵 시그니처 위젯 레이어 (overlay.html 구조 100% 동일) -->
+    <div id="reaction-screen-overlay" class="reaction-screen-overlay">
+        <img id="reaction-screen-image" src="" alt="Reaction Image">
+        <div id="reaction-donator-info" class="reaction-text-donator"></div>
+        <div id="reaction-message-info" class="reaction-text-message"></div>
     </div>
 
-    <!-- 🎵 오디오 재생 객체 -->
-    <audio id="sig-audio"></audio>
+    <!-- 🎵 시그니처 오디오 객체 -->
+    <audio id="reaction-audio" style="display:none;"></audio>
 
     <script>
-        let isMuted = false;
-        let activeTimer = null;
-        const sigAudio = document.getElementById('sig-audio');
-        const volSlider = document.getElementById('vol-slider');
+        let reactionTimeout = null;
+        let reactionImgClearTimeout = null;
+        let audioSafetyTimeout = null;
 
-        // 🔊 오디오 설정
-        function setVolume(val) {
-            sigAudio.volume = val;
+        function formatNum(n) {
+            return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         }
 
-        function toggleMute() {
-            isMuted = !isMuted;
-            sigAudio.muted = isMuted;
-            document.getElementById('mute-icon').innerText = isMuted ? '🔇' : '🔊';
-            document.getElementById('mute-text').innerText = isMuted ? '음소거' : '소리 켬';
-        }
-
-        function toggleFullscreen() {
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen().catch(err => {});
-            } else {
-                if (document.exitFullscreen) document.exitFullscreen();
+        function stopReactionVisuals() {
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            if (overlay) {
+                overlay.classList.remove('show');
             }
+            if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
+            reactionImgClearTimeout = setTimeout(() => {
+                if (img) img.src = "";
+            }, 500);
         }
 
-        // 🔔 시그니처 알림 표시 함수
-        function showSignatureAlert(data) {
-            const idleScreen = document.getElementById('idle-screen');
-            const card = document.getElementById('signature-card');
-            const ambient = document.getElementById('ambient-bg');
-
-            const title = data.title || data.name || '시그니처';
-            const amount = data.amount || data.cash || 0;
-            const donor = data.donor || data.nickname || '';
-            const imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : null);
-            const soundUrl = data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
-            const duration = data.duration || 10;
-
-            // DOM 텍스트 세팅
-            document.getElementById('sig-title').innerText = title;
-            document.getElementById('sig-amount').innerText = `${Number(amount).toLocaleString()}원`;
+        function playReaction(data) {
+            console.log('Playing reaction:', data);
             
-            const donorEl = document.getElementById('sig-donor');
-            if (donor) {
-                donorEl.innerText = `🎁 후원자: ${donor}`;
-                donorEl.style.display = 'block';
-            } else {
-                donorEl.style.display = 'none';
+            const overlay = document.getElementById('reaction-screen-overlay');
+            const img = document.getElementById('reaction-screen-image');
+            const donatorEl = document.getElementById('reaction-donator-info');
+            const messageEl = document.getElementById('reaction-message-info');
+            const audio = document.getElementById('reaction-audio');
+            
+            if (!overlay || !img || !audio) return;
+            
+            if (reactionTimeout) clearTimeout(reactionTimeout);
+            if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
+            if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+
+            audio.onended = null;
+            audio.onerror = null;
+            audio.onloadedmetadata = null;
+            audio.pause();
+            audio.src = '';
+
+            let donatorName = data.donator || '익명';
+            let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
+            
+            if (donatorEl) {
+                donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
             }
 
-            // 미디어 세팅 (이미지 vs 비디오)
-            const imgEl = document.getElementById('sig-img');
-            const videoEl = document.getElementById('sig-video');
+            let msgText = data.message || '';
+            if (messageEl) {
+                if (msgText && msgText !== '수동 후원 송출') {
+                    messageEl.innerText = msgText;
+                    messageEl.style.display = 'block';
+                } else {
+                    messageEl.innerText = '';
+                    messageEl.style.display = 'none';
+                }
+            }
+
+            let soundUrl = data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
+            let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : null);
 
             if (imgUrl) {
-                imgEl.src = imgUrl;
-                imgEl.style.display = 'block';
-                videoEl.style.display = 'none';
+                img.src = imgUrl;
+                img.style.display = 'block';
             } else {
-                imgEl.src = '/money.png';
-                imgEl.style.display = 'block';
-                videoEl.style.display = 'none';
+                img.src = '';
+                img.style.display = 'none';
             }
 
-            // 오디오 재생
+            overlay.classList.add('show');
+
+            let reactionDurationMs = 10000;
+            if (data.duration && !isNaN(data.duration) && data.duration > 0) {
+                reactionDurationMs = data.duration * 1000;
+            }
+
+            const finishReaction = () => {
+                if (reactionTimeout) clearTimeout(reactionTimeout);
+                if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
+                audio.pause();
+                stopReactionVisuals();
+            };
+
             if (soundUrl) {
-                sigAudio.src = soundUrl;
-                sigAudio.play().catch(e => console.log('Audio autoplay blocked', e));
+                audio.src = soundUrl;
+                audio.currentTime = 0;
+
+                audio.onloadedmetadata = () => {
+                    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
+                        reactionDurationMs = (audio.duration + 0.3) * 1000;
+                        if (reactionTimeout) clearTimeout(reactionTimeout);
+                        reactionTimeout = setTimeout(finishReaction, reactionDurationMs);
+                    }
+                };
+
+                audio.onended = finishReaction;
+                audio.onerror = finishReaction;
+
+                audio.play().catch(err => {
+                    console.log("Autoplay error:", err);
+                    reactionTimeout = setTimeout(finishReaction, reactionDurationMs);
+                });
+
+                audioSafetyTimeout = setTimeout(finishReaction, reactionDurationMs + 2000);
+            } else {
+                reactionTimeout = setTimeout(finishReaction, reactionDurationMs);
             }
-
-            // 화면 전환 애니메이션
-            idleScreen.classList.add('hidden');
-            card.classList.add('active');
-            ambient.classList.add('active');
-
-            if (activeTimer) clearTimeout(activeTimer);
-
-            // 타이머 종료 후 대기 화면 복귀
-            const displayTimeMs = (duration > 0 ? duration : 10) * 1000;
-            activeTimer = setTimeout(() => {
-                card.classList.remove('active');
-                ambient.classList.remove('active');
-                setTimeout(() => {
-                    idleScreen.classList.remove('hidden');
-                }, 500);
-            }, displayTimeMs);
         }
 
-        // ⚡ 테스트 시그니처 송출
-        function testAlert() {
-            showSignatureAlert({
-                title: '🎰 랄토바이 시그니처',
-                amount: 10300,
-                donor: '테스터',
-                image_url: '/money.png',
-                duration: 5
-            });
-        }
-
-        // 📡 SSE 실시간 이벤트 수신
+        // 📡 SSE 실시간 연동
         function initSSE() {
-            const statusDot = document.getElementById('status-dot');
-            const statusText = document.getElementById('status-text');
-
             const evtSource = new EventSource('/api/stream');
 
-            evtSource.onopen = () => {
-                statusDot.style.backgroundColor = '#00ffcc';
-                statusDot.style.boxShadow = '0 0 10px #00ffcc';
-                statusText.innerText = 'LIVE';
-            };
-
-            evtSource.onerror = () => {
-                statusDot.style.backgroundColor = '#ff007f';
-                statusDot.style.boxShadow = '0 0 10px #ff007f';
-                statusText.innerText = '재연결 중...';
-            };
-
-            // 이벤트 수신기
             ['signature', 'donation', 'test_reaction', 'slot_spin'].forEach(evtName => {
                 evtSource.addEventListener(evtName, (e) => {
                     try {
                         const data = JSON.parse(e.data);
-                        console.log(`[SSE] ${evtName} event received:`, data);
-                        showSignatureAlert(data);
+                        console.log(`[SSE] ${evtName}:`, data);
+                        playReaction(data);
                     } catch (err) {
                         console.error('SSE Error:', err);
                     }
                 });
             });
+
+            evtSource.onerror = () => {
+                setTimeout(initSSE, 3000);
+            };
         }
 
         document.addEventListener('DOMContentLoaded', () => {
