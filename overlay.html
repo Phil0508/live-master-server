@@ -374,34 +374,38 @@
         /* --------------------------------------------------
             🏃 퇴근전쟁(퇴근빵) 목표 달성 레이스 위젯
         -------------------------------------------------- */
-        /* 🏃 퇴근빵 — e스포츠 절단 프레임 + 핑크 아이덴티티 */
+        /* 🏃 퇴근빵 — 계좌 위젯과 같은 유리 카드.
+           제목은 카드 밖으로 튀어나오지 않게(잘림 방지) 안쪽 핑크 헤더로 넣는다 */
         .home-race-box {
             position: relative;
-            background:
-                repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px),
-                var(--game-bg);
-            clip-path: polygon(var(--game-cut) 0, 100% 0, 100% calc(100% - var(--game-cut)), calc(100% - var(--game-cut)) 100%, 0 100%, 0 var(--game-cut));
-            padding: 30px 22px 16px; width: 400px;
-            box-shadow: 0 18px 44px rgba(0,0,0,0.6);
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius);
+            box-shadow: var(--glass-shadow);
+            padding: 16px 20px 14px; width: 430px;
+        }
+        .home-race-box::before {
+            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
+            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+            pointer-events:none;
         }
         .home-race-title {
-            position: absolute; top: 0; left: 24px; transform: translateY(-46%) skewX(-14deg);
-            padding: 5px 20px; font-size: 14px; font-weight: 900; letter-spacing: 2px; color: #2a0714;
+            text-align: center; font-size: 15px; font-weight: 900; letter-spacing: 1px; color: #2a0714;
             background: linear-gradient(100deg, #ff6f9d, #e0447a);
-            box-shadow: 0 6px 18px rgba(255,111,157,0.45);
+            border-radius: 12px; padding: 6px 0; margin-bottom: 13px;
+            box-shadow: 0 4px 14px rgba(255,111,157,0.45);
         }
         .home-race-row { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
         .home-race-name {
-            width: 68px; font-size: 14px; font-weight: 900; font-style: italic; color: #ffd7e5;
+            width: 84px; font-size: 16px; font-weight: 800; color: #ffd7e5;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .home-race-bar-bg {
-            flex: 1; height: 15px; background: rgba(0,0,0,0.5);
-            clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
+            flex: 1; height: 16px; background: rgba(0,0,0,0.45); border-radius: 9px;
             border: 1px solid rgba(255, 140, 175, 0.25); overflow: hidden; position: relative;
         }
         .home-race-bar-fill {
-            height: 100%;
+            height: 100%; border-radius: 8px;
             background: linear-gradient(90deg, #e0447a, #ff8fb5);
             box-shadow: 0 0 12px rgba(255, 111, 157, 0.6);
             transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); width: 0%;
@@ -410,17 +414,17 @@
             background: linear-gradient(90deg, var(--gold-deep), #ffe9b0);
             box-shadow: 0 0 14px var(--gold-glow);
         }
-        .home-race-nums { width: 108px; text-align: right; font-size: 12.5px; font-weight: 800; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; }
-        .home-race-nums .cur { color: #ff9dbd; }
-        .home-race-nums .goal { color: var(--tx-3); font-size: 11px; }
+        /* 숫자는 게이지 바로 옆에 붙인다 (좌측 정렬; 우측 정렬이면 바와 사이가 벌어져 보인다) */
+        .home-race-nums { width: 90px; text-align: left; font-size: 15px; font-weight: 800; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .home-race-nums .cur { color: #ffb6d0; }
+        .home-race-nums .goal { color: var(--tx-3); font-size: 12.5px; }
         .home-race-goal-line {
             display: flex; align-items: center; justify-content: center; gap: 8px;
-            margin-top: 6px; padding: 8px 12px; background: rgba(246, 196, 83, 0.08);
-            border: 1px solid rgba(246, 196, 83, 0.3);
-            clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
-            font-size: 13.5px; font-weight: 900; font-style: italic; color: var(--gold);
+            margin-top: 5px; padding: 8px 12px; background: rgba(246, 196, 83, 0.08);
+            border: 1px solid rgba(246, 196, 83, 0.3); border-radius: 12px;
+            font-size: 15px; font-weight: 900; color: var(--gold);
         }
-        .home-race-goal-badge { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 11px; padding: 2px 9px; border-radius: 3px; font-style: normal; }
+        .home-race-goal-badge { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 11px; padding: 2px 9px; border-radius: 8px; }
 
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         #toon-popup.vip-premium-card {
