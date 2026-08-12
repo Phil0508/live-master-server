@@ -28,56 +28,6 @@
             background-color: transparent !important;
         }
 
-        /* 😴 대기 상태 안내 */
-        #idle-container {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            z-index: 10;
-            opacity: 1;
-            transition: opacity 0.5s ease;
-        }
-
-        #idle-container.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .idle-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(0, 255, 204, 0.15);
-            border: 1px solid rgba(0, 255, 204, 0.4);
-            color: #00ffcc;
-            padding: 8px 18px;
-            border-radius: 30px;
-            font-size: 15px;
-            font-weight: 700;
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
-        }
-
-        .status-dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background-color: #00ffcc;
-            box-shadow: 0 0 8px #00ffcc;
-        }
-
-        .idle-title {
-            font-size: 26px;
-            font-weight: 800;
-            color: rgba(255, 255, 255, 0.85);
-            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-        }
-
         /* 🎵 overlay.html 원본 시그니처 위젯 CSS (기본 20초 100% 화면 유지) */
         .reaction-screen-overlay {
             position: fixed;
@@ -161,15 +111,6 @@
         🔊 오디오 자동재생을 허용하려면 화면 아무 곳이나 클릭하세요!
     </div>
 
-    <!-- 😴 대기 상태 안내 -->
-    <div id="idle-container">
-        <div class="idle-badge">
-            <span class="status-dot" id="status-dot"></span>
-            <span id="status-text">시그니처 서버 연결됨</span>
-        </div>
-        <div class="idle-title">📺 시그니처 송출 대기 중...</div>
-    </div>
-
     <!-- 🎵 시그니처 위젯 레이어 (기본 20초 동안 100% 노출 유지) -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
         <img id="reaction-screen-image" src="" alt="시그니처 사진">
@@ -212,7 +153,6 @@
         function stopReactionVisuals() {
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
-            const idleContainer = document.getElementById('idle-container');
 
             if (overlay) {
                 overlay.classList.remove('show');
@@ -220,7 +160,6 @@
             if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
             reactionImgClearTimeout = setTimeout(() => {
                 if (img) img.src = "";
-                if (idleContainer) idleContainer.classList.remove('hidden');
             }, 600);
         }
 
@@ -232,7 +171,6 @@
             const donatorEl = document.getElementById('reaction-donator-info');
             const messageEl = document.getElementById('reaction-message-info');
             const audio = document.getElementById('reaction-audio');
-            const idleContainer = document.getElementById('idle-container');
             
             if (!overlay || !img || !audio) return;
             
@@ -248,9 +186,6 @@
 
             audio.pause();
             audio.src = '';
-            
-            // 2. 대기 안내 숨기기 & 화면 노출
-            if (idleContainer) idleContainer.classList.add('hidden');
 
             // 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
             let donatorName = data.donator || data.nickname || '익명';
@@ -301,7 +236,7 @@
                 });
             }
 
-            // 4. ✨ 핵심: 무조건 20초 동안 화면에 띄워두기 (새 시그니처 오면 20초 다시 시작)
+            // 4. 무조건 20초 동안 화면에 띄워두기 (새 시그니처 오면 20초 다시 시작)
             let finished = false;
             const finishReaction = (reason) => {
                 if (finished) return;
@@ -329,26 +264,7 @@
 
         // 📡 SSE 실시간 데이터 수신
         function initSSE() {
-            const statusDot = document.getElementById('status-dot');
-            const statusText = document.getElementById('status-text');
-
             const evtSource = new EventSource('/api/stream');
-
-            evtSource.onopen = () => {
-                if (statusDot) {
-                    statusDot.style.backgroundColor = '#00ffcc';
-                    statusDot.style.boxShadow = '0 0 8px #00ffcc';
-                }
-                if (statusText) statusText.innerText = '시그니처 서버 연결됨';
-            };
-
-            evtSource.onerror = () => {
-                if (statusDot) {
-                    statusDot.style.backgroundColor = '#ff007f';
-                    statusDot.style.boxShadow = '0 0 8px #ff007f';
-                }
-                if (statusText) statusText.innerText = '재연결 시도 중...';
-            };
 
             evtSource.onmessage = (e) => {
                 try { handleData(JSON.parse(e.data)); } catch(err) {}
