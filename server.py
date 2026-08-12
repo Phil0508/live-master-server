@@ -1653,6 +1653,11 @@ def serve_overlay():
 def serve_slot():
     return serve_html_file('slot.html')
 
+@app.route('/signature-display')
+@app.route('/signature-display.html')
+def serve_signature_display():
+    return serve_html_file('signature_display.html')
+
 @app.route('/alertbox')
 @app.route('/alertbox.html')
 def serve_alertbox():
