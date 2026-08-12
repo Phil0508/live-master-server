@@ -18,8 +18,7 @@
             height: 100%;
             overflow: hidden;
             background-color: #0c0c12;
-            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            color: #ffffff;
+            font-family: 'Pretendard', sans-serif;
             color-scheme: only dark;
         }
 
@@ -28,7 +27,7 @@
             background-color: transparent !important;
         }
 
-        /* 😴 대기 화면 안내 (Idle State) */
+        /* 😴 대기 상태 안내 */
         #idle-container {
             position: fixed;
             top: 50%;
@@ -78,13 +77,13 @@
             text-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
 
-        /* 🎵 리액션 음원/사진 송출 화면 오버레이 스타일 (overlay.html 원본 동일) */
+        /* 🎵 overlay.html 원본 시그니처 위젯 CSS (100% 그대로 유지) */
         .reaction-screen-overlay {
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.85);
-            width: 600px;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 550px;
             background: transparent;
             display: flex;
             flex-direction: column;
@@ -92,7 +91,7 @@
             justify-content: center;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
             z-index: 100010;
             padding: 0;
             box-sizing: border-box;
@@ -104,20 +103,23 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        /* 1. 시그니처 사진 이미지 */
-        .reaction-screen-overlay img {
-            max-width: 100%;
-            max-height: 480px;
-            object-fit: contain;
-            border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 20px rgba(0, 255, 204, 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.15);
+        .reaction-screen-overlay.show.minimize {
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(1);
         }
 
-        /* 2. 후원자 이름 + 후원 금액 */
+        .reaction-screen-overlay img {
+            max-width: 100%;
+            max-height: 450px;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
         .reaction-text-donator {
-            margin-top: 24px;
-            font-size: 44px;
+            margin-top: 20px;
+            font-size: 42px;
             font-weight: 900;
             color: #ffffff;
             text-shadow: 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000, 0 4px 20px rgba(0,0,0,0.9);
@@ -126,13 +128,12 @@
             letter-spacing: -0.5px;
         }
 
-        /* 3. 후원 메시지 (시그니처 제목) */
         .reaction-text-message {
-            margin-top: 14px;
-            font-size: 32px;
-            font-weight: 800;
+            margin-top: 15px;
+            font-size: 30px;
+            font-weight: 700;
             color: #00ffcc;
-            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 18px rgba(0,255,204,0.7);
+            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 15px rgba(0,255,204,0.6);
             font-family: 'Pretendard', sans-serif;
             text-align: center;
             word-break: break-all;
@@ -151,27 +152,23 @@
         <div class="idle-title">📺 시그니처 송출 대기 중...</div>
     </div>
 
-    <!-- 🎵 시그니처 위젯 레이어 (사진, 후원자+금액, 메시지 3가지 전용) -->
+    <!-- 🎵 overlay.html 원본 시그니처 위젯 HTML 구조 100% 동일 -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
-        <!-- 1. 시그니처 사진 -->
-        <img id="reaction-screen-image" src="" alt="시그니처 사진">
-        
-        <!-- 2. 후원자 및 후원 금액 -->
+        <img id="reaction-screen-image" src="" alt="Reaction Image">
         <div id="reaction-donator-info" class="reaction-text-donator"></div>
-        
-        <!-- 3. 후원 메시지 -->
         <div id="reaction-message-info" class="reaction-text-message"></div>
     </div>
 
-    <!-- 🎵 시그니처 오디오 객체 -->
     <audio id="reaction-audio" style="display:none;"></audio>
 
     <script>
+        let globalData = null;
         let reactionTimeout = null;
+        let reactionMinimizeTimeout = null;
         let reactionImgClearTimeout = null;
         let audioSafetyTimeout = null;
+        let currentPlayingId = null;
 
-        // URL 쿼리에 ?transparent=1 파라미터가 있으면 투명 배경 모드 활성화
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('transparent') === '1') {
             document.body.classList.add('transparent-mode');
@@ -188,6 +185,7 @@
 
             if (overlay) {
                 overlay.classList.remove('show');
+                overlay.classList.remove('minimize');
             }
             if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
             reactionImgClearTimeout = setTimeout(() => {
@@ -209,6 +207,7 @@
             if (!overlay || !img || !audio) return;
             
             if (reactionTimeout) clearTimeout(reactionTimeout);
+            if (reactionMinimizeTimeout) clearTimeout(reactionMinimizeTimeout);
             if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
             if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
 
@@ -217,19 +216,15 @@
             audio.onloadedmetadata = null;
             audio.pause();
             audio.src = '';
-
-            // 대기 안내 숨기기
+            
             if (idleContainer) idleContainer.classList.add('hidden');
 
-            // 1. 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
             let donatorName = data.donator || data.nickname || '익명';
             let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
-            
             if (donatorEl) {
                 donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
             }
 
-            // 2. 후원 메시지 또는 시그니처 제목
             let msgText = data.message || data.title || '';
             if (messageEl) {
                 if (msgText && msgText !== '수동 후원 송출') {
@@ -243,10 +238,9 @@
                     messageEl.style.display = 'none';
                 }
             }
-
-            // 3. 시그니처 사진 이미지
-            let soundUrl = data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
-            let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : '/money.png');
+            
+            let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : null);
+            let soundUrl = data.audio_url || data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
 
             if (imgUrl) {
                 img.src = imgUrl;
@@ -255,16 +249,18 @@
                 img.src = '/money.png';
                 img.style.display = 'block';
             }
-
-            // 화면에 띄우기 (Show)
+            
+            overlay.classList.remove('minimize');
             overlay.classList.add('show');
+            
+            currentPlayingId = data.id || (donatorName + '_' + data.amount + '_' + (data.title || ''));
 
-            let reactionDurationMs = 10000;
+            let fallbackMs = 10000;
             if (data.duration && !isNaN(data.duration) && data.duration > 0) {
-                reactionDurationMs = data.duration * 1000;
+                fallbackMs = data.duration * 1000;
             }
 
-            const finishReaction = () => {
+            const finishOnce = () => {
                 if (reactionTimeout) clearTimeout(reactionTimeout);
                 if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
                 audio.pause();
@@ -274,30 +270,40 @@
             if (soundUrl) {
                 audio.src = soundUrl;
                 audio.currentTime = 0;
-
+                
                 audio.onloadedmetadata = () => {
                     if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-                        reactionDurationMs = (audio.duration + 0.3) * 1000;
+                        fallbackMs = (audio.duration + 0.3) * 1000;
                         if (reactionTimeout) clearTimeout(reactionTimeout);
-                        reactionTimeout = setTimeout(finishReaction, reactionDurationMs);
+                        reactionTimeout = setTimeout(finishOnce, fallbackMs);
                     }
                 };
 
-                audio.onended = finishReaction;
-                audio.onerror = finishReaction;
+                audio.onended = finishOnce;
+                audio.onerror = finishOnce;
 
                 audio.play().catch(err => {
-                    console.log("Autoplay blocked or error:", err);
-                    reactionTimeout = setTimeout(finishReaction, reactionDurationMs);
+                    console.log("Audio play error:", err);
+                    reactionTimeout = setTimeout(finishOnce, fallbackMs);
                 });
 
-                audioSafetyTimeout = setTimeout(finishReaction, reactionDurationMs + 2000);
+                audioSafetyTimeout = setTimeout(finishOnce, fallbackMs + 2000);
             } else {
-                reactionTimeout = setTimeout(finishReaction, reactionDurationMs);
+                reactionTimeout = setTimeout(finishOnce, fallbackMs);
             }
         }
 
-        // 📡 SSE 실시간 연동
+        function handleData(d) {
+            globalData = d;
+            console.log('Received data:', d);
+
+            if (d.reaction_mode && d.reaction_queue && d.reaction_queue.length > 0) {
+                const firstItem = d.reaction_queue[0];
+                playReaction(firstItem);
+            }
+        }
+
+        // 📡 SSE 실시간 데이터 수신 (overlay.html 호환 100%)
         function initSSE() {
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('status-text');
@@ -320,16 +326,33 @@
                 if (statusText) statusText.innerText = '재연결 시도 중...';
             };
 
-            ['signature', 'donation', 'test_reaction', 'slot_spin'].forEach(evtName => {
-                evtSource.addEventListener(evtName, (e) => {
-                    try {
-                        const data = JSON.parse(e.data);
-                        console.log(`[SSE] ${evtName}:`, data);
-                        playReaction(data);
-                    } catch (err) {
-                        console.error('SSE Error:', err);
+            evtSource.onmessage = (e) => {
+                try { handleData(JSON.parse(e.data)); } catch(err) {}
+            };
+
+            evtSource.addEventListener('update', (e) => {
+                try { handleData(JSON.parse(e.data)); } catch(err) {}
+            });
+
+            evtSource.addEventListener('donation', (e) => {
+                try { handleData(JSON.parse(e.data)); } catch(err) {}
+            });
+
+            evtSource.addEventListener('test_reaction', (e) => {
+                try { playReaction(JSON.parse(e.data)); } catch(err) {}
+            });
+
+            evtSource.addEventListener('signature', (e) => {
+                try { playReaction(JSON.parse(e.data)); } catch(err) {}
+            });
+
+            evtSource.addEventListener('slot_spin', (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data && data.winner) {
+                        playReaction(data.winner);
                     }
-                });
+                } catch(err) {}
             });
         }
 
