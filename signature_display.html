@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📺 시그니처 위젯 전용 오버레이</title>
+    <title>📺 시그니처 위젯 전용 오버레이 (시각 전용)</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <style>
         * {
@@ -85,66 +85,29 @@
             word-break: break-all;
             padding: 0 20px;
         }
-
-        /* 🔊 브라우저 자동재생 차단 해제 안내 배너 */
-        #autoplay-banner {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 100020;
-            background: rgba(255, 0, 127, 0.9);
-            color: #fff;
-            padding: 10px 24px;
-            border-radius: 30px;
-            font-size: 14px;
-            font-weight: 800;
-            box-shadow: 0 4px 20px rgba(255,0,127,0.5);
-            cursor: pointer;
-            display: none;
-        }
     </style>
 </head>
 <body>
 
-    <div id="autoplay-banner" onclick="unlockAudio()">
-        🔊 오디오 자동재생을 허용하려면 화면 아무 곳이나 클릭하세요!
-    </div>
-
-    <!-- 🎵 시그니처 위젯 레이어 (기본 20초 동안 100% 노출 유지) -->
+    <!-- 🎵 시그니처 위젯 레이어 (시각 화면 전용 - 소리 없음) -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
         <img id="reaction-screen-image" src="" alt="시그니처 사진">
         <div id="reaction-donator-info" class="reaction-text-donator"></div>
         <div id="reaction-message-info" class="reaction-text-message"></div>
     </div>
 
-    <audio id="reaction-audio" style="display:none;"></audio>
-
     <script>
         let globalData = null;
         let reactionTimeout = null;
         let reactionImgClearTimeout = null;
-        let audioUnlocked = false;
 
-        // 기본 유지 시간: 20초 (20,000ms)
+        // 기본 화면 유지 시간: 20초 (20,000ms)
         const DEFAULT_DISPLAY_TIME_MS = 20000;
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('transparent') === '1') {
             document.body.classList.add('transparent-mode');
         }
-
-        function unlockAudio() {
-            const audio = document.getElementById('reaction-audio');
-            if (audio) {
-                audio.play().then(() => {
-                    audio.pause();
-                    audioUnlocked = true;
-                    document.getElementById('autoplay-banner').style.display = 'none';
-                }).catch(() => {});
-            }
-        }
-        document.addEventListener('click', unlockAudio, { once: false });
 
         function formatNum(n) {
             return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -164,17 +127,16 @@
         }
 
         function playReaction(data) {
-            console.log('Playing reaction (Fixed 20s Duration Rule):', data);
+            console.log('Playing reaction (Visual Only - Sound Muted):', data);
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
             const donatorEl = document.getElementById('reaction-donator-info');
             const messageEl = document.getElementById('reaction-message-info');
-            const audio = document.getElementById('reaction-audio');
             
-            if (!overlay || !img || !audio) return;
+            if (!overlay || !img) return;
             
-            // 1. 기존 재생 및 타이머 초기화 (새 시그니처 오면 기존 타이머 리셋 후 20초 새로 시작)
+            // 1. 기존 타이머 초기화 (새 시그니처 오면 기존 타이머 리셋 후 20초 새로 시작)
             if (reactionTimeout) {
                 clearTimeout(reactionTimeout);
                 reactionTimeout = null;
@@ -184,17 +146,14 @@
                 reactionImgClearTimeout = null;
             }
 
-            audio.pause();
-            audio.src = '';
-
-            // 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
+            // 2. 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
             let donatorName = data.donator || data.nickname || '익명';
             let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
             if (donatorEl) {
                 donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
             }
 
-            // 후원 메시지 또는 시그니처 제목
+            // 3. 후원 메시지 또는 시그니처 제목
             let msgText = data.message || data.title || '';
             if (messageEl) {
                 if (msgText && msgText !== '수동 후원 송출') {
@@ -209,9 +168,8 @@
                 }
             }
             
-            // 시그니처 사진 이미지
+            // 4. 시그니처 사진 이미지
             let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : '/money.png');
-            let soundUrl = data.audio_url || data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
 
             if (imgUrl) {
                 img.src = imgUrl;
@@ -221,33 +179,20 @@
                 img.style.display = 'block';
             }
             
-            // 시그니처 팝업 화면에 100% 노출
+            // 5. 시그니처 팝업 화면에 100% 노출
             overlay.classList.add('show');
 
-            // 3. 음원 재생
-            if (soundUrl) {
-                audio.src = soundUrl;
-                audio.currentTime = 0;
-                audio.play().then(() => {
-                    document.getElementById('autoplay-banner').style.display = 'none';
-                }).catch(err => {
-                    console.log("Autoplay blocked by browser policy:", err);
-                    document.getElementById('autoplay-banner').style.display = 'block';
-                });
-            }
-
-            // 4. 무조건 20초 동안 화면에 띄워두기 (새 시그니처 오면 20초 다시 시작)
+            // 6. 무조건 20초 동안 화면에 띄워두기 (새 시그니처 오면 20초 다시 시작)
             let finished = false;
             const finishReaction = (reason) => {
                 if (finished) return;
                 finished = true;
                 console.log(`[20초 경과 종료] 이유: ${reason}`);
                 if (reactionTimeout) clearTimeout(reactionTimeout);
-                audio.pause();
                 stopReactionVisuals();
             };
 
-            // 정확히 20초 후 종료 타이머 설정
+            // 정확히 20초 후 종료 타이머 설정 (이 페이지에서는 소리를 재생하지 않고 방송 오버레이 sound만 재생됨)
             reactionTimeout = setTimeout(() => {
                 finishReaction('20초 기본 노출 시간 완료');
             }, DEFAULT_DISPLAY_TIME_MS);
