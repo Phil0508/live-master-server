@@ -77,13 +77,13 @@
             text-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
 
-        /* 🎵 overlay.html 원본 시그니처 위젯 CSS (100% 그대로 유지) */
+        /* 🎵 overlay.html 원본 시그니처 위젯 CSS (100% 동일 + 음원 끝날 때까지 100% 화면 유지) */
         .reaction-screen-overlay {
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) scale(0.8);
-            width: 550px;
+            transform: translate(-50%, -50%) scale(0.85);
+            width: 600px;
             background: transparent;
             display: flex;
             flex-direction: column;
@@ -91,7 +91,7 @@
             justify-content: center;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
             z-index: 100010;
             padding: 0;
             box-sizing: border-box;
@@ -103,23 +103,18 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        .reaction-screen-overlay.show.minimize {
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%) scale(1);
-        }
-
         .reaction-screen-overlay img {
             max-width: 100%;
-            max-height: 450px;
+            max-height: 480px;
             object-fit: contain;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 25px rgba(0, 255, 204, 0.35);
+            border: 2px solid rgba(255, 255, 255, 0.15);
         }
 
         .reaction-text-donator {
-            margin-top: 20px;
-            font-size: 42px;
+            margin-top: 24px;
+            font-size: 44px;
             font-weight: 900;
             color: #ffffff;
             text-shadow: 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000, 0 4px 20px rgba(0,0,0,0.9);
@@ -129,19 +124,41 @@
         }
 
         .reaction-text-message {
-            margin-top: 15px;
-            font-size: 30px;
-            font-weight: 700;
+            margin-top: 14px;
+            font-size: 32px;
+            font-weight: 800;
             color: #00ffcc;
-            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 15px rgba(0,255,204,0.6);
+            text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 18px rgba(0,255,204,0.7);
             font-family: 'Pretendard', sans-serif;
             text-align: center;
             word-break: break-all;
             padding: 0 20px;
         }
+
+        /* 🔊 브라우저 자동재생 차단 해제 클릭 안내 배너 */
+        #autoplay-banner {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100020;
+            background: rgba(255, 0, 127, 0.9);
+            color: #fff;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 800;
+            box-shadow: 0 4px 20px rgba(255,0,127,0.5);
+            cursor: pointer;
+            display: none;
+        }
     </style>
 </head>
 <body>
+
+    <div id="autoplay-banner" onclick="unlockAudio()">
+        🔊 오디오 자동재생을 허용하려면 화면 아무 곳이나 클릭하세요!
+    </div>
 
     <!-- 😴 대기 상태 안내 -->
     <div id="idle-container">
@@ -152,9 +169,9 @@
         <div class="idle-title">📺 시그니처 송출 대기 중...</div>
     </div>
 
-    <!-- 🎵 overlay.html 원본 시그니처 위젯 HTML 구조 100% 동일 -->
+    <!-- 🎵 시그니처 위젯 레이어 (음원 끝날 때까지 100% 화면 유지) -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
-        <img id="reaction-screen-image" src="" alt="Reaction Image">
+        <img id="reaction-screen-image" src="" alt="시그니처 사진">
         <div id="reaction-donator-info" class="reaction-text-donator"></div>
         <div id="reaction-message-info" class="reaction-text-message"></div>
     </div>
@@ -164,15 +181,25 @@
     <script>
         let globalData = null;
         let reactionTimeout = null;
-        let reactionMinimizeTimeout = null;
         let reactionImgClearTimeout = null;
-        let audioSafetyTimeout = null;
-        let currentPlayingId = null;
+        let audioUnlocked = false;
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('transparent') === '1') {
             document.body.classList.add('transparent-mode');
         }
+
+        function unlockAudio() {
+            const audio = document.getElementById('reaction-audio');
+            if (audio) {
+                audio.play().then(() => {
+                    audio.pause();
+                    audioUnlocked = true;
+                    document.getElementById('autoplay-banner').style.display = 'none';
+                }).catch(() => {});
+            }
+        }
+        document.addEventListener('click', unlockAudio, { once: false });
 
         function formatNum(n) {
             return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -185,17 +212,16 @@
 
             if (overlay) {
                 overlay.classList.remove('show');
-                overlay.classList.remove('minimize');
             }
             if (reactionImgClearTimeout) clearTimeout(reactionImgClearTimeout);
             reactionImgClearTimeout = setTimeout(() => {
                 if (img) img.src = "";
                 if (idleContainer) idleContainer.classList.remove('hidden');
-            }, 500);
+            }, 600);
         }
 
         function playReaction(data) {
-            console.log('Playing reaction:', data);
+            console.log('Playing reaction (perfect audio sync):', data);
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -206,10 +232,15 @@
             
             if (!overlay || !img || !audio) return;
             
-            if (reactionTimeout) clearTimeout(reactionTimeout);
-            if (reactionMinimizeTimeout) clearTimeout(reactionMinimizeTimeout);
-            if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
-            if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+            // 1. 이전 타이머 및 오디오 강제 중지
+            if (reactionTimeout) {
+                clearTimeout(reactionTimeout);
+                reactionTimeout = null;
+            }
+            if (reactionImgClearTimeout) {
+                clearTimeout(reactionImgClearTimeout);
+                reactionImgClearTimeout = null;
+            }
 
             audio.onended = null;
             audio.onerror = null;
@@ -217,6 +248,7 @@
             audio.pause();
             audio.src = '';
             
+            // 2. 대기 안내 숨기기 & 화면 띄우기
             if (idleContainer) idleContainer.classList.add('hidden');
 
             let donatorName = data.donator || data.nickname || '익명';
@@ -239,7 +271,7 @@
                 }
             }
             
-            let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : null);
+            let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : '/money.png');
             let soundUrl = data.audio_url || data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
 
             if (imgUrl) {
@@ -250,52 +282,54 @@
                 img.style.display = 'block';
             }
             
-            overlay.classList.remove('minimize');
+            // 시그니처 팝업 화면에 노출 (Keep 100% visible)
             overlay.classList.add('show');
-            
-            currentPlayingId = data.id || (donatorName + '_' + data.amount + '_' + (data.title || ''));
 
-            let fallbackMs = 10000;
-            if (data.duration && !isNaN(data.duration) && data.duration > 0) {
-                fallbackMs = data.duration * 1000;
-            }
-
-            const finishOnce = () => {
+            // 마침 콜백 함수 (음원이 완벽히 종료될 때만 호출)
+            let finished = false;
+            const finishReaction = (reason) => {
+                if (finished) return;
+                finished = true;
+                console.log(`[시그니처 종료] 이유: ${reason}`);
                 if (reactionTimeout) clearTimeout(reactionTimeout);
-                if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
                 audio.pause();
                 stopReactionVisuals();
             };
 
+            // 3. 음원 연동 및 종료 시점 완벽 동기화
             if (soundUrl) {
                 audio.src = soundUrl;
                 audio.currentTime = 0;
-                
-                audio.onloadedmetadata = () => {
-                    if (audio.duration && !isNaN(audio.duration) && audio.duration > 0) {
-                        fallbackMs = (audio.duration + 0.3) * 1000;
-                        if (reactionTimeout) clearTimeout(reactionTimeout);
-                        reactionTimeout = setTimeout(finishOnce, fallbackMs);
-                    }
+
+                // 음원이 끝났을 때만 사라지도록 동기화!
+                audio.onended = () => {
+                    finishReaction('음원 재생 완료 (onended)');
                 };
 
-                audio.onended = finishOnce;
-                audio.onerror = finishOnce;
+                audio.onerror = () => {
+                    console.log('Audio load error, fallback to duration timer');
+                    let durationSec = (data.duration && data.duration > 0) ? data.duration : 10;
+                    reactionTimeout = setTimeout(() => finishReaction('음원 에러 후 타이머 완료'), durationSec * 1000);
+                };
 
-                audio.play().catch(err => {
-                    console.log("Audio play error:", err);
-                    reactionTimeout = setTimeout(finishOnce, fallbackMs);
+                audio.play().then(() => {
+                    document.getElementById('autoplay-banner').style.display = 'none';
+                }).catch(err => {
+                    console.log("Audio autoplay blocked by browser policy:", err);
+                    document.getElementById('autoplay-banner').style.display = 'block';
+                    // 자동재생 차단 시에도 지정된 재생 시간(duration) 동안 사진 유지
+                    let durationSec = (data.duration && data.duration > 0) ? data.duration : 10;
+                    reactionTimeout = setTimeout(() => finishReaction('자동재생 차단 후 타이머 완료'), durationSec * 1000);
                 });
-
-                audioSafetyTimeout = setTimeout(finishOnce, fallbackMs + 2000);
             } else {
-                reactionTimeout = setTimeout(finishOnce, fallbackMs);
+                // 음원이 없는 시그니처인 경우 지정된 duration(초) 동안 유지
+                let durationSec = (data.duration && data.duration > 0) ? data.duration : 10;
+                reactionTimeout = setTimeout(() => finishReaction('음원 없음 타이머 완료'), durationSec * 1000);
             }
         }
 
         function handleData(d) {
             globalData = d;
-            console.log('Received data:', d);
 
             if (d.reaction_mode && d.reaction_queue && d.reaction_queue.length > 0) {
                 const firstItem = d.reaction_queue[0];
@@ -303,7 +337,7 @@
             }
         }
 
-        // 📡 SSE 실시간 데이터 수신 (overlay.html 호환 100%)
+        // 📡 SSE 실시간 데이터 수신
         function initSSE() {
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('status-text');
