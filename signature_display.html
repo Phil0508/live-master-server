@@ -18,7 +18,8 @@
             height: 100%;
             overflow: hidden;
             background-color: #0c0c12;
-            font-family: 'Pretendard', sans-serif;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            color: #ffffff;
             color-scheme: only dark;
         }
 
@@ -77,7 +78,7 @@
             text-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
 
-        /* 🎵 overlay.html 원본 시그니처 위젯 CSS (100% 동일 + 음원 끝날 때까지 100% 화면 유지) */
+        /* 🎵 overlay.html 원본 시그니처 위젯 CSS (기본 20초 100% 화면 유지) */
         .reaction-screen-overlay {
             position: fixed;
             top: 50%;
@@ -135,7 +136,7 @@
             padding: 0 20px;
         }
 
-        /* 🔊 브라우저 자동재생 차단 해제 클릭 안내 배너 */
+        /* 🔊 브라우저 자동재생 차단 해제 안내 배너 */
         #autoplay-banner {
             position: fixed;
             top: 20px;
@@ -169,7 +170,7 @@
         <div class="idle-title">📺 시그니처 송출 대기 중...</div>
     </div>
 
-    <!-- 🎵 시그니처 위젯 레이어 (음원 끝날 때까지 100% 화면 유지) -->
+    <!-- 🎵 시그니처 위젯 레이어 (기본 20초 동안 100% 노출 유지) -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
         <img id="reaction-screen-image" src="" alt="시그니처 사진">
         <div id="reaction-donator-info" class="reaction-text-donator"></div>
@@ -183,6 +184,9 @@
         let reactionTimeout = null;
         let reactionImgClearTimeout = null;
         let audioUnlocked = false;
+
+        // 기본 유지 시간: 20초 (20,000ms)
+        const DEFAULT_DISPLAY_TIME_MS = 20000;
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('transparent') === '1') {
@@ -221,7 +225,7 @@
         }
 
         function playReaction(data) {
-            console.log('Playing reaction (perfect audio sync):', data);
+            console.log('Playing reaction (Fixed 20s Duration Rule):', data);
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -232,7 +236,7 @@
             
             if (!overlay || !img || !audio) return;
             
-            // 1. 이전 타이머 및 오디오 강제 중지
+            // 1. 기존 재생 및 타이머 초기화 (새 시그니처 오면 기존 타이머 리셋 후 20초 새로 시작)
             if (reactionTimeout) {
                 clearTimeout(reactionTimeout);
                 reactionTimeout = null;
@@ -242,21 +246,20 @@
                 reactionImgClearTimeout = null;
             }
 
-            audio.onended = null;
-            audio.onerror = null;
-            audio.onloadedmetadata = null;
             audio.pause();
             audio.src = '';
             
-            // 2. 대기 안내 숨기기 & 화면 띄우기
+            // 2. 대기 안내 숨기기 & 화면 노출
             if (idleContainer) idleContainer.classList.add('hidden');
 
+            // 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
             let donatorName = data.donator || data.nickname || '익명';
             let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
             if (donatorEl) {
                 donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
             }
 
+            // 후원 메시지 또는 시그니처 제목
             let msgText = data.message || data.title || '';
             if (messageEl) {
                 if (msgText && msgText !== '수동 후원 송출') {
@@ -271,6 +274,7 @@
                 }
             }
             
+            // 시그니처 사진 이미지
             let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : '/money.png');
             let soundUrl = data.audio_url || data.sound_url || (data.sound_file ? `/media/sounds/${data.sound_file}` : null);
 
@@ -282,50 +286,36 @@
                 img.style.display = 'block';
             }
             
-            // 시그니처 팝업 화면에 노출 (Keep 100% visible)
+            // 시그니처 팝업 화면에 100% 노출
             overlay.classList.add('show');
 
-            // 마침 콜백 함수 (음원이 완벽히 종료될 때만 호출)
+            // 3. 음원 재생
+            if (soundUrl) {
+                audio.src = soundUrl;
+                audio.currentTime = 0;
+                audio.play().then(() => {
+                    document.getElementById('autoplay-banner').style.display = 'none';
+                }).catch(err => {
+                    console.log("Autoplay blocked by browser policy:", err);
+                    document.getElementById('autoplay-banner').style.display = 'block';
+                });
+            }
+
+            // 4. ✨ 핵심: 무조건 20초 동안 화면에 띄워두기 (새 시그니처 오면 20초 다시 시작)
             let finished = false;
             const finishReaction = (reason) => {
                 if (finished) return;
                 finished = true;
-                console.log(`[시그니처 종료] 이유: ${reason}`);
+                console.log(`[20초 경과 종료] 이유: ${reason}`);
                 if (reactionTimeout) clearTimeout(reactionTimeout);
                 audio.pause();
                 stopReactionVisuals();
             };
 
-            // 3. 음원 연동 및 종료 시점 완벽 동기화
-            if (soundUrl) {
-                audio.src = soundUrl;
-                audio.currentTime = 0;
-
-                // 음원이 끝났을 때만 사라지도록 동기화!
-                audio.onended = () => {
-                    finishReaction('음원 재생 완료 (onended)');
-                };
-
-                audio.onerror = () => {
-                    console.log('Audio load error, fallback to duration timer');
-                    let durationSec = (data.duration && data.duration > 0) ? data.duration : 10;
-                    reactionTimeout = setTimeout(() => finishReaction('음원 에러 후 타이머 완료'), durationSec * 1000);
-                };
-
-                audio.play().then(() => {
-                    document.getElementById('autoplay-banner').style.display = 'none';
-                }).catch(err => {
-                    console.log("Audio autoplay blocked by browser policy:", err);
-                    document.getElementById('autoplay-banner').style.display = 'block';
-                    // 자동재생 차단 시에도 지정된 재생 시간(duration) 동안 사진 유지
-                    let durationSec = (data.duration && data.duration > 0) ? data.duration : 10;
-                    reactionTimeout = setTimeout(() => finishReaction('자동재생 차단 후 타이머 완료'), durationSec * 1000);
-                });
-            } else {
-                // 음원이 없는 시그니처인 경우 지정된 duration(초) 동안 유지
-                let durationSec = (data.duration && data.duration > 0) ? data.duration : 10;
-                reactionTimeout = setTimeout(() => finishReaction('음원 없음 타이머 완료'), durationSec * 1000);
-            }
+            // 정확히 20초 후 종료 타이머 설정
+            reactionTimeout = setTimeout(() => {
+                finishReaction('20초 기본 노출 시간 완료');
+            }, DEFAULT_DISPLAY_TIME_MS);
         }
 
         function handleData(d) {
