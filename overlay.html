@@ -382,7 +382,7 @@
             border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius);
             box-shadow: var(--glass-shadow);
-            padding: 16px 20px 14px; width: 430px;
+            padding: 18px 22px 16px; width: 520px;
         }
         .home-race-box::before {
             content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
@@ -390,18 +390,18 @@
             pointer-events:none;
         }
         .home-race-title {
-            text-align: center; font-size: 15px; font-weight: 900; letter-spacing: 1px; color: #2a0714;
+            text-align: center; font-size: 19px; font-weight: 900; letter-spacing: 1px; color: #2a0714;
             background: linear-gradient(100deg, #ff6f9d, #e0447a);
-            border-radius: 12px; padding: 6px 0; margin-bottom: 13px;
+            border-radius: 12px; padding: 7px 0; margin-bottom: 14px;
             box-shadow: 0 4px 14px rgba(255,111,157,0.45);
         }
-        .home-race-row { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
+        .home-race-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
         .home-race-name {
-            width: 84px; font-size: 16px; font-weight: 800; color: #ffd7e5;
+            width: 120px; font-size: 27px; font-weight: 800; color: #ffd7e5;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .home-race-bar-bg {
-            flex: 1; height: 16px; background: rgba(0,0,0,0.45); border-radius: 9px;
+            flex: 1; height: 22px; background: rgba(0,0,0,0.45); border-radius: 11px;
             border: 1px solid rgba(255, 140, 175, 0.25); overflow: hidden; position: relative;
         }
         .home-race-bar-fill {
@@ -414,17 +414,18 @@
             background: linear-gradient(90deg, var(--gold-deep), #ffe9b0);
             box-shadow: 0 0 14px var(--gold-glow);
         }
-        /* 숫자는 게이지 바로 옆에 붙인다 (좌측 정렬; 우측 정렬이면 바와 사이가 벌어져 보인다) */
-        .home-race-nums { width: 90px; text-align: left; font-size: 15px; font-weight: 800; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        /* 숫자는 게이지 바로 옆에 붙인다 (좌측 정렬; 우측 정렬이면 바와 사이가 벌어져 보인다)
+           크기는 계좌 위젯 계좌번호(34px)와 같은 급 */
+        .home-race-nums { width: 150px; text-align: left; font-size: 32px; font-weight: 800; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
         .home-race-nums .cur { color: #ffb6d0; }
-        .home-race-nums .goal { color: var(--tx-3); font-size: 12.5px; }
+        .home-race-nums .goal { color: var(--tx-3); font-size: 19px; }
         .home-race-goal-line {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            margin-top: 5px; padding: 8px 12px; background: rgba(246, 196, 83, 0.08);
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin-top: 5px; padding: 9px 12px; background: rgba(246, 196, 83, 0.08);
             border: 1px solid rgba(246, 196, 83, 0.3); border-radius: 12px;
-            font-size: 15px; font-weight: 900; color: var(--gold);
+            font-size: 21px; font-weight: 900; color: var(--gold);
         }
-        .home-race-goal-badge { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 11px; padding: 2px 9px; border-radius: 8px; }
+        .home-race-goal-badge { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 14px; padding: 3px 11px; border-radius: 8px; }
 
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         #toon-popup.vip-premium-card {
