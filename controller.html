@@ -1870,7 +1870,7 @@
                                 <span style="color:#ffd700; font-weight:700; font-size:12px;">[송출하기]를 누르면 방송 화면에 축하 팝업이 나갑니다.</span>
                             </div>
                             <div class="bj-buttons">
-                                <button class="bj-btn" style="background:linear-gradient(90deg,#ffd700,#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCard('${don.id}', '${nm.replace(/'/g, "\\'")}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
+                                <button class="bj-btn" style="background:linear-gradient(90deg,#ffd700,#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCardById('${don.id}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
                                 <button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 삭제</button>
                             </div></div>`;
                         return;
@@ -2536,7 +2536,10 @@
                 box.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">등록된 플레이어가 없습니다.</span>`;
                 return;
             }
-            box.innerHTML = bjs.map(b => {
+            // ⚠️ 이름은 화면 표시용으로만 이스케이프하고, 함수에는 인덱스로 넘긴다.
+            //    이스케이프한 문자열을 다시 데이터로 돌려보내면 '철수&영희' 같은 이름이
+            //    '철수&amp;영희' 로 저장돼, 오버레이가 원래 이름으로 조회할 때 못 찾는다.
+            box.innerHTML = bjs.map((b, i) => {
                 const n = escapeHTML(b.name);
                 const goal = gd.home_goals[b.name] || 0;
                 const cur = b.score || 0;
@@ -2545,11 +2548,17 @@
                     <span style="width:110px; font-size:13px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${n}</span>
                     <span style="font-size:12px; color:${done ? '#ffd700' : 'var(--text-muted)'}; width:70px;">현재 ${cur}</span>
                     <input type="number" value="${goal}" placeholder="목표 점수"
-                        onchange="setHomeGoal('${n.replace(/'/g, "\\'")}', this.value)"
+                        onchange="setHomeGoalByIndex(${i}, this.value)"
                         style="flex:1; height:34px; font-size:13px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; padding:0 10px; box-sizing:border-box;">
                     ${done ? '<span style="font-size:12px; color:#ffd700; font-weight:900;">퇴근! 🎉</span>' : ''}
                 </div>`;
             }).join('');
+        }
+
+        // 인덱스로 원본 이름을 찾아 넘긴다 (이스케이프된 이름이 데이터로 새는 것을 막는다)
+        function setHomeGoalByIndex(idx, val) {
+            const b = (gd.bjs || [])[idx];
+            if (b) setHomeGoal(b.name, val);
         }
 
         function setHomeGoal(name, val) {
@@ -2581,6 +2590,12 @@
                 time: new Date().toLocaleTimeString('ko-KR', { hour12: false })
             });
             pushAPI();
+        }
+
+        // 카드 id 로 원본 이름을 찾아 넘긴다 (이스케이프된 이름이 방송 팝업에 그대로 나가지 않도록)
+        function broadcastOffWorkCardById(donId) {
+            const card = (gd.pending_donations || []).find(d => d.id === donId);
+            if (card) broadcastOffWorkCard(donId, card.name);
         }
 
         async function broadcastOffWorkCard(donId, name) {
@@ -2624,11 +2639,17 @@
                 box.innerHTML = `<span style="color: var(--text-muted); font-size: 12px;">등록된 플레이어가 없습니다.</span>`;
                 return;
             }
-            box.innerHTML = bjs.map(b => {
+            // 이름은 표시용으로만 이스케이프하고, 조회에는 인덱스로 원본 이름을 찾는다
+            box.innerHTML = bjs.map((b, i) => {
                 const n = escapeHTML(b.name);
-                return `<button class="secondary" onclick="showBankStatement('${n.replace(/'/g, "\\'")}')" style="height: 32px; font-size: 12px; padding: 0 14px; border-radius: 10px;">
+                return `<button class="secondary" onclick="showBankStatementByIndex(${i})" style="height: 32px; font-size: 12px; padding: 0 14px; border-radius: 10px;">
                     <i class="fa-solid fa-receipt"></i> ${n}</button>`;
             }).join('');
+        }
+
+        function showBankStatementByIndex(idx) {
+            const b = (gd.bjs || [])[idx];
+            if (b) showBankStatement(b.name);
         }
 
         async function showBankStatement(name) {
@@ -2715,7 +2736,8 @@
                 return;
             }
             const gradeColor = { VVIP: '#ff3b30', VIP: '#af52de', GOLD: '#ffd700' };
-            tbody.innerHTML = vipCacheList.map(v => {
+            // 이름은 표시용으로만 이스케이프하고, 수정/삭제에는 인덱스로 원본을 찾는다
+            tbody.innerHTML = vipCacheList.map((v, i) => {
                 const name = escapeHTML(v.name);
                 const grade = escapeHTML(v.grade || 'VIP');
                 return `
@@ -2725,11 +2747,21 @@
                         <td style="padding: 10px 14px; text-align: center;"><span style="display:inline-block; width:20px; height:20px; border-radius:5px; background:${escapeHTML(v.custom_color || '#ffd700')}; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;"></span></td>
                         <td style="padding: 10px 14px; text-align: center; font-size: 18px;">${escapeHTML(v.badge || '👑')}</td>
                         <td style="padding: 10px 14px; text-align: center;">
-                            <button class="secondary" onclick="openVipModal('${name.replace(/'/g, "\\'")}')" style="height:26px; font-size:11px; padding:0 10px; border-radius:6px;"><i class="fa-solid fa-pen"></i></button>
-                            <button class="danger" onclick="deleteVip('${name.replace(/'/g, "\\'")}')" style="height:26px; font-size:11px; padding:0 10px; border-radius:6px; margin-left:4px;"><i class="fa-solid fa-trash-can"></i></button>
+                            <button class="secondary" onclick="openVipModalByIndex(${i})" style="height:26px; font-size:11px; padding:0 10px; border-radius:6px;"><i class="fa-solid fa-pen"></i></button>
+                            <button class="danger" onclick="deleteVipByIndex(${i})" style="height:26px; font-size:11px; padding:0 10px; border-radius:6px; margin-left:4px;"><i class="fa-solid fa-trash-can"></i></button>
                         </td>
                     </tr>`;
             }).join('');
+        }
+
+        function openVipModalByIndex(idx) {
+            const v = vipCacheList[idx];
+            if (v) openVipModal(v.name);
+        }
+
+        function deleteVipByIndex(idx) {
+            const v = vipCacheList[idx];
+            if (v) deleteVip(v.name);
         }
 
         function openVipModal(name) {

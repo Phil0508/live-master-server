@@ -916,7 +916,10 @@
             globalData = d;
             
             let isActive = d.broadcast_active || false;
-            ['ranking', 'gauge', 'account', 'match', 'roulette', 'extra-ranking'].forEach(id => {
+            // ⚠️ home-race 도 반드시 포함해야 한다. 빠져 있으면 퇴근빵을 켠 채 방송을 종료했을 때
+            //    아래 early return 때문에 renderHomeRace 까지 못 가서, 옛 진행바를 담은 카드가
+            //    화면에 그대로 남고 방송을 다시 켜기 전에는 지울 방법이 없다.
+            ['ranking', 'gauge', 'account', 'match', 'roulette', 'extra-ranking', 'home-race'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if (el) el.style.display = isActive ? '' : 'none';
             });
@@ -2349,21 +2352,43 @@
             const goalTextEl = document.getElementById('home-race-goal-text');
             if (!rowsEl) return;
 
-            let html = '';
+            // ⚠️ 매 업데이트마다 innerHTML 을 새로 만들면 안 된다.
+            //    바 요소가 통째로 교체되면서 이미 목표 너비인 채로 새로 그려지기 때문에
+            //    CSS 의 width 0.8s 트랜지션이 발동할 '이전 값'이 없어져, 게이지가
+            //    스르륵 차지 않고 뚝뚝 끊겨 보였다. 행은 한 번만 만들고 값만 갱신한다.
+            const names = bjs.map(b => b.name);
+            if (rowsEl.dataset.names !== names.join(' ')) {
+                rowsEl.innerHTML = bjs.map(() => `<div class="home-race-row">
+                    <div class="home-race-name"></div>
+                    <div class="home-race-bar-bg"><div class="home-race-bar-fill"></div></div>
+                    <div class="home-race-nums"><span class="cur"></span> <span class="goal"></span></div>
+                </div>`).join('');
+                rowsEl.dataset.names = names.join(' ');
+            }
+
             let firstReached = null;
-            bjs.forEach(b => {
+            const rows = rowsEl.children;
+            bjs.forEach((b, i) => {
+                const row = rows[i];
+                if (!row) return;
                 const goal = parseInt(goals[b.name]) || 0;
                 const cur = b.score || 0;   // 진행 기준은 점수(score)
                 const pct = goal > 0 ? Math.min(100, (cur / goal) * 100) : 0;
                 const reached = goal > 0 && cur >= goal;
                 if (reached && !firstReached) firstReached = b.name;
-                html += `<div class="home-race-row">
-                    <div class="home-race-name">${escapeSlotText(b.name)}</div>
-                    <div class="home-race-bar-bg"><div class="home-race-bar-fill ${reached ? 'goal-reached' : ''}" style="width:${pct}%;"></div></div>
-                    <div class="home-race-nums"><span class="cur">${formatNum(cur)}</span> <span class="goal">/ ${formatNum(goal)}</span></div>
-                </div>`;
+
+                const nameEl = row.querySelector('.home-race-name');
+                const fillEl = row.querySelector('.home-race-bar-fill');
+                const curEl = row.querySelector('.home-race-nums .cur');
+                const goalEl = row.querySelector('.home-race-nums .goal');
+                if (nameEl.textContent !== b.name) nameEl.textContent = b.name;
+                fillEl.style.width = pct + '%';
+                fillEl.classList.toggle('goal-reached', reached);
+                const curTxt = formatNum(cur);
+                const goalTxt = '/ ' + formatNum(goal);
+                if (curEl.textContent !== curTxt) curEl.textContent = curTxt;
+                if (goalEl.textContent !== goalTxt) goalEl.textContent = goalTxt;
             });
-            rowsEl.innerHTML = html;
 
             if (firstReached && goalLineEl && goalTextEl) {
                 goalLineEl.style.display = 'flex';

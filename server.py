@@ -227,8 +227,10 @@ def _supabase_query(params, retries=1):
     last_err = None
     for attempt in range(retries + 1):
         try:
+            # 방송 중 후원 경로에서 쓰이므로 오래 기다리지 않는다.
+            # 12초씩 두 번 기다리면 시그니처가 나올 때쯤엔 이미 방송 흐름이 지나가 있다.
             r = requests.get(f"{SUPABASE['url']}/rest/v1/signatures?{params}",
-                             headers=_supabase_headers(), timeout=12)
+                             headers=_supabase_headers(), timeout=4)
             r.raise_for_status()
             return r.json()
         except Exception as e:
@@ -239,14 +241,16 @@ def _supabase_query(params, retries=1):
     raise last_err
 
 def supabase_match_signature(amount):
-    """금액 매칭: ① 정확히 일치 → ② 없으면 올림(이상 중 가장 가까운)
-       → ③ 그래도 없으면(최고가 초과 후원) 가장 비싼 시그니처."""
+    """금액 매칭: ① 정확히 일치하거나, 없으면 올림(이상 중 가장 가까운)
+       → ② 그래도 없으면(최고가 초과 후원) 가장 비싼 시그니처.
+
+    ⚠️ 예전에는 '정확히 일치' 쿼리를 따로 먼저 보냈는데,
+    아래 gte + 오름차순 + limit 1 이 정확히 일치하는 값을 이미 첫 번째로 돌려주므로
+    같은 결과를 얻으려고 왕복을 한 번 더 쓴 셈이었다. (서울까지 왕복이라 비싸다)
+    """
     if not _supabase_ready():
         return None
     amount = int(amount)
-    rows = _supabase_query(f"amount=eq.{amount}&limit=1&select={SIG_FIELDS}")
-    if rows:
-        return rows[0]
     rows = _supabase_query(f"amount=gte.{amount}&order=amount.asc&limit=1&select={SIG_FIELDS}")
     if rows:
         return rows[0]
@@ -773,13 +777,18 @@ LAST_PERSISTED = None
 
 def db_worker():
     while True:
+        done = None
         try:
-            new_data, is_initial = db_write_queue.get()
+            new_data, is_initial, done = db_write_queue.get()
             save_data_sync(new_data, is_initial)
             db_write_queue.task_done()
         except Exception as e:
             print(f"❌ [비동기 DB 저장 백그라운드 오류] {e}")
             time.sleep(1)
+        finally:
+            # 동기 저장을 기다리는 쪽이 영원히 멈추지 않도록 실패해도 반드시 깨운다
+            if done is not None:
+                done.set()
 
 threading.Thread(target=db_worker, daemon=True).start()
 
@@ -907,6 +916,19 @@ def save_data_sync(new_data, is_initial=False, _retry=True):
         print(f"❌ [DB 저장 실패] {e}")
         raise
 
+def reset_session_keys(state):
+    """방송 1회분에만 유효한 상태를 초기화한다.
+
+    ⚠️ 새 기능을 넣을 때 여기에 등록하지 않으면, 서버를 끄지 않고 방송을 두 번 할 때
+    지난 방송의 흔적이 남아 오작동한다. (예: goal_event_approved 가 남아 2회차에는
+    목표 달성 배너가 영영 안 뜨고, home_race_notified 에 남은 이름은 퇴근 카드를 못 받는다)
+    """
+    state['goal_event_pending'] = False
+    state['goal_event_approved'] = False
+    state['home_race_notified'] = []
+    state['home_goals'] = {}
+    return state
+
 def create_snapshot(state, label):
     """복구 지점 저장 (append-only). 실패해도 방송은 계속되어야 하므로 예외를 삼킨다."""
     try:
@@ -936,13 +958,18 @@ def save_data(new_data, is_initial=False, sync=False):
     # ⚠️ 큐에 넣는 것은 스냅샷(깊은 복사)이어야 한다.
     # 같은 객체를 넘기면 워커가 순회하는 동안 요청 스레드가 계속 수정해 저장 내용이 섞인다.
     snapshot = copy.deepcopy(new_data)
-    if sync:
-        try:
-            save_data_sync(snapshot, is_initial)
-        except Exception:
-            pass  # 실패는 LAST_DB_ERROR에 기록됨 (방송은 계속되어야 하므로 예외는 삼킨다)
-    else:
-        db_write_queue.put((snapshot, is_initial))
+
+    # ⚠️ 동기 저장도 반드시 같은 큐를 통과해야 한다.
+    # 예전에는 sync=True가 큐를 건너뛰고 바로 썼는데, 그러면 먼저 대기 중이던
+    # 오래된 비동기 스냅샷이 나중에 처리되면서 방금 저장한 최신 값(예: 후원 기록)을
+    # 도로 덮어썼다. 큐를 거치면 순서가 보장되고, LAST_PERSISTED도 워커 스레드
+    # 한 곳에서만 갱신되어 경합이 사라진다.
+    done = threading.Event() if sync else None
+    db_write_queue.put((snapshot, is_initial, done))
+    if done is not None:
+        # 워커가 밀려 있어도 방송이 멈추지 않도록 상한을 둔다 (실패는 LAST_DB_ERROR에 남음)
+        if not done.wait(timeout=30):
+            print("⚠️ [동기 저장 시간 초과] 백그라운드에서 계속 진행됩니다.")
 
 def time_machine_recovery():
     try:
@@ -1701,6 +1728,18 @@ def receive_donation():
             except Exception as dbe:
                 print(f"⚠️ [tx_id 중복 확인 오류] {dbe}")
 
+        # 🎵 시그니처 매칭은 file_lock 밖에서 미리 끝낸다.
+        # ⚠️ 이 호출은 Supabase로 나가는 HTTP라 느려질 수 있는데, 예전에는 락을 쥔 채 실행했다.
+        #    그러면 후원 한 건이 처리되는 동안 점수 버튼·슬롯·리액션 넘기기 등
+        #    락을 쓰는 모든 조작이 통째로 멈춰 방송 중 컨트롤러가 얼어붙었다.
+        #    매칭은 state를 읽지 않으므로 락이 필요 없다.
+        matched_sig = None
+        if amount > 0:
+            try:
+                matched_sig = supabase_match_signature(amount)
+            except Exception as e:
+                print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
+
         with file_lock:
             state = load_data()
             don_id = f"don_{int(time.time() * 1000)}"
@@ -1764,16 +1803,12 @@ def receive_donation():
             except Exception as dbe:
                 print(f"[장부 기록 오류] {dbe}")
                 
-            # 🎵 자동 시그니처 리액션 연동 (Supabase: 후원금액 이하 중 가장 가까운 시그니처)
-            if amount > 0:
-                try:
-                    sig = supabase_match_signature(amount)
-                    if sig:
-                        enqueue_signature(state, sig, amount, parsed_name, cleaned_msg)
-                        print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{sig.get('title')}' (#{sig.get('id')}, {sig.get('amount')}원) 큐 추가 완료")
-                except Exception as e:
-                    print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
-                
+            # 🎵 자동 시그니처 리액션 연동 (매칭은 위에서 락 밖에 끝냈고, 여기서는 큐에만 넣는다)
+            if matched_sig:
+                enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg)
+                print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{matched_sig.get('title')}' (#{matched_sig.get('id')}, {matched_sig.get('amount')}원) 큐 추가 완료")
+
+
             save_data(state, sync=True)
             broadcast_event('update', state)
             
@@ -2132,7 +2167,10 @@ def end_broadcast():
             # 0. ⚠️ 지우기 전에 반드시 보존한다.
             #    예전에는 방송 종료 시 장부(donation_history)를 그냥 삭제해서 기록이 영구히 사라졌다.
             session_label = time.strftime('%Y-%m-%d %H:%M:%S') + " 방송분"
-            create_snapshot(load_data(), f"방송 종료 자동 백업 ({session_label})")
+            # ⚠️ 스냅샷은 아래 'DELETE FROM snapshots' 뒤에 넣는다.
+            #    여기서 만들면 몇 줄 뒤 초기화가 방금 만든 백업까지 지워버려,
+            #    실수로 방송을 종료했을 때 되돌릴 방법이 사라진다. 지금은 상태만 떠둔다.
+            pre_state = copy.deepcopy(load_data())
             try:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
@@ -2162,6 +2200,9 @@ def end_broadcast():
                     ('theme', 'neon_speed', 'saved_colors', 'target_goal', 'account', 'effect_rules', 'screen_effect', 'ticker_enabled', 'ticker_speed', 'ticker_text', 'totp_secret')
                 )
             
+            # 초기화가 끝난 뒤에 백업 스냅샷을 넣어야 살아남는다 (되돌리기 지점)
+            create_snapshot(pre_state, f"방송 종료 자동 백업 ({session_label})")
+
             # 2. Get current state from database (which will have only configurations preserved)
             state = load_data()
             
@@ -2183,10 +2224,15 @@ def end_broadcast():
                 state['roulette']['select_index'] = -1
             state['logs'] = []
             state['match_logs'] = []
-            
-            save_data(state, sync=True)
+            reset_session_keys(state)
+
+            # ⚠️ is_initial=True 로 전체 키를 다시 쓴다.
+            #    위에서 kv_store 행을 지웠는데 메모리 값은 그대로라, 변경분만 쓰는 평소 방식으로는
+            #    "바뀐 게 없다"고 판단해 아무것도 복구되지 않는다. 그 상태로 서버가 재시작되면
+            #    볼륨·슬롯 후보 같은 설정이 기본값으로 돌아가 버린다.
+            save_data(state, is_initial=True, sync=True)
             broadcast_event('update', state)
-            
+
         return jsonify({"status": "success", "message": "방송이 종료되고 오늘의 데이터가 리셋되었습니다."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2252,8 +2298,11 @@ def start_broadcast():
                 state['roulette']['select_index'] = -1
             state['logs'] = []
             state['match_logs'] = []
+            reset_session_keys(state)
+
+            # kv_store 행을 위에서 지웠으므로 전체 키를 다시 기록해야 설정이 살아남는다
             
-            save_data(state, sync=True)
+            save_data(state, is_initial=True, sync=True)
             broadcast_event('update', state)
             
         return jsonify({"status": "success", "message": "방송이 활성화되었습니다."})

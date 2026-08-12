@@ -287,7 +287,16 @@
             async function loadLayout() {
                 try { let res = await fetch('/api/layout'); if (res.ok) layout = await res.json(); } catch (e) { }
                 document.querySelectorAll('.widget').forEach(el => {
-                    let id = el.id; if (!layout[id] || typeof layout[id].x_px === 'undefined') { layout[id] = { x_px: parseInt(el.style.left)||0, y_px: parseInt(el.style.top)||0, scale: 1.0 }; }
+                    let id = el.id;
+                    if (!layout[id] || typeof layout[id].x_px === 'undefined') {
+                        // 🏃 퇴근빵은 랭킹판 자리를 대신 차지하는 위젯이라, 아직 배치된 적이 없으면
+                        //    랭킹판 위치에서 시작해야 한다. (기본값 50,50 으로 저장돼 버리면
+                        //    오버레이의 '랭킹판 위치 따라가기'가 영영 무력화된다)
+                        const seed = (id === 'home-race' && layout['ranking']) ? layout['ranking'] : null;
+                        layout[id] = seed
+                            ? { x_px: seed.x_px, y_px: seed.y_px, scale: seed.scale || 1.0 }
+                            : { x_px: parseInt(el.style.left)||0, y_px: parseInt(el.style.top)||0, scale: 1.0 };
+                    }
                     el.style.left = layout[id].x_px + 'px'; el.style.top = layout[id].y_px + 'px'; el.style.transform = `scale(${layout[id].scale})`; el.dataset.scale = layout[id].scale;
                     const handle = document.createElement('div'); handle.className = 'resize-handle'; handle.addEventListener('mousedown', resizeStart); handle.addEventListener('touchstart', resizeStart, {passive: false}); el.appendChild(handle);
                     el.addEventListener('mousedown', dragStart); el.addEventListener('touchstart', dragStart, {passive: false});
