@@ -371,6 +371,25 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False):
     state['reaction_mode'] = True
     return reaction_uuid
 
+# 🛡️ 내용 기반 후원 중복 방지 (tx_id 없는 재전송 대비)
+# 투네이션이 같은 후원을 tx_id 없이 두 번 POST하면 시그니처가 두 번 재생되던 문제를 막는다.
+# 이름+금액+메시지가 완전히 동일한 후원이 아주 짧은 시간(윈도우) 안에 또 오면 중복으로 간주한다.
+# 서로 다른 사람이 같은 금액/메시지를 2.5초 안에 보낼 확률은 사실상 0이라 안전하다.
+_recent_don_lock = threading.Lock()
+_recent_don = {}
+DONATION_DEDUPE_WINDOW = 2.5
+
+def is_duplicate_donation(key):
+    now = time.time()
+    with _recent_don_lock:
+        for k in list(_recent_don.keys()):
+            if now - _recent_don[k] > DONATION_DEDUPE_WINDOW:
+                del _recent_don[k]
+        if key in _recent_don:
+            return True
+        _recent_don[key] = now
+        return False
+
 # 슬롯 릴 정지 + 당첨 배너(약 3.3초) 뒤 결과 처리까지의 대기 시간
 SLOT_RESULT_DELAY_SEC = 4.0
 
@@ -1732,6 +1751,14 @@ def receive_donation():
                         return jsonify({"status": "success", "message": "Duplicate donation ignored."})
             except Exception as dbe:
                 print(f"⚠️ [tx_id 중복 확인 오류] {dbe}")
+
+        # 2-b. tx_id가 없는 재전송 대비: 이름+금액+메시지가 동일한 후원이
+        #      아주 짧은 시간 안에 다시 오면 중복으로 간주해 무시한다(시그니처 이중 재생 방지).
+        if not tx_id:
+            dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
+            if is_duplicate_donation(dup_key):
+                print("⚠️ [내용 기반 중복 후원 무시] tx_id 없는 동일 후원이 짧은 시간에 재수신됨")
+                return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
 
         # 🎵 시그니처 매칭은 file_lock 밖에서 미리 끝낸다.
         # ⚠️ 이 호출은 Supabase로 나가는 HTTP라 느려질 수 있는데, 예전에는 락을 쥔 채 실행했다.

@@ -1847,6 +1847,46 @@
         const IS_MONITOR = new URLSearchParams(location.search).get('monitor') === '1';
         if (IS_MONITOR) console.log('🔇 [모니터 모드] 소리 재생과 큐 넘김이 비활성화되었습니다.');
 
+        // 🔒 자동재생이 브라우저 정책으로 막혔는지 여부. 클릭(사용자 제스처)으로만 복구한다.
+        //    이 플래그가 켜져 있을 때만 클릭이 재생을 다시 시도하게 해서,
+        //    "재생 로딩 중 우연한 클릭"이 같은 시그니처를 두 번 재생하는 사고를 막는다.
+        let autoplayBlocked = false;
+
+        // 🔒 [탭 간 오디오 잠금] overlay를 여러 곳(OBS + 확인용 브라우저 등)에서 열어도
+        //    소리는 '리더' 탭 한 곳에서만 나게 한다. BroadcastChannel 하트비트로 서로를 인지하고
+        //    tabId가 가장 작은 살아있는 탭이 리더가 된다.
+        //    ⚠️ fail-open 설계: 채널이 없거나 오류가 나면 항상 리더로 간주해 '무조건 재생'한다.
+        //       (혼자(OBS 하나)만 있으면 언제나 리더 → 항상 소리남. 절대 침묵하지 않는다.)
+        const AUDIO_TAB_ID = Math.random().toString(36).slice(2) + '_' + performance.now().toFixed(0);
+        let audioPeers = {};   // otherTabId -> lastSeen(ms)
+        let audioChannel = null;
+        function isAudioLeader() {
+            if (IS_MONITOR) return false;   // 모니터 탭은 절대 소리 안 냄
+            const now = performance.now();
+            let minId = AUDIO_TAB_ID;
+            for (const id in audioPeers) {
+                if (now - audioPeers[id] < 3000 && id < minId) minId = id;
+            }
+            return minId === AUDIO_TAB_ID;
+        }
+        try {
+            if ('BroadcastChannel' in window && !IS_MONITOR) {
+                audioChannel = new BroadcastChannel('overlay-audio');
+                audioChannel.onmessage = (ev) => {
+                    const d = ev && ev.data;
+                    if (d && d.tabId && d.tabId !== AUDIO_TAB_ID) audioPeers[d.tabId] = performance.now();
+                };
+                setInterval(() => {
+                    try { audioChannel.postMessage({ tabId: AUDIO_TAB_ID }); } catch (e) {}
+                    const now = performance.now();
+                    for (const id in audioPeers) if (now - audioPeers[id] > 4000) delete audioPeers[id];
+                    // 리더십이 바뀌면(다른 탭이 닫혔거나 등장) 현재 재생 중인 오디오 음소거를 갱신
+                    const a = document.getElementById('reaction-audio');
+                    if (a && a.src) a.muted = IS_MONITOR || !isAudioLeader();
+                }, 1000);
+            }
+        } catch (e) { console.warn('BroadcastChannel 초기화 실패 — 오디오는 항상 재생됩니다.', e); }
+
         function checkReactionQueue() {
             if (isDonationPopupShowing) return;
             
@@ -1944,6 +1984,7 @@
             // "슬롯머신님이 후원하셨습니다" 팝업이 중복이라 건너뛰고 바로 재생한다.
             const startPlayback = () => {
                 // 팝업이 끝나고 난 뒤 실제 리액션 시작!
+                autoplayBlocked = false;   // 새 재생 시도 시작 — 차단 플래그 초기화
 
                 // 2. 새로운 리액션 데이터 입력 (후원자명 + 금액 / 메시지)
                 let donatorName = data.donator || '익명';
@@ -1996,7 +2037,7 @@
                 if (data.audio_url) {
                     // Supabase Storage(CDN)는 안정적이므로 캐시버스터 없이 그대로 사용 → 브라우저 캐싱/미리받기 활용
                     audio.src = data.audio_url;
-                    audio.muted = IS_MONITOR;
+                    audio.muted = IS_MONITOR || !isAudioLeader();
 
                     audio.onended = function() {
                         console.log('Audio play ended naturally.');
@@ -2028,9 +2069,20 @@
 
                     audio.play().then(() => {
                         console.log('Audio playback started successfully.');
+                        autoplayBlocked = false;
+                        hideAutoplayWarning();
                     }).catch(err => {
-                        // ❌ 재생 실패 (autoplay 차단 등)
+                        // 🔀 재생이 '새 재생 요청' 또는 '정지'로 중간에 끊긴 경우(AbortError)는
+                        //    자동재생 차단이 아니다. 뒤이은 playReaction/stopReactionVisuals가 이미 상태를 정리했으므로
+                        //    여기서 리액션을 취소하면 멀쩡한 시그니처가 소리 없이 사라진다 → 조용히 무시한다.
+                        //    (후원이 몰려 들어오거나 SSE가 연달아 올 때 발생하던 "소리 안 나고 취소" 버그의 핵심)
+                        if (err && err.name === 'AbortError') {
+                            console.log('재생이 새 요청/정지로 대체됨(AbortError) — 취소하지 않고 무시:', err.message);
+                            return;
+                        }
+                        // ❌ 진짜 자동재생 차단(NotAllowedError 등) — 사용자 클릭 제스처로만 복구 가능
                         console.error('Audio autoplay blocked:', err);
+                        autoplayBlocked = true;
                         audio.onended = null;
                         audio.onerror = null;
                         audio.onloadedmetadata = null;
@@ -2216,19 +2268,19 @@
             }, 2000);
         }
 
-        // 화면 클릭(상호작용) 발생 시 자동재생 차단을 해제하고 음원 즉시 재생 시도
+        // 화면 클릭(상호작용) 발생 시 자동재생 차단을 해제하고 음원 즉시 재생 시도.
+        // ⚠️ [중복재생 방지] '실제로 자동재생이 막힌 경우(autoplayBlocked)'에만 다시 재생한다.
+        //    예전에는 audio.paused || !audio.src 조건으로 재생을 다시 걸었는데,
+        //    재생이 막 로딩되는 짧은 순간(아직 paused=true)에 클릭이 들어오면 같은 시그니처가
+        //    두 번 재생되는 사고가 있었다. 이제는 차단 플래그가 켜졌을 때만 복구한다.
         window.addEventListener('click', () => {
-            console.log("User clicked screen. Attempting to clear autoplay warning and resume audio.");
             hideAutoplayWarning();
-            
+            if (!autoplayBlocked) return;
             if (globalData && globalData.reaction_queue && globalData.reaction_queue.length > 0) {
-                const firstItem = globalData.reaction_queue[0];
-                const audio = document.getElementById('reaction-audio');
-                
-                if (audio && (audio.paused || !audio.src)) {
-                    console.log("Re-triggering playReaction from click interaction.");
-                    playReaction(firstItem);
-                }
+                console.log("자동재생 차단 상태에서 클릭 감지 — 재생을 다시 시도합니다.");
+                autoplayBlocked = false;
+                // playReaction 진입 시 예약돼 있던 '5초 뒤 취소' 타이머(reactionTimeout)는 자동으로 해제된다.
+                playReaction(globalData.reaction_queue[0]);
             }
         });
 
