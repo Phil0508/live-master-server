@@ -717,6 +717,7 @@
         <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 모드</button>
         <span class="tab-sep"></span>
         <!-- 연출 -->
         <span class="tab-glabel">연출</span>
@@ -730,7 +731,8 @@
         <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: #00ffcc; border-color: rgba(0,255,204,0.4); background: rgba(0,255,204,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
     </div>
 
-    <div id="tab-ranking" class="tab-content active">
+    <!-- 🎮 모드 탭: 임시게임판 + 퇴근전쟁 (랭킹 탭에서 분리해 옮김) -->
+    <div id="tab-mode" class="tab-content">
         <div class="group-box" id="extra-game-banner" style="margin-bottom: 15px; border-color: var(--border-light); background: rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
             <div class="group-title" style="color: #fff; border-bottom-color: var(--border-light); display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span><i class="fa-solid fa-rocket"></i> 지능형 번외 임시 게임판 제어 센터</span>
@@ -760,6 +762,9 @@
                 <div id="home-race-goal-inputs" style="display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
         </div>
+    </div>
+
+    <div id="tab-ranking" class="tab-content active">
 
         <div class="group-box" id="pending-box" style="display: none; border-color: rgba(255, 204, 0, 0.5); background: rgba(255, 204, 0, 0.03);">
             <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 204, 0, 0.2); display: flex; justify-content: space-between; align-items: center; width: 100%;">
