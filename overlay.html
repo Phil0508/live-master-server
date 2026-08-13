@@ -374,6 +374,11 @@
         }
         /* '@@업' 모드에서는 전광판 유리 바를 지우고 깔끔한 네온 텍스트만 흐르게 */
         .reac-neon-mode .ticker-bar { background: transparent; border: none; box-shadow: none; }
+        /* 큰 배너가 위/아래로 '갈라지며' 등장 → 그대로 스크롤. (컨테이너 위치/스케일은 안 건드리고 안쪽 바만 연출) */
+        @keyframes splitInTop    { 0% { transform: translateY(96px)  scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes splitInBottom { 0% { transform: translateY(-96px) scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        .split-top    .ticker-bar { animation: splitInTop    0.55s cubic-bezier(0.16, 1, 0.3, 1); }
+        .split-bottom .ticker-bar { animation: splitInBottom 0.55s cubic-bezier(0.16, 1, 0.3, 1); }
         
         #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; color: var(--text-main); pointer-events: none; } 
         /* 대결 컨테이너: 기본 숨김, .match-visible 클래스로만 표시 */
@@ -1077,52 +1082,109 @@
             return name + suffix;
         }
 
-        // 전광판(위/아래 티커) 갱신. 시그니처 재생 중이면 '@@업'을 네온으로 반복 스크롤,
-        // 아니면 기존 정적 전광판 문구(ticker_text)를 표시. 위치·크기는 에디터에 저장된 티커 좌표를 그대로 씀.
+        // ===== 전광판(위/아래 티커) 연출 =====
+        // 리액션 '@@업' 표시는 showReactionTitle 이 [큰 배너 → 갈라지며 등장 → 스크롤] 로 연출한다.
+        // updateTickers 는 '정적 전광판(ticker_text)'과 '리액션 종료 시 숨김'만 담당한다.
+        let tickerRevealTimer = null;
+        const TICKER_SPLIT_HOLD = 900;   // 큰 배너를 먼저 보여주는 시간(ms). 이후 갈라지며 전광판 등장.
+
+        function setTickerNeon(upText, tkNeon, tkGlow) {
+            const sep = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+            const chunk = Array(10).fill(upText).join(sep) + sep;
+            ['ticker_top', 'ticker_bottom'].forEach(id => {
+                const t = document.getElementById(id + '-text');
+                if (!t) return;
+                t.classList.add('reac-neon');
+                t.style.setProperty('--tk-neon', tkNeon);
+                t.style.setProperty('--tk-glow', tkGlow);
+                t.innerHTML = chunk + chunk;
+            });
+        }
+        function scrollTickers(spd) {
+            ['ticker_top', 'ticker_bottom'].forEach(id => {
+                const t = document.getElementById(id + '-text');
+                if (!t) return;
+                const w = t.scrollWidth / 2; const dur = w / Math.max(30, (spd || 70) * 8);
+                t.style.animation = 'none'; void t.offsetWidth;
+                t.style.animation = `tickerAnim ${dur}s linear infinite`;
+            });
+        }
+        function hideTickers() {
+            if (tickerRevealTimer) { clearTimeout(tickerRevealTimer); tickerRevealTimer = null; }
+            ['ticker_top', 'ticker_bottom'].forEach(id => {
+                const c = document.getElementById(id + '-container');
+                const t = document.getElementById(id + '-text');
+                if (c) { c.style.opacity = '0'; c.style.visibility = 'hidden'; c.classList.remove('reac-neon-mode', 'split-top', 'split-bottom'); }
+                if (t) t.classList.remove('reac-neon');
+            });
+        }
+        // 큰 배너 → 위/아래로 갈라지며 전광판 등장 → 그대로 스크롤
+        function revealTickerSplit(spd) {
+            hideReactionTitle();   // 큰 가운데 배너를 내리고
+            ['ticker_top', 'ticker_bottom'].forEach(id => {
+                const c = document.getElementById(id + '-container');
+                if (!c) return;
+                c.style.opacity = '1'; c.style.visibility = 'visible';
+                c.classList.add('reac-neon-mode');
+                c.classList.remove('split-top', 'split-bottom');
+                void c.offsetWidth;   // 애니메이션 재시작
+                c.classList.add(id === 'ticker_top' ? 'split-top' : 'split-bottom');
+            });
+            scrollTickers(spd);
+        }
+        // showReactionTitle 에서 호출: 큰 배너가 뜬 뒤 HOLD 후 갈라지며 전광판 등장 예약
+        function scheduleTickerSplit(upText, amount) {
+            let tkNeon = '#ff1f56', tkGlow = '255, 45, 100';
+            const t = reactionTier(amount);
+            if (t.level >= 4) { tkNeon = '#ffc41f'; tkGlow = '255, 205, 80'; }
+            else if (t.level >= 3) { tkNeon = '#ffb01f'; tkGlow = '255, 190, 60'; }
+            else if (t.level >= 2) { tkNeon = '#ff8f2e'; tkGlow = '255, 150, 60'; }
+            const spd = (globalData && globalData.ticker_speed) || 70;
+            // 내용/색은 미리 채우되(숨긴 채), HOLD 뒤 갈라지며 등장
+            hideTickers();
+            setTickerNeon(upText, tkNeon, tkGlow);
+            lastTickerState = 'R' + upText;   // updateTickers 가 중복 처리하지 않도록 표시
+            if (tickerRevealTimer) clearTimeout(tickerRevealTimer);
+            tickerRevealTimer = setTimeout(() => revealTickerSplit(spd), TICKER_SPLIT_HOLD);
+        }
+
         function updateTickers(d) {
             const reac = (d.reaction_queue && d.reaction_queue[0]) || null;
             const upText = reactionUpText(reac, d);
             const showReac = !!upText;
             const showStatic = !showReac && d.ticker_enabled && d.reaction_mode && !!d.ticker_text;
 
-            // 등급별 네온 색 (배너와 동일 팔레트)
-            let tkNeon = '#ff1f56', tkGlow = '255, 45, 100';
             if (showReac) {
-                const t = reactionTier(reac.amount);
-                if (t.level >= 4) { tkNeon = '#ffc41f'; tkGlow = '255, 205, 80'; }
-                else if (t.level >= 3) { tkNeon = '#ffb01f'; tkGlow = '255, 190, 60'; }
-                else if (t.level >= 2) { tkNeon = '#ff8f2e'; tkGlow = '255, 150, 60'; }
+                // 리액션 표시는 showReactionTitle→scheduleTickerSplit 이 담당. 여기선 손대지 않는다.
+                // (아직 연출 전이라 정적 티커가 남아 있으면만 잠깐 치운다)
+                ['ticker_top', 'ticker_bottom'].forEach(id => {
+                    const c = document.getElementById(id + '-container');
+                    if (c && !c.classList.contains('reac-neon-mode')) { c.style.opacity = '0'; c.style.visibility = 'hidden'; }
+                });
+                return;
             }
 
-            const key = 'R' + upText + '|S' + (showStatic ? d.ticker_text : '') + '|' + d.ticker_speed + '|' + tkNeon;
+            const key = 'S' + (showStatic ? d.ticker_text : '') + '|' + d.ticker_speed;
             if (key === lastTickerState) return;
             lastTickerState = key;
 
-            ['ticker_top', 'ticker_bottom'].forEach(id => {
-                const c = document.getElementById(id + '-container');
-                const t = document.getElementById(id + '-text');
-                if (!c || !t) return;
-                if (showReac || showStatic) {
+            if (showStatic) {
+                const sep = '&nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp;';
+                const chunk = Array(15).fill(d.ticker_text).join(sep) + sep;
+                ['ticker_top', 'ticker_bottom'].forEach(id => {
+                    const c = document.getElementById(id + '-container');
+                    const t = document.getElementById(id + '-text');
+                    if (!c || !t) return;
                     c.style.opacity = '1'; c.style.visibility = 'visible';
-                    c.classList.toggle('reac-neon-mode', showReac);
-                    t.classList.toggle('reac-neon', showReac);
-                    if (showReac) { t.style.setProperty('--tk-neon', tkNeon); t.style.setProperty('--tk-glow', tkGlow); }
-                    const base = showReac ? upText : d.ticker_text;
-                    const sep = showReac
-                        ? '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'
-                        : '&nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp;';
-                    const chunk = Array(showReac ? 10 : 15).fill(base).join(sep) + sep;
+                    c.classList.remove('reac-neon-mode', 'split-top', 'split-bottom');
+                    t.classList.remove('reac-neon');
                     t.innerHTML = chunk + chunk;
-                    setTimeout(() => {
-                        const w = t.scrollWidth / 2; const spd = d.ticker_speed || 70; const dur = w / Math.max(30, spd * 8);
-                        t.style.animation = 'none'; void t.offsetWidth;
-                        t.style.animation = `tickerAnim ${dur}s linear infinite`;
-                    }, 50);
-                } else {
-                    c.style.opacity = '0'; c.style.visibility = 'hidden';
-                    c.classList.remove('reac-neon-mode'); t.classList.remove('reac-neon');
-                }
-            });
+                    const w = t.scrollWidth / 2; const dur = w / Math.max(30, (d.ticker_speed || 70) * 8);
+                    t.style.animation = 'none'; void t.offsetWidth; t.style.animation = `tickerAnim ${dur}s linear infinite`;
+                });
+            } else {
+                hideTickers();
+            }
         }
 
         function handleData(d) {
@@ -2167,38 +2229,47 @@
 
         // 🔥 시그니처 이름 대형 네온 배너
         let reactionTitleTimeout = null;
-        // 큰 가운데 '@@업' 배너: 시그니처 재생 시작 시 잠깐 크게 등장(임팩트).
-        //    이후에는 위/아래 전광판(updateTickers)이 '@@업'을 계속 스크롤한다 — 둘 다 동작.
+        // 시그니처 재생 시작 시: 큰 가운데 '@@업' 배너가 잠깐 등장 → 위/아래로 갈라지며
+        //   전광판으로 내려가 그대로 스크롤. (연출은 scheduleTickerSplit / revealTickerSplit 담당)
         function showReactionTitle(who, isSlot, amount) {
-            const el = document.getElementById('reaction-title-banner');
-            if (!el) return;
             const gd = globalData || {};
-            if (gd.reaction_title_enabled === false) { hideReactionTitle(); return; }
-
             let name = (who || '').trim();
-            if (name.endsWith('님')) name = name.slice(0, -1);   // "홍길동님" 으로 들어와도 "홍길동업"
+            if (name.endsWith('님')) name = name.slice(0, -1);   // "홍길동님" → "홍길동업"
             if (!name) { hideReactionTitle(); return; }
-            // 슬롯 당첨은 후원자가 없으므로 접미사 없이 시그니처 이름만 띄운다.
+            // 슬롯 당첨은 후원자가 없으므로 접미사 없이 시그니처 이름만.
             const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
             const text = name + suffix;
 
-            // 금액 등급에 따라 배너 색(핑크→골드)·크기를 바꾼다
-            const t = reactionTier(amount);
-            el.classList.remove('tier-2', 'tier-3', 'tier-4');
-            if (t.level >= 4) el.classList.add('tier-4');
-            else if (t.level >= 3) el.classList.add('tier-3');
-            else if (t.level >= 2) el.classList.add('tier-2');
+            const el = document.getElementById('reaction-title-banner');
+            const bannerOn = el && gd.reaction_title_enabled !== false;
 
-            if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
-            el.innerText = text;
-            // 재생마다 등장 애니메이션이 다시 돌도록 클래스를 떼었다 붙인다
-            el.classList.remove('show');
-            void el.offsetWidth;
-            el.classList.add('show');
-
-            // 고액일수록 배너를 조금 더 오래 보여준다
-            const dur = (parseInt(gd.reaction_title_duration) || 3500) + (t.durBonus || 0);
-            reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, dur);
+            if (bannerOn) {
+                // 큰 배너 등장(등급 색/크기)
+                const t = reactionTier(amount);
+                el.classList.remove('tier-2', 'tier-3', 'tier-4');
+                if (t.level >= 4) el.classList.add('tier-4');
+                else if (t.level >= 3) el.classList.add('tier-3');
+                else if (t.level >= 2) el.classList.add('tier-2');
+                if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
+                el.innerText = text;
+                el.classList.remove('show');
+                void el.offsetWidth;
+                el.classList.add('show');
+                // 배너는 스플릿 등장 때 내려가므로(revealTickerSplit→hideReactionTitle) 백업 타이머만 둔다.
+                reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, TICKER_SPLIT_HOLD + 500);
+                scheduleTickerSplit(text, amount);   // HOLD 뒤 갈라지며 전광판 등장 → 스크롤
+            } else {
+                // 큰 배너 꺼짐 → 전광판만 즉시 갈라지며 등장
+                hideReactionTitle();
+                let tkNeon = '#ff1f56', tkGlow = '255, 45, 100';
+                const t = reactionTier(amount);
+                if (t.level >= 4) { tkNeon = '#ffc41f'; tkGlow = '255, 205, 80'; }
+                else if (t.level >= 3) { tkNeon = '#ffb01f'; tkGlow = '255, 190, 60'; }
+                else if (t.level >= 2) { tkNeon = '#ff8f2e'; tkGlow = '255, 150, 60'; }
+                setTickerNeon(text, tkNeon, tkGlow);
+                lastTickerState = 'R' + text;
+                revealTickerSplit((gd.ticker_speed) || 70);
+            }
         }
         function hideReactionTitle() {
             const el = document.getElementById('reaction-title-banner');
@@ -2221,6 +2292,8 @@
             const box = document.getElementById('reaction-img-box');
             if (box) box.classList.remove('glow', 'shine', 'shake', 'shake-strong');
             hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
+            hideTickers();         // 위/아래 '@@업' 전광판도 함께 내림(예약된 스플릿 등장도 취소)
+            lastTickerState = '';  // 다음 재생 때 전광판이 다시 그려지도록 초기화
             if (audio) {
                 audio.onended = null;
                 audio.onerror = null;
