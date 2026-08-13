@@ -1961,15 +1961,27 @@ def yt_search():
 def api_data():
     if request.method == 'POST':
         with file_lock:
-            state = request.json or {}
+            incoming = request.json or {}
             current_state = load_data()
-            
-            # [수정] 409 conflict로 인한 경고창(Alert) 발생을 원천 차단하기 위해 409 검증을 제거하고,
-            # 마지막으로 전송된 상태를 기준으로 버전을 갱신하여 저장합니다. (Last-Write-Wins)
-            client_version = state.get('version', 0)
-            server_version = current_state.get('version', 1)
-            
-            state['version'] = max(client_version, server_version) + 1
+
+            # 🛡️ [동시성 수정] 예전에는 클라이언트가 보낸 전체 상태로 서버를 통째로 덮어썼다(Last-Write-Wins).
+            #   그러면 후원이 막 들어와 서버가 큐에 시그니처를 넣은 순간, (후원 직전 상태를 들고 있던)
+            #   조종실이 점수 버튼을 누르면 그 스테일 상태가 서버를 덮어써서 방금 들어온 시그니처가
+            #   큐에서 사라졌다("시그니처가 씹힌다"). 그래서 '서버만 건드리는 필드'는 클라이언트가
+            #   덮어쓰지 못하게 서버 값을 유지한다. (이 필드들은 후원 수신·큐 조작 엔드포인트에서만 바뀐다.
+            #   조종실/모바일/에디터의 어떤 조작도 /api/data 로 이 필드를 직접 수정하지 않으므로 안전하다.)
+            SERVER_OWNED = ('reaction_queue', 'latest_donation')
+            state = dict(current_state)
+            state.update(incoming)                      # 클라이언트 편집 필드는 그대로 반영(점수·설정·승인 등 기존 동작 유지)
+            for k in SERVER_OWNED:
+                if k in current_state:
+                    state[k] = current_state[k]          # 서버 소유 필드는 서버의 최신 값을 유지
+            # 큐에 항목이 남아 있으면 리액션 모드는 항상 켜져 있어야 한다(스테일 클라이언트가 끄는 사고 방지)
+            if state.get('reaction_queue'):
+                state['reaction_mode'] = True
+
+            # [버전] 409 경고 대신 마지막 전송 기준으로 버전만 올린다.
+            state['version'] = max(incoming.get('version', 0), current_state.get('version', 1)) + 1
 
             # ⚠️ 여기서 동기 저장을 하면 안 된다.
             # 점수 버튼은 방송 중 연타하는 조작인데, Render(오레곤)→Supabase(서울) 왕복 때문에
