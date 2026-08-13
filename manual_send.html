@@ -111,6 +111,20 @@
     .rrow .tot{font-size:18px;font-weight:800;color:var(--gold);flex-shrink:0;min-width:110px;text-align:right;letter-spacing:-0.3px}
     .rank-empty{text-align:center;color:var(--faint);padding:60px 20px;font-size:14px;line-height:1.7}
 
+    /* ── 대기열 ── */
+    .qrow{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px}
+    .qrow.playing{background:linear-gradient(100deg,rgba(47,230,176,0.14),var(--surface) 60%);border-color:rgba(47,230,176,0.45)}
+    .qrow .qthumb{width:56px;height:56px;border-radius:11px;object-fit:cover;background:#0c0d12;flex-shrink:0;border:1px solid var(--border)}
+    .qrow .qbody{flex:1;min-width:0}
+    .qrow .qtop{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+    .qbadge{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:20px;background:var(--surface-3);color:var(--muted);flex-shrink:0}
+    .qbadge.live{background:var(--mint);color:#05231a}
+    .qrow .qname{font-size:15px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .qrow .qsig{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .qrow .qamt{font-size:16px;font-weight:800;color:var(--gold);flex-shrink:0}
+    .qrow .qdel{background:transparent;border:1px solid var(--border);color:var(--pink);width:34px;height:34px;border-radius:10px;cursor:pointer;flex-shrink:0;font-size:14px;transition:all .15s}
+    .qrow .qdel:hover{border-color:var(--pink);background:rgba(255,92,138,0.12)}
+
     /* 토스트 */
     .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:14px;padding:14px 24px;border-radius:30px;box-shadow:0 10px 34px rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:all .3s cubic-bezier(0.16,1,0.3,1);z-index:999}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -132,6 +146,7 @@
 
     <div class="tabs">
         <button class="tab active" id="tab-btn-send" onclick="switchTab('send')"><i class="fa-solid fa-paper-plane"></i> 수동 송출</button>
+        <button class="tab" id="tab-btn-queue" onclick="switchTab('queue')"><i class="fa-solid fa-list-ol"></i> 대기열 <span id="tab-queue-badge" style="display:none; background:var(--pink); color:#fff; font-size:11px; padding:1px 7px; border-radius:10px; margin-left:2px;">0</span></button>
         <button class="tab" id="tab-btn-rank" onclick="switchTab('rank')"><i class="fa-solid fa-trophy"></i> 후원 순위</button>
     </div>
 
@@ -180,6 +195,21 @@
         </div>
     </div>
 
+    <!-- ═══ 시그니처 대기열 ═══ -->
+    <div class="pane" id="pane-queue">
+        <div class="rank-head">
+            <div class="rank-stats">
+                <div class="stat"><div class="k">대기 중</div><div class="v" id="q-count">0개</div></div>
+                <div class="stat"><div class="k">연결 상태</div><div class="v" id="q-conn" style="font-size:15px; color:var(--muted);">연결 중…</div></div>
+            </div>
+            <div class="refresh">
+                <button onclick="skipCurrent()" style="border-color:rgba(255,203,69,0.5); color:var(--gold);"><i class="fa-solid fa-forward-step"></i> 건너뛰기</button>
+                <button onclick="clearQueue()" style="border-color:rgba(255,92,138,0.5); color:var(--pink);"><i class="fa-solid fa-trash-can"></i> 전체 비우기</button>
+            </div>
+        </div>
+        <div class="rank-list" id="queue-list"><div class="rank-empty">불러오는 중…</div></div>
+    </div>
+
     <!-- ═══ 후원 순위 ═══ -->
     <div class="pane" id="pane-rank">
         <div class="rank-head">
@@ -209,10 +239,10 @@
 
     /* ── 탭 전환 ── */
     function switchTab(which){
-        $('tab-btn-send').classList.toggle('active', which==='send');
-        $('tab-btn-rank').classList.toggle('active', which==='rank');
-        $('pane-send').classList.toggle('active', which==='send');
-        $('pane-rank').classList.toggle('active', which==='rank');
+        ['send','queue','rank'].forEach(t=>{
+            $('tab-btn-'+t).classList.toggle('active', which===t);
+            $('pane-'+t).classList.toggle('active', which===t);
+        });
         if(which==='rank'){ loadRanking(true); startRankAuto(); }
         else { stopRankAuto(); }
     }
@@ -300,6 +330,7 @@
             if(data.status==='success'){
                 toast('✓ 송출했습니다'+(ledger?' (장부 기록됨)':''));
                 $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; updatePreview();
+                refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
             }else{ toast('송출 실패: '+(data.message||''),true); }
         }catch(e){ toast('통신 실패: '+e.message,true); }
         finally{ btn.disabled=false; }
@@ -334,11 +365,97 @@
     function startRankAuto(){ stopRankAuto(); rankTimer=setInterval(()=>loadRanking(false),8000); }
     function stopRankAuto(){ if(rankTimer){ clearInterval(rankTimer); rankTimer=null; } }
 
+    /* ── 시그니처 대기열 (SSE 실시간) ──
+       투네이션 자동 후원과 수동 송출이 섞여 들어와도 지연 없이 즉시 반영되도록
+       폴링이 아니라 서버 푸시(SSE)를 쓴다. 연결이 끊기면 자동 재연결 + 폴백 폴링. */
+    let queueSse = null, queuePollTimer = null;
+
+    function renderQueue(d){
+        const q = (d && d.reaction_queue) || [];
+        $('q-count').textContent = q.length + '개';
+        const badge = $('tab-queue-badge');
+        if(badge){ badge.style.display = q.length ? 'inline-block' : 'none'; badge.textContent = q.length; }
+
+        const box = $('queue-list');
+        if(!q.length){
+            box.innerHTML = '<div class="rank-empty">대기 중인 시그니처가 없습니다.<br>후원이 들어오거나 수동 송출하면 여기에 표시됩니다.</div>';
+            return;
+        }
+        box.innerHTML = q.map((it,i)=>{
+            const playing = i===0;
+            return `<div class="qrow${playing?' playing':''}">
+                ${it.image_url?`<img class="qthumb" src="${escapeHtml(it.image_url)}" alt="">`:`<div class="qthumb" style="display:flex;align-items:center;justify-content:center;color:#4a4d5a"><i class="fa-solid fa-music"></i></div>`}
+                <div class="qbody">
+                    <div class="qtop">
+                        <span class="qbadge${playing?' live':''}">${playing?'재생중':'대기 '+i}</span>
+                        <span class="qname">${escapeHtml(it.donator||'익명')}</span>
+                    </div>
+                    <div class="qsig">${escapeHtml(it.title||'')}</div>
+                </div>
+                <div class="qamt">${fmt(it.amount||0)}원</div>
+                <button class="qdel" title="목록에서 제거" onclick="removeQueueItem('${escapeHtml(it.id)}')"><i class="fa-solid fa-xmark"></i></button>
+            </div>`;
+        }).join('');
+    }
+
+    function setConn(ok){
+        const el=$('q-conn');
+        if(!el) return;
+        el.textContent = ok ? '실시간 연결됨' : '재연결 중…';
+        el.style.color = ok ? 'var(--mint)' : 'var(--muted)';
+    }
+
+    function startQueueStream(){
+        try{
+            if(queueSse) queueSse.close();
+            queueSse = new EventSource('/api/stream');
+            const onData = e => { try{ renderQueue(JSON.parse(e.data)); setConn(true); }catch(err){} };
+            queueSse.addEventListener('init', onData);
+            queueSse.addEventListener('update', onData);
+            queueSse.onopen = () => setConn(true);
+            queueSse.onerror = () => {
+                setConn(false);
+                // EventSource가 자동 재연결하지만, 혹시 막히면 폴링으로라도 최신 상태를 유지
+                if(!queuePollTimer) queuePollTimer = setInterval(refreshQueueOnce, 3000);
+            };
+        }catch(e){
+            if(!queuePollTimer) queuePollTimer = setInterval(refreshQueueOnce, 3000);
+        }
+    }
+    async function refreshQueueOnce(){
+        try{ const d = await (await fetch('/api/data')).json(); renderQueue(d); }catch(e){}
+    }
+
+    window.removeQueueItem = async function(id){
+        try{
+            await fetch('/api/reaction/queue/remove/'+encodeURIComponent(id), {method:'POST'});
+            toast('목록에서 제거했습니다');
+            refreshQueueOnce();
+        }catch(e){ toast('제거 실패: '+e.message, true); }
+    };
+    window.skipCurrent = async function(){
+        try{
+            const res = await fetch('/api/reaction/next', {method:'POST'});
+            const d = await res.json();
+            toast(d.status==='success' ? '다음으로 넘겼습니다' : ('넘기기 실패: '+(d.message||'')), d.status!=='success');
+            refreshQueueOnce();
+        }catch(e){ toast('통신 실패: '+e.message, true); }
+    };
+    window.clearQueue = async function(){
+        if(!confirm('대기 중인 시그니처를 모두 지울까요? (재생 중인 것도 중단됩니다)')) return;
+        try{
+            await fetch('/api/reaction/stop', {method:'POST'});
+            toast('대기열을 비웠습니다');
+            refreshQueueOnce();
+        }catch(e){ toast('실패: '+e.message, true); }
+    };
+
     /* ── 바인딩 ── */
     ['in-amount','in-donor','in-msg'].forEach(id=>$(id).addEventListener('input',updatePreview));
     $('in-amount').addEventListener('keydown',e=>{ if(e.key==='Enter') send(); });
     $('btn-send').addEventListener('click',send);
     loadSigs();
+    startQueueStream();   // 대기열은 어느 탭에 있든 항상 최신 상태로 유지(탭 뱃지에 개수 표시)
 </script>
 </body>
 </html>
