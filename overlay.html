@@ -510,12 +510,12 @@
         .reaction-screen-overlay.show {
             opacity: 1;
             visibility: visible;
-            transform: translate(-50%, -50%) scale(1);
+            transform: translate(-50%, -50%) scale(var(--reac-big, 1));
         }
         .reaction-screen-overlay.show.minimize {
-            left: 180px;
-            top: 600px;
-            transform: translate(-50%, -50%) scale(0.6);
+            left: var(--reac-min-x, 180px);
+            top: var(--reac-min-y, 600px);
+            transform: translate(-50%, -50%) scale(var(--reac-small, 0.6));
         }
         .reaction-screen-overlay img {
             max-width: 100%;
@@ -960,6 +960,13 @@
                     const audio = document.getElementById('reaction-audio');
                     if (audio) audio.volume = d.reaction_volume;
                 }
+
+                // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수
+                const rs = document.documentElement.style;
+                if (d.reaction_big_scale !== undefined)   rs.setProperty('--reac-big', d.reaction_big_scale);
+                if (d.reaction_small_scale !== undefined) rs.setProperty('--reac-small', d.reaction_small_scale);
+                if (d.reaction_min_x !== undefined)       rs.setProperty('--reac-min-x', d.reaction_min_x + 'px');
+                if (d.reaction_min_y !== undefined)       rs.setProperty('--reac-min-y', d.reaction_min_y + 'px');
 
                 // 💡 [번외 게임 활성화 상태 동적 체킹 및 슬라이딩 트리거]
                 let extraActive = d.extra_game_active || false;
@@ -2015,10 +2022,10 @@
                 overlay.classList.remove('minimize');
                 overlay.classList.add('show');
                 
-                // 4. 2.5초 후 좌측으로 부드럽게 이동/축소 (BJ 가림 방지)
+                // 4. 설정한 시간 뒤 좌측으로 부드럽게 이동/축소 (BJ 가림 방지). admin 에디터에서 조절.
                 reactionMinimizeTimeout = setTimeout(() => {
                     overlay.classList.add('minimize');
-                }, 2500);
+                }, (globalData && globalData.reaction_shrink_delay) || 2500);
                 
                 // 5. 음원 재생 및 종료 콜백 설정
                 // ⚠️ [중요] 이 아이템의 id를 클로저에 고정한다.

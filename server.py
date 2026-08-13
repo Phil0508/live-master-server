@@ -527,6 +527,12 @@ DEFAULT_STATE = {
     "reaction_mode": False,
     "reaction_queue": [],
     "reaction_volume": 0.5,
+    # 🎬 시그니처 리액션 위젯 크기/위치/축소타이밍 (admin 에디터에서 조절, DEFAULT_STATE에 없으면 재시작 시 소실)
+    "reaction_big_scale": 1.0,     # 처음 크게 보일 때 배율
+    "reaction_small_scale": 0.6,   # 줄어든 뒤 배율
+    "reaction_min_x": 180,         # 줄어든 뒤 위치 X(뷰포트 px, 중심 기준)
+    "reaction_min_y": 600,         # 줄어든 뒤 위치 Y(뷰포트 px, 중심 기준)
+    "reaction_shrink_delay": 2500, # 크게 보였다가 줄어들기까지(ms)
     "popup_enabled": True,
     "takeover_enabled": True,
     "ticker_enabled": True,
