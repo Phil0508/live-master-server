@@ -655,10 +655,8 @@
     </div>
 
     <!-- 💾 떠다니는 비상 백업 다운로드 버튼 — 항상 우하단에 떠 있고, 누르면 현재 데이터를 즉시 파일로 저장 -->
-    <button id="float-backup-btn" onclick="downloadLocalBackupFile()" title="오프라인 비상 백업 — 지금 상태를 파일로 즉시 다운로드"
-        style="position:fixed; right:22px; bottom:22px; z-index:9500; height:52px; padding:0 18px 0 16px; border-radius:26px; background:var(--accent); color:#04203f; border:none; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08); display:inline-flex; align-items:center; gap:9px; font-size:14px; font-weight:800; transition:transform .15s ease, box-shadow .15s ease;"
-        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 26px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.12)';"
-        onmouseout="this.style.transform='none'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08)';">
+    <button id="float-backup-btn" title="오프라인 비상 백업 — 클릭하면 즉시 다운로드 · 드래그해서 위치 이동"
+        style="position:fixed; right:22px; bottom:22px; z-index:9500; height:52px; padding:0 18px 0 16px; border-radius:26px; background:var(--accent); color:#04203f; border:none; cursor:grab; box-shadow:0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08); display:inline-flex; align-items:center; gap:9px; font-size:14px; font-weight:800; user-select:none; touch-action:none;">
         <i class="fa-solid fa-download" style="font-size:17px;"></i> 백업
     </button>
     <div class="header">
@@ -723,19 +721,19 @@
         <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
         <button class="tab-btn tab-key" onclick="openTab(event, 'tab-reaction'); loadSignatureLibrary();"><i class="fa-solid fa-music"></i> 시그니처</button>
         <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
-        <span class="tab-sep"></span>
-        <!-- 게임 -->
-        <span class="tab-glabel">게임</span>
-        <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 모드</button>
+        <button class="tab-btn tab-key" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
         <span class="tab-sep"></span>
         <!-- 연출 -->
         <span class="tab-glabel">연출</span>
         <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+        <span class="tab-sep"></span>
+        <!-- 게임 -->
+        <span class="tab-glabel">게임</span>
+        <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 모드</button>
         <span class="tab-sep"></span>
         <!-- 설정 -->
         <span class="tab-glabel">설정</span>
@@ -4939,7 +4937,7 @@
         const EDGE = 70;   // 좌우 끝에서 이 픽셀 안쪽에 커서가 오면 자동 스크롤
         function step() {
             if (dir !== 0 && bar.scrollWidth > bar.clientWidth + 1) {
-                bar.scrollLeft += dir * (5 + speed * 20);   // 끝에 가까울수록 빠르게
+                bar.scrollLeft += dir * (3 + speed * 12);   // 끝에 가까울수록 빠르게(속도 낮춤)
                 raf = requestAnimationFrame(step);
             } else { raf = null; dir = 0; }
         }
@@ -4953,6 +4951,39 @@
             if (dir !== 0 && raf === null) raf = requestAnimationFrame(step);
         });
         bar.addEventListener('mouseleave', function () { dir = 0; });
+    })();
+
+    // 💾 떠다니는 백업 버튼을 마우스로 옮길 수 있게 (드래그) + 위치 기억. 클릭(안 움직였을 때)은 다운로드.
+    (function () {
+        const fab = document.getElementById('float-backup-btn');
+        if (!fab) return;
+        let down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+        const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+        try {
+            const p = JSON.parse(localStorage.getItem('fabBackupPos') || 'null');
+            if (p && p.l != null && p.t != null) { fab.style.left = p.l + 'px'; fab.style.top = p.t + 'px'; fab.style.right = 'auto'; fab.style.bottom = 'auto'; }
+        } catch (e) {}
+        fab.addEventListener('mousedown', function (e) {
+            down = true; moved = false;
+            const r = fab.getBoundingClientRect();
+            fab.style.left = r.left + 'px'; fab.style.top = r.top + 'px'; fab.style.right = 'auto'; fab.style.bottom = 'auto';
+            sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+            fab.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', function (e) {
+            if (!down) return;
+            const dx = e.clientX - sx, dy = e.clientY - sy;
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
+            fab.style.left = clamp(ox + dx, 4, window.innerWidth - fab.offsetWidth - 4) + 'px';
+            fab.style.top = clamp(oy + dy, 4, window.innerHeight - fab.offsetHeight - 4) + 'px';
+        });
+        window.addEventListener('mouseup', function () {
+            if (!down) return;
+            down = false; fab.style.cursor = 'grab';
+            if (moved) { try { localStorage.setItem('fabBackupPos', JSON.stringify({ l: parseInt(fab.style.left), t: parseInt(fab.style.top) })); } catch (e) {} }
+        });
+        fab.addEventListener('click', function () { if (moved) { moved = false; return; } downloadLocalBackupFile(); });
     })();
     </script>
 
