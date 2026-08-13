@@ -914,7 +914,15 @@
                 serverTimeOffset = d.server_time - Date.now();
             }
             globalData = d;
-            
+
+            // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
+            //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
+            const rs = document.documentElement.style;
+            if (d.reaction_big_scale !== undefined)   rs.setProperty('--reac-big', d.reaction_big_scale);
+            if (d.reaction_small_scale !== undefined) rs.setProperty('--reac-small', d.reaction_small_scale);
+            if (d.reaction_min_x !== undefined)       rs.setProperty('--reac-min-x', d.reaction_min_x + 'px');
+            if (d.reaction_min_y !== undefined)       rs.setProperty('--reac-min-y', d.reaction_min_y + 'px');
+
             let isActive = d.broadcast_active || false;
             // ⚠️ home-race 도 반드시 포함해야 한다. 빠져 있으면 퇴근빵을 켠 채 방송을 종료했을 때
             //    아래 early return 때문에 renderHomeRace 까지 못 가서, 옛 진행바를 담은 카드가
@@ -960,13 +968,6 @@
                     const audio = document.getElementById('reaction-audio');
                     if (audio) audio.volume = d.reaction_volume;
                 }
-
-                // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수
-                const rs = document.documentElement.style;
-                if (d.reaction_big_scale !== undefined)   rs.setProperty('--reac-big', d.reaction_big_scale);
-                if (d.reaction_small_scale !== undefined) rs.setProperty('--reac-small', d.reaction_small_scale);
-                if (d.reaction_min_x !== undefined)       rs.setProperty('--reac-min-x', d.reaction_min_x + 'px');
-                if (d.reaction_min_y !== undefined)       rs.setProperty('--reac-min-y', d.reaction_min_y + 'px');
 
                 // 💡 [번외 게임 활성화 상태 동적 체킹 및 슬라이딩 트리거]
                 let extraActive = d.extra_game_active || false;
