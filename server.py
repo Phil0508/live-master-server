@@ -533,6 +533,10 @@ DEFAULT_STATE = {
     "reaction_min_x": 180,         # 줄어든 뒤 위치 X(뷰포트 px, 중심 기준)
     "reaction_min_y": 600,         # 줄어든 뒤 위치 Y(뷰포트 px, 중심 기준)
     "reaction_shrink_delay": 2500, # 크게 보였다가 줄어들기까지(ms)
+    # 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
+    "reaction_title_enabled": True,
+    "reaction_title_size": 150,     # 글자 크기(px)
+    "reaction_title_duration": 3500,# 노출 시간(ms)
     "popup_enabled": True,
     "takeover_enabled": True,
     "ticker_enabled": True,

@@ -488,6 +488,37 @@
         .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: 0 0 28px var(--gold-glow); margin: 12px 0 14px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
         .donation-message { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px; padding: 13px 32px; font-size: 24px; font-weight: 600; color: var(--tx-2); max-width: 700px; word-break: break-all; line-height: 1.45; }
 
+        /* 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
+           크기/노출시간은 admin 에디터 값(--reac-title-size)으로 조절한다. */
+        #reaction-title-banner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.7);
+            font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif;
+            font-size: var(--reac-title-size, 150px);
+            font-weight: 900;
+            letter-spacing: 2px;
+            white-space: nowrap;
+            color: #fff;
+            -webkit-text-stroke: 3px #ff2d78;
+            text-shadow:
+                0 0 12px #ff2d78,
+                0 0 30px #ff2d78,
+                0 0 60px rgba(255,45,120,0.85),
+                0 0 110px rgba(255,45,120,0.5);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            z-index: 100015;
+            transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #reaction-title-banner.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
         /* 🎵 리액션 음원/사진 송출 화면 오버레이 스타일 */
         .reaction-screen-overlay {
             position: fixed;
@@ -586,6 +617,9 @@
         <div id="reaction-message-info" class="reaction-text-message"></div>
     </div>
     <audio id="reaction-audio" style="display:none;"></audio>
+
+    <!-- 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙, 재생 시작 시 잠깐 노출) -->
+    <div id="reaction-title-banner"></div>
     
     <div id="audi-overlay" class="audi-layer">
         <div class="audi-container left">
@@ -922,6 +956,7 @@
             if (d.reaction_small_scale !== undefined) rs.setProperty('--reac-small', d.reaction_small_scale);
             if (d.reaction_min_x !== undefined)       rs.setProperty('--reac-min-x', d.reaction_min_x + 'px');
             if (d.reaction_min_y !== undefined)       rs.setProperty('--reac-min-y', d.reaction_min_y + 'px');
+            if (d.reaction_title_size !== undefined)  rs.setProperty('--reac-title-size', d.reaction_title_size + 'px');
 
             let isActive = d.broadcast_active || false;
             // ⚠️ home-race 도 반드시 포함해야 한다. 빠져 있으면 퇴근빵을 켠 채 방송을 종료했을 때
@@ -1920,6 +1955,32 @@
             }
         }
 
+        // 🔥 시그니처 이름 대형 네온 배너
+        let reactionTitleTimeout = null;
+        function showReactionTitle(title) {
+            const el = document.getElementById('reaction-title-banner');
+            if (!el) return;
+            const gd = globalData || {};
+            if (gd.reaction_title_enabled === false) { hideReactionTitle(); return; }
+            const text = (title || '').trim();
+            if (!text) { hideReactionTitle(); return; }
+
+            if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
+            el.innerText = text;
+            // 재생마다 등장 애니메이션이 다시 돌도록 클래스를 떼었다 붙인다
+            el.classList.remove('show');
+            void el.offsetWidth;
+            el.classList.add('show');
+
+            const dur = parseInt(gd.reaction_title_duration) || 3500;
+            reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, dur);
+        }
+        function hideReactionTitle() {
+            const el = document.getElementById('reaction-title-banner');
+            if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
+            if (el) el.classList.remove('show');
+        }
+
         function stopReactionVisuals() {
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -1929,6 +1990,7 @@
                 overlay.classList.remove('show');
                 overlay.classList.remove('minimize');
             }
+            hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
             if (audio) {
                 audio.onended = null;
                 audio.onerror = null;
@@ -2022,6 +2084,9 @@
                 // 3. 카드 노출 (페이드인 & 스케일 바운스) - 중앙에 크게
                 overlay.classList.remove('minimize');
                 overlay.classList.add('show');
+
+                // 3-b. 시그니처 이름을 화면 중앙에 대형 네온으로 잠깐 노출
+                showReactionTitle(data.title);
                 
                 // 4. 설정한 시간 뒤 좌측으로 부드럽게 이동/축소 (BJ 가림 방지). admin 에디터에서 조절.
                 reactionMinimizeTimeout = setTimeout(() => {
