@@ -10,6 +10,7 @@
         }
     </script>
     <title>💻 마스터 웹 컨트롤러 V12 (다이내믹 이펙트 매니저 탑재)</title>
+    <script src="/comma_input.js"></script>
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -1070,7 +1071,7 @@
                         </div>
                         <div style="flex: 1;">
                             <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">재생시간(초)</label>
-                            <input type="number" id="sig-form-duration" value="10" style="width: 100%; height: 36px; font-size: 13px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 12px; box-sizing: border-box;">
+                            <input type="number" id="sig-form-duration" value="10" data-no-comma style="width: 100%; height: 36px; font-size: 13px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 12px; box-sizing: border-box;">
                         </div>
                     </div>
                     <div style="font-size: 11px; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 8px; line-height: 1.5;">
@@ -1821,7 +1822,7 @@
             const setHtml = (id, val) => { let el = document.getElementById(id); if(el && el.innerHTML !== val) el.innerHTML = val; };
 
             setVal('sel-theme', gd.theme || 'default');
-            setVal('in-goal', gd.target_goal);
+            setVal('in-goal', gd.target_goal); commaFormat('in-goal');
             
             setChk('chk-reaction', gd.reaction_mode);
             let reactLbl = gd.reaction_mode ? "<i class='fa-solid fa-eye-slash'></i> 위젯 숨김 (리액션 ON)" : "<i class='fa-solid fa-eye'></i> 수동 리액션 켜기";
@@ -2438,7 +2439,7 @@
         function confirmContribChange(idx) {
             let inputEl = document.getElementById('edit-contrib-popover-input');
             if (inputEl) {
-                let parsed = parseInt(inputEl.value);
+                let parsed = parseInt(String(inputEl.value).replace(/[^\d-]/g,''));
                 if (!isNaN(parsed)) {
                     let isExtra = gd.extra_game_active || false;
                     let targetList = isExtra ? gd.extra_bjs : gd.bjs;
@@ -2510,7 +2511,7 @@
         function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
         function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
         function updateGoal() {
-            gd.target_goal = parseInt(document.getElementById('in-goal').value)||0;
+            gd.target_goal = rawNum('in-goal');
             // 목표를 바꾸면 달성 알림을 다시 받을 수 있게 초기화
             gd.goal_event_pending = false;
             gd.goal_event_approved = false;
@@ -2567,7 +2568,7 @@
 
         function setHomeGoal(name, val) {
             if (!gd.home_goals) gd.home_goals = {};
-            gd.home_goals[name] = parseInt(val) || 0;
+            gd.home_goals[name] = parseInt(String(val).replace(/[^\d-]/g,'')) || 0;
             // 목표를 새로 정하면 다시 퇴근 알림을 받을 수 있게 기록을 지운다
             if (gd.home_race_notified) {
                 gd.home_race_notified = gd.home_race_notified.filter(n => n !== name);
@@ -2922,7 +2923,7 @@
             let listKey = isExtra ? 'extra_bjs' : 'bjs';
             
             if(type === 'rank') { elId = `rank-add-${idx}`; target = targetList[idx]; } else if(type === 'bot') { elId = `rank-add-bot`; target = gd.bottom_fixed; } else if(type === 'match') { elId = `match-add-${idx}`; target = gd.match_data.players[idx]; }
-            val = parseInt(document.getElementById(elId).value); if(isNaN(val) || val===0) return;
+            val = parseInt(String(document.getElementById(elId).value).replace(/[^\d-]/g,'')); if(isNaN(val) || val===0) return;
             let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
             if (type === 'rank' || type === 'bot') { if (!gd.logs) gd.logs = []; gd.logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.logs.length > 200) gd.logs.pop(); } else if (type === 'match') { if (!gd.match_logs) gd.match_logs = []; gd.match_logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.match_logs.length > 200) gd.match_logs.pop(); }
             let prev1st = (type === 'rank' && targetList.length > 0) ? targetList[0].name : null; 
@@ -4497,7 +4498,7 @@
                 ? '<i class="fa-solid fa-pen" style="color: var(--accent);"></i> 시그니처 편집'
                 : '<i class="fa-solid fa-plus" style="color: var(--accent);"></i> 새 시그니처 등록';
             document.getElementById('sig-form-title-input').value = sig ? (sig.title || '') : '';
-            document.getElementById('sig-form-amount').value = sig ? (sig.amount || '') : '';
+            document.getElementById('sig-form-amount').value = sig ? (sig.amount || '') : ''; commaFormat('sig-form-amount');
             document.getElementById('sig-form-duration').value = sig ? (sig.duration || 10) : 10;
             document.getElementById('sig-form-image').value = '';
             document.getElementById('sig-form-sound').value = '';
@@ -4515,7 +4516,7 @@
             const sigId = document.getElementById('sig-form-id').value;
             const isEdit = !!sigId;
             const title = document.getElementById('sig-form-title-input').value.trim();
-            const amount = parseInt(document.getElementById('sig-form-amount').value) || 0;
+            const amount = rawNum('sig-form-amount');
             const duration = parseInt(document.getElementById('sig-form-duration').value) || 10;
             const imageFile = document.getElementById('sig-form-image').files[0];
             const soundFile = document.getElementById('sig-form-sound').files[0];
@@ -4666,7 +4667,7 @@
         async function triggerManualDonation() {
             const name = document.getElementById('manual-donator').value.trim() || "수동후원";
             const amountInput = document.getElementById('manual-amount');
-            const amount = parseInt(amountInput.value) || 0;
+            const amount = rawNum(amountInput);
             const messageInput = document.getElementById('manual-message');
             const message = messageInput.value.trim() || "수동 후원 송출";
 

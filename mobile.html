@@ -6,6 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>📱 라이브 마스터 - iOS 모바일 제어</title>
+    <script src="/comma_input.js"></script>
     <!-- Official Apple Fonts from CDN -->
     <link rel="stylesheet" href="https://www.apple.com/wss/fonts?family=SF+Pro+KR&v=2" type="text/css" />
     <link rel="stylesheet" href="https://www.apple.com/wss/fonts?families=SF+Pro,v3|SF+Pro+Icons,v3">
@@ -474,8 +475,8 @@
                     <!-- 수동 입력 제어 -->
                     <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">수동 시간 설정</div>
                     <div class="control-row" style="margin-bottom: 16px; gap: 8px;">
-                        <input type="number" id="in-timer-m" value="3" placeholder="분" style="text-align: center;"> <span style="font-weight:600; font-size:15px;">분</span>
-                        <input type="number" id="in-timer-s" value="0" placeholder="초" style="text-align: center;"> <span style="font-weight:600; font-size:15px;">초</span>
+                        <input type="number" id="in-timer-m" value="3" placeholder="분" data-no-comma style="text-align: center;"> <span style="font-weight:600; font-size:15px;">분</span>
+                        <input type="number" id="in-timer-s" value="0" placeholder="초" data-no-comma style="text-align: center;"> <span style="font-weight:600; font-size:15px;">초</span>
                     </div>
                     
                     <div class="control-row" style="gap: 8px;">
@@ -724,7 +725,7 @@
             const setHtml = (id, val) => { let el = document.getElementById(id); if(el && el.innerHTML !== val) el.innerHTML = val; };
 
             setVal('sel-theme', gd.theme || 'default');
-            setVal('in-goal', gd.target_goal);
+            setVal('in-goal', gd.target_goal); commaFormat('in-goal');
             
             // Handle body theme dynamically
             if (gd.theme === 'pink') {
@@ -835,7 +836,7 @@
         function toggleMatch() { gd.match_data.active = !gd.match_data.active; pushAPI(); }
         function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
         function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
-        function updateGoal() { gd.target_goal = parseInt(document.getElementById('in-goal').value)||0; pushAPI(); }
+        function updateGoal() { gd.target_goal = rawNum('in-goal'); pushAPI(); }
         function triggerNeon(color) { if (!gd.reaction_mode && color !== 'OFF') { alert("👀 리액션 모드(눈알 아이콘)가 켜져있어야 화면에 보입니다."); return; } gd.effect_trigger = {time: Date.now(), color: color, infinite: true}; pushAPI(); }
 
         function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI(); }
