@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&family=Orbitron:wght@900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Chakra+Petch:wght@700&family=Orbitron:wght@900&display=swap');
         
         :root {
             /* ============================================================
@@ -490,29 +490,59 @@
 
         /* 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
            크기/노출시간은 admin 에디터 값(--reac-title-size)으로 조절한다. */
+        /* 🔥 시그니처 네온 배너
+           - 글자를 굵게 보이게 하는 핵심은 paint-order:stroke fill 이다.
+             두꺼운 스트로크를 글자 '뒤'에 깔아 글리프 자체를 살찌우고, 흰 속(코어)은 그대로 남긴다.
+             (예전처럼 앞에 그리면 획이 잡아먹혀 얇고 흐리멍덩해 보였다)
+           - 굵기/라인 간격은 em 이라 --reac-title-size 나 등급별 배율에 자동으로 따라간다.
+           - 색은 아래 3개 변수만 바꾸면 등급별로 통째로 갈아끼워진다. */
         #reaction-title-banner {
+            --neon: #ff1f56;              /* 글자 외곽(네온관) 색 */
+            --neon-glow: 255, 45, 100;    /* 번짐(블룸) 색 */
+            --neon-bright: #ffa8c0;       /* 가로 라인 가운데 하이라이트 */
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.7);
             font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif;
             font-size: var(--reac-title-size, 150px);
-            font-weight: 900;
-            letter-spacing: 2px;
+            font-weight: 400;             /* Black Han Sans 는 단일 굵기 — 900 지정은 가짜 볼드만 유발 */
+            letter-spacing: 1px;
+            line-height: 1;
             white-space: nowrap;
             color: #fff;
-            -webkit-text-stroke: 3px #ff2d78;
+            paint-order: stroke fill;
+            -webkit-text-stroke: 0.105em var(--neon);
             text-shadow:
-                0 0 12px #ff2d78,
-                0 0 30px #ff2d78,
-                0 0 60px rgba(255,45,120,0.85),
-                0 0 110px rgba(255,45,120,0.5);
+                0 0 8px   rgba(var(--neon-glow), 0.8),
+                0 0 26px  rgba(var(--neon-glow), 0.6),
+                0 0 58px  rgba(var(--neon-glow), 0.36),
+                0 0 100px rgba(var(--neon-glow), 0.2);
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
             z-index: 100015;
             transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        /* 글자 위·아래를 가로지르는 네온 라인 (레퍼런스의 핵심 요소) */
+        #reaction-title-banner::before,
+        #reaction-title-banner::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100vw;
+            height: 2px;
+            background: linear-gradient(90deg,
+                rgba(var(--neon-glow), 0) 0%,
+                var(--neon) 14%,
+                var(--neon-bright) 50%,
+                var(--neon) 86%,
+                rgba(var(--neon-glow), 0) 100%);
+            box-shadow: 0 0 8px rgba(var(--neon-glow), 0.7), 0 0 24px rgba(var(--neon-glow), 0.45);
+        }
+        #reaction-title-banner::before { top: -0.30em; }
+        #reaction-title-banner::after  { bottom: -0.30em; }
         #reaction-title-banner.show {
             opacity: 1;
             visibility: visible;
@@ -624,20 +654,18 @@
         }
 
         /* 배너 금액 등급: 색(핑크→골드) + 크기 + 은은한 글로우 펄스 */
+        /* 등급은 '크기 + 색 변수'만 바꾼다. 글자·라인·블룸이 변수를 따라가므로 한 곳만 손대면 된다. */
         #reaction-title-banner.tier-2 {
             font-size: calc(var(--reac-title-size, 150px) * 1.08);
-            -webkit-text-stroke-color: #ffb347;
-            text-shadow: 0 0 12px #ffb347, 0 0 30px #ff9500, 0 0 60px rgba(255,180,70,0.85), 0 0 110px rgba(255,150,40,0.5);
+            --neon: #ff8f2e; --neon-glow: 255, 150, 60; --neon-bright: #ffd6a8;
         }
         #reaction-title-banner.tier-3 {
             font-size: calc(var(--reac-title-size, 150px) * 1.18);
-            -webkit-text-stroke-color: #ffd76b;
-            text-shadow: 0 0 14px #ffd76b, 0 0 34px #ffcf4d, 0 0 72px rgba(255,215,107,0.9), 0 0 132px rgba(255,200,60,0.6);
+            --neon: #ffb01f; --neon-glow: 255, 190, 60; --neon-bright: #ffe6b0;
         }
         #reaction-title-banner.tier-4 {
             font-size: calc(var(--reac-title-size, 150px) * 1.28);
-            -webkit-text-stroke-color: #ffe08c;
-            text-shadow: 0 0 16px #ffe08c, 0 0 40px #ffd76b, 0 0 84px rgba(255,215,107,0.98), 0 0 150px rgba(255,200,60,0.68);
+            --neon: #ffc41f; --neon-glow: 255, 205, 80; --neon-bright: #fff0c8;
         }
         /* 최상위(20만+) 강한 흔들림 */
         .reaction-img-box.shake-strong { animation: reac-shake-strong 0.5s ease-in-out; }
@@ -647,8 +675,8 @@
             40% { transform: translate(-10px, 5px); }  55% { transform: translate(9px, 6px); }
             70% { transform: translate(-7px, -4px); }  85% { transform: translate(5px, 3px); }
         }
-        #reaction-title-banner.show { animation: banner-glow 1.3s ease-in-out infinite; }
-        @keyframes banner-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.28); } }
+        #reaction-title-banner.show { animation: banner-glow 1.5s ease-in-out infinite; }
+        @keyframes banner-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.1); } }
 
         @keyframes pulse {
             0% { transform: translateX(-50%) scale(1); }
