@@ -197,6 +197,20 @@
         .rank-3 .r-rank { color: #d29a6b; text-shadow: 0 0 8px rgba(205,127,50,0.5); }
         .rank-1 .r-name { color: var(--gold); }
 
+        /* 🔆 가시성 개선: 1등 행 골드 하이라이트 + 지브라 솔리드 + 2·3등 액센트 + 숫자/이름 강화 */
+        .excel-row:nth-child(even) { background: rgba(255,255,255,0.035); }
+        .excel-row.rank-1 {
+            background: linear-gradient(90deg, rgba(246,196,83,0.26), rgba(246,196,83,0.07));
+            box-shadow: inset 3px 0 0 var(--gold);
+        }
+        .excel-row.rank-2 { box-shadow: inset 3px 0 0 #dfe3ea; }
+        .excel-row.rank-3 { box-shadow: inset 3px 0 0 #d29a6b; }
+        .rank-1 .r-name { color: #fff; text-shadow: 0 0 10px var(--gold-glow), 0 1px 3px #000; }
+        .rank-1 .r-score { color: var(--gold); }
+        .r-name { text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
+        .r-score { font-size: 23px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+        .r-contrib { font-size: 23px; }
+
         .row-bottom {
             display: flex; align-items: center; justify-content: space-between; padding: 10px 20px;
             background: rgba(246, 196, 83, 0.06);
@@ -209,7 +223,7 @@
         .excel-gauge-box { padding: 17px 22px; min-width: 380px; }
         .total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 21px; font-weight: 800; margin-bottom: 12px; }
         .total-row > div:first-child { font-size: 15px; color: var(--tx-2) !important; font-weight: 700; }
-        .total-row > div:last-child { color: var(--gold) !important; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px var(--gold-glow); }
+        .total-row > div:last-child { color: var(--gold) !important; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px var(--gold-glow), 0 2px 4px rgba(0,0,0,0.85); }
         .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; height: 18px; padding: 3px; position: relative; }
         .goal-bar-fill {
             background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0);
@@ -227,7 +241,7 @@
             box-shadow: 0 4px 14px var(--gold-glow);
         }
         .acc-name-tag { color: var(--tx-2); font-size: 15px; font-weight: 700; }
-        .acc-num-v2 { font-size: 34px; font-weight: 800; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.25; font-variant-numeric: tabular-nums; }
+        .acc-num-v2 { font-size: 34px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.25; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
 
         /* --------------------------------------------------
             ⚔️ 퓨처리스트 네온 아크릴 대결판 (리뉴얼)
@@ -265,10 +279,11 @@
         .m-timer-pill {
             background: linear-gradient(180deg, #23232e, #14141c);
             border: 1px solid rgba(255,255,255,0.14);
-            clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
-            padding: 8px 42px;
+            border-radius: 14px;
+            padding: 7px 44px;
             color: #fff;
-            font-size: 40px;
+            font-family: 'Orbitron', 'Pretendard', sans-serif;
+            font-size: 38px;
             font-weight: 900;
             font-style: italic;
             font-variant-numeric: tabular-nums;
