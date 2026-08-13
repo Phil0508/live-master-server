@@ -2209,7 +2209,14 @@
                 }
             };
 
-            if (data.skip_popup) {
+            // 🚀 [대기열 밀릴 때 팝업 건너뛰기]
+            //   뒤에 대기 중인 시그니처가 있으면(큐 길이 2 이상) 2초 후원 팝업을 생략하고
+            //   곧바로 재생해 밀린 대기열을 빠르게 소화한다. 후원자명·금액·메시지는
+            //   리액션 카드와 중앙 네온 배너에 그대로 표시되므로 정보가 사라지지 않는다.
+            //   마지막 한 개(큐 길이 1)만 남으면 다시 정상적으로 후원 팝업을 보여준다.
+            const queueBacklog = !!(globalData && globalData.reaction_queue && globalData.reaction_queue.length > 1);
+            if (data.skip_popup || queueBacklog) {
+                if (queueBacklog && !data.skip_popup) console.log('대기열 밀림 — 후원 팝업 건너뛰고 즉시 재생');
                 startPlayback();
             } else {
                 showToonPopup({
