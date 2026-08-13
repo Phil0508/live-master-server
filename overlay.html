@@ -2167,10 +2167,38 @@
 
         // 🔥 시그니처 이름 대형 네온 배너
         let reactionTitleTimeout = null;
-        // ⚠️ 큰 가운데 '@@업' 배너는 이제 위/아래 전광판(updateTickers)의 스크롤 네온으로 대체됐다.
-        //    이 함수는 호출부 호환을 위해 남겨두되, 큰 배너는 띄우지 않는다(중복 표시 방지).
+        // 큰 가운데 '@@업' 배너: 시그니처 재생 시작 시 잠깐 크게 등장(임팩트).
+        //    이후에는 위/아래 전광판(updateTickers)이 '@@업'을 계속 스크롤한다 — 둘 다 동작.
         function showReactionTitle(who, isSlot, amount) {
-            hideReactionTitle();
+            const el = document.getElementById('reaction-title-banner');
+            if (!el) return;
+            const gd = globalData || {};
+            if (gd.reaction_title_enabled === false) { hideReactionTitle(); return; }
+
+            let name = (who || '').trim();
+            if (name.endsWith('님')) name = name.slice(0, -1);   // "홍길동님" 으로 들어와도 "홍길동업"
+            if (!name) { hideReactionTitle(); return; }
+            // 슬롯 당첨은 후원자가 없으므로 접미사 없이 시그니처 이름만 띄운다.
+            const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
+            const text = name + suffix;
+
+            // 금액 등급에 따라 배너 색(핑크→골드)·크기를 바꾼다
+            const t = reactionTier(amount);
+            el.classList.remove('tier-2', 'tier-3', 'tier-4');
+            if (t.level >= 4) el.classList.add('tier-4');
+            else if (t.level >= 3) el.classList.add('tier-3');
+            else if (t.level >= 2) el.classList.add('tier-2');
+
+            if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
+            el.innerText = text;
+            // 재생마다 등장 애니메이션이 다시 돌도록 클래스를 떼었다 붙인다
+            el.classList.remove('show');
+            void el.offsetWidth;
+            el.classList.add('show');
+
+            // 고액일수록 배너를 조금 더 오래 보여준다
+            const dur = (parseInt(gd.reaction_title_duration) || 3500) + (t.durBonus || 0);
+            reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, dur);
         }
         function hideReactionTitle() {
             const el = document.getElementById('reaction-title-banner');
