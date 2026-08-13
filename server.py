@@ -369,6 +369,23 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False):
         "skip_popup": bool(skip_popup)
     })
     state['reaction_mode'] = True
+
+    # 📊 시그니처별 신청 집계 (모든 재생 경로가 이 함수를 지나므로 여기서 한 번만 센다)
+    try:
+        key = str(sig.get('id'))
+        tally = state.setdefault('sig_tally', {})
+        row = tally.get(key) or {
+            'title': sig.get('title'), 'image_url': sig.get('image_url') or '',
+            'amount': sig.get('amount') or 0, 'count': 0
+        }
+        row['count'] = int(row.get('count') or 0) + 1
+        row['title'] = sig.get('title') or row.get('title')
+        row['image_url'] = sig.get('image_url') or row.get('image_url') or ''
+        row['amount'] = sig.get('amount') or row.get('amount') or 0
+        tally[key] = row
+    except Exception as e:
+        print(f"⚠️ [시그니처 집계 실패] {e}")
+
     return reaction_uuid
 
 # 🛡️ 내용 기반 후원 중복 방지 (tx_id 없는 재전송 대비)
@@ -537,6 +554,10 @@ DEFAULT_STATE = {
     "reaction_title_enabled": True,
     "reaction_title_size": 150,     # 글자 크기(px)
     "reaction_title_duration": 3500,# 노출 시간(ms)
+    # 📊 시그니처 신청 집계 패널 (이번 방송에 어떤 시그니처가 몇 번 신청됐는지)
+    "sig_tally_enabled": False,     # 기본 꺼짐 — 켜야 방송 화면에 뜬다
+    "sig_tally_limit": 6,           # 화면에 표시할 개수
+    "sig_tally": {},                # {item_id: {title, image_url, amount, count}} — 방송마다 초기화
     "popup_enabled": True,
     "takeover_enabled": True,
     "ticker_enabled": True,
@@ -956,6 +977,7 @@ def reset_session_keys(state):
     state['goal_event_approved'] = False
     state['home_race_notified'] = []
     state['home_goals'] = {}
+    state['sig_tally'] = {}   # 시그니처 신청 집계는 방송 1회분 기록이라 새 방송마다 비운다
     return state
 
 def create_snapshot(state, label):

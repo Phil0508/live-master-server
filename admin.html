@@ -103,6 +103,17 @@
                 <div style="font-size:11px;color:var(--accent);margin-top:6px;text-align:center;"><i class="fa-solid fa-bolt"></i> 값을 바꾸면 방송 오버레이에 즉시 적용</div>
             </div>
 
+            <div class="group-title"><i class="fa-solid fa-ranking-star"></i> 시그니처 순위 패널</div>
+            <div class="property-box" style="display:block;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; cursor:pointer; color:#fff;">
+                    <input type="checkbox" id="tally-on" onchange="updateTallyOn(this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+                    📊 방송 화면에 표시
+                </label>
+                <div class="prop-row" style="margin-top:8px;"><i class="fa-solid fa-list-ol"></i> 표시 개수<input type="range" id="tally-limit" min="3" max="12" step="1" value="6" oninput="updateReac('sig_tally_limit', this.value); document.getElementById('tally-limit-val').innerText=this.value+'개'"><span id="tally-limit-val">6개</span></div>
+                <button onclick="resetTally()" style="width:100%; margin-top:10px; background:transparent; color:var(--danger); border:1px solid var(--danger); padding:8px; border-radius:8px; font-weight:700; cursor:pointer;"><i class="fa-solid fa-eraser"></i> 집계 초기화</button>
+                <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">이번 방송에 신청된 시그니처를 횟수 순으로 보여줍니다. 방송 시작/종료 시 자동으로 초기화됩니다.</div>
+            </div>
+
             <div class="group-title"><i class="fa-solid fa-bolt"></i> 오토 세이브 (OBS 모드)</div>
             <div class="live-badge"><div class="live-dot"></div> 실시간 자동 적용 중</div>
             <button class="danger" onclick="resetLayout()" style="margin-top: 15px;"><i class="fa-solid fa-rotate-left"></i> 기본 위치로 리셋</button>
@@ -174,6 +185,17 @@
                         </div>
                     </div>
                 </div>
+                <!-- 📊 시그니처 신청 집계 패널 -->
+                <div class="widget" id="sig-tally" data-id="sig-tally" style="left:850px; top:300px; display: none;">
+                    <div style="width: 190px; display: flex; flex-direction: column; gap: 7px;">
+                        <div style="text-align:center; font-size:15px; font-weight:900; font-style:italic; letter-spacing:1px; color:#0e0e14; padding:4px 0; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);">시그니처 순위</div>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <div style="height:52px; background:#14141c; clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%); position:relative;"><div style="position:absolute;left:5px;top:4px;font-size:11px;font-weight:900;color:#0e0e14;background:linear-gradient(100deg,var(--gold),var(--gold-deep));padding:1px 6px;">3개</div><div style="position:absolute;left:0;right:0;top:16px;text-align:center;font-size:13px;font-weight:800;color:#fff;">시그니처</div><div style="position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:15px;font-weight:900;color:#fff;">23,000</div></div>
+                            <div style="height:52px; background:#14141c; clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%); position:relative;"><div style="position:absolute;left:5px;top:4px;font-size:11px;font-weight:900;color:#0e0e14;background:linear-gradient(100deg,var(--gold),var(--gold-deep));padding:1px 6px;">2개</div><div style="position:absolute;left:0;right:0;top:16px;text-align:center;font-size:13px;font-weight:800;color:#fff;">시그니처</div><div style="position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:15px;font-weight:900;color:#fff;">22,000</div></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 🏃 퇴근빵: 랭킹판 자리를 대신 차지 (계좌 위젯과 같은 유리 카드, 제목은 안쪽 헤더) -->
                 <div class="widget" id="home-race" data-id="home-race" style="left:50px; top:50px; display: none;">
                     <div style="width: 520px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); padding: 18px 22px 16px;">
@@ -189,7 +211,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위' };
             function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
             
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; scaleRatio = Math.min(availableW / 1080, availableH / 1920); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; }
@@ -244,6 +266,8 @@
                         if (d.reaction_title_enabled !== undefined){ const c=document.getElementById('reac-title-on'); if(c) c.checked = d.reaction_title_enabled !== false; }
                         if (d.reaction_title_size !== undefined){ setIf('reac-title-size', d.reaction_title_size); const l=document.getElementById('reac-title-size-val'); if(l) l.innerText=d.reaction_title_size+'px'; }
                         if (d.reaction_title_duration !== undefined){ setIf('reac-title-dur', d.reaction_title_duration); const l=document.getElementById('reac-title-dur-val'); if(l) l.innerText=(d.reaction_title_duration/1000).toFixed(1)+'초'; }
+                        if (d.sig_tally_enabled !== undefined){ const c=document.getElementById('tally-on'); if(c) c.checked = !!d.sig_tally_enabled; }
+                        if (d.sig_tally_limit !== undefined){ setIf('tally-limit', d.sig_tally_limit); const l=document.getElementById('tally-limit-val'); if(l) l.innerText=d.sig_tally_limit+'개'; }
                     }
 
                     let md = d.match_data || {active: false, players: []};
@@ -305,6 +329,10 @@
                     // 🏃 퇴근빵: 켜져 있을 때만 편집 캔버스에 표시
                     const raceW = document.getElementById('home-race');
                     if (raceW) raceW.style.display = d.home_race_enabled ? 'flex' : 'none';
+
+                    // 📊 시그니처 순위 패널: 켜져 있을 때만 편집 캔버스에 표시
+                    const tallyW = document.getElementById('sig-tally');
+                    if (tallyW) tallyW.style.display = d.sig_tally_enabled ? 'flex' : 'none';
                 } catch(e) {}
             }
 
@@ -340,6 +368,17 @@
             window.updateReacTitleOn = function(on) {
                 if(!globalData) return;
                 globalData.reaction_title_enabled = !!on;
+                pushReac();
+            };
+            window.updateTallyOn = function(on) {
+                if(!globalData) return;
+                globalData.sig_tally_enabled = !!on;
+                pushReac();
+            };
+            window.resetTally = function() {
+                if(!globalData) return;
+                if(!confirm('시그니처 신청 집계를 모두 지울까요?')) return;
+                globalData.sig_tally = {};
                 pushReac();
             };
             window.testReaction = async function() {

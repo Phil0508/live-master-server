@@ -995,6 +995,15 @@
                     </button>
                 </div>
 
+                <!-- 📊 시그니처 순위 패널 켜기/끄기 -->
+                <label class="toggle-row" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); padding: 10px 14px; border-radius: 12px; gap: 12px;">
+                    <span class="toggle-label" style="font-size: 13px; font-weight: bold; color: #fff;"><i class="fa-solid fa-ranking-star" style="color: var(--accent);"></i> 시그니처 순위 패널 (오버레이)</span>
+                    <div class="apple-switch">
+                        <input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')">
+                        <span class="apple-slider"></span>
+                    </div>
+                </label>
+
                 <!-- 3. 쌓인 리액션 목록 (대기열) -->
                 <div style="display: flex; flex-direction: column; gap: 8px;">
                     <div style="font-size: 13px; font-weight: bold; color: #fff; display: flex; justify-content: space-between; align-items: center;">
@@ -1836,6 +1845,7 @@
             setChk('chk-ticker', gd.ticker_enabled);
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
+            setChk('chk-sig-tally', !!gd.sig_tally_enabled);
             setChk('chk-home-race', gd.home_race_enabled || false);
             renderGoalAchievementNotice();   // 🎯 목표 달성 승인 알림 표시 여부 갱신
             checkHomeRaceGoals();            // 🏃 퇴근 목표 도달 확인
