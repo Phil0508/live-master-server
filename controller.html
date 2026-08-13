@@ -41,20 +41,36 @@
         body { background: var(--bg-body); color: var(--text-main); font-family: 'Pretendard', sans-serif; margin: 0; padding: 25px; -webkit-font-smoothing: antialiased; letter-spacing: -0.3px; }
         ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #3a3a3c; border-radius: 4px; }
         .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--border-light); } .header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; } .header h1 i { color: var(--accent); filter: drop-shadow(0 0 3px var(--accent-glow)); } .header-buttons { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .tabs { 
-            display: inline-flex; 
-            gap: 6px; 
-            background: rgba(255, 255, 255, 0.02); 
+        .tabs {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(18, 18, 20, 0.97);   /* 상단 고정 시 뒤 내용이 안 비치도록 불투명 */
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
-            padding: 6px; 
-            border-radius: 16px; 
-            margin-bottom: 25px; 
-            overflow-x: auto; 
-            white-space: nowrap; 
-            border: 1px solid var(--border-light); 
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.15); 
+            padding: 8px 10px;
+            border-radius: 14px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            white-space: nowrap;
+            border: 1px solid var(--border-light);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 6px 18px rgba(0,0,0,0.35);
+            /* 📌 스크롤해도 항상 위에 붙어있게 (긴 패널에서 탭을 다시 찾으러 위로 안 올라가도 됨) */
+            position: sticky;
+            top: 10px;
+            z-index: 500;
         }
+        /* 탭 그룹 라벨 (핵심 / 게임 / 연출 / 설정) */
+        .tab-glabel {
+            font-size: 10.5px; font-weight: 800; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 0 2px 0 6px; user-select: none; flex: 0 0 auto; opacity: 0.7;
+        }
+        .tab-glabel.accent { color: var(--accent); opacity: 1; }
+        /* 그룹 사이 세로 구분선 */
+        .tab-sep { width: 1px; align-self: stretch; background: var(--border-light); margin: 3px 4px; flex: 0 0 auto; }
+        /* 핵심 그룹 탭은 평소에도 살짝 밝게(자주 쓰는 곳임을 표시) */
+        .tab-btn.tab-key:not(.active) { color: #cfeee7; }
         .tab-btn { 
             background: transparent; 
             color: var(--text-muted); 
@@ -625,6 +641,12 @@
         <div class="reaction-toast-dot"></div>
         <span>🟢 화면내에서 리액션 모드로 진입했습니다.</span>
     </div>
+
+    <!-- ↩ 점수 되돌리기 토스트: 점수를 줄 때마다 잠깐 떴다가, '취소'를 누르면 방금 준 점수를 되돌린다 -->
+    <div id="score-undo-toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); z-index:99998; display:none; opacity:0; transition:all .25s ease; align-items:center; gap:14px; background:rgba(20,20,22,0.97); border:1px solid var(--border-light); border-left:4px solid var(--accent); padding:12px 16px 12px 18px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.55);">
+        <span id="score-undo-text" style="color:#f5f5f7; font-size:14px; font-weight:700;"></span>
+        <button onclick="undoLastScore()" style="background:var(--accent); color:#000; font-weight:800; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px;"><i class="fa-solid fa-rotate-left"></i> 취소</button>
+    </div>
     <div class="header">
         <h1>
             <i class="fa-solid fa-layer-group"></i> 방송 제어 센터 V12
@@ -684,15 +706,26 @@
     </div>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
+        <!-- 핵심(자주 쓰는 것) -->
+        <span class="tab-glabel accent">핵심</span>
+        <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
+        <button class="tab-btn tab-key" onclick="openTab(event, 'tab-reaction'); loadSignatureLibrary();"><i class="fa-solid fa-music"></i> 시그니처</button>
+        <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
+        <span class="tab-sep"></span>
+        <!-- 게임 -->
+        <span class="tab-glabel">게임</span>
         <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+        <span class="tab-sep"></span>
+        <!-- 연출 -->
+        <span class="tab-glabel">연출</span>
         <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-reaction'); loadSignatureLibrary();"><i class="fa-solid fa-music"></i> 시그니처</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
+        <span class="tab-sep"></span>
+        <!-- 설정 -->
+        <span class="tab-glabel">설정</span>
         <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
         <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: #00ffcc; border-color: rgba(0,255,204,0.4); background: rgba(0,255,204,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
     </div>
@@ -2976,7 +3009,56 @@
                 let curr1st = targetList.length > 0 ? targetList[0].name : null;
                 if (val > 0 && prev1st && curr1st && prev1st !== curr1st && curr1st === target.name) { gd.latest_takeover = {time: Date.now(), name: curr1st}; }
             }
+            // ↩ 되돌리기용 기록 (방금 준 점수를 정확히 역산해 취소할 수 있게)
+            recordScoreAction({ scope, name: target.name, delta: val, isExtra, addedContrib: (scope === 'rank'), logTime: timeStr });
             el.value = ''; el.blur(); pushAPI();
+        }
+
+        // ===== ↩ 점수 되돌리기(undo) =====
+        let lastScoreActions = [];   // 최근 점수 조작 스택
+        let undoToastTimer = null;
+        function recordScoreAction(a) {
+            lastScoreActions.push(a);
+            if (lastScoreActions.length > 20) lastScoreActions.shift();
+            showUndoToast(a);
+        }
+        function showUndoToast(a) {
+            const t = document.getElementById('score-undo-toast');
+            const txt = document.getElementById('score-undo-text');
+            if (!t || !txt) return;
+            const sign = a.delta > 0 ? '+' : '';
+            txt.innerHTML = `방금 <b style="color:var(--accent)">${escapeHtml(a.name)}</b> ${sign}${a.delta.toLocaleString()}점`;
+            t.style.display = 'flex';
+            requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)'; });
+            if (undoToastTimer) clearTimeout(undoToastTimer);
+            undoToastTimer = setTimeout(hideUndoToast, 6000);
+        }
+        function hideUndoToast() {
+            const t = document.getElementById('score-undo-toast');
+            if (!t) return;
+            t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)';
+            if (undoToastTimer) { clearTimeout(undoToastTimer); undoToastTimer = null; }
+            setTimeout(() => { if (t.style.opacity === '0') t.style.display = 'none'; }, 260);
+        }
+        function undoLastScore() {
+            const a = lastScoreActions.pop();
+            if (!a) { hideUndoToast(); return; }
+            let target = null;
+            if (a.scope === 'bot') target = gd.bottom_fixed;
+            else if (a.scope === 'match') target = ((gd.match_data && gd.match_data.players) || []).find(p => p.name === a.name);
+            else { const list = a.isExtra ? gd.extra_bjs : gd.bjs; target = (list || []).find(b => b.name === a.name); }
+            if (!target) { hideUndoToast(); return; }   // 대상이 사라졌으면 조용히 종료
+            target.score -= a.delta;
+            if (a.addedContrib && target.contribution !== undefined) target.contribution -= a.delta;
+            // 로그에서 방금 그 기록만 제거
+            const logs = (a.scope === 'match') ? gd.match_logs : gd.logs;
+            if (logs) { const i = logs.findIndex(l => l.time === a.logTime && l.name === a.name && l.val === a.delta); if (i >= 0) logs.splice(i, 1); }
+            // 랭킹은 기여도순 재정렬
+            if (a.scope === 'rank') { const list = a.isExtra ? gd.extra_bjs : gd.bjs; if (list) { list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0)); if (a.isExtra) gd.extra_bjs = list; else gd.bjs = list; } }
+            pushAPI();
+            // 이전 조작이 더 남아있으면 그 토스트를 이어서 띄운다(연속 취소 가능)
+            if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
+            else hideUndoToast();
         }
 
         function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI(); }
