@@ -1682,6 +1682,12 @@ def serve_signature_display():
 def serve_alertbox():
     return serve_html_file('alertbox.html')
 
+@app.route('/manual')
+@app.route('/manual_send')
+@app.route('/manual_send.html')
+def serve_manual_send():
+    return serve_html_file('manual_send.html')
+
 @app.route('/streamdeck')
 @app.route('/streamdeck.html')
 def serve_streamdeck():

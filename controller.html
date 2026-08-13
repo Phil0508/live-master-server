@@ -976,7 +976,10 @@
 
                 <!-- 2. 수동 후원 송출 (금액 입력 시 리액션 연동) -->
                 <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px;"><i class="fa-solid fa-coins" style="color: #ffd700;"></i> 수동 후원 (리액션 자동 매칭)</div>
+                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center;">
+                        <span><i class="fa-solid fa-coins" style="color: #ffd700;"></i> 수동 후원 (리액션 자동 매칭)</span>
+                        <a href="/manual" target="_blank" style="text-decoration: none;"><button style="height: 26px; font-size: 11px; padding: 0 10px; border-radius: 7px; background: rgba(0,255,204,0.12); color: var(--accent); border: 1px solid rgba(0,255,204,0.3); cursor: pointer; font-weight: 700;"><i class="fa-solid fa-image"></i> 미리보기 큰 화면</button></a>
+                    </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="manual-donator" placeholder="후원자명" style="width: 40%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
                         <input type="number" id="manual-amount" placeholder="후원금액" style="width: 60%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
