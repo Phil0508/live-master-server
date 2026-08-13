@@ -15,19 +15,19 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
-            --bg-body: #0d0d0f; 
-            --bg-panel: #141416; 
-            --bg-card: #1c1c1e; 
-            --bg-input: #08080a; 
+            --bg-body: #121316; 
+            --bg-panel: #1c1e22; 
+            --bg-card: #202329; 
+            --bg-input: #0e0f12; 
             --border-light: rgba(255, 255, 255, 0.06); 
-            --text-main: #f5f5f7; 
-            --text-muted: #86868b; 
-            --accent: #00ffcc; 
-            --accent-glow: rgba(0, 255, 204, 0.25); 
+            --text-main: #eceef2; 
+            --text-muted: #8b909a; 
+            --accent: #4a9eff; 
+            --accent-glow: rgba(74, 158, 255, 0.25); 
             --danger: #ff453a; 
             --danger-glow: rgba(255, 69, 58, 0.25);
-            --gold: #FFD700; 
-            --gold-glow: rgba(255, 215, 0, 0.25);
+            --gold: #d9a441; 
+            --gold-glow: rgba(217, 164, 65, 0.25);
             --radius-lg: 16px; 
             --radius-md: 10px; 
             --radius-sm: 6px; 
@@ -40,7 +40,7 @@
         }
         body { background: var(--bg-body); color: var(--text-main); font-family: 'Pretendard', sans-serif; margin: 0; padding: 25px; -webkit-font-smoothing: antialiased; letter-spacing: -0.3px; }
         ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: #3a3a3c; border-radius: 4px; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--border-light); } .header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; } .header h1 i { color: var(--accent); filter: drop-shadow(0 0 3px var(--accent-glow)); } .header-buttons { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; margin-bottom: 25px; flex-wrap: wrap; gap: 15px; border-bottom: 1px solid var(--border-light); } .header h1 { margin: 0; font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; } .header h1 i { color: var(--accent); } .header-buttons { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
         .tabs {
             display: flex;
             align-items: center;
@@ -70,7 +70,7 @@
         /* 그룹 사이 세로 구분선 */
         .tab-sep { width: 1px; align-self: stretch; background: var(--border-light); margin: 3px 4px; flex: 0 0 auto; }
         /* 핵심 그룹 탭은 평소에도 살짝 밝게(자주 쓰는 곳임을 표시) */
-        .tab-btn.tab-key:not(.active) { color: #cfeee7; }
+        .tab-btn.tab-key:not(.active) { color: #cfe0ff; }
         .tab-btn { 
             background: transparent; 
             color: var(--text-muted); 
@@ -89,10 +89,9 @@
         .tab-btn.active { 
             background: rgba(255, 255, 255, 0.05); 
             color: var(--accent); 
-            border-color: rgba(0, 255, 204, 0.4);
-            box-shadow: 0 4px 12px rgba(0, 255, 204, 0.1), inset 0 1px 1px rgba(255,255,255,0.05);
-            text-shadow: 0 0 10px var(--accent-glow);
-        } 
+            border-color: rgba(74, 158, 255, 0.4);
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+        }
         body.theme-pink .tab-btn.active {
             color: var(--accent);
             border-color: rgba(255, 0, 127, 0.4);
@@ -306,7 +305,7 @@
             transform: scale(1.05);
             box-shadow: 0 0 10px var(--danger-glow);
         }
-        .contrib-cell span { display: inline-block; padding: 4px 10px; border-radius: 6px; transition: 0.2s; cursor: pointer; } .contrib-cell span:hover { background: rgba(255, 215, 0, 0.15); transform: scale(1.05); }
+        .contrib-cell span { display: inline-block; padding: 4px 10px; border-radius: 6px; transition: 0.2s; cursor: pointer; } .contrib-cell span:hover { background: rgba(217, 164, 65, 0.15); transform: scale(1.05); }
 
         /* 🥇 순위별 배지 비주얼 스타일 추가 */
         .rank-badge {
@@ -320,7 +319,7 @@
             font-weight: 800;
             margin-right: 8px;
         }
-        .badge-1st { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; box-shadow: 0 0 10px rgba(255,215,0,0.4); }
+        .badge-1st { background: linear-gradient(135deg, #d9a441, #FFA500); color: #000; box-shadow: 0 0 10px rgba(217,164,65,0.4); }
         .badge-2nd { background: linear-gradient(135deg, #C0C0C0, #808080); color: #000; box-shadow: 0 0 10px rgba(192,192,192,0.3); }
         .badge-3rd { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; box-shadow: 0 0 10px rgba(205,127,50,0.3); }
         .badge-normal { background: rgba(255,255,255,0.08); color: #aaa; }
@@ -337,7 +336,7 @@
             line-height: 1.7;
             box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.25);
         }
-        .ml-filter-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(0, 255, 204, 0.15) !important; color: var(--accent) !important; }
+        .ml-filter-btn { padding: 6px 14px; font-size: 12px; font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(74, 158, 255, 0.15) !important; color: var(--accent) !important; }
         .ml-row { transition: background 0.15s; } .ml-row:hover { background: rgba(255,255,255,0.04) !important; } .ml-row td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); } .ml-amount-plus { color: #4caf50; font-weight: 700; } .ml-amount-minus { color: #ff5252; font-weight: 700; } .ml-source-mobile { background: rgba(255, 152, 0, 0.12); color: #ff9800; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; } .ml-source-toonation { background: rgba(0, 191, 255, 0.12); color: #00bfff; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
         
         /* 보관함 전용 CSS */
@@ -376,7 +375,7 @@
         }
         .noti-item:hover {
             background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(0, 255, 204, 0.4);
+            border-color: rgba(74, 158, 255, 0.4);
             transform: translateY(-1px);
         }
         .noti-item-del {
@@ -440,8 +439,8 @@
             background: rgba(10, 10, 15, 0.88);
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border: 2px solid rgba(0, 255, 204, 0.5);
-            box-shadow: 0 0 25px rgba(0, 255, 204, 0.25), inset 0 10px 10px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(74, 158, 255, 0.5);
+            box-shadow: 0 0 25px rgba(74, 158, 255, 0.25), inset 0 10px 10px rgba(255, 255, 255, 0.1);
             border-radius: 16px;
             padding: 12px 28px;
             display: flex;
@@ -462,9 +461,9 @@
         .reaction-toast-dot {
             width: 8px;
             height: 8px;
-            background: #00ffcc;
+            background: #4a9eff;
             border-radius: 50%;
-            box-shadow: 0 0 10px #00ffcc;
+            box-shadow: 0 0 10px #4a9eff;
             animation: pulseGreen 1.5s infinite;
         }
 
@@ -596,10 +595,10 @@
             50% { opacity: 0.65; }
         }
         .roulette-winner-arcade {
-            background: rgba(0, 255, 204, 0.05) !important;
+            background: rgba(74, 158, 255, 0.05) !important;
             border: 1.5px solid var(--accent) !important;
             border-radius: var(--radius-md) !important;
-            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(0, 255, 204, 0.1) !important;
+            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(74, 158, 255, 0.1) !important;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 14px !important;
             font-weight: 900 !important;
@@ -688,10 +687,10 @@
     <div id="active-broadcast-area" style="display: none;">
 
     <!-- 🎯 목표 100% 달성 알림 (승인해야 오버레이에 연출이 나감) -->
-    <div class="group-box" id="goal-alert-box" style="display: none; margin-bottom: 15px; border-color: rgba(255, 215, 0, 0.8); background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 152, 0, 0.1)); box-shadow: 0 0 25px rgba(255, 215, 0, 0.3);">
-        <div class="group-title" style="color: #ffd700; border-bottom-color: rgba(255, 215, 0, 0.3); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+    <div class="group-box" id="goal-alert-box" style="display: none; margin-bottom: 15px; border-color: rgba(217, 164, 65, 0.8); background: linear-gradient(135deg, rgba(217, 164, 65, 0.15), rgba(255, 152, 0, 0.1)); box-shadow: 0 0 25px rgba(217, 164, 65, 0.3);">
+        <div class="group-title" style="color: #d9a441; border-bottom-color: rgba(217, 164, 65, 0.3); display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <span><i class="fa-solid fa-trophy"></i> 🎯 목표치 100% 달성!</span>
-            <span style="font-size: 11px; background: #ffd700; color: #000; padding: 2px 8px; border-radius: 10px; font-weight: 900;">축하합니다! 🎉</span>
+            <span style="font-size: 11px; background: #d9a441; color: #000; padding: 2px 8px; border-radius: 10px; font-weight: 900;">축하합니다! 🎉</span>
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 10px; flex-wrap: wrap;">
             <p style="color: #fff; font-size: 14px; font-weight: 700; margin: 0; flex: 1;">
@@ -699,7 +698,7 @@
                 <span style="font-size: 12.5px; font-weight: normal; color: #aaa;">방송 화면에 <strong>게이지가 중앙으로 커지는 축하 연출</strong>을 띄울까요?</span>
             </p>
             <div style="display: flex; gap: 8px;">
-                <button onclick="approveGoalEvent()" style="background: linear-gradient(135deg, #ffd700, #ff9800); color: #000; font-weight: 900; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);"><i class="fa-solid fa-play"></i> 승인 (송출)</button>
+                <button onclick="approveGoalEvent()" style="background: linear-gradient(135deg, #d9a441, #ff9800); color: #000; font-weight: 900; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(217, 164, 65, 0.4);"><i class="fa-solid fa-play"></i> 승인 (송출)</button>
                 <button onclick="dismissGoalEvent()" style="background: rgba(255, 255, 255, 0.1); color: #ccc; border: 1px solid #555; padding: 10px 14px; border-radius: 8px; cursor: pointer;">닫기</button>
             </div>
         </div>
@@ -728,7 +727,7 @@
         <!-- 설정 -->
         <span class="tab-glabel">설정</span>
         <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
-        <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: #00ffcc; border-color: rgba(0,255,204,0.4); background: rgba(0,255,204,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
+        <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: #4a9eff; border-color: rgba(74,158,255,0.4); background: rgba(74,158,255,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
     </div>
 
     <!-- 🎮 모드 탭: 임시게임판 + 퇴근전쟁 (랭킹 탭에서 분리해 옮김) -->
@@ -788,7 +787,7 @@
 
             <div class="control-group" style="margin-bottom: 15px;">
                 <label style="color:var(--text-muted); font-size: 14px; font-weight:600;"><i class="fa-solid fa-bullseye"></i> 목표치:</label><input type="number" id="in-goal" onchange="updateGoal()" style="width: 100px;">
-                <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(255, 215, 0, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 215, 0, 0.3); margin-left: 10px;">
+                <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(217, 164, 65, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(217, 164, 65, 0.3); margin-left: 10px;">
                     <i class="fa-solid fa-rocket" style="color: var(--gold);"></i>
                     <input type="text" id="in-up-text" placeholder="UP 자막 (엔터 발사)" style="flex: 1; border: none; border-bottom: 1px solid #444; border-radius: 0; background: transparent; padding: 5px;" onkeydown="if(event.key==='Enter') triggerUpText()">
                     <button style="background: var(--gold); color: #000; font-weight: 800; border: none;" onclick="triggerUpText()">발사</button>
@@ -954,7 +953,7 @@
                     <div class="group-title" style="justify-content: center;"><i class="fa-solid fa-music"></i> 오디오 플레이어 (BGM)</div>
                     
                     <!-- Modern dashed dropzone file input wrapper -->
-                    <div style="position: relative; border: 2px dashed rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); padding: 15px 10px; background: rgba(255, 255, 255, 0.01); transition: var(--transition-smooth); cursor: pointer;" onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(0, 255, 204, 0.02)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.background='rgba(255, 255, 255, 0.01)';" onclick="document.getElementById('bgm-file').click()">
+                    <div style="position: relative; border: 2px dashed rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); padding: 15px 10px; background: rgba(255, 255, 255, 0.01); transition: var(--transition-smooth); cursor: pointer;" onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(74, 158, 255, 0.02)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.background='rgba(255, 255, 255, 0.01)';" onclick="document.getElementById('bgm-file').click()">
                         <i class="fa-solid fa-cloud-arrow-up" style="font-size: 24px; color: var(--text-muted); margin-bottom: 6px; display: block;"></i>
                         <span style="font-size: 13px; font-weight: bold; color: #fff; display: block; margin-bottom: 2px;">클릭하여 음악 파일 업로드</span>
                         <span style="font-size: 11px; color: var(--text-muted); display: block;">MP3, WAV, M4A 등 오디오 파일 지원</span>
@@ -1016,8 +1015,8 @@
                 <!-- 2. 수동 후원 송출 (금액 입력 시 리액션 연동) -->
                 <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
                     <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center;">
-                        <span><i class="fa-solid fa-coins" style="color: #ffd700;"></i> 수동 후원 (리액션 자동 매칭)</span>
-                        <a href="/manual" target="_blank" style="text-decoration: none;"><button style="height: 26px; font-size: 11px; padding: 0 10px; border-radius: 7px; background: rgba(0,255,204,0.12); color: var(--accent); border: 1px solid rgba(0,255,204,0.3); cursor: pointer; font-weight: 700;"><i class="fa-solid fa-image"></i> 미리보기 큰 화면</button></a>
+                        <span><i class="fa-solid fa-coins" style="color: #d9a441;"></i> 수동 후원 (리액션 자동 매칭)</span>
+                        <a href="/manual" target="_blank" style="text-decoration: none;"><button style="height: 26px; font-size: 11px; padding: 0 10px; border-radius: 7px; background: rgba(74,158,255,0.12); color: var(--accent); border: 1px solid rgba(74,158,255,0.3); cursor: pointer; font-weight: 700;"><i class="fa-solid fa-image"></i> 미리보기 큰 화면</button></a>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="manual-donator" placeholder="후원자명" style="width: 40%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
@@ -1050,7 +1049,7 @@
                             <button id="skip-reaction-btn" onclick="skipCurrentReaction()" style="font-size: 10px; background: rgba(255,149,0,0.15); color: #ff9500; border: 1px solid rgba(255,149,0,0.3); padding: 2px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; display: none;" title="현재 재생 중인 후원을 건너뛰고 다음으로 넘깁니다">
                                 <i class="fa-solid fa-forward-step"></i> 넘기기
                             </button>
-                            <span id="reaction-queue-count" style="font-size: 11px; background: rgba(0,255,204,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
+                            <span id="reaction-queue-count" style="font-size: 11px; background: rgba(74,158,255,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
                         </div>
                     </div>
                     <div id="reaction-queue-container" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
@@ -1080,7 +1079,7 @@
             <!-- 우측: 시그니처 라이브러리 (등록 / 편집 / 삭제 / 송출) -->
             <div class="group-box" style="display: flex; flex-direction: column; gap: 15px; min-height: 500px;">
                 <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 시그니처 라이브러리 <span id="sig-count-badge" style="font-size: 11px; background: rgba(0,255,204,0.15); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-left: 6px;">0개</span></span>
+                    <span><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 시그니처 라이브러리 <span id="sig-count-badge" style="font-size: 11px; background: rgba(74,158,255,0.15); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-left: 6px;">0개</span></span>
                     <div style="display: flex; gap: 6px;">
                         <button onclick="openSignatureForm()" class="primary" style="height: 28px; font-size: 11px; padding: 0 12px; border-radius: 8px;"><i class="fa-solid fa-plus"></i> 새 시그니처</button>
                         <button onclick="loadSignatureLibrary()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
@@ -1191,13 +1190,13 @@
                     <button class="primary" id="btn-roulette-spin" onclick="controlRoulette('spin')" style="width: 100%; justify-content: center; height: 50px; font-size: 16px; font-weight: 800;"><i class="fa-solid fa-play"></i> 룰렛 회전 시작</button>
                     <button class="danger" id="btn-roulette-stop" onclick="controlRoulette('stop')" style="width: 100%; justify-content: center; height: 50px; font-size: 16px; font-weight: 800; display: none; animation: shake-y 0.2s linear infinite;"><i class="fa-solid fa-stop"></i> 정지!!</button>
                     <button onclick="controlRoulette('reset')" style="width: 100%; justify-content: center; background: #222; border-color: #444;"><i class="fa-solid fa-rotate-right"></i> 회전판 초기화</button>
-                    <button onclick="toggleRouletteRemote(this)" style="width: 100%; justify-content: center; background: rgba(255, 215, 0, 0.08); border-color: rgba(255, 215, 0, 0.25); color: var(--gold); height: 40px; font-weight: bold;"><i class="fa-solid fa-square-check"></i> 선관위</button>
+                    <button onclick="toggleRouletteRemote(this)" style="width: 100%; justify-content: center; background: rgba(217, 164, 65, 0.08); border-color: rgba(217, 164, 65, 0.25); color: var(--gold); height: 40px; font-weight: bold;"><i class="fa-solid fa-square-check"></i> 선관위</button>
                 </div>
             </div>
 
             <!-- 당첨 조작 리모컨 카드 -->
             <div class="group-box" id="roulette-remote-card" style="display: none; flex-direction: column; gap: 15px; min-height: 380px;">
-                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 215, 0, 0.2);"><i class="fa-solid fa-square-check"></i> 선거관리위원회 콘솔</div>
+                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(217, 164, 65, 0.2);"><i class="fa-solid fa-square-check"></i> 선거관리위원회 콘솔</div>
                 <p style="color: var(--text-muted); font-size: 13px; margin: 0; line-height: 1.5;">
                     * 룰렛을 회전시키고 정지하기 전에 아래에서 우승자를 미리 터치하여 지정할 수 있습니다.<br>
                     * 지정 시 룰렛판이 해당 슬롯의 각도 영역으로 <b>자연스럽고 부드럽게 감속되어</b> 멈춥니다.
@@ -1222,7 +1221,7 @@
                     <button onclick="exportManualLogs()" style="padding: 6px 12px; font-size: 12px; font-weight: bold; background: rgba(76, 175, 80, 0.12); border: 1px solid #4caf50; border-radius: 6px; color: #4caf50; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(76,175,80,0.25)';" onmouseout="this.style.background='rgba(76,175,80,0.12)';">
                         <i class="fa-solid fa-file-csv"></i> CSV 다운로드
                     </button>
-                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: 12px; font-weight: bold; background: rgba(0, 255, 204, 0.1); border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(0,255,204,0.25)';" onmouseout="this.style.background='rgba(0,255,204,0.1)';">
+                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: 12px; font-weight: bold; background: rgba(74, 158, 255, 0.1); border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(74,158,255,0.25)';" onmouseout="this.style.background='rgba(74,158,255,0.1)';">
                         <i class="fa-solid fa-arrows-rotate"></i> 새로고침
                     </button>
                 </div>
@@ -1237,7 +1236,7 @@
                 </div>
                 <div style="flex: 1; display: flex; gap: 8px; align-items: center;">
                     <input type="text" id="ml-search-name" placeholder="🔍 이름 검색..." style="flex: 1; min-width: 120px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); padding: 8px 14px; border-radius: 8px; color: #fff; font-size: 13px; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--accent)';" onblur="this.style.borderColor='var(--border-light)';" onkeydown="if(event.key==='Enter') loadManualLogs(1)">
-                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(0, 255, 204, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; flex-shrink: 0;">
+                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; flex-shrink: 0;">
                         <i class="fa-solid fa-magnifying-glass"></i> 검색
                     </button>
                 </div>
@@ -1347,13 +1346,13 @@
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                     <div style="font-size: 13px; color: var(--text-muted); line-height: 1.5; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
                         <span><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent); margin-right: 6px;"></i> 백업 상태: <strong id="auto-backup-status-badge" style="color: #fff;">--:--:--</strong></span>
-                        <button onclick="performAutoPeriodicBackup(true)" style="padding: 4px 10px; font-size: 12px; font-weight: bold; background: rgba(0, 255, 204, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer;">⚡ 지금 백업</button>
+                        <button onclick="performAutoPeriodicBackup(true)" style="padding: 4px 10px; font-size: 12px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 6px; cursor: pointer;">⚡ 지금 백업</button>
                     </div>
                     <div style="display: flex; gap: 8px; margin-top: auto;">
                         <button onclick="downloadLocalBackupFile()" style="flex: 1; justify-content: center; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; background: rgba(0, 191, 255, 0.15); border: 1px solid #00bfff; color: #00bfff; border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,191,255,0.25)';" onmouseout="this.style.background='rgba(0,191,255,0.15)';">
                             <i class="fa-solid fa-download"></i> 파일 다운로드
                         </button>
-                        <button onclick="document.getElementById('sys-upload-file').click()" style="flex: 1; justify-content: center; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; background: rgba(0, 255, 204, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,204,0.25)';" onmouseout="this.style.background='rgba(0,255,204,0.15)';">
+                        <button onclick="document.getElementById('sys-upload-file').click()" style="flex: 1; justify-content: center; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(74,158,255,0.25)';" onmouseout="this.style.background='rgba(74,158,255,0.15)';">
                             <i class="fa-solid fa-upload"></i> 파일 복원
                         </button>
                     </div>
@@ -1369,7 +1368,7 @@
         <div class="group-box" style="margin-top: 20px; margin-bottom: 0;">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
                 <span><i class="fa-solid fa-gears"></i> 서버 백업 및 실시간 모니터링</span>
-                <button onclick="refreshSystemStatus()" style="padding: 6px 12px; font-size: 13px; font-weight: bold; background: rgba(0, 255, 204, 0.1); border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <button onclick="refreshSystemStatus()" style="padding: 6px 12px; font-size: 13px; font-weight: bold; background: rgba(74, 158, 255, 0.1); border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-arrows-rotate"></i> 상태 갱신
                 </button>
             </div>
@@ -1394,7 +1393,7 @@
                         
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="text" id="sys-manual-label" placeholder="백업 세이브포인트 설명 입력" style="flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); padding: 10px 14px; border-radius: 8px; color: #fff; font-size: 13px; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--accent)';" onblur="this.style.borderColor='var(--border-light)';">
-                            <button onclick="createSystemBackup()" style="height: 38px; padding: 0 16px; font-weight: bold; background: rgba(0, 255, 204, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,255,204,0.25)';" onmouseout="this.style.background='rgba(0,255,204,0.15)';">
+                            <button onclick="createSystemBackup()" style="height: 38px; padding: 0 16px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; transition: all 0.2s;" onmouseover="this.style.background='rgba(74,158,255,0.25)';" onmouseout="this.style.background='rgba(74,158,255,0.15)';">
                                 <i class="fa-solid fa-floppy-disk"></i> 세이브
                             </button>
                         </div>
@@ -1420,7 +1419,7 @@
                             <div>UTF-8</div>
                         </div>
                         <!-- Console area -->
-                        <div id="sys-console-logs" style="flex: 1; padding: 15px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; overflow-y: auto; color: #00ffcc; white-space: pre-wrap; line-height: 1.5; outline: none; border: none; background: transparent;">[대기 중] 서버 데이터를 불러오고 있습니다...</div>
+                        <div id="sys-console-logs" style="flex: 1; padding: 15px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; overflow-y: auto; color: #4a9eff; white-space: pre-wrap; line-height: 1.5; outline: none; border: none; background: transparent;">[대기 중] 서버 데이터를 불러오고 있습니다...</div>
                     </div>
                 </div>
             </div>
@@ -1432,7 +1431,7 @@
     <div id="tab-vip" class="tab-content">
         <div class="group-box">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span><i class="fa-solid fa-crown" style="color: #ffd700;"></i> 특별 후원자 관리 <span id="vip-count-badge" style="font-size: 11px; background: rgba(255,215,0,0.15); color: #ffd700; padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-left: 6px;">0명</span></span>
+                <span><i class="fa-solid fa-crown" style="color: #d9a441;"></i> 특별 후원자 관리 <span id="vip-count-badge" style="font-size: 11px; background: rgba(217,164,65,0.15); color: #d9a441; padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-left: 6px;">0명</span></span>
                 <div style="display: flex; gap: 6px;">
                     <button class="primary" onclick="openVipModal()" style="height: 30px; border-radius: 10px; font-size: 12px; padding: 0 14px; font-weight: bold;"><i class="fa-solid fa-plus"></i> 등록</button>
                     <button class="secondary" onclick="loadVipList()" style="height: 30px; border-radius: 10px; font-size: 12px; padding: 0 12px;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
@@ -1462,7 +1461,7 @@
         <div id="vip-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
             <div class="group-box" style="max-width: 420px; width: 100%; background: var(--bg-card); border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
                 <div class="group-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-                    <span id="vip-modal-title"><i class="fa-solid fa-crown" style="color: #ffd700;"></i> 특별 후원자 등록</span>
+                    <span id="vip-modal-title"><i class="fa-solid fa-crown" style="color: #d9a441;"></i> 특별 후원자 등록</span>
                     <button onclick="closeVipModal()" class="secondary" style="width: 28px; height: 28px; border-radius: 8px; justify-content: center; padding: 0;"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <input type="hidden" id="vip-old-name">
@@ -1476,14 +1475,14 @@
                         <div style="display: flex; gap: 10px;">
                             <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; cursor:pointer;"><input type="radio" name="vip-grade" value="VVIP" checked style="accent-color:#ff3b30;"><span style="color:#ff3b30; font-weight:800;">VVIP</span></label>
                             <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; cursor:pointer;"><input type="radio" name="vip-grade" value="VIP" style="accent-color:#af52de;"><span style="color:#af52de; font-weight:800;">VIP</span></label>
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; cursor:pointer;"><input type="radio" name="vip-grade" value="GOLD" style="accent-color:#ffd700;"><span style="color:#ffd700; font-weight:800;">GOLD</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; cursor:pointer;"><input type="radio" name="vip-grade" value="GOLD" style="accent-color:#d9a441;"><span style="color:#d9a441; font-weight:800;">GOLD</span></label>
                         </div>
                     </div>
                     <div>
                         <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">강조 색상</label>
                         <div style="display: flex; gap: 10px;">
-                            <input type="color" id="vip-color" value="#ffd700" oninput="document.getElementById('vip-color-text').value = this.value" style="width: 48px; height: 40px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: none; cursor: pointer; padding: 0;">
-                            <input type="text" id="vip-color-text" value="#ffd700" oninput="document.getElementById('vip-color').value = this.value" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3); color: #fff; padding: 0 10px; font-size: 13px; font-weight: bold; text-align: center; box-sizing: border-box;">
+                            <input type="color" id="vip-color" value="#d9a441" oninput="document.getElementById('vip-color-text').value = this.value" style="width: 48px; height: 40px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: none; cursor: pointer; padding: 0;">
+                            <input type="text" id="vip-color-text" value="#d9a441" oninput="document.getElementById('vip-color').value = this.value" style="flex: 1; height: 40px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3); color: #fff; padding: 0 10px; font-size: 13px; font-weight: bold; text-align: center; box-sizing: border-box;">
                         </div>
                     </div>
                     <div>
@@ -1546,7 +1545,7 @@
             </div>
 
             <!-- 메인 돌리기 버튼 -->
-            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, #00ffcc, #00bfff); color: #000; font-size: 24px; font-weight: 900; padding: 22px 55px; border: none; border-radius: 20px; cursor: pointer; box-shadow: 0 0 35px rgba(0, 255, 204, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
+            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, #4a9eff, #00bfff); color: #000; font-size: 24px; font-weight: 900; padding: 22px 55px; border: none; border-radius: 20px; cursor: pointer; box-shadow: 0 0 35px rgba(74, 158, 255, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
                 <i class="fa-solid fa-play"></i> 🎰 슬롯머신 돌리기!
             </button>
         </div>
@@ -1598,7 +1597,7 @@
                     ? `<div style="width:100%;height:64px;background:url('${s.image_url}') center/cover no-repeat;border-radius:6px;"></div>`
                     : `<div style="width:100%;height:64px;background:rgba(0,0,0,0.35);border-radius:6px;display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-image" style="color:#444;"></i></div>`;
                 return `
-                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(0,255,204,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:10px;font-size:12px;display:flex;flex-direction:column;gap:6px;transition:all .15s;">
+                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(74,158,255,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:10px;font-size:12px;display:flex;flex-direction:column;gap:6px;transition:all .15s;">
                         ${thumb}
                         <div style="display:flex;align-items:center;gap:6px;">
                             <i class="fa-solid ${on ? 'fa-circle-check' : 'fa-circle'}" style="color:${on ? 'var(--accent)' : '#555'};font-size:13px;flex-shrink:0;"></i>
@@ -1694,7 +1693,7 @@
                 <button type="button" onclick="addSetupPlayerField()" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); flex: 1; justify-content: center; height: 42px;">
                     <i class="fa-solid fa-plus"></i> 플레이어 추가
                 </button>
-                <button type="button" onclick="setupBulkImportBJs()" style="background: rgba(0, 255, 204, 0.15); border-color: var(--accent); color: var(--accent); flex: 1; justify-content: center; height: 42px;">
+                <button type="button" onclick="setupBulkImportBJs()" style="background: rgba(74, 158, 255, 0.15); border-color: var(--accent); color: var(--accent); flex: 1; justify-content: center; height: 42px;">
                     <i class="fa-solid fa-file-import"></i> 일괄 가져오기
                 </button>
             </div>
@@ -1918,20 +1917,20 @@
                     // 🏃 퇴근 성공 카드는 후원이 아니라 '송출' 버튼만 있는 별도 형태로 그린다
                     if (don.type === 'off_work') {
                         const nm = escapeHTML(don.name);
-                        pHtml += `<div class="pending-item" style="border-left-color:#ffd700; background:linear-gradient(90deg, rgba(255,215,0,0.08), rgba(26,26,29,1));">
+                        pHtml += `<div class="pending-item" style="border-left-color:#d9a441; background:linear-gradient(90deg, rgba(217,164,65,0.08), rgba(26,26,29,1));">
                             <div class="pending-info">
-                                <span style="display:inline-block; background:linear-gradient(90deg,#ffd700,#ff8c00); color:#000; font-size:11px; font-weight:900; padding:2px 10px; border-radius:12px; margin-right:8px;">🏆 퇴근전쟁 승리</span>
+                                <span style="display:inline-block; background:linear-gradient(90deg,#d9a441,#ff8c00); color:#000; font-size:11px; font-weight:900; padding:2px 10px; border-radius:12px; margin-right:8px;">🏆 퇴근전쟁 승리</span>
                                 <span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:16px;">🎉 ${nm}님 퇴근 성공!</b><br>
-                                <span style="color:#ffd700; font-weight:700; font-size:12px;">[송출하기]를 누르면 방송 화면에 축하 팝업이 나갑니다.</span>
+                                <span style="color:#d9a441; font-weight:700; font-size:12px;">[송출하기]를 누르면 방송 화면에 축하 팝업이 나갑니다.</span>
                             </div>
                             <div class="bj-buttons">
-                                <button class="bj-btn" style="background:linear-gradient(90deg,#ffd700,#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCardById('${don.id}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
+                                <button class="bj-btn" style="background:linear-gradient(90deg,#d9a441,#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCardById('${don.id}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
                                 <button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 삭제</button>
                             </div></div>`;
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 215, 0, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
             } else {
@@ -1986,7 +1985,7 @@
                 statusBadge.style.boxShadow = "none";
                 desc.innerHTML = `메인 엑셀판 점수를 완벽하게 수호하며, 임시 0점부터 번외 매치 한 게임만 깔끔하게 정산하고 싶을 때 가동하는 안전한 샌드박스입니다.`;
                 btnArea.innerHTML = `
-                    <button class="primary" style="background:rgba(0, 255, 204, 0.15); border-color:var(--accent); color:var(--accent); font-weight:800;" onclick="startExtraGame()"><i class="fa-solid fa-play"></i> 🟢 새 번외 게임 개시</button>
+                    <button class="primary" style="background:rgba(74, 158, 255, 0.15); border-color:var(--accent); color:var(--accent); font-weight:800;" onclick="startExtraGame()"><i class="fa-solid fa-play"></i> 🟢 새 번외 게임 개시</button>
                 `;
             }
 
@@ -2011,7 +2010,7 @@
                     <th>현재 점수</th>
                     <th>🔥 기여도 (클릭 시 수정)</th>
                     <th>점수 추가 (Enter)</th>
-                    <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: 12px; background: rgba(0, 255, 204, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: 12px;"><i class="fa-solid fa-plus"></i></button></th>
+                    <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: 12px; background: rgba(74, 158, 255, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: 12px;"><i class="fa-solid fa-plus"></i></button></th>
                 </tr>`;
             }
             document.getElementById('ranking-thead').innerHTML = tHeadHtml;
@@ -2059,7 +2058,7 @@
                 rHtml += `<tr style="background:rgba(255,255,255,0.035);">
                     <td>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <span class="rank-badge badge-normal" style="background:rgba(0, 255, 204, 0.1); color:var(--accent); border: 1px dashed rgba(0, 255, 204, 0.3);"><i class="fa-solid fa-anchor" style="font-size:10px;"></i></span>
+                            <span class="rank-badge badge-normal" style="background:rgba(74, 158, 255, 0.1); color:var(--accent); border: 1px dashed rgba(74, 158, 255, 0.3);"><i class="fa-solid fa-anchor" style="font-size:10px;"></i></span>
                             <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI();" style="flex: 1; text-align: left; padding-left: 10px;">
                         </div>
                     </td>
@@ -2154,7 +2153,7 @@
             if (itemSource === 'custom') {
                 roster = (gd.roulette.custom_items || []).map(name => ({ name: name, contribution: 0 }));
                 statusText = "⚙️ 사용자 정의 벌칙/항목 연동 중 ⚙️";
-                statusColor = "#00ffcc";
+                statusColor = "#4a9eff";
             } else {
                 roster = isExtra ? gd.extra_bjs : gd.bjs;
                 statusText = isExtra ? "⚡ 번외 임시 게임판 연동 중 🔴" : "🟢 메인 랭킹 점수판 연동 중 🟢";
@@ -2203,7 +2202,7 @@
             let isRandomChecked = (gd.roulette.select_index === -1) ? 'checked' : '';
             let randomBorder = (gd.roulette.select_index === -1) ? 'var(--accent)' : 'rgba(255, 255, 255, 0.08)';
             let randomText = (gd.roulette.select_index === -1) ? 'var(--accent)' : '#aaa';
-            let randomBg = (gd.roulette.select_index === -1) ? 'rgba(0, 255, 204, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+            let randomBg = (gd.roulette.select_index === -1) ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
             let randomShadow = (gd.roulette.select_index === -1) ? '0 0 10px var(--accent-glow)' : 'none';
             
             targetListHtml += `
@@ -2231,7 +2230,7 @@
                 
                 let borderCol = (gd.roulette.select_index === idx) ? 'var(--accent)' : 'rgba(255, 255, 255, 0.08)';
                 let textCol = (gd.roulette.select_index === idx) ? 'var(--accent)' : '#fff';
-                let itemBg = (gd.roulette.select_index === idx) ? 'rgba(0, 255, 204, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+                let itemBg = (gd.roulette.select_index === idx) ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
                 let itemShadow = (gd.roulette.select_index === idx) ? '0 0 10px var(--accent-glow)' : 'none';
                 
                 targetListHtml += `
@@ -2458,8 +2457,8 @@
                 <input type="number" id="edit-contrib-popover-input" value="${currentVal}" style="width: 110px; text-align: center; color: var(--gold); border: 1px solid var(--border-light); padding: 6px; font-size: 16px; font-weight: 800; background: rgba(0,0,0,0.4); border-radius: var(--radius-sm); outline: none;" onkeydown="if(event.key==='Enter') confirmContribChange(${idx})">
                 <div style="display: flex; gap: 6px; justify-content: center; width: 100%;">
                     <button type="button" onclick="adjustContrib(${idx}, -50)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(255, 69, 58, 0.15); border: 1px solid rgba(255, 69, 58, 0.3); color: #ff453a; border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(255, 69, 58, 0.3)'" onmouseout="this.style.background='rgba(255, 69, 58, 0.15)'">-50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(0, 255, 204, 0.15); border: 1px solid var(--accent-glow); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(0, 255, 204, 0.3)'" onmouseout="this.style.background='rgba(0, 255, 204, 0.15)'">+50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 100)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(255, 215, 0, 0.15); border: 1px solid rgba(255, 215, 0, 0.3); color: var(--gold); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(255, 215, 0, 0.3)'" onmouseout="this.style.background='rgba(255, 215, 0, 0.15)'">+100</button>
+                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent-glow); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(74, 158, 255, 0.3)'" onmouseout="this.style.background='rgba(74, 158, 255, 0.15)'">+50</button>
+                    <button type="button" onclick="adjustContrib(${idx}, 100)" style="flex: 1; padding: 6px 0; font-size: 12px; background: rgba(217, 164, 65, 0.15); border: 1px solid rgba(217, 164, 65, 0.3); color: var(--gold); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(217, 164, 65, 0.3)'" onmouseout="this.style.background='rgba(217, 164, 65, 0.15)'">+100</button>
                 </div>
                 <div style="display: flex; gap: 6px; width: 100%; justify-content: center; margin-top: 4px;">
                     <button type="button" onclick="confirmContribChange(${idx})" style="flex: 1; padding: 6px 0; font-size: 12px; background: var(--accent); border: 1px solid var(--accent); color: #000; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: all 0.2s; justify-content: center;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">확인</button>
@@ -2613,11 +2612,11 @@
                 const done = goal > 0 && cur >= goal;
                 return `<div style="display:flex; align-items:center; gap:10px;">
                     <span style="width:110px; font-size:13px; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${n}</span>
-                    <span style="font-size:12px; color:${done ? '#ffd700' : 'var(--text-muted)'}; width:70px;">현재 ${cur}</span>
+                    <span style="font-size:12px; color:${done ? '#d9a441' : 'var(--text-muted)'}; width:70px;">현재 ${cur}</span>
                     <input type="number" value="${goal}" placeholder="목표 점수"
                         onchange="setHomeGoalByIndex(${i}, this.value)"
                         style="flex:1; height:34px; font-size:13px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:8px; color:#fff; padding:0 10px; box-sizing:border-box;">
-                    ${done ? '<span style="font-size:12px; color:#ffd700; font-weight:900;">퇴근! 🎉</span>' : ''}
+                    ${done ? '<span style="font-size:12px; color:#d9a441; font-weight:900;">퇴근! 🎉</span>' : ''}
                 </div>`;
             }).join('');
         }
@@ -2802,7 +2801,7 @@
                 tbody.innerHTML = `<tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--text-muted);">등록된 특별 후원자가 없습니다. [등록] 버튼으로 추가해 주세요.</td></tr>`;
                 return;
             }
-            const gradeColor = { VVIP: '#ff3b30', VIP: '#af52de', GOLD: '#ffd700' };
+            const gradeColor = { VVIP: '#ff3b30', VIP: '#af52de', GOLD: '#d9a441' };
             // 이름은 표시용으로만 이스케이프하고, 수정/삭제에는 인덱스로 원본을 찾는다
             tbody.innerHTML = vipCacheList.map((v, i) => {
                 const name = escapeHTML(v.name);
@@ -2810,8 +2809,8 @@
                 return `
                     <tr style="border-top: 1px solid var(--border-light);">
                         <td style="padding: 10px 14px; color: #fff; font-weight: 700;">${name}</td>
-                        <td style="padding: 10px 14px; text-align: center;"><span style="color: ${gradeColor[v.grade] || '#ffd700'}; font-weight: 900;">${grade}</span></td>
-                        <td style="padding: 10px 14px; text-align: center;"><span style="display:inline-block; width:20px; height:20px; border-radius:5px; background:${escapeHTML(v.custom_color || '#ffd700')}; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;"></span></td>
+                        <td style="padding: 10px 14px; text-align: center;"><span style="color: ${gradeColor[v.grade] || '#d9a441'}; font-weight: 900;">${grade}</span></td>
+                        <td style="padding: 10px 14px; text-align: center;"><span style="display:inline-block; width:20px; height:20px; border-radius:5px; background:${escapeHTML(v.custom_color || '#d9a441')}; border:1px solid rgba(255,255,255,0.2); vertical-align:middle;"></span></td>
                         <td style="padding: 10px 14px; text-align: center; font-size: 18px;">${escapeHTML(v.badge || '👑')}</td>
                         <td style="padding: 10px 14px; text-align: center;">
                             <button class="secondary" onclick="openVipModalByIndex(${i})" style="height:26px; font-size:11px; padding:0 10px; border-radius:6px;"><i class="fa-solid fa-pen"></i></button>
@@ -2837,12 +2836,12 @@
             const v = isEdit ? vipCacheList.find(x => x.name === name) : null;
 
             document.getElementById('vip-modal-title').innerHTML = isEdit
-                ? '<i class="fa-solid fa-pen" style="color:#ffd700;"></i> 특별 후원자 수정'
-                : '<i class="fa-solid fa-crown" style="color:#ffd700;"></i> 특별 후원자 등록';
+                ? '<i class="fa-solid fa-pen" style="color:#d9a441;"></i> 특별 후원자 수정'
+                : '<i class="fa-solid fa-crown" style="color:#d9a441;"></i> 특별 후원자 등록';
             document.getElementById('vip-old-name').value = isEdit ? name : '';
             document.getElementById('vip-name').value = v ? v.name : '';
-            document.getElementById('vip-color').value = (v && v.custom_color) || '#ffd700';
-            document.getElementById('vip-color-text').value = (v && v.custom_color) || '#ffd700';
+            document.getElementById('vip-color').value = (v && v.custom_color) || '#d9a441';
+            document.getElementById('vip-color-text').value = (v && v.custom_color) || '#d9a441';
             document.getElementById('vip-badge').value = (v && v.badge) || '👑';
             const grade = (v && v.grade) || 'VVIP';
             document.querySelectorAll('input[name="vip-grade"]').forEach(r => { r.checked = (r.value === grade); });
@@ -2859,7 +2858,7 @@
             const oldName = document.getElementById('vip-old-name').value;
             const gradeEl = document.querySelector('input[name="vip-grade"]:checked');
             const grade = gradeEl ? gradeEl.value : 'VVIP';
-            const custom_color = document.getElementById('vip-color-text').value.trim() || '#ffd700';
+            const custom_color = document.getElementById('vip-color-text').value.trim() || '#d9a441';
             const badge = document.getElementById('vip-badge').value;
 
             if (!name) {
@@ -3475,7 +3474,7 @@
                     btnConfirm.style.color = '#fff';
                 } else {
                     iconEl.innerHTML = `<i class="fa-solid fa-circle-info"></i>`;
-                    iconEl.style.background = 'rgba(0, 255, 204, 0.15)';
+                    iconEl.style.background = 'rgba(74, 158, 255, 0.15)';
                     iconEl.style.color = 'var(--accent)';
                     btnConfirm.style.background = 'var(--accent)';
                     btnConfirm.style.borderColor = 'var(--accent)';
@@ -4262,7 +4261,7 @@
                     const dbModeEl = document.getElementById('sys-db-mode');
                     if (dbModeEl) {
                         dbModeEl.innerText = data.is_postgres ? '클라우드 (PostgreSQL)' : '로컬 (SQLite)';
-                        dbModeEl.style.color = data.is_postgres ? 'var(--accent)' : '#00ffcc';
+                        dbModeEl.style.color = data.is_postgres ? 'var(--accent)' : '#4a9eff';
                     }
                     
                     // Update player count
@@ -4295,7 +4294,7 @@
                                 logText += `[${log.timestamp}] [${log.source.toUpperCase()}] ${log.name} -> 수취: ${log.amount.toLocaleString()}원 (누적: ${log.current_total.toLocaleString()}원) | 메시지: ${log.message}\n`;
                             });
                             consoleLogsEl.innerText = logText;
-                            consoleLogsEl.style.color = '#00ffcc';
+                            consoleLogsEl.style.color = '#4a9eff';
                         }
                     }
                 }
@@ -4728,7 +4727,7 @@
             
             container.innerHTML = queue.map((item, idx) => {
                 const isPlaying = (idx === 0);
-                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(0, 255, 204, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
+                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(74, 158, 255, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
                 const badge = isPlaying ? '<span style="font-size:9px; background:var(--accent); color:#000; padding:1px 4px; border-radius:4px; font-weight:bold; margin-right:5px; vertical-align:middle;">재생중</span>' : `<span style="font-size:9px; background:#444; color:#ccc; padding:1px 4px; border-radius:4px; font-weight:bold; margin-right:5px; vertical-align:middle;">대기 ${idx}</span>`;
                 
                 return `
