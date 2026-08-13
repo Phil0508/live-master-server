@@ -554,6 +554,7 @@ DEFAULT_STATE = {
     "reaction_title_enabled": True,
     "reaction_title_size": 150,     # 글자 크기(px)
     "reaction_title_duration": 3500,# 노출 시간(ms)
+    "reaction_title_suffix": "업",  # 후원자 이름 뒤에 붙는 말 ("홍길동" → "홍길동업")
     # 📊 시그니처 신청 집계 패널 (이번 방송에 어떤 시그니처가 몇 번 신청됐는지)
     "sig_tally_enabled": False,     # 기본 꺼짐 — 켜야 방송 화면에 뜬다
     "sig_tally_limit": 6,           # 화면에 표시할 개수

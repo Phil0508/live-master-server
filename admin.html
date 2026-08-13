@@ -94,8 +94,12 @@
                 <div style="border-top:1px solid #333; margin-top:14px; padding-top:12px;">
                     <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; cursor:pointer; color:#fff;">
                         <input type="checkbox" id="reac-title-on" checked onchange="updateReacTitleOn(this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
-                        🔥 중앙에 시그니처 이름 크게 표시
+                        🔥 중앙에 후원자 이름 크게 표시
                     </label>
+                    <div style="margin-top:8px;">
+                        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">이름 뒤에 붙는 말 (예: 업 → "홍길동업")</div>
+                        <input type="text" id="reac-title-suffix" class="admin-input" value="업" maxlength="6" oninput="updateReacSuffix(this.value)">
+                    </div>
                     <div class="prop-row" style="margin-top:8px;"><i class="fa-solid fa-text-height"></i> 글자 크기<input type="range" id="reac-title-size" min="60" max="300" step="5" value="150" oninput="updateReac('reaction_title_size', this.value); document.getElementById('reac-title-size-val').innerText=this.value+'px'"><span id="reac-title-size-val">150px</span></div>
                     <div class="prop-row"><i class="fa-solid fa-stopwatch"></i> 노출 시간<input type="range" id="reac-title-dur" min="1000" max="8000" step="100" value="3500" oninput="updateReac('reaction_title_duration', this.value); document.getElementById('reac-title-dur-val').innerText=(this.value/1000).toFixed(1)+'초'"><span id="reac-title-dur-val">3.5초</span></div>
                 </div>
@@ -266,6 +270,7 @@
                         if (d.reaction_title_enabled !== undefined){ const c=document.getElementById('reac-title-on'); if(c) c.checked = d.reaction_title_enabled !== false; }
                         if (d.reaction_title_size !== undefined){ setIf('reac-title-size', d.reaction_title_size); const l=document.getElementById('reac-title-size-val'); if(l) l.innerText=d.reaction_title_size+'px'; }
                         if (d.reaction_title_duration !== undefined){ setIf('reac-title-dur', d.reaction_title_duration); const l=document.getElementById('reac-title-dur-val'); if(l) l.innerText=(d.reaction_title_duration/1000).toFixed(1)+'초'; }
+                        if (d.reaction_title_suffix !== undefined) setIf('reac-title-suffix', d.reaction_title_suffix);
                         if (d.sig_tally_enabled !== undefined){ const c=document.getElementById('tally-on'); if(c) c.checked = !!d.sig_tally_enabled; }
                         if (d.sig_tally_limit !== undefined){ setIf('tally-limit', d.sig_tally_limit); const l=document.getElementById('tally-limit-val'); if(l) l.innerText=d.sig_tally_limit+'개'; }
                     }
@@ -368,6 +373,11 @@
             window.updateReacTitleOn = function(on) {
                 if(!globalData) return;
                 globalData.reaction_title_enabled = !!on;
+                pushReac();
+            };
+            window.updateReacSuffix = function(val) {
+                if(!globalData) return;
+                globalData.reaction_title_suffix = val;
                 pushReac();
             };
             window.updateTallyOn = function(on) {
