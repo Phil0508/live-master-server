@@ -148,6 +148,7 @@
         <button class="tab active" id="tab-btn-send" onclick="switchTab('send')"><i class="fa-solid fa-paper-plane"></i> 수동 송출</button>
         <button class="tab" id="tab-btn-queue" onclick="switchTab('queue')"><i class="fa-solid fa-list-ol"></i> 대기열 <span id="tab-queue-badge" style="display:none; background:var(--pink); color:#fff; font-size:11px; padding:1px 7px; border-radius:10px; margin-left:2px;">0</span></button>
         <button class="tab" id="tab-btn-rank" onclick="switchTab('rank')"><i class="fa-solid fa-trophy"></i> 후원 순위</button>
+        <button class="tab" id="tab-btn-manage" onclick="switchTab('manage')"><i class="fa-solid fa-compact-disc"></i> 시그니처 관리</button>
     </div>
 
     <!-- ═══ 수동 송출 ═══ -->
@@ -224,9 +225,65 @@
         </div>
         <div class="rank-list" id="rank-list"><div class="rank-empty">불러오는 중…</div></div>
     </div>
+
+    <!-- ═══ 시그니처 관리 (등록/편집/삭제) — 컨트롤러에서 이전 ═══ -->
+    <div class="pane" id="pane-manage">
+        <div class="rank-head">
+            <div class="rank-stats">
+                <div class="stat"><div class="k">등록된 시그니처</div><div class="v" id="manage-count">0개</div></div>
+            </div>
+            <div class="refresh">
+                <input type="text" id="manage-search" placeholder="🔍 제목·금액 검색" oninput="renderManageList()" style="height:36px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#fff; padding:0 12px; font-size:13px; min-width:160px;">
+                <button onclick="openSigForm()" style="border-color:rgba(93,202,165,0.6); color:var(--accent-2);"><i class="fa-solid fa-plus"></i> 새 시그니처</button>
+                <button onclick="loadSigs().then(renderManageList)"><i class="fa-solid fa-arrows-rotate"></i> 새로고침</button>
+            </div>
+        </div>
+        <div id="manage-list" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px;"><div class="rank-empty">불러오는 중…</div></div>
+    </div>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 시그니처 등록/편집 모달 -->
+<div id="sf-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.78); z-index:9000; align-items:center; justify-content:center; padding:20px;">
+    <div style="max-width:460px; width:100%; max-height:90vh; overflow-y:auto; background:#16161c; border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <span id="sf-heading" style="font-size:16px; font-weight:800; color:#fff;"><i class="fa-solid fa-plus" style="color:var(--accent-2)"></i> 새 시그니처 등록</span>
+            <button onclick="closeSigForm()" style="width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <input type="hidden" id="sf-id">
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+                <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:5px;">시그니처 제목</label>
+                <input type="text" id="sf-title" placeholder="예: 사쿠란보" style="width:100%; height:38px; font-size:13px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#fff; padding:0 12px; box-sizing:border-box;">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:2;">
+                    <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:5px;">후원 금액 (원)</label>
+                    <input type="text" id="sf-amount" data-comma inputmode="numeric" placeholder="20,005" style="width:100%; height:38px; font-size:13px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#fff; padding:0 12px; box-sizing:border-box;">
+                </div>
+                <div style="flex:1;">
+                    <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:5px;">재생시간(초)</label>
+                    <input type="number" id="sf-duration" value="10" data-no-comma style="width:100%; height:38px; font-size:13px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; color:#fff; padding:0 12px; box-sizing:border-box;">
+                </div>
+            </div>
+            <div style="font-size:11px; color:var(--muted); background:rgba(0,0,0,0.25); padding:8px 10px; border-radius:8px; line-height:1.5;">
+                재생시간은 <b>음원이 없을 때</b> 사진을 몇 초 보여줄지예요. 음원이 있으면 노래 길이만큼 자동 재생됩니다.
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:5px;">사진 <span id="sf-img-hint" style="opacity:.7;"></span></label>
+                <input type="file" id="sf-image" accept="image/*" style="width:100%; font-size:12px; color:var(--muted);">
+            </div>
+            <div>
+                <label style="font-size:12px; color:var(--muted); display:block; margin-bottom:5px;">음원 <span id="sf-snd-hint" style="opacity:.7;"></span></label>
+                <input type="file" id="sf-sound" accept="audio/*,video/mp4" style="width:100%; font-size:12px; color:var(--muted);">
+            </div>
+            <button id="sf-submit" onclick="submitSigForm()" style="height:42px; font-weight:800; font-size:13px; border-radius:10px; width:100%; margin-top:6px; background:var(--accent-2); color:#04241b; border:none; cursor:pointer;">
+                <i class="fa-solid fa-floppy-disk"></i> 저장
+            </button>
+        </div>
+    </div>
+</div>
 
 <script>
     let SIGS = [];
@@ -239,12 +296,13 @@
 
     /* ── 탭 전환 ── */
     function switchTab(which){
-        ['send','queue','rank'].forEach(t=>{
+        ['send','queue','rank','manage'].forEach(t=>{
             $('tab-btn-'+t).classList.toggle('active', which===t);
             $('pane-'+t).classList.toggle('active', which===t);
         });
         if(which==='rank'){ loadRanking(true); startRankAuto(); }
         else { stopRankAuto(); }
+        if(which==='manage'){ renderManageList(); }
     }
 
     /* ── 매칭 (서버 로직과 동일: 입력 이상인 가장 싼 시그니처 → 없으면 최고가) ── */
@@ -308,6 +366,89 @@
         }catch(e){
             $('gallery').innerHTML='<div style="color:var(--pink);font-size:12px;grid-column:1/-1;padding:18px;text-align:center">목록 로딩 실패: '+e.message+'</div>';
         }
+    }
+
+    /* ── 시그니처 관리(등록/편집/삭제) — 컨트롤러에서 이전 ── */
+    function renderManageList(){
+        const box=$('manage-list'); if(!box) return;
+        const cnt=$('manage-count'); if(cnt) cnt.textContent=SIGS.length+'개';
+        const q=($('manage-search')?.value||'').trim().toLowerCase();
+        const list=q?SIGS.filter(s=>(s.title||'').toLowerCase().includes(q)||String(s.amount||'').includes(q)):SIGS;
+        if(!list.length){ box.innerHTML='<div class="rank-empty" style="grid-column:1/-1">'+(SIGS.length?'검색 결과가 없습니다':'등록된 시그니처가 없습니다. [새 시그니처]로 등록하세요')+'</div>'; return; }
+        box.innerHTML=list.map(s=>{
+            const title=escapeHtml(s.title||'시그니처');
+            const thumb=s.image_url
+                ?`<div style="width:100%;height:110px;background:url('${s.image_url}') center/cover no-repeat;border-radius:8px;border:1px solid rgba(255,255,255,0.06);"></div>`
+                :`<div style="width:100%;height:110px;background:rgba(0,0,0,0.3);border-radius:8px;border:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#555;"><i class="fa-solid fa-image" style="font-size:24px;"></i><span style="font-size:11px;">사진 없음</span></div>`;
+            const snd=s.sound_url?`<span style="font-size:10px;color:#5dcaa5;"><i class="fa-solid fa-music"></i> 음원</span>`:`<span style="font-size:10px;color:var(--gold);"><i class="fa-solid fa-triangle-exclamation"></i> 음원없음</span>`;
+            return `<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;">
+                ${thumb}
+                <div><div style="font-weight:700;font-size:13px;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:3px;">
+                    <span style="font-size:11px;color:var(--accent-2);font-weight:700;"><i class="fa-solid fa-coins"></i> ${fmt(s.amount)}원</span>${snd}
+                </div></div>
+                <div style="display:flex;gap:6px;">
+                    <button onclick="playSig(${s.id})" style="flex:1;height:30px;font-size:11px;font-weight:700;border-radius:8px;background:var(--accent-2);color:#04241b;border:none;cursor:pointer;"><i class="fa-solid fa-play"></i> 송출</button>
+                    <button onclick="openSigForm(${s.id})" title="편집" style="width:32px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;cursor:pointer;"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="delSig(${s.id})" title="삭제" style="width:32px;height:30px;border-radius:8px;background:rgba(255,92,138,0.15);border:1px solid rgba(255,92,138,0.4);color:var(--pink);cursor:pointer;"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    async function playSig(id){
+        try{
+            const res=await fetch('/api/signature/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sig_id:id,name:'수동송출'})});
+            const d=await res.json();
+            toast(d.status==='success'?'송출했습니다':('송출 실패: '+(d.message||'')), d.status!=='success');
+        }catch(e){ toast('송출 실패: '+e.message,true); }
+    }
+    async function delSig(id){
+        const s=SIGS.find(x=>x.id===id); const t=s?s.title:('#'+id);
+        if(!confirm(`'${t}' 시그니처를 정말 삭제할까요?\n사진·음원 파일도 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+        try{
+            const res=await fetch(`/api/signatures/delete/${id}`,{method:'POST'});
+            const d=await res.json();
+            if(d.status==='success'){ toast('삭제되었습니다'); await loadSigs(); renderManageList(); }
+            else toast('삭제 실패: '+(d.message||''),true);
+        }catch(e){ toast('삭제 실패: '+e.message,true); }
+    }
+    function openSigForm(id){
+        const isEdit=id!==undefined&&id!==null;
+        const s=isEdit?SIGS.find(x=>x.id===id):null;
+        $('sf-id').value=isEdit?id:'';
+        $('sf-heading').innerHTML=isEdit?'<i class="fa-solid fa-pen" style="color:var(--accent-2)"></i> 시그니처 편집':'<i class="fa-solid fa-plus" style="color:var(--accent-2)"></i> 새 시그니처 등록';
+        $('sf-title').value=s?(s.title||''):'';
+        $('sf-amount').value=s?(s.amount||''):''; commaFormat('sf-amount');
+        $('sf-duration').value=s?(s.duration||10):10;
+        $('sf-image').value=''; $('sf-sound').value='';
+        $('sf-img-hint').textContent=s?(s.image_url?'(등록됨 · 바꿀 때만 선택)':'(없음)'):'';
+        $('sf-snd-hint').textContent=s?(s.sound_url?'(등록됨 · 바꿀 때만 선택)':'(없음)'):'';
+        $('sf-modal').style.display='flex';
+    }
+    function closeSigForm(){ $('sf-modal').style.display='none'; }
+    async function submitSigForm(){
+        const id=$('sf-id').value; const isEdit=!!id;
+        const title=$('sf-title').value.trim();
+        const amount=rawNum('sf-amount');
+        const duration=parseInt($('sf-duration').value)||10;
+        const imageFile=$('sf-image').files[0];
+        const soundFile=$('sf-sound').files[0];
+        const btn=$('sf-submit');
+        if(amount<=0){ toast('후원 금액을 입력해주세요',true); return; }
+        if(!isEdit&&!imageFile&&!soundFile){ toast('사진이나 음원 중 하나는 등록해주세요',true); return; }
+        const fd=new FormData();
+        fd.append('title',title); fd.append('amount',amount); fd.append('duration',duration);
+        if(imageFile) fd.append('image',imageFile);
+        if(soundFile) fd.append('sound',soundFile);
+        const orig=btn.innerHTML; btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> 업로드 중...';
+        try{
+            const url=isEdit?`/api/signatures/update/${id}`:'/api/signatures/add';
+            const res=await fetch(url,{method:'POST',body:fd});
+            const d=await res.json();
+            if(d.status==='success'){ closeSigForm(); toast(isEdit?'수정되었습니다':'등록되었습니다'); await loadSigs(); renderManageList(); }
+            else toast('저장 실패: '+(d.message||''),true);
+        }catch(e){ toast('저장 실패: '+e.message,true); }
+        finally{ btn.disabled=false; btn.innerHTML=orig; }
     }
 
     function toast(msg,isErr){
