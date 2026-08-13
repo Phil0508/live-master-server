@@ -1974,7 +1974,7 @@ def api_data():
             #   큐에서 사라졌다("시그니처가 씹힌다"). 그래서 '서버만 건드리는 필드'는 클라이언트가
             #   덮어쓰지 못하게 서버 값을 유지한다. (이 필드들은 후원 수신·큐 조작 엔드포인트에서만 바뀐다.
             #   조종실/모바일/에디터의 어떤 조작도 /api/data 로 이 필드를 직접 수정하지 않으므로 안전하다.)
-            SERVER_OWNED = ('reaction_queue', 'latest_donation')
+            SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations')
             state = dict(current_state)
             state.update(incoming)                      # 클라이언트 편집 필드는 그대로 반영(점수·설정·승인 등 기존 동작 유지)
             for k in SERVER_OWNED:
@@ -2926,6 +2926,23 @@ def remove_from_queue(rq_id):
         return jsonify({"status": "success", "message": "Removed from queue"})
     except Exception as e:
         print(f"Error in remove_from_queue: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/pending/remove/<don_id>', methods=['POST'])
+def remove_pending_donation(don_id):
+    """승인 대기함에서 특정 후원 한 건을 제거한다(전용 read-modify-write).
+       pending_donations 는 /api/data 에서 서버 소유로 보호되므로, 승인/무시 시 이 엔드포인트로만 제거해야
+       후원이 막 들어온 순간 조종실이 점수를 눌러도 새 후원이 안 사라진다."""
+    try:
+        with file_lock:
+            state = load_data()
+            pend = state.get('pending_donations', []) or []
+            state['pending_donations'] = [d for d in pend if d.get('id') != don_id]
+            save_data(state)
+            broadcast_event('update', state)
+        return jsonify({"status": "success", "message": "Removed from pending"})
+    except Exception as e:
+        print(f"Error in remove_pending_donation: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================

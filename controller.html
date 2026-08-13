@@ -1875,6 +1875,8 @@
                 let isExtra = gd.extra_game_active || false;
                 let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
                 gd.pending_donations.forEach(don => {
+                    // 방금 승인/무시로 서버에 제거 요청한 건은, 서버 상태가 아직 반영되기 전이라도 다시 뜨지 않게 숨긴다
+                    if (removedPendingIds.has(don.id)) return;
                     // 🏃 퇴근 성공 카드는 후원이 아니라 '송출' 버튼만 있는 별도 형태로 그린다
                     if (don.type === 'off_work') {
                         const nm = escapeHTML(don.name);
@@ -2284,6 +2286,16 @@
 
 
 
+        // 🛡️ 승인 대기함은 서버가 소유한다(pending_donations는 /api/data에서 보호됨).
+        // 후원 도착과 승인이 겹쳐도 새 후원이 안 사라지도록, 제거는 반드시 전용 엔드포인트로만 한다.
+        // removedPendingIds: 서버 반영이 오기 전 잠깐 다시 뜨는 깜빡임을 막는 억제 셋.
+        const removedPendingIds = new Set();
+        function removePending(donId) {
+            removedPendingIds.add(donId);
+            setTimeout(() => removedPendingIds.delete(donId), 8000);
+            fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' }).catch(() => {});
+        }
+
         function assignPending(donId, bjIdx) {
             let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
             if(donIdx === -1) return;
@@ -2310,6 +2322,7 @@
 
             gd.pending_donations.splice(donIdx, 1);
             pushAPI();
+            removePending(donId);
         }
 
         function assignHalf(donId) {
@@ -2347,6 +2360,7 @@
             if(gd.logs.length > 200) gd.logs.splice(200);
             gd.pending_donations.splice(donIdx, 1);
             pushAPI();
+            removePending(donId);
         }
 
         async function deletePending(donId) {
@@ -2354,7 +2368,7 @@
                 let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
                 if(donIdx !== -1) {
                     gd.pending_donations.splice(donIdx, 1);
-                    pushAPI();
+                    removePending(donId);
                 }
             }
         }
@@ -2624,7 +2638,7 @@
                 if (data.status === 'success') {
                     premiumAlert(`🎉 ${name}님 퇴근 연출을 방송에 송출했습니다!`, "송출 성공", "success");
                     const idx = (gd.pending_donations || []).findIndex(d => d.id === donId);
-                    if (idx !== -1) { gd.pending_donations.splice(idx, 1); pushAPI(); }
+                    if (idx !== -1) { gd.pending_donations.splice(idx, 1); removePending(donId); }
                 } else {
                     premiumAlert("송출 실패: " + data.message, "오류", "warning");
                 }
@@ -3074,6 +3088,7 @@
             if(gd.logs.length > 200) gd.logs.splice(200);
             gd.pending_donations.splice(donIdx, 1);
             pushAPI();
+            removePending(donId);
         }
 
         async function bulkImportBJs() {
