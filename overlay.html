@@ -634,6 +634,19 @@
             -webkit-text-stroke-color: #ffd76b;
             text-shadow: 0 0 14px #ffd76b, 0 0 34px #ffcf4d, 0 0 72px rgba(255,215,107,0.9), 0 0 132px rgba(255,200,60,0.6);
         }
+        #reaction-title-banner.tier-4 {
+            font-size: calc(var(--reac-title-size, 150px) * 1.28);
+            -webkit-text-stroke-color: #ffe08c;
+            text-shadow: 0 0 16px #ffe08c, 0 0 40px #ffd76b, 0 0 84px rgba(255,215,107,0.98), 0 0 150px rgba(255,200,60,0.68);
+        }
+        /* 최상위(20만+) 강한 흔들림 */
+        .reaction-img-box.shake-strong { animation: reac-shake-strong 0.5s ease-in-out; }
+        @keyframes reac-shake-strong {
+            0%, 100% { transform: translate(0, 0); }
+            10% { transform: translate(-12px, 6px); }  25% { transform: translate(11px, -8px); }
+            40% { transform: translate(-10px, 5px); }  55% { transform: translate(9px, 6px); }
+            70% { transform: translate(-7px, -4px); }  85% { transform: translate(5px, 3px); }
+        }
         #reaction-title-banner.show { animation: banner-glow 1.3s ease-in-out infinite; }
         @keyframes banner-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.28); } }
 
@@ -2031,10 +2044,11 @@
         //    임계값(원 단위)은 여기서 조절하면 된다. amount 가 없거나 0이면 level 0(가장 절제된 연출).
         function reactionTier(amount) {
             const a = parseInt(amount) || 0;
-            if (a >= 100000) return { level: 3, flash: 0.90, shake: true,  vignette: 0.55, durBonus: 1500, glow: '#ffd76b', gold: true };
-            if (a >= 50000)  return { level: 2, flash: 0.60, shake: false, vignette: 0.40, durBonus: 800,  glow: '#ffb347', gold: true };
-            if (a >= 10000)  return { level: 1, flash: 0.35, shake: false, vignette: 0.22, durBonus: 0,    glow: '#ff2d78', gold: false };
-            return             { level: 0, flash: 0,    shake: false, vignette: 0,    durBonus: 0,    glow: '#ff2d78', gold: false };
+            if (a >= 200000) return { level: 4, flash: 1.00, shake: 'shake-strong', vignette: 0.62, durBonus: 2200, glow: '#ffe08c', gold: true };
+            if (a >= 100000) return { level: 3, flash: 0.85, shake: 'shake',        vignette: 0.55, durBonus: 1500, glow: '#ffd76b', gold: true };
+            if (a >= 50000)  return { level: 2, flash: 0.60, shake: '',             vignette: 0.40, durBonus: 800,  glow: '#ffb347', gold: true };
+            if (a >= 30000)  return { level: 1, flash: 0.35, shake: '',             vignette: 0.22, durBonus: 0,    glow: '#ff2d78', gold: false };
+            return             { level: 0, flash: 0,    shake: '',             vignette: 0,    durBonus: 0,    glow: '#ff2d78', gold: false };
         }
 
         // 화면 글로우 플래시 1회 (카드 뒤에서 순간 번쩍)
@@ -2056,10 +2070,10 @@
             if (box) {
                 box.style.setProperty('--reac-glow', t.glow);
                 box.classList.toggle('glow', t.level >= 1);
-                box.classList.remove('shine', 'shake');
+                box.classList.remove('shine', 'shake', 'shake-strong');
                 void box.offsetWidth;                 // 애니메이션 재시작
                 box.classList.add('shine');
-                if (t.shake) box.classList.add('shake');
+                if (t.shake) box.classList.add(t.shake);   // '' | 'shake' | 'shake-strong'
             }
             // 화면 글로우 플래시
             triggerReactionFlash(t.flash, t.gold);
@@ -2088,8 +2102,9 @@
 
             // 금액 등급에 따라 배너 색(핑크→골드)·크기를 바꾼다
             const t = reactionTier(amount);
-            el.classList.remove('tier-2', 'tier-3');
-            if (t.level >= 3) el.classList.add('tier-3');
+            el.classList.remove('tier-2', 'tier-3', 'tier-4');
+            if (t.level >= 4) el.classList.add('tier-4');
+            else if (t.level >= 3) el.classList.add('tier-3');
             else if (t.level >= 2) el.classList.add('tier-2');
 
             if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
@@ -2122,7 +2137,7 @@
             const vig = document.getElementById('reaction-vignette');
             if (vig) vig.classList.remove('show');
             const box = document.getElementById('reaction-img-box');
-            if (box) box.classList.remove('glow', 'shine', 'shake');
+            if (box) box.classList.remove('glow', 'shine', 'shake', 'shake-strong');
             hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
             if (audio) {
                 audio.onended = null;
