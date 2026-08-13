@@ -500,6 +500,18 @@
             font-size: 21px; font-weight: 900; color: var(--gold);
         }
         .home-race-goal-badge { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 14px; padding: 3px 11px; border-radius: 8px; }
+        /* 각 플레이어 행 오른쪽 '목표' 배지 (예: 26만) — 레퍼런스식 */
+        .home-race-goal-tag {
+            flex: 0 0 auto; min-width: 50px; text-align: center;
+            background: rgba(140, 150, 255, 0.13); border: 1px solid rgba(150, 160, 255, 0.42);
+            color: #d9ddff; font-weight: 900; font-size: 15px; padding: 4px 10px; border-radius: 9px;
+            font-variant-numeric: tabular-nums;
+        }
+        /* 하단 순환 GOAL 바 하위 요소 */
+        .hr-goal-name   { color: #fff; font-weight: 900; }
+        .hr-goal-label  { color: var(--tx-3); font-size: 15px; font-weight: 700; }
+        .hr-goal-remain { color: var(--gold); font-weight: 900; font-variant-numeric: tabular-nums; }
+        .hr-goal-target { background: rgba(140,150,255,0.14); border: 1px solid rgba(150,160,255,0.45); color: #d9ddff; font-weight: 900; font-size: 14px; padding: 3px 10px; border-radius: 8px; margin-left: 4px; }
 
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         #toon-popup.vip-premium-card {
@@ -854,7 +866,10 @@
                         <div id="home-race-rows"></div>
                         <div class="home-race-goal-line" id="home-race-goal-line" style="display:none;">
                             <span class="home-race-goal-badge">GOAL</span>
-                            <span id="home-race-goal-text">-</span>
+                            <span class="hr-goal-name" id="hr-goal-name">-</span>
+                            <span class="hr-goal-label">남은 금액</span>
+                            <span class="hr-goal-remain" id="hr-goal-remain">-</span>
+                            <span class="hr-goal-target" id="hr-goal-target">목표 -</span>
                         </div>
                     </div>
                 </div>
@@ -2937,7 +2952,7 @@
                 rankEl.style.opacity = on ? '0' : '1';
                 rankEl.style.visibility = on ? 'hidden' : 'visible';
             }
-            if (!on) return;
+            if (!on) { stopHomeRaceCycle(); return; }
 
             const goals = d.home_goals || {};
             const rowsEl = document.getElementById('home-race-rows');
@@ -2954,7 +2969,8 @@
                 rowsEl.innerHTML = bjs.map(() => `<div class="home-race-row">
                     <div class="home-race-name"></div>
                     <div class="home-race-bar-bg"><div class="home-race-bar-fill"></div></div>
-                    <div class="home-race-nums"><span class="cur"></span> <span class="goal"></span></div>
+                    <div class="home-race-nums"><span class="cur"></span></div>
+                    <div class="home-race-goal-tag"></div>
                 </div>`).join('');
                 rowsEl.dataset.names = names.join(' ');
             }
@@ -2973,22 +2989,60 @@
                 const nameEl = row.querySelector('.home-race-name');
                 const fillEl = row.querySelector('.home-race-bar-fill');
                 const curEl = row.querySelector('.home-race-nums .cur');
-                const goalEl = row.querySelector('.home-race-nums .goal');
+                const tagEl = row.querySelector('.home-race-goal-tag');
                 if (nameEl.textContent !== b.name) nameEl.textContent = b.name;
                 fillEl.style.width = pct + '%';
                 fillEl.classList.toggle('goal-reached', reached);
                 const curTxt = formatNum(cur);
-                const goalTxt = '/ ' + formatNum(goal);
                 if (curEl.textContent !== curTxt) curEl.textContent = curTxt;
-                if (goalEl.textContent !== goalTxt) goalEl.textContent = goalTxt;
+                const tagTxt = manLabel(goal);
+                if (tagEl && tagEl.textContent !== tagTxt) tagEl.textContent = tagTxt;
             });
 
-            if (firstReached && goalLineEl && goalTextEl) {
-                goalLineEl.style.display = 'flex';
-                goalTextEl.innerText = `${firstReached} 퇴근! 🎉`;
-            } else if (goalLineEl) {
-                goalLineEl.style.display = 'none';
-            }
+            // 하단 GOAL 바: 플레이어별 '남은 금액'을 5초마다 순서대로 순환 표시
+            homeRaceCycleData = bjs.map(b => ({ name: b.name, cur: b.score || 0, goal: parseInt(goals[b.name]) || 0 }));
+            startHomeRaceCycle();
+        }
+
+        // 금액을 '만' 단위 짧은 배지로 (예: 260000 → 26만, 아니면 콤마 원본)
+        function manLabel(v) {
+            v = parseInt(v) || 0;
+            if (v >= 10000 && v % 10000 === 0) return (v / 10000) + '만';
+            if (v >= 10000) return (v / 10000).toFixed(1).replace(/\.0$/, '') + '만';
+            return formatNum(v);
+        }
+
+        // 🏃 퇴근빵 하단 GOAL 바 순환 (5초마다 다음 플레이어의 '남은 금액')
+        let homeRaceCycleData = [];
+        let homeRaceCycleTimer = null;
+        let homeRaceCycleIdx = 0;
+        function updateHomeRaceGoalBar() {
+            const line = document.getElementById('home-race-goal-line');
+            if (!line) return;
+            const data = homeRaceCycleData;
+            if (!data.length) { line.style.display = 'none'; return; }
+            if (homeRaceCycleIdx >= data.length) homeRaceCycleIdx = 0;
+            const p = data[homeRaceCycleIdx];
+            const remain = Math.max(0, (p.goal || 0) - (p.cur || 0));
+            line.style.display = 'flex';
+            const nameEl = document.getElementById('hr-goal-name');
+            const remEl = document.getElementById('hr-goal-remain');
+            const tgtEl = document.getElementById('hr-goal-target');
+            if (nameEl) nameEl.textContent = p.name;
+            if (remEl) remEl.textContent = (p.goal > 0 && remain === 0) ? '퇴근 완료 🎉' : (formatNum(remain) + '원');
+            if (tgtEl) tgtEl.textContent = '목표 ' + manLabel(p.goal);
+        }
+        function startHomeRaceCycle() {
+            updateHomeRaceGoalBar();   // 즉시 1회(최신 금액 반영)
+            if (homeRaceCycleTimer) return;
+            homeRaceCycleTimer = setInterval(() => {
+                if (!homeRaceCycleData.length) return;
+                homeRaceCycleIdx = (homeRaceCycleIdx + 1) % homeRaceCycleData.length;
+                updateHomeRaceGoalBar();
+            }, 5000);
+        }
+        function stopHomeRaceCycle() {
+            if (homeRaceCycleTimer) { clearInterval(homeRaceCycleTimer); homeRaceCycleTimer = null; }
         }
 
         // 👑 [특별 후원자(VIP) 캐시] 후원 팝업이 뜰 때마다 조회하면 느리므로 미리 받아둔다
