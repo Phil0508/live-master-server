@@ -583,6 +583,60 @@
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
             display: inline-block;
         }
+
+        /* ✨ [리액션 이펙트] 금액대별 차등 연출 — 등장 플래시 / 흔들림 / 이미지 샤인·글로우 / 배경 스포트라이트 */
+        /* 화면 글로우 플래시 (카드 뒤에서 순간 번쩍) */
+        #reaction-flash {
+            position: fixed; inset: 0; pointer-events: none; z-index: 100006; opacity: 0;
+            background: radial-gradient(circle at 50% 42%, rgba(255,255,255,0.95), rgba(255,255,255,0) 68%);
+        }
+        #reaction-flash.gold {
+            background: radial-gradient(circle at 50% 42%, rgba(255,224,140,0.97), rgba(255,190,80,0) 68%);
+        }
+        #reaction-flash.flash-go { animation: reac-flash 0.6s ease-out; }
+        @keyframes reac-flash { 0% { opacity: 0; } 14% { opacity: var(--flash-peak, 0.7); } 100% { opacity: 0; } }
+
+        /* 배경 스포트라이트(비네트) — 재생 중 화면 가장자리를 살짝 어둡게 해 시선을 카드로 모은다 */
+        #reaction-vignette {
+            position: fixed; inset: 0; pointer-events: none; z-index: 100003; opacity: 0;
+            background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 38%, rgba(0,0,0,0.88) 100%);
+            transition: opacity 0.55s ease;
+        }
+        #reaction-vignette.show { opacity: var(--vig-peak, 0.4); }
+
+        /* 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액) 흔들림 */
+        .reaction-img-box { position: relative; display: inline-block; border-radius: 16px; line-height: 0; }
+        .reaction-img-box.glow { box-shadow: 0 0 0 3px var(--reac-glow, #ff2d78), 0 0 30px var(--reac-glow, #ff2d78), 0 8px 32px rgba(0,0,0,0.35); }
+        .reaction-shine { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; pointer-events: none; }
+        .reaction-shine::before {
+            content: ''; position: absolute; top: -20%; left: -70%; width: 45%; height: 140%;
+            background: linear-gradient(115deg, transparent, rgba(255,255,255,0.78), transparent);
+            transform: skewX(-18deg); opacity: 0;
+        }
+        .reaction-img-box.shine .reaction-shine::before { animation: reac-shine 0.9s ease-out 0.12s; }
+        @keyframes reac-shine { 0% { left: -70%; opacity: 0; } 12% { opacity: 0.9; } 100% { left: 135%; opacity: 0; } }
+        .reaction-img-box.shake { animation: reac-shake 0.45s ease-in-out; }
+        @keyframes reac-shake {
+            0%, 100% { transform: translate(0, 0); }
+            15% { transform: translate(-8px, 4px); }  30% { transform: translate(7px, -5px); }
+            45% { transform: translate(-6px, 3px); }  60% { transform: translate(5px, 4px); }
+            75% { transform: translate(-3px, -2px); }
+        }
+
+        /* 배너 금액 등급: 색(핑크→골드) + 크기 + 은은한 글로우 펄스 */
+        #reaction-title-banner.tier-2 {
+            font-size: calc(var(--reac-title-size, 150px) * 1.08);
+            -webkit-text-stroke-color: #ffb347;
+            text-shadow: 0 0 12px #ffb347, 0 0 30px #ff9500, 0 0 60px rgba(255,180,70,0.85), 0 0 110px rgba(255,150,40,0.5);
+        }
+        #reaction-title-banner.tier-3 {
+            font-size: calc(var(--reac-title-size, 150px) * 1.18);
+            -webkit-text-stroke-color: #ffd76b;
+            text-shadow: 0 0 14px #ffd76b, 0 0 34px #ffcf4d, 0 0 72px rgba(255,215,107,0.9), 0 0 132px rgba(255,200,60,0.6);
+        }
+        #reaction-title-banner.show { animation: banner-glow 1.3s ease-in-out infinite; }
+        @keyframes banner-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.28); } }
+
         @keyframes pulse {
             0% { transform: translateX(-50%) scale(1); }
             50% { transform: translateX(-50%) scale(1.03); }
@@ -610,9 +664,16 @@
         <span style="font-size:13px; font-weight:normal; opacity:0.9;">소리를 켜려면 화면 아무 곳이나 클릭(크롬 창 클릭 또는 OBS 소스 우클릭 -> 상호작용)해 주세요.</span>
     </div>
     
+    <!-- ✨ 리액션 이펙트 레이어: 배경 스포트라이트(비네트) + 등장 글로우 플래시 -->
+    <div id="reaction-vignette"></div>
+    <div id="reaction-flash"></div>
+
     <!-- 🎵 리액션 음원/사진 송출 전광판 및 오디오 객체 -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
-        <img id="reaction-screen-image" src="" alt="Reaction Image">
+        <div id="reaction-img-box" class="reaction-img-box">
+            <img id="reaction-screen-image" src="" alt="Reaction Image">
+            <div class="reaction-shine"></div>
+        </div>
         <div id="reaction-donator-info" class="reaction-text-donator"></div>
         <div id="reaction-message-info" class="reaction-text-message"></div>
     </div>
@@ -1966,9 +2027,53 @@
             }
         }
 
+        // ✨ [리액션 이펙트] 금액대별 등급 → 등장 플래시·흔들림·글로우·스포트라이트·배너색을 차등 적용.
+        //    임계값(원 단위)은 여기서 조절하면 된다. amount 가 없거나 0이면 level 0(가장 절제된 연출).
+        function reactionTier(amount) {
+            const a = parseInt(amount) || 0;
+            if (a >= 100000) return { level: 3, flash: 0.90, shake: true,  vignette: 0.55, durBonus: 1500, glow: '#ffd76b', gold: true };
+            if (a >= 50000)  return { level: 2, flash: 0.60, shake: false, vignette: 0.40, durBonus: 800,  glow: '#ffb347', gold: true };
+            if (a >= 10000)  return { level: 1, flash: 0.35, shake: false, vignette: 0.22, durBonus: 0,    glow: '#ff2d78', gold: false };
+            return             { level: 0, flash: 0,    shake: false, vignette: 0,    durBonus: 0,    glow: '#ff2d78', gold: false };
+        }
+
+        // 화면 글로우 플래시 1회 (카드 뒤에서 순간 번쩍)
+        function triggerReactionFlash(intensity, gold) {
+            const f = document.getElementById('reaction-flash');
+            if (!f || !(intensity > 0)) return;
+            f.classList.toggle('gold', !!gold);
+            f.style.setProperty('--flash-peak', intensity);
+            f.classList.remove('flash-go');
+            void f.offsetWidth;   // 애니메이션 재시작
+            f.classList.add('flash-go');
+        }
+
+        // 시그니처 등장 시 금액 등급에 맞는 이펙트를 한 번에 적용
+        function applyReactionEffects(data) {
+            const t = reactionTier(data && data.amount);
+            // 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액)흔들림
+            const box = document.getElementById('reaction-img-box');
+            if (box) {
+                box.style.setProperty('--reac-glow', t.glow);
+                box.classList.toggle('glow', t.level >= 1);
+                box.classList.remove('shine', 'shake');
+                void box.offsetWidth;                 // 애니메이션 재시작
+                box.classList.add('shine');
+                if (t.shake) box.classList.add('shake');
+            }
+            // 화면 글로우 플래시
+            triggerReactionFlash(t.flash, t.gold);
+            // 배경 스포트라이트(비네트)
+            const vig = document.getElementById('reaction-vignette');
+            if (vig) {
+                if (t.vignette > 0) { vig.style.setProperty('--vig-peak', t.vignette); vig.classList.add('show'); }
+                else vig.classList.remove('show');
+            }
+        }
+
         // 🔥 시그니처 이름 대형 네온 배너
         let reactionTitleTimeout = null;
-        function showReactionTitle(who, isSlot) {
+        function showReactionTitle(who, isSlot, amount) {
             const el = document.getElementById('reaction-title-banner');
             if (!el) return;
             const gd = globalData || {};
@@ -1981,6 +2086,12 @@
             const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
             const text = name + suffix;
 
+            // 금액 등급에 따라 배너 색(핑크→골드)·크기를 바꾼다
+            const t = reactionTier(amount);
+            el.classList.remove('tier-2', 'tier-3');
+            if (t.level >= 3) el.classList.add('tier-3');
+            else if (t.level >= 2) el.classList.add('tier-2');
+
             if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
             el.innerText = text;
             // 재생마다 등장 애니메이션이 다시 돌도록 클래스를 떼었다 붙인다
@@ -1988,7 +2099,8 @@
             void el.offsetWidth;
             el.classList.add('show');
 
-            const dur = parseInt(gd.reaction_title_duration) || 3500;
+            // 고액일수록 배너를 조금 더 오래 보여준다
+            const dur = (parseInt(gd.reaction_title_duration) || 3500) + (t.durBonus || 0);
             reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, dur);
         }
         function hideReactionTitle() {
@@ -2006,6 +2118,11 @@
                 overlay.classList.remove('show');
                 overlay.classList.remove('minimize');
             }
+            // ✨ 이펙트 레이어 정리(배경 스포트라이트/이미지 글로우·샤인·흔들림)
+            const vig = document.getElementById('reaction-vignette');
+            if (vig) vig.classList.remove('show');
+            const box = document.getElementById('reaction-img-box');
+            if (box) box.classList.remove('glow', 'shine', 'shake');
             hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
             if (audio) {
                 audio.onended = null;
@@ -2101,9 +2218,13 @@
                 overlay.classList.remove('minimize');
                 overlay.classList.add('show');
 
+                // 3-a. 금액 등급별 이펙트(플래시·흔들림·이미지 글로우/샤인·배경 스포트라이트) 적용
+                applyReactionEffects(data);
+
                 // 3-b. 화면 중앙에 대형 네온으로 잠깐 노출. 일반 후원은 "홍길동"→"홍길동업",
                 //      슬롯 당첨(skip_popup)은 후원자가 '🎰 슬롯머신'이라 접미사 없이 당첨 시그니처 이름을 띄운다.
-                showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup);
+                //      금액(amount)에 따라 배너 색·크기·노출시간이 달라진다.
+                showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup, data.amount);
                 
                 // 4. 설정한 시간 뒤 좌측으로 부드럽게 이동/축소 (BJ 가림 방지). admin 에디터에서 조절.
                 reactionMinimizeTimeout = setTimeout(() => {
