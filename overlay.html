@@ -1968,17 +1968,17 @@
 
         // 🔥 시그니처 이름 대형 네온 배너
         let reactionTitleTimeout = null;
-        function showReactionTitle(donator) {
+        function showReactionTitle(who, isSlot) {
             const el = document.getElementById('reaction-title-banner');
             if (!el) return;
             const gd = globalData || {};
             if (gd.reaction_title_enabled === false) { hideReactionTitle(); return; }
 
-            // 후원자 이름 뒤에 접미사를 붙여 "홍길동업" 형태로 만든다.
-            let name = (donator || '').trim();
+            let name = (who || '').trim();
             if (name.endsWith('님')) name = name.slice(0, -1);   // "홍길동님" 으로 들어와도 "홍길동업"
             if (!name) { hideReactionTitle(); return; }
-            const suffix = (gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업';
+            // 슬롯 당첨은 후원자가 없으므로 접미사 없이 시그니처 이름만 띄운다.
+            const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
             const text = name + suffix;
 
             if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
@@ -2101,8 +2101,9 @@
                 overlay.classList.remove('minimize');
                 overlay.classList.add('show');
 
-                // 3-b. 후원자 이름을 화면 중앙에 대형 네온으로 잠깐 노출 ("홍길동" → "홍길동업")
-                showReactionTitle(data.donator);
+                // 3-b. 화면 중앙에 대형 네온으로 잠깐 노출. 일반 후원은 "홍길동"→"홍길동업",
+                //      슬롯 당첨(skip_popup)은 후원자가 '🎰 슬롯머신'이라 접미사 없이 당첨 시그니처 이름을 띄운다.
+                showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup);
                 
                 // 4. 설정한 시간 뒤 좌측으로 부드럽게 이동/축소 (BJ 가림 방지). admin 에디터에서 조절.
                 reactionMinimizeTimeout = setTimeout(() => {

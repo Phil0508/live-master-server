@@ -349,11 +349,13 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
         ext = (file_storage.filename or 'img.png').rsplit('.', 1)[-1].lower()
         return raw, ext, (file_storage.content_type or 'application/octet-stream')
 
-def enqueue_signature(state, sig, amount, donator, message, skip_popup=False):
+def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, count_tally=True):
     """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유).
 
     큐를 태우면 reaction_mode가 켜지고, 재생이 끝나 큐가 비면 자동으로 꺼진다.
     skip_popup: 슬롯 당첨처럼 이미 자체 연출을 보여준 경우 후원 팝업을 건너뛴다.
+    count_tally: 시그니처 순위 집계에 셀지 여부. 실제 후원(자동/장부기록)만 True,
+                 슬롯 당첨·재생전용 수동 송출은 False(집계 부풀림 방지).
     """
     reaction_uuid = f"rq_{uuid.uuid4().hex}"
     state.setdefault('reaction_queue', []).append({
@@ -370,21 +372,22 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False):
     })
     state['reaction_mode'] = True
 
-    # 📊 시그니처별 신청 집계 (모든 재생 경로가 이 함수를 지나므로 여기서 한 번만 센다)
-    try:
-        key = str(sig.get('id'))
-        tally = state.setdefault('sig_tally', {})
-        row = tally.get(key) or {
-            'title': sig.get('title'), 'image_url': sig.get('image_url') or '',
-            'amount': sig.get('amount') or 0, 'count': 0
-        }
-        row['count'] = int(row.get('count') or 0) + 1
-        row['title'] = sig.get('title') or row.get('title')
-        row['image_url'] = sig.get('image_url') or row.get('image_url') or ''
-        row['amount'] = sig.get('amount') or row.get('amount') or 0
-        tally[key] = row
-    except Exception as e:
-        print(f"⚠️ [시그니처 집계 실패] {e}")
+    # 📊 시그니처별 신청 집계 (실제 후원만 센다 — 슬롯/재생전용 수동은 count_tally=False)
+    if count_tally:
+        try:
+            key = str(sig.get('id'))
+            tally = state.setdefault('sig_tally', {})
+            row = tally.get(key) or {
+                'title': sig.get('title'), 'image_url': sig.get('image_url') or '',
+                'amount': sig.get('amount') or 0, 'count': 0
+            }
+            row['count'] = int(row.get('count') or 0) + 1
+            row['title'] = sig.get('title') or row.get('title')
+            row['image_url'] = sig.get('image_url') or row.get('image_url') or ''
+            row['amount'] = sig.get('amount') or row.get('amount') or 0
+            tally[key] = row
+        except Exception as e:
+            print(f"⚠️ [시그니처 집계 실패] {e}")
 
     return reaction_uuid
 
@@ -418,7 +421,7 @@ def _slot_finish(winner):
             state = load_data()
             state['slot_enabled'] = False
             enqueue_signature(state, winner, winner.get('amount') or 0,
-                              '🎰 슬롯머신', f'[슬롯 당첨] {title}', skip_popup=True)
+                              '🎰 슬롯머신', f'[슬롯 당첨] {title}', skip_popup=True, count_tally=False)
             save_data(state)
             broadcast_event('update', state)
         print(f"  🎰 [슬롯 당첨 처리] '{title}' → 슬롯 위젯 OFF, 리액션 큐 투입")
@@ -1430,7 +1433,8 @@ def api_signature_play():
 
         with file_lock:
             state = load_data()
-            enqueue_signature(state, sig, amount, donator, message)
+            # 재생 전용 수동 송출은 실제 후원이 아니므로 시그니처 순위 집계에서 제외한다.
+            enqueue_signature(state, sig, amount, donator, message, count_tally=False)
             save_data(state)
             broadcast_event('update', state)
 

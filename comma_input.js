@@ -70,17 +70,19 @@
     if (document.readyState !== 'loading') scan();
     else document.addEventListener('DOMContentLoaded', function () { scan(); });
 
-    // 동적으로 추가되는 입력칸 자동 적용
+    // 동적으로 추가되는 입력칸 자동 적용.
+    // ⚠️ 컨트롤러는 SSE 갱신마다 목록 innerHTML을 통째로 다시 그린다. 그때마다 노드별로 스캔하면
+    //    방송 중 낭비가 크므로, 변화가 몰아쳐 와도 150ms에 한 번만 전체를 스캔하도록 묶는다(coalesce).
     try {
+        var scanPending = false;
+        function scheduleScan() {
+            if (scanPending) return;
+            scanPending = true;
+            setTimeout(function () { scanPending = false; scan(document); }, 150);
+        }
         var mo = new MutationObserver(function (muts) {
             for (var m = 0; m < muts.length; m++) {
-                var added = muts[m].addedNodes;
-                for (var n = 0; n < added.length; n++) {
-                    var node = added[n];
-                    if (node.nodeType !== 1) continue;
-                    if (node.matches && node.matches('input[data-comma], input[type=number]')) attach(node);
-                    if (node.querySelectorAll) scan(node);
-                }
+                if (muts[m].addedNodes && muts[m].addedNodes.length) { scheduleScan(); return; }
             }
         });
         function startObserver() { if (document.body) mo.observe(document.body, { childList: true, subtree: true }); }

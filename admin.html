@@ -350,45 +350,35 @@
             };
 
             // 🎬 시그니처 리액션 위젯 크기/위치/타이밍 실시간 조절
+            // 편집값을 pendingReac에 모아뒀다가 POST 직전에 최신 globalData에 재적용한다.
+            // fetchRealData가 1초마다 globalData를 통째로 교체해도 편집이 유실되지 않게 하는 장치.
             let _reacPushTimer = null;
+            let pendingReac = {};
             function pushReac() {
                 clearTimeout(_reacPushTimer);
                 _reacPushTimer = setTimeout(async () => {
                     if(!globalData) return;
+                    Object.assign(globalData, pendingReac);   // 1초 새로고침이 덮어썼어도 편집값을 최신 상태에 재적용
+                    pendingReac = {};
                     try { await fetch('/api/data', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalData) }); } catch(e) {}
                 }, 120);
             }
             window.updateReac = function(key, val, labelId) {
-                if(!globalData) return;
-                globalData[key] = parseFloat(val);
+                pendingReac[key] = parseFloat(val);
                 if(labelId){ const l = document.getElementById(labelId); if(l) l.innerText = parseFloat(val).toFixed(2); }
                 pushReac();
             };
             window.updateReacDelay = function(val) {
-                if(!globalData) return;
-                globalData.reaction_shrink_delay = parseInt(val);
+                pendingReac.reaction_shrink_delay = parseInt(val);
                 const l = document.getElementById('reac-delay-val'); if(l) l.innerText = (parseInt(val)/1000).toFixed(1) + '초';
                 pushReac();
             };
-            window.updateReacTitleOn = function(on) {
-                if(!globalData) return;
-                globalData.reaction_title_enabled = !!on;
-                pushReac();
-            };
-            window.updateReacSuffix = function(val) {
-                if(!globalData) return;
-                globalData.reaction_title_suffix = val;
-                pushReac();
-            };
-            window.updateTallyOn = function(on) {
-                if(!globalData) return;
-                globalData.sig_tally_enabled = !!on;
-                pushReac();
-            };
+            window.updateReacTitleOn = function(on) { pendingReac.reaction_title_enabled = !!on; pushReac(); };
+            window.updateReacSuffix = function(val) { pendingReac.reaction_title_suffix = val; pushReac(); };
+            window.updateTallyOn = function(on) { pendingReac.sig_tally_enabled = !!on; pushReac(); };
             window.resetTally = function() {
-                if(!globalData) return;
                 if(!confirm('시그니처 신청 집계를 모두 지울까요?')) return;
-                globalData.sig_tally = {};
+                pendingReac.sig_tally = {};
                 pushReac();
             };
             window.testReaction = async function() {

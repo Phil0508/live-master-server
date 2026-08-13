@@ -412,7 +412,7 @@
             const onData = e => { try{ renderQueue(JSON.parse(e.data)); setConn(true); }catch(err){} };
             queueSse.addEventListener('init', onData);
             queueSse.addEventListener('update', onData);
-            queueSse.onopen = () => setConn(true);
+            queueSse.onopen = () => { setConn(true); stopQueuePoll(); };   // 재연결되면 폴백 폴링 중단
             queueSse.onerror = () => {
                 setConn(false);
                 // EventSource가 자동 재연결하지만, 혹시 막히면 폴링으로라도 최신 상태를 유지
@@ -425,6 +425,7 @@
     async function refreshQueueOnce(){
         try{ const d = await (await fetch('/api/data')).json(); renderQueue(d); }catch(e){}
     }
+    function stopQueuePoll(){ if(queuePollTimer){ clearInterval(queuePollTimer); queuePollTimer = null; } }
 
     window.removeQueueItem = async function(id){
         try{
