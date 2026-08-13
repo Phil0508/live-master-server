@@ -1753,24 +1753,14 @@ def serve_streamdeck():
 
 @app.route('/controller')
 def serve_controller():
-    # 1. 쿼리 매개변수로 명시적 모드가 지정된 경우 우선 처리
-    mode = request.args.get('mode', '').lower()
-    if mode == 'mobile':
-        return serve_html_file('mobile.html')
-    elif mode == 'desktop':
-        return serve_html_file('controller.html')
-        
-    # 2. 자동으로 User-Agent 판별
-    ua = request.headers.get('User-Agent', '').lower()
-    mobile_keywords = ['mobile', 'android', 'iphone', 'ipad', 'ipod', 'webos', 'blackberry', 'opera mini', 'opera mobi', 'windows phone']
-    is_mobile = any(kw in ua for kw in mobile_keywords)
-    if is_mobile:
-        return serve_html_file('mobile.html')
+    # 모바일/데스크톱 분기를 없애고 하나의 반응형 UI(controller.html)만 서빙한다.
+    # (예전엔 mode=mobile 이나 모바일 UA 이면 mobile.html 을 줬지만, 이제 한 UI로 통합)
     return serve_html_file('controller.html')
 
 @app.route('/mobile')
 def serve_mobile():
-    return serve_html_file('mobile.html')
+    # 옛 북마크 호환: /mobile 도 동일한 통합 컨트롤러로 보낸다
+    return serve_html_file('controller.html')
 
 @app.route('/admin')
 @app.route('/admin.html')

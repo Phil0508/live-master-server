@@ -3,12 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script>
-        // 모바일 화면 자동 리다이렉트 (강제 데스크톱 모드 제외)
-        if (window.innerWidth <= 800 && !window.location.search.includes('mode=desktop')) {
-            window.location.href = '/controller?mode=mobile';
-        }
-    </script>
+    <!-- (모바일 자동 리다이렉트 제거 — 이제 하나의 반응형 UI로 통합) -->
     <title>💻 마스터 웹 컨트롤러 V12 (다이내믹 이펙트 매니저 탑재)</title>
     <script src="/comma_input.js"></script>
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
@@ -349,6 +344,18 @@
         .delete-btn { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 6px 12px; margin-left: auto; font-size: 13px; }
         .delete-btn:hover { background: var(--danger); color: #fff; }
 
+        /* 📐 반쪽 창(≈960px 등) 최적화 — 하나의 반응형 UI로 통합 */
+        @media (max-width: 1024px) {
+            body { padding: 16px; }
+            .header { flex-direction: column; align-items: stretch; gap: 12px; }
+            .header-buttons { width: 100%; justify-content: flex-start; }
+            #ios-mini-media-panel { max-width: 100%; flex: 1 1 260px; }
+            .tabs { top: 6px; }
+            /* 좁은 폭에서 2단 그리드는 1단으로 접어 잘림 방지 */
+            [style*="grid-template-columns: 1fr 2fr"],
+            [style*="grid-template-columns: 2fr 1fr"],
+            [style*="grid-template-columns: 1fr 1.6fr"] { grid-template-columns: 1fr !important; }
+        }
         @media (max-width: 768px) { .header-buttons { flex-direction: column; width: 100%; } .control-group { flex-direction: column; align-items: stretch; } .control-group > * { width: 100% !important; box-sizing: border-box; } }
         
         /* 🔔 [Apple Liquid Glass] 알림 팝오버 및 뱃지 스타일 */
@@ -648,9 +655,9 @@
     </div>
     <div class="header">
         <h1>
-            <i class="fa-solid fa-layer-group"></i> 방송 제어 센터 V12
-            <span id="connection-status-badge" style="font-size: 11px; font-weight: 800; background: rgba(52, 199, 89, 0.15); border: 1px solid #34c759; color: #34c759; padding: 4px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; vertical-align: middle; transition: all 0.3s ease;">
-                <span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; margin-right: 6px;"></span> 실시간 통신망 무결 (<span id="latency-val">--ms</span>)
+            <i class="fa-solid fa-layer-group"></i> 방송 제어 센터
+            <span id="connection-status-badge" style="font-size: 11px; font-weight: 700; background: rgba(52, 199, 89, 0.15); border: 1px solid #34c759; color: #34c759; padding: 3px 10px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; vertical-align: middle; transition: all 0.3s ease;">
+                <span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite;"></span> 연결됨 · <span id="latency-val">--ms</span>
             </span>
         </h1>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -679,8 +686,6 @@
 
             <label class="toggle-row" id="lbl-reaction-wrapper" style="border-color: rgba(156, 39, 176, 0.4); background: rgba(156, 39, 176, 0.05); height: 42px; padding: 0 15px; box-sizing: border-box;"><span class="toggle-label" id="lbl-reaction" style="color:#fff; font-weight:bold; font-size: 14px;"><i class="fa-solid fa-eye"></i> 수동 리액션 모드</span><div class="apple-switch"><input type="checkbox" id="chk-reaction" onchange="toggleOption('reaction_mode')"><span class="apple-slider"></span></div></label>
             <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px; background: rgba(255,255,255,0.05); color: #fff; border-color: var(--border-light);"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
-            <button onclick="window.location.href='/controller?mode=mobile'" style="height: 42px; background: rgba(0, 191, 255, 0.1); border-color: rgba(0, 191, 255, 0.3); color: #00bfff; font-weight: bold;"><i class="fa-solid fa-mobile-screen-button"></i> 모바일 버전</button>
-            <button onclick="triggerServerLogout()" style="height: 42px; background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
         </div>
     </div>
 
@@ -1274,6 +1279,12 @@
     </div>
 
     <div id="tab-system" class="tab-content">
+        <!-- 🔐 세션 / 로그아웃 (헤더에서 이전) -->
+        <div class="group-box" style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+            <div style="font-weight:800; font-size:15px; color:#fff; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket" style="color: var(--danger);"></i> 세션 관리</div>
+            <button onclick="triggerServerLogout()" style="height: 40px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: 10px; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
+        </div>
+
         <!-- 🏦 은행 원장: 플레이어별 점수 변동 내역 + 잔액 재정산 -->
         <div class="group-box" style="margin-bottom: 20px;">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
@@ -3252,19 +3263,19 @@
                 badge.style.background = 'rgba(52, 199, 89, 0.15)';
                 badge.style.borderColor = '#34c759';
                 badge.style.color = '#34c759';
-                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; margin-right: 6px;"></span> 실시간 통신망 무결 (<span id="latency-val">--ms</span>)`;
+                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #34c759; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite;"></span> 연결됨 · <span id="latency-val">--ms</span>`;
                 startLatencyCheck();
             } else if (status === 'connecting') {
                 badge.style.background = 'rgba(255, 204, 0, 0.15)';
                 badge.style.borderColor = '#ffcc00';
                 badge.style.color = '#ffcc00';
-                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #ffcc00; border-radius: 50%; display: inline-block; animation: pulseYellow 1.5s infinite; margin-right: 6px;"></span> 심폐소생 재연결 시도 중...`;
+                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #ffcc00; border-radius: 50%; display: inline-block; animation: pulseYellow 1.5s infinite;"></span> 재연결 중…`;
                 stopLatencyCheck();
             } else {
                 badge.style.background = 'rgba(255, 69, 58, 0.15)';
                 badge.style.borderColor = '#ff453a';
                 badge.style.color = '#ff453a';
-                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #ff453a; border-radius: 50%; display: inline-block; animation: pulseRed 1.5s infinite; margin-right: 6px;"></span> 통신 단절 ⚠️ (복원 대기)`;
+                badge.innerHTML = `<span style="width: 7px; height: 7px; background: #ff453a; border-radius: 50%; display: inline-block; animation: pulseRed 1.5s infinite;"></span> 연결 끊김`;
                 stopLatencyCheck();
             }
         }
