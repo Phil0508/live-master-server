@@ -452,66 +452,65 @@
            제목은 카드 밖으로 튀어나오지 않게(잘림 방지) 안쪽 핑크 헤더로 넣는다 */
         .home-race-box {
             position: relative;
-            background: var(--glass-bg);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--glass-radius);
-            box-shadow: var(--glass-shadow);
-            padding: 18px 22px 16px; width: 520px;
-        }
-        .home-race-box::before {
-            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
-            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
-            pointer-events:none;
+            background: linear-gradient(160deg, rgba(16,18,34,0.90), rgba(9,10,20,0.94));
+            border: 1.5px solid rgba(120,135,255,0.55);
+            border-radius: 22px;
+            box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 0 22px rgba(90,108,255,0.35), inset 0 0 26px rgba(90,108,255,0.10);
+            padding: 22px 22px 16px; width: 540px;
         }
         .home-race-title {
-            text-align: center; font-size: 19px; font-weight: 900; letter-spacing: 1px; color: #2a0714;
-            background: linear-gradient(100deg, #ff6f9d, #e0447a);
-            border-radius: 12px; padding: 7px 0; margin-bottom: 14px;
-            box-shadow: 0 4px 14px rgba(255,111,157,0.45);
+            width: max-content; margin: -34px auto 18px;
+            text-align: center; font-size: 19px; font-weight: 900; letter-spacing: 1px; color: #fff;
+            background: linear-gradient(100deg, #6b7bff, #9a6bff);
+            border-radius: 14px; padding: 7px 30px;
+            box-shadow: 0 4px 16px rgba(107,123,255,0.55);
         }
-        .home-race-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .home-race-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .home-race-row:last-child { border-bottom: none; }
         .home-race-name {
-            width: 120px; font-size: 27px; font-weight: 800; color: #ffd7e5;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            width: 120px; font-size: 27px; font-weight: 900; color: #fff;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
         }
         .home-race-bar-bg {
-            flex: 1; height: 22px; background: rgba(0,0,0,0.45); border-radius: 11px;
-            border: 1px solid rgba(255, 140, 175, 0.25); overflow: hidden; position: relative;
+            flex: 1; height: 22px; background: rgba(255,255,255,0.045); border-radius: 11px;
+            border: 1px solid rgba(120,135,255,0.22); overflow: hidden; position: relative;
         }
         .home-race-bar-fill {
             height: 100%; border-radius: 8px;
-            background: linear-gradient(90deg, #e0447a, #ff8fb5);
-            box-shadow: 0 0 12px rgba(255, 111, 157, 0.6);
+            background: linear-gradient(90deg, #5b6cff, #8b7bff);
+            box-shadow: 0 0 12px rgba(107,123,255,0.65);
             transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); width: 0%;
         }
         .home-race-bar-fill.goal-reached {
             background: linear-gradient(90deg, var(--gold-deep), #ffe9b0);
             box-shadow: 0 0 14px var(--gold-glow);
         }
-        /* 숫자는 게이지 바로 옆에 붙인다 (좌측 정렬; 우측 정렬이면 바와 사이가 벌어져 보인다)
-           크기는 계좌 위젯 계좌번호(34px)와 같은 급 */
-        .home-race-nums { width: 150px; text-align: left; font-size: 32px; font-weight: 800; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; }
-        .home-race-nums .cur { color: #ffb6d0; }
-        .home-race-nums .goal { color: var(--tx-3); font-size: 19px; }
-        .home-race-goal-line {
-            display: flex; align-items: center; justify-content: center; gap: 10px;
-            margin-top: 5px; padding: 9px 12px; background: rgba(246, 196, 83, 0.08);
-            border: 1px solid rgba(246, 196, 83, 0.3); border-radius: 12px;
-            font-size: 21px; font-weight: 900; color: var(--gold);
-        }
-        .home-race-goal-badge { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 14px; padding: 3px 11px; border-radius: 8px; }
-        /* 각 플레이어 행 오른쪽 '목표' 배지 (예: 26만) — 레퍼런스식 */
+        .home-race-nums { width: 96px; text-align: left; font-size: 30px; font-weight: 900; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        .home-race-nums .cur { color: #fff; }
+        /* 각 플레이어 행 오른쪽 '목표' 배지 (예: 26만) */
         .home-race-goal-tag {
             flex: 0 0 auto; min-width: 50px; text-align: center;
-            background: rgba(140, 150, 255, 0.13); border: 1px solid rgba(150, 160, 255, 0.42);
-            color: #d9ddff; font-weight: 900; font-size: 15px; padding: 4px 10px; border-radius: 9px;
+            background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55);
+            color: #cfd6ff; font-weight: 900; font-size: 15px; padding: 4px 12px; border-radius: 10px;
             font-variant-numeric: tabular-nums;
         }
-        /* 하단 순환 GOAL 바 하위 요소 */
-        .hr-goal-name   { color: #fff; font-weight: 900; }
+        /* 하단 순환 GOAL 바 */
+        .home-race-goal-line {
+            display: flex; align-items: center; gap: 12px;
+            margin-top: 16px; padding: 11px 16px;
+            background: linear-gradient(160deg, rgba(16,18,34,0.92), rgba(9,10,20,0.95));
+            border: 1.5px solid rgba(120,135,255,0.5); border-radius: 16px;
+            box-shadow: 0 0 18px rgba(90,108,255,0.30);
+        }
+        .home-race-goal-badge { background: linear-gradient(120deg, #6b7bff, #9a6bff); color: #fff; font-weight: 900; font-size: 14px; padding: 5px 13px; border-radius: 9px; letter-spacing: 0.5px; }
+        .hr-goal-name   { color: #9fb0ff; font-weight: 900; font-size: 26px; text-shadow: 0 0 10px rgba(107,123,255,0.5); }
         .hr-goal-label  { color: var(--tx-3); font-size: 15px; font-weight: 700; }
-        .hr-goal-remain { color: var(--gold); font-weight: 900; font-variant-numeric: tabular-nums; }
-        .hr-goal-target { background: rgba(140,150,255,0.14); border: 1px solid rgba(150,160,255,0.45); color: #d9ddff; font-weight: 900; font-size: 14px; padding: 3px 10px; border-radius: 8px; margin-left: 4px; }
+        .hr-goal-remain { color: #fff; font-weight: 900; font-size: 26px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        .hr-goal-target { background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55); color: #cfd6ff; font-weight: 900; font-size: 14px; padding: 4px 11px; border-radius: 9px; }
+        .hr-goal-count  { margin-left: auto; color: #96a0c8; font-weight: 900; font-size: 16px; font-variant-numeric: tabular-nums; }
+        /* GOAL 바 순환 전환: 빠르고 부드럽게(서서히) 슬라이드-페이드 */
+        @keyframes hrGoalSwap { 0% { opacity: 0; transform: translateY(9px); } 100% { opacity: 1; transform: translateY(0); } }
+        .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         #toon-popup.vip-premium-card {
@@ -870,6 +869,7 @@
                             <span class="hr-goal-label">남은 금액</span>
                             <span class="hr-goal-remain" id="hr-goal-remain">-</span>
                             <span class="hr-goal-target" id="hr-goal-target">목표 -</span>
+                            <span class="hr-goal-count" id="hr-goal-count">-</span>
                         </div>
                     </div>
                 </div>
@@ -3016,7 +3016,7 @@
         let homeRaceCycleData = [];
         let homeRaceCycleTimer = null;
         let homeRaceCycleIdx = 0;
-        function updateHomeRaceGoalBar() {
+        function updateHomeRaceGoalBar(animate) {
             const line = document.getElementById('home-race-goal-line');
             if (!line) return;
             const data = homeRaceCycleData;
@@ -3028,17 +3028,23 @@
             const nameEl = document.getElementById('hr-goal-name');
             const remEl = document.getElementById('hr-goal-remain');
             const tgtEl = document.getElementById('hr-goal-target');
+            const cntEl = document.getElementById('hr-goal-count');
             if (nameEl) nameEl.textContent = p.name;
-            if (remEl) remEl.textContent = (p.goal > 0 && remain === 0) ? '퇴근 완료 🎉' : (formatNum(remain) + '원');
+            if (remEl) remEl.innerHTML = (p.goal > 0 && remain === 0)
+                ? '퇴근 완료 🎉'
+                : (formatNum(remain) + '<span style="font-size:15px;color:#aab2d6;margin-left:2px;">원</span>');
             if (tgtEl) tgtEl.textContent = '목표 ' + manLabel(p.goal);
+            if (cntEl) cntEl.textContent = (homeRaceCycleIdx + 1) + '/' + data.length;   // 예: 1/6
+            // 순환으로 사람이 바뀔 때만 부드러운 스왑(같은 사람 금액 갱신은 애니메이션 없이)
+            if (animate) { line.classList.remove('swap'); void line.offsetWidth; line.classList.add('swap'); }
         }
         function startHomeRaceCycle() {
-            updateHomeRaceGoalBar();   // 즉시 1회(최신 금액 반영)
+            updateHomeRaceGoalBar(false);   // 렌더 갱신(현재 사람 금액만 최신화)
             if (homeRaceCycleTimer) return;
             homeRaceCycleTimer = setInterval(() => {
                 if (!homeRaceCycleData.length) return;
                 homeRaceCycleIdx = (homeRaceCycleIdx + 1) % homeRaceCycleData.length;
-                updateHomeRaceGoalBar();
+                updateHomeRaceGoalBar(true);   // 다음 사람으로 순환 — 부드러운 스왑
             }, 5000);
         }
         function stopHomeRaceCycle() {
