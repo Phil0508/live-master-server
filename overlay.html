@@ -278,6 +278,49 @@
             transition: all 0.2s linear;
         }
 
+        /* ⚔️ 대결 위젯 리뉴얼 — 전원 배틀 게이지 + 컬러 플레이어 카드 (레퍼런스 디자인 언어) */
+        .match-wrapper { gap: 16px; }
+        .m-gauge {
+            display: flex; width: 720px; max-width: 88vw; height: 54px; border-radius: 14px; overflow: hidden;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08);
+        }
+        .m-seg {
+            flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+            background: linear-gradient(180deg, var(--c, #888), rgba(var(--rgb, 136,136,136), 0.72));
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
+            transition: flex 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .m-seg-amt {
+            font-family: 'Orbitron', 'Pretendard', sans-serif; font-weight: 900; font-style: italic; font-size: 27px;
+            color: #06121a; text-shadow: 0 1px 0 rgba(255,255,255,0.3); white-space: nowrap; font-variant-numeric: tabular-nums;
+        }
+        .m-seg.lead .m-seg-amt { font-size: 30px; }
+
+        .m-cards { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+        .m-card {
+            position: relative; min-width: 196px; padding: 12px 20px; display: flex; align-items: center; gap: 11px;
+            border-radius: 15px; background: linear-gradient(180deg, rgba(22,22,28,0.94), rgba(11,11,15,0.96));
+            border: 1px solid rgba(var(--rgb, 136,136,136), 0.55);
+            box-shadow: 0 8px 22px rgba(0,0,0,0.5), inset 0 0 24px rgba(var(--rgb, 136,136,136), 0.15);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+        }
+        .m-crown { font-size: 19px; filter: drop-shadow(0 0 6px rgba(var(--rgb, 136,136,136), 0.9)); }
+        .m-card-name {
+            font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 26px; color: #fff;
+            letter-spacing: 0.5px; text-shadow: 0 2px 4px #000, 0 0 10px rgba(var(--rgb, 136,136,136), 0.5); white-space: nowrap;
+        }
+        .m-card-amt {
+            margin-left: auto; font-family: 'Orbitron', 'Pretendard', sans-serif; font-weight: 900; font-style: italic;
+            font-size: 27px; color: var(--c, #fff); text-shadow: 0 0 14px rgba(var(--rgb, 136,136,136), 0.7), 0 2px 3px #000;
+            font-variant-numeric: tabular-nums;
+        }
+        .m-card.lead {
+            transform: scale(1.06); border-color: var(--c, #fff);
+            box-shadow: 0 10px 28px rgba(0,0,0,0.6), inset 0 0 32px rgba(var(--rgb, 136,136,136), 0.3), 0 0 18px rgba(var(--rgb, 136,136,136), 0.5);
+        }
+        .m-card.m-bump { animation: mBump 0.6s ease; }
+        @keyframes mBump { 0%, 100% { filter: brightness(1); } 30% { filter: brightness(1.55); } }
+
         .m-team-container { 
             display: flex; 
             gap: 25px; 
@@ -856,11 +899,9 @@
             
             <div id="match-container" class="widget-container" style="opacity: 0; visibility: hidden;">
                 <div class="match-wrapper">
-                    <div class="match-game-tag"><span>⚔ MATCH</span></div>
                     <div class="m-timer-pill" id="m-timer">00:00</div>
-                    <div class="match-main-row" style="display: flex; align-items: center; justify-content: center; gap: 30px; position: relative;">
-                        <div class="m-team-container" id="m-players-area"></div>
-                    </div>
+                    <div class="m-gauge" id="m-gauge"></div>
+                    <div class="m-cards" id="m-players-area"></div>
                 </div>
             </div>
 
@@ -1008,6 +1049,73 @@
         }
         
         function popScore(el, diff) { const p = document.createElement('div'); p.className = 'score-pop'; p.innerText = '+' + formatNum(diff); el.appendChild(p); setTimeout(() => p.remove(), 1000); }
+
+        // ⚔️ 대결 위젯: 전원 배틀 게이지(점수 비율) + 컬러 플레이어 카드(왕관·이름·금액·1등강조)
+        const M_COLS = ['#ff3b5c', '#3ba7ff', '#00e676', '#f6c453', '#b06bff', '#ff9f2e'];
+        const M_RGB  = ['255, 59, 92', '59, 167, 255', '0, 230, 118', '246, 196, 83', '176, 107, 255', '255, 159, 46'];
+        function renderMatchWidget(md) {
+            const players = (md && md.players) || [];
+            const gauge = document.getElementById('m-gauge');
+            const cards = document.getElementById('m-players-area');
+            if (!gauge || !cards) return;
+
+            // 구조(플레이어 수)가 바뀌면 다시 그린다
+            if (gauge.children.length !== players.length || cards.children.length !== players.length) {
+                gauge.innerHTML = players.map((p, i) =>
+                    `<div class="m-seg" id="m-seg-${i}" style="--c:${M_COLS[i % 6]}; --rgb:${M_RGB[i % 6]};"><span class="m-seg-amt" id="m-seg-amt-${i}">0</span></div>`
+                ).join('');
+                cards.innerHTML = players.map((p, i) =>
+                    `<div class="m-card" id="m-card-${i}" style="--c:${M_COLS[i % 6]}; --rgb:${M_RGB[i % 6]};">
+                        <span class="m-crown">👑</span>
+                        <span class="m-card-name" id="m-card-name-${i}">${escapeSlotText(p.name || '')}</span>
+                        <span class="m-card-amt" id="m-card-amt-${i}">0</span>
+                    </div>`
+                ).join('');
+            }
+
+            // 리더(최고 점수, 0 초과일 때만) 계산 + 총합
+            let maxScore = 0, leadIdx = -1, total = 0;
+            players.forEach((p, i) => {
+                const s = Math.max(0, p.score || 0); total += s;
+                if ((p.score || 0) > maxScore) { maxScore = p.score || 0; leadIdx = i; }
+            });
+            if (maxScore <= 0) leadIdx = -1;
+
+            players.forEach((p, i) => {
+                const nameEl = document.getElementById(`m-card-name-${i}`);
+                if (nameEl && nameEl.innerText !== (p.name || '')) nameEl.innerText = p.name || '';
+
+                // 게이지 비율 (0점도 살짝 보이도록 최소치)
+                const seg = document.getElementById(`m-seg-${i}`);
+                if (seg) {
+                    const frac = total > 0 ? Math.max(0.05, Math.max(0, p.score || 0) / total) : (1 / Math.max(1, players.length));
+                    seg.style.flex = frac.toFixed(4);
+                    seg.classList.toggle('lead', i === leadIdx);
+                }
+
+                // 점수 애니메이션 (카드 금액 + 게이지 금액)
+                const key = `m_${i}`;
+                const amtEl = document.getElementById(`m-card-amt-${i}`);
+                const segAmtEl = document.getElementById(`m-seg-amt-${i}`);
+                const prev = prevMatchScores[key] ?? p.score;
+                if (p.score !== prev) {
+                    if (amtEl) animateVal(amtEl, prev, p.score, 700);
+                    if (segAmtEl) animateVal(segAmtEl, prev, p.score, 700);
+                    if (p.score > prev) {
+                        const card = document.getElementById(`m-card-${i}`);
+                        if (card) { card.classList.remove('m-bump'); void card.offsetWidth; card.classList.add('m-bump'); setTimeout(() => card.classList.remove('m-bump'), 700); }
+                    }
+                    prevMatchScores[key] = p.score;
+                } else {
+                    if (amtEl && amtEl.innerText === '0') amtEl.innerText = formatNum(p.score);
+                    if (segAmtEl && segAmtEl.innerText === '0') segAmtEl.innerText = formatNum(p.score);
+                    prevMatchScores[key] = p.score;
+                }
+
+                const card = document.getElementById(`m-card-${i}`);
+                if (card) card.classList.toggle('lead', i === leadIdx);
+            });
+        }
         
         let lastLayoutData = null; // 전역 레이아웃 캐시
         // 🎯 목표 달성 연출 진행 중 여부 (applyLayout이 게이지 transform을 덮어쓰지 않도록 하는 플래그)
@@ -1453,50 +1561,12 @@
                 if (d.takeover_enabled && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
                 
                 let mc = document.getElementById('match-container');
-                if(md.active) { 
+                if(md.active) {
                     mc.style.opacity = 1; mc.style.visibility = 'visible';
-                    let ma = document.getElementById('m-players-area');
-                    // 목업 팔레트: 1:1 대결이 레드 vs 블루가 되도록 순서 배치
-                    let cols = ['#ff3b5c', '#3ba7ff', '#00e676', '#f6c453'];
-                    let colsRgb = ['255, 59, 92', '59, 167, 255', '0, 230, 118', '246, 196, 83'];
-                    // 2인 대결이면 사이에 VS 구분 요소가 하나 더 들어가므로 기대 개수에 반영
-                    let expectedChildren = md.players.length + (md.players.length === 2 ? 1 : 0);
-                    if(ma.children.length !== expectedChildren) {
-                        ma.innerHTML = '';
-                        md.players.forEach((p, i) => {
-                            if (i > 0 && md.players.length === 2) ma.innerHTML += `<div class="m-vs">VS</div>`;
-                            // 목업 구조: 이름(위) → 점수(대형 이탤릭) → 팀 컬러 바
-                            ma.innerHTML += `<div class="m-team-box" style="--team-color:${cols[i%4]}; --team-color-rgb:${colsRgb[i%4]};"><div class="m-name-box" id="mp-name-${i}">${p.name}</div><div class="m-score-box" id="mp-${i}">0</div><div class="m-team-bar"></div></div>`;
-                        });
-                    }
-                    md.players.forEach((p, i) => { 
-                        let nameEl = document.getElementById(`mp-name-${i}`); 
-                        if(nameEl && nameEl.innerText !== p.name) nameEl.innerText = p.name; 
-                        let el = document.getElementById(`mp-${i}`); 
-                        let key = `m_${i}`; 
-                        let prev = prevMatchScores[key] ?? p.score; 
-                        if (p.score !== prev && el) { 
-                            animateVal(el, prev, p.score, 800); 
-                            if (p.score > prev) {
-                                popScore(el, p.score - prev); 
-                                // 💡 [3D 쫀득 바운스]
-                                el.classList.remove('score-bump');
-                                void el.offsetWidth;
-                                el.classList.add('score-bump');
-                                setTimeout(() => el.classList.remove('score-bump'), 850);
-                            }
-                            prevMatchScores[key] = p.score; 
-                        } else if (el && el.innerText === "0") { 
-                            el.innerText = formatNum(p.score); 
-                            prevMatchScores[key] = p.score; 
-                        } 
-                    }); 
-
-
-
+                    renderMatchWidget(md);
                     matchData = md;
-                } else { 
-                    mc.style.opacity = 0; mc.style.visibility = 'hidden'; 
+                } else {
+                    mc.style.opacity = 0; mc.style.visibility = 'hidden';
                 }
 
                 let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = d.target_goal || 1; 
