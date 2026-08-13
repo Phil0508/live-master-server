@@ -362,6 +362,18 @@
         .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(246,196,83,0.5); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); opacity: 0; transition: 0.4s; transform: translateY(40px) scale(0.7); } .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 
         .ticker-bar { width: 1080px; height: 70px; background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 1px solid rgba(246,196,83,0.45); border-bottom: 1px solid rgba(246,196,83,0.45); display: flex; align-items: center; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.5);} .ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.8); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; } @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
+        /* 🔥 시그니처 재생 중 전광판을 '@@업' 네온으로 (반복 스크롤). 색은 --tk-neon/--tk-glow 로 등급 교체 */
+        .ticker-text-wrap.reac-neon {
+            font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 46px; letter-spacing: 1px;
+            color: #fff; paint-order: stroke fill;
+            -webkit-text-stroke: 0.1em var(--tk-neon, #ff1f56);
+            text-shadow:
+                0 0 6px  rgba(var(--tk-glow, 255, 45, 100), 0.7),
+                0 0 16px rgba(var(--tk-glow, 255, 45, 100), 0.46),
+                0 0 34px rgba(var(--tk-glow, 255, 45, 100), 0.26);
+        }
+        /* '@@업' 모드에서는 전광판 유리 바를 지우고 깔끔한 네온 텍스트만 흐르게 */
+        .reac-neon-mode .ticker-bar { background: transparent; border: none; box-shadow: none; }
         
         #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; color: var(--text-main); pointer-events: none; } 
         /* 대결 컨테이너: 기본 숨김, .match-visible 클래스로만 표시 */
@@ -1055,11 +1067,72 @@
         let serverTimeOffset = 0;
         
         let currentExtraActiveState = false;
+        // 현재 재생 중인 시그니처의 '@@업' 문구 ("홍길동님"→"홍길동업", 슬롯 당첨은 시그니처 제목)
+        function reactionUpText(item, gd) {
+            if (!item) return '';
+            let name = (item.skip_popup ? (item.title || '') : (item.donator || '')).trim();
+            if (name.endsWith('님')) name = name.slice(0, -1);
+            if (!name) return '';
+            const suffix = item.skip_popup ? '' : ((gd && gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
+            return name + suffix;
+        }
+
+        // 전광판(위/아래 티커) 갱신. 시그니처 재생 중이면 '@@업'을 네온으로 반복 스크롤,
+        // 아니면 기존 정적 전광판 문구(ticker_text)를 표시. 위치·크기는 에디터에 저장된 티커 좌표를 그대로 씀.
+        function updateTickers(d) {
+            const reac = (d.reaction_queue && d.reaction_queue[0]) || null;
+            const upText = reactionUpText(reac, d);
+            const showReac = !!upText;
+            const showStatic = !showReac && d.ticker_enabled && d.reaction_mode && !!d.ticker_text;
+
+            // 등급별 네온 색 (배너와 동일 팔레트)
+            let tkNeon = '#ff1f56', tkGlow = '255, 45, 100';
+            if (showReac) {
+                const t = reactionTier(reac.amount);
+                if (t.level >= 4) { tkNeon = '#ffc41f'; tkGlow = '255, 205, 80'; }
+                else if (t.level >= 3) { tkNeon = '#ffb01f'; tkGlow = '255, 190, 60'; }
+                else if (t.level >= 2) { tkNeon = '#ff8f2e'; tkGlow = '255, 150, 60'; }
+            }
+
+            const key = 'R' + upText + '|S' + (showStatic ? d.ticker_text : '') + '|' + d.ticker_speed + '|' + tkNeon;
+            if (key === lastTickerState) return;
+            lastTickerState = key;
+
+            ['ticker_top', 'ticker_bottom'].forEach(id => {
+                const c = document.getElementById(id + '-container');
+                const t = document.getElementById(id + '-text');
+                if (!c || !t) return;
+                if (showReac || showStatic) {
+                    c.style.opacity = '1'; c.style.visibility = 'visible';
+                    c.classList.toggle('reac-neon-mode', showReac);
+                    t.classList.toggle('reac-neon', showReac);
+                    if (showReac) { t.style.setProperty('--tk-neon', tkNeon); t.style.setProperty('--tk-glow', tkGlow); }
+                    const base = showReac ? upText : d.ticker_text;
+                    const sep = showReac
+                        ? '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'
+                        : '&nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp;';
+                    const chunk = Array(showReac ? 10 : 15).fill(base).join(sep) + sep;
+                    t.innerHTML = chunk + chunk;
+                    setTimeout(() => {
+                        const w = t.scrollWidth / 2; const spd = d.ticker_speed || 70; const dur = w / Math.max(30, spd * 8);
+                        t.style.animation = 'none'; void t.offsetWidth;
+                        t.style.animation = `tickerAnim ${dur}s linear infinite`;
+                    }, 50);
+                } else {
+                    c.style.opacity = '0'; c.style.visibility = 'hidden';
+                    c.classList.remove('reac-neon-mode'); t.classList.remove('reac-neon');
+                }
+            });
+        }
+
         function handleData(d) {
             if (d && d.server_time) {
                 serverTimeOffset = d.server_time - Date.now();
             }
             globalData = d;
+
+            // 전광판은 방송 On/Off 와 무관하게(시그니처는 방송무관 재생) 항상 갱신한다.
+            updateTickers(d);
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
@@ -1426,28 +1499,7 @@
                     if(!flashed) { flashed = true; const gb = document.getElementById('goal-box-ui'); if(gb) { gb.classList.remove('goal-flash'); void gb.offsetWidth; gb.classList.add('goal-flash'); } } 
                 } else { flashed = false; }
 
-                let curTick = d.ticker_text + "_" + d.ticker_speed + "_" + d.ticker_enabled + "_" + d.reaction_mode;
-                if (lastTickerState !== curTick) { 
-                    lastTickerState = curTick; 
-                    ['ticker_top', 'ticker_bottom'].forEach(id => { 
-                        let c = document.getElementById(id + '-container'); 
-                        if (d.ticker_enabled && d.reaction_mode) { 
-                            c.style.opacity = '1'; 
-                            c.style.visibility = 'visible';
-                            let t = document.getElementById(id + '-text'); 
-                            let chunk = Array(15).fill(d.ticker_text).join("&nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp;") + "&nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp;"; 
-                            t.innerHTML = chunk + chunk; 
-                            setTimeout(() => { 
-                                let w = t.scrollWidth/2; let spd = d.ticker_speed||70; let dur = w/Math.max(30, spd*8); 
-                                t.style.animation = 'none'; void t.offsetWidth; 
-                                t.style.animation = `tickerAnim ${dur}s linear infinite`; 
-                            }, 50); 
-                        } else { 
-                            c.style.opacity = '0'; 
-                            c.style.visibility = 'hidden';
-                        } 
-                    }); 
-                }
+                // (전광판 갱신은 handleData 상단 updateTickers(d) 로 이전 — 방송 On/Off 무관 + '@@업' 지원)
                 
                 // 🎡 룰렛 처리
                 if (d.roulette) {
@@ -2115,36 +2167,10 @@
 
         // 🔥 시그니처 이름 대형 네온 배너
         let reactionTitleTimeout = null;
+        // ⚠️ 큰 가운데 '@@업' 배너는 이제 위/아래 전광판(updateTickers)의 스크롤 네온으로 대체됐다.
+        //    이 함수는 호출부 호환을 위해 남겨두되, 큰 배너는 띄우지 않는다(중복 표시 방지).
         function showReactionTitle(who, isSlot, amount) {
-            const el = document.getElementById('reaction-title-banner');
-            if (!el) return;
-            const gd = globalData || {};
-            if (gd.reaction_title_enabled === false) { hideReactionTitle(); return; }
-
-            let name = (who || '').trim();
-            if (name.endsWith('님')) name = name.slice(0, -1);   // "홍길동님" 으로 들어와도 "홍길동업"
-            if (!name) { hideReactionTitle(); return; }
-            // 슬롯 당첨은 후원자가 없으므로 접미사 없이 시그니처 이름만 띄운다.
-            const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
-            const text = name + suffix;
-
-            // 금액 등급에 따라 배너 색(핑크→골드)·크기를 바꾼다
-            const t = reactionTier(amount);
-            el.classList.remove('tier-2', 'tier-3', 'tier-4');
-            if (t.level >= 4) el.classList.add('tier-4');
-            else if (t.level >= 3) el.classList.add('tier-3');
-            else if (t.level >= 2) el.classList.add('tier-2');
-
-            if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
-            el.innerText = text;
-            // 재생마다 등장 애니메이션이 다시 돌도록 클래스를 떼었다 붙인다
-            el.classList.remove('show');
-            void el.offsetWidth;
-            el.classList.add('show');
-
-            // 고액일수록 배너를 조금 더 오래 보여준다
-            const dur = (parseInt(gd.reaction_title_duration) || 3500) + (t.durBonus || 0);
-            reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, dur);
+            hideReactionTitle();
         }
         function hideReactionTitle() {
             const el = document.getElementById('reaction-title-banner');
