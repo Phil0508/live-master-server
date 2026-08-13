@@ -651,8 +651,16 @@
     <!-- ↩ 점수 되돌리기 토스트: 점수를 줄 때마다 잠깐 떴다가, '취소'를 누르면 방금 준 점수를 되돌린다 -->
     <div id="score-undo-toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); z-index:99998; display:none; opacity:0; transition:all .25s ease; align-items:center; gap:14px; background:rgba(20,20,22,0.97); border:1px solid var(--border-light); border-left:4px solid var(--accent); padding:12px 16px 12px 18px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.55);">
         <span id="score-undo-text" style="color:#f5f5f7; font-size:14px; font-weight:700;"></span>
-        <button onclick="undoLastScore()" style="background:var(--accent); color:#000; font-weight:800; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px;"><i class="fa-solid fa-rotate-left"></i> 취소</button>
+        <button onclick="undoLastScore()" style="background:var(--accent); color:#04203f; font-weight:800; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px;"><i class="fa-solid fa-rotate-left"></i> 취소</button>
     </div>
+
+    <!-- 💾 떠다니는 비상 백업 다운로드 버튼 — 항상 우하단에 떠 있고, 누르면 현재 데이터를 즉시 파일로 저장 -->
+    <button id="float-backup-btn" onclick="downloadLocalBackupFile()" title="오프라인 비상 백업 — 지금 상태를 파일로 즉시 다운로드"
+        style="position:fixed; right:22px; bottom:22px; z-index:9500; height:52px; padding:0 18px 0 16px; border-radius:26px; background:var(--accent); color:#04203f; border:none; cursor:pointer; box-shadow:0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08); display:inline-flex; align-items:center; gap:9px; font-size:14px; font-weight:800; transition:transform .15s ease, box-shadow .15s ease;"
+        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 26px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.12)';"
+        onmouseout="this.style.transform='none'; this.style.boxShadow='0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08)';">
+        <i class="fa-solid fa-download" style="font-size:17px;"></i> 백업
+    </button>
     <div class="header">
         <h1>
             <i class="fa-solid fa-layer-group"></i> 방송 제어 센터
@@ -4921,6 +4929,32 @@
             </div>
         </div>
     </div>
+
+    <!-- 🖱️ 탭 바 가장자리 자동 스크롤: 스크롤바를 잡지 않아도 커서를 좌/우 끝에 올리면 그쪽으로 흐른다 -->
+    <script>
+    (function () {
+        const bar = document.querySelector('.tabs');
+        if (!bar) return;
+        let dir = 0, speed = 0, raf = null;
+        const EDGE = 70;   // 좌우 끝에서 이 픽셀 안쪽에 커서가 오면 자동 스크롤
+        function step() {
+            if (dir !== 0 && bar.scrollWidth > bar.clientWidth + 1) {
+                bar.scrollLeft += dir * (5 + speed * 20);   // 끝에 가까울수록 빠르게
+                raf = requestAnimationFrame(step);
+            } else { raf = null; dir = 0; }
+        }
+        bar.addEventListener('mousemove', function (e) {
+            if (bar.scrollWidth <= bar.clientWidth + 1) { dir = 0; return; }   // 넘칠 게 없으면 아무것도 안 함
+            const r = bar.getBoundingClientRect();
+            const x = e.clientX - r.left;
+            if (x > r.width - EDGE) { dir = 1; speed = Math.min(1, (x - (r.width - EDGE)) / EDGE); }
+            else if (x < EDGE) { dir = -1; speed = Math.min(1, (EDGE - x) / EDGE); }
+            else { dir = 0; }
+            if (dir !== 0 && raf === null) raf = requestAnimationFrame(step);
+        });
+        bar.addEventListener('mouseleave', function () { dir = 0; });
+    })();
+    </script>
 
 </body>
 </html>
