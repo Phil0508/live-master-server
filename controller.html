@@ -4953,35 +4953,44 @@
         bar.addEventListener('mouseleave', function () { dir = 0; });
     })();
 
-    // 💾 떠다니는 백업 버튼을 마우스로 옮길 수 있게 (드래그) + 위치 기억. 클릭(안 움직였을 때)은 다운로드.
+    // 💾 떠다니는 백업 버튼 드래그 + 위치 기억. 클릭(안 움직였을 때)은 다운로드.
+    // ⚡ 부드럽게: 드래그 중에는 left/top(레이아웃 유발) 대신 transform(GPU 합성)만 바꾸고,
+    //    mousemove 값은 requestAnimationFrame 으로 프레임당 한 번만 반영한다. 손 뗄 때 최종 좌표를 left/top 에 확정.
     (function () {
         const fab = document.getElementById('float-backup-btn');
         if (!fab) return;
-        let down = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+        let down = false, moved = false, sx = 0, sy = 0, baseL = 0, baseT = 0, dx = 0, dy = 0, raf = null;
         const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
         try {
             const p = JSON.parse(localStorage.getItem('fabBackupPos') || 'null');
             if (p && p.l != null && p.t != null) { fab.style.left = p.l + 'px'; fab.style.top = p.t + 'px'; fab.style.right = 'auto'; fab.style.bottom = 'auto'; }
         } catch (e) {}
+        function apply() { raf = null; fab.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; }
         fab.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) return;
             down = true; moved = false;
             const r = fab.getBoundingClientRect();
-            fab.style.left = r.left + 'px'; fab.style.top = r.top + 'px'; fab.style.right = 'auto'; fab.style.bottom = 'auto';
-            sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
-            fab.style.cursor = 'grabbing';
+            baseL = r.left; baseT = r.top;
+            fab.style.left = baseL + 'px'; fab.style.top = baseT + 'px'; fab.style.right = 'auto'; fab.style.bottom = 'auto';
+            sx = e.clientX; sy = e.clientY; dx = 0; dy = 0;
+            fab.style.cursor = 'grabbing'; fab.style.willChange = 'transform'; fab.style.transition = 'none';
             e.preventDefault();
         });
         window.addEventListener('mousemove', function (e) {
             if (!down) return;
-            const dx = e.clientX - sx, dy = e.clientY - sy;
+            dx = e.clientX - sx; dy = e.clientY - sy;
             if (Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
-            fab.style.left = clamp(ox + dx, 4, window.innerWidth - fab.offsetWidth - 4) + 'px';
-            fab.style.top = clamp(oy + dy, 4, window.innerHeight - fab.offsetHeight - 4) + 'px';
+            if (raf === null) raf = requestAnimationFrame(apply);
         });
         window.addEventListener('mouseup', function () {
             if (!down) return;
-            down = false; fab.style.cursor = 'grab';
-            if (moved) { try { localStorage.setItem('fabBackupPos', JSON.stringify({ l: parseInt(fab.style.left), t: parseInt(fab.style.top) })); } catch (e) {} }
+            down = false;
+            if (raf !== null) { cancelAnimationFrame(raf); raf = null; }
+            const nx = clamp(baseL + dx, 4, window.innerWidth - fab.offsetWidth - 4);
+            const ny = clamp(baseT + dy, 4, window.innerHeight - fab.offsetHeight - 4);
+            fab.style.transform = ''; fab.style.willChange = '';
+            fab.style.left = nx + 'px'; fab.style.top = ny + 'px'; fab.style.cursor = 'grab';
+            if (moved) { try { localStorage.setItem('fabBackupPos', JSON.stringify({ l: Math.round(nx), t: Math.round(ny) })); } catch (e) {} }
         });
         fab.addEventListener('click', function () { if (moved) { moved = false; return; } downloadLocalBackupFile(); });
     })();
