@@ -1987,7 +1987,7 @@
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
-                        <td><input type="number" id="rank-add-${i}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('rank', ${i})"></td>
+                        <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
                         <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI();" disabled><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
                 } else {
@@ -2000,7 +2000,7 @@
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
-                        <td><input type="number" id="rank-add-${i}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('rank', ${i})"></td>
+                        <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
                         <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI();"><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
                 }
@@ -2015,7 +2015,7 @@
                     </td>
                     <td class="score-display" style="color:var(--accent);">${gd.bottom_fixed.score.toLocaleString()}</td>
                     <td class="score-display" style="color:var(--gold);">-</td>
-                    <td><input type="number" id="rank-add-bot" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('bot', 0)"></td>
+                    <td><input type="number" id="rank-add-bot" data-scope="bot" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('bot', this)"></td>
                     <td><i class="fa-solid fa-lock" style="color:var(--text-muted);"></i></td>
                 </tr>`; 
             }
@@ -2049,7 +2049,7 @@
 
 
             // 대결진 테이블 렌더링
-            let mHtml = ''; md.players.forEach((p, i) => { mHtml += `<tr><td><input type="text" value="${p.name}" onchange="gd.match_data.players[${i}].name=this.value; pushAPI();"></td><td class="score-display">${p.score.toLocaleString()}</td><td><input type="number" id="match-add-${i}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScore('match', ${i})"></td><td><button onclick="gd.match_data.players.splice(${i},1); pushAPI();"><i class="fa-solid fa-trash-can"></i></button></td></tr>`; }); 
+            let mHtml = ''; md.players.forEach((p, i) => { mHtml += `<tr><td><input type="text" value="${p.name}" onchange="gd.match_data.players[${i}].name=this.value; pushAPI();"></td><td class="score-display">${p.score.toLocaleString()}</td><td><input type="number" id="match-add-${i}" data-scope="match" data-tname="${escapeHtml(p.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('match', this)"></td><td><button onclick="gd.match_data.players.splice(${i},1); pushAPI();"><i class="fa-solid fa-trash-can"></i></button></td></tr>`; }); 
             if (lastMHtml !== mHtml) { document.getElementById('match-tbody').innerHTML = mHtml; lastMHtml = mHtml; }
 
             setVal('in-speed', gd.ticker_speed || 70); 
@@ -2916,27 +2916,43 @@
             pushAPI();
         }
         
+        // 하위호환용: 혹시 남아있는 인덱스 기반 호출을 이름 기반으로 넘겨준다.
         function addScore(type, idx) {
-            let val = 0; let target = null; let elId = '';
+            const elId = (type === 'bot') ? 'rank-add-bot' : `${type === 'match' ? 'match' : 'rank'}-add-${idx}`;
+            addScoreEl(type, document.getElementById(elId));
+        }
+
+        // ✅ [버그 수정] 대상을 '위치 인덱스'가 아니라 '이름'으로 찾는다.
+        //    랭킹은 기여도순으로 계속 재정렬되므로, 렌더 당시의 인덱스를 그대로 쓰면
+        //    (후원/SSE로 순서가 바뀐 사이에) 철수 칸에서 올린 점수가 영희에게 들어가는 사고가 났다.
+        //    이제 입력칸의 data-tname(이름)으로 대상을 특정해 절대 어긋나지 않는다.
+        function addScoreEl(scope, el) {
+            if (!el) return;
+            let val = parseInt(String(el.value).replace(/[^\d-]/g, ''));
+            if (isNaN(val) || val === 0) { el.value = ''; el.blur(); return; }
             let isExtra = gd.extra_game_active || false;
             let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-            let listKey = isExtra ? 'extra_bjs' : 'bjs';
-            
-            if(type === 'rank') { elId = `rank-add-${idx}`; target = targetList[idx]; } else if(type === 'bot') { elId = `rank-add-bot`; target = gd.bottom_fixed; } else if(type === 'match') { elId = `match-add-${idx}`; target = gd.match_data.players[idx]; }
-            val = parseInt(String(document.getElementById(elId).value).replace(/[^\d-]/g,'')); if(isNaN(val) || val===0) return;
+            const name = el.dataset.tname;
+            let target = null;
+            if (scope === 'bot') { target = gd.bottom_fixed; }
+            else if (scope === 'match') { target = (gd.match_data.players || []).find(p => p.name === name); }
+            else { target = (targetList || []).find(b => b.name === name); }
+            if (!target) { el.value = ''; el.blur(); return; }   // 대상을 못 찾으면 안전하게 무시(엉뚱한 기록 방지)
+
             let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (type === 'rank' || type === 'bot') { if (!gd.logs) gd.logs = []; gd.logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.logs.length > 200) gd.logs.pop(); } else if (type === 'match') { if (!gd.match_logs) gd.match_logs = []; gd.match_logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.match_logs.length > 200) gd.match_logs.pop(); }
-            let prev1st = (type === 'rank' && targetList.length > 0) ? targetList[0].name : null; 
+            if (scope === 'rank' || scope === 'bot') { if (!gd.logs) gd.logs = []; gd.logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.logs.length > 200) gd.logs.pop(); }
+            else if (scope === 'match') { if (!gd.match_logs) gd.match_logs = []; gd.match_logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.match_logs.length > 200) gd.match_logs.pop(); }
+            let prev1st = (scope === 'rank' && targetList.length > 0) ? targetList[0].name : null;
             target.score += val;
-            if (type === 'rank') { if (target.contribution === undefined) target.contribution = 0; target.contribution += val; }
-            if(val > 0) gd.latest_popup = {time: Date.now(), name: target.name, diff: val};
-            if (type === 'rank') { 
-                targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); 
+            if (scope === 'rank') { if (target.contribution === undefined) target.contribution = 0; target.contribution += val; }
+            if (val > 0) gd.latest_popup = {time: Date.now(), name: target.name, diff: val};
+            if (scope === 'rank') {
+                targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
                 if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
-                let curr1st = targetList.length > 0 ? targetList[0].name : null; 
-                if (val > 0 && prev1st && curr1st && prev1st !== curr1st && curr1st === target.name) { gd.latest_takeover = {time: Date.now(), name: curr1st}; } 
+                let curr1st = targetList.length > 0 ? targetList[0].name : null;
+                if (val > 0 && prev1st && curr1st && prev1st !== curr1st && curr1st === target.name) { gd.latest_takeover = {time: Date.now(), name: curr1st}; }
             }
-            document.getElementById(elId).value = ''; document.getElementById(elId).blur(); pushAPI();
+            el.value = ''; el.blur(); pushAPI();
         }
 
         function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI(); }
