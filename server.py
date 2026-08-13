@@ -2830,7 +2830,10 @@ def next_reaction():
                 
             save_data(state)
             broadcast_event('update', state)
-        return jsonify({"status": "success", "message": "Popped reaction"})
+        # 오버레이가 이 응답의 state 를 그대로 써서 다음 시그니처를 즉시 재생한다
+        # (예전엔 pop 후 /api/data 를 한 번 더 불러 왕복이 2회였고, 그 사이 SSE 와 겹쳐
+        #  대기열이 깊을 때 재생이 불안정했다. 이제 왕복 1회로 줄여 겹침/지연을 낮춘다.)
+        return jsonify({"status": "success", "message": "Popped reaction", "state": state})
     except Exception as e:
         print(f"Error in next_reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
