@@ -691,6 +691,14 @@
             </div>
 
             <label class="toggle-row" id="lbl-reaction-wrapper" style="border-color: rgba(156, 39, 176, 0.4); background: rgba(156, 39, 176, 0.05); height: 42px; padding: 0 15px; box-sizing: border-box;"><span class="toggle-label" id="lbl-reaction" style="color:#fff; font-weight:bold; font-size: 14px;"><i class="fa-solid fa-eye"></i> 수동 리액션 모드</span><div class="apple-switch"><input type="checkbox" id="chk-reaction" onchange="toggleOption('reaction_mode')"><span class="apple-slider"></span></div></label>
+            <!-- 🎵 리액션 제어(볼륨·긴급중단·Skip) — 시그니처 탭에서 헤더로 이전(방송 중 즉시 조작) -->
+            <div style="display:flex; align-items:center; gap:8px; background: rgba(255,255,255,0.04); border:1px solid var(--border-light); border-radius:12px; padding:0 12px; height:42px; box-sizing:border-box;">
+                <i class="fa-solid fa-volume-high" style="font-size:12px; color:var(--accent);"></i>
+                <input type="range" id="reaction-volume-slider" min="0" max="1" step="0.05" value="0.5" oninput="changeReactionVolume(this.value)" style="width:66px; accent-color:var(--accent);">
+                <span id="reaction-vol-text" style="font-size:11px; font-weight:bold; color:var(--accent); min-width:30px; text-align:right;">50%</span>
+                <button onclick="stopReaction()" title="리액션 긴급 중단" style="height:30px; padding:0 10px; background:rgba(255,69,58,0.12); border:1px solid rgba(255,69,58,0.4); color:var(--danger); border-radius:8px; cursor:pointer; font-size:12px; font-weight:bold; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle-stop"></i> 중단</button>
+                <button id="skip-reaction-btn-main" onclick="skipCurrentReaction()" title="다음 후원 넘기기(Skip)" style="height:30px; padding:0 10px; background:#ff9500; color:#fff; border:none; border-radius:8px; cursor:pointer; font-size:12px; font-weight:bold; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-forward-step"></i> Skip</button>
+            </div>
             <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px; background: rgba(255,255,255,0.05); color: #fff; border-color: var(--border-light);"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
         </div>
     </div>
@@ -719,7 +727,7 @@
         <!-- 핵심(자주 쓰는 것) -->
         <span class="tab-glabel accent">핵심</span>
         <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
-        <button class="tab-btn tab-key" onclick="openTab(event, 'tab-reaction'); loadSignatureLibrary();"><i class="fa-solid fa-music"></i> 시그니처</button>
+        <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-key" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
         <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
         <button class="tab-btn tab-key" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
         <span class="tab-sep"></span>
@@ -793,6 +801,7 @@
                 <label style="color:var(--text-muted); font-size: 14px; font-weight:600;"><i class="fa-solid fa-palette"></i> 테마:</label><select id="sel-theme" onchange="updateTheme()"><option value="default">기본 다크</option><option value="pink">네온 핑크</option></select>
                 <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-bell"></i> 점수 팝업</span><div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-crown"></i> 1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-ranking-star"></i> 시그니처 순위판</span><div class="apple-switch"><input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')"><span class="apple-slider"></span></div></label>
 
             </div>
 
@@ -996,155 +1005,6 @@
                         <i class="fa-solid fa-volume-high" style="color: var(--accent); font-size: 11px;"></i>
                         <input type="range" min="0" max="1" step="0.05" value="0.5" oninput="document.getElementById('bgm-audio').volume = this.value" class="ios-slider-volume" style="width: 80px; height: 6px; cursor: pointer;">
                     </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="tab-reaction" class="tab-content">
-        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
-            <!-- 좌측: 리액션 상태 제어 및 수동 후원, 대기열 -->
-            <div class="group-box" style="display: flex; flex-direction: column; gap: 15px;">
-                <div class="group-title"><i class="fa-solid fa-sliders" style="color: var(--accent);"></i> 리액션 제어 센터</div>
-                
-                <!-- 1. 리액션 오디오 볼륨 및 중단 -->
-                <div style="display: flex; flex-direction: column; gap: 10px; padding: 10px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 13px; font-weight: bold; color: #fff;"><i class="fa-solid fa-volume-high"></i> 리액션 볼륨</span>
-                        <span id="reaction-vol-text" style="font-size: 12px; font-weight: bold; color: var(--accent);">50%</span>
-                    </div>
-                    <input type="range" id="reaction-volume-slider" min="0" max="1" step="0.05" value="0.5" oninput="changeReactionVolume(this.value)" style="width: 100%; accent-color: var(--accent);">
-                    
-                    <button onclick="stopReaction()" class="danger" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px;">
-                        <i class="fa-solid fa-circle-stop"></i> 리액션 긴급 중단
-                    </button>
-                    <button id="skip-reaction-btn-main" onclick="skipCurrentReaction()" style="height: 38px; font-weight: bold; font-size: 13px; border-radius: 8px; justify-content: center; width: 100%; margin-top: 5px; background: #ff9500; color: #fff; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: opacity 0.2s;">
-                        <i class="fa-solid fa-forward-step"></i> 다음 후원 넘기기 (Skip)
-                    </button>
-                </div>
-
-                <!-- 2. 수동 후원 송출 (금액 입력 시 리액션 연동) -->
-                <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center;">
-                        <span><i class="fa-solid fa-coins" style="color: #d9a441;"></i> 수동 후원 (리액션 자동 매칭)</span>
-                        <a href="/manual" target="_blank" style="text-decoration: none;"><button style="height: 26px; font-size: 11px; padding: 0 10px; border-radius: 7px; background: rgba(74,158,255,0.12); color: var(--accent); border: 1px solid rgba(74,158,255,0.3); cursor: pointer; font-weight: 700;"><i class="fa-solid fa-image"></i> 미리보기 큰 화면</button></a>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="manual-donator" placeholder="후원자명" style="width: 40%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
-                        <input type="number" id="manual-amount" placeholder="후원금액" style="width: 60%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
-                    </div>
-                    <input type="text" id="manual-message" placeholder="후원 메시지 입력 (선택사항)" style="width: 100%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 10px; box-sizing: border-box;">
-                    <label style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted); cursor: pointer; padding: 2px 0;">
-                        <input type="checkbox" id="manual-record-ledger" style="width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer;">
-                        <span>정산 장부에 기록 <span style="opacity: .7;">(체크 안 하면 재생만, 장부·승인대기함에 안 남음)</span></span>
-                    </label>
-                    <button onclick="triggerManualDonation()" class="primary" style="height: 34px; font-weight: bold; font-size: 12px; border-radius: 8px; justify-content: center; width: 100%;">
-                        <i class="fa-solid fa-paper-plane"></i> 후원 리액션 즉시 송출
-                    </button>
-                </div>
-
-                <!-- 📊 시그니처 순위 패널 켜기/끄기 -->
-                <label class="toggle-row" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); padding: 10px 14px; border-radius: 12px; gap: 12px;">
-                    <span class="toggle-label" style="font-size: 13px; font-weight: bold; color: #fff;"><i class="fa-solid fa-ranking-star" style="color: var(--accent);"></i> 시그니처 순위 패널 (오버레이)</span>
-                    <div class="apple-switch">
-                        <input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')">
-                        <span class="apple-slider"></span>
-                    </div>
-                </label>
-
-                <!-- 3. 쌓인 리액션 목록 (대기열) -->
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; display: flex; justify-content: space-between; align-items: center;">
-                        <span><i class="fa-solid fa-list-ol" style="color: var(--accent);"></i> 대기 중인 리액션 큐</span>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <button id="skip-reaction-btn" onclick="skipCurrentReaction()" style="font-size: 10px; background: rgba(255,149,0,0.15); color: #ff9500; border: 1px solid rgba(255,149,0,0.3); padding: 2px 8px; border-radius: 6px; cursor: pointer; font-weight: bold; display: none;" title="현재 재생 중인 후원을 건너뛰고 다음으로 넘깁니다">
-                                <i class="fa-solid fa-forward-step"></i> 넘기기
-                            </button>
-                            <span id="reaction-queue-count" style="font-size: 11px; background: rgba(74,158,255,0.15); color: var(--accent); padding: 2px 6px; border-radius: 10px; font-weight: bold;">0개</span>
-                        </div>
-                    </div>
-                    <div id="reaction-queue-container" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px;">
-                        <!-- 대기 목록이 스크립트로 렌더링됨 -->
-                    </div>
-                </div>
-
-                <!-- 4. 템퍼몽키 투네이션 연동 가이드 카드 -->
-                <div style="display: flex; flex-direction: column; gap: 10px; padding: 12px; background: rgba(0,0,0,0.15); border-radius: 12px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="font-size: 13px; font-weight: bold; color: #fff; margin-bottom: 2px;"><i class="fa-solid fa-plug" style="color: var(--accent);"></i> 투네이션 템퍼몽키 자동 연동</div>
-                    <div style="font-size: 11px; color: var(--text-muted); line-height: 1.5;">
-                        투네이션 알림창 위젯과 실시간 연동되어 1천 원 이상의 후원 시 지정된 금액의 리액션이 자동 송출됩니다. (최저 금액 1,000원 적용 완료)
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 5px;">
-                        <a href="/toonation_tampermonkey.user.js" target="_blank" style="flex: 1; text-decoration: none;">
-                            <button class="primary" style="height: 32px; font-weight: bold; font-size: 11px; border-radius: 8px; justify-content: center; width: 100%; cursor: pointer;">
-                                <i class="fa-solid fa-download"></i> 스크립트 설치
-                            </button>
-                        </a>
-                        <button onclick="copyTampermonkeyCode()" class="secondary" style="flex: 1; height: 32px; font-weight: bold; font-size: 11px; border-radius: 8px; justify-content: center; cursor: pointer;">
-                            <i class="fa-solid fa-copy"></i> 코드 복사
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 우측: 시그니처 라이브러리 (등록 / 편집 / 삭제 / 송출) -->
-            <div class="group-box" style="display: flex; flex-direction: column; gap: 15px; min-height: 500px;">
-                <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 시그니처 라이브러리 <span id="sig-count-badge" style="font-size: 11px; background: rgba(74,158,255,0.15); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-weight: bold; margin-left: 6px;">0개</span></span>
-                    <div style="display: flex; gap: 6px;">
-                        <button onclick="openSignatureForm()" class="primary" style="height: 28px; font-size: 11px; padding: 0 12px; border-radius: 8px;"><i class="fa-solid fa-plus"></i> 새 시그니처</button>
-                        <button onclick="loadSignatureLibrary()" class="secondary" style="height: 28px; font-size: 11px; padding: 0 10px; border-radius: 8px;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
-                    </div>
-                </div>
-
-                <input type="text" id="sig-search" placeholder="🔍 제목 또는 금액으로 검색" oninput="renderSignatureLibrary()" style="width: 100%; height: 34px; font-size: 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 12px; box-sizing: border-box;">
-
-                <div id="reaction-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; max-height: 520px; overflow-y: auto; padding: 5px;">
-                    <div style="color: #666; text-align: center; grid-column: 1 / -1; padding: 50px 0;">
-                        <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; color: var(--accent); margin-bottom: 10px; display: block;"></i>
-                        불러오는 중...
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 시그니처 등록/편집 모달 -->
-        <div id="sig-form-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
-            <div class="group-box" style="max-width: 460px; width: 100%; max-height: 90vh; overflow-y: auto; background: var(--bg-card); border-radius: 16px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
-                <div class="group-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-                    <span id="sig-form-title"><i class="fa-solid fa-plus" style="color: var(--accent);"></i> 새 시그니처 등록</span>
-                    <button onclick="closeSignatureForm()" class="secondary" style="width: 28px; height: 28px; border-radius: 8px; justify-content: center; padding: 0;"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <input type="hidden" id="sig-form-id">
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <div>
-                        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">시그니처 제목</label>
-                        <input type="text" id="sig-form-title-input" placeholder="예: 사쿠란보" style="width: 100%; height: 36px; font-size: 13px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 12px; box-sizing: border-box;">
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <div style="flex: 2;">
-                            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">후원 금액 (원)</label>
-                            <input type="number" id="sig-form-amount" placeholder="20005" style="width: 100%; height: 36px; font-size: 13px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 12px; box-sizing: border-box;">
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">재생시간(초)</label>
-                            <input type="number" id="sig-form-duration" value="10" data-no-comma style="width: 100%; height: 36px; font-size: 13px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #fff; padding: 0 12px; box-sizing: border-box;">
-                        </div>
-                    </div>
-                    <div style="font-size: 11px; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 8px 10px; border-radius: 8px; line-height: 1.5;">
-                        재생시간은 <b>음원이 없을 때</b> 사진을 몇 초 보여줄지예요. 음원이 있으면 노래 길이만큼 자동으로 재생돼요.
-                    </div>
-                    <div>
-                        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">사진 <span id="sig-form-image-hint" style="opacity:.7;"></span></label>
-                        <input type="file" id="sig-form-image" accept="image/*" style="width: 100%; font-size: 12px; color: var(--text-muted);">
-                    </div>
-                    <div>
-                        <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 5px;">음원 <span id="sig-form-sound-hint" style="opacity:.7;"></span></label>
-                        <input type="file" id="sig-form-sound" accept="audio/*,video/mp4" style="width: 100%; font-size: 12px; color: var(--text-muted);">
-                    </div>
-                    <button id="sig-form-submit" onclick="submitSignatureForm()" class="primary" style="height: 40px; font-weight: bold; font-size: 13px; border-radius: 10px; justify-content: center; width: 100%; margin-top: 6px;">
-                        <i class="fa-solid fa-floppy-disk"></i> 저장
-                    </button>
                 </div>
             </div>
         </div>
@@ -1748,7 +1608,7 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); } if (tabId === 'tab-logs') { loadManualLogs(1); } if (tabId === 'tab-reaction') { loadSignatureLibrary(); } }
+        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         let lastReactionToastTime = 0;
         let serverTimeOffset = 0;
