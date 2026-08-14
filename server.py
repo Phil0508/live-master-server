@@ -230,7 +230,8 @@ def load_nvidia_key():
 NVIDIA_API_KEY = load_nvidia_key()
 NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NIM_MODEL = "meta/llama-3.1-8b-instruct"   # 작고 빠름(≈0.7s). 단순 분류엔 충분.
-NIM_CHAT_MODEL = "meta/llama-3.1-8b-instruct"  # AI 서포트 채팅용(상황 Q&A). 필요 시 더 큰 모델로 교체 가능.
+NIM_CHAT_MODEL = "nvidia/nvidia-nemotron-nano-9b-v2"  # AI 서포트 채팅용. 8b보다 서술·추론이 좋고 ~3-4s.
+NIM_CHAT_PREFIX = "/no_think "  # nemotron 계열: 추론 CoT를 끄는 지시(빠르고 빈 응답 방지). 다른 모델이면 그냥 텍스트로 무시됨.
 
 # 분당 호출 한도. 외부 계정 한도(40/분)보다 안전하게 낮춰 잡고, 넘으면 검증을 조용히 건너뛴다.
 NIM_RATE_LIMIT = 35
@@ -320,11 +321,14 @@ AI_SYSTEM_PROMPT = (
     "- ⚠️ 너는 직접 점수를 바꾸거나 조작을 실행하지 않는다. 정보 제공과 조언만 한다. "
     "실제 실행은 운영자가 버튼으로 직접 한다.\n\n"
     "[답변 규칙]\n"
-    "- 반드시 아래 제공되는 '현재 방송 상태(JSON)'만을 근거로 답한다. 상태에 없는 것은 모른다고 말한다. "
-    "숫자를 지어내지 않는다.\n"
-    "- 점수 차이·순위·합계 같은 계산은 정확히 한다.\n"
-    "- 한국어로, 짧고 명확하게. 방송 중이라 운영자가 빨리 읽을 수 있어야 한다.\n"
-    "- 모르면 모른다고 하고, 추측을 사실처럼 말하지 않는다."
+    "- 제공된 '현재 방송 상태(JSON)'를 근거로 답한다. 직접 안 적혀 있어도 데이터로 계산·추론할 수 있으면 "
+    "끝까지 계산해서 답한다. 예: 점수 차이는 두 점수를 빼서, 역전 여부·급상승은 최근 점수 로그와 현재 순위를 "
+    "비교해서 알아낸다. 성급하게 '모른다'고 하지 말 것.\n"
+    "- 한두 줄로 끝내지 말고, 운영자가 상황을 판단하는 데 도움이 되게 충분히 설명한다. 관련 숫자(점수·차이·순위·"
+    "대기 건수·남은 시간 등)를 구체적으로 제시하고, 도움이 되면 다음에 뭘 하면 좋을지 짧은 제안도 덧붙인다.\n"
+    "- 그래도 데이터에 정말 없는 항목이면, 없다고 말한 뒤 어디서 확인하면 되는지(어떤 위젯·기능을 켜거나 봐야 하는지)"
+    " 알려준다. 숫자를 지어내지는 않는다.\n"
+    "- 한국어로. 핵심을 먼저, 세부는 뒤에. 방송 중이라 읽기 쉽게 정리한다."
 )
 
 def build_ai_snapshot(state):
@@ -2147,19 +2151,24 @@ def api_ai_chat():
         with file_lock:
             state = load_data()
             snap = build_ai_snapshot(state)
-        sys_full = AI_SYSTEM_PROMPT + "\n\n[현재 방송 상태(JSON)]\n" + json.dumps(snap, ensure_ascii=False)
+        sys_full = NIM_CHAT_PREFIX + AI_SYSTEM_PROMPT + "\n\n[현재 방송 상태(JSON)]\n" + json.dumps(snap, ensure_ascii=False)
         msgs = [{"role": "system", "content": sys_full}]
         for m in history[-6:]:   # 직전 대화 몇 개만(토큰 절약)
             role = m.get('role'); content = str(m.get('content', ''))
             if role in ('user', 'assistant') and content:
                 msgs.append({"role": role, "content": content})
         msgs.append({"role": "user", "content": question})
-        req_body = {"model": NIM_CHAT_MODEL, "messages": msgs, "temperature": 0.3, "max_tokens": 500}
+        req_body = {"model": NIM_CHAT_MODEL, "messages": msgs, "temperature": 0.3, "max_tokens": 700}
         r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
                           json=req_body, timeout=30)
         if r.status_code != 200:
             return jsonify({"status": "success", "reply": f"(AI 오류 {r.status_code}) 잠시 후 다시 시도해주세요."})
-        reply = r.json()["choices"][0]["message"]["content"].strip()
+        msg = r.json()["choices"][0]["message"]
+        reply = (msg.get("content") or "").strip()
+        if not reply:   # 추론모델이 content 대신 reasoning_content 로 줄 때 대비
+            reply = (msg.get("reasoning_content") or "").strip()
+        if not reply:
+            reply = "(응답이 비어서 왔어요. 다시 한 번 물어봐 주세요.)"
         return jsonify({"status": "success", "reply": reply})
     except Exception as e:
         return jsonify({"status": "success", "reply": f"(오류) {str(e)[:100]}"})
