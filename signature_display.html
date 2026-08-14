@@ -98,11 +98,8 @@
 
     <script>
         let globalData = null;
-        let reactionTimeout = null;
         let reactionImgClearTimeout = null;
-
-        // 기본 화면 유지 시간: 20초 (20,000ms)
-        const DEFAULT_DISPLAY_TIME_MS = 20000;
+        let currentReactionId = null;   // 지금 화면에 띄운 시그니처 id (오버레이의 currentPlayingId 미러)
 
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('transparent') === '1') {
@@ -127,123 +124,73 @@
         }
 
         function playReaction(data) {
-            console.log('Playing reaction (Visual Only - Sound Muted):', data);
-            
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
             const donatorEl = document.getElementById('reaction-donator-info');
             const messageEl = document.getElementById('reaction-message-info');
-            
-            if (!overlay || !img) return;
-            
-            // 1. 기존 타이머 초기화 (새 시그니처 오면 기존 타이머 리셋 후 20초 새로 시작)
-            if (reactionTimeout) {
-                clearTimeout(reactionTimeout);
-                reactionTimeout = null;
-            }
-            if (reactionImgClearTimeout) {
-                clearTimeout(reactionImgClearTimeout);
-                reactionImgClearTimeout = null;
-            }
+            if (!overlay || !img || !data) return;
 
-            // 2. 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
-            let donatorName = data.donator || data.nickname || '익명';
-            let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
-            if (donatorEl) {
-                donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
-            }
+            if (reactionImgClearTimeout) { clearTimeout(reactionImgClearTimeout); reactionImgClearTimeout = null; }
 
-            // 3. 후원 메시지 또는 시그니처 제목
-            let msgText = data.message || data.title || '';
+            // 후원자 이름 + 금액 (예: 홍길동 · 10,300원)
+            const donatorName = data.donator || data.nickname || '익명';
+            const donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
+            if (donatorEl) donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
+
+            // 후원 메시지(없으면 시그니처 제목)
+            const msgText = data.message || data.title || '';
             if (messageEl) {
-                if (msgText && msgText !== '수동 후원 송출') {
-                    messageEl.innerText = msgText;
-                    messageEl.style.display = 'block';
-                } else if (data.title) {
-                    messageEl.innerText = data.title;
-                    messageEl.style.display = 'block';
-                } else {
-                    messageEl.innerText = '';
-                    messageEl.style.display = 'none';
-                }
+                const show = !!(msgText && msgText !== '수동 후원 송출');
+                messageEl.innerText = show ? msgText : (data.title || '');
+                messageEl.style.display = (show || data.title) ? 'block' : 'none';
             }
-            
-            // 4. 시그니처 사진 이미지
-            let imgUrl = data.image_url || (data.image_file ? `/media/images/${data.image_file}` : '/money.png');
 
-            if (imgUrl) {
-                img.src = imgUrl;
-                img.style.display = 'block';
-            } else {
-                img.src = '/money.png';
-                img.style.display = 'block';
-            }
-            
-            // 5. 시그니처 팝업 화면에 100% 노출
+            // 시그니처 사진 (없거나 로드 실패 시 money.png 로 폴백)
+            img.onerror = () => { img.onerror = null; img.src = '/money.png'; };
+            img.src = data.image_url || '/money.png';
+            img.style.display = 'block';
+
             overlay.classList.add('show');
-
-            // 6. 무조건 20초 동안 화면에 띄워두기 (새 시그니처 오면 20초 다시 시작)
-            let finished = false;
-            const finishReaction = (reason) => {
-                if (finished) return;
-                finished = true;
-                console.log(`[20초 경과 종료] 이유: ${reason}`);
-                if (reactionTimeout) clearTimeout(reactionTimeout);
-                stopReactionVisuals();
-            };
-
-            // 정확히 20초 후 종료 타이머 설정 (이 페이지에서는 소리를 재생하지 않고 방송 오버레이 sound만 재생됨)
-            reactionTimeout = setTimeout(() => {
-                finishReaction('20초 기본 노출 시간 완료');
-            }, DEFAULT_DISPLAY_TIME_MS);
         }
 
+        // 오버레이의 checkReactionQueue 와 동일한 미러 로직:
+        //  - reaction_queue[0] 이 '지금 재생 중'인 시그니처. id가 바뀔 때만 새로 띄운다.
+        //  - 큐가 비거나 reaction_mode 가 꺼지면 즉시 내린다.
+        //  - 독립 타이머가 없다 = 방송 오버레이가 내리는 그 순간 같이 내려가 정확히 동기화된다.
         function handleData(d) {
+            if (!d) return;
             globalData = d;
-
-            if (d.reaction_mode && d.reaction_queue && d.reaction_queue.length > 0) {
-                const firstItem = d.reaction_queue[0];
-                playReaction(firstItem);
+            const reac = (d.reaction_mode && d.reaction_queue && d.reaction_queue.length > 0)
+                ? d.reaction_queue[0] : null;
+            if (!reac) {
+                if (currentReactionId !== null) { currentReactionId = null; stopReactionVisuals(); }
+                return;
+            }
+            if (currentReactionId !== reac.id) {   // 같은 시그니처면 재호출 무시(타이머 리셋/깜빡임 방지)
+                currentReactionId = reac.id;
+                playReaction(reac);
             }
         }
 
-        // 📡 SSE 실시간 데이터 수신
+        // 📡 SSE 실시간 상태 수신 — 오버레이와 같은 'update' 스트림을 그대로 따라간다.
+        // (서버는 donation/test_reaction/signature 이벤트를 쏘지 않으므로 그 리스너들은 제거했다.
+        //  슬롯 당첨도 reaction_queue 에 실려 'update' 로 오므로 큐 경로가 알아서 처리한다.)
         function initSSE() {
             const evtSource = new EventSource('/api/stream');
-
-            evtSource.onmessage = (e) => {
-                try { handleData(JSON.parse(e.data)); } catch(err) {}
-            };
-
-            evtSource.addEventListener('update', (e) => {
-                try { handleData(JSON.parse(e.data)); } catch(err) {}
+            const onState = (e) => { try { handleData(JSON.parse(e.data)); } catch (err) {} };
+            evtSource.onmessage = onState;
+            evtSource.addEventListener('init', onState);    // 연결 즉시 현재 상태 수신(늦게 켜도 지금 시그니처 표시)
+            evtSource.addEventListener('update', onState);
+            // 긴급중단/스킵: 지금 띄운 시그니처가 중단 대상이면 즉시 내린다(뒤이어 오는 update 와도 일치).
+            evtSource.addEventListener('reaction_stop', (e) => {
+                try { const data = JSON.parse(e.data); if (data && data.id && data.id !== currentReactionId) return; } catch (err) {}
+                currentReactionId = null;
+                stopReactionVisuals();
             });
-
-            evtSource.addEventListener('donation', (e) => {
-                try { handleData(JSON.parse(e.data)); } catch(err) {}
-            });
-
-            evtSource.addEventListener('test_reaction', (e) => {
-                try { playReaction(JSON.parse(e.data)); } catch(err) {}
-            });
-
-            evtSource.addEventListener('signature', (e) => {
-                try { playReaction(JSON.parse(e.data)); } catch(err) {}
-            });
-
-            evtSource.addEventListener('slot_spin', (e) => {
-                try {
-                    const data = JSON.parse(e.data);
-                    if (data && data.winner) {
-                        playReaction(data.winner);
-                    }
-                } catch(err) {}
-            });
+            evtSource.onerror = () => { /* EventSource 가 자동으로 재연결한다 */ };
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            initSSE();
-        });
+        document.addEventListener('DOMContentLoaded', initSSE);
     </script>
 </body>
 </html>
