@@ -339,6 +339,8 @@ def build_ai_snapshot(state):
     )
     pend = [{"이름": d.get("name"), "금액": d.get("amount"), "메시지": d.get("message")}
             for d in state.get("pending_donations", []) if d.get("type") != "off_work"]
+    recent_logs = [{"시각": l.get("time"), "대상": l.get("name"), "점수변화": l.get("val")}
+                   for l in (state.get("logs") or [])[:20]]   # 최신순 상위 20건
     return {
         "방송중": bool(state.get("broadcast_active")),
         "임시게임_진행중": extra,
@@ -346,6 +348,7 @@ def build_ai_snapshot(state):
         "승인_대기_후원": pend,
         "승인_대기_건수": len(pend),
         "리액션_대기열_수": len(state.get("reaction_queue", [])),
+        "최근_점수_로그": recent_logs,
         "최근_후원": state.get("latest_donation"),
         "방송_목표금액": state.get("target_goal"),
         "대결": state.get("match_data"),
@@ -737,6 +740,7 @@ DEFAULT_STATE = {
     "home_race_enabled": False,
     "home_goals": {},         # {플레이어 이름: 퇴근 목표 점수}
     "home_race_notified": [], # 이미 퇴근 카드를 띄운 사람 (송출 후 다시 생기는 것 방지)
+    "logs": [],               # 점수/기여도 지급 로그 [{time, name, val}] — DEFAULT_STATE에 있어야 재로드 시 유지된다
     "broadcast_active": False,
     "saved_colors": ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff'],
     "version": 1,
