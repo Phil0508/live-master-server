@@ -203,6 +203,102 @@ def load_supabase_config():
 
 SUPABASE = load_supabase_config()
 
+# ==========================================
+# 🤖 NVIDIA NIM (AI 기입 검증 도우미)
+#   후원 메시지를 읽고 "누구를 지목한 후원인지" 추정해, 운영자의 배정 실수를 잡아준다.
+#   ⚠️ 절대 자동으로 점수를 바꾸지 않는다. 추천/경고만 제공하는 서포트 전용 기능이다.
+# ==========================================
+def load_nvidia_key():
+    key = (os.environ.get('NVIDIA_API_KEY') or '').strip()
+    if not key:
+        cred_path = os.path.join(BASE_DIR, 'NVIDIA_CREDENTIALS.txt')  # git 제외 파일
+        if os.path.exists(cred_path):
+            try:
+                with open(cred_path, 'r', encoding='utf-8') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith('#') or '=' not in line:
+                            continue
+                        k, v = line.split('=', 1)
+                        if k.strip() == 'NVIDIA_API_KEY':
+                            key = v.split('#')[0].strip()
+                            break
+            except Exception as e:
+                print(f"[NVIDIA 키 읽기 오류] {e}")
+    return key
+
+NVIDIA_API_KEY = load_nvidia_key()
+NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+NIM_MODEL = "meta/llama-3.1-8b-instruct"   # 작고 빠름(≈0.7s). 단순 분류엔 충분.
+
+# 분당 호출 한도. 외부 계정 한도(40/분)보다 안전하게 낮춰 잡고, 넘으면 검증을 조용히 건너뛴다.
+NIM_RATE_LIMIT = 35
+_nim_calls = []                 # 최근 호출 시각(초) 슬라이딩 윈도우
+_nim_lock = threading.Lock()
+
+def _nim_allowed():
+    """분당 한도 안이면 True(그리고 이번 호출을 기록). 초과면 False."""
+    now = time.time()
+    with _nim_lock:
+        while _nim_calls and now - _nim_calls[0] > 60:
+            _nim_calls.pop(0)
+        if len(_nim_calls) >= NIM_RATE_LIMIT:
+            return False
+        _nim_calls.append(now)
+        return True
+
+def nim_suggest_target(name, amount, message, players):
+    """후원 메시지가 지목하는 플레이어를 추정한다.
+       반환: {"target": 이름 또는 None, "confidence": 0.0~1.0}
+       키 없음/한도 초과/오류/타임아웃 시에는 target=None 으로 조용히 실패한다(예외를 던지지 않는다)."""
+    names = [(p.get('name') if isinstance(p, dict) else str(p)) for p in (players or [])]
+    names = [n for n in names if n]
+    if not NVIDIA_API_KEY or not requests or not (message or '').strip() or not names:
+        return {"target": None, "confidence": 0.0, "skipped": True}
+    if not _nim_allowed():
+        return {"target": None, "confidence": 0.0, "skipped": True, "reason": "rate"}
+    sys_prompt = (
+        "너는 라이브 후원 방송의 기입 검증 도우미다. 후원 메시지를 읽고 "
+        "그 후원이 아래 플레이어 중 누구를 지목/응원하는지 판단한다.\n"
+        "플레이어: " + ", ".join(names) + "\n"
+        "규칙: 이름/별명/맥락으로 특정 플레이어를 지목하면 그 이름을, "
+        "지목이 전혀 없으면 target 을 null 로 둔다. 반드시 목록에 있는 정확한 이름만 사용한다.\n"
+        'JSON만 출력: {"target": "이름 또는 null", "confidence": 0.0~1.0}'
+    )
+    body = {
+        "model": NIM_MODEL,
+        "messages": [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": f"닉:{name}/금액:{amount}/메시지:{message}"},
+        ],
+        "temperature": 0.1,
+        "max_tokens": 60,
+    }
+    try:
+        r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
+                          json=body, timeout=8)
+        if r.status_code != 200:
+            return {"target": None, "confidence": 0.0, "error": r.status_code}
+        content = r.json()["choices"][0]["message"]["content"].strip()
+        i, j = content.find('{'), content.rfind('}')   # JSON 블록만 추출
+        if i == -1 or j == -1:
+            return {"target": None, "confidence": 0.0}
+        parsed = json.loads(content[i:j + 1])
+        target = parsed.get("target")
+        if isinstance(target, str):
+            target = target.strip()
+            if target.lower() in ('null', 'none', ''):
+                target = None
+        if target not in names:      # 환각 방지: 실제 플레이어 이름과 일치할 때만 인정
+            target = None
+        try:
+            conf = float(parsed.get("confidence", 0))
+        except Exception:
+            conf = 0.0
+        return {"target": target, "confidence": conf}
+    except Exception as e:
+        return {"target": None, "confidence": 0.0, "error": str(e)[:80]}
+
 def _supabase_ready():
     return bool(SUPABASE['url'] and SUPABASE['key'] and requests)
 
@@ -1950,6 +2046,27 @@ def yt_search():
             continue
             
     return jsonify([])
+
+@app.route('/api/audit/suggest', methods=['POST'])
+def api_audit_suggest():
+    """[AI 기입 검증] 후원 메시지가 지목하는 플레이어를 추정해 돌려준다.
+       컨트롤러가 대기함 후원 1건당 1회 호출해 '추천 배지 / 오배정 경고'에만 쓴다.
+       실패해도 항상 200 + target=None 으로 응답해 컨트롤러가 멈추지 않게 한다."""
+    try:
+        body = request.json or {}
+        name = str(body.get('name', ''))
+        amount = body.get('amount', 0)
+        message = str(body.get('message', ''))
+        players = body.get('players')
+        if not players:   # 클라이언트가 안 보냈으면 서버 상태에서 현재 플레이어를 읽는다
+            with file_lock:
+                state = load_data()
+                src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+                players = [b.get('name') for b in state.get(src, [])]
+        result = nim_suggest_target(name, amount, message, players)
+        return jsonify({"status": "success", **result})
+    except Exception as e:
+        return jsonify({"status": "success", "target": None, "confidence": 0.0, "error": str(e)[:80]})
 
 @app.route('/api/data', methods=['GET', 'POST'])
 def api_data():

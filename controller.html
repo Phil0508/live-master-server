@@ -338,6 +338,9 @@
         .pending-item { background: #1a1a1d; padding: 15px; margin-bottom: 12px; border-radius: var(--radius-md); border-left: 4px solid var(--accent); border-right: 1px solid var(--border-light); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light); }
         .pending-info { margin-bottom: 10px; font-size: 14px; line-height: 1.5; color: #ccc; }
         .pending-amount { color: var(--accent); font-weight: bold; font-size: 16px; }
+        /* 🤖 AI 기입 검증 배지 (메시지가 지목한 대상 추천) */
+        .audit-badge { display:none; margin-left:8px; font-size:11px; font-weight:800; color:#8fd1ff; background:rgba(0,150,255,0.12); border:1px solid rgba(0,150,255,0.38); padding:2px 9px; border-radius:10px; vertical-align:middle; white-space:nowrap; }
+        .audit-badge b { color:#e6f4ff; }
         .bj-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
         .bj-btn { background: #333; color: white; padding: 6px 12px; font-size: 13px; border: 1px solid #555; }
         .bj-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
@@ -1807,9 +1810,11 @@
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:#888;">[${don.time}]</span> <b style="color:#fff; font-size:15px;">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:#aaa; font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span></div><div class="bj-buttons"><span style="font-size:12px; color:#888;"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
+                queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
+                paintAuditBadges(gd.pending_donations); // 이미 받아둔 추천은 배지로 다시 그림
             } else {
                 if(pbox.style.display !== 'none') pbox.style.display = 'none';
             }
@@ -2210,10 +2215,67 @@
             fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' }).catch(() => {});
         }
 
-        function assignPending(donId, bjIdx) {
+        // ===== 🤖 AI 기입 검증 (후원 메시지 → 지목 대상 추정) =====
+        // 서버(server.py /api/audit/suggest)가 NVIDIA NIM 으로 메시지를 읽고 대상을 추정한다.
+        // 절대 자동으로 점수를 바꾸지 않는다 — 배지(추천) + 오배정 경고만 제공한다.
+        const auditSuggest = {};          // don.id -> {target, confidence}
+        const auditRequested = new Set();  // 후원 1건당 1회만 호출(중복 방지)
+        const AUDIT_MIN_CONF = 0.6;
+
+        function currentPlayerNames() {
+            const isExtra = gd.extra_game_active || false;
+            return (isExtra ? (gd.extra_bjs || []) : (gd.bjs || [])).map(b => b.name);
+        }
+        function queueAudits(list) {
+            (list || []).forEach(don => {
+                if (!don || don.type === 'off_work') return;
+                if (!don.message || !don.message.trim()) return;   // 메시지 없으면 검증할 게 없음
+                if (auditRequested.has(don.id)) return;
+                auditRequested.add(don.id);
+                fetch('/api/audit/suggest', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message, players: currentPlayerNames() })
+                }).then(r => r.json()).then(res => {
+                    if (res && res.target) {
+                        auditSuggest[don.id] = { target: res.target, confidence: res.confidence || 0 };
+                        paintAuditBadge(don.id);
+                    }
+                }).catch(() => {});   // 실패해도 조용히 무시(운영 방해 금지)
+            });
+        }
+        function paintAuditBadge(donId) {
+            const el = document.getElementById('audit-' + donId);
+            if (!el) return;
+            const s = auditSuggest[donId];
+            if (s && s.target && s.confidence >= AUDIT_MIN_CONF) {
+                el.innerHTML = `🤖 <b>${escapeHTML(s.target)}</b>로 보임`;
+                el.style.display = 'inline-block';
+            } else {
+                el.innerHTML = ''; el.style.display = 'none';
+            }
+        }
+        function paintAuditBadges(list) {
+            (list || []).forEach(don => { if (don && don.id) paintAuditBadge(don.id); });
+        }
+
+        async function assignPending(donId, bjIdx) {
             let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
             if(donIdx === -1) return;
             let don = gd.pending_donations[donIdx];
+
+            // 🤖 오배정 경고: 메시지가 지목한 대상과 다른 사람에게 주려 하면 한 번 확인한다.
+            {
+                const isExtraC = gd.extra_game_active || false;
+                const listC = isExtraC ? gd.extra_bjs : gd.bjs;
+                const chosenName = (listC && listC[bjIdx]) ? listC[bjIdx].name : '';
+                const sug = auditSuggest[donId];
+                if (sug && sug.target && sug.confidence >= AUDIT_MIN_CONF && sug.target !== chosenName) {
+                    const go = await premiumConfirm(
+                        `메시지상 이 후원은 '${sug.target}'을(를) 응원하는 것 같아요.\n그래도 '${chosenName}'에게 지급할까요?`,
+                        '🤖 AI 기입 검증', 'warning');
+                    if (!go) return;   // 취소 → 아무 것도 안 함(올바른 버튼을 다시 누르면 됨)
+                }
+            }
 
             let addPoint = Math.round(don.amount / 10000);
             
@@ -2374,13 +2436,21 @@
             }, 10);
         }
 
-        function confirmContribChange(idx) {
+        async function confirmContribChange(idx) {
             let inputEl = document.getElementById('edit-contrib-popover-input');
             if (inputEl) {
                 let parsed = parseInt(String(inputEl.value).replace(/[^\d-]/g,''));
                 if (!isNaN(parsed)) {
                     let isExtra = gd.extra_game_active || false;
                     let targetList = isExtra ? gd.extra_bjs : gd.bjs;
+                    let oldVal = targetList[idx].contribution || 0;
+                    // 🔢 자릿수 오타 방어: 한 번에 너무 크게(±30 이상) 바뀌면 확인
+                    if (Math.abs(parsed - oldVal) >= 30) {
+                        const go = await premiumConfirm(
+                            `기여도를 ${oldVal.toLocaleString()} → ${parsed.toLocaleString()} (으)로 바꿉니다.\n변화가 큰데 맞나요? (자릿수 확인)`,
+                            '큰 변화 확인', 'warning');
+                        if (!go) { cancelContribEdit(); return; }
+                    }
                     targetList[idx].contribution = parsed;
                     pushAPI();
                 } else {

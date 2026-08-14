@@ -11,3 +11,4 @@ auth_config.json
 .env
 .env.*
 SUPABASE_CREDENTIALS.txt
+NVIDIA_CREDENTIALS.txt
