@@ -357,6 +357,10 @@
             border-bottom:1px solid rgba(255,255,255,0.08);
             background:linear-gradient(135deg,rgba(37,99,255,0.18),rgba(124,58,237,0.14)); }
         #ai-drawer-head small { display:block; font-size:11px; font-weight:600; color:#9fb0ff; margin-top:4px; line-height:1.4; }
+        #ai-drawer-head .ai-head-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        #ai-chat-clear { background:rgba(255,255,255,0.08); color:#c9cede; border:1px solid rgba(255,255,255,0.14);
+            border-radius:8px; padding:5px 9px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        #ai-chat-clear:hover { background:rgba(255,80,80,0.18); border-color:rgba(255,80,80,0.45); color:#ffd5d5; }
         #ai-chat-log { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
         .ai-msg { max-width:86%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.55; word-break:break-word; }
         .ai-msg-user { align-self:flex-end; background:linear-gradient(135deg,#2563ff,#4f46e5); color:#fff; border-bottom-right-radius:4px; }
@@ -2290,14 +2294,37 @@
         // ===== 🤖 AI 서포트 채팅 (왼쪽 슬라이드 패널) =====
         // 서버(server.py /api/ai/chat)가 현재 방송 상태 스냅샷 + 시스템 프롬프트로 답한다.
         // AI는 조작하지 않고 정보/조언만 준다.
-        let aiChatHistory = [];   // {role, content}
+        // 대화는 localStorage 에 저장 → 새로고침·재접속해도 유지된다('대화 지우기'로 초기화).
+        const AI_CHAT_KEY = 'aiChatLog';
+        const AI_HINT_HTML = '<div class="ai-msg ai-msg-sys">예: "지금 1등 누구야?" · "대결 몇 점 차이야?" · "대기함에 밀린 후원 있어?"</div>';
+        let aiChatLog = [];       // {role:'user'|'assistant', content} — 전체 대화(저장 대상)
         let aiChatBusy = false;
+        let aiRestored = false;
+        function aiSaveLog() {
+            try { localStorage.setItem(AI_CHAT_KEY, JSON.stringify(aiChatLog.slice(-40))); } catch (e) {}
+        }
+        function aiRestoreLog() {
+            try { const raw = localStorage.getItem(AI_CHAT_KEY); if (raw) aiChatLog = JSON.parse(raw) || []; } catch (e) { aiChatLog = []; }
+            const log = document.getElementById('ai-chat-log');
+            if (!log) return;
+            if (aiChatLog.length) {
+                log.innerHTML = '';
+                aiChatLog.forEach(m => aiAppendMsg(m.role === 'assistant' ? 'ai' : 'user', m.content));
+            }
+        }
+        function aiClearChat() {
+            aiChatLog = [];
+            aiSaveLog();
+            const log = document.getElementById('ai-chat-log');
+            if (log) log.innerHTML = AI_HINT_HTML;
+        }
         function toggleAiDrawer() {
             const d = document.getElementById('ai-drawer');
             const t = document.getElementById('ai-drawer-toggle');
             const open = d.classList.toggle('open');
             t.classList.toggle('open', open);
             document.getElementById('ai-toggle-arrow').textContent = open ? '◀' : '▶';
+            if (open && !aiRestored) { aiRestored = true; aiRestoreLog(); }   // 첫 열림에 저장된 대화 복원
             if (open) setTimeout(() => { const i = document.getElementById('ai-chat-input'); if (i) i.focus(); }, 260);
         }
         function aiAppendMsg(role, text) {
@@ -2323,14 +2350,14 @@
             try {
                 const res = await fetch('/api/ai/chat', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: q, messages: aiChatHistory.slice(-6) })
+                    body: JSON.stringify({ question: q, messages: aiChatLog.slice(-6) })
                 }).then(r => r.json());
                 const reply = (res && res.reply) ? res.reply : '(응답 없음)';
                 thinking.classList.remove('ai-thinking');
                 thinking.innerHTML = escapeHTML(reply).replace(/\n/g, '<br>');
                 document.getElementById('ai-chat-log').scrollTop = 9e9;
-                aiChatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
-                if (aiChatHistory.length > 12) aiChatHistory = aiChatHistory.slice(-12);
+                aiChatLog.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+                aiSaveLog();   // 새로고침해도 유지되게 저장
             } catch (e) {
                 thinking.classList.remove('ai-thinking');
                 thinking.innerHTML = '(오류) 연결 실패';
@@ -5012,7 +5039,10 @@
     <!-- 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표로 열고 닫음) -->
     <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span></button>
     <div id="ai-drawer">
-        <div id="ai-drawer-head">🤖 AI 서포트<small>지금 방송 상황을 물어보세요 · 조작은 안 하고 정보/조언만 드려요</small></div>
+        <div id="ai-drawer-head">
+            <div class="ai-head-row"><span>🤖 AI 서포트</span><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">🗑 대화 지우기</button></div>
+            <small>지금 방송 상황을 물어보세요 · 조작은 안 하고 정보/조언만 드려요 · 대화는 자동 저장돼요</small>
+        </div>
         <div id="ai-chat-log">
             <div class="ai-msg ai-msg-sys">예: "지금 1등 누구야?" · "대결 몇 점 차이야?" · "대기함에 밀린 후원 있어?"</div>
         </div>
