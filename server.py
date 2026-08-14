@@ -230,6 +230,7 @@ def load_nvidia_key():
 NVIDIA_API_KEY = load_nvidia_key()
 NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 NIM_MODEL = "meta/llama-3.1-8b-instruct"   # 작고 빠름(≈0.7s). 단순 분류엔 충분.
+NIM_CHAT_MODEL = "meta/llama-3.1-8b-instruct"  # AI 서포트 채팅용(상황 Q&A). 필요 시 더 큰 모델로 교체 가능.
 
 # 분당 호출 한도. 외부 계정 한도(40/분)보다 안전하게 낮춰 잡고, 넘으면 검증을 조용히 건너뛴다.
 NIM_RATE_LIMIT = 35
@@ -298,6 +299,61 @@ def nim_suggest_target(name, amount, message, players):
         return {"target": target, "confidence": conf}
     except Exception as e:
         return {"target": None, "confidence": 0.0, "error": str(e)[:80]}
+
+# ---- AI 서포트 채팅: 현재 방송 상태 스냅샷 + 시스템 프롬프트 ----
+AI_SYSTEM_PROMPT = (
+    "너는 '드래곤쇼' 라이브 방송 운영 시스템의 AI 서포트 어시스턴트다.\n\n"
+    "[이 프로그램이 무엇인가]\n"
+    "- 시청자 후원(투네이션)을 받아 방송 화면(오버레이)에 리액션·연출을 띄우고, "
+    "플레이어(출연자)들의 점수·기여도 랭킹을 관리하는 라이브 방송 운영 도구다.\n"
+    "- 운영자(사람)가 '컨트롤러' 화면에서 조작한다. 너는 그 운영자를 돕는다.\n\n"
+    "[핵심 흐름]\n"
+    "- 후원이 들어오면 '승인 대기함'에 쌓인다. 운영자가 각 후원을 특정 플레이어에게 배정하면 "
+    "그 플레이어의 점수·기여도가 오른다(대개 금액/10000 만큼).\n"
+    "- 후원 금액대에 맞는 '시그니처'(효과음+이미지 연출)가 자동으로 화면에 재생된다.\n"
+    "- 위젯: 플레이어 랭킹판, 후원 게이지, 계좌, 대결(match) 위젯, 퇴근빵(개인별 목표 레이스), "
+    "슬롯머신/룰렛 게임 등.\n\n"
+    "[너의 역할 = 서포트만]\n"
+    "- 현재 상황을 파악해 질문에 답한다. 예: '지금 1등 누구야?', '대결 몇 점 차이야?', "
+    "'대기함에 밀린 후원 있어?', '누가 역전당했어?'.\n"
+    "- 상황 요약, 실수 방지 조언, 우선순위 제안을 한다.\n"
+    "- ⚠️ 너는 직접 점수를 바꾸거나 조작을 실행하지 않는다. 정보 제공과 조언만 한다. "
+    "실제 실행은 운영자가 버튼으로 직접 한다.\n\n"
+    "[답변 규칙]\n"
+    "- 반드시 아래 제공되는 '현재 방송 상태(JSON)'만을 근거로 답한다. 상태에 없는 것은 모른다고 말한다. "
+    "숫자를 지어내지 않는다.\n"
+    "- 점수 차이·순위·합계 같은 계산은 정확히 한다.\n"
+    "- 한국어로, 짧고 명확하게. 방송 중이라 운영자가 빨리 읽을 수 있어야 한다.\n"
+    "- 모르면 모른다고 하고, 추측을 사실처럼 말하지 않는다."
+)
+
+def build_ai_snapshot(state):
+    """AI 서포트가 상황을 파악할 수 있게 현재 상태의 핵심만 추려 컴팩트한 dict로 만든다.
+       (레이아웃·에디터·미디어 데이터 등 방송 판단과 무관한 큰 값은 제외해 토큰을 아낀다.)"""
+    extra = bool(state.get("extra_game_active"))
+    src = "extra_bjs" if extra else "bjs"
+    ranking = sorted(
+        [{"이름": b.get("name"), "점수": b.get("score", 0), "기여도": b.get("contribution", 0)}
+         for b in state.get(src, [])],
+        key=lambda x: x["기여도"], reverse=True,
+    )
+    pend = [{"이름": d.get("name"), "금액": d.get("amount"), "메시지": d.get("message")}
+            for d in state.get("pending_donations", []) if d.get("type") != "off_work"]
+    return {
+        "방송중": bool(state.get("broadcast_active")),
+        "임시게임_진행중": extra,
+        "플레이어_랭킹": ranking,
+        "승인_대기_후원": pend,
+        "승인_대기_건수": len(pend),
+        "리액션_대기열_수": len(state.get("reaction_queue", [])),
+        "최근_후원": state.get("latest_donation"),
+        "방송_목표금액": state.get("target_goal"),
+        "대결": state.get("match_data"),
+        "퇴근빵_켜짐": bool(state.get("home_race_enabled")),
+        "퇴근빵_목표": state.get("home_goals"),
+        "계좌": state.get("account"),
+        "운영비": state.get("bottom_fixed"),
+    }
 
 def _supabase_ready():
     return bool(SUPABASE['url'] and SUPABASE['key'] and requests)
@@ -2067,6 +2123,42 @@ def api_audit_suggest():
         return jsonify({"status": "success", **result})
     except Exception as e:
         return jsonify({"status": "success", "target": None, "confidence": 0.0, "error": str(e)[:80]})
+
+@app.route('/api/ai/chat', methods=['POST'])
+def api_ai_chat():
+    """[AI 서포트 채팅] 운영자가 현재 상황을 물어보면, 실시간 상태 스냅샷을 근거로 답한다.
+       조작은 하지 않고 정보/조언만. 실패해도 항상 200 + 안내 문구로 응답한다."""
+    try:
+        body = request.json or {}
+        question = str(body.get('question', '')).strip()
+        history = body.get('messages') or []
+        if not question:
+            return jsonify({"status": "success", "reply": "무엇을 도와드릴까요?"})
+        if not NVIDIA_API_KEY or not requests:
+            return jsonify({"status": "success",
+                            "reply": "AI 키가 설정되지 않았어요. (Render 환경변수 NVIDIA_API_KEY 확인)"})
+        if not _nim_allowed():
+            return jsonify({"status": "success",
+                            "reply": "지금 AI 호출이 몰려서 잠시 후 다시 물어봐 주세요."})
+        with file_lock:
+            state = load_data()
+            snap = build_ai_snapshot(state)
+        sys_full = AI_SYSTEM_PROMPT + "\n\n[현재 방송 상태(JSON)]\n" + json.dumps(snap, ensure_ascii=False)
+        msgs = [{"role": "system", "content": sys_full}]
+        for m in history[-6:]:   # 직전 대화 몇 개만(토큰 절약)
+            role = m.get('role'); content = str(m.get('content', ''))
+            if role in ('user', 'assistant') and content:
+                msgs.append({"role": role, "content": content})
+        msgs.append({"role": "user", "content": question})
+        req_body = {"model": NIM_CHAT_MODEL, "messages": msgs, "temperature": 0.3, "max_tokens": 500}
+        r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
+                          json=req_body, timeout=30)
+        if r.status_code != 200:
+            return jsonify({"status": "success", "reply": f"(AI 오류 {r.status_code}) 잠시 후 다시 시도해주세요."})
+        reply = r.json()["choices"][0]["message"]["content"].strip()
+        return jsonify({"status": "success", "reply": reply})
+    except Exception as e:
+        return jsonify({"status": "success", "reply": f"(오류) {str(e)[:100]}"})
 
 @app.route('/api/data', methods=['GET', 'POST'])
 def api_data():

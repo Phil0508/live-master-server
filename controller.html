@@ -341,6 +341,35 @@
         /* 🤖 AI 기입 검증 배지 (메시지가 지목한 대상 추천) */
         .audit-badge { display:none; margin-left:8px; font-size:11px; font-weight:800; color:#8fd1ff; background:rgba(0,150,255,0.12); border:1px solid rgba(0,150,255,0.38); padding:2px 9px; border-radius:10px; vertical-align:middle; white-space:nowrap; }
         .audit-badge b { color:#e6f4ff; }
+        /* 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표) */
+        #ai-drawer-toggle { position:fixed; left:0; top:50%; transform:translateY(-50%); z-index:4001;
+            width:26px; height:66px; border:none; border-radius:0 12px 12px 0; cursor:pointer;
+            background:linear-gradient(135deg,#2563ff,#7c3aed); color:#fff; font-size:14px; font-weight:900;
+            box-shadow:2px 0 12px rgba(0,0,0,0.45); transition:left .28s cubic-bezier(.16,1,.3,1);
+            display:flex; align-items:center; justify-content:center; }
+        #ai-drawer-toggle.open { left:min(380px,86vw); }
+        #ai-drawer { position:fixed; left:0; top:0; height:100vh; width:min(380px,86vw); z-index:4000;
+            background:linear-gradient(180deg,#15161a,#101114); border-right:1px solid rgba(120,135,255,0.35);
+            box-shadow:6px 0 30px rgba(0,0,0,0.5); transform:translateX(-100%);
+            transition:transform .28s cubic-bezier(.16,1,.3,1); display:flex; flex-direction:column; }
+        #ai-drawer.open { transform:translateX(0); }
+        #ai-drawer-head { padding:16px 18px 12px; font-size:16px; font-weight:900; color:#fff;
+            border-bottom:1px solid rgba(255,255,255,0.08);
+            background:linear-gradient(135deg,rgba(37,99,255,0.18),rgba(124,58,237,0.14)); }
+        #ai-drawer-head small { display:block; font-size:11px; font-weight:600; color:#9fb0ff; margin-top:4px; line-height:1.4; }
+        #ai-chat-log { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+        .ai-msg { max-width:86%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.55; word-break:break-word; }
+        .ai-msg-user { align-self:flex-end; background:linear-gradient(135deg,#2563ff,#4f46e5); color:#fff; border-bottom-right-radius:4px; }
+        .ai-msg-ai { align-self:flex-start; background:#22242b; color:#e8eaf0; border:1px solid rgba(255,255,255,0.07); border-bottom-left-radius:4px; }
+        .ai-msg-sys { align-self:center; background:transparent; color:#7d8496; font-size:12px; text-align:center; line-height:1.5; }
+        .ai-thinking { color:#9fb0ff; font-style:italic; }
+        #ai-chat-input-row { display:flex; gap:8px; padding:12px; border-top:1px solid rgba(255,255,255,0.08); }
+        #ai-chat-input { flex:1; resize:none; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.12);
+            border-radius:10px; color:#fff; padding:9px 11px; font-size:13.5px; font-family:inherit; outline:none; max-height:120px; }
+        #ai-chat-input:focus { border-color:#6b8bff; }
+        #ai-chat-send { background:linear-gradient(135deg,#2563ff,#7c3aed); color:#fff; border:none; border-radius:10px;
+            padding:0 16px; font-weight:800; font-size:13.5px; cursor:pointer; white-space:nowrap; }
+        #ai-chat-send:disabled { opacity:.5; cursor:default; }
         .bj-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
         .bj-btn { background: #333; color: white; padding: 6px 12px; font-size: 13px; border: 1px solid #555; }
         .bj-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
@@ -2256,6 +2285,60 @@
         }
         function paintAuditBadges(list) {
             (list || []).forEach(don => { if (don && don.id) paintAuditBadge(don.id); });
+        }
+
+        // ===== 🤖 AI 서포트 채팅 (왼쪽 슬라이드 패널) =====
+        // 서버(server.py /api/ai/chat)가 현재 방송 상태 스냅샷 + 시스템 프롬프트로 답한다.
+        // AI는 조작하지 않고 정보/조언만 준다.
+        let aiChatHistory = [];   // {role, content}
+        let aiChatBusy = false;
+        function toggleAiDrawer() {
+            const d = document.getElementById('ai-drawer');
+            const t = document.getElementById('ai-drawer-toggle');
+            const open = d.classList.toggle('open');
+            t.classList.toggle('open', open);
+            document.getElementById('ai-toggle-arrow').textContent = open ? '◀' : '▶';
+            if (open) setTimeout(() => { const i = document.getElementById('ai-chat-input'); if (i) i.focus(); }, 260);
+        }
+        function aiAppendMsg(role, text) {
+            const log = document.getElementById('ai-chat-log');
+            const div = document.createElement('div');
+            div.className = 'ai-msg ai-msg-' + role;
+            div.innerHTML = escapeHTML(text).replace(/\n/g, '<br>');
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+            return div;
+        }
+        async function aiChatSend() {
+            if (aiChatBusy) return;
+            const inp = document.getElementById('ai-chat-input');
+            const q = (inp.value || '').trim();
+            if (!q) return;
+            inp.value = '';
+            aiChatBusy = true;
+            document.getElementById('ai-chat-send').disabled = true;
+            aiAppendMsg('user', q);
+            const thinking = aiAppendMsg('ai', '생각 중…');
+            thinking.classList.add('ai-thinking');
+            try {
+                const res = await fetch('/api/ai/chat', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: q, messages: aiChatHistory.slice(-6) })
+                }).then(r => r.json());
+                const reply = (res && res.reply) ? res.reply : '(응답 없음)';
+                thinking.classList.remove('ai-thinking');
+                thinking.innerHTML = escapeHTML(reply).replace(/\n/g, '<br>');
+                document.getElementById('ai-chat-log').scrollTop = 9e9;
+                aiChatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+                if (aiChatHistory.length > 12) aiChatHistory = aiChatHistory.slice(-12);
+            } catch (e) {
+                thinking.classList.remove('ai-thinking');
+                thinking.innerHTML = '(오류) 연결 실패';
+            } finally {
+                aiChatBusy = false;
+                document.getElementById('ai-chat-send').disabled = false;
+                const i = document.getElementById('ai-chat-input'); if (i) i.focus();
+            }
         }
 
         async function assignPending(donId, bjIdx) {
@@ -4925,6 +5008,19 @@
         fab.addEventListener('click', function () { if (moved) { moved = false; return; } downloadLocalBackupFile(); });
     })();
     </script>
+
+    <!-- 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표로 열고 닫음) -->
+    <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span></button>
+    <div id="ai-drawer">
+        <div id="ai-drawer-head">🤖 AI 서포트<small>지금 방송 상황을 물어보세요 · 조작은 안 하고 정보/조언만 드려요</small></div>
+        <div id="ai-chat-log">
+            <div class="ai-msg ai-msg-sys">예: "지금 1등 누구야?" · "대결 몇 점 차이야?" · "대기함에 밀린 후원 있어?"</div>
+        </div>
+        <div id="ai-chat-input-row">
+            <textarea id="ai-chat-input" rows="1" placeholder="현재 상황을 물어보세요…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiChatSend();}"></textarea>
+            <button id="ai-chat-send" onclick="aiChatSend()">전송</button>
+        </div>
+    </div>
 
 </body>
 </html>
