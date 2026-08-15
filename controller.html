@@ -2389,6 +2389,10 @@
         let aiDonationTimes = [];     // 최근 후원 감지 시각(급증 판단)
         let aiLastDonTime = 0;        // latest_donation.time 중복 방지
         let aiUnread = 0;
+        const aiForgotAlerted = new Set();   // 점수 안 올린 채 방치된 후원 don.id
+        const FORGOT_MS = 180000;            // 대기 후원 방치 기준(3분)
+        let aiLastBackupAt = parseInt(localStorage.getItem('lastOfflineBackup') || '0') || Date.now();
+        const BACKUP_REMIND_MS = 1800000;    // 오프라인 백업 리마인드 기준(30분)
 
         function aiCanAlert(key, gapMs) {
             const now = Date.now();
@@ -2446,6 +2450,23 @@
                     aiProactiveSay(`승인 대기함에 후원 ${pend.length}건이 밀려 있어요. 잠깐 정리하는 게 좋아요.`);
                 }
 
+                // 2-b) 점수 깜빡: 오래 방치된 개별 대기 후원(아직 점수 안 올림)
+                const nowMs = Date.now();
+                const pendIds = new Set();
+                pend.forEach(p => {
+                    if (!p || !p.id) return;
+                    pendIds.add(p.id);
+                    if (aiForgotAlerted.has(p.id)) return;
+                    const mm = /^don_(\d+)$/.exec(p.id);     // don.id = don_<epoch ms>
+                    if (!mm) return;
+                    if (nowMs - parseInt(mm[1]) >= FORGOT_MS) {
+                        aiForgotAlerted.add(p.id);
+                        const mins = Math.max(1, Math.round((nowMs - parseInt(mm[1])) / 60000));
+                        aiProactiveSay(`${p.name || '익명'}님 ${(p.amount || 0).toLocaleString()}원 후원이 ${mins}분째 대기 중이에요 — 점수 아직 안 올렸어요!`);
+                    }
+                });
+                aiForgotAlerted.forEach(id => { if (!pendIds.has(id)) aiForgotAlerted.delete(id); });  // 배정된 건 정리
+
                 // 3) 대결 종료 임박 (대결당 1회)
                 const m = d.match_data;
                 if (m && m.active && m.is_running && typeof m.time_left_ms === 'number' && m.time_left_ms > 0 && m.time_left_ms <= 30000) {
@@ -2465,6 +2486,16 @@
                 if (!d.goal_event_pending) delete aiAlertAt['goal'];
             } catch (e) {}
         }
+        // 오프라인 백업을 오래 안 하면 리마인드 (상태 변화와 무관하게 1분마다 확인)
+        function aiBackupReminderTick() {
+            if (!aiProactiveEnabled) return;
+            if (!(gd && gd.broadcast_active)) return;   // 방송 중일 때만 (잃으면 안 되는 상황)
+            const age = Date.now() - aiLastBackupAt;
+            if (age >= BACKUP_REMIND_MS && aiCanAlert('backup', BACKUP_REMIND_MS)) {
+                aiProactiveSay(`오프라인 백업한 지 ${Math.round(age / 60000)}분 됐어요. 우측 하단 백업 버튼으로 저장해두세요.`);
+            }
+        }
+        setInterval(aiBackupReminderTick, 60000);
         document.addEventListener('DOMContentLoaded', aiSyncProactiveBtn);
 
         async function assignPending(donId, bjIdx) {
@@ -3836,6 +3867,7 @@
                 dlAnchorElem.setAttribute("href",     dataStr     );
                 dlAnchorElem.setAttribute("download", fileName);
                 dlAnchorElem.click();
+                try { aiLastBackupAt = Date.now(); localStorage.setItem('lastOfflineBackup', String(aiLastBackupAt)); } catch(e2) {}
             } catch(e) {
                 premiumAlert("다운로드 실패: " + e.message, "에러", "warning");
             }
