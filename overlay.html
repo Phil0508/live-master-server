@@ -429,8 +429,8 @@
                 0 0 16px rgba(var(--tk-glow, 255, 45, 100), 0.46),
                 0 0 34px rgba(var(--tk-glow, 255, 45, 100), 0.26);
         }
-        /* '@@업' 모드에서는 전광판 유리 바를 지우고 깔끔한 네온 텍스트만 흐르게 */
-        .reac-neon-mode .ticker-bar { background: transparent; border: none; box-shadow: none; }
+        /* '@@업' 모드에서도 원래 전광판 위젯처럼 반투명 레터박스(어두운 유리 + 골드 상하 엣지)를 뒤에 깐다 */
+        .reac-neon-mode .ticker-bar { background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 2px solid rgba(246,196,83,0.45); border-bottom: 2px solid rgba(246,196,83,0.45); box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
         /* 큰 배너가 위/아래로 '갈라지며' 등장 → 그대로 스크롤. (컨테이너 위치/스케일은 안 건드리고 안쪽 바만 연출) */
         @keyframes splitInTop    { 0% { transform: translateY(96px)  scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
         @keyframes splitInBottom { 0% { transform: translateY(-96px) scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
