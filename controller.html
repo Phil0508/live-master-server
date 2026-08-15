@@ -797,6 +797,19 @@
 
     <!-- 🎮 모드 탭: 임시게임판 + 퇴근전쟁 (랭킹 탭에서 분리해 옮김) -->
     <div id="tab-mode" class="tab-content">
+        <!-- 🎤 노래방 모드 -->
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(140,155,255,0.4); background: rgba(120,135,255,0.05);">
+            <div class="group-title"><span style="color:#9fb0ff;"><i class="fa-solid fa-microphone"></i> 🎤 노래방 모드</span></div>
+            <div style="font-size: 12px; color: var(--text-muted); margin: 8px 0 12px; line-height: 1.6;">
+                유튜브 노래방(inst) 링크를 붙여넣고 <b>[노래방 켜기]</b>를 누르면 오버레이 화면에 영상이 떠요. 켜면 배경음(BGM)은 자동으로 멈춥니다.
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <input id="karaoke-url" type="text" placeholder="유튜브 링크 붙여넣기 (https://youtu.be/... 또는 watch?v=...)" onkeydown="if(event.key==='Enter')startKaraoke()" style="flex:1; min-width:220px; height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--border-light); background:rgba(0,0,0,0.35); color:#fff; font-size:13px; outline:none;">
+                <button onclick="startKaraoke()" style="height:40px; padding:0 18px; border-radius:10px; border:none; background:linear-gradient(135deg,#5b6cff,#8b7bff); color:#fff; font-weight:800; cursor:pointer; white-space:nowrap;"><i class="fa-solid fa-play"></i> 노래방 켜기</button>
+                <button onclick="stopKaraoke()" style="height:40px; padding:0 16px; border-radius:10px; border:1px solid rgba(255,69,58,0.4); background:rgba(255,69,58,0.1); color:var(--danger); font-weight:800; cursor:pointer; white-space:nowrap;"><i class="fa-solid fa-stop"></i> 끄기</button>
+            </div>
+            <div id="karaoke-status" style="margin-top:10px; font-size:12px; color:var(--text-muted);">⚫ 꺼짐</div>
+        </div>
         <div class="group-box" id="extra-game-banner" style="margin-bottom: 15px; border-color: var(--border-light); background: rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
             <div class="group-title" style="color: #fff; border-bottom-color: var(--border-light); display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span><i class="fa-solid fa-rocket"></i> 지능형 번외 임시 게임판 제어 센터</span>
@@ -1781,6 +1794,7 @@
             if(document.activeElement.tagName === "INPUT" && !document.activeElement.id.startsWith("chk") && !document.activeElement.classList.contains("setup-player-input") || document.activeElement.tagName === "TEXTAREA") return;
             
             let isActive = gd.broadcast_active || false;
+            try { renderKaraokeStatus(); } catch(e) {}   // 🎤 노래방 상태 표시 갱신
             document.getElementById('setup-broadcast-area').style.display = isActive ? 'none' : 'block';
             document.getElementById('active-broadcast-area').style.display = isActive ? 'block' : 'none';
             
@@ -2510,6 +2524,49 @@
         }
         setInterval(aiBackupReminderTick, 60000);
         document.addEventListener('DOMContentLoaded', aiSyncProactiveBtn);
+
+        // ===== 🎤 노래방 모드 =====
+        function extractYouTubeId(url) {
+            if (!url) return '';
+            url = String(url).trim();
+            if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;   // 이미 ID만 붙여넣은 경우
+            let m;
+            if ((m = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/))) return m[1];
+            if ((m = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/))) return m[1];
+            if ((m = url.match(/\/embed\/([a-zA-Z0-9_-]{11})/))) return m[1];
+            if ((m = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/))) return m[1];
+            if ((m = url.match(/\/live\/([a-zA-Z0-9_-]{11})/))) return m[1];
+            if ((m = url.match(/([a-zA-Z0-9_-]{11})/))) return m[1];   // 마지막 시도
+            return '';
+        }
+        async function startKaraoke() {
+            const inp = document.getElementById('karaoke-url');
+            const id = extractYouTubeId(inp ? inp.value : '');
+            if (!id) { await premiumAlert('유튜브 링크를 인식하지 못했어요. 링크를 다시 확인해주세요.', '노래방 모드', 'warning'); return; }
+            if (!gd) return;
+            gd.karaoke_enabled = true;
+            gd.karaoke_video = id;
+            // 소리 겹침 방지: 배경음(BGM) 정지
+            try { const bgm = document.getElementById('bgm-audio'); if (bgm && !bgm.paused) bgm.pause(); } catch(e) {}
+            try { if (typeof ytPlayer !== 'undefined' && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); } catch(e) {}
+            pushAPI();
+            renderKaraokeStatus();
+        }
+        function stopKaraoke() {
+            if (!gd) return;
+            gd.karaoke_enabled = false;
+            pushAPI();
+            renderKaraokeStatus();
+        }
+        function renderKaraokeStatus() {
+            const s = document.getElementById('karaoke-status');
+            if (!s) return;
+            if (gd && gd.karaoke_enabled && gd.karaoke_video) {
+                s.innerHTML = '🟢 재생 중 · <a href="https://youtu.be/' + gd.karaoke_video + '" target="_blank" style="color:var(--accent); text-decoration:none;">' + gd.karaoke_video + ' ↗</a>';
+            } else {
+                s.textContent = '⚫ 꺼짐';
+            }
+        }
 
         async function assignPending(donId, bjIdx) {
             let donIdx = gd.pending_donations.findIndex(d => d.id === donId);

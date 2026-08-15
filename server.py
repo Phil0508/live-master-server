@@ -753,6 +753,9 @@ DEFAULT_STATE = {
     "extra_game_active": False,
     "extra_bjs": [],
     "roulette_enabled": False,
+    # 🎤 노래방 모드: 붙여넣은 유튜브(inst) 영상을 오버레이 화면에 띄운다
+    "karaoke_enabled": False,
+    "karaoke_video": "",     # 유튜브 영상 ID
     # 🎰 슬롯머신
     # load_data()는 DEFAULT_STATE에 있는 키만 복원하므로, 여기 없으면 재시작 때 조용히 사라진다.
     "slot_enabled": True,

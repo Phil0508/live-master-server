@@ -840,6 +840,11 @@
             <div id="ticker_top-container" class="widget-container" style="opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_top-text"></div></div></div>
             <div id="ticker_bottom-container" class="widget-container" style="opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_bottom-text"></div></div></div>
 
+            <!-- 🎤 노래방 모드: 붙여넣은 유튜브(inst) 영상을 큰 화면으로 -->
+            <div id="karaoke-box" style="display:none; position:absolute; left:40px; top:560px; width:1000px; height:563px; border-radius:20px; overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(140,155,255,0.75); box-shadow:0 22px 64px rgba(0,0,0,0.65), 0 0 34px rgba(120,135,255,0.5);">
+                <div id="karaoke-frame" style="width:100%; height:100%;"></div>
+            </div>
+
             <div id="toon-popup-container">
                 <div id="toon-popup" class="donation-popup-content">
                     <div class="donator-text"><span id="toon-name" class="donator-name">누군가</span> <span id="toon-action-text">님이 후원하셨습니다!</span></div>
@@ -1364,6 +1369,32 @@
             }
         }
 
+        // 🎤 노래방 모드: karaoke_enabled + karaoke_video 면 유튜브 영상을 큰 화면에 띄운다.
+        //   video id가 바뀔 때만 iframe을 새로 만든다(매 업데이트마다 재생이 처음으로 튀는 것 방지).
+        let karaokeCurrentId = null;
+        function updateKaraoke(d) {
+            const box = document.getElementById('karaoke-box');
+            const frame = document.getElementById('karaoke-frame');
+            if (!box || !frame) return;
+            const on = !!(d && d.karaoke_enabled && d.karaoke_video);
+            if (!on) {
+                if (karaokeCurrentId !== null) {
+                    karaokeCurrentId = null;
+                    frame.innerHTML = '';        // iframe 제거 → 재생/소리 완전 정지
+                    box.style.display = 'none';
+                }
+                return;
+            }
+            if (karaokeCurrentId !== d.karaoke_video) {
+                karaokeCurrentId = d.karaoke_video;
+                const src = 'https://www.youtube.com/embed/' + encodeURIComponent(d.karaoke_video)
+                    + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=0';
+                frame.innerHTML = '<iframe width="100%" height="100%" src="' + src
+                    + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border:0;display:block;"></iframe>';
+                box.style.display = 'block';
+            }
+        }
+
         function handleData(d) {
             if (d && d.server_time) {
                 serverTimeOffset = d.server_time - Date.now();
@@ -1372,6 +1403,7 @@
 
             // 전광판은 방송 On/Off 와 무관하게(시그니처는 방송무관 재생) 항상 갱신한다.
             updateTickers(d);
+            updateKaraoke(d);   // 🎤 노래방 영상 (방송 On/Off 무관)
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
