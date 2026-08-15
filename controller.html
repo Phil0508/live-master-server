@@ -2546,6 +2546,7 @@
             if (!gd) return;
             gd.karaoke_enabled = true;
             gd.karaoke_video = id;
+            gd.reaction_mode = true;   // 🎤 노래방 켜면 리액션 모드도 켜기(BGM 정지 + 콘텐츠 모드)
             // 소리 겹침 방지: 배경음(BGM) 정지
             try { const bgm = document.getElementById('bgm-audio'); if (bgm && !bgm.paused) bgm.pause(); } catch(e) {}
             try { if (typeof ytPlayer !== 'undefined' && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); } catch(e) {}
@@ -2555,6 +2556,8 @@
         function stopKaraoke() {
             if (!gd) return;
             gd.karaoke_enabled = false;
+            // 노래방이 켰던 리액션 모드는, 재생 중인 시그니처(대기열)가 없으면 함께 끈다
+            if (!gd.reaction_queue || gd.reaction_queue.length === 0) gd.reaction_mode = false;
             pushAPI();
             renderKaraokeStatus();
         }

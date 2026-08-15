@@ -840,8 +840,8 @@
             <div id="ticker_top-container" class="widget-container" style="opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_top-text"></div></div></div>
             <div id="ticker_bottom-container" class="widget-container" style="opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_bottom-text"></div></div></div>
 
-            <!-- 🎤 노래방 모드: 붙여넣은 유튜브(inst) 영상을 큰 화면으로 -->
-            <div id="karaoke-box" style="display:none; position:absolute; left:40px; top:560px; width:1000px; height:563px; border-radius:20px; overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(140,155,255,0.75); box-shadow:0 22px 64px rgba(0,0,0,0.65), 0 0 34px rgba(120,135,255,0.5);">
+            <!-- 🎤 노래방 모드: 붙여넣은 유튜브(inst) 영상을 큰 화면으로 (에디터에서 위치/크기 조절) -->
+            <div id="karaoke-container" class="widget-container" style="display:none; left:40px; top:560px; width:1000px; height:563px; border-radius:20px; overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(140,155,255,0.75); box-shadow:0 22px 64px rgba(0,0,0,0.65), 0 0 34px rgba(120,135,255,0.5);">
                 <div id="karaoke-frame" style="width:100%; height:100%;"></div>
             </div>
 
@@ -1159,9 +1159,9 @@
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally'].forEach(id => {
-                const el = document.getElementById(id + '-container'); 
-                if(ly && el) { 
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke'].forEach(id => {
+                const el = document.getElementById(id + '-container');
+                if(ly && el) {
                     let coord = ly[id];
                     if (coord) {
                         el.style.top = (coord.y_px || 0) + 'px'; 
@@ -1373,7 +1373,7 @@
         //   video id가 바뀔 때만 iframe을 새로 만든다(매 업데이트마다 재생이 처음으로 튀는 것 방지).
         let karaokeCurrentId = null;
         function updateKaraoke(d) {
-            const box = document.getElementById('karaoke-box');
+            const box = document.getElementById('karaoke-container');
             const frame = document.getElementById('karaoke-frame');
             if (!box || !frame) return;
             const on = !!(d && d.karaoke_enabled && d.karaoke_video);
