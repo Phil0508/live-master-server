@@ -345,6 +345,11 @@ def build_ai_snapshot(state):
             for d in state.get("pending_donations", []) if d.get("type") != "off_work"]
     recent_logs = [{"시각": l.get("time"), "대상": l.get("name"), "점수변화": l.get("val")}
                    for l in (state.get("logs") or [])[:20]]   # 최신순 상위 20건
+    tally = state.get("sig_tally") or {}
+    sig_tally_list = sorted(
+        [{"제목": v.get("title"), "신청수": v.get("count"), "금액": v.get("amount")} for v in tally.values()],
+        key=lambda x: (x["신청수"] or 0), reverse=True)
+    roul = state.get("roulette") or {}
     return {
         "방송중": bool(state.get("broadcast_active")),
         "임시게임_진행중": extra,
@@ -360,7 +365,22 @@ def build_ai_snapshot(state):
         "퇴근빵_목표": state.get("home_goals"),
         "계좌": state.get("account"),
         "운영비": state.get("bottom_fixed"),
+        "시그니처_신청집계": sig_tally_list,
+        "목표연출_승인대기": bool(state.get("goal_event_pending")),
+        "슬롯": {"켜짐": bool(state.get("slot_enabled")), "후보수": len(state.get("slot_pool") or [])},
+        "룰렛": {"켜짐": bool(state.get("roulette_enabled")), "당첨자": roul.get("winner_name"), "돌리는중": bool(roul.get("is_spinning"))},
+        "티커_문구": state.get("ticker_text"),
     }
+
+def _ai_vip_list():
+    """AI 스냅샷용 VIP(특별 후원자) 목록. 실패해도 빈 리스트."""
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("SELECT name, grade, badge FROM vip_donators ORDER BY name ASC"))
+            return [{"이름": r[0], "등급": r[1], "뱃지": r[2]} for r in cur.fetchall()]
+    except Exception:
+        return []
 
 def _supabase_ready():
     return bool(SUPABASE['url'] and SUPABASE['key'] and requests)
@@ -2151,6 +2171,7 @@ def api_ai_chat():
         with file_lock:
             state = load_data()
             snap = build_ai_snapshot(state)
+        snap["VIP_후원자"] = _ai_vip_list()   # 상태 밖(DB)이라 여기서 붙인다
         sys_full = NIM_CHAT_PREFIX + AI_SYSTEM_PROMPT + "\n\n[현재 방송 상태(JSON)]\n" + json.dumps(snap, ensure_ascii=False)
         msgs = [{"role": "system", "content": sys_full}]
         for m in history[-6:]:   # 직전 대화 몇 개만(토큰 절약)

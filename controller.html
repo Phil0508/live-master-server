@@ -361,6 +361,16 @@
         #ai-chat-clear { background:rgba(255,255,255,0.08); color:#c9cede; border:1px solid rgba(255,255,255,0.14);
             border-radius:8px; padding:5px 9px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
         #ai-chat-clear:hover { background:rgba(255,80,80,0.18); border-color:rgba(255,80,80,0.45); color:#ffd5d5; }
+        #ai-proactive-toggle { background:rgba(255,255,255,0.08); color:#c9cede; border:1px solid rgba(255,255,255,0.14);
+            border-radius:8px; padding:5px 9px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        #ai-proactive-toggle.on { background:rgba(255,180,60,0.18); border-color:rgba(255,180,60,0.5); color:#ffd9a0; }
+        #ai-proactive-toggle.off { opacity:0.55; }
+        /* 능동 알림 말풍선(호박색) + 화살표 안읽음 배지 */
+        .ai-msg-proactive { align-self:flex-start; border:1px solid rgba(255,180,60,0.5); background:rgba(255,180,60,0.10);
+            color:#ffe6bd; border-bottom-left-radius:4px; }
+        #ai-unread { display:none; position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px;
+            border-radius:9px; background:#ff3b3b; color:#fff; font-size:10px; font-weight:800; line-height:17px;
+            text-align:center; box-shadow:0 0 0 2px #101114; }
         #ai-chat-log { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
         .ai-msg { max-width:86%; padding:9px 12px; border-radius:12px; font-size:13.5px; line-height:1.55; word-break:break-word; }
         .ai-msg-user { align-self:flex-end; background:linear-gradient(135deg,#2563ff,#4f46e5); color:#fff; border-bottom-right-radius:4px; }
@@ -2325,7 +2335,11 @@
             t.classList.toggle('open', open);
             document.getElementById('ai-toggle-arrow').textContent = open ? '◀' : '▶';
             if (open && !aiRestored) { aiRestored = true; aiRestoreLog(); }   // 첫 열림에 저장된 대화 복원
-            if (open) setTimeout(() => { const i = document.getElementById('ai-chat-input'); if (i) i.focus(); }, 260);
+            if (open) {
+                aiUnread = 0;   // 열면 안읽음 배지 초기화
+                const b = document.getElementById('ai-unread'); if (b) b.style.display = 'none';
+                setTimeout(() => { const i = document.getElementById('ai-chat-input'); if (i) i.focus(); }, 260);
+            }
         }
         function aiAppendMsg(role, text) {
             const log = document.getElementById('ai-chat-log');
@@ -2367,6 +2381,91 @@
                 const i = document.getElementById('ai-chat-input'); if (i) i.focus();
             }
         }
+
+        // ===== 🔔 AI 능동 감시 (조건 감지 → AI가 먼저 말 검) =====
+        // 계산·감지는 코드로(무료·즉시), 알릴 가치 있는 순간만 채팅에 AI 말풍선으로 띄운다.
+        let aiProactiveEnabled = (localStorage.getItem('aiProactive') !== 'off');
+        const aiAlertAt = {};        // key -> 마지막 알림 시각(ms) (쿨다운)
+        let aiDonationTimes = [];     // 최근 후원 감지 시각(급증 판단)
+        let aiLastDonTime = 0;        // latest_donation.time 중복 방지
+        let aiUnread = 0;
+
+        function aiCanAlert(key, gapMs) {
+            const now = Date.now();
+            if (aiAlertAt[key] && now - aiAlertAt[key] < gapMs) return false;
+            aiAlertAt[key] = now;
+            return true;
+        }
+        function aiProactiveSay(text) {
+            if (!aiRestored) { aiRestored = true; aiRestoreLog(); }   // 로그 영역 준비(복원 1회)
+            const div = aiAppendMsg('ai', '🔔 ' + text);
+            div.classList.add('ai-msg-proactive');
+            const open = document.getElementById('ai-drawer').classList.contains('open');
+            if (!open) {   // 닫혀 있으면 화살표에 안읽음 배지 + 소리
+                aiUnread++;
+                const b = document.getElementById('ai-unread');
+                if (b) { b.textContent = aiUnread > 9 ? '9+' : aiUnread; b.style.display = 'block'; }
+                try { if (typeof playChime === 'function') playChime(); } catch (e) {}
+            }
+        }
+        function aiToggleProactive() {
+            aiProactiveEnabled = !aiProactiveEnabled;
+            localStorage.setItem('aiProactive', aiProactiveEnabled ? 'on' : 'off');
+            aiSyncProactiveBtn();
+        }
+        function aiSyncProactiveBtn() {
+            const btn = document.getElementById('ai-proactive-toggle');
+            if (!btn) return;
+            btn.classList.toggle('on', aiProactiveEnabled);
+            btn.classList.toggle('off', !aiProactiveEnabled);
+            btn.textContent = aiProactiveEnabled ? '🔔 알림 켜짐' : '🔕 알림 꺼짐';
+        }
+        // 상태가 올 때마다 규칙으로 상황을 살펴 필요할 때만 먼저 말을 건다.
+        function aiProactiveCheck(d) {
+            if (!aiProactiveEnabled || !d) return;
+            try {
+                const pend = (d.pending_donations || []).filter(x => x && x.type !== 'off_work');
+
+                // 1) 새 후원 감지 → 큰 후원 / 급증
+                const ld = d.latest_donation;
+                if (ld && ld.time && ld.time !== aiLastDonTime) {
+                    aiLastDonTime = ld.time;
+                    const now = Date.now();
+                    aiDonationTimes.push(now);
+                    aiDonationTimes = aiDonationTimes.filter(t => now - t < 60000);
+                    if ((ld.amount || 0) >= 50000) {
+                        aiProactiveSay(`방금 ${ld.name || '익명'}님 ${(ld.amount || 0).toLocaleString()}원 후원! 큰 금액이에요 🎉`);
+                    }
+                    if (aiDonationTimes.length >= 4 && aiCanAlert('surge', 60000)) {
+                        aiProactiveSay(`후원이 몰리고 있어요 — 최근 1분에 ${aiDonationTimes.length}건. 대기함 확인하세요.`);
+                    }
+                }
+
+                // 2) 대기함 적체
+                if (pend.length >= 6 && aiCanAlert('backlog', 90000)) {
+                    aiProactiveSay(`승인 대기함에 후원 ${pend.length}건이 밀려 있어요. 잠깐 정리하는 게 좋아요.`);
+                }
+
+                // 3) 대결 종료 임박 (대결당 1회)
+                const m = d.match_data;
+                if (m && m.active && m.is_running && typeof m.time_left_ms === 'number' && m.time_left_ms > 0 && m.time_left_ms <= 30000) {
+                    if (aiCanAlert('match_end', 3600000)) {
+                        const ps = (m.players || []).slice().sort((a, b) => (b.score || 0) - (a.score || 0));
+                        if (ps.length >= 2) {
+                            aiProactiveSay(`대결 30초 남았어요! ${ps[0].name} ${(ps[0].score || 0) - (ps[1].score || 0)}점 앞섬 (${ps[0].name} ${ps[0].score} : ${ps[1].name} ${ps[1].score}).`);
+                        } else { aiProactiveSay('대결 30초 남았어요!'); }
+                    }
+                }
+                if (!(m && m.active)) delete aiAlertAt['match_end'];   // 대결 꺼지면 다음 대결 위해 리셋
+
+                // 4) 목표 달성(퇴근 연출 승인 대기)
+                if (d.goal_event_pending && aiCanAlert('goal', 3600000)) {
+                    aiProactiveSay('목표 달성! 퇴근 연출이 승인 대기 중이에요.');
+                }
+                if (!d.goal_event_pending) delete aiAlertAt['goal'];
+            } catch (e) {}
+        }
+        document.addEventListener('DOMContentLoaded', aiSyncProactiveBtn);
 
         async function assignPending(donId, bjIdx) {
             let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
@@ -3367,6 +3466,7 @@
             if (newData && newData.server_time) {
                 serverTimeOffset = newData.server_time - Date.now();
             }
+            try { aiProactiveCheck(newData); } catch (e) {}   // 🔔 AI 능동 감시(먼저 말 걸기)
             if (gd && gd.reaction_mode !== newData.reaction_mode) {
                 let audio = document.getElementById('bgm-audio');
                 if (newData.reaction_mode) { 
@@ -5037,11 +5137,11 @@
     </script>
 
     <!-- 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표로 열고 닫음) -->
-    <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span></button>
+    <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span><span id="ai-unread"></span></button>
     <div id="ai-drawer">
         <div id="ai-drawer-head">
-            <div class="ai-head-row"><span>🤖 AI 서포트</span><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">🗑 대화 지우기</button></div>
-            <small>지금 방송 상황을 물어보세요 · 조작은 안 하고 정보/조언만 드려요 · 대화는 자동 저장돼요</small>
+            <div class="ai-head-row"><span>🤖 AI 서포트</span><span style="display:flex; gap:6px;"><button id="ai-proactive-toggle" onclick="aiToggleProactive()" title="AI가 큰 후원·대기함 적체·대결 종료 등을 먼저 알려줍니다">🔔 알림</button><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">🗑 지우기</button></span></div>
+            <small>지금 방송 상황을 물어보세요 · AI가 중요한 순간엔 먼저 알려줘요 · 대화 자동 저장</small>
         </div>
         <div id="ai-chat-log">
             <div class="ai-msg ai-msg-sys">예: "지금 1등 누구야?" · "대결 몇 점 차이야?" · "대기함에 밀린 후원 있어?"</div>
