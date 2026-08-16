@@ -416,6 +416,63 @@
         .m-card.m-bump { animation: mBump 0.6s ease; }
         @keyframes mBump { 0%, 100% { filter: brightness(1); } 30% { filter: brightness(1.55); } }
 
+        /* ⚔️ 전선(前線) — 1등 영역이 끝나는 지점에 '몇 점 차'를 띄운다.
+           숫자를 게이지 위에 두면 타이머와 겹쳐서, 게이지 아래에 매단다.
+           격차가 좁아질수록 숫자가 화면 한가운데로 이동해 팽팽함이 위치로도 보인다. */
+        .m-front { position: relative; width: 720px; max-width: 88vw; transition: margin-bottom 0.3s ease; }
+        .m-front > .m-gauge { width: 100%; max-width: none; }
+        .m-front.on { margin-bottom: 42px; }
+        .m-front-mark {
+            position: absolute; bottom: -50px; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .m-front-line {
+            position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; z-index: 3;
+            background: rgba(255,255,255,0.9); box-shadow: 0 0 12px rgba(255,255,255,0.8);
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+        }
+        .m-front.on .m-front-mark, .m-front.on .m-front-line { opacity: 1; visibility: visible; }
+        .m-front-tail { width: 2px; height: 14px; background: linear-gradient(0deg, rgba(255,255,255,0.7), transparent); }
+        .m-front-num {
+            background: linear-gradient(180deg, #23232e, #101018);
+            border: 1px solid rgba(255,255,255,0.22); border-radius: 10px;
+            padding: 3px 14px; color: #fff;
+            font-family: 'Pretendard', sans-serif; font-size: 24px; font-weight: 900;
+            font-variant-numeric: tabular-nums; white-space: nowrap;
+            text-shadow: 0 2px 4px #000; box-shadow: 0 6px 16px rgba(0,0,0,0.6);
+            transition: border-color 0.3s ease, color 0.3s ease;
+        }
+        .m-front-num .unit { font-size: 14px; opacity: 0.6; margin-left: 4px; font-weight: 700; }
+        /* 접전 — 뒤집힐 수 있는 거리에 들어왔다 */
+        .m-front.tight .m-front-num { border-color: rgba(255,213,74,0.7); color: #ffdf7a; animation: mGapPulse 1s ease-in-out infinite; }
+        .m-front.tight .m-front-line { background: #ffd54a; box-shadow: 0 0 18px #ffd54a; }
+        @keyframes mGapPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+        .m-gauge.tight { animation: mTightGlow 0.9s ease-in-out infinite; }
+        @keyframes mTightGlow {
+            0%, 100% { box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08); }
+            50% { box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,213,74,0.9), 0 0 26px rgba(255,213,74,0.45); }
+        }
+
+        /* ⚔️ 역전 — 1등이 바뀌는 순간에만 터진다 */
+        .m-flash {
+            position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(0.7);
+            font-family: 'Pretendard', sans-serif; font-size: 62px; font-weight: 900; font-style: italic;
+            letter-spacing: -2px; color: #fff; white-space: nowrap;
+            text-shadow: 0 0 24px rgba(255,213,74,0.95), 0 4px 10px #000;
+            opacity: 0; pointer-events: none; z-index: 20;
+        }
+        .m-flash.go { animation: mFlashIn 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes mFlashIn {
+            0%   { opacity: 0; transform: translate(-50%,-50%) scale(0.6); }
+            18%  { opacity: 1; transform: translate(-50%,-50%) scale(1.12); }
+            30%  { transform: translate(-50%,-50%) scale(1); }
+            75%  { opacity: 1; }
+            100% { opacity: 0; transform: translate(-50%,-50%) scale(1.05); }
+        }
+
         .m-team-container { 
             display: flex; 
             gap: 25px; 
@@ -1058,8 +1115,16 @@
             <div id="match-container" class="widget-container" style="opacity: 0; visibility: hidden;">
                 <div class="match-wrapper">
                     <div class="m-timer-pill" id="m-timer">00:00</div>
-                    <div class="m-gauge" id="m-gauge"></div>
+                    <div class="m-front" id="m-front">
+                        <div class="m-gauge" id="m-gauge"></div>
+                        <div class="m-front-line" id="m-front-line"></div>
+                        <div class="m-front-mark" id="m-front-mark">
+                            <div class="m-front-tail"></div>
+                            <div class="m-front-num"><span id="m-front-num">0</span><span class="unit" id="m-front-unit">차이</span></div>
+                        </div>
+                    </div>
                     <div class="m-cards" id="m-players-area"></div>
+                    <div class="m-flash" id="m-flash">역전!</div>
                 </div>
             </div>
 
@@ -1307,6 +1372,7 @@
 
             // 구조(플레이어 수)가 바뀌면 다시 그린다
             if (gauge.children.length !== players.length || cards.children.length !== players.length) {
+                resetMatchGapState();   // 대결자가 추가/삭제되면 1등 자리 번호가 밀린다 → 가짜 '역전!' 방지
                 gauge.innerHTML = players.map((p, i) =>
                     `<div class="m-seg" id="m-seg-${i}" style="--c:${M_COLS[i % 6]}; --rgb:${M_RGB[i % 6]};"><span class="m-seg-amt" id="m-seg-amt-${i}">0</span></div>`
                 ).join('');
@@ -1327,14 +1393,16 @@
             });
             if (maxScore <= 0) leadIdx = -1;
 
+            const fracs = [];
             players.forEach((p, i) => {
                 const nameEl = document.getElementById(`m-card-name-${i}`);
                 if (nameEl && nameEl.innerText !== (p.name || '')) nameEl.innerText = p.name || '';
 
                 // 게이지 비율 (0점도 살짝 보이도록 최소치)
+                const frac = total > 0 ? Math.max(0.05, Math.max(0, p.score || 0) / total) : (1 / Math.max(1, players.length));
+                fracs.push(frac);
                 const seg = document.getElementById(`m-seg-${i}`);
                 if (seg) {
-                    const frac = total > 0 ? Math.max(0.05, Math.max(0, p.score || 0) / total) : (1 / Math.max(1, players.length));
                     seg.style.flex = frac.toFixed(4);
                     seg.classList.toggle('lead', i === leadIdx);
                 }
@@ -1361,6 +1429,92 @@
                 const card = document.getElementById(`m-card-${i}`);
                 if (card) card.classList.toggle('lead', i === leadIdx);
             });
+
+            renderMatchGap(players, leadIdx, total, fracs);
+        }
+
+        // ⚔️ 점수차 — 전선(격차 숫자)과 역전 연출.
+        //    격차는 언제나 '1위 − 2위'. 대결자가 3~4명이면 게이지 경계가 여러 개라
+        //    무엇을 말하는 숫자인지 헷갈리므로, 그때는 라벨을 '1·2위 차이'로 바꿔 못 박는다.
+        const M_TIGHT_RATIO = 0.08;   // 총합의 8% 이내로 붙으면 '뒤집힐 수 있는 거리'로 본다
+        let prevLeadIdx = -1, prevGap = null;
+        function resetMatchGapState() { prevLeadIdx = -1; prevGap = null; }
+
+        // 격차 숫자 전용 애니메이션. animateVal 을 그대로 쓰지 않는 이유는 중간에 멈출 수가 없어서다 —
+        // 숫자가 굴러가는 700ms 안에 동점이 되면, 죽지 않은 프레임이 '동점'을 숫자로 덮어쓴 채 남는다.
+        // 요소에 세대 번호를 찍어두고 자기 세대가 아니면 스스로 물러나게 했다.
+        function bumpGapGen(el) { el.dataset.gen = (+el.dataset.gen || 0) + 1; return +el.dataset.gen; }
+        function animateGap(el, start, end, dur) {
+            const my = bumpGapGen(el);
+            let t0 = null;
+            const step = (ts) => {
+                if (+el.dataset.gen !== my) return;     // 더 새로운 값이 들어왔다 → 이 애니메이션은 폐기
+                if (!t0) t0 = ts;
+                const prog = Math.min((ts - t0) / dur, 1);
+                el.innerText = formatNum(Math.floor((1 - Math.pow(1 - prog, 3)) * (end - start) + start));
+                if (prog < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+        }
+
+        function renderMatchGap(players, leadIdx, total, fracs) {
+            const front = document.getElementById('m-front');
+            const mark = document.getElementById('m-front-mark');
+            const line = document.getElementById('m-front-line');
+            const numEl = document.getElementById('m-front-num');
+            const unitEl = document.getElementById('m-front-unit');
+            const gauge = document.getElementById('m-gauge');
+            if (!front || !mark || !line || !numEl || !unitEl || !gauge) return;
+
+            // 혼자이거나 아직 아무도 점수가 없으면 격차라는 말 자체가 성립하지 않는다
+            if (players.length < 2 || leadIdx < 0) {
+                front.classList.remove('on', 'tight');
+                gauge.classList.remove('tight');
+                resetMatchGapState();
+                return;
+            }
+
+            let secondIdx = -1;
+            players.forEach((p, i) => {
+                if (i === leadIdx) return;
+                if (secondIdx < 0 || (p.score || 0) > (players[secondIdx].score || 0)) secondIdx = i;
+            });
+            const gap = Math.max(0, (players[leadIdx].score || 0) - (players[secondIdx].score || 0));
+
+            // 전선 = 1등 세그먼트에서 '추격자가 있는 쪽' 모서리.
+            //   2명이면 그대로 두 사람의 경계가 되고, 3~4명이면 1등 영역이 끝나는 쪽이 된다.
+            //   (무조건 1등 세그먼트의 오른쪽 끝으로 잡으면, 1등이 맨 오른쪽일 때 게이지 끝에 붙어버린다)
+            const sum = fracs.reduce((a, f) => a + f, 0) || 1;
+            const upto = (secondIdx > leadIdx) ? leadIdx : leadIdx - 1;
+            let acc = 0;
+            for (let i = 0; i <= upto; i++) acc += fracs[i];
+            const pct = (acc / sum * 100).toFixed(2) + '%';
+            mark.style.left = pct;
+            line.style.left = pct;
+
+            if (gap === 0) {
+                bumpGapGen(numEl);          // 진행 중인 숫자 애니메이션이 '동점'을 덮어쓰지 못하게
+                numEl.innerText = '동점';
+                unitEl.style.display = 'none';
+            } else {
+                unitEl.style.display = '';
+                unitEl.innerText = players.length > 2 ? '1·2위 차이' : '차이';
+                if (prevGap !== null && prevGap !== gap) animateGap(numEl, prevGap, gap, 700);
+                else { bumpGapGen(numEl); numEl.innerText = formatNum(gap); }
+            }
+            prevGap = gap;
+
+            const tight = total > 0 && (gap / total) <= M_TIGHT_RATIO;
+            front.classList.add('on');
+            front.classList.toggle('tight', tight);
+            gauge.classList.toggle('tight', tight);
+
+            // 역전 — 1등이 실제로 바뀐 순간에만 터진다. 첫 렌더에는 울리지 않는다
+            if (prevLeadIdx >= 0 && prevLeadIdx !== leadIdx) {
+                const fl = document.getElementById('m-flash');
+                if (fl) { fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); }
+            }
+            prevLeadIdx = leadIdx;
         }
         
         let lastLayoutData = null; // 전역 레이아웃 캐시
@@ -1900,6 +2054,7 @@
                     matchData = md;
                 } else {
                     mc.style.opacity = 0; mc.style.visibility = 'hidden';
+                    resetMatchGapState();   // 대결을 껐다 켜면 새 판 → 지난 판의 1등을 기억한 채 '역전!'이 뜨면 안 된다
                 }
 
                 let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = d.target_goal || 1; 
