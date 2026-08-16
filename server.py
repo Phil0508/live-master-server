@@ -331,6 +331,18 @@ AI_SYSTEM_PROMPT = (
     "- 한국어로. 핵심을 먼저, 세부는 뒤에. 방송 중이라 읽기 쉽게 정리한다."
 )
 
+def _top_donors(d, n=8):
+    """시그니처 1건의 신청자별 횟수 중 상위 n명. 스냅샷 토큰을 아끼려고 자른다.
+       잘린 경우 '…그 외'를 남겨서, AI가 일부만 보고 전체인 양 답하지 않게 한다."""
+    if not isinstance(d, dict) or not d:
+        return None
+    items = sorted(d.items(), key=lambda kv: kv[1], reverse=True)
+    out = {k: v for k, v in items[:n]}
+    if len(items) > n:
+        out["…그 외"] = f"{len(items) - n}명"
+    return out
+
+
 def build_ai_snapshot(state):
     """AI 서포트가 상황을 파악할 수 있게 현재 상태의 핵심만 추려 컴팩트한 dict로 만든다.
        (레이아웃·에디터·미디어 데이터 등 방송 판단과 무관한 큰 값은 제외해 토큰을 아낀다.)"""
@@ -347,8 +359,21 @@ def build_ai_snapshot(state):
                    for l in (state.get("logs") or [])[:20]]   # 최신순 상위 20건
     tally = state.get("sig_tally") or {}
     sig_tally_list = sorted(
-        [{"제목": v.get("title"), "신청수": v.get("count"), "금액": v.get("amount")} for v in tally.values()],
+        [{"제목": v.get("title"), "신청수": v.get("count"), "금액": v.get("amount"),
+          "신청자": _top_donors(v.get("donors"))} for v in tally.values()],
         key=lambda x: (x["신청수"] or 0), reverse=True)
+    # 시그니처를 많이 쏜 사람 순위. 8b 모델은 여러 항목을 가로질러 합산하는 걸 자주 틀리므로
+    # "오늘 시그 제일 많이 쏜 사람?" 에 바로 답할 수 있게 서버에서 미리 합쳐준다.
+    donor_total = {}
+    for v in tally.values():
+        amt = v.get("amount") or 0
+        for nm, cnt in (v.get("donors") or {}).items():
+            row = donor_total.setdefault(nm, {"횟수": 0, "금액합": 0})
+            row["횟수"] += int(cnt or 0)
+            row["금액합"] += int(cnt or 0) * amt
+    sig_donor_rank = sorted(
+        [{"이름": k, "횟수": v["횟수"], "금액합": v["금액합"]} for k, v in donor_total.items()],
+        key=lambda x: x["금액합"], reverse=True)[:10]
     roul = state.get("roulette") or {}
     return {
         "방송중": bool(state.get("broadcast_active")),
@@ -366,6 +391,7 @@ def build_ai_snapshot(state):
         "계좌": state.get("account"),
         "운영비": state.get("bottom_fixed"),
         "시그니처_신청집계": sig_tally_list,
+        "시그니처_후원자_순위": sig_donor_rank,
         "목표연출_승인대기": bool(state.get("goal_event_pending")),
         "슬롯": {"켜짐": bool(state.get("slot_enabled")), "후보수": len(state.get("slot_pool") or [])},
         "룰렛": {"켜짐": bool(state.get("roulette_enabled")), "당첨자": roul.get("winner_name"), "돌리는중": bool(roul.get("is_spinning"))},
@@ -528,6 +554,15 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
         ext = (file_storage.filename or 'img.png').rsplit('.', 1)[-1].lower()
         return raw, ext, (file_storage.content_type or 'application/octet-stream')
 
+def _norm_donor(name):
+    """후원자 표기 정규화. 같은 사람이 '홍길동' / '홍길동님' / ' 홍길동 ' 으로 갈라져
+       집계가 쪼개지는 것을 막는다."""
+    n = ' '.join(str(name or '').split())
+    if n.endswith('님'):
+        n = n[:-1].strip()
+    return n or '익명'
+
+
 def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, count_tally=True):
     """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유).
 
@@ -564,6 +599,11 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
             row['title'] = sig.get('title') or row.get('title')
             row['image_url'] = sig.get('image_url') or row.get('image_url') or ''
             row['amount'] = sig.get('amount') or row.get('amount') or 0
+            # 누가 몇 개 쐈는지도 같이 센다 ("3만원짜리 누가 몇 개 쐈어?" 에 답하려면 필요)
+            # setdefault 인 이유: 이 기능 이전에 저장된 상태에는 donors 키가 없다.
+            donors = row.setdefault('donors', {})
+            who = _norm_donor(donator)
+            donors[who] = int(donors.get(who) or 0) + 1
             tally[key] = row
         except Exception as e:
             print(f"⚠️ [시그니처 집계 실패] {e}")
