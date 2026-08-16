@@ -1242,9 +1242,14 @@ def reset_session_keys(state):
     """
     state['goal_event_pending'] = False
     state['goal_event_approved'] = False
-    state['home_race_notified'] = []
-    state['home_goals'] = {}
-    state['sig_tally'] = {}   # 시그니처 신청 집계는 방송 1회분 기록이라 새 방송마다 비운다
+    state['home_race_notified'] = []   # '누가 이미 퇴근 카드를 받았나'는 지난 방송의 기록이라 비운다
+    state['sig_tally'] = {}            # 시그니처 신청 집계도 방송 1회분 기록이라 비운다
+    # ⚠️ home_goals(퇴근빵 개인별 목표)는 여기서 지우면 안 된다.
+    #    이건 '지난 방송의 흔적'이 아니라 운영자가 방송 전에 세팅해두는 '설정'이다.
+    #    그런데 이 함수는 방송 종료뿐 아니라 '방송 시작'에서도 불린다.
+    #    그래서 목표를 다 입력하고 시작 버튼을 누르는 순간 전부 지워졌고,
+    #    퇴근빵 게이지는 목표 0 → 진행률 0% → 바가 안 차고 '남은 금액'도 0으로 보였다.
+    #    (같은 이유로 방송 목표금액 target_goal 도 보존 대상 목록에 들어가 있다)
     return state
 
 def create_snapshot(state, label):
