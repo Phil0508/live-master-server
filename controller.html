@@ -541,6 +541,39 @@
         }
 
         /* 탭 백그라운드 재생을 위한 visibility 기반 숨김 스타일 */
+        /* ===== 🔴 라이브 모드 =====
+           방송 중에 실제로 만지는 건 대기함·랭킹/점수·리액션 조작 셋뿐인데,
+           탭 12개와 버튼 121개가 전부 같은 비중으로 놓여 있어 급할 때 눈이 헤맸다.
+           기능을 지우지 않고 '지금 안 쓰는 것'만 접어서 비중을 다르게 준다.
+           DOM 은 그대로 두고 보이는 것만 바꾸므로 기존 동작에 영향이 없다. */
+        #live-toggle { display:inline-flex; align-items:center; gap:7px; border:none; cursor:pointer;
+            padding:9px 15px; border-radius:10px; font-family:inherit; font-size:13px; font-weight:800;
+            background:rgba(255,255,255,0.07); color:var(--text-muted); transition:var(--transition-smooth); }
+        #live-toggle:hover { background:rgba(255,255,255,0.12); color:var(--text-main); }
+        #live-toggle.on { background:linear-gradient(135deg,#ff3b30,#ff6b52); color:#fff;
+            box-shadow:0 4px 16px rgba(255,59,48,0.35); }
+        #live-toggle .dot { width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.55; }
+        #live-toggle.on .dot { opacity:1; animation:liveBlink 1.6s ease-in-out infinite; }
+        @keyframes liveBlink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+        /* 라이브 모드에서 접히는 것들 */
+        body.live-mode .tabs { display:none !important; }
+        body.live-mode .tab-content { display:none !important; }
+        body.live-mode #tab-ranking { display:block !important; }
+        /* 랭킹 탭 안의 '기본 설정'(테마·목표금액·체크박스 등)은 방송 전 세팅이라 접는다 */
+        body.live-mode #tab-ranking > .group-box:not(#pending-box) { display:none !important; }
+
+        /* 대기함을 화면의 주인공으로 — 방송 중 유일하게 시간 다투는 조작이다 */
+        body.live-mode #pending-box { border-color:rgba(255,204,0,0.8) !important;
+            box-shadow:0 0 0 1px rgba(255,204,0,0.25), 0 10px 34px rgba(0,0,0,0.5); }
+        body.live-mode .pending-item { padding:18px; margin-bottom:14px; }
+        body.live-mode .pending-item .bj-btn { padding:11px 16px; font-size:14px; }
+
+        body.live-mode #live-hint { display:block; }
+        #live-hint { display:none; margin:0 0 16px; padding:10px 14px; border-radius:10px;
+            background:rgba(255,59,48,0.08); border:1px solid rgba(255,59,48,0.25);
+            color:#ff9d92; font-size:12.5px; font-weight:600; }
+
         .tab-content {
             position: absolute;
             width: 0;
@@ -733,6 +766,7 @@
             </span>
         </h1>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <button id="live-toggle" onclick="toggleLiveMode()" title="방송 중에 쓰는 것만 남기고 나머지를 접습니다 (설정은 그대로 있습니다)"><span class="dot"></span><span id="live-toggle-label">라이브 모드</span></button>
             <!-- 📱 iOS 미니 미디어 제어센터 패널 -->
             <div id="ios-mini-media-panel" style="display: flex; align-items: center; gap: 12px; background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.15); border-radius: 16px; padding: 6px 15px; height: 42px; box-sizing: border-box; box-shadow: inset 0 8px 16px rgba(255,255,255,0.03), 0 4px 12px rgba(0,0,0,0.3); max-width: 480px;">
                 <i class="fa-solid fa-music" id="yt-card-icon" style="font-size: 14px; color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow));"></i>
@@ -787,6 +821,12 @@
                 <button onclick="dismissGoalEvent()" style="background: rgba(255, 255, 255, 0.1); color: #ccc; border: 1px solid #555; padding: 10px 14px; border-radius: 8px; cursor: pointer;">닫기</button>
             </div>
         </div>
+    </div>
+
+    <!-- 🔴 라이브 모드 안내 (모드가 켜졌을 때만 보인다) -->
+    <div id="live-hint">
+        🔴 <b>라이브 모드</b> — 방송 중에 쓰는 것만 남겼습니다. 다른 기능이 필요하면 위 버튼을 다시 눌러 끄세요.
+        (설정·연출·시그니처 관리는 그대로 있습니다)
     </div>
 
     <div class="tabs">
@@ -1704,6 +1744,33 @@
         let gd = null; let isPushing = false; let lastPushTime = 0;
         // 내 전송과 겹쳐서 버린 SSE 업데이트가 있었는지. true 면 아래 워치독이 다시 받아온다.
         let needsResync = false;
+        // ===== 🔴 라이브 모드 =====
+        // 기능을 지우는 게 아니라 '지금 안 쓰는 것'을 접는다. 끄면 전부 그대로 돌아온다.
+        // 새로고침해도 유지되므로(방송 중 새로고침이 잦다) localStorage 에 남긴다.
+        function applyLiveMode(on) {
+            document.body.classList.toggle('live-mode', !!on);
+            const btn = document.getElementById('live-toggle');
+            const lab = document.getElementById('live-toggle-label');
+            if (btn) btn.classList.toggle('on', !!on);
+            if (lab) lab.textContent = on ? '라이브 모드 켜짐' : '라이브 모드';
+            // 켤 때는 대기함이 있는 탭으로 맞춰준다(다른 탭을 보던 중이었을 수 있다).
+            // ⚠️ openTab 은 event.currentTarget 을 쓰므로 여기서는 부르지 않고 클래스만 직접 맞춘다.
+            if (on) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+                const r = document.getElementById('tab-ranking');
+                if (r) r.classList.add('active');
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                const rb = document.querySelector(".tab-btn[onclick*='tab-ranking']");
+                if (rb) rb.classList.add('active');
+            }
+        }
+        function toggleLiveMode() {
+            const next = !document.body.classList.contains('live-mode');
+            try { localStorage.setItem('liveMode', next ? '1' : '0'); } catch (e) {}
+            applyLiveMode(next);
+        }
+        try { applyLiveMode(localStorage.getItem('liveMode') === '1'); } catch (e) {}
+
         // 송출 중인 시그니처 id (연타로 같은 시그니처가 두 번 나가는 것을 막는다).
         // ⚠️ 쓰는 함수(playSignatureById)보다 반드시 앞에서 초기화돼야 한다 — const 는 호이스팅돼도
         //    초기화 전에는 못 쓰기 때문에, 뒤쪽에 두면 그 사이 스크립트가 한 번 멈췄을 때 터진다.
