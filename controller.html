@@ -3261,21 +3261,30 @@
         // 목표를 채운 플레이어를 승인 대기함에 '퇴근 성공' 카드로 올린다.
         // ⚠️ 한 번 알린 사람은 home_race_notified에 기록한다.
         //    안 그러면 송출로 카드를 지워도 점수가 여전히 목표 이상이라 즉시 다시 생긴다.
-        function addOffWorkPendingCard(playerName) {
-            if (!gd.pending_donations) gd.pending_donations = [];
-            if (!gd.home_race_notified) gd.home_race_notified = [];
-            if (gd.home_race_notified.includes(playerName)) return;
-            if (gd.pending_donations.some(d => d.type === 'off_work' && d.name === playerName)) return;
-            gd.home_race_notified.push(playerName);
-            gd.pending_donations.unshift({
-                id: `off_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                type: 'off_work',
-                name: playerName,
-                amount: 0,
-                message: '퇴근전쟁 목표 달성!',
-                time: new Date().toLocaleTimeString('ko-KR', { hour12: false })
-            });
-            pushAPI();
+        // 같은 사람에 대해 요청이 중복으로 나가지 않게 하는 잠금(실패하면 풀어서 다시 시도 가능)
+        const offWorkRequested = new Set();
+        async function addOffWorkPendingCard(playerName) {
+            if (!playerName) return;
+            if (offWorkRequested.has(playerName)) return;
+            if ((gd.home_race_notified || []).includes(playerName)) return;
+            if ((gd.pending_donations || []).some(d => d.type === 'off_work' && d.name === playerName)) return;
+            offWorkRequested.add(playerName);
+            // ⚠️ 여기서 gd.pending_donations 에 직접 넣으면 안 된다.
+            //    서버가 그 필드를 SERVER_OWNED 로 보호해서 /api/data POST 때 통째로 버린다.
+            //    (예전 코드가 그랬고, 그 바람에 카드는 사라지는데 '알림 보냄' 표시만 남아
+            //     해당 플레이어는 두 번 다시 퇴근 카드를 못 받았다)
+            //    서버가 만들게 하고 SSE 로 돌려받는다.
+            try {
+                const r = await fetch('/api/offwork/pending', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: playerName })
+                });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+            } catch (e) {
+                offWorkRequested.delete(playerName);   // 네트워크 문제였다면 다음 기회에 다시 시도
+                console.error('퇴근 카드 생성 실패:', e);
+            }
         }
 
         // 카드 id 로 원본 이름을 찾아 넘긴다 (이스케이프된 이름이 방송 팝업에 그대로 나가지 않도록)

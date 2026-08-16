@@ -2392,6 +2392,41 @@ def api_data():
             state['api_token'] = load_auth_config()['session_secret']
     return jsonify(state)
 
+@app.route('/api/offwork/pending', methods=['POST'])
+def api_offwork_pending():
+    """퇴근전쟁 목표를 넘긴 플레이어의 '퇴근 성공' 카드를 서버에 만든다.
+
+    ⚠️ 예전에는 컨트롤러가 자기 pending_donations 에 카드를 직접 넣고 /api/data 로 밀어넣었다.
+       그런데 pending_donations 는 SERVER_OWNED 라 그 POST 에서 통째로 버려진다.
+       카드는 다음 update 가 오는 순간 화면에서 사라지는데, '이미 알렸다'는 표시
+       (home_race_notified)는 서버 소유가 아니라 그대로 저장됐다.
+       결과적으로 그 플레이어는 두 번 다시 퇴근 카드를 받지 못했다 = 퇴근 연출을 영영 못 보냄.
+       카드 생성과 '알림 표시'를 서버 한 곳에서 같이 처리해 어긋날 수 없게 한다.
+    """
+    name = ((request.json or {}).get('name') or '').strip()
+    if not name:
+        return jsonify({"status": "error", "message": "name required"}), 400
+    with file_lock:
+        state = load_data()
+        pend = state.setdefault('pending_donations', [])
+        notified = state.setdefault('home_race_notified', [])
+        if name in notified or any(d.get('type') == 'off_work' and d.get('name') == name for d in pend):
+            return jsonify({"status": "success", "message": "already"})
+        notified.append(name)
+        pend.insert(0, {
+            'id': f"off_{int(time.time() * 1000)}_{uuid.uuid4().hex[:4]}",
+            'type': 'off_work',
+            'name': name,
+            'amount': 0,
+            'message': '퇴근전쟁 목표 달성!',
+            'time': time.strftime('%H:%M:%S'),
+        })
+        save_data(state)
+        broadcast_event('update', state)
+    print(f"  🏃 [퇴근전쟁] '{name}' 퇴근 성공 카드 생성")
+    return jsonify({"status": "success"})
+
+
 @app.route('/api/match/timeup', methods=['POST'])
 def api_match_timeup():
     """대결 타이머가 0이 됐을 때 오버레이가 알린다.
