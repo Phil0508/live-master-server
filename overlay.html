@@ -1421,6 +1421,8 @@
         }
 
         let isFirstLoadOverlay = true; // 💡 여기에 방어막 변수 추가!
+        // 마지막으로 SSE 메시지를 받은 시각(연결이 조용히 죽는 것을 감지하는 데 쓴다)
+        let lastSseMsgAt = Date.now();
         let matchData = null;
         let globalData = null;
         let serverTimeOffset = 0;
@@ -1807,11 +1809,14 @@
                         const nowPlaying = (d.reaction_queue && d.reaction_queue[0]) || null;
                         const tier = neonTierClass(nowPlaying && nowPlaying.amount);
                         // 등급이 바뀔 때만 클래스를 갈아끼운다(매 프레임 갈면 애니메이션이 계속 리셋된다)
+                        // ⚠️ className 통째 대입은 쓰지 않는다. 비트 동기가 걸어둔 'beat-sync' 까지
+                        //    날려버려서, rAF 가 밝기를 직접 쓰는 중에 CSS 점멸이 같이 살아나 겹친다.
                         if (!neonEl.classList.contains(tier)) {
-                            neonEl.className = 'neon-layer active ' + tier;
-                        } else {
-                            neonEl.classList.add('active');
+                            neonEl.classList.remove('tier-flow', 'tier-sweep', 'tier-spark', 'tier-blink',
+                                                    'tier-wave', 'tier-pulse', 'tier-charge');
+                            neonEl.classList.add(tier);
                         }
+                        neonEl.classList.add('active');
                         neonEl.classList.toggle('neon-rainbow', globalNeon === 'RAINBOW');
                         if (globalNeon === 'RAINBOW') {
                             // 무지개는 레이어 전체에 hue-rotate 를 돌리므로 기준색만 넣어두면 된다
@@ -2033,15 +2038,16 @@
                         setTimeout(() => { timeUpEl.classList.remove('show'); }, 3000);
                     }
                     
-                    // Auto-stop the timer on the server
-                    if (globalData) {
+                    // 서버 타이머 정지.
+                    // ⚠️ 예전에는 여기서 /api/data 에 globalData 전체를 POST 했다. 그러면 오버레이가
+                    //    들고 있던 (조금 낡았을 수도 있는) 점수·설정이 서버를 통째로 덮어써서
+                    //    방금 올린 점수가 되돌아가는 사고가 날 수 있었다. 게다가 그 POST 때문에
+                    //    /api/data 를 무인증으로 열어둬야 했다. 이제 '멈춰라'만 보낸다.
+                    if (globalData && globalData.match_data) {
                         globalData.match_data.is_running = false;
                         globalData.match_data.time_left_ms = 0;
-                        fetch('/api/data', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(globalData)
-                        }).catch(e => console.error("Error stopping timer:", e));
+                        fetch('/api/match/timeup', { method: 'POST' })
+                            .catch(e => console.error("Error stopping timer:", e));
                     }
                 }
                 return;
@@ -3103,6 +3109,19 @@
                         }, safetyDuration);
                     };
 
+                    // ⚠️ 여기서 반드시 '먼저' 시간을 걸어둔다.
+                    //    audio.src 를 넣는 순간 readyState 는 0으로 초기화되므로 아래 readyState>=1
+                    //    분기는 사실상 죽은 코드였고, 결국 안전 타이머가 loadedmetadata 에만 의존했다.
+                    //    CDN이 연결만 되고 데이터를 안 주면(콜드스타트 등) error 도 ended 도
+                    //    loadedmetadata 도 영영 안 온다 → 안전 타이머가 아예 안 걸려서
+                    //    currentPlayingId 가 박힌 채 큐가 방송 내내 멈췄다.
+                    //    일단 거칠게 걸어두고, 길이를 알게 되면 setupSafetyTimer 가 정확히 다시 잡는다.
+                    if (audioSafetyTimeout) clearTimeout(audioSafetyTimeout);
+                    audioSafetyTimeout = setTimeout(() => {
+                        console.warn('음원이 30초간 재생되지 않음 — 큐를 넘긴다.');
+                        finishOnce('음원 로딩 지연');
+                    }, 30000);
+
                     if (audio.readyState >= 1) { // HAVE_METADATA or higher
                         setupSafetyTimer();
                     } else {
@@ -3405,11 +3424,13 @@
             sseSource = new EventSource('/api/stream');
             
             sseSource.addEventListener('init', function(e) {
+                lastSseMsgAt = Date.now();
                 const newData = JSON.parse(e.data);
                 handleData(newData);
             });
             
             sseSource.addEventListener('update', function(e) {
+                lastSseMsgAt = Date.now();
                 const newData = JSON.parse(e.data);
                 handleData(newData);
             });
@@ -3464,12 +3485,26 @@
                 }
             });
 
+            // 서버는 무음 15초마다 ping 을 보낸다. 그걸 '살아있다'는 증거로 쓴다.
+            sseSource.addEventListener('ping', function() { lastSseMsgAt = Date.now(); });
+
             sseSource.onerror = function(err) {
                 console.error("SSE connection error. Retrying in 3 seconds...", err);
                 sseSource.close();
                 setTimeout(initSSE, 3000);
             };
         }
+
+        // 🩺 연결이 '조용히' 죽는 경우를 잡는 감시자.
+        //    중간 프록시가 RST 없이 스트림만 끊으면 onerror 가 몇 분 동안 안 뜬다.
+        //    그동안 오버레이는 멀쩡해 보이는데 후원이 하나도 안 나온다(장시간 방송의 전형적 사고).
+        //    45초 넘게 아무 메시지도 없으면(ping 조차) 강제로 다시 연결한다.
+        setInterval(() => {
+            if (Date.now() - lastSseMsgAt < 45000) return;
+            console.warn('SSE 45초간 무응답 — 강제 재연결');
+            lastSseMsgAt = Date.now();
+            try { initSSE(); } catch (e) { console.error('SSE 재연결 실패:', e); }
+        }, 10000);
 
         // 🏃 [퇴근전쟁] 퇴근 성공 초대형 팝업
         let offWorkTimer = null;

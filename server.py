@@ -554,6 +554,11 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
         ext = (file_storage.filename or 'img.png').rsplit('.', 1)[-1].lower()
         return raw, ext, (file_storage.content_type or 'application/octet-stream')
 
+# 오버레이가 안 돌고 있을 때 리액션 큐가 무한정 쌓이는 것을 막는 상한.
+# 전체 큐가 매 update 마다 모든 클라이언트로 나가므로 메모리·트래픽에 직접 영향을 준다.
+REACTION_QUEUE_MAX = 40
+
+
 def _norm_donor(name):
     """후원자 표기 정규화. 같은 사람이 '홍길동' / '홍길동님' / ' 홍길동 ' 으로 갈라져
        집계가 쪼개지는 것을 막는다."""
@@ -572,7 +577,17 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
                  슬롯 당첨·재생전용 수동 송출은 False(집계 부풀림 방지).
     """
     reaction_uuid = f"rq_{uuid.uuid4().hex}"
-    state.setdefault('reaction_queue', []).append({
+    # ⚠️ 큐는 '오버레이가 재생해야만' 줄어든다. OBS 장면을 바꿔놨거나 오버레이를 닫아둔 채
+    #    후원이 계속 들어오면 끝없이 쌓이고, 그 전체가 매 update 마다 모든 클라이언트에게 전송된다.
+    #    게다가 오버레이가 다시 붙는 순간 밀린 것을 전부 연달아 재생해버린다.
+    #    상한을 두고 가장 오래된 것부터 버린다(버린 사실은 로그로 남긴다).
+    _queue = state.setdefault('reaction_queue', [])
+    if len(_queue) >= REACTION_QUEUE_MAX:
+        dropped = len(_queue) - REACTION_QUEUE_MAX + 1
+        del _queue[:dropped]
+        print(f"⚠️ [리액션 큐 상한] 밀린 시그니처 {dropped}건을 버렸습니다 (상한 {REACTION_QUEUE_MAX}건). "
+              f"오버레이가 꺼져 있거나 재생이 멈춰 있는지 확인하세요.")
+    _queue.append({
         "id": reaction_uuid,
         "item_id": sig.get('id'),
         "title": sig.get('title'),
@@ -616,7 +631,9 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
 # 서로 다른 사람이 같은 금액/메시지를 2.5초 안에 보낼 확률은 사실상 0이라 안전하다.
 _recent_don_lock = threading.Lock()
 _recent_don = {}
-DONATION_DEDUPE_WINDOW = 2.5
+# ⚠️ 재시도 간격(3초/5초)보다 넉넉히 길어야 한다.
+#    2.5초였을 때는 서버 응답이 느려 스크립트가 3초 뒤 재시도하면 창이 이미 닫혀 중복이 통과했다.
+DONATION_DEDUPE_WINDOW = 12.0
 
 def is_duplicate_donation(key):
     now = time.time()
@@ -693,7 +710,7 @@ def require_login():
         '/api/streamdeck/neon',
         '/api/streamdeck/save',
         '/api/roulette/winner',
-        '/api/data',
+        '/api/match/timeup',
         '/api/signatures',
         '/api/reaction/next',
         '/api/reaction/list',
@@ -705,6 +722,12 @@ def require_login():
     # (경로만으로 예외를 주면 POST/DELETE까지 무인증으로 열려버린다)
     method_exempt = {
         '/api/vips': ('GET',),
+        # 오버레이·알림창은 로그인 세션이 없으므로 조회는 열어둬야 한다.
+        # 반면 POST 는 상태를 통째로 덮어쓰는 요청이라 반드시 인증이 필요하다.
+        # (예전에는 경로만으로 예외를 줘서, URL 만 알면 누구나 점수를 지우거나
+        #  전광판에 아무 문구나 띄울 수 있었다. 오버레이가 쓰던 유일한 POST 용도인
+        #  '대결 타이머 종료'는 /api/match/timeup 이라는 좁은 전용 엔드포인트로 옮겼다)
+        '/api/data': ('GET',),
     }
     if path in method_exempt and request.method in method_exempt[path]:
         return
@@ -1073,7 +1096,8 @@ def db_worker():
         done = None
         try:
             new_data, is_initial, done = db_write_queue.get()
-            save_data_sync(new_data, is_initial)
+            if new_data is not None:          # None 은 '여기까지 처리됐다'를 알리는 표식(drain_db_writes)
+                save_data_sync(new_data, is_initial)
             db_write_queue.task_done()
         except Exception as e:
             print(f"❌ [비동기 DB 저장 백그라운드 오류] {e}")
@@ -1238,7 +1262,22 @@ def create_snapshot(state, label):
         print(f"⚠️ [스냅샷 저장 실패] {e}")
         return False
 
-def save_data(new_data, is_initial=False, sync=False):
+def drain_db_writes(timeout=30):
+    """큐에 밀려 있는 DB 쓰기가 전부 끝날 때까지 기다린다.
+
+    ⚠️ 복구·재정산처럼 'DB를 진실로 삼아 메모리를 다시 읽는' 작업 직전에 반드시 호출해야 한다.
+       안 그러면 복구가 끝난 뒤에 워커가 '복구 전에 큐잉된 낡은 스냅샷'을 뒤늦게 써버려
+       복구를 통째로 되돌린다. 게다가 LAST_PERSISTED 까지 낡은 값이 되어, 다음 저장이
+       그 낡은 값과의 차이를 '수동 변경'으로 오해하고 엉뚱한 장부 줄을 남긴다.
+       (task_done 기반 join() 은 쓰기가 한 번이라도 실패하면 영영 안 끝나므로 쓰지 않는다)
+    """
+    ev = threading.Event()
+    db_write_queue.put((None, False, ev))
+    if not ev.wait(timeout=timeout):
+        print("⚠️ [DB 쓰기 큐 비우기 시간 초과] 낡은 저장이 뒤늦게 반영될 수 있습니다.")
+
+
+def save_data(new_data, is_initial=False, sync=False, wait=True):
     """상태 저장.
 
     sync=True: 후원 접수·점수 변경·방송 시작/종료처럼 잃으면 안 되는 기록은
@@ -1260,10 +1299,12 @@ def save_data(new_data, is_initial=False, sync=False):
     # 한 곳에서만 갱신되어 경합이 사라진다.
     done = threading.Event() if sync else None
     db_write_queue.put((snapshot, is_initial, done))
-    if done is not None:
+    if done is not None and wait:
         # 워커가 밀려 있어도 방송이 멈추지 않도록 상한을 둔다 (실패는 LAST_DB_ERROR에 남음)
         if not done.wait(timeout=30):
             print("⚠️ [동기 저장 시간 초과] 백그라운드에서 계속 진행됩니다.")
+    # wait=False 로 부른 쪽은 이 이벤트를 받아 '락을 놓은 뒤' 기다릴 수 있다.
+    return done
 
 def time_machine_recovery():
     try:
@@ -1280,7 +1321,8 @@ def time_machine_recovery():
             """))
             
         global MEMORY_STATE
-        MEMORY_STATE = None 
+        drain_db_writes()   # 복구 직후 낡은 스냅샷이 덮어쓰지 않도록 먼저 큐를 비운다
+        MEMORY_STATE = None
         load_data()
         return True
     except Exception as e:
@@ -1538,7 +1580,11 @@ def recalculate_bank_balances():
                             (name, score_sum, contrib_sum)
                         )
 
-            # DB에서 다시 읽어 메모리 상태를 맞춘다
+            # DB에서 다시 읽어 메모리 상태를 맞춘다.
+            # ⚠️ 먼저 큐를 비운다. 재정산 직전에 눌린 점수 버튼의 낡은 스냅샷이 뒤늦게 쓰이면
+            #    방금 원장 기준으로 맞춘 점수가 도로 돌아가고, 그 차이가 '수동 변경'으로
+            #    장부에 기록되어 재정산이 신뢰하는 원장 자체를 오염시킨다.
+            drain_db_writes()
             MEMORY_STATE = None
             LAST_PERSISTED = None
             state = load_data()
@@ -2051,13 +2097,17 @@ def receive_donation():
             except Exception as dbe:
                 print(f"⚠️ [tx_id 중복 확인 오류] {dbe}")
 
-        # 2-b. tx_id가 없는 재전송 대비: 이름+금액+메시지가 동일한 후원이
-        #      아주 짧은 시간 안에 다시 오면 중복으로 간주해 무시한다(시그니처 이중 재생 방지).
-        if not tx_id:
-            dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
-            if is_duplicate_donation(dup_key):
-                print("⚠️ [내용 기반 중복 후원 무시] tx_id 없는 동일 후원이 짧은 시간에 재수신됨")
-                return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
+        # 2-b. 재전송 대비: 이름+금액+메시지가 동일한 후원이 아주 짧은 시간 안에
+        #      다시 오면 중복으로 간주해 무시한다(시그니처 이중 재생 방지).
+        # ⚠️ 예전에는 `if not tx_id:` 였다. 그런데 템퍼몽키 스크립트는 재시도할 때마다
+        #    tx_id 를 '새로 만들어' 보낸다. 그래서 응답이 늦어 재시도가 걸리면
+        #    tx_id 검사는 통과해버리고(값이 다르니까) 이 검사는 아예 건너뛰어서,
+        #    같은 후원이 두 번 들어와 시그니처가 두 번 재생되고 장부에도 두 줄이 남았다.
+        #    tx_id 유무와 무관하게 항상 내용 기반으로도 걸러야 한다.
+        dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
+        if is_duplicate_donation(dup_key):
+            print("⚠️ [내용 기반 중복 후원 무시] 동일 후원이 짧은 시간에 재수신됨")
+            return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
 
         # 🎵 시그니처 매칭은 file_lock 밖에서 미리 끝낸다.
         # ⚠️ 이 호출은 Supabase로 나가는 HTTP라 느려질 수 있는데, 예전에는 락을 쥔 채 실행했다.
@@ -2107,8 +2157,13 @@ def receive_donation():
                 'message': cleaned_msg,
                 'time': time.time()
             }
-            state['reaction_mode'] = True
-            
+            # ⚠️ 여기서 reaction_mode 를 무조건 켜면 안 된다.
+            #    시그니처가 매칭되지 않는 후원(금액 미등록, 0원 후원, Supabase 일시 오류)에서도
+            #    켜져버리는데, 켜는 건 여기뿐이고 끄는 건 '오버레이가 큐를 다 소화했을 때'뿐이라
+            #    큐가 비어 있으면 아무도 못 끈다. 그러면 오버레이가 랭킹판·게이지를 숨긴 채
+            #    (컨트롤러 표기: '위젯 숨김') 방송이 계속되고, 운영자가 수동으로 끌 때까지 돌아오지 않는다.
+            #    실제로 큐에 넣는 enqueue_signature 가 이미 켜주므로 여기서는 손대지 않는다.
+
             # BJ 점수판 업데이트
             current_total = amount
             target_list_key = 'extra_bjs' if state.get('extra_game_active', False) else 'bjs'
@@ -2124,15 +2179,26 @@ def receive_donation():
             #         bj['contribution'] = bj.get('contribution', 0) + add_point
             #         current_total = bj['score']
             #         break
-            try:
-                with get_db_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source, tx_id) VALUES (?, ?, ?, ?, ?, ?, ?)"),
-                        (time.strftime('%Y-%m-%d %H:%M:%S'), parsed_name, amount, current_total, cleaned_msg, "toonation", tx_id)
-                    )
-            except Exception as dbe:
-                print(f"[장부 기록 오류] {dbe}")
+            # ⚠️ 한 번 실패하면 그 후원은 정산 장부에서 통째로 사라진다(운영자는 대기함에서 보고
+            #    점수를 주지만 장부엔 없다). Supabase 는 유휴 커넥션을 끊기 때문에 조용한 구간 뒤
+            #    첫 후원에서 이게 실제로 발생한다. 다른 곳(save_data_sync)은 이미 1회 재시도로
+            #    대응하고 있는데 여기만 빠져 있었다. 실패는 상태창에도 남겨 운영자가 알 수 있게 한다.
+            for _attempt in range(2):
+                try:
+                    with get_db_connection() as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source, tx_id) VALUES (?, ?, ?, ?, ?, ?, ?)"),
+                            (time.strftime('%Y-%m-%d %H:%M:%S'), parsed_name, amount, current_total, cleaned_msg, "toonation", tx_id)
+                        )
+                    break
+                except Exception as dbe:
+                    if _attempt == 0:
+                        print(f"[장부 기록 실패 — 재시도] {dbe}")   # 끊긴 커넥션은 이미 폐기됐다
+                        continue
+                    print(f"[장부 기록 오류] {dbe}")
+                    LAST_DB_ERROR["message"] = f"후원 장부 기록 실패({parsed_name} {amount}원): {dbe}"
+                    LAST_DB_ERROR["time"] = time.strftime('%Y-%m-%d %H:%M:%S')
                 
             # 🎵 자동 시그니처 리액션 연동 (매칭은 위에서 락 밖에 끝냈고, 여기서는 큐에만 넣는다)
             if matched_sig:
@@ -2140,15 +2206,25 @@ def receive_donation():
                 print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{matched_sig.get('title')}' (#{matched_sig.get('id')}, {matched_sig.get('amount')}원) 큐 추가 완료")
 
 
-            save_data(state, sync=True)
+            # ⚠️ 저장 '대기'를 락 안에서 하면 안 된다.
+            #    save_data(sync=True) 는 DB 쓰기 큐가 빌 때까지 최대 30초를 기다린다.
+            #    점수 버튼을 몇 번 누른 직후라면 그 큐에 앞선 쓰기가 쌓여 있어(Render→Supabase 왕복)
+            #    후원 한 건이 file_lock 을 수 초에서 수십 초까지 쥐고 있었다. 그동안
+            #    점수 지급·큐 넘김(/api/reaction/next)·대기함 삭제가 전부 얼어붙어,
+            #    화면에서는 시그니처가 멈추고 컨트롤러가 먹통이 됐다.
+            #    큐에 넣는 것까지만 락 안에서 하고, 기다리는 건 락을 놓은 뒤에 한다.
+            pending_write = save_data(state, sync=True, wait=False)
             broadcast_event('update', state)
-            
+
             print("  🎯 [최종 처리 결과]")
             print(f"    ▶ 최종 분류된 이름  : {parsed_name}")
             print(f"    ▶ 최종 분류된 메시지: {cleaned_msg}")
             print("    ▶ 자동 승인 처리 여부: 🟡 클래식 수동 정산 모드 작동 (승인 대기함 적립)")
             print("======================================================================\n")
-            
+
+        # 락을 놓은 뒤에 기다린다 — 후원이 실제로 저장된 뒤에 응답한다는 보장은 그대로 유지된다.
+        if pending_write is not None and not pending_write.wait(timeout=30):
+            print("⚠️ [후원 동기 저장 시간 초과] 백그라운드에서 계속 진행됩니다.")
         return jsonify({'status': 'success', 'id': don_id})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -2315,6 +2391,29 @@ def api_data():
         if session.get('authenticated'):
             state['api_token'] = load_auth_config()['session_secret']
     return jsonify(state)
+
+@app.route('/api/match/timeup', methods=['POST'])
+def api_match_timeup():
+    """대결 타이머가 0이 됐을 때 오버레이가 알린다.
+
+    ⚠️ 예전에는 오버레이가 이 목적으로 /api/data 에 '자기가 들고 있는 상태 전체'를 POST 했다.
+       두 가지가 나빴다.
+       1) 그것 때문에 /api/data POST 를 무인증으로 열어둘 수밖에 없었다(누구나 점수를 지울 수 있었다).
+       2) 오버레이의 상태가 조금이라도 낡아 있으면 그 낡은 점수가 서버를 덮어썼다.
+       그래서 '타이머를 멈춘다'는 사실만 전달하는 좁은 엔드포인트로 분리했다.
+    """
+    with file_lock:
+        state = load_data()
+        md = state.get('match_data') or {}
+        if not md.get('active'):
+            return jsonify({"status": "ignored"})   # 이미 끝난 대결이면 아무것도 하지 않는다
+        md['is_running'] = False
+        md['time_left_ms'] = 0
+        state['match_data'] = md
+        save_data(state)
+        broadcast_event('update', state)
+    return jsonify({"status": "success"})
+
 
 @app.route('/api/roulette/winner', methods=['POST'])
 def api_roulette_winner():

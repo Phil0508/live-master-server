@@ -1702,6 +1702,19 @@
 
         function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
+        // 내 전송과 겹쳐서 버린 SSE 업데이트가 있었는지. true 면 아래 워치독이 다시 받아온다.
+        let needsResync = false;
+        // 송출 중인 시그니처 id (연타로 같은 시그니처가 두 번 나가는 것을 막는다).
+        // ⚠️ 쓰는 함수(playSignatureById)보다 반드시 앞에서 초기화돼야 한다 — const 는 호이스팅돼도
+        //    초기화 전에는 못 쓰기 때문에, 뒤쪽에 두면 그 사이 스크립트가 한 번 멈췄을 때 터진다.
+        const _playingSigIds = new Set();
+        // 겹침으로 놓친 갱신(예: 그 순간 도착한 후원)이 영영 안 보이는 일이 없게 하는 안전망.
+        // 평상시엔 아무 일도 안 하고, 놓친 게 있을 때만 한 번 받아온다.
+        setInterval(() => {
+            if (!needsResync) return;
+            if (isPushing || (Date.now() - lastPushTime < 1000)) return;
+            try { fetchAPI(); } catch (e) {}
+        }, 3000);
         let lastReactionToastTime = 0;
         let serverTimeOffset = 0;
         function showReactionToast() {
@@ -1720,9 +1733,10 @@
 
 
         async function fetchAPI() {
-            if (isPushing || (Date.now() - lastPushTime < 200)) return; 
-            try { 
-                const res = await fetch('/api/data'); const newData = await res.json(); 
+            if (isPushing || (Date.now() - lastPushTime < 200)) return;
+            needsResync = false;
+            try {
+                const res = await fetch('/api/data'); const newData = await res.json();
                 if (newData && newData.api_token) {
                     window.apiToken = newData.api_token;
                 }
@@ -1804,10 +1818,14 @@
                         return;
                     }
                 }
+                if (!res.ok && res.status !== 409) throw new Error('HTTP ' + res.status);
             } catch(e) {
                 console.error("⚠️ pushAPI Error:", e);
+                setTimeout(() => { isPushing = false; }, 80);
+                return false;   // 호출부가 실패를 알 수 있어야 한다(지급이 조용히 증발하는 것 방지)
             }
             setTimeout(() => { isPushing = false; }, 80);
+            return true;
         }
 
         function renderUI() {
@@ -2695,8 +2713,25 @@
             gd.logs.unshift({time: timeStr, name: chosenName, val: addPoint});
             if(gd.logs.length > 200) gd.logs.pop();
 
+            const don0 = gd.pending_donations[donIdx];
             gd.pending_donations.splice(donIdx, 1);
-            pushAPI();
+
+            // ⚠️ 점수 전송이 실패했는데 대기함에서만 지워지면 그 후원은 흔적 없이 증발한다.
+            //    화면엔 이미 지급된 것처럼 보이고, 몇 초 뒤 SSE 가 점수를 되돌리는데
+            //    그때는 다시 지급할 카드가 대기함에 없다. 그래서 '점수가 서버에 들어간 뒤에만' 지운다.
+            const ok = await pushAPI();
+            if (ok === false) {
+                // 서버에 안 들어갔으므로 화면도 원상복구한다(점수·로그·대기함 전부).
+                target.score -= addPoint;
+                target.contribution -= addPoint;
+                if (gd.logs && gd.logs.length) gd.logs.shift();
+                gd.pending_donations.splice(donIdx, 0, don0);   // 되살려서 다시 누를 수 있게
+                renderUI();
+                await premiumAlert(
+                    `'${chosenName}'에게 지급하지 못했습니다. (서버 전송 실패)\n네트워크를 확인하고 다시 눌러주세요.`,
+                    '지급 실패', 'error');
+                return;
+            }
             removePending(donId);
         }
 
@@ -2842,6 +2877,12 @@
                 if (!isNaN(parsed)) {
                     let isExtra = gd.extra_game_active || false;
                     let targetList = isExtra ? gd.extra_bjs : gd.bjs;
+                    if (!targetList || !targetList[idx]) { cancelContribEdit(); return; }
+                    // ⚠️ 아래 확인창(await) 동안 SSE 가 gd 를 통째로 갈아끼울 수 있다. 그러면
+                    //    지금 잡아둔 targetList 는 화면과 무관한 '버려진 배열'이 되어 수정이 조용히 사라지고,
+                    //    순서가 바뀐 경우엔 엉뚱한 사람의 기여도를 고치게 된다.
+                    //    그래서 사람은 이름으로 고정하고, 확인창 뒤에 다시 찾는다.
+                    const editName = targetList[idx].name;
                     let oldVal = targetList[idx].contribution || 0;
                     // 🔢 자릿수 오타 방어: 한 번에 너무 크게(±30 이상) 바뀌면 확인
                     if (Math.abs(parsed - oldVal) >= 30) {
@@ -2850,7 +2891,19 @@
                             '큰 변화 확인', 'warning');
                         if (!go) { cancelContribEdit(); return; }
                     }
-                    targetList[idx].contribution = parsed;
+                    // 확인창 뒤에는 배열이 통째로 바뀌었을 수 있으므로 이름으로 다시 찾는다
+                    const list2 = (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+                    const t2 = list2.find(b => b.name === editName);
+                    if (!t2) {
+                        cancelContribEdit();
+                        await premiumAlert(`'${editName}' 플레이어를 찾을 수 없어 기여도를 바꾸지 않았습니다.`, '수정 취소', 'warning');
+                        return;
+                    }
+                    t2.contribution = parsed;
+                    // ⚠️ 반드시 팝오버를 먼저 닫는다. 입력칸에 포커스가 남아 있으면 renderUI 가
+                    //    통째로 조기 반환해서, 정렬로 순서가 바뀐 뒤에도 화면은 옛 순서를 그대로 유지한다.
+                    //    그 상태에서 지급 버튼을 누르면 엉뚱한 사람에게 점수가 들어간다.
+                    cancelContribEdit();
                     pushAPI();
                 } else {
                     cancelContribEdit();
@@ -3637,7 +3690,12 @@
             
             sseSource.addEventListener('update', function(e) {
                 updateConnectionStatus('connected');
-                if (isPushing || (Date.now() - lastPushTime < 200)) return;
+                // ⚠️ 방금 내가 올린 내용이 되돌아와 화면이 튀는 걸 막으려고 200ms 는 무시한다.
+                //    그런데 예전에는 그냥 버렸다. 하필 그 순간 들어온 '후원 도착' 알림이 통째로 사라지고,
+                //    이후 아무 변화가 없으면(조용한 구간) 그 후원은 대기함에 영영 안 나타났다.
+                //    (fetchAPI 는 어디서도 주기적으로 호출되지 않아 스스로 복구되지도 않았다)
+                //    버리지 말고 '나중에 다시 받아오기'로 표시해 둔다.
+                if (isPushing || (Date.now() - lastPushTime < 200)) { needsResync = true; return; }
                 const newData = JSON.parse(e.data);
                 handleStreamData(newData);
             });
@@ -4929,6 +4987,10 @@
 
         // 라이브러리 카드에서 직접 송출 (금액 매칭 없이 해당 시그니처 그대로)
         async function playSignatureById(sigId) {
+            // ⚠️ 등록 폼과 달리 송출 버튼에는 잠금이 없어서, 살짝 두 번 눌리면
+            //    같은 시그니처가 큐에 두 번 들어가 방송에 연달아 두 번 나갔다.
+            if (_playingSigIds.has(sigId)) return;
+            _playingSigIds.add(sigId);
             try {
                 const res = await fetch('/api/signature/play', {
                     method: 'POST',
@@ -4940,6 +5002,9 @@
                 else premiumAlert("송출 실패: " + data.message, "오류", "warning");
             } catch (e) {
                 premiumAlert("송출 실패: " + e.message, "통신 오류", "warning");
+            } finally {
+                // 잠깐 잠갔다 푼다 — 연타는 막되 정상적인 재송출은 막지 않는다
+                setTimeout(() => _playingSigIds.delete(sigId), 1500);
             }
         }
 
