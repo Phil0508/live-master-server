@@ -736,6 +736,9 @@ def require_login():
 # 📡 실시간 SSE 클라이언트 관리 시스템
 sse_clients = []
 sse_lock = threading.Lock()
+# 클라이언트 1대가 밀렸을 때 쌓아둘 최대 메시지 수.
+# state 전체가 실리므로(수십 KB) 이 값이 곧 '밀린 클라 1대당 최대 메모리'다.
+SSE_QUEUE_MAX = 120
 
 def broadcast_event(event_name, data):
     if isinstance(data, dict):
@@ -747,7 +750,14 @@ def broadcast_event(event_name, data):
             try:
                 client_q.put_nowait(message)
             except queue.Full:
-                pass
+                # 밀린 클라이언트(느린 네트워크·멈춘 OBS): 가장 오래된 것을 버리고 최신을 넣는다.
+                # update 는 state 전체를 싣고 다니므로 중간 것을 버려도 최신 상태는 그대로 도착한다.
+                # 버리지 않고 쌓아두면 그 클라이언트 큐가 서버 메모리를 계속 먹는다.
+                try:
+                    client_q.get_nowait()
+                    client_q.put_nowait(message)
+                except Exception:
+                    pass
 
 def get_or_create_totp_secret():
     return load_auth_config()['totp_secret']
@@ -1276,34 +1286,40 @@ def time_machine_recovery():
 # ==========================================
 @app.route('/api/stream')
 def sse_stream():
-    q = queue.Queue()
+    # ⚠️ maxsize 를 반드시 준다. 무제한이면 끊기거나 멈춘 클라이언트의 큐에 update 가
+    #    무한정 쌓여 서버 메모리를 계속 먹는다(부하 테스트: 60대 재접속만으로 +53MB).
+    q = queue.Queue(maxsize=SSE_QUEUE_MAX)
     with sse_lock:
         sse_clients.append(q)
-        
+
     def event_generator():
-        initial_state = load_data()
-        yield f"event: init\ndata: {json.dumps(initial_state, ensure_ascii=False)}\n\n"
-        
-        if os.path.exists(LAYOUT_FILE):
-            try:
-                with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
-                    layout_data = json.load(f)
-                yield f"event: layout\ndata: {json.dumps(layout_data, ensure_ascii=False)}\n\n"
-            except Exception:
-                pass
-                
-        while True:
-            try:
-                msg = q.get(timeout=15.0)
+        try:
+            initial_state = load_data()
+            yield f"event: init\ndata: {json.dumps(initial_state, ensure_ascii=False)}\n\n"
+
+            if os.path.exists(LAYOUT_FILE):
+                try:
+                    with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
+                        layout_data = json.load(f)
+                    yield f"event: layout\ndata: {json.dumps(layout_data, ensure_ascii=False)}\n\n"
+                except Exception:
+                    pass
+
+            while True:
+                try:
+                    msg = q.get(timeout=15.0)
+                except queue.Empty:
+                    msg = "event: ping\ndata: {}\n\n"   # 무음 15초마다 연결 유지 신호
                 yield msg
-            except queue.Empty:
-                yield "event: ping\ndata: {}\n\n"
-            except GeneratorExit:
-                break
-                
-        with sse_lock:
-            if q in sse_clients:
-                sse_clients.remove(q)
+        finally:
+            # ⚠️ 반드시 finally 여야 한다.
+            #    예전에는 while 을 정상적으로 빠져나올 때만 정리했는데, ping 은 `except queue.Empty:`
+            #    블록 '안에서' yield 하고 있어서 하필 그 순간 클라이언트가 끊기면
+            #    GeneratorExit 가 except 를 지나쳐 밖으로 튀고 정리가 통째로 건너뛰어졌다.
+            #    그러면 죽은 큐가 sse_clients 에 남아 이후 모든 broadcast 를 계속 받아 쌓았다.
+            with sse_lock:
+                if q in sse_clients:
+                    sse_clients.remove(q)
                 
     response = app.response_class(event_generator(), mimetype='text/event-stream')
     response.headers['X-Accel-Buffering'] = 'no'
