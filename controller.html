@@ -341,6 +341,26 @@
         /* 🤖 AI 기입 검증 배지 (메시지가 지목한 대상 추천) */
         .audit-badge { display:none; margin-left:8px; font-size:11px; font-weight:800; color:#8fd1ff; background:rgba(0,150,255,0.12); border:1px solid rgba(0,150,255,0.38); padding:2px 9px; border-radius:10px; vertical-align:middle; white-space:nowrap; }
         .audit-badge b { color:#e6f4ff; }
+        /* 🤖 AI 배정 제안 토스트 — 오른쪽 아래에 뜨고 화면을 막지 않는다(작업 흐름 방해 금지) */
+        /* bottom 을 넉넉히 띄우는 이유: 오른쪽 아래 떠 있는 '백업' 플로팅 버튼과 겹치지 않게 */
+        #ai-assign-toasts { position:fixed; right:18px; bottom:96px; z-index:4050; display:flex; flex-direction:column;
+            gap:10px; width:330px; max-height:70vh; overflow-y:auto; pointer-events:none; }
+        .ai-toast { pointer-events:auto; background:linear-gradient(135deg,#141a2b,#0f1320);
+            border:1px solid rgba(90,150,255,0.42); border-left:4px solid #4a90ff; border-radius:12px;
+            padding:12px 14px; box-shadow:0 12px 34px rgba(0,0,0,0.55); color:#dfe7f5; font-size:13px;
+            animation:aiToastIn .28s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes aiToastIn { from { opacity:0; transform:translateY(14px) scale(.96); } to { opacity:1; transform:none; } }
+        .ai-toast.out { opacity:0; transform:translateY(10px); transition:.24s ease; }
+        .ai-toast .t-src { color:#93a2bd; font-size:12px; line-height:1.45; }
+        .ai-toast .t-src i { color:#c9d6ec; }
+        .ai-toast .t-q { font-weight:900; color:#fff; font-size:14px; margin:7px 0 10px; line-height:1.45; }
+        .ai-toast .t-q b { color:#8fd1ff; }
+        .ai-toast .t-btns { display:flex; gap:7px; }
+        .ai-toast button { border:none; border-radius:8px; padding:8px 10px; font-family:inherit;
+            font-size:12.5px; font-weight:800; cursor:pointer; }
+        .ai-toast .t-ok { flex:1; background:linear-gradient(135deg,#2563ff,#7c3aed); color:#fff; }
+        .ai-toast .t-ok:hover { filter:brightness(1.12); }
+        .ai-toast .t-no { flex:0 0 66px; background:rgba(255,255,255,0.07); color:#9fb0c9; }
         /* 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표) */
         #ai-drawer-toggle { position:fixed; left:0; top:50%; transform:translateY(-50%); z-index:4001;
             width:26px; height:66px; border:none; border-radius:0 12px 12px 0; cursor:pointer;
@@ -1885,7 +1905,9 @@
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
                 paintAuditBadges(gd.pending_donations); // 이미 받아둔 추천은 배지로 다시 그림
+                syncAssignToasts(gd.pending_donations); // 이미 처리된 건의 제안 토스트는 치운다
             } else {
+                syncAssignToasts([]);                   // 대기함이 비었으면 남은 토스트도 모두 정리
                 if(pbox.style.display !== 'none') pbox.style.display = 'none';
             }
 
@@ -2309,6 +2331,14 @@
                     if (res && res.target) {
                         auditSuggest[don.id] = { target: res.target, confidence: res.confidence || 0 };
                         paintAuditBadge(don.id);
+                        // 확신이 충분하면 '이 사람에게 줄까요?' 를 한 번 물어본다(아직 대기 중일 때만)
+                        if ((res.confidence || 0) >= ASSIGN_TOAST_MIN_CONF
+                            && !assignToastShown.has(don.id)
+                            && !removedPendingIds.has(don.id)
+                            && (gd.pending_donations || []).some(p => p && p.id === don.id)) {
+                            assignToastShown.add(don.id);
+                            showAssignToast(don, res.target);
+                        }
                     }
                 }).catch(() => {});   // 실패해도 조용히 무시(운영 방해 금지)
             });
@@ -2326,6 +2356,54 @@
         }
         function paintAuditBadges(list) {
             (list || []).forEach(don => { if (don && don.id) paintAuditBadge(don.id); });
+        }
+
+        // ===== 🤖 AI 배정 제안 토스트 =====
+        // "철수 힘내라" 같은 메시지를 읽고 오른쪽 아래에 '철수에게 N점 추가할까요?' 를 띄운다.
+        // 모달이 아니라 토스트다 — 평소 수동 배정 흐름을 막지 않기 위해서다.
+        // 자동 지급은 절대 하지 않는다. 반드시 사람이 눌러야 한다.
+        const ASSIGN_TOAST_MIN_CONF = 0.75;   // 행동을 권하는 팝업이라 배지(0.6)보다 엄격하게 본다
+        const assignToastShown = new Set();    // 후원 1건당 1번만 (무시했으면 다시 안 뜬다)
+
+        function dismissAssignToast(donId) {
+            const el = document.getElementById('aitoast-' + donId);
+            if (!el) return;
+            el.classList.add('out');
+            setTimeout(() => { if (el.parentNode) el.remove(); }, 250);
+        }
+
+        function showAssignToast(don, target) {
+            const wrap = document.getElementById('ai-assign-toasts');
+            if (!wrap || !don || document.getElementById('aitoast-' + don.id)) return;
+            if (currentPlayerNames().indexOf(target) === -1) return;   // 그새 플레이어가 바뀌었으면 제안하지 않는다
+            const pts = Math.round((don.amount || 0) / 10000);
+            const msg = (don.message || '').slice(0, 42);
+            const el = document.createElement('div');
+            el.className = 'ai-toast';
+            el.id = 'aitoast-' + don.id;
+            el.innerHTML =
+                `<div class="t-src">🤖 ${escapeHTML(don.name)}님 · ${(don.amount || 0).toLocaleString()}원<br><i>"${escapeHTML(msg)}"</i></div>` +
+                `<div class="t-q"><b>${escapeHTML(target)}</b>에게 ${pts}점 추가할까요?</div>` +
+                `<div class="t-btns"><button class="t-ok">✔ 지급</button><button class="t-no">무시</button></div>`;
+            el.querySelector('.t-ok').onclick = () => {
+                dismissAssignToast(don.id);
+                // ⚠️ 인덱스를 미리 잡아두면 안 된다. assignPending 이 기여도순으로 정렬하기 때문에
+                //    토스트가 떠 있는 사이 순서가 바뀌어 엉뚱한 사람에게 들어갈 수 있다. 누르는 시점에 다시 찾는다.
+                const i = currentPlayerNames().indexOf(target);
+                if (i !== -1) assignPending(don.id, i);
+            };
+            el.querySelector('.t-no').onclick = () => dismissAssignToast(don.id);
+            wrap.appendChild(el);
+            try { if (typeof aiProactiveEnabled !== 'undefined' && aiProactiveEnabled) playChime(); } catch (e) {}
+        }
+
+        // 이미 처리(지급/삭제)된 후원의 토스트는 스스로 사라지게 한다
+        function syncAssignToasts(list) {
+            const alive = new Set((list || []).map(d => d && d.id));
+            document.querySelectorAll('#ai-assign-toasts .ai-toast').forEach(el => {
+                const id = el.id.slice('aitoast-'.length);
+                if (!alive.has(id) || removedPendingIds.has(id)) dismissAssignToast(id);
+            });
         }
 
         // ===== 🤖 AI 서포트 채팅 (왼쪽 슬라이드 패널) =====
@@ -5240,6 +5318,9 @@
         fab.addEventListener('click', function () { if (moved) { moved = false; return; } downloadLocalBackupFile(); });
     })();
     </script>
+
+    <!-- 🤖 AI 배정 제안 토스트가 쌓이는 곳 -->
+    <div id="ai-assign-toasts"></div>
 
     <!-- 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표로 열고 닫음) -->
     <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span><span id="ai-unread"></span></button>
