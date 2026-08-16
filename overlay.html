@@ -39,6 +39,7 @@
             --excel-yellow: #f6c453; --excel-dark: rgba(17, 17, 24, 0.84); --excel-border: rgba(255,255,255,0.14);
             --theme-neon: #ff0055;
             --neon-speed: 2.5s;
+            --nspd: 3s;          /* 네온 연출 속도(한 바퀴). 조명 속도 슬라이더가 실시간으로 덮어쓴다 */
             --audi-speed: 1.4s;
             --accent: #f6c453;
             --accent-glow: rgba(246, 196, 83, 0.45);
@@ -71,21 +72,99 @@
         }
 
         /* --------------------------------------------------
-            🌈 일반 네온 레이어
+            🌈 네온 레이어 — 금액 등급마다 '완전히 다른 연출' 하나씩.
+            등급은 움직임만 담당하고, 색(--nc)은 조명 버튼이 따로 담당한다.
+            (예전엔 conic 그라디언트를 통째로 회전시켜 테두리로 훔쳐봤는데,
+             그러면 짧은 변에선 느리고 긴 변에선 빠른 '속도 불균일'이 생겨서 싸구려로 보였다.
+             이제는 빛이 테두리 경로를 실제로 등속 주행한다.)
         -------------------------------------------------- */
-        .neon-layer { 
-            position: fixed; inset: 0; pointer-events: none; z-index: 90000; 
-            opacity: 0; visibility: hidden; transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
-            padding: 40px; 
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor; mask-composite: exclude; overflow: hidden;
+        @property --nrun { syntax: '<number>'; inherits: true; initial-value: 0; }
+
+        .neon-layer {
+            /* ⚠️ 뷰포트가 아니라 '1080×1920 캔버스'를 감싸야 한다.
+               resizeOverlay() 가 scale-wrapper 와 똑같은 배율·위치를 넣어준다. */
+            position: fixed; top: 0; left: 0; width: 1080px; height: 1920px;
+            transform-origin: top left; pointer-events: none; z-index: 90000;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+            /* ⚠️ --nspd 는 여기서 선언하지 않는다. 선언하면 :root 의 값(슬라이더가 덮어쓰는)이 가려진다 */
+            --nc: #ff1f56; --nw: 11;
         }
         .neon-layer.active { opacity: 1; visibility: visible; }
-        .neon-layer::before, .neon-layer::after { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; animation: rotateRainbow var(--neon-speed, 2.5s) linear infinite; will-change: transform; display: none; }
-        .neon-layer::after { filter: blur(25px); opacity: 0.9; }
-        .neon-layer.neon-rainbow::before, .neon-layer.neon-rainbow::after { display: block; background: conic-gradient( #ff0000 0deg, #ff7f00 51deg, #ffff00 102deg, #00ff00 153deg, #0000ff 204deg, #4b0082 255deg, #8b00ff 306deg, #ff0000 360deg ); }
-        .neon-layer.neon-single::before, .neon-layer.neon-single::after { display: block; background: conic-gradient( transparent 0deg, var(--glow-color) 90deg, transparent 90deg, transparent 180deg, var(--glow-color) 270deg, transparent 270deg, transparent 360deg ); }
-        @keyframes rotateRainbow { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .neon-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+        .neon-layer.neon-rainbow { animation: neonHue 6s linear infinite; }
+        @keyframes neonHue { to { filter: hue-rotate(360deg); } }
+
+        /* 지금 등급의 연출 하나만 보여준다 (겹쳐 쌓지 않는다) */
+        .neon-layer > * { display: none; }
+        .neon-layer.tier-flow   .nl-flow,
+        .neon-layer.tier-sweep  .nl-sweep,
+        .neon-layer.tier-spark  .nl-spark,
+        .neon-layer.tier-blink  .nl-blink,
+        .neon-layer.tier-wave   .nl-wave,
+        .neon-layer.tier-pulse  .nl-pulse,
+        .neon-layer.tier-charge .nl-charge { display: block; }
+
+        .n-tube { fill: none; stroke-linecap: round; }
+        .n-base { stroke: var(--nc); stroke-width: calc(var(--nw) * 0.85px); opacity: 0.28;
+                  filter: drop-shadow(0 0 14px var(--nc)) drop-shadow(0 0 40px var(--nc)); }
+        .n-core { stroke: #fff; stroke-width: calc(var(--nw) * 0.38px); opacity: 0.8;
+                  filter: drop-shadow(0 0 5px var(--nc)) drop-shadow(0 0 14px var(--nc)) drop-shadow(0 0 34px var(--nc)); }
+
+        /* 🌀 혜성(흐름·듀얼스윕·파동 공용):
+           같은 굵기의 얇은 층 18겹이 '머리'를 공유하고 꼬리 쪽으로만 길어진다.
+           반투명이 겹겹이 누적되며 계단 없이 사라져서 한 줄기로 이어져 보인다.
+           층마다 애니메이션을 걸지 않고 부모의 --nrun 하나만 굴린다 = 어긋남 0 */
+        .n-comet { filter: drop-shadow(0 0 9px var(--nc)) drop-shadow(0 0 26px var(--nc)); }
+        .n-comet > * { fill: none; stroke-linecap: round; stroke-width: calc(var(--nw) * 1px);
+                       stroke-dashoffset: calc((var(--L) - var(--nrun)) * 1px); }
+        .n-runFull { animation: nRunFull var(--nspd) linear infinite; }
+        .n-runHalf { animation: nRunHalf var(--nspd) linear infinite; }
+        .n-runWave { animation: nRunWave calc(var(--nspd) * 0.34) linear infinite; }
+        @keyframes nRunFull { to { --nrun: 1000; } }
+        @keyframes nRunHalf { to { --nrun: 500; } }
+        @keyframes nRunWave { to { --nrun: 200; } }
+
+        /* ✨ 20만 · 반짝임 — 관 위 고정된 지점들이 제각각 시간차로 튄다 (도는 것 없음) */
+        .n-spark { filter: drop-shadow(0 0 8px var(--nc)) drop-shadow(0 0 22px #fff); }
+        .n-spark > * { fill: none; stroke: #fff; stroke-linecap: round;
+                       stroke-width: calc(var(--nw) * 1.9px); opacity: 0;
+                       animation: nTwinkle 1.6s ease-in-out infinite; }
+        @keyframes nTwinkle { 0%, 72%, 100% { opacity: 0; } 8% { opacity: 1; } 26% { opacity: 0.15; } 34% { opacity: 0.85; } 55% { opacity: 0; } }
+
+        /* 💡 30만 · 점멸 — 일정한 깜빡임이 아니라 '짧게짧게-길게' 리듬이라 기계적이지 않다 */
+        .nl-blink g { animation: nStrobe calc(var(--nspd) * 0.8) linear infinite; }
+        @keyframes nStrobe {
+            0%, 9%    { opacity: 1; }
+            10%, 15%  { opacity: 0.08; }
+            16%, 25%  { opacity: 1; }
+            26%, 31%  { opacity: 0.08; }
+            32%, 54%  { opacity: 1; }
+            55%, 68%  { opacity: 0.14; }
+            69%, 100% { opacity: 1; }
+        }
+
+        /* 🫁 100만 · 맥동 — 유일하게 테두리 선이 없다. 화면 가장자리가 안으로 번진다 */
+        .nl-pulse { position: absolute; inset: 0; }
+        .nl-pulse .np  { position: absolute; inset: 0;
+                         box-shadow: inset 0 0 90px 8px var(--nc), inset 0 0 210px 34px var(--nc);
+                         animation: nPulse calc(var(--nspd) * 1.3) ease-in-out infinite; }
+        .nl-pulse .np2 { position: absolute; inset: 0; box-shadow: inset 0 0 26px 2px #fff; opacity: 0.22;
+                         animation: nPulse calc(var(--nspd) * 1.3) ease-in-out infinite; }
+        @keyframes nPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+        /* 💥 200만 · 차징→폭발 — 아래 중앙에서 양쪽으로 채워 올라가 위 중앙에서 만나며 터진다 */
+        .nl-charge { position: absolute; inset: 0; }
+        .nl-charge .nchg { fill: none; stroke: var(--nc); stroke-linecap: round;
+                           stroke-width: calc(var(--nw) * 1.1px); stroke-dasharray: 500 500;
+                           filter: drop-shadow(0 0 10px var(--nc)) drop-shadow(0 0 30px var(--nc));
+                           animation: nCharge calc(var(--nspd) * 2) ease-in-out infinite; }
+        .nl-charge .nchgc { stroke: #fff; stroke-width: calc(var(--nw) * 0.4px); opacity: 0.9; }
+        @keyframes nCharge { 0% { stroke-dashoffset: 500; } 42%, 100% { stroke-dashoffset: 0; } }
+        .nl-charge .nboom { position: absolute; inset: 0; opacity: 0;
+                            background: radial-gradient(120% 70% at 50% 0%, #fff, rgba(255,255,255,0) 62%);
+                            animation: nBoom calc(var(--nspd) * 2) ease-out infinite; }
+        @keyframes nBoom { 0%, 41% { opacity: 0; } 44% { opacity: 0.85; } 62%, 100% { opacity: 0; } }
 
         /* --------------------------------------------------
             💡 [신규] 프리미엄 리얼 LED 아우디 라이트 (하얀색 패치)
@@ -782,7 +861,50 @@
             <div id="offwork-player-name" style="font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: 0 4px 22px rgba(0, 0, 0, 0.9), 0 0 28px rgba(255, 215, 107, 0.95); word-break: keep-all;">🎉 플레이어 퇴근! 🏆</div>
         </div>
     </div>
-    <div id="neon-overlay" class="neon-layer"></div>
+    <!-- 🌈 네온 테두리: 금액 등급마다 아예 다른 연출 하나. 안쪽 <g>는 스크립트가 채운다. -->
+    <div id="neon-overlay" class="neon-layer">
+        <!-- 10만 미만 · 흐름 : 한 줄기가 테두리를 한 바퀴 -->
+        <svg class="nl-flow" viewBox="0 0 1080 1920">
+            <rect class="n-tube n-base" x="22" y="22" width="1036" height="1876" rx="46" style="opacity:0.16"/>
+            <g class="n-comet n-runFull" data-gen="comet" data-shape="rect" data-period="1000"></g>
+        </svg>
+        <!-- 10만 · 듀얼 스윕 : 위 중앙에서 갈라져 아래 중앙에서 만난다 (좌우 별개 경로라 대칭이 안 틀어진다) -->
+        <svg class="nl-sweep" viewBox="0 0 1080 1920">
+            <rect class="n-tube n-base" x="22" y="22" width="1036" height="1876" rx="46" style="opacity:0.18"/>
+            <g class="n-comet n-runHalf" data-gen="comet" data-shape="pathR" data-period="500"></g>
+            <g class="n-comet n-runHalf" data-gen="comet" data-shape="pathL" data-period="500"></g>
+        </svg>
+        <!-- 20만 · 반짝임 -->
+        <svg class="nl-spark" viewBox="0 0 1080 1920">
+            <rect class="n-tube n-base" x="22" y="22" width="1036" height="1876" rx="46"/>
+            <g class="n-spark" data-gen="spark"></g>
+        </svg>
+        <!-- 30만 · 점멸 -->
+        <svg class="nl-blink" viewBox="0 0 1080 1920">
+            <g>
+                <rect class="n-tube n-base" x="22" y="22" width="1036" height="1876" rx="46"/>
+                <rect class="n-tube n-core" x="22" y="22" width="1036" height="1876" rx="46"/>
+            </g>
+        </svg>
+        <!-- 50만 · 파동 : period 200 → 물결 5개가 등간격으로 흐른다 -->
+        <svg class="nl-wave" viewBox="0 0 1080 1920">
+            <rect class="n-tube n-base" x="22" y="22" width="1036" height="1876" rx="46" style="opacity:0.18"/>
+            <g class="n-comet n-runWave" data-gen="comet" data-shape="rect" data-period="200"></g>
+        </svg>
+        <!-- 100만 · 맥동 -->
+        <div class="nl-pulse"><div class="np"></div><div class="np2"></div></div>
+        <!-- 200만 · 차징→폭발 -->
+        <div class="nl-charge">
+            <svg viewBox="0 0 1080 1920">
+                <rect class="n-tube n-base" x="22" y="22" width="1036" height="1876" rx="46" style="opacity:0.12"/>
+                <path class="nchg"        pathLength="500" d="M540 1898 H68 A46 46 0 0 1 22 1852 V68 A46 46 0 0 1 68 22 H540"/>
+                <path class="nchg"        pathLength="500" d="M540 1898 H1012 A46 46 0 0 0 1058 1852 V68 A46 46 0 0 0 1012 22 H540"/>
+                <path class="nchg nchgc"  pathLength="500" d="M540 1898 H68 A46 46 0 0 1 22 1852 V68 A46 46 0 0 1 68 22 H540"/>
+                <path class="nchg nchgc"  pathLength="500" d="M540 1898 H1012 A46 46 0 0 0 1058 1852 V68 A46 46 0 0 0 1012 22 H540"/>
+            </svg>
+            <div class="nboom"></div>
+        </div>
+    </div>
     
     <!-- ⚠️ 자동재생 차단 경고 배너 -->
     <div id="autoplay-warning-banner" style="display:none; position:fixed; top:20px; left:50%; transform:translateX(-50%); background:rgba(255,59,48,0.95); color:white; padding:12px 24px; font-weight:bold; font-size:16px; border-radius:8px; box-shadow:0 4px 15px rgba(0,0,0,0.3); z-index:9999999; border:2px solid #ff453a; text-align:center; animation: pulse 1.5s infinite; font-family: sans-serif;">
@@ -1065,7 +1187,86 @@
 
         let lastBeepSec = -1; let timerExploded = false;
 
-        function resizeOverlay() { const wrapper = document.getElementById('scale-wrapper'); const scale = Math.min(window.innerWidth / 1080, window.innerHeight / 1920); wrapper.style.transform = `scale(${scale})`; wrapper.style.left = `${(window.innerWidth - 1080 * scale) / 2}px`; wrapper.style.top = `${(window.innerHeight - 1920 * scale) / 2}px`; } window.addEventListener('resize', resizeOverlay); resizeOverlay();
+        function resizeOverlay() {
+            const wrapper = document.getElementById('scale-wrapper');
+            const scale = Math.min(window.innerWidth / 1080, window.innerHeight / 1920);
+            const left = (window.innerWidth - 1080 * scale) / 2;
+            const top  = (window.innerHeight - 1920 * scale) / 2;
+            wrapper.style.transform = `scale(${scale})`;
+            wrapper.style.left = `${left}px`;
+            wrapper.style.top  = `${top}px`;
+            // 네온 테두리는 뷰포트가 아니라 '1080×1920 캔버스'를 감싸야 하므로 같은 배율·위치를 적용한다.
+            // (OBS 처럼 소스 크기가 정확히 1080×1920 이면 scale=1, left=top=0 이라 예전과 동일하다)
+            const neon = document.getElementById('neon-overlay');
+            if (neon) { neon.style.transform = `scale(${scale})`; neon.style.left = `${left}px`; neon.style.top = `${top}px`; }
+        }
+        window.addEventListener('resize', resizeOverlay); resizeOverlay();
+        // 🌈 [네온] 빛이 달릴 경로.
+        //    rect  = 테두리 한 바퀴 (pathLength 1000)
+        //    pathR / pathL = 위 중앙에서 각각 오른쪽·왼쪽으로 내려가 아래 중앙까지 (각 500, 좌우 대칭)
+        const NEON_NS = 'http://www.w3.org/2000/svg';
+        const NEON_SHAPES = {
+            rect:  { tag: 'rect', plen: 1000, attrs: { x: 22, y: 22, width: 1036, height: 1876, rx: 46 } },
+            pathR: { tag: 'path', plen: 500,  attrs: { d: 'M540 22 H1012 A46 46 0 0 1 1058 68 V1852 A46 46 0 0 1 1012 1898 H540' } },
+            pathL: { tag: 'path', plen: 500,  attrs: { d: 'M540 22 H68 A46 46 0 0 0 22 68 V1852 A46 46 0 0 0 68 1898 H540' } }
+        };
+        function neonShape(name) {
+            const s = NEON_SHAPES[name] || NEON_SHAPES.rect;
+            const el = document.createElementNS(NEON_NS, s.tag);
+            for (const k in s.attrs) el.setAttribute(k, s.attrs[k]);
+            el.setAttribute('pathLength', s.plen);   // 경로 길이를 1000/500 으로 정규화 → dash 계산이 단순해진다
+            return el;
+        }
+
+        const NEON_LAYERS = 18;    // 꼬리를 이루는 겹 수 (많을수록 계단이 안 보인다)
+        const NEON_TAIL   = 240;   // 꼬리 길이 (경로 1000 기준)
+        // 반짝임이 튈 지점들 (경로 1000 위의 위치. 불규칙해야 자연스럽다)
+        const NEON_SPARK_POS = [18, 63, 104, 151, 197, 236, 288, 331, 375, 424, 466,
+                                512, 558, 601, 649, 692, 738, 776, 823, 869, 912, 957];
+
+        function buildNeonLayers() {
+            document.querySelectorAll('#neon-overlay [data-gen="comet"]').forEach(g => {
+                const period = parseInt(g.dataset.period) || 1000;
+                const maxLen = Math.min(NEON_TAIL, period * 0.8);
+                g.textContent = '';
+                for (let i = 1; i <= NEON_LAYERS; i++) {
+                    // 머리 쪽에 층이 촘촘 → 밝고, 꼬리로 갈수록 성겨져 자연스럽게 흐려진다
+                    const L = Math.max(6, maxLen * Math.pow(i / NEON_LAYERS, 1.7));
+                    const el = neonShape(g.dataset.shape);
+                    el.setAttribute('stroke-dasharray', L.toFixed(2) + ' ' + (period - L).toFixed(2));
+                    el.style.setProperty('--L', L.toFixed(2));
+                    el.style.stroke = (i <= 2) ? '#ffffff' : 'var(--nc)';   // 맨 앞 2겹만 흰색 = 뜨거운 머리
+                    el.style.opacity = 0.17;
+                    g.appendChild(el);
+                }
+            });
+            document.querySelectorAll('#neon-overlay [data-gen="spark"]').forEach(g => {
+                g.textContent = '';
+                NEON_SPARK_POS.forEach((p, i) => {
+                    const el = neonShape('rect');
+                    el.setAttribute('stroke-dasharray', '6 994');   // 아주 짧은 구슬 하나
+                    el.setAttribute('stroke-dashoffset', -p);
+                    el.style.animationDelay = (-(i * 0.37) % 1.6).toFixed(2) + 's';   // 음수 딜레이 = 처음부터 제각각
+                    g.appendChild(el);
+                });
+            });
+        }
+        buildNeonLayers();
+
+        // 금액대별 네온 연출. 색이 아니라 '움직임'으로 등급을 표현한다
+        // (색은 시청자가 서열로 못 읽지만 움직임은 즉시 읽힌다. 색은 조명 버튼 담당).
+        // 임계값은 여기만 고치면 된다.
+        function neonTierClass(amount) {
+            const a = parseInt(amount) || 0;
+            if (a >= 2000000) return 'tier-charge';   // 200만 · 차징→폭발
+            if (a >= 1000000) return 'tier-pulse';    // 100만 · 맥동
+            if (a >= 500000)  return 'tier-wave';     //  50만 · 파동
+            if (a >= 300000)  return 'tier-blink';    //  30만 · 점멸
+            if (a >= 200000)  return 'tier-spark';    //  20만 · 반짝임
+            if (a >= 100000)  return 'tier-sweep';    //  10만 · 듀얼 스윕
+            return 'tier-flow';                       //  그 미만 · 흐름
+        }
+
         function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
         function safeId(n) { return 'bj-' + btoa(unescape(encodeURIComponent(n))).replace(/=/g, ''); }
         
@@ -1445,6 +1646,9 @@
                 let neonSpeedSec = d.neon_speed || 1.5;
                 document.documentElement.style.setProperty('--neon-speed', `${neonSpeedSec}s`);
                 document.documentElement.style.setProperty('--audi-speed', `${neonSpeedSec * 0.56}s`);
+                // 네온 연출 속도. 예전 값은 conic 한 바퀴 기준이라 그대로 쓰면 혜성이 너무 빠르다.
+                // ×2 로 환산하면 슬라이더 기본값 1.5초 → 3초(한 바퀴)로 보기 좋은 속도가 된다.
+                document.documentElement.style.setProperty('--nspd', `${neonSpeedSec * 2}s`);
 
                 // 🎰 [슬롯머신 위젯 표시/숨김 스위치 연동]
                 const slotContainer = document.getElementById('slot-container');
@@ -1574,20 +1778,23 @@
                     }
                 }
 
-                // 네온 라이트
+                // 네온 라이트 — 지금 재생 중인 시그니처의 금액으로 '연출 등급'을 고른다.
+                // (큐가 비어 있어도 리액션 모드면 최하 등급으로 켜 둔다 = 예전 동작 유지)
                 let shouldNeonShow = (globalNeon !== 'OFF') && d.reaction_mode;
                 let neonEl = document.getElementById('neon-overlay');
                 if (neonEl) {
-                    neonEl.className = 'neon-layer'; 
-                    
                     if (shouldNeonShow) {
-                        neonEl.classList.add('active');
-                        if (globalNeon === 'RAINBOW') {
-                            neonEl.classList.add('neon-rainbow');
+                        const nowPlaying = (d.reaction_queue && d.reaction_queue[0]) || null;
+                        const tier = neonTierClass(nowPlaying && nowPlaying.amount);
+                        // 등급이 바뀔 때만 클래스를 갈아끼운다(매 프레임 갈면 애니메이션이 계속 리셋된다)
+                        if (!neonEl.classList.contains(tier)) {
+                            neonEl.className = 'neon-layer active ' + tier;
                         } else {
-                            neonEl.classList.add('neon-single');
-                            neonEl.style.setProperty('--glow-color', globalNeon);
+                            neonEl.classList.add('active');
                         }
+                        neonEl.classList.toggle('neon-rainbow', globalNeon === 'RAINBOW');
+                        // 무지개는 레이어 전체에 hue-rotate 를 돌리므로 기준색만 넣어두면 된다
+                        neonEl.style.setProperty('--nc', globalNeon === 'RAINBOW' ? '#ff1f56' : globalNeon);
                     } else {
                         neonEl.classList.remove('active');
                     }
