@@ -193,12 +193,13 @@
         function connectSSE() {
             const evtSource = new EventSource('/api/stream');
 
-            evtSource.addEventListener('message', (e) => {
+            // ⚠️ 서버는 이름 붙은 이벤트(event: slot_spin)로 보낸다.
+            //    EventSource 의 'message' 리스너는 '이름 없는' 이벤트에만 발동하므로
+            //    예전 코드는 단 한 번도 실행되지 않았다 = 이 페이지에서 슬롯이 영영 안 돌았다.
+            //    (overlay.html 은 처음부터 addEventListener('slot_spin') 를 써서 정상 동작했다)
+            evtSource.addEventListener('slot_spin', (e) => {
                 try {
-                    const data = JSON.parse(e.data);
-                    if (data.type === 'slot_spin' || data.event === 'slot_spin') {
-                        startSlotSpin(data);
-                    }
+                    startSlotSpin(JSON.parse(e.data));
                 } catch(err){}
             });
 

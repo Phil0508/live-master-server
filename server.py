@@ -743,6 +743,9 @@ SSE_QUEUE_MAX = 120
 def broadcast_event(event_name, data):
     if isinstance(data, dict):
         data = data.copy()
+        # 🔐 /api/stream 은 무인증으로 열려 있다(오버레이·알림창이 붙어야 하므로).
+        #    상태에 관리자 토큰이 섞여 있어도 절대 전파되지 않게 마지막 관문에서 지운다.
+        data.pop('api_token', None)
         data['server_time'] = int(time.time() * 1000)
     with sse_lock:
         message = f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -2270,8 +2273,19 @@ def api_data():
             #   덮어쓰지 못하게 서버 값을 유지한다. (이 필드들은 후원 수신·큐 조작 엔드포인트에서만 바뀐다.
             #   조종실/모바일/에디터의 어떤 조작도 /api/data 로 이 필드를 직접 수정하지 않으므로 안전하다.)
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations')
+
+            # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
+            #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
+            #   그런데 에디터는 받은 응답 객체를 통째로 globalData 에 넣고(admin.html) 그대로 다시 POST 한다.
+            #   여기서 걸러내지 않으면 그 키가 state 에 눌러앉아 DB 에 평문으로 저장되고,
+            #   무인증으로 열려 있는 /api/stream 을 통해 모든 오버레이·알림창에 방송된다.
+            #   그 값은 보호된 API 를 전부 통과하는 Bearer 토큰이자 세션 서명키다.
+            for _k in ('api_token', 'server_time'):
+                incoming.pop(_k, None)
+
             state = dict(current_state)
             state.update(incoming)                      # 클라이언트 편집 필드는 그대로 반영(점수·설정·승인 등 기존 동작 유지)
+            state.pop('api_token', None)                # 과거에 이미 오염됐다면 여기서 씻어낸다
             for k in SERVER_OWNED:
                 if k in current_state:
                     state[k] = current_state[k]          # 서버 소유 필드는 서버의 최신 값을 유지
@@ -2294,8 +2308,10 @@ def api_data():
     state = load_data()
     if isinstance(state, dict):
         state = state.copy()
+        # 🔐 과거에 상태로 새어 들어간 값이 남아 있어도 무인증 응답에 절대 실려나가지 않게 먼저 지운다
+        state.pop('api_token', None)
         state['server_time'] = int(time.time() * 1000)
-        # 조종실 웹에 로그인 세션이 있을 경우 보안 API 토큰을 제공
+        # 조종실 웹에 로그인 세션이 있을 경우에만 보안 API 토큰을 제공
         if session.get('authenticated'):
             state['api_token'] = load_auth_config()['session_secret']
     return jsonify(state)

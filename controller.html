@@ -2650,42 +2650,50 @@
         }
 
         async function assignPending(donId, bjIdx) {
-            let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
-            if(donIdx === -1) return;
-            let don = gd.pending_donations[donIdx];
+            // ⚠️ 버튼에 박힌 인덱스는 '그려질 당시'의 순서다. 목록은 pushAPI 마다 기여도순으로 다시 정렬되고
+            //    SSE 업데이트가 오면 배열 자체가 통째로 교체된다. 그래서 인덱스는 딱 한 번, 지금 이 줄에서만
+            //    쓰고 곧바로 '이름'으로 바꿔 고정한다. 이후로는 절대 인덱스로 사람을 찾지 않는다.
+            //    (이걸 안 지키면 엉뚱한 사람에게 돈이 들어간다)
+            const list0 = ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []);
+            const chosenName = (list0[bjIdx] || {}).name;
+            if (!chosenName) return;
+            if (!gd.pending_donations.some(d => d.id === donId)) return;
 
             // 🤖 오배정 경고: 메시지가 지목한 대상과 다른 사람에게 주려 하면 한 번 확인한다.
-            {
-                const isExtraC = gd.extra_game_active || false;
-                const listC = isExtraC ? gd.extra_bjs : gd.bjs;
-                const chosenName = (listC && listC[bjIdx]) ? listC[bjIdx].name : '';
-                const sug = auditSuggest[donId];
-                if (sug && sug.target && sug.confidence >= AUDIT_MIN_CONF && sug.target !== chosenName) {
-                    const go = await premiumConfirm(
-                        `메시지상 이 후원은 '${sug.target}'을(를) 응원하는 것 같아요.\n그래도 '${chosenName}'에게 지급할까요?`,
-                        '🤖 AI 기입 검증', 'warning');
-                    if (!go) return;   // 취소 → 아무 것도 안 함(올바른 버튼을 다시 누르면 됨)
-                }
+            const sug = auditSuggest[donId];
+            if (sug && sug.target && sug.confidence >= AUDIT_MIN_CONF && sug.target !== chosenName) {
+                const go = await premiumConfirm(
+                    `메시지상 이 후원은 '${sug.target}'을(를) 응원하는 것 같아요.\n그래도 '${chosenName}'에게 지급할까요?`,
+                    '🤖 AI 기입 검증', 'warning');
+                if (!go) return;   // 취소 → 아무 것도 안 함(올바른 버튼을 다시 누르면 됨)
             }
 
-            let addPoint = Math.round(don.amount / 10000);
-            
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-
-            if (targetList[bjIdx]) {
-                targetList[bjIdx].score += addPoint;
-                if(targetList[bjIdx].contribution === undefined) targetList[bjIdx].contribution = 0;
-                targetList[bjIdx].contribution += addPoint;
-
-                targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
-                if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
-
-                let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-                if (!gd.logs) gd.logs = [];
-                gd.logs.unshift({time: timeStr, name: targetList[bjIdx].name, val: addPoint});
-                if(gd.logs.length > 200) gd.logs.pop();
+            // ⚠️ 위 확인창은 운영자가 읽는 동안 몇 초씩 열려 있다. 그 사이 후원이 들어오면
+            //    SSE 가 gd 를 통째로 갈아끼우므로, 확인창 이전에 잡아둔 참조는 전부 버리고 다시 찾는다.
+            const isExtra = gd.extra_game_active || false;
+            const targetList = (isExtra ? gd.extra_bjs : gd.bjs) || [];
+            const target = targetList.find(b => b.name === chosenName);
+            const donIdx = gd.pending_donations.findIndex(d => d.id === donId);
+            if (!target) {
+                await premiumAlert(`'${chosenName}' 플레이어를 찾을 수 없어 지급하지 않았습니다.\n목록이 바뀐 것 같습니다. 다시 눌러주세요.`, '지급 취소', 'warning');
+                return;
             }
+            if (donIdx === -1) return;   // 그 사이 다른 곳에서 이미 처리됨 → 이중 지급 방지
+
+            const addPoint = Math.round(gd.pending_donations[donIdx].amount / 10000);
+            target.score += addPoint;
+            if (target.contribution === undefined) target.contribution = 0;
+            target.contribution += addPoint;
+
+            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
+            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
+
+            // ⚠️ 정렬한 뒤에 targetList[bjIdx] 를 읽으면 안 된다. 그 자리는 이미 다른 사람이다.
+            //    (실제로 로그에 엉뚱한 사람 이름이 찍혀서, 운영자가 그걸 보고 '정정'하다 점수를 두 번 틀리게 만들었다)
+            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+            if (!gd.logs) gd.logs = [];
+            gd.logs.unshift({time: timeStr, name: chosenName, val: addPoint});
+            if(gd.logs.length > 200) gd.logs.pop();
 
             gd.pending_donations.splice(donIdx, 1);
             pushAPI();

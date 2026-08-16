@@ -231,7 +231,11 @@
             console.log("Connecting to SSE /api/stream...");
             const sse = new EventSource('/api/stream');
             
-            sse.onmessage = function(e) {
+            // ⚠️ 서버는 항상 이름 붙은 이벤트(event: init / event: update)로 상태를 보낸다.
+            //    onmessage 는 '이름 없는' 이벤트에만 발동하므로 예전 코드는 아무것도 받지 못했고,
+            //    이 페이지는 연결만 된 채 영영 빈 화면이었다.
+            //    (signature_display.html 은 init/update 를 직접 등록해서 정상 동작했다)
+            const onState = function(e) {
                 try {
                     const data = jsonParse(e.data);
                     if (!data) return;
@@ -241,6 +245,9 @@
                     console.error("SSE parse error:", err);
                 }
             };
+            sse.onmessage = onState;                   // 이름 없는 이벤트 대비(현재 서버는 안 보냄)
+            sse.addEventListener('init', onState);     // 연결 즉시 현재 상태 수신
+            sse.addEventListener('update', onState);
 
             sse.onerror = function() {
                 console.warn("SSE disconnected. Retrying in 3 seconds...");
