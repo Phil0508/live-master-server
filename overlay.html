@@ -1147,6 +1147,10 @@
         let globalAudi = false;
         let toonPopupTimer = null;
         let isDonationPopupShowing = false;
+        // 💰 고액 후원 기준. 이 금액 이상이면 후원 팝업 대신 '@@업' 전광판으로 연출한다.
+        //    팝업 숨김과 전광판 노출이 반드시 같은 값을 봐야 한다.
+        //    (값이 어긋나면 '팝업도 안 뜨고 전광판도 안 뜨는' 구간이 생긴다)
+        const BIG_DONATION_MIN = 100000;
 
         let lastRosterStr = ""; 
         let lastExtraRosterStr = "";  
@@ -2633,8 +2637,8 @@
             const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
             const text = name + suffix;
 
-            // 🎯 '@@업' 전광판은 10만원 이상 후원에만 나온다 (슬롯 당첨은 예외로 표시)
-            if (!isSlot && (parseInt(amount) || 0) < 100000) {
+            // 🎯 '@@업' 전광판은 고액(BIG_DONATION_MIN) 후원에만 나온다 (슬롯 당첨은 예외로 표시)
+            if (!isSlot && (parseInt(amount) || 0) < BIG_DONATION_MIN) {
                 hideReactionTitle();
                 hideTickers();
                 return;
@@ -3137,8 +3141,14 @@
             //   리액션 카드와 중앙 네온 배너에 그대로 표시되므로 정보가 사라지지 않는다.
             //   마지막 한 개(큐 길이 1)만 남으면 다시 정상적으로 후원 팝업을 보여준다.
             const queueBacklog = !!(globalData && globalData.reaction_queue && globalData.reaction_queue.length > 1);
-            if (data.skip_popup || queueBacklog) {
+            // 💰 고액 후원은 '@@업' 전광판이 훨씬 크게 알리므로 후원 팝업을 겹쳐 띄우지 않는다.
+            //    ⚠️ 여기(playReaction)에서만 막는 이유: 이 경로는 '시그니처가 매칭된' 후원이라
+            //    팝업을 지워도 전광판이 반드시 대신 나온다. 시그니처가 없는 고액 후원은
+            //    handleData 쪽 경로로 가는데 거기서 팝업까지 막으면 화면에 아무것도 안 뜬다.
+            const bigDonation = (parseInt(data.amount) || 0) >= BIG_DONATION_MIN;
+            if (data.skip_popup || queueBacklog || bigDonation) {
                 if (queueBacklog && !data.skip_popup) console.log('대기열 밀림 — 후원 팝업 건너뛰고 즉시 재생');
+                if (bigDonation && !data.skip_popup) console.log('고액 후원 — 후원 팝업 대신 전광판으로 연출');
                 startPlayback();
             } else {
                 showToonPopup({
