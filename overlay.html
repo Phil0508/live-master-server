@@ -1793,8 +1793,13 @@
                             neonEl.classList.add('active');
                         }
                         neonEl.classList.toggle('neon-rainbow', globalNeon === 'RAINBOW');
-                        // 무지개는 레이어 전체에 hue-rotate 를 돌리므로 기준색만 넣어두면 된다
-                        neonEl.style.setProperty('--nc', globalNeon === 'RAINBOW' ? '#ff1f56' : globalNeon);
+                        if (globalNeon === 'RAINBOW') {
+                            // 무지개는 레이어 전체에 hue-rotate 를 돌리므로 기준색만 넣어두면 된다
+                            neonEl.style.setProperty('--nc', '#ff1f56');
+                        } else {
+                            // 시그니처가 떠 있으면 사진 대표색, 아니면 조명 버튼 색
+                            syncNeonColor();
+                        }
                     } else {
                         neonEl.classList.remove('active');
                     }
@@ -2676,6 +2681,10 @@
             if (vig) vig.classList.remove('show');
             const box = document.getElementById('reaction-img-box');
             if (box) box.classList.remove('glow', 'shine', 'shake', 'shake-strong');
+            // 시그니처가 내려갔으니 사진 대표색도 버리고 네온을 조명 버튼 색으로 되돌린다
+            _themeColorToken++;     // 아직 로딩 중인 probe 의 뒤늦은 결과를 무효화
+            sigThemeColor = null;
+            syncNeonColor();
             hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
             hideTickers();         // 위/아래 '@@업' 전광판도 함께 내림(예약된 스플릿 등장도 취소)
             lastTickerState = '';  // 다음 재생 때 전광판이 다시 그려지도록 초기화
@@ -2717,17 +2726,37 @@
         //   보이는 이미지는 그대로 두고, 색 추출용으로만 crossOrigin 이미지를 따로 로드한다.
         //   CORS 차단/로드 실패 시 아무 것도 안 함(금액 티어 색 유지) → 화면엔 영향 없음.
         let _themeColorToken = 0;
+        // 지금 재생 중인 시그니처의 대표색. 있으면 화면 네온 테두리도 이 색을 따라간다.
+        // (null 이면 조명 버튼 색으로 되돌아간다)
+        let sigThemeColor = null;
+
+        // 화면 네온(#neon-overlay)에 색을 반영. 무지개 모드일 땐 hue-rotate 가 돌므로 건드리지 않는다.
+        function syncNeonColor() {
+            const neonEl = document.getElementById('neon-overlay');
+            if (!neonEl || neonEl.classList.contains('neon-rainbow')) return;
+            const c = sigThemeColor || ((globalNeon && globalNeon !== 'OFF') ? globalNeon : null);
+            if (c) neonEl.style.setProperty('--nc', c);
+        }
+
         function applySignatureThemeColor(imgUrl) {
             const box = document.getElementById('reaction-img-box');
-            if (!box || !imgUrl) return;
             const token = ++_themeColorToken;
+            // 새 시그니처가 시작됐으므로 이전 사진 색은 즉시 버린다(엉뚱한 색이 남는 것 방지)
+            sigThemeColor = null;
+            syncNeonColor();
+            if (!box || !imgUrl) return;
             const probe = new Image();
             probe.crossOrigin = 'anonymous';
             probe.onload = () => {
                 if (token !== _themeColorToken) return;   // 더 최신 시그니처가 있으면 무시
                 try {
                     const c = vibrantColorFromImage(probe);
-                    if (c) box.style.setProperty('--reac-glow', `rgb(${c.r}, ${c.g}, ${c.b})`);
+                    if (c) {
+                        const rgb = `rgb(${c.r}, ${c.g}, ${c.b})`;
+                        box.style.setProperty('--reac-glow', rgb);   // 시그니처 카드 테두리
+                        sigThemeColor = rgb;
+                        syncNeonColor();                             // 화면 네온 테두리도 같은 색으로
+                    }
                 } catch (e) { /* tainted canvas 등 → 티어 색 유지 */ }
             };
             probe.onerror = () => {};   // 로드/CORS 실패 → 티어 색 유지
