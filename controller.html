@@ -546,6 +546,22 @@
            탭 12개와 버튼 121개가 전부 같은 비중으로 놓여 있어 급할 때 눈이 헤맸다.
            기능을 지우지 않고 '지금 안 쓰는 것'만 접어서 비중을 다르게 준다.
            DOM 은 그대로 두고 보이는 것만 바꾸므로 기존 동작에 영향이 없다. */
+        /* ===== 🚗 오토파일럿 배너 =====
+           금액 제한 없이 자동 배정하므로 '켜져 있다는 사실'을 잊으면 안 된다.
+           그래서 화면 맨 위에 고정으로 붙이고 눈에 띄게 깜빡인다. */
+        #autopilot-banner { display:none; position:sticky; top:0; z-index:5000; margin:-25px -25px 18px;
+            padding:12px 22px; background:linear-gradient(135deg,#b3261e,#e8543f); color:#fff;
+            font-size:14px; font-weight:800; align-items:center; gap:12px;
+            box-shadow:0 6px 24px rgba(179,38,30,0.45); }
+        body.autopilot-on #autopilot-banner { display:flex; }
+        #autopilot-banner .ap-dot { width:10px; height:10px; border-radius:50%; background:#fff;
+            animation:apBlink 1s ease-in-out infinite; flex:none; }
+        @keyframes apBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
+        #autopilot-banner .ap-spacer { flex:1; }
+        #autopilot-banner button { border:none; cursor:pointer; padding:7px 16px; border-radius:8px;
+            font-family:inherit; font-size:13px; font-weight:900; background:#fff; color:#b3261e; }
+        #ai-autopilot-toggle.on { background:linear-gradient(135deg,#b3261e,#e8543f) !important; color:#fff !important; }
+
         #live-toggle { display:inline-flex; align-items:center; gap:7px; border:none; cursor:pointer;
             padding:9px 15px; border-radius:10px; font-family:inherit; font-size:13px; font-weight:800;
             background:rgba(255,255,255,0.07); color:var(--text-muted); transition:var(--transition-smooth); }
@@ -821,6 +837,15 @@
                 <button onclick="dismissGoalEvent()" style="background: rgba(255, 255, 255, 0.1); color: #ccc; border: 1px solid #555; padding: 10px 14px; border-radius: 8px; cursor: pointer;">닫기</button>
             </div>
         </div>
+    </div>
+
+    <!-- 🚗 오토파일럿 작동 중 배너 (켜져 있는 동안 화면 맨 위에 고정) -->
+    <div id="autopilot-banner">
+        <span class="ap-dot"></span>
+        <span>🚗 <b>오토파일럿 작동 중</b> — AI가 후원을 자동으로 배정하고 있습니다</span>
+        <span id="autopilot-count" style="opacity:.85; font-weight:600;">처리 0건</span>
+        <span class="ap-spacer"></span>
+        <button onclick="toggleAutopilot()">끄기</button>
     </div>
 
     <!-- 🔴 라이브 모드 안내 (모드가 켜졌을 때만 보인다) -->
@@ -1744,6 +1769,132 @@
         let gd = null; let isPushing = false; let lastPushTime = 0;
         // 내 전송과 겹쳐서 버린 SSE 업데이트가 있었는지. true 면 아래 워치독이 다시 받아온다.
         let needsResync = false;
+        // ===== 🚗 오토파일럿 (자리비움 자동 배정) =====
+        // 사람 대신 AI가 후원을 배정한다. 돈이 걸린 기능이라 원칙을 못 박아둔다:
+        //  1) 확신이 아주 높을 때만 손댄다. 애매하면 아무 것도 하지 않고 대기함에 그대로 둔다.
+        //     (틀리게 주는 것보다 안 주고 기다리는 게 언제나 낫다)
+        //  2) AI가 댄 이름이 지금 플레이어 목록에 실제로 있어야 한다(환각 차단).
+        //  3) 후원 1건은 최대 1번만 자동 처리한다.
+        //  4) 한 일은 전부 기록하고, 끌 때 요약해서 보여준다. 잘못 갔으면 그 자리에서 옮길 수 있다.
+        //  5) 새로고침하면 꺼진 채로 시작한다 — 켜져 있는 걸 모르는 상태가 제일 위험하므로
+        //     '실패하면 꺼짐(safe by default)'으로 둔다. 그래서 localStorage 에 저장하지 않는다.
+        const AUTOPILOT_MIN_CONF = 0.85;   // 제안 토스트(0.75)보다 엄격 — 사람 확인 없이 실행되니까
+        let autopilotOn = false;
+        const autopilotHandled = new Set();   // 이미 자동 처리한 후원 id
+        let autopilotLog = [];                // [{time, donor, amount, message, target, points}]
+
+        function autopilotSyncUI() {
+            document.body.classList.toggle('autopilot-on', autopilotOn);
+            const btn = document.getElementById('ai-autopilot-toggle');
+            if (btn) {
+                btn.classList.toggle('on', autopilotOn);
+                btn.textContent = autopilotOn ? '🚗 오토파일럿 켜짐' : '🚗 오토파일럿';
+            }
+            const c = document.getElementById('autopilot-count');
+            if (c) c.textContent = `처리 ${autopilotLog.length}건`;
+        }
+
+        function toggleAutopilot() {
+            autopilotOn = !autopilotOn;
+            if (autopilotOn) {
+                autopilotLog = [];
+                autopilotHandled.clear();
+                aiAppendMsg('sys', '🚗 오토파일럿을 켰습니다. 확신이 높은 후원만 자동으로 배정하고, 애매한 건 대기함에 그대로 둡니다.');
+                autopilotSyncUI();
+                autopilotSweep();     // 이미 대기 중인 것부터 훑는다
+            } else {
+                autopilotSyncUI();
+                autopilotShowReport();
+            }
+        }
+
+        // 대기함을 훑어 '확실한 것만' 자동 배정한다.
+        // ⚠️ 한 번에 하나씩만 처리한다. assignPending 은 비동기이고 목록을 재정렬하므로
+        //    한꺼번에 돌리면 서로의 상태를 밟는다. 처리 후 다음 호출에서 이어서 한다.
+        async function autopilotSweep() {
+            if (!autopilotOn || !gd || !Array.isArray(gd.pending_donations)) return;
+            const names = currentPlayerNames();
+            for (const don of gd.pending_donations.slice()) {
+                if (!autopilotOn) return;
+                if (!don || don.type === 'off_work') continue;
+                if (autopilotHandled.has(don.id)) continue;
+                if (removedPendingIds.has(don.id)) continue;
+                const sug = auditSuggest[don.id];
+                if (!sug || !sug.target) continue;                       // AI가 대상을 못 찾음 → 손대지 않는다
+                if ((sug.confidence || 0) < AUTOPILOT_MIN_CONF) continue; // 확신 부족 → 손대지 않는다
+                const idx = names.indexOf(sug.target);
+                if (idx === -1) continue;                                 // 목록에 없는 이름 → 손대지 않는다
+
+                autopilotHandled.add(don.id);
+                const points = Math.round((don.amount || 0) / 10000);
+                await assignPending(don.id, idx);
+                autopilotLog.push({
+                    time: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
+                    donor: don.name, amount: don.amount || 0,
+                    message: don.message || '', target: sug.target, points
+                });
+                aiAppendMsg('ai', `🚗 ${don.name}님 ${(don.amount||0).toLocaleString()}원 → ${sug.target}에게 ${points}점 (자동 배정)`);
+                autopilotSyncUI();
+                return;   // 한 건 처리하고 빠진다. 다음 갱신 때 이어서 훑는다.
+            }
+        }
+
+        // 끌 때 '무슨 일이 있었는지' 보여준다. 자리비움 뒤엔 이게 제일 중요하다.
+        function autopilotShowReport() {
+            if (!autopilotLog.length) {
+                aiAppendMsg('sys', '🚗 오토파일럿을 껐습니다. 자동으로 배정한 건은 없습니다.');
+                return;
+            }
+            const lines = autopilotLog.map((r, i) =>
+                `${i + 1}. [${r.time}] ${r.donor} ${r.amount.toLocaleString()}원 → ${r.target} +${r.points}점\n    "${r.message}"`).join('\n');
+            aiAppendMsg('sys', `🚗 오토파일럿을 껐습니다. 자리비움 동안 ${autopilotLog.length}건을 자동 배정했습니다:\n\n${lines}\n\n잘못 간 게 있으면 아래 '옮기기'를 누르세요.`);
+            // 잘못 배정된 건을 그 자리에서 옮길 수 있게 버튼을 붙인다
+            const log = document.getElementById('ai-chat-log');
+            if (!log) return;
+            const box = document.createElement('div');
+            box.className = 'ai-msg ai-msg-sys';
+            box.innerHTML = autopilotLog.map((r, i) =>
+                `<button data-ap="${i}" style="display:block;width:100%;text-align:left;margin:4px 0;padding:7px 9px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#dfe7f5;border-radius:7px;cursor:pointer;font-family:inherit;font-size:12px;">↪ ${escapeHTML(r.donor)} → <b>${escapeHTML(r.target)}</b> (+${r.points}) 옮기기</button>`
+            ).join('');
+            box.querySelectorAll('button[data-ap]').forEach(b => {
+                b.onclick = () => autopilotReassign(parseInt(b.dataset.ap));
+            });
+            log.appendChild(box);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // 자동 배정이 틀렸을 때: 점수를 원래 받은 사람에게서 빼고 올바른 사람에게 준다.
+        async function autopilotReassign(i) {
+            const r = autopilotLog[i];
+            if (!r) return;
+            const names = currentPlayerNames();
+            const who = prompt(`"${r.message}"\n${r.donor} ${r.amount.toLocaleString()}원 (+${r.points}점)\n\n지금은 '${r.target}'에게 가 있습니다.\n누구에게 옮길까요?\n\n${names.join(' / ')}`, '');
+            if (!who) return;
+            const to = names.find(n => n === who.trim());
+            if (!to) { await premiumAlert(`'${who}' 는 목록에 없습니다.`, '옮기기 실패', 'warning'); return; }
+            if (to === r.target) return;
+            const list = (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+            const from = list.find(b => b.name === r.target);
+            const dest = list.find(b => b.name === to);
+            if (!from || !dest) { await premiumAlert('플레이어를 찾지 못했습니다.', '옮기기 실패', 'warning'); return; }
+            from.score -= r.points; from.contribution = (from.contribution || 0) - r.points;
+            dest.score += r.points; dest.contribution = (dest.contribution || 0) + r.points;
+            const t = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+            if (!gd.logs) gd.logs = [];
+            gd.logs.unshift({ time: t, name: r.target, val: -r.points });
+            gd.logs.unshift({ time: t, name: to, val: r.points });
+            const ok = await pushAPI();
+            if (ok === false) {
+                from.score += r.points; from.contribution += r.points;
+                dest.score -= r.points; dest.contribution -= r.points;
+                gd.logs.splice(0, 2);
+                await premiumAlert('옮기지 못했습니다. (서버 전송 실패)', '실패', 'error');
+                return;
+            }
+            r.target = to;
+            aiAppendMsg('sys', `↪ ${r.donor}님 후원 ${r.points}점을 ${to}에게 옮겼습니다.`);
+        }
+
         // ===== 🔴 라이브 모드 =====
         // 기능을 지우는 게 아니라 '지금 안 쓰는 것'을 접는다. 끄면 전부 그대로 돌아온다.
         // 새로고침해도 유지되므로(방송 중 새로고침이 잦다) localStorage 에 남긴다.
@@ -1991,6 +2142,7 @@
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
                 paintAuditBadges(gd.pending_donations); // 이미 받아둔 추천은 배지로 다시 그림
                 syncAssignToasts(gd.pending_donations); // 이미 처리된 건의 제안 토스트는 치운다
+                try { autopilotSweep(); } catch (e) {}  // 🚗 켜져 있으면 확실한 것만 자동 배정
             } else {
                 syncAssignToasts([]);                   // 대기함이 비었으면 남은 토스트도 모두 정리
                 if(pbox.style.display !== 'none') pbox.style.display = 'none';
@@ -2424,6 +2576,8 @@
                             assignToastShown.add(don.id);
                             showAssignToast(don, res.target);
                         }
+                        // 🚗 오토파일럿이 켜져 있으면 방금 판정이 끝난 이 건도 바로 훑는다
+                        try { autopilotSweep(); } catch (e) {}
                     }
                 }).catch(() => {});   // 실패해도 조용히 무시(운영 방해 금지)
             });
@@ -5466,7 +5620,7 @@
     <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span><span id="ai-unread"></span></button>
     <div id="ai-drawer">
         <div id="ai-drawer-head">
-            <div class="ai-head-row"><span>🤖 AI 서포트</span><span style="display:flex; gap:6px;"><button id="ai-proactive-toggle" onclick="aiToggleProactive()" title="AI가 큰 후원·대기함 적체·대결 종료 등을 먼저 알려줍니다">🔔 알림</button><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">🗑 지우기</button></span></div>
+            <div class="ai-head-row"><span>🤖 AI 서포트</span><span style="display:flex; gap:6px;"><button id="ai-autopilot-toggle" onclick="toggleAutopilot()" title="자리비움용: 확신이 높은 후원만 AI가 자동으로 배정합니다. 애매한 건 대기함에 그대로 둡니다. 새로고침하면 꺼집니다.">🚗 오토파일럿</button><button id="ai-proactive-toggle" onclick="aiToggleProactive()" title="AI가 큰 후원·대기함 적체·대결 종료 등을 먼저 알려줍니다">🔔 알림</button><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">🗑 지우기</button></span></div>
             <small>지금 방송 상황을 물어보세요 · AI가 중요한 순간엔 먼저 알려줘요 · 대화 자동 저장</small>
         </div>
         <div id="ai-chat-log">
