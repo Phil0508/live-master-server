@@ -2055,8 +2055,10 @@ def serve_controller():
 
 @app.route('/mobile')
 def serve_mobile():
-    # 옛 북마크 호환: /mobile 도 동일한 통합 컨트롤러로 보낸다
-    return serve_html_file('controller.html')
+    # 📱 자리 비웠을 때 폰으로 쓰는 전용 화면.
+    #    한동안 컨트롤러를 그대로 보냈는데, 폰에서 12개 탭을 다 재현하니 결국 쓰기 불편했다.
+    #    지금은 '후원 배정'과 '점수 수정' 두 가지만 있는 별도 페이지를 보낸다.
+    return serve_html_file('mobile.html')
 
 @app.route('/admin')
 @app.route('/admin.html')

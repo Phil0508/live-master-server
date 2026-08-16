@@ -1,887 +1,382 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>📱 라이브 마스터 - iOS 모바일 제어</title>
-    <script src="/comma_input.js"></script>
-    <!-- Official Apple Fonts from CDN -->
-    <link rel="stylesheet" href="https://www.apple.com/wss/fonts?family=SF+Pro+KR&v=2" type="text/css" />
-    <link rel="stylesheet" href="https://www.apple.com/wss/fonts?families=SF+Pro,v3|SF+Pro+Icons,v3">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --bg-body: #000000; /* Pure OLED Black */
-            --bg-panel: rgba(28, 28, 30, 0.85); /* iOS Dark Mode Secondary System Background */
-            --bg-card: rgba(28, 28, 30, 0.94); /* iOS Grouped Cell Background */
-            --bg-input: rgba(120, 120, 128, 0.24); /* iOS system input fill */
-            --border-light: rgba(255, 255, 255, 0.08); /* 0.5px subtle line */
-            --text-main: #ffffff; /* iOS primary text */
-            --text-muted: #8e8e93; /* iOS secondary text (System Gray) */
-            --accent: #0a84ff; /* iOS Blue */
-            --accent-glow: rgba(10, 132, 255, 0.15);
-            --success: #30d158; /* iOS Green */
-            --danger: #ff453a; /* iOS Red */
-            --danger-glow: rgba(255, 69, 58, 0.2);
-            --gold: #ffd60a; /* iOS Yellow/Gold */
-            --gold-glow: rgba(255, 214, 10, 0.2);
-            --radius-lg: 12px; /* iOS standard rounded corners */
-            --radius-md: 10px;
-            --radius-sm: 8px;
-            --font-sans: 'SF Pro KR', 'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Pretendard', sans-serif;
-            --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-            --glass-stroke: 0.5px solid rgba(255, 255, 255, 0.1);
-            --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e0f12">
+<title>📱 모바일 조종실</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<style>
+/* 자리 비웠을 때 한 손으로 쓰는 화면이다.
+   목적은 딱 둘 — '대기함 후원을 배정한다', '점수를 고친다'.
+   그 외 기능은 일부러 넣지 않았다. 폰에서 컨트롤러를 다 재현하면 결국 똑같이 불편해진다. */
+:root {
+    --bg: #0e0f12; --panel: #17191e; --panel-2: #1e2127;
+    --line: #2b2f37; --text: #eceef2; --muted: #8b909a; --dim: #6f7480;
+    --accent: #4a9eff; --gold: #d9a441; --danger: #ff453a; --success: #34c759;
+    --r1: 8px; --r2: 14px; --r3: 20px;
+    --ease: cubic-bezier(0.4,0,0.2,1); --ease-out: cubic-bezier(0.16,1,0.3,1);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
+    letter-spacing: -0.3px;
+    padding: 0 12px calc(28px + env(safe-area-inset-bottom));
+}
+button { font-family: inherit; border: none; cursor: pointer; transition: transform 120ms var(--ease), background 200ms var(--ease); }
+button:active { transform: scale(0.96); }
 
-        body.theme-pink {
-            --bg-body: #000000;
-            --bg-panel: rgba(44, 24, 40, 0.8);
-            --bg-card: rgba(52, 32, 48, 0.94);
-            --text-muted: #d0c8d4;
-            --accent: #ff375f; /* iOS Pink */
-            --accent-glow: rgba(255, 55, 95, 0.15);
-            --gold: #ff375f;
-        }
+/* ── 상단 상태바 ── */
+header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(14,15,18,0.94); backdrop-filter: blur(16px);
+    margin: 0 -12px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px;
+}
+header h1 { margin: 0; font-size: 16px; font-weight: 800; flex: 1; }
+#conn { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
+        background: rgba(52,199,89,0.14); color: var(--success); white-space: nowrap; }
+#conn.bad { background: rgba(255,69,58,0.14); color: var(--danger); }
 
-        * { 
-            box-sizing: border-box; 
-            -webkit-tap-highlight-color: transparent; 
-        }
+/* ── 섹션 ── */
+.sec { margin-top: 18px; }
+.sec-title { font-size: 12px; font-weight: 800; color: var(--muted); margin: 0 4px 8px;
+             display: flex; align-items: center; gap: 8px; }
+.count { background: var(--gold); color: #000; font-size: 11px; font-weight: 900;
+         padding: 1px 8px; border-radius: 999px; }
 
-        body {
-            position: relative;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            font-family: var(--font-sans);
-            margin: 0;
-            min-height: 100vh;
-            padding: 0 16px calc(100px + env(safe-area-inset-bottom)) 16px;
-            -webkit-font-smoothing: antialiased;
-            touch-action: manipulation;
-            overflow-x: hidden;
-        }
+/* ── 대기함 카드 ── */
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r2);
+        padding: 14px; margin-bottom: 12px; animation: pop 320ms var(--ease-out); }
+@keyframes pop { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.card .who { font-size: 15px; font-weight: 800; }
+.card .amt { color: var(--gold); font-weight: 900; font-variant-numeric: tabular-nums; }
+.card .msg { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.45;
+             word-break: break-word; }
+.sug { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 800;
+       color: #8fd1ff; background: rgba(0,150,255,0.12);
+       border: 1px solid rgba(0,150,255,0.35); padding: 3px 9px; border-radius: 999px; }
+.pay { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+/* 터치 목표를 크게 — 밖에서 급하게 누른다 */
+.pay button { min-height: 46px; flex: 1 1 30%; border-radius: var(--r1);
+              background: var(--panel-2); color: var(--text);
+              font-size: 14px; font-weight: 800; border: 1px solid var(--line); }
+.pay button.reco { background: rgba(74,158,255,0.16); border-color: var(--accent); color: #cfe4ff; }
+.pay .sub { flex: 1 1 100%; display: flex; gap: 8px; }
+.pay .sub button { flex: 1; min-height: 40px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.pay .sub button.del { color: var(--danger); }
 
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 2px; }
+/* ── 점수판 ── */
+.prow { display: flex; align-items: center; gap: 10px; background: var(--panel);
+        border: 1px solid var(--line); border-radius: var(--r2); padding: 10px 12px; margin-bottom: 8px; }
+.prow .nm { flex: 1; font-size: 15px; font-weight: 700; min-width: 0;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow .sc { font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums;
+            min-width: 56px; text-align: right; }
+.prow button { width: 44px; height: 44px; border-radius: 50%; background: var(--panel-2);
+               color: var(--text); font-size: 20px; font-weight: 800; border: 1px solid var(--line); }
+.prow button.plus { color: var(--success); }
+.prow button.minus { color: var(--danger); }
 
-        /* iOS Large Title Header */
-        .header {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin: 0 -16px 16px -16px;
-            padding: calc(16px + env(safe-area-inset-top)) 20px 12px 20px;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
-        }
+.empty { color: var(--dim); font-size: 13px; text-align: center; padding: 26px 0; }
 
-        .eyebrow { 
-            color: var(--text-muted); 
-            font-size: 12px; 
-            font-weight: 500; 
-            letter-spacing: -0.1px;
-            margin-bottom: 4px;
-        }
-
-        .header h1 { 
-            margin: 0; 
-            font-size: 28px; 
-            line-height: 1.15; 
-            font-weight: 800; 
-            letter-spacing: -0.6px;
-        }
-
-        .ios-link-btn {
-            color: var(--accent);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: opacity 0.2s ease;
-        }
-        .ios-link-btn:active {
-            opacity: 0.5;
-        }
-        .ios-link-btn.danger {
-            color: var(--danger);
-        }
-        
-        .reaction-pill {
-            display: inline-flex; 
-            align-items: center; 
-            gap: 8px; 
-            padding: 6px 12px;
-            background: rgba(120, 120, 128, 0.16); 
-            border-radius: 20px !important;
-            border: 0;
-            font-size: 13px;
-            font-weight: 600;
-            height: 34px;
-        }
-
-        .reaction-pill span { 
-            font-size: 13px; 
-            font-weight: 600; 
-        }
-
-        /* iOS Native Tab Bar */
-        .tabs {
-            position: fixed; 
-            left: 0; 
-            right: 0; 
-            bottom: 0; 
-            z-index: 50; 
-            display: grid; 
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            padding: 6px 10px calc(8px + env(safe-area-inset-bottom)) 10px;
-            background: rgba(20, 20, 20, 0.94); 
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-top: 0.5px solid rgba(255, 255, 255, 0.1);
-            border-radius: 0 !important;
-            box-shadow: 0 -1px 0 rgba(0, 0, 0, 0.2);
-        }
-
-        .tab-btn {
-            min-height: 48px; 
-            padding: 4px 2px; 
-            border: 0; 
-            background: transparent; 
-            color: #8e8e93;
-            font-size: 10px; 
-            font-weight: 500; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 3px;
-            font-family: var(--font-sans);
-            transition: opacity 0.15s ease;
-            border-radius: 0 !important;
-        }
-
-        .tab-btn i { font-size: 18px; }
-
-        .tab-btn.active { 
-            color: var(--accent);
-            background: transparent;
-            box-shadow: none;
-        }
-
-        .tab-btn:active {
-            opacity: 0.6;
-        }
-
-        .tab-content { 
-            display: none; 
-            animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); 
-            padding-bottom: 20px; 
-        }
-
-        .tab-content.active { display: block; }
-
-        @keyframes fadeIn { 
-            from { opacity: 0; transform: translateY(6px); } 
-            to { opacity: 1; transform: translateY(0); } 
-        }
-
-        .status-grid { 
-            display: grid; 
-            grid-template-columns: repeat(2, minmax(0, 1fr)); 
-            gap: 10px; 
-            margin: 4px 0 16px 0; 
-        }
-
-        .stat-card {
-            min-height: 68px; 
-            padding: 10px 14px; 
-            background: var(--bg-panel); 
-            border: var(--glass-stroke);
-            border-radius: var(--radius-lg) !important;
-            box-shadow: var(--shadow-card);
-        }
-
-        .stat-card span { 
-            display: block; 
-            color: var(--text-muted); 
-            font-size: 11px; 
-            font-weight: 600; 
-            margin-bottom: 3px;
-            text-transform: uppercase;
-            letter-spacing: 0.2px;
-        }
-
-        .stat-card strong { 
-            display: block; 
-            color: var(--text-main); 
-            font-size: 20px; 
-            font-weight: 700; 
-            letter-spacing: -0.3px;
-        }
-
-        /* iOS Grouped List Style */
-        .group-box {
-            background: var(--bg-panel); 
-            border: var(--glass-stroke); 
-            border-radius: 12px !important;
-            padding: 0; 
-            margin-bottom: 18px; 
-            box-shadow: var(--shadow-card);
-            overflow: hidden;
-        }
-
-        .group-title { 
-            color: var(--text-muted); 
-            font-weight: 400; 
-            font-size: 13px; 
-            margin: 18px 16px 6px 16px; 
-            text-transform: uppercase;
-            letter-spacing: -0.1px;
-            display: flex; 
-            align-items: center; 
-            gap: 6px;
-            border-bottom: 0;
-            padding-bottom: 0;
-        }
-
-        .group-title i { color: var(--accent); font-size: 14px; }
-
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
-        .control-row { display: flex; gap: 8px; align-items: center; width: 100%; }
-        
-        /* iOS List Rows */
-        .ios-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-height: 48px;
-            padding: 8px 16px;
-            background: transparent;
-            border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .ios-row:last-child {
-            border-bottom: 0;
-        }
-
-        .ios-row-label {
-            font-size: 15px;
-            font-weight: 500;
-            color: var(--text-main);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .ios-row-label i {
-            width: 20px;
-            text-align: center;
-            color: var(--accent);
-        }
-
-        .ios-row-control {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-        }
-
-        /* iOS Pill Buttons */
-        button {
-            min-height: 44px; 
-            background: rgba(255, 255, 255, 0.08); 
-            color: var(--accent); 
-            border: 0;
-            border-radius: 10px !important;
-            padding: 10px 16px; 
-            font-weight: 600; 
-            font-size: 15px; 
-            display: inline-flex; 
-            justify-content: center; 
-            align-items: center; 
-            gap: 6px;
-            flex: 1; 
-            font-family: var(--font-sans);
-            cursor: pointer;
-            transition: var(--transition-smooth);
-        }
-
-        button:active { 
-            background: rgba(255, 255, 255, 0.16); 
-            transform: scale(0.97); 
-        }
-
-        button.primary { 
-            background: var(--accent) !important; 
-            color: #ffffff !important; 
-            border: 0 !important;
-            box-shadow: 0 2px 8px rgba(10, 132, 255, 0.25) !important;
-        }
-
-        button.primary:active {
-            opacity: 0.85;
-            transform: scale(0.97);
-        }
-
-        button.danger { 
-            background: var(--danger) !important; 
-            color: #ffffff !important; 
-            border: 0 !important;
-            box-shadow: 0 2px 8px rgba(255, 69, 58, 0.25) !important;
-        }
-
-        button.danger:active {
-            opacity: 0.85;
-            transform: scale(0.97);
-        }
-
-        button.icon-only { flex: none; width: 44px; padding: 0; border-radius: 50% !important; }
-
-        /* iOS Inputs */
-        input[type="text"], input[type="number"], select, textarea {
-            background: rgba(120, 120, 128, 0.24); 
-            border: 0; 
-            border-radius: 10px !important;
-            padding: 10px 12px; 
-            color: var(--text-main);
-            font-size: 16px !important; /* Prevents auto-zoom on Safari iOS */
-            font-weight: 400; 
-            width: 100%; 
-            box-sizing: border-box; 
-            font-family: var(--font-sans);
-            transition: var(--transition-smooth);
-        }
-
-        textarea { min-height: 100px; resize: vertical; line-height: 1.4; }
-
-        input:focus, select:focus, textarea:focus { 
-            outline: none; 
-            background: rgba(120, 120, 128, 0.32);
-        }
-
-        /* iOS Switches */
-        .apple-switch { position: relative; display: inline-block; width: 51px; height: 31px; flex-shrink: 0; }
-        .apple-switch input { opacity: 0; width: 0; height: 0; }
-        .apple-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(120, 120, 128, 0.36); border-radius: 16px !important; transition: .2s cubic-bezier(0.16, 1, 0.3, 1); }
-        .apple-slider:before { position: absolute; content: ""; height: 27px; width: 27px; left: 2px; top: 2px; background-color: #ffffff; border-radius: 50% !important; transition: .2s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 3px 8px rgba(0,0,0,0.15); }
-        .apple-switch input:checked + .apple-slider { background-color: var(--success); }
-        body.theme-pink .apple-switch input:checked + .apple-slider { background-color: var(--accent); }
-        .apple-switch input:checked + .apple-slider:before { transform: translateX(20px); }
-
-        .color-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-        
-        /* Color input overrides */
-        input[type="color"] {
-            -webkit-appearance: none;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50% !important;
-            cursor: pointer;
-            background: none;
-            padding: 0;
-        }
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0;
-        }
-        input[type="color"]::-webkit-color-swatch {
-            border: none;
-            border-radius: 50% !important;
-        }
-
-        .log-box { 
-            background: rgba(0, 0, 0, 0.3); 
-            border-radius: 8px !important;
-            padding: 12px; 
-            height: 200px; 
-            overflow-y: auto; 
-            font-size: 12px; 
-            color: var(--text-main); 
-            line-height: 1.6; 
-            margin-bottom: 8px; 
-        }
-
-        .log-item { 
-            padding: 6px 0; 
-            border-bottom: 0.5px solid rgba(255, 255, 255, 0.06); 
-        }
-
-        .log-item:last-child { border-bottom: 0; }
-    </style>
+/* ── 되돌리기 토스트 ── */
+#undo { position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom));
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r2);
+        padding: 12px 14px; display: none; align-items: center; gap: 12px; z-index: 100;
+        box-shadow: 0 12px 34px rgba(0,0,0,0.55); animation: pop 240ms var(--ease-out); }
+#undo span { flex: 1; font-size: 13px; font-weight: 700; }
+#undo button { background: var(--accent); color: #fff; font-weight: 900; font-size: 13px;
+               padding: 9px 16px; border-radius: var(--r1); }
+/* 실패 알림 */
+#err { position: fixed; left: 12px; right: 12px; top: calc(64px + env(safe-area-inset-top));
+       background: rgba(255,69,58,0.95); color: #fff; border-radius: var(--r2);
+       padding: 12px 14px; font-size: 13px; font-weight: 700; display: none; z-index: 200;
+       box-shadow: 0 12px 34px rgba(0,0,0,0.5); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
 </head>
 <body>
-    <div class="header">
-        <div>
-            <div class="eyebrow" style="display: flex; align-items: center; gap: 8px;">
-                <span>Live Master</span>
-                <a href="/controller?mode=desktop" class="ios-link-btn"><i class="fa-solid fa-laptop"></i> PC 버전</a>
-                <a href="/logout" class="ios-link-btn danger"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</a>
-            </div>
-            <h1>모바일 제어</h1>
-        </div>
-        <label class="reaction-pill">
-            <i class="fa-solid fa-eye" id="icon-reaction"></i>
-            <span id="lbl-reaction-mode">대기</span>
-            <div class="apple-switch"><input type="checkbox" id="chk-reaction" onchange="toggleOption('reaction_mode')"><span class="apple-slider"></span></div>
-        </label>
-    </div>
 
-    <div id="active-broadcast-area" style="display: none;">
-        <div class="tabs">
-            <button class="tab-btn active" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-stopwatch"></i><span>대결 제어</span></button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i><span>조명 & 이펙트</span></button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-news')"><i class="fa-solid fa-bullhorn"></i><span>설정 & 로그</span></button>
-        </div>
+<header>
+    <h1>📱 모바일 조종실</h1>
+    <span id="conn" class="bad">연결 중…</span>
+</header>
 
-        <!-- 1. 대결 제어 탭 -->
-        <div id="tab-match" class="tab-content active">
-            <div class="status-grid">
-                <div class="stat-card"><span>타이머</span><strong id="stat-timer">00:00</strong></div>
-                <div class="stat-card"><span>대결 상태</span><strong id="stat-match-state">대기</strong></div>
-                <div class="stat-card"><span>총합 점수</span><strong id="stat-total">0</strong></div>
-                <div class="stat-card"><span>방송 목표</span><strong id="stat-goal">0</strong></div>
-            </div>
-            
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-stopwatch"></i> 타이머 제어</div>
-                
-                <div style="padding: 16px;">
-                    <!-- 원터치 퀵 프리셋 설정 -->
-                    <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">시간 퀵 설정</div>
-                    <div class="control-row" style="margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-                        <button type="button" onclick="quickSetTimer(3)">3분</button>
-                        <button type="button" onclick="quickSetTimer(5)">5분</button>
-                        <button type="button" onclick="quickSetTimer(10)">10분</button>
-                        <button type="button" onclick="quickSetTimer(1)">1분</button>
-                    </div>
-                    
-                    <!-- 시간 추가 제어 -->
-                    <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">시간 추가</div>
-                    <div class="control-row" style="margin-bottom: 20px; gap: 8px;">
-                        <button type="button" onclick="addTimerTime(30)" style="background: rgba(10,132,255,0.1); color: var(--accent);">+30초</button>
-                        <button type="button" onclick="addTimerTime(60)" style="background: rgba(10,132,255,0.1); color: var(--accent);">+1분</button>
-                    </div>
-                    
-                    <!-- 수동 입력 제어 -->
-                    <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">수동 시간 설정</div>
-                    <div class="control-row" style="margin-bottom: 16px; gap: 8px;">
-                        <input type="number" id="in-timer-m" value="3" placeholder="분" data-no-comma style="text-align: center;"> <span style="font-weight:600; font-size:15px;">분</span>
-                        <input type="number" id="in-timer-s" value="0" placeholder="초" data-no-comma style="text-align: center;"> <span style="font-weight:600; font-size:15px;">초</span>
-                    </div>
-                    
-                    <div class="control-row" style="gap: 8px;">
-                        <button onclick="setTimer()"><i class="fa-solid fa-rotate-right"></i> 시간 적용</button>
-                        <button class="primary" onclick="toggleTimer()" id="btn-timer-toggle"><i class="fa-solid fa-play"></i> 시작</button>
-                    </div>
-                </div>
-            </div>
+<div class="sec">
+    <div class="sec-title">후원 대기함 <span class="count" id="pcount">0</span></div>
+    <div id="pending"><div class="empty">불러오는 중…</div></div>
+</div>
 
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-tv"></i> 대결 화면 설정</div>
-                
-                <div class="ios-row">
-                    <div class="ios-row-label"><i class="fa-solid fa-square-poll-horizontal"></i><span>위젯 표시</span></div>
-                    <div class="ios-row-control">
-                        <div class="apple-switch"><input type="checkbox" id="chk-match" onchange="toggleMatch()"><span class="apple-slider"></span></div>
-                    </div>
-                </div>
-                <div class="ios-row">
-                    <div class="ios-row-label"><i class="fa-solid fa-fire" style="color:var(--danger);"></i><span>불꽃 효과</span></div>
-                    <div class="ios-row-control">
-                        <div class="apple-switch"><input type="checkbox" id="chk-match-fire" onchange="toggleMatchFire()"><span class="apple-slider"></span></div>
-                    </div>
-                </div>
-                <div style="padding: 16px;">
-                    <input type="text" id="in-match-title" placeholder="대결 타이틀 입력 (선택)" oninput="updateMatchTitle()">
-                </div>
-            </div>
-        </div>
+<div class="sec">
+    <div class="sec-title">점수</div>
+    <div id="players"></div>
+</div>
 
-        <!-- 2. 조명 & 이펙트 탭 -->
-        <div id="tab-neon" class="tab-content">
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-lightbulb"></i> 리액션 조명 제어</div>
-                
-                <div style="padding: 16px;">
-                    <div class="control-group" style="gap: 10px;">
-                        <button id="btn-rainbow" onclick="triggerNeon('RAINBOW')" style="background: linear-gradient(90deg, #ff453a, #ff9f0a, #ffd60a, #34c759, #007aff, #5856d6); color: #fff; border-radius: 20px !important;"><i class="fa-solid fa-rainbow"></i> 무지개 네온</button>
-                        <div class="control-row" style="gap: 8px;">
-                            <button onclick="triggerNeon('AUDI')"><i class="fa-solid fa-car"></i> 아우디 빔</button>
-                            <button onclick="triggerNeon('OFF')" class="danger"><i class="fa-solid fa-power-off"></i> 전체 끄기</button>
-                        </div>
-                    </div>
-                    <div style="height: 0.5px; background: rgba(255,255,255,0.1); margin: 16px 0;"></div>
-                    <div id="color-slots" class="color-grid"></div>
-                </div>
-            </div>
+<div id="undo"><span id="undo-text"></span><button onclick="undoLast()">되돌리기</button></div>
+<div id="err"></div>
 
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-rocket"></i> 특수 자막 발사기</div>
-                <div style="padding: 16px;">
-                    <div class="control-row launch-row" style="gap: 8px;">
-                        <input type="text" id="in-up-text" placeholder="화면 중앙 발사 문구" onkeydown="if(event.key==='Enter') triggerUpText()">
-                        <button class="primary" style="flex: none; width: 85px;" onclick="triggerUpText()"><i class="fa-solid fa-paper-plane"></i> 발사</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+<script>
+// 이 화면은 '자리 비웠을 때' 쓰는 물건이다. 밖에서는 네트워크가 불안정하므로
+// 어떤 조작이든 (1) 실패를 반드시 눈에 보이게 알리고 (2) 실패하면 화면을 원래대로 되돌린다.
+let gd = null;
+let busy = false;              // 조작 한 건이 끝나기 전에 다음 조작을 받지 않는다(중복 지급 방지)
+let lastAction = null;         // 되돌리기용
+let undoTimer = null;
+const suggest = {};            // don.id -> {target, confidence}
+const asked = new Set();       // AI 추천을 이미 물어본 후원
+const SUG_MIN = 0.6;
 
-        <!-- 3. 설정 & 로그 탭 -->
-        <div id="tab-news" class="tab-content">
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-sliders"></i> 기능 & 환경 설정</div>
-                
-                <div class="ios-row">
-                    <div class="ios-row-label"><span>테마 설정</span></div>
-                    <div class="ios-row-control" style="width: 140px;">
-                        <select id="sel-theme" onchange="updateTheme()"><option value="default">기본 다크</option><option value="pink">네온 핑크</option></select>
-                    </div>
-                </div>
-                <div class="ios-row">
-                    <div class="ios-row-label"><span>목표 설정</span></div>
-                    <div class="ios-row-control" style="width: 140px;">
-                        <input type="number" id="in-goal" placeholder="목표 점수" onchange="updateGoal()" style="text-align: right; background: transparent; padding: 4px;">
-                    </div>
-                </div>
-                <div class="ios-row">
-                    <div class="ios-row-label"><span>점수 팝업 표시</span></div>
-                    <div class="ios-row-control">
-                        <div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div>
-                    </div>
-                </div>
-                <div class="ios-row">
-                    <div class="ios-row-label"><span>1등 탈환 알림</span></div>
-                    <div class="ios-row-control">
-                        <div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div>
-                    </div>
-                </div>
-            </div>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const won = n => (n || 0).toLocaleString();
 
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-bullhorn"></i> 전광판 설정</div>
-                
-                <div class="ios-row">
-                    <div class="ios-row-label"><span>화면에 표시하기</span></div>
-                    <div class="ios-row-control">
-                        <div class="apple-switch"><input type="checkbox" id="chk-ticker" onchange="toggleOption('ticker_enabled')"><span class="apple-slider"></span></div>
-                    </div>
-                </div>
-                <div style="padding: 16px;">
-                    <div style="margin-bottom: 16px;">
-                        <label style="font-size: 13px; font-weight:bold; color:var(--text-muted);">스크롤 속도: <span id="lbl-speed">70</span></label>
-                        <input type="range" id="in-speed" min="1" max="100" onchange="updateSpeed(this.value)" style="width:100%; margin-top:10px; accent-color: var(--accent); background: transparent;">
-                    </div>
-                    <textarea id="in-ticker" placeholder="문구를 입력하세요. (엔터로 구분)" style="height: 100px;" oninput="updateTickerText()"></textarea>
-                </div>
-            </div>
+function showErr(msg) {
+    const e = $('err');
+    e.textContent = '⚠️ ' + msg;
+    e.style.display = 'block';
+    clearTimeout(showErr._t);
+    showErr._t = setTimeout(() => { e.style.display = 'none'; }, 4000);
+}
 
-            <div class="group-box">
-                <div class="group-title"><i class="fa-solid fa-list-ol"></i> 실시간 로그</div>
-                
-                <div style="padding: 16px;">
-                    <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">랭킹 로그</div>
-                    <div id="log-box-ranking" class="log-box" style="height: 120px;"></div>
-                    <button style="width: 100%; margin-bottom: 16px; padding: 8px; font-size: 13px; background: rgba(255,69,58,0.15); color: var(--danger);" onclick="clearLogs('rank')"><i class="fa-solid fa-trash-can"></i> 랭킹 로그 비우기</button>
-                    
-                    <div style="font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px;">대결 로그</div>
-                    <div id="log-box-match" class="log-box" style="height: 120px;"></div>
-                    <button style="width: 100%; padding: 8px; font-size: 13px; background: rgba(255,69,58,0.15); color: var(--danger);" onclick="clearLogs('match')"><i class="fa-solid fa-trash-can"></i> 대결 로그 비우기</button>
-                </div>
-            </div>
-        </div>
-    </div>
+function players() {
+    if (!gd) return [];
+    return (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+}
 
-    <div id="setup-broadcast-area" style="display: none;">
-        <div style="margin: 80px 16px; padding: 40px 24px; text-align: center; background: var(--bg-panel); border: var(--glass-stroke); border-radius: 16px; box-shadow: var(--shadow-card);">
-            <div style="font-size: 48px; color: var(--accent); margin-bottom: 24px;">
-                <i class="fa-solid fa-hourglass-half"></i>
-            </div>
-            <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.4px;">방송 대기 중</h3>
-            <p style="margin: 0; font-size: 14px; color: var(--text-muted); line-height: 1.6; word-break: keep-all;">
-                오늘의 방송이 아직 시작되지 않았습니다.<br>
-                PC 제어실에서 플레이어를 등록하고 방송 시작을 진행해주세요.
-            </p>
-        </div>
-    </div>
+// ── 서버 전송 ─────────────────────────────────────────────
+// 상태 전체를 보내므로, 보내기 직전의 gd 가 최신이어야 한다(SSE 로 계속 갱신된다).
+async function push() {
+    const res = await fetch('/api/data', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gd)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+}
 
-    <script>
-        // 전역 fetch 인터셉터 (인증 토큰 자동 주입)
-        const originalFetch = window.fetch;
-        window.fetch = function(resource, init) {
-            if (window.apiToken && typeof resource === 'string' && resource.startsWith('/api/')) {
-                init = init || {};
-                init.headers = init.headers || {};
-                if (init.headers instanceof Headers) {
-                    init.headers.set('Authorization', 'Bearer ' + window.apiToken);
-                } else {
-                    init.headers['Authorization'] = 'Bearer ' + window.apiToken;
-                }
-            }
-            return originalFetch(resource, init);
-        };
+// ── 배정 ──────────────────────────────────────────────────
+// ⚠️ 반드시 '이름'으로 사람을 찾는다. 목록은 기여도순으로 계속 재정렬되므로
+//    인덱스를 들고 있으면 엉뚱한 사람에게 점수가 들어간다.
+async function assign(donId, name) {
+    if (busy) return;
+    const don = (gd.pending_donations || []).find(d => d.id === donId);
+    const p = players().find(b => b.name === name);
+    if (!don || !p) return;
+    busy = true;
 
-        function openTab(evt, tabId) { 
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); 
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); 
-            document.getElementById(tabId).classList.add('active'); 
-            evt.currentTarget.classList.add('active'); 
+    const pts = Math.round((don.amount || 0) / 10000);
+    const before = { score: p.score || 0, contribution: p.contribution || 0 };
+    p.score = before.score + pts;
+    p.contribution = before.contribution + pts;
+    if (!gd.logs) gd.logs = [];
+    gd.logs.unshift({ time: new Date().toLocaleTimeString('ko-KR', { hour12: false }), name, val: pts });
+    gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
+    render();
+
+    try {
+        await push();
+        // 점수가 실제로 들어간 뒤에만 대기함에서 지운다. 순서가 반대면
+        // 전송이 실패했을 때 후원이 흔적 없이 사라진다.
+        await fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' });
+        rememberUndo(`${don.name}님 → ${name} +${pts}점`, { type: 'assign', name, pts });
+    } catch (e) {
+        p.score = before.score; p.contribution = before.contribution;
+        gd.logs.shift();
+        gd.pending_donations.unshift(don);
+        render();
+        showErr('지급하지 못했습니다. 다시 눌러주세요.');
+    } finally { busy = false; }
+}
+
+async function assignSplit(donId, mode) {
+    if (busy) return;
+    const don = (gd.pending_donations || []).find(d => d.id === donId);
+    const list = players();
+    if (!don || list.length < 2) return;
+    const targets = mode === 'half' ? list.slice(0, 2) : list;
+    busy = true;
+    const pts = Math.floor(Math.round((don.amount || 0) / 10000) / targets.length);
+    if (pts <= 0) { busy = false; showErr('나누기엔 금액이 너무 작습니다.'); return; }
+
+    const before = targets.map(p => ({ p, s: p.score || 0, c: p.contribution || 0 }));
+    targets.forEach(p => { p.score = (p.score || 0) + pts; p.contribution = (p.contribution || 0) + pts; });
+    gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
+    render();
+    try {
+        await push();
+        await fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' });
+        rememberUndo(`${don.name}님 → ${targets.length}명 각 +${pts}점`,
+                     { type: 'split', targets: targets.map(t => t.name), pts });
+    } catch (e) {
+        before.forEach(b => { b.p.score = b.s; b.p.contribution = b.c; });
+        gd.pending_donations.unshift(don);
+        render();
+        showErr('나눠주지 못했습니다. 다시 눌러주세요.');
+    } finally { busy = false; }
+}
+
+async function ignore(donId) {
+    if (busy) return;
+    const don = (gd.pending_donations || []).find(d => d.id === donId);
+    if (!don) return;
+    if (!confirm(`${don.name}님 ${won(don.amount)}원 후원을 무시할까요?\n(점수는 아무에게도 안 갑니다)`)) return;
+    busy = true;
+    gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
+    render();
+    try {
+        const r = await fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+    } catch (e) {
+        gd.pending_donations.unshift(don); render();
+        showErr('무시하지 못했습니다.');
+    } finally { busy = false; }
+}
+
+// ── 점수 직접 수정 ────────────────────────────────────────
+async function bump(name, delta) {
+    if (busy) return;
+    const p = players().find(b => b.name === name);
+    if (!p) return;
+    busy = true;
+    const before = { s: p.score || 0, c: p.contribution || 0 };
+    p.score = before.s + delta;
+    p.contribution = before.c + delta;
+    if (!gd.logs) gd.logs = [];
+    gd.logs.unshift({ time: new Date().toLocaleTimeString('ko-KR', { hour12: false }), name, val: delta });
+    render();
+    try {
+        await push();
+        rememberUndo(`${name} ${delta > 0 ? '+' : ''}${delta}점`, { type: 'bump', name, delta });
+    } catch (e) {
+        p.score = before.s; p.contribution = before.c; gd.logs.shift(); render();
+        showErr('점수를 바꾸지 못했습니다.');
+    } finally { busy = false; }
+}
+
+// ── 되돌리기 ──────────────────────────────────────────────
+// 밖에서 급하게 누르다 보면 오타가 난다. 마지막 한 건은 항상 되돌릴 수 있어야 한다.
+function rememberUndo(label, action) {
+    lastAction = action;
+    $('undo-text').textContent = label;
+    $('undo').style.display = 'flex';
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => { $('undo').style.display = 'none'; lastAction = null; }, 8000);
+}
+
+async function undoLast() {
+    if (!lastAction || busy) return;
+    const a = lastAction;
+    lastAction = null;
+    $('undo').style.display = 'none';
+    busy = true;
+    try {
+        if (a.type === 'assign' || a.type === 'bump') {
+            const d = a.type === 'assign' ? -a.pts : -a.delta;
+            const p = players().find(b => b.name === a.name);
+            if (p) { p.score = (p.score || 0) + d; p.contribution = (p.contribution || 0) + d; }
+        } else if (a.type === 'split') {
+            a.targets.forEach(n => {
+                const p = players().find(b => b.name === n);
+                if (p) { p.score = (p.score || 0) - a.pts; p.contribution = (p.contribution || 0) - a.pts; }
+            });
         }
-        
-        let gd = null; let isPushing = false; 
-        let serverTimeOffset = 0;
-        let lastColorHtml = ""; let lastRankLogHtml = ""; let lastMatchLogHtml = "";
+        render();
+        await push();
+    } catch (e) {
+        showErr('되돌리지 못했습니다.');
+    } finally { busy = false; }
+}
 
-        async function fetchAPI() {
-            if (isPushing) return; 
-            try { 
-                const res = await fetch('/api/data'); const newData = await res.json(); 
-                if (newData && newData.api_token) {
-                    window.apiToken = newData.api_token;
-                }
-                if (newData && newData.server_time) {
-                    serverTimeOffset = newData.server_time - Date.now();
-                }
-                gd = newData;
-                if(!gd.bjs) { gd.bjs = []; }
-                else { gd.bjs.forEach(bj => { if(bj.contribution === undefined) bj.contribution = bj.score > 0 ? bj.score : 0; }); }
-                if(!gd.match_data) gd.match_data = { active: false, fire_effect: false, is_running: false, time_left_ms: 180000, end_time_ms: 0, players: [{name:'팀 A', score:0}, {name:'팀 B', score:0}] };
-                if(!gd.bottom_fixed) gd.bottom_fixed = {name: "운영비", score: 0};
-                renderUI(); 
-            } catch (e) {}
+// ── AI 추천 (있으면 배지로만 보여준다. 자동으로 배정하지 않는다) ──
+function askSuggest(don) {
+    if (asked.has(don.id) || !don.message) return;
+    asked.add(don.id);
+    fetch('/api/audit/suggest', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message,
+                               players: players().map(p => p.name) })
+    }).then(r => r.json()).then(res => {
+        if (res && res.target && (res.confidence || 0) >= SUG_MIN) {
+            suggest[don.id] = res;
+            render();
         }
+    }).catch(() => {});   // AI 가 없어도 화면은 그대로 동작해야 한다
+}
 
-        async function pushAPI() {
-            if(!gd) return;
-            isPushing = true;
-            try {
-                const res = await fetch('/api/data', { 
-                    method: 'POST', 
-                    headers:{'Content-Type':'application/json'}, 
-                    body: JSON.stringify(gd) 
-                });
-                if (res.status === 409) {
-                    console.warn("⚠️ 버전 충돌 감지, 자동 동기화 후 재전송...");
-                    isPushing = false;
-                    const freshRes = await fetch('/api/data');
-                    const freshData = await freshRes.json();
-                    gd.version = freshData.version; // 서버 최신 버전으로 갱신
-                    isPushing = true;
-                    const retryRes = await fetch('/api/data', {
-                        method: 'POST',
-                        headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify(gd)
-                    });
-                    if (retryRes.status === 409) {
-                        console.warn("⚠️ 재시도에서도 충돌, 전체 동기화 수행");
-                        isPushing = false;
-                        await fetchAPI();
-                        return;
-                    }
-                }
-            } catch(e) {
-                console.error("⚠️ pushAPI Error:", e);
-            }
-            setTimeout(() => { isPushing = false; }, 80); 
-        }
+// ── 그리기 ────────────────────────────────────────────────
+function render() {
+    if (!gd) return;
+    const list = players();
+    const pend = (gd.pending_donations || []).filter(d => d.type !== 'off_work');
+    $('pcount').textContent = pend.length;
 
-        function readableTextColor(hex) {
-            let clean = String(hex || '').replace('#', '').trim();
-            if (clean.length === 3) clean = clean.split('').map(ch => ch + ch).join('');
-            if (clean.length !== 6) return '#fff';
-            let r = parseInt(clean.slice(0, 2), 16);
-            let g = parseInt(clean.slice(2, 4), 16);
-            let b = parseInt(clean.slice(4, 6), 16);
-            return ((r * 299 + g * 587 + b * 114) / 1000) > 170 ? '#1d1d1f' : '#fff';
-        }
+    $('pending').innerHTML = pend.length ? pend.map(d => {
+        const s = suggest[d.id];
+        const btns = list.map(p =>
+            `<button class="${s && s.target === p.name ? 'reco' : ''}"
+                     onclick="assign('${d.id}','${esc(p.name).replace(/'/g, '&#39;')}')">${esc(p.name)}</button>`
+        ).join('');
+        return `<div class="card">
+            <div><span class="who">${esc(d.name)}</span> · <span class="amt">${won(d.amount)}원</span></div>
+            ${d.message ? `<div class="msg">"${esc(d.message)}"</div>` : ''}
+            ${s ? `<div class="sug">🤖 ${esc(s.target)}로 보임</div>` : ''}
+            <div class="pay">${btns}
+                <div class="sub">
+                    <button onclick="assignSplit('${d.id}','half')">🌓 반반</button>
+                    <button onclick="assignSplit('${d.id}','n')">🔢 N분할</button>
+                    <button class="del" onclick="ignore('${d.id}')">무시</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('') : '<div class="empty">대기 중인 후원이 없습니다</div>';
 
-        function renderUI() {
-            if(document.activeElement.tagName === "INPUT" && !document.activeElement.id.startsWith("chk") || document.activeElement.tagName === "TEXTAREA") return;
-            
-            let isActive = gd.broadcast_active || false;
-            document.getElementById('setup-broadcast-area').style.display = isActive ? 'none' : 'block';
-            document.getElementById('active-broadcast-area').style.display = isActive ? 'block' : 'none';
-            
-            const reactionPill = document.querySelector('.reaction-pill');
-            if (reactionPill) {
-                reactionPill.style.display = isActive ? 'flex' : 'none';
-            }
-            
-            if (!isActive) {
-                return;
-            }
-            
-            const setVal = (id, val) => { let el = document.getElementById(id); if(el && el.value != val) el.value = val; };
-            const setChk = (id, val) => { let el = document.getElementById(id); if(el && el.checked !== val) el.checked = val; };
-            const setHtml = (id, val) => { let el = document.getElementById(id); if(el && el.innerHTML !== val) el.innerHTML = val; };
+    $('players').innerHTML = list.length ? list.map(p => `<div class="prow">
+        <div class="nm">${esc(p.name)}</div>
+        <div class="sc">${won(p.score)}</div>
+        <button class="minus" onclick="bump('${esc(p.name).replace(/'/g, '&#39;')}',-1)">−</button>
+        <button class="plus"  onclick="bump('${esc(p.name).replace(/'/g, '&#39;')}',1)">+</button>
+    </div>`).join('') : '<div class="empty">플레이어가 없습니다</div>';
 
-            setVal('sel-theme', gd.theme || 'default');
-            setVal('in-goal', gd.target_goal); commaFormat('in-goal');
-            
-            // Handle body theme dynamically
-            if (gd.theme === 'pink') {
-                document.body.className = 'theme-pink';
-            } else {
-                document.body.className = '';
-            }
-            
-            setChk('chk-reaction', gd.reaction_mode);
-            document.getElementById('icon-reaction').style.color = gd.reaction_mode ? "var(--danger)" : "var(--text-main)";
-            document.getElementById('icon-reaction').className = gd.reaction_mode ? "fa-solid fa-eye-slash" : "fa-solid fa-eye";
-            setHtml('lbl-reaction-mode', gd.reaction_mode ? '리액션' : '대기');
-            
-            setChk('chk-popup', gd.popup_enabled);
-            setChk('chk-takeover', gd.takeover_enabled);
-            setChk('chk-match', gd.match_data.active);
-            setChk('chk-match-fire', gd.match_data.fire_effect || false);
-            setChk('chk-ticker', gd.ticker_enabled);
+    pend.forEach(askSuggest);
+}
 
-            let totalScore = (gd.bottom_fixed?.score || 0) + gd.bjs.reduce((sum, bj) => sum + (bj.score || 0), 0);
-            setHtml('stat-total', totalScore.toLocaleString());
-            setHtml('stat-goal', (gd.target_goal || 0).toLocaleString());
+// ── 서버 연결 ─────────────────────────────────────────────
+let es = null, lastMsg = Date.now();
+function connect() {
+    if (es) es.close();
+    es = new EventSource('/api/stream');
+    const onState = e => {
+        lastMsg = Date.now();
+        try {
+            const d = JSON.parse(e.data);
+            // 내가 조작하는 중에 들어온 갱신으로 화면이 튀지 않게 한다.
+            // (조작이 끝나면 다음 갱신에서 어차피 맞춰진다)
+            if (busy) return;
+            gd = d;
+            render();
+        } catch (err) {}
+        $('conn').textContent = '연결됨';
+        $('conn').className = '';
+    };
+    es.addEventListener('init', onState);     // ⚠️ 서버는 이름 붙은 이벤트로 보낸다. onmessage 로는 못 받는다.
+    es.addEventListener('update', onState);
+    es.addEventListener('ping', () => { lastMsg = Date.now(); });
+    es.onerror = () => {
+        $('conn').textContent = '재연결 중…';
+        $('conn').className = 'bad';
+        es.close();
+        setTimeout(connect, 3000);
+    };
+}
+// 연결이 조용히 죽는 경우(프록시가 끊었는데 onerror 가 안 뜨는 상황) 대비
+setInterval(() => {
+    if (Date.now() - lastMsg > 45000) { lastMsg = Date.now(); connect(); }
+}, 10000);
 
-            let currentNeon = (gd.effect_trigger && gd.effect_trigger.color !== 'OFF') ? gd.effect_trigger.color : ''; 
-            let rbBtn = document.getElementById('btn-rainbow'); 
-            if(currentNeon === 'RAINBOW') { 
-                if(rbBtn.innerText.indexOf("끄기") === -1) {
-                    rbBtn.innerHTML = "<i class='fa-solid fa-rainbow'></i> 무지개 끄기"; rbBtn.style.background = "#1d1d1f"; rbBtn.style.color = "#fff"; 
-                }
-            } else { 
-                if(rbBtn.innerText.indexOf("네온") === -1) {
-                    rbBtn.innerHTML = "<i class='fa-solid fa-rainbow'></i> 무지개 네온"; rbBtn.style.background = "linear-gradient(90deg, #ff453a, #ff9f0a, #ffd60a, #34c759, #007aff, #5856d6)"; rbBtn.style.color = "#fff"; 
-                }
-            }
-
-            if (!gd.saved_colors) gd.saved_colors = ['#ff0055', '#00e5ff', '#ff9100', '#00ff00']; 
-            let colorHtml = ''; 
-            gd.saved_colors.forEach((col, i) => { 
-                let isAct = (currentNeon === col); 
-                let textCol = readableTextColor(col);
-                let btnStyle = isAct ? `background:rgba(255,255,255,0.08); color:var(--text-main);` : `background:${col}; color:${textCol};`; 
-                colorHtml += `<div class="color-slot" style="background: rgba(120, 120, 128, 0.12); border: 0; border-radius: 10px; padding: 6px 10px; display: flex; align-items: center; gap: 8px;"><input type="color" value="${col}" onchange="gd.saved_colors[${i}]=this.value; pushAPI();" style="width: 28px; height: 28px; border-radius: 50% !important; border: 0; cursor: pointer; padding: 0; overflow: hidden; flex: none;"><button style="${btnStyle}; font-size: 13px; min-height: 28px; padding: 4px 8px; border-radius: 6px !important; flex: 1; border: 0;" onclick="triggerNeon('${col}')">${isAct ? '<i class="fa-solid fa-check"></i> ON' : '적용'}</button></div>`; 
-            }); 
-            if (lastColorHtml !== colorHtml) { document.getElementById('color-slots').innerHTML = colorHtml; lastColorHtml = colorHtml; }
-
-            let md = gd.match_data; 
-            setVal('in-match-title', md.title || ''); 
-            
-            let timerBtn = document.getElementById('btn-timer-toggle');
-            let newTimerHtml = md.is_running ? "<i class='fa-solid fa-pause'></i> 정지" : "<i class='fa-solid fa-play'></i> 시작";
-            if (timerBtn.innerHTML !== newTimerHtml) {
-                timerBtn.innerHTML = newTimerHtml;
-                timerBtn.className = md.is_running ? "danger" : "primary";
-            }
-            
-            let totalSec = Math.max(0, Math.ceil((md.is_running ? Math.max(0, md.end_time_ms - (Date.now() + serverTimeOffset)) : md.time_left_ms) / 1000)); 
-            setVal('in-timer-m', Math.floor(totalSec / 60)); 
-            setVal('in-timer-s', totalSec % 60);
-            if (totalSec <= 0) {
-                setHtml('stat-timer', '시간종료');
-            } else {
-                setHtml('stat-timer', `${String(Math.floor(totalSec / 60)).padStart(2, '0')}:${String(totalSec % 60).padStart(2, '0')}`);
-            }
-            setHtml('stat-match-state', md.active ? (md.is_running ? '진행' : '표시') : '숨김');
-
-            setVal('in-speed', gd.ticker_speed || 70); 
-            setHtml('lbl-speed', gd.ticker_speed || 70); 
-            setVal('in-ticker', (gd.ticker_text||'').replace(/ \/ /g, '\n')); 
-
-            if (gd.logs) {
-                let rankLogHtml = gd.logs.map(log => `<div class="log-item"><span style="color:var(--text-muted);">[${log.time}]</span> <span style="font-weight:900;">${log.name}</span> <span style="color:var(--accent); font-weight:900;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
-                if (lastRankLogHtml !== rankLogHtml) { document.getElementById('log-box-ranking').innerHTML = rankLogHtml; lastRankLogHtml = rankLogHtml; }
-            }
-            if (gd.match_logs) {
-                let matchLogHtml = gd.match_logs.map(log => `<div class="log-item"><span style="color:var(--text-muted);">[${log.time}]</span> <span style="font-weight:900;">${log.name}</span> <span style="color:var(--accent); font-weight:900;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
-                if (lastMatchLogHtml !== matchLogHtml) { document.getElementById('log-box-match').innerHTML = matchLogHtml; lastMatchLogHtml = matchLogHtml; }
-            }
-        }
-
-        function triggerUpText() { let txt = document.getElementById('in-up-text').value; if (txt.trim() === "") { alert("문구를 먼저 입력해주세요!"); return; } gd.up_trigger = { time: Date.now(), text: txt }; pushAPI(); document.getElementById('in-up-text').value = ''; }
-        
-        function toggleOption(key) { 
-            gd[key] = !gd[key]; 
-            if (key === 'reaction_mode') {
-                let audio = document.getElementById('bgm-audio');
-                let md = gd.match_data;
-                
-                if (gd[key]) { 
-                    if (audio && !audio.paused) { audio.dataset.wasPlaying = "true"; audio.pause(); } else if(audio) { audio.dataset.wasPlaying = "false"; }
-                    if (md && md.is_running) {
-                        md.time_left_ms = Math.max(0, md.end_time_ms - (Date.now() + serverTimeOffset));
-                        md.is_running = false;
-                        md.was_running_before_reaction = true;
-                    }
-                } else { 
-                    if (audio && audio.dataset.wasPlaying === "true") { audio.play().catch(e=>{}); }
-                    if (md && md.was_running_before_reaction) {
-                        if(md.time_left_ms <= 0) md.time_left_ms = md.paused_time_left;
-                        md.end_time_ms = (Date.now() + serverTimeOffset) + md.time_left_ms;
-                        md.is_running = true;
-                        md.was_running_before_reaction = false;
-                    }
-                }
-            }
-            pushAPI(); 
-        }
-
-        function toggleMatch() { gd.match_data.active = !gd.match_data.active; pushAPI(); }
-        function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
-        function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
-        function updateGoal() { gd.target_goal = rawNum('in-goal'); pushAPI(); }
-        function triggerNeon(color) { if (!gd.reaction_mode && color !== 'OFF') { alert("👀 리액션 모드(눈알 아이콘)가 켜져있어야 화면에 보입니다."); return; } gd.effect_trigger = {time: Date.now(), color: color, infinite: true}; pushAPI(); }
-
-        function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI(); }
-        function updateMatchTitle() { gd.match_data.title = document.getElementById('in-match-title').value; pushAPI(); }
-        
-        function quickSetTimer(m) {
-            let ms = m * 60 * 1000;
-            gd.match_data.paused_time_left = ms;
-            gd.match_data.time_left_ms = ms;
-            gd.match_data.is_running = false;
-            pushAPI();
-        }
-
-        function addTimerTime(seconds) {
-            let md = gd.match_data;
-            let msToAdd = seconds * 1000;
-            if (md.is_running) {
-                md.end_time_ms += msToAdd;
-            } else {
-                md.time_left_ms += msToAdd;
-            }
-            pushAPI();
-        }
-
-        function setTimer() { let ms = ((parseInt(document.getElementById('in-timer-m').value)||0)*60 + (parseInt(document.getElementById('in-timer-s').value)||0))*1000; gd.match_data.paused_time_left = ms; gd.match_data.time_left_ms = ms; gd.match_data.is_running = false; pushAPI(); }
-        
-        function toggleTimer() { 
-            let md = gd.match_data; 
-            if(md.is_running) { 
-                md.time_left_ms = Math.max(0, md.end_time_ms - (Date.now() + serverTimeOffset)); 
-                md.is_running = false; 
-                md.was_running_before_reaction = false;
-            } else { 
-                if(md.time_left_ms <= 0) md.time_left_ms = md.paused_time_left; 
-                md.end_time_ms = (Date.now() + serverTimeOffset) + md.time_left_ms; 
-                md.is_running = true; 
-                md.was_running_before_reaction = false;
-            } 
-            pushAPI(); 
-        }
-
-        function updateSpeed(val) { gd.ticker_speed = parseInt(val); document.getElementById('lbl-speed').innerText = val; pushAPI(); }
-        function updateTickerText() { gd.ticker_text = document.getElementById('in-ticker').value.replace(/\n/g, ' / '); pushAPI(); }
-
-        fetchAPI(); setInterval(fetchAPI, 250);
-    </script>
+connect();
+</script>
 </body>
 </html>
