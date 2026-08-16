@@ -2545,6 +2545,10 @@
         //    이 플래그가 켜져 있을 때만 클릭이 재생을 다시 시도하게 해서,
         //    "재생 로딩 중 우연한 클릭"이 같은 시그니처를 두 번 재생하는 사고를 막는다.
         let autoplayBlocked = false;
+        // 자동재생이 막혔을 때 '음소거로라도' 재생 중인 상태.
+        // 음소거 재생은 브라우저가 항상 허용하므로, 소리는 없어도 사진·연출·길이는 정상으로 나간다.
+        // (예전에는 막히면 그냥 5초 뒤 건너뛰어서, 돈 낸 후원의 시그니처가 통째로 날아갔다)
+        let autoplayMutedFallback = false;
 
         // 🔒 [탭 간 오디오 잠금] overlay를 여러 곳(OBS + 확인용 브라우저 등)에서 열어도
         //    소리는 '리더' 탭 한 곳에서만 나게 한다. BroadcastChannel 하트비트로 서로를 인지하고
@@ -2576,7 +2580,7 @@
                     for (const id in audioPeers) if (now - audioPeers[id] > 4000) delete audioPeers[id];
                     // 리더십이 바뀌면(다른 탭이 닫혔거나 등장) 현재 재생 중인 오디오 음소거를 갱신
                     const a = document.getElementById('reaction-audio');
-                    if (a && a.src) a.muted = IS_MONITOR || !isAudioLeader();
+                    if (a && a.src) a.muted = IS_MONITOR || !isAudioLeader() || autoplayMutedFallback;
                 }, 1000);
             }
         } catch (e) { console.warn('BroadcastChannel 초기화 실패 — 오디오는 항상 재생됩니다.', e); }
@@ -3085,7 +3089,7 @@
                 if (data.audio_url) {
                     // Supabase Storage(CDN)는 안정적이므로 캐시버스터 없이 그대로 사용 → 브라우저 캐싱/미리받기 활용
                     audio.src = data.audio_url;
-                    audio.muted = IS_MONITOR || !isAudioLeader();
+                    audio.muted = IS_MONITOR || !isAudioLeader() || autoplayMutedFallback;
 
                     audio.onended = function() {
                         console.log('Audio play ended naturally.');
@@ -3151,22 +3155,34 @@
                                 }
                                 return;
                             }
-                            // ❌ 진짜 자동재생 차단(NotAllowedError 등) — 사용자 클릭 제스처로만 복구 가능
+                            // ❌ 진짜 자동재생 차단(NotAllowedError 등) — 소리 있는 재생은 클릭 전엔 불가.
                             console.error('Audio autoplay blocked:', err);
                             autoplayBlocked = true;
-                            audio.onended = null;
-                            audio.onerror = null;
-                            audio.onloadedmetadata = null;
-                            if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
-                            audio.pause();
-                            audio.src = '';
                             showAutoplayWarning();
-                            // ⚠️ 예전에는 화면만 닫고 서버 큐를 그대로 뒀다.
-                            // 그러면 큐에 항목이 영원히 남아 리액션 모드가 절대 안 꺼졌다.
-                            // 5초 뒤 큐를 진행시켜 마지막 항목이면 리액션 모드까지 자동 해제되게 한다.
-                            reactionTimeout = setTimeout(() => {
-                                finishOnce('자동재생 차단');
-                            }, 5000);
+
+                            // 🔇 그래도 '음소거 재생'은 브라우저가 항상 허용한다.
+                            //    소리는 안 나도 사진·연출·길이·큐 진행이 전부 정상으로 돌아가므로,
+                            //    통째로 건너뛰는 것보다 훨씬 낫다(돈 낸 후원이 화면에 아예 안 뜨는 사고 방지).
+                            //    이후 화면을 한 번이라도 클릭하면 즉시 소리가 살아난다.
+                            if (!isRetry) {
+                                autoplayMutedFallback = true;
+                                audio.muted = true;
+                                audio.play().then(() => {
+                                    console.warn('자동재생 차단 — 음소거 상태로 재생합니다. 화면을 클릭하면 소리가 나옵니다.');
+                                }).catch(e2 => {
+                                    // 음소거 재생마저 실패 — 이때만 포기하고 큐를 넘긴다.
+                                    console.error('음소거 재생도 실패:', e2);
+                                    autoplayMutedFallback = false;
+                                    audio.onended = null;
+                                    audio.onerror = null;
+                                    audio.onloadedmetadata = null;
+                                    if (audioSafetyTimeout) { clearTimeout(audioSafetyTimeout); audioSafetyTimeout = null; }
+                                    audio.pause();
+                                    audio.src = '';
+                                    // 큐에 항목이 남으면 리액션 모드가 영영 안 꺼지므로 반드시 넘긴다.
+                                    reactionTimeout = setTimeout(() => finishOnce('자동재생 차단'), 5000);
+                                });
+                            }
                         });
                     };
                     tryPlay(false);
@@ -3405,16 +3421,37 @@
         //    예전에는 audio.paused || !audio.src 조건으로 재생을 다시 걸었는데,
         //    재생이 막 로딩되는 짧은 순간(아직 paused=true)에 클릭이 들어오면 같은 시그니처가
         //    두 번 재생되는 사고가 있었다. 이제는 차단 플래그가 켜졌을 때만 복구한다.
-        window.addEventListener('click', () => {
+        function recoverFromAutoplayBlock() {
             hideAutoplayWarning();
             if (!autoplayBlocked) return;
+            const audio = document.getElementById('reaction-audio');
+
+            // 🔇 음소거로 이미 재생 중이면 소리만 켜면 된다. 다시 재생하면 처음부터 나가버린다.
+            if (autoplayMutedFallback && audio && audio.src && !audio.paused) {
+                autoplayMutedFallback = false;
+                autoplayBlocked = false;
+                audio.muted = IS_MONITOR || !isAudioLeader();
+                console.log('클릭 감지 — 음소거를 풀어 소리를 살립니다(재생 위치 유지).');
+                return;
+            }
+
             if (globalData && globalData.reaction_queue && globalData.reaction_queue.length > 0) {
                 console.log("자동재생 차단 상태에서 클릭 감지 — 재생을 다시 시도합니다.");
                 autoplayBlocked = false;
+                autoplayMutedFallback = false;
+                // ⚠️ currentPlayingId 를 반드시 같이 맞춘다.
+                //    막혀 있는 사이 큐 머리가 바뀌었을 수 있는데, 그러면 playReaction 안의
+                //    thisPlayId 가 currentPlayingId 와 달라져서 onended·onerror·안전타이머가
+                //    전부 '지난 아이템'으로 간주돼 무시된다 = 재생은 되는데 큐가 영영 안 넘어간다.
+                currentPlayingId = globalData.reaction_queue[0].id;
                 // playReaction 진입 시 예약돼 있던 '5초 뒤 취소' 타이머(reactionTimeout)는 자동으로 해제된다.
                 playReaction(globalData.reaction_queue[0]);
             }
-        });
+        }
+        // 클릭뿐 아니라 키 입력·터치도 '사용자 제스처'로 인정된다. 넓게 받아 복구 기회를 늘린다.
+        window.addEventListener('click', recoverFromAutoplayBlock);
+        window.addEventListener('keydown', recoverFromAutoplayBlock);
+        window.addEventListener('touchstart', recoverFromAutoplayBlock, { passive: true });
 
         let sseSource = null;
         function initSSE() {
