@@ -2506,6 +2506,67 @@
             reactionImgClearTimeout = setTimeout(() => { if (img) img.src = ""; }, 500);
         }
 
+        // 🎨 시그니처 사진의 대표색을 뽑아 네온 테두리(--reac-glow)를 그 색으로 맞춘다.
+        //   보이는 이미지는 그대로 두고, 색 추출용으로만 crossOrigin 이미지를 따로 로드한다.
+        //   CORS 차단/로드 실패 시 아무 것도 안 함(금액 티어 색 유지) → 화면엔 영향 없음.
+        let _themeColorToken = 0;
+        function applySignatureThemeColor(imgUrl) {
+            const box = document.getElementById('reaction-img-box');
+            if (!box || !imgUrl) return;
+            const token = ++_themeColorToken;
+            const probe = new Image();
+            probe.crossOrigin = 'anonymous';
+            probe.onload = () => {
+                if (token !== _themeColorToken) return;   // 더 최신 시그니처가 있으면 무시
+                try {
+                    const c = vibrantColorFromImage(probe);
+                    if (c) box.style.setProperty('--reac-glow', `rgb(${c.r}, ${c.g}, ${c.b})`);
+                } catch (e) { /* tainted canvas 등 → 티어 색 유지 */ }
+            };
+            probe.onerror = () => {};   // 로드/CORS 실패 → 티어 색 유지
+            probe.src = imgUrl;
+        }
+        function vibrantColorFromImage(img) {
+            const S = 40;
+            const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+            const ctx = cv.getContext('2d');
+            ctx.drawImage(img, 0, 0, S, S);
+            const data = ctx.getImageData(0, 0, S, S).data;   // CORS 오염 시 여기서 throw
+            let wr = 0, wg = 0, wb = 0, wsum = 0, ar = 0, ag = 0, ab = 0, an = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
+                if (a < 128) continue;
+                ar += r; ag += g; ab += b; an++;
+                const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+                const sat = mx === 0 ? 0 : (mx - mn) / mx, lum = mx / 255;
+                if (lum < 0.15 || lum > 0.97 || sat < 0.25) continue;   // 너무 어둡/밝/무채색 제외
+                const w = sat * sat;
+                wr += r * w; wg += g * w; wb += b * w; wsum += w;
+            }
+            let r, g, b;
+            if (wsum > 0) { r = wr / wsum; g = wg / wsum; b = wb / wsum; }
+            else if (an > 0) { r = ar / an; g = ag / an; b = ab / an; }   // 채도색 없으면 평균
+            else return null;
+            return boostVibrant(r, g, b);
+        }
+        function boostVibrant(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h, s, l = (mx + mn) / 2;
+            if (mx === mn) { h = s = 0; }
+            else {
+                const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+                switch (mx) { case r: h = (g - b) / d + (g < b ? 6 : 0); break; case g: h = (b - r) / d + 2; break; default: h = (r - g) / d + 4; }
+                h /= 6;
+            }
+            s = Math.min(1, s * 1.35 + 0.1);                 // 채도 부스트(네온답게)
+            l = Math.min(0.62, Math.max(0.45, l));           // 밝기 중간대로 고정
+            const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+            let R, G, B;
+            if (s === 0) { R = G = B = l; }
+            else { const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q; R = hue2rgb(p, q, h + 1 / 3); G = hue2rgb(p, q, h); B = hue2rgb(p, q, h - 1 / 3); }
+            return { r: Math.round(R * 255), g: Math.round(G * 255), b: Math.round(B * 255) };
+        }
+
         function playReaction(data) {
             console.log('Playing reaction:', data);
             
@@ -2568,6 +2629,8 @@
 
                 // 3-a. 금액 등급별 이펙트(플래시·흔들림·이미지 글로우/샤인·배경 스포트라이트) 적용
                 applyReactionEffects(data);
+                // 3-a2. 시그니처 사진 대표색으로 네온 테두리 색 자동 매칭(비동기, 실패 시 티어 색 유지)
+                applySignatureThemeColor(data.image_url);
 
                 // 3-b. 화면 중앙에 대형 네온으로 잠깐 노출. 일반 후원은 "홍길동"→"홍길동업",
                 //      슬롯 당첨(skip_popup)은 후원자가 '🎰 슬롯머신'이라 접미사 없이 당첨 시그니처 이름을 띄운다.
