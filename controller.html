@@ -874,6 +874,46 @@
             font-variant-numeric: tabular-nums;
         }
 
+        /* ================================================================
+           📱 모바일 (≤768px)
+           실측 결과 375px 화면에서 문서 폭이 496px 이었다. 헤더의 미디어 패널이
+           480px 를 차지해 페이지 전체에 가로 스크롤이 생겼고, 그 탓에 스크롤할 때마다
+           화면이 좌우로 밀려 어떤 버튼도 제자리에 없었다.
+           '탭이 안 맞는' 게 아니라 페이지가 통째로 어긋나 있던 것이다.
+           ================================================================ */
+        @media (max-width: 768px) {
+            body { padding: 12px; }
+
+            /* 원인 1: 미디어 패널이 안 줄어든다 → 폭을 화면에 맞추고 넘치면 다음 줄로 */
+            #ios-mini-media-panel {
+                max-width: 100% !important;
+                width: 100%;
+                flex-wrap: wrap;
+                row-gap: 8px;
+                box-sizing: border-box;
+            }
+            /* flex 자식은 min-width:auto 라 내용보다 못 줄어든다. 0으로 풀어야 실제로 줄어든다 */
+            #ios-mini-media-panel > * { min-width: 0; }
+            #yt-video-title { flex: 1 1 100%; max-width: none !important; }
+
+            /* 원인 2: 리액션 조작 줄(볼륨·중단·Skip)도 한 줄을 고집했다 */
+            .header-buttons, .header-buttons > div { flex-wrap: wrap; }
+
+            /* 탭: 그룹 라벨을 접어 폭을 벌고, 손가락으로 넘길 때 딱딱 걸리게 */
+            .tabs { gap: 4px; padding: 6px; scroll-snap-type: x proximity; }
+            .tab-glabel, .tab-sep { display: none; }
+            .tab-btn { scroll-snap-align: start; padding: 9px 12px; }
+
+            /* 손가락으로 누르기 충분한 크기 (애플 권장 최소치) */
+            button, .btn, .bj-btn, .delete-btn { min-height: 40px; }
+
+            /* 대기함 카드: 지급 버튼이 좁은 화면에서 두 줄로 자연스럽게 흐르게 */
+            .bj-buttons { flex-wrap: wrap; gap: 6px; }
+
+            /* 오토파일럿 배너는 body padding 이 줄어든 만큼만 밖으로 뺀다 */
+            #autopilot-banner { margin: -12px -12px 14px; padding: 10px 14px; }
+        }
+
         /* ⚠️ 움직임에 민감한 사용자를 위한 대응. OS 설정을 켜두면 애니메이션을 없앤다.
            방송 도구라 장시간 보게 되므로 이 배려가 실제로 필요하다. */
         @media (prefers-reduced-motion: reduce) {
