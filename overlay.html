@@ -134,6 +134,8 @@
 
         /* 💡 30만 · 점멸 — 일정한 깜빡임이 아니라 '짧게짧게-길게' 리듬이라 기계적이지 않다 */
         .nl-blink g { animation: nStrobe calc(var(--nspd) * 0.8) linear infinite; }
+        /* 🥁 비트 동기가 잡히면 고정 리듬을 끄고 스크립트가 음원 시각에 맞춰 직접 밝기를 준다 */
+        .neon-layer.beat-sync .nl-blink g { animation: none; }
         @keyframes nStrobe {
             0%, 9%    { opacity: 1; }
             10%, 15%  { opacity: 0.08; }
@@ -1800,6 +1802,14 @@
                             // 시그니처가 떠 있으면 사진 대표색, 아니면 조명 버튼 색
                             syncNeonColor();
                         }
+                        // 🥁 다음 차례 시그니처의 비트 분석을 미리 돌려둔다(시작하자마자 박이 맞도록).
+                        //    결과는 URL 별로 캐시되므로 같은 음원을 두 번 분석하지 않는다.
+                        try {
+                            const q = d.reaction_queue || [];
+                            for (let i = 0; i < Math.min(2, q.length); i++) {
+                                if (q[i] && q[i].audio_url && neonTierClass(q[i].amount) === 'tier-blink') getBeatMap(q[i].audio_url);
+                            }
+                        } catch (e) {}
                     } else {
                         neonEl.classList.remove('active');
                     }
@@ -2685,6 +2695,8 @@
             _themeColorToken++;     // 아직 로딩 중인 probe 의 뒤늦은 결과를 무효화
             sigThemeColor = null;
             syncNeonColor();
+            _beatToken++;           // 아직 분석 중인 비트 결과가 뒤늦게 켜지지 않도록
+            stopBeatBlink();
             hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
             hideTickers();         // 위/아래 '@@업' 전광판도 함께 내림(예약된 스플릿 등장도 취소)
             lastTickerState = '';  // 다음 재생 때 전광판이 다시 그려지도록 초기화
@@ -2725,6 +2737,147 @@
         // 🎨 시그니처 사진의 대표색을 뽑아 네온 테두리(--reac-glow)를 그 색으로 맞춘다.
         //   보이는 이미지는 그대로 두고, 색 추출용으로만 crossOrigin 이미지를 따로 로드한다.
         //   CORS 차단/로드 실패 시 아무 것도 안 함(금액 티어 색 유지) → 화면엔 영향 없음.
+        // ===== 🥁 비트 동기 점멸 (30만 등급) =====
+        // ⚠️ 재생 중인 <audio> 는 절대 건드리지 않는다.
+        //    createMediaElementSource 로 물리면 되돌릴 수 없고, AudioContext 가 suspended 이거나
+        //    CORS 가 막히면 시그니처 소리가 통째로 무음이 된다 = 방송 사고.
+        //    대신 음원을 '따로 한 번 더' 받아 디코딩해서 비트 시각표만 만들어 두고,
+        //    재생할 땐 audio.currentTime 만 보면서 깜빡인다.
+        //    분석이 실패하면 조용히 기존 고정 리듬 점멸로 폴백한다(최악의 경우가 '예전과 동일').
+        const beatCache = new Map();     // audio_url -> Promise<{period, phase, bpm, conf} | null>
+        let _beatCtx = null;
+        function beatCtx() {
+            if (_beatCtx === null) {
+                try { _beatCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                catch (e) { _beatCtx = false; }
+            }
+            return _beatCtx || null;
+        }
+
+        function getBeatMap(url) {
+            if (!url) return Promise.resolve(null);
+            if (beatCache.has(url)) return beatCache.get(url);
+            if (beatCache.size > 40) beatCache.clear();   // 긴 방송에서 메모리 누적 방지
+            const p = (async () => {
+                const ctx = beatCtx();
+                if (!ctx) return null;
+                // 재생용 <audio> 와 완전히 별개의 사본. CORS 실패 시 throw → catch 에서 null → 폴백
+                const res = await fetch(url, { cache: 'force-cache' });
+                if (!res.ok) return null;
+                // decodeAudioData 는 컨텍스트가 suspended 여도 동작한다(재생이 아니라 디코딩이라서)
+                const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+                return detectBeat(buf);
+            })().catch(() => null);
+            beatCache.set(url, p);
+            return p;
+        }
+
+        // 에너지 상승분(온셋) → 자기상관으로 주기 → 격자 위상.
+        // 원시 온셋을 그대로 쓰면 화면이 지저분하게 떨리므로 'BPM 격자'로 스냅한다.
+        function detectBeat(buf) {
+            const HOP = 512;
+            const sr = buf.sampleRate;
+            const ch = buf.getChannelData(0);
+            const ch2 = buf.numberOfChannels > 1 ? buf.getChannelData(1) : null;
+            const n = Math.floor(ch.length / HOP);
+            if (n < 128) return null;   // 너무 짧은 음원은 주기 추정이 무의미
+
+            // 1) 프레임 에너지의 '상승분'만 남긴다 = 치고 들어오는 순간(드럼)만 강조
+            const env = new Float32Array(n);
+            let prev = 0, mx = 0;
+            for (let i = 0; i < n; i++) {
+                let s = 0;
+                const st = i * HOP;
+                for (let j = st; j < st + HOP; j++) {
+                    const v = ch2 ? (ch[j] + ch2[j]) * 0.5 : ch[j];
+                    s += v * v;
+                }
+                const e = Math.sqrt(s / HOP);
+                env[i] = Math.max(0, e - prev);
+                if (env[i] > mx) mx = env[i];
+                prev = e;
+            }
+            if (mx <= 0) return null;
+            for (let i = 0; i < n; i++) env[i] /= mx;
+
+            // 2) 자기상관으로 주기(=박) 찾기. 60~190 BPM 범위만 본다
+            const fps = sr / HOP;
+            const minLag = Math.max(1, Math.round(fps * 60 / 190));
+            const maxLag = Math.round(fps * 60 / 60);
+            if (maxLag >= n) return null;
+            let bestLag = 0, bestVal = 0, sum = 0, cnt = 0;
+            for (let lag = minLag; lag <= maxLag; lag++) {
+                let a = 0;
+                for (let i = 0; i + lag < n; i++) a += env[i] * env[i + lag];
+                a /= (n - lag);
+                sum += a; cnt++;
+                if (a > bestVal) { bestVal = a; bestLag = lag; }
+            }
+            const mean = sum / Math.max(1, cnt);
+            const conf = mean > 0 ? bestVal / mean : 0;   // 1에 가까우면 '주기성 없음'
+            // 잔잔한 발라드/앰비언트는 여기서 걸러진다 → 기존 점멸 유지
+            if (!bestLag || conf < 1.35) return null;
+
+            // 3) 격자 위상: 한 주기 안에서 온셋이 가장 몰리는 지점
+            let bestOff = 0, bestScore = -1;
+            for (let off = 0; off < bestLag; off++) {
+                let s = 0;
+                for (let i = off; i < n; i += bestLag) s += env[i];
+                if (s > bestScore) { bestScore = s; bestOff = off; }
+            }
+
+            // 4) 화면에서 편한 속도로 정규화.
+            //    자기상관은 진짜 주기의 2배(하프타임)를 고르는 일이 잦은데, 반으로 접어도
+            //    격자가 여전히 진짜 박 위에 있으므로 그대로 써도 박이 맞는다.
+            let period = bestLag / fps;
+            while (period > 0.85) period /= 2;
+            while (period < 0.34) period *= 2;
+            // bpm 은 '실제 깜빡이는 속도'로 돌려준다(원시 감지값을 쓰면 로그가 사람을 헷갈리게 한다)
+            return { period, phase: bestOff / fps, bpm: Math.round(60 / period), conf };
+        }
+
+        let beatRAF = null, beatMapNow = null, _beatToken = 0;
+        function startBeatBlink(map) {
+            stopBeatBlink();
+            const layer = document.getElementById('neon-overlay');
+            const g = document.querySelector('#neon-overlay .nl-blink g');
+            const audio = document.getElementById('reaction-audio');
+            if (!layer || !g || !audio || !map) return;
+            beatMapNow = map;
+            layer.classList.add('beat-sync');   // 먼저 CSS 애니메이션을 끈 뒤에 밝기를 준다
+            const loop = () => {
+                if (!beatMapNow) return;
+                const t = audio.currentTime - beatMapNow.phase;
+                const x = t >= 0 ? (t % beatMapNow.period) / beatMapNow.period : 0;
+                // 박에서 확 켜지고 다음 박 전까지 빠르게 사그라든다
+                g.style.opacity = (0.08 + 0.92 * Math.exp(-x * 4.5)).toFixed(3);
+                beatRAF = requestAnimationFrame(loop);
+            };
+            beatRAF = requestAnimationFrame(loop);
+        }
+        function stopBeatBlink() {
+            if (beatRAF) { cancelAnimationFrame(beatRAF); beatRAF = null; }
+            beatMapNow = null;
+            const layer = document.getElementById('neon-overlay');
+            const g = document.querySelector('#neon-overlay .nl-blink g');
+            if (layer) layer.classList.remove('beat-sync');
+            if (g) g.style.removeProperty('opacity');   // 고정 리듬 애니메이션으로 복귀
+        }
+
+        // 시그니처가 시작될 때 호출. 분석은 비동기라, 늦게 도착하면 토큰으로 무효화한다.
+        function beginBeatSync(data) {
+            const token = ++_beatToken;
+            stopBeatBlink();
+            if (!data || !data.audio_url) return;
+            if (globalNeon === 'OFF') return;                       // 조명이 꺼져 있으면 분석할 이유가 없다
+            if (neonTierClass(data.amount) !== 'tier-blink') return; // 지금은 점멸 등급에만 적용
+            getBeatMap(data.audio_url).then(map => {
+                if (token !== _beatToken || !map) return;   // 다음 시그니처로 넘어갔거나 분석 실패 → 기존 점멸 유지
+                console.log(`[비트] ${map.bpm} BPM, 주기 ${map.period.toFixed(3)}s, 신뢰도 ${map.conf.toFixed(2)}`);
+                startBeatBlink(map);
+            });
+        }
+
         let _themeColorToken = 0;
         // 지금 재생 중인 시그니처의 대표색. 있으면 화면 네온 테두리도 이 색을 따라간다.
         // (null 이면 조명 버튼 색으로 되돌아간다)
@@ -2867,6 +3020,7 @@
                 applyReactionEffects(data);
                 // 3-a2. 시그니처 사진 대표색으로 네온 테두리 색 자동 매칭(비동기, 실패 시 티어 색 유지)
                 applySignatureThemeColor(data.image_url);
+                beginBeatSync(data);   // 🥁 점멸 등급이면 음원 비트에 맞춰 깜빡이게 (실패 시 기존 점멸)
 
                 // 3-b. 화면 중앙에 대형 네온으로 잠깐 노출. 일반 후원은 "홍길동"→"홍길동업",
                 //      슬롯 당첨(skip_popup)은 후원자가 '🎰 슬롯머신'이라 접미사 없이 당첨 시그니처 이름을 띄운다.
