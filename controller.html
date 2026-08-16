@@ -1926,6 +1926,11 @@
         // ⚠️ 쓰는 함수(playSignatureById)보다 반드시 앞에서 초기화돼야 한다 — const 는 호이스팅돼도
         //    초기화 전에는 못 쓰기 때문에, 뒤쪽에 두면 그 사이 스크립트가 한 번 멈췄을 때 터진다.
         const _playingSigIds = new Set();
+        // 리액션 모드를 '노래방이 켠 것'인지 구분. 운영자가 직접 켜둔 걸 노래방이 꺼버리면 안 된다.
+        let karaokeOwnsReactionMode = false;
+        // ⚠️ 사용처(enterContentMode 등)보다 반드시 앞에서 초기화됼야 한다.
+        //    let 은 선언만 끌어올려질 뿐 초기화 전엔 못 쓴다.
+        let ytWasPlaying = false;
         // 겹침으로 놓친 갱신(예: 그 순간 도착한 후원)이 영영 안 보이는 일이 없게 하는 안전망.
         // 평상시엔 아무 일도 안 하고, 놓친 게 있을 때만 한 번 받아온다.
         setInterval(() => {
@@ -2863,18 +2868,28 @@
             if (!gd) return;
             gd.karaoke_enabled = true;
             gd.karaoke_video = id;
-            gd.reaction_mode = true;   // 🎤 노래방 켜면 리액션 모드도 켜기(BGM 정지 + 콘텐츠 모드)
-            // 소리 겹침 방지: 배경음(BGM) 정지
-            try { const bgm = document.getElementById('bgm-audio'); if (bgm && !bgm.paused) bgm.pause(); } catch(e) {}
-            try { if (typeof ytPlayer !== 'undefined' && ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo(); } catch(e) {}
+            // 🎤 노래방을 켜면 리액션 모드도 켠다(BGM 정지 + 콘텐츠 모드).
+            // ⚠️ 이미 켜져 있었다면(시그니처 재생 중 등) 뒷정리를 다시 하면 안 된다.
+            //    BGM 은 이미 멈춰 있으니 wasPlaying 이 "false" 로 덮여 노래가 끝나도 안 살아나고,
+            //    타이머도 이미 얼어 있어 was_running 표시가 지워진다.
+            karaokeOwnsReactionMode = !gd.reaction_mode;
+            if (karaokeOwnsReactionMode) {
+                gd.reaction_mode = true;
+                enterContentMode();   // BGM·유튜브 정지 + 대결 타이머 얼리기(예전엔 타이머를 안 멈춰 노래 중에 시간이 다 갔다)
+            }
             pushAPI();
             renderKaraokeStatus();
         }
         function stopKaraoke() {
             if (!gd) return;
             gd.karaoke_enabled = false;
-            // 노래방이 켰던 리액션 모드는, 재생 중인 시그니처(대기열)가 없으면 함께 끈다
-            if (!gd.reaction_queue || gd.reaction_queue.length === 0) gd.reaction_mode = false;
+            // 노래방이 켠 리액션 모드만 되돌린다. 운영자가 직접 켜뒀던 거라면 그대로 둔다.
+            // (대기열에 시그니처가 남아 있으면 어차피 리액션 모드가 유지돼야 한다)
+            if (karaokeOwnsReactionMode && (!gd.reaction_queue || gd.reaction_queue.length === 0)) {
+                gd.reaction_mode = false;
+                exitContentMode();    // BGM·유튜브 복구 + 대결 타이머 이어서 진행
+            }
+            karaokeOwnsReactionMode = false;
             pushAPI();
             renderKaraokeStatus();
         }
@@ -3161,31 +3176,58 @@
         }
         async function triggerUpText() { let txt = document.getElementById('in-up-text').value; if (txt.trim() === "") { await premiumAlert("화면에 띄울 문구를 먼저 입력해주세요!", "입력 오류", "warning"); return; } gd.up_trigger = { time: Date.now(), text: txt }; pushAPI(); }
         
-        function toggleOption(key) { 
-            gd[key] = !gd[key]; 
-            if (key === 'reaction_mode') {
-                let audio = document.getElementById('bgm-audio');
-                let md = gd.match_data;
-                
-                if (gd[key]) { 
-                    if (!audio.paused) { audio.dataset.wasPlaying = "true"; audio.pause(); } else { audio.dataset.wasPlaying = "false"; }
-                    if (md && md.is_running) {
-                        md.time_left_ms = Math.max(0, md.end_time_ms - Date.now());
-                        md.is_running = false;
-                        md.was_running_before_reaction = true;
-                    }
-                    showReactionToast();
-                } else { 
-                    if (audio.dataset.wasPlaying === "true") { audio.play().catch(e=>{}); }
-                    if (md && md.was_running_before_reaction) {
-                        if(md.time_left_ms <= 0) md.time_left_ms = md.paused_time_left;
-                        md.end_time_ms = Date.now() + md.time_left_ms;
-                        md.is_running = true;
-                        md.was_running_before_reaction = false;
-                    }
-                }
+        // ===== 화면 점유(리액션·노래방) 진입/해제 시의 뒷정리 =====
+        // 리액션 모드 토글과 노래방이 '같은 일'을 해야 하는데 따로 구현돼 있어서
+        // 노래방 쪽이 BGM 상태 기억과 대결 타이머 얼리기를 통째로 빠뜨리고 있었다.
+        // (노래하는 동안 타이머가 계속 돌아서, 노래 끝나면 이미 시간 종료였다)
+        // 한 곳으로 모아 둘이 어긋날 수 없게 한다.
+        function enterContentMode() {
+            const audio = document.getElementById('bgm-audio');
+            if (audio) {
+                if (!audio.paused) { audio.dataset.wasPlaying = "true"; audio.pause(); }
+                else { audio.dataset.wasPlaying = "false"; }
             }
-            pushAPI(); 
+            try {
+                if (typeof ytPlayer !== 'undefined' && ytPlayer &&
+                    typeof ytPlayer.getPlayerState === 'function' && ytPlayer.getPlayerState() === 1) {
+                    ytWasPlaying = true;
+                    ytPlayer.pauseVideo();
+                } else { ytWasPlaying = false; }
+            } catch (e) { ytWasPlaying = false; }
+            // 대결 타이머를 '남은 시간'으로 얼려둔다. 안 그러면 화면에 안 보이는 채로 계속 흘러간다.
+            const md = gd.match_data;
+            if (md && md.is_running) {
+                md.time_left_ms = Math.max(0, md.end_time_ms - Date.now());
+                md.is_running = false;
+                md.was_running_before_reaction = true;
+            }
+        }
+        function exitContentMode() {
+            const audio = document.getElementById('bgm-audio');
+            if (audio && audio.dataset.wasPlaying === "true") {
+                audio.play().catch(e => {});
+                audio.dataset.wasPlaying = "false";
+            }
+            try {
+                if (ytWasPlaying && typeof ytPlayer !== 'undefined' && ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
+            } catch (e) {}
+            ytWasPlaying = false;
+            const md = gd.match_data;
+            if (md && md.was_running_before_reaction) {
+                if (md.time_left_ms <= 0) md.time_left_ms = md.paused_time_left;
+                md.end_time_ms = Date.now() + md.time_left_ms;
+                md.is_running = true;
+                md.was_running_before_reaction = false;
+            }
+        }
+
+        function toggleOption(key) {
+            gd[key] = !gd[key];
+            if (key === 'reaction_mode') {
+                if (gd[key]) { enterContentMode(); showReactionToast(); }
+                else { exitContentMode(); }
+            }
+            pushAPI();
         }
 
         function toggleMatch() { gd.match_data.active = !gd.match_data.active; pushAPI(); }
@@ -4554,7 +4596,6 @@
         let progressInterval = null;
         let isMuted = false;
         let prevVolume = 50;
-        let ytWasPlaying = false;
         
         function onYouTubeIframeAPIReady() {
             const savedId = localStorage.getItem('last_yt_tab_id');
