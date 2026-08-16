@@ -833,6 +833,47 @@
         /* 스크롤을 부드럽게 (앵커 이동·scrollIntoView 에 적용) */
         html { scroll-behavior: smooth; }
 
+        /* ================================================================
+           🪜 4단계 · 깊이 규칙
+           그림자가 제각각이면 뭐가 위에 있는 건지 눈이 판단을 못 한다.
+           표면을 3단계로 정하고, 각 단계에 정해진 그림자만 쓴다.
+             1층 = 배경에 붙어 있는 것 (패널·카드)
+             2층 = 떠 있는 것 (드로어·토스트)
+             3층 = 화면을 막는 것 (모달)
+           ================================================================ */
+        :root {
+            --el-1: 0 1px 2px rgba(0,0,0,0.25);
+            --el-2: 0 8px 24px rgba(0,0,0,0.40);
+            --el-3: 0 20px 60px rgba(0,0,0,0.55);
+        }
+        .group-box            { box-shadow: var(--el-1); }
+        .ai-toast, #ai-drawer { box-shadow: var(--el-2); }
+
+        /* ================================================================
+           ✨ 5단계 · 마감
+           ================================================================ */
+        /* 스크롤바를 화면 톤에 맞춘다 (기본 회색 막대가 유일하게 튀는 요소였다) */
+        ::-webkit-scrollbar-thumb { background: var(--line); border-radius: var(--r-full); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+        /* 입력칸: 포커스 때 강조색 테두리로 '여기 입력 중'을 분명히 */
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        /* 비활성 요소는 눌리지 않는다는 걸 시각적으로도 알린다 */
+        button:disabled, .btn:disabled, input:disabled, select:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        button:disabled:active, .btn:disabled:active { transform: none; }
+
+        /* 숫자는 자리수가 흔들리지 않게 고정폭으로 — 점수가 바뀔 때 글자가 덜컹거리지 않는다 */
+        .pending-amount, .r-contrib, [id^="ui-"], [id^="m-card-amt"], [id^="m-seg-amt"] {
+            font-variant-numeric: tabular-nums;
+        }
+
         /* ⚠️ 움직임에 민감한 사용자를 위한 대응. OS 설정을 켜두면 애니메이션을 없앤다.
            방송 도구라 장시간 보게 되므로 이 배려가 실제로 필요하다. */
         @media (prefers-reduced-motion: reduce) {
