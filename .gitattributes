@@ -1,0 +1,11 @@
+# ⚠️ 리눅스 서버에서 실행되는 파일은 반드시 LF 여야 한다.
+#    윈도우에서 편집하다 CRLF 로 커밋되면 우분투에서
+#      /usr/bin/env: 'bash\r': No such file or directory
+#    로 설치가 통째로 실패한다. 원인을 찾기 어려운 종류의 사고라 여기서 막는다.
+*.sh            text eol=lf
+deploy/Caddyfile        text eol=lf
+deploy/*.service        text eol=lf
+
+# ⚠️ 나머지 파일에는 손대지 않는다(`* text=auto` 를 넣지 말 것).
+#    overlay.html 은 의도적으로 NULL 바이트 2개를 갖고 있어 git 이 바이너리로 취급한다.
+#    전체 정규화를 켜면 그 파일이 통째로 바뀐 것처럼 보이고, 실제로 줄바꿈이 뒤집힌 적이 있다.
