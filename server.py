@@ -852,6 +852,33 @@ def get_or_create_totp_secret():
     return load_auth_config()['totp_secret']
 
 
+# 🔒 공개된 기본 비밀번호로는 인터넷에서 로그인할 수 없게 막는다.
+#
+# '0508' 은 이 파일에 적혀 있고 저장소는 공개(public)라, 사실상 누구나 아는 값이다.
+# 게다가 OTP 는 빈칸이면 통과하므로, 이 상태에서는 주소만 알면 조종실에 들어와
+# 점수·전광판·방송 리셋을 전부 만질 수 있었다.
+#
+# 그래서 '서버로 돌고 있을 때'(HEADLESS 또는 DATABASE_URL) 는 기본값을 거부한다.
+# 집에서 GUI 로 띄우는 경우는 인터넷에 열려 있지 않으므로 그대로 둔다.
+#
+# ⚠️ 막힌 사람이 무엇을 해야 하는지 화면에 그대로 알려준다. '비밀번호가 틀렸습니다'
+#    로 끝내면 방송 직전에 원인을 못 찾고 시간을 버린다.
+DEFAULT_ADMIN_PASSWORD = '0508'
+
+
+def admin_password_is_unset():
+    if not (os.environ.get('HEADLESS') or os.environ.get('DATABASE_URL')):
+        return False        # 로컬 GUI 실행 — 밖에서 접근할 수 없으므로 막지 않는다
+    return load_auth_config()['admin_password'] == DEFAULT_ADMIN_PASSWORD
+
+
+ADMIN_PASSWORD_UNSET_MSG = (
+    '서버에 관리자 비밀번호가 설정되지 않았습니다. '
+    '공개된 기본값은 보안상 사용할 수 없습니다. '
+    '환경변수 ADMIN_PASSWORD 에 새 비밀번호를 넣고 서버를 다시 시작해주세요.'
+)
+
+
 # 🔑 OTP 마스터 코드 — OTP 앱 없이 들어가기 위한 예비 열쇠.
 #
 # ⚠️ 값을 코드에 적지 않는다. 이 저장소는 공개(public)라, 여기 적는 순간
@@ -1973,6 +2000,11 @@ def serve_setup():
         try:
             data = request.get_json() or {}
             p = data.get('password', '').strip()
+            # ⚠️ 이 페이지는 통과하면 OTP 비밀키를 그대로 보여준다.
+            #    로그인보다 더 세게 막아야 할 곳이지 덜 막을 곳이 아니다.
+            if admin_password_is_unset():
+                return jsonify({'status': 'error', 'message': ADMIN_PASSWORD_UNSET_MSG}), 403
+
             if p == load_auth_config()['admin_password']:
                 session['setup_authorized'] = True
                 return jsonify({'status': 'success'})
@@ -2178,6 +2210,9 @@ def serve_login():
             otp_code = data.get('otp', '').strip()
             
             # PW 검증
+            if admin_password_is_unset():
+                return jsonify({'status': 'error', 'message': ADMIN_PASSWORD_UNSET_MSG}), 403
+
             if p == load_auth_config()['admin_password']:
                 totp_secret = get_or_create_totp_secret()
                 totp = pyotp.TOTP(totp_secret)
