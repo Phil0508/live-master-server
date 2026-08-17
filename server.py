@@ -139,6 +139,14 @@ AUTH_CONFIG_FILE = os.path.join(BASE_DIR, 'auth_config.json')
 #     매 배포마다 값이 바뀌어 로그인 세션이 계속 끊긴다)
 WEAK_DEFAULT_SECRET = 'isacbin_master_key_0508'
 SECRET_IS_WEAK = False          # /api/server/status 로 노출해서 눈에 보이게 한다
+AUTH_POSTURE_WARNED = False     # 로그인 잠금 상태 경고는 시작할 때 한 번만 찍는다
+
+# OTP 를 반드시 입력하게 할지. 기본은 꺼짐(=빈칸이면 통과) — 지금까지의 동작이다.
+# ⚠️ 켜기 전에 반드시 OTP 앱이나 마스터 코드로 로그인이 되는지 먼저 확인할 것.
+#    확인 없이 켜면 방송 직전에 조종실에 못 들어가는 사고가 난다.
+# ⚠️ load_auth_config() 가 이 값을 읽고, 그 함수는 모듈이 로딩되는 도중에도 불린다
+#    (app.secret_key 설정). 그래서 정의는 반드시 load_auth_config 보다 위에 있어야 한다.
+REQUIRE_OTP = (os.environ.get('REQUIRE_OTP') or '').strip().lower() in ('1', 'on', 'true', 'yes')
 
 
 def load_auth_config():
@@ -175,6 +183,23 @@ def load_auth_config():
     if not config['totp_secret']:
         config['totp_secret'] = pyotp.random_base32()
         save_auth_config(config)
+
+    global AUTH_POSTURE_WARNED
+    if not AUTH_POSTURE_WARNED:
+        AUTH_POSTURE_WARNED = True
+        gripes = []
+        if config['admin_password'] == '0508':
+            gripes.append("조종실 비밀번호가 공개된 기본값 '0508' 입니다. ADMIN_PASSWORD 를 넣어주세요.")
+        master = (os.environ.get('OTP_MASTER_CODE') or '').strip()
+        if master and len(master) < 8:
+            gripes.append(f"OTP 마스터 코드가 {len(master)}자로 짧습니다. 두 번째 자물쇠가 사실상 없는 것과 같습니다.")
+        if not REQUIRE_OTP:
+            gripes.append("OTP 를 비워두면 통과합니다. 잠그려면 REQUIRE_OTP=1 을 넣으세요.")
+        if gripes:
+            print("=" * 70, flush=True)
+            for g in gripes:
+                print(f"⚠️  {g}", flush=True)
+            print("=" * 70, flush=True)
 
     global SECRET_IS_WEAK
     weak = (config['session_secret'] == WEAK_DEFAULT_SECRET)
@@ -825,6 +850,25 @@ def broadcast_event(event_name, data):
 
 def get_or_create_totp_secret():
     return load_auth_config()['totp_secret']
+
+
+# 🔑 OTP 마스터 코드 — OTP 앱 없이 들어가기 위한 예비 열쇠.
+#
+# ⚠️ 값을 코드에 적지 않는다. 이 저장소는 공개(public)라, 여기 적는 순간
+#    누구나 읽을 수 있는 열쇠가 된다. 반드시 환경변수로만 넣는다.
+#      /etc/livemaster.env  →  OTP_MASTER_CODE=...
+#    설정하지 않으면 이 기능은 아예 꺼진 상태다(아무 코드도 통과시키지 않는다).
+#
+# ⚠️ 이 코드는 '두 번째 자물쇠'를 통째로 대신한다. 짧고 뻔한 값(생일·0508 등)을
+#    넣으면 2단계 인증이 사실상 없는 것과 같아진다. 그래도 쓰겠다면 최소한
+#    조종실 비밀번호(ADMIN_PASSWORD)만은 길고 어렵게 두어야 한다.
+def otp_master_matches(code):
+    master = (os.environ.get('OTP_MASTER_CODE') or '').strip()
+    if not master:
+        return False
+    # 글자를 하나씩 비교하다 처음 틀린 데서 멈추면, 응답 시간 차이로
+    # 코드를 앞에서부터 알아낼 수 있다. 길이와 무관하게 같은 시간이 걸리게 비교한다.
+    return secrets.compare_digest(code.strip(), master)
 
 def serve_html_file(filename):
     local_path = os.path.join(BASE_DIR, filename)
@@ -1509,6 +1553,11 @@ def api_health():
             'self_ping_blocked': (os.environ.get('SELF_PING') or '').strip().lower() in ('0', 'off', 'false', 'no'),
             'bind_host': (os.environ.get('BIND_HOST') or '0.0.0.0').strip(),
             'ai_key_present': bool((os.environ.get('NVIDIA_API_KEY') or '').strip()),
+            'default_admin_password': load_auth_config()['admin_password'] == '0508',
+            'require_otp': REQUIRE_OTP,
+            # 코드 자체가 아니라 '설정됐는지/길이가 되는지'만. 값은 절대 내보내지 않는다.
+            'otp_master_set': bool((os.environ.get('OTP_MASTER_CODE') or '').strip()),
+            'otp_master_short': 0 < len((os.environ.get('OTP_MASTER_CODE') or '').strip()) < 8,
         }
 
     return jsonify(out)
@@ -2128,9 +2177,21 @@ def serve_login():
             if p == load_auth_config()['admin_password']:
                 totp_secret = get_or_create_totp_secret()
                 totp = pyotp.TOTP(totp_secret)
-                # OTP 번호가 비어있거나 입력된 OTP가 올바른 경우 로그인 승인
-                if not otp_code or totp.verify(otp_code, valid_window=1):
+
+                # 통과 사유를 남긴다. '왜 들어왔는지'를 로그로 볼 수 있어야
+                # 마스터 코드가 남에게 쓰였을 때 알아챌 수 있다.
+                how = None
+                if otp_code and otp_master_matches(otp_code):
+                    how = 'master'
+                elif otp_code and totp.verify(otp_code, valid_window=1):
+                    how = 'otp'
+                elif not otp_code and not REQUIRE_OTP:
+                    how = 'skipped'
+
+                if how:
                     session['authenticated'] = True
+                    if how == 'master':
+                        print(f"🔑 조종실 로그인: 마스터 코드 사용 (ip={request.remote_addr})", flush=True)
                     return jsonify({'status': 'success'})
                 else:
                     return jsonify({'status': 'error', 'message': '보안 OTP 번호가 일치하지 않습니다.'}), 400
