@@ -127,10 +127,20 @@ DB_FILE = os.path.join(BASE_DIR, 'live_master.db')
 LAYOUT_FILE = os.path.join(BASE_DIR, 'layout.json')
 AUTH_CONFIG_FILE = os.path.join(BASE_DIR, 'auth_config.json')
 
+# ⚠️ 이 값은 '기본값'이라 저장소·백업·유저스크립트에 흔적이 남아 있어 사실상 공개된 문자열이다.
+#    그런데 session_secret 은 Bearer 토큰으로도 쓰여서, 이 값이 그대로 쓰이는 동안에는
+#    주소만 아는 사람이 점수 조작·전광판·방송 리셋까지 전부 통과할 수 있다.
+#    Render 환경변수 SESSION_SECRET 을 넣으면 덮어써진다. 넣기 전까지는 아래에서 시끄럽게 경고한다.
+#    (여기서 임의값을 자동 생성하지는 않는다 — Render 파일시스템은 재시작마다 초기화되므로
+#     매 배포마다 값이 바뀌어 로그인 세션이 계속 끊긴다)
+WEAK_DEFAULT_SECRET = 'isacbin_master_key_0508'
+SECRET_IS_WEAK = False          # /api/server/status 로 노출해서 눈에 보이게 한다
+
+
 def load_auth_config():
     config = {
         'admin_password': '0508',
-        'session_secret': 'isacbin_master_key_0508',
+        'session_secret': WEAK_DEFAULT_SECRET,
         'totp_secret': ''
     }
     if os.path.exists(AUTH_CONFIG_FILE):
@@ -161,7 +171,17 @@ def load_auth_config():
     if not config['totp_secret']:
         config['totp_secret'] = pyotp.random_base32()
         save_auth_config(config)
-        
+
+    global SECRET_IS_WEAK
+    weak = (config['session_secret'] == WEAK_DEFAULT_SECRET)
+    if weak and not SECRET_IS_WEAK:
+        # 한 번만 크게 알린다(이 함수는 요청마다 불린다)
+        print("=" * 70, flush=True)
+        print("⚠️  관리자 키가 '공개된 기본값'입니다. 주소만 알면 점수·전광판·리셋이 통과됩니다.", flush=True)
+        print("    Render 환경변수 SESSION_SECRET 에 새 값을 넣어주세요.", flush=True)
+        print("=" * 70, flush=True)
+    SECRET_IS_WEAK = weak
+
     return config
 
 def save_auth_config(config):
@@ -2714,6 +2734,10 @@ def get_server_status():
             'persistent_storage': IS_POSTGRES,
             'last_db_error': LAST_DB_ERROR.get('message'),
             'last_db_error_time': LAST_DB_ERROR.get('time'),
+            # 관리자 키가 아직 '공개된 기본값'인지. True 면 주소만 아는 사람이 조작할 수 있다.
+            'weak_admin_secret': SECRET_IS_WEAK,
+            # 깨우기 루프가 도는지. 켜져 있으면 무료 인스턴스 시간을 월 720시간 쓴다.
+            'self_ping': (os.environ.get('SELF_PING') or '').strip().lower() not in ('0', 'off', 'false', 'no'),
             'player_count': player_count,
             'history_count': history_count,
             'snapshot_count': snapshot_count,
@@ -3606,7 +3630,18 @@ def start_self_ping():
     url = os.environ.get('RENDER_EXTERNAL_URL')
     if not url:
         return
-        
+
+    # 💸 이 루프는 서비스를 24시간 깨워두므로 무료 인스턴스 시간을 월 720시간 먹는다.
+    #    무료 한도가 월 750시간이라, 이걸 켜둔 서비스 하나가 한도를 거의 다 쓴다.
+    #    방송은 주 1회 몇 시간뿐이고, 방송 중에는 SSE 트래픽이 계속 흐르므로 잠들 일이 없다.
+    #    즉 이 루프가 지키는 건 '방송이 없는 동안의 깨어 있음'이라, 켤 가치는 상황에 따라 다르다.
+    #    개발용·예비 서비스에서는 SELF_PING=off 로 끄면 그만큼 방송 서버에 시간을 남길 수 있다.
+    if (os.environ.get('SELF_PING') or '').strip().lower() in ('0', 'off', 'false', 'no'):
+        print("⏰ [Self-Ping] SELF_PING=off — 깨우기를 끕니다 (무료 인스턴스 시간 절약, "
+              "첫 요청은 콜드스타트로 50초 이상 걸릴 수 있음)", flush=True)
+        return
+
+
     def ping_loop():
         # 즉시 초기화 로그 출력
         print(f"⏰ [Self-Ping] Daemon initialized for: {url}", flush=True)

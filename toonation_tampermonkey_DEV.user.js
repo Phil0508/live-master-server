@@ -218,9 +218,12 @@
             GM_xmlhttpRequest({
                 method: "POST",
                 url: "https://live-master-dev.onrender.com/api/donation",
-                headers: { 
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer isacbin_master_key_0508"
+                // ⚠️ 예전에는 여기에 관리자 키(Bearer)를 평문으로 박아뒀다. 그런데 /api/donation 은
+                //    서버의 인증 예외 경로라(투네이션 알림창에서 바로 쏘는 웹훅이라 그래야 한다)
+                //    이 헤더는 검사되지도 않았다. 아무 일도 안 하면서 키만 노출하고 있었으므로 지웠다.
+                //    (그 키 하나로 점수 조작·전광판·방송 리셋이 전부 통과된다)
+                headers: {
+                    "Content-Type": "application/json"
                 },
                 data: JSON.stringify({
                     name: name,
