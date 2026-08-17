@@ -6,10 +6,20 @@
 // @match        https://toon.at/widget/alertbox/*
 // @noframes
 // @grant        GM_xmlhttpRequest
+// @connect      xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e
 // @connect      live-master-server.onrender.com
 // @connect      127.0.0.1
 // @connect      localhost
 // ==/UserScript==
+
+// ⚠️ 위 @connect 의 한글 도메인은 반드시 퓨니코드로 적는다.
+//    xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e  =  엔젤컴퍼니.메인.한국
+//    브라우저가 요청 직전에 어차피 이 형태로 바꾸는데, 한글 그대로 두면
+//    @connect 대조에 실패해 후원 전송이 통째로 막힌다.
+//    Render 도 @connect 에 남겨뒀다 — 되돌릴 때 아래 url 한 줄만 바꾸면 되도록.
+//
+// ⚠️ 그리고 이 위쪽 ==UserScript== 블록 안에는 주석을 넣지 말 것.
+//    거기가 깨지면 스크립트가 아예 안 뜨고, 방송 중에 후원이 통째로 안 들어온다.
 
 (function() {
     'use strict';
@@ -217,7 +227,9 @@
             const txId = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Math.random().toString(36).substring(2) + Date.now().toString(36));
             GM_xmlhttpRequest({
                 method: "POST",
-                url: "https://live-master-server.onrender.com/api/donation",
+                // 서울 서버(엔젤컴퍼니.메인.한국). 되돌리려면 아래 주석 줄과 맞바꾸면 된다.
+                url: "https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e/api/donation",
+                // url: "https://live-master-server.onrender.com/api/donation",   // ← 폴백(Render/오레곤)
                 // ⚠️ 예전에는 여기에 관리자 키(Bearer)를 평문으로 박아뒀다. 그런데 /api/donation 은
                 //    서버의 인증 예외 경로라(투네이션 알림창에서 바로 쏘는 웹훅이라 그래야 한다)
                 //    이 헤더는 검사되지도 않았다. 아무 일도 안 하면서 키만 노출하고 있었으므로 지웠다.
