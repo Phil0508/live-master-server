@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 🚀 오라클 클라우드(우분투) 위에 방송 서버를 한 번에 세운다.
+# 🚀 우분투 서버(Vultr 서울 등) 위에 방송 서버를 한 번에 세운다.
 #
 #   sudo bash setup.sh
 #
@@ -71,7 +71,7 @@ SESSION_SECRET=
 # AI 기입검증·오토파일럿용 (없으면 AI 기능만 조용히 꺼진다)
 NVIDIA_API_KEY=
 
-# 깨우기는 오라클에선 필요 없다(항상 켜져 있으므로). 조종실 스위치도 막아둔다.
+# 깨우기는 VPS 에선 필요 없다(항상 켜져 있으므로). 조종실 스위치도 막아둔다.
 SELF_PING=off
 EOF
   chmod 600 "$ENV_FILE"
@@ -87,9 +87,10 @@ mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 systemctl daemon-reload
 systemctl enable --quiet livemaster caddy
 
-say "7/7  방화벽 열기 (오라클 우분투는 기본이 전부 막혀 있다)"
-# ⚠️ 여기서 막혀서 '분명 서버는 떴는데 접속이 안 되는' 상황이 제일 흔하다.
-#    오라클 콘솔의 VCN 보안 목록에서도 80/443 을 따로 열어야 한다(이 스크립트로는 불가).
+say "7/7  방화벽 열기"
+# Vultr 기본 이미지는 막혀 있지 않아 사실상 확인만 하고 지나간다(여러 번 돌려도 안전).
+# ⚠️ 업체 콘솔에 별도 방화벽(오라클 VCN, Vultr Firewall Group 등)을 걸어뒀다면
+#    거기서도 80/443 을 열어야 한다. 이 스크립트는 서버 안쪽만 건드린다.
 iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
 iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
 if command -v netfilter-persistent >/dev/null; then
@@ -109,7 +110,8 @@ cat <<EOF
   3) 확인               curl -s localhost:$PORT/api/ping
                         sudo journalctl -u livemaster -n 30 --no-pager
 
-⚠️ 오라클 콘솔에서 VCN 보안 목록에 80/443 인그레스 규칙을 추가해야
+⚠️ 업체 콘솔에 방화벽 그룹을 따로 걸어뒀다면 거기서도 80/443 을 열어야
    바깥에서 접속됩니다. 이건 서버 안에서 할 수 없습니다.
+   (Vultr 는 방화벽 그룹을 지정하지 않았다면 그냥 열려 있습니다)
 ────────────────────────────────────────────────────────────
 EOF
