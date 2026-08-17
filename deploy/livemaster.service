@@ -1,0 +1,37 @@
+# 🟢 방송 서버 상주 실행 (systemd)
+#
+# ⚠️ gunicorn 이나 uwsgi 로 바꾸지 말 것.
+#    이 앱은 SSE(끊기지 않는 스트림)로 모든 화면에 상태를 밀어주고, 상태를 프로세스
+#    메모리(MEMORY_STATE)에 들고 있다. 워커를 여러 개 띄우면
+#      - 워커마다 상태 사본이 갈라져 점수가 화면마다 달라지고
+#      - 동기 워커는 SSE 연결 하나가 워커 하나를 통째로 점유해 몇 명만 붙어도 서버가 멈춘다.
+#    Render 에서도 지금까지 python server.py(스레드 방식)로 돌았고, 부하 테스트에서
+#    SSE 40대 + 후원 폭주 116건/초까지 확인했다. 같은 방식을 유지한다.
+
+[Unit]
+Description=Live Master 방송 서버
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=livemaster
+WorkingDirectory=/opt/livemaster
+EnvironmentFile=/etc/livemaster.env
+ExecStart=/opt/livemaster/.venv/bin/python /opt/livemaster/server.py
+
+# 죽으면 항상 되살린다. 방송 중 정지가 제일 큰 사고다.
+Restart=always
+RestartSec=3
+
+# 로그는 journald 로 (journalctl -u livemaster -f)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=livemaster
+
+# 파이썬 출력이 버퍼에 갇혀 로그가 늦게 보이는 것을 막는다
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+[Install]
+WantedBy=multi-user.target

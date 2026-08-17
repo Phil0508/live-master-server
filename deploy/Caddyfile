@@ -1,0 +1,31 @@
+# 🌐 HTTPS 종료 + 리버스 프록시.
+#
+# Caddy 를 쓰는 이유: 인증서 발급·갱신이 자동이다. Render 가 대신 해주던 일이라
+# 옮기면서 사라지는 유일한 편의라, 그걸 되돌려주는 가장 짧은 길이다.
+#
+# ⚠️ 도메인은 퓨니코드로 적는다. 한글 그대로 두면 Caddy 가 인증서 요청 때 실패할 수 있다.
+#    엔젤컴퍼니.메인.한국  →  xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e
+
+xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e {
+	encode gzip
+
+	reverse_proxy 127.0.0.1:8080 {
+		# ⚠️ SSE(/api/stream)는 응답이 끝나지 않는 스트림이다. 프록시가 버퍼링하면
+		#    오버레이·조종실이 아무것도 못 받고 멈춘 것처럼 보인다.
+		#    Caddy 는 text/event-stream 을 자동 감지하지만, 명시해서 확실히 못 박는다.
+		flush_interval -1
+
+		# 후원 폭주 때 잠깐 몰려도 끊지 않게 넉넉히
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+
+	log {
+		output file /var/log/caddy/livemaster.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
