@@ -2046,17 +2046,19 @@
             const from = list.find(b => b.name === r.target);
             const dest = list.find(b => b.name === to);
             if (!from || !dest) { await premiumAlert('플레이어를 찾지 못했습니다.', '옮기기 실패', 'warning'); return; }
+            // 화면만 먼저 움직인다. 빼기와 주기를 서버가 한 요청 안에서 함께 처리하므로
+            // '한쪽만 반영된' 상태가 생기지 않고, 폰에서 같은 순간에 준 점수도 덮어쓰지 않는다.
             from.score -= r.points; from.contribution = (from.contribution || 0) - r.points;
             dest.score += r.points; dest.contribution = (dest.contribution || 0) + r.points;
-            const t = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (!gd.logs) gd.logs = [];
-            gd.logs.unshift({ time: t, name: r.target, val: -r.points });
-            gd.logs.unshift({ time: t, name: to, val: r.points });
-            const ok = await pushAPI();
-            if (ok === false) {
+            renderUI();
+            const res = await addScoreAPI({ scope: 'rank', items: [
+                { name: r.target, delta: -r.points },
+                { name: to, delta: r.points },
+            ]});
+            if (!res) {
                 from.score += r.points; from.contribution += r.points;
                 dest.score -= r.points; dest.contribution -= r.points;
-                gd.logs.splice(0, 2);
+                renderUI();
                 await premiumAlert('옮기지 못했습니다. (서버 전송 실패)', '실패', 'error');
                 return;
             }
@@ -2173,6 +2175,27 @@
                 if(!gd.pending_donations) gd.pending_donations = []; 
                 renderUI(); 
             } catch (e) { console.error("⚠️ fetchAPI Error:", e); }
+        }
+
+        // 🎯 점수만 바꾸는 전용 통로. 상태 전체를 보내지 않는다.
+        //    예전에는 점수도 pushAPI(상태 전체)로 보냈는데, 폰(모바일 조종실)이 같은 순간에
+        //    점수를 주면 나중에 도착한 쪽이 앞선 점수를 통째로 덮어써서 한쪽이 사라졌다.
+        //    (부하 테스트: 동시 배정 12건 중 6건 소실. 위험 구간은 SSE 전파 지연 ≈ 0.5초)
+        //    오토파일럿이 자동 배정을 돌리는 동안 폰으로도 배정하면 정확히 그 상황이 된다.
+        //    서버가 '더할 값'만 받아 읽고-더하고-쓰므로 겹쳐도 둘 다 남는다.
+        //    실패하면 null 을 돌려준다 — 호출부가 화면을 원상복구할 수 있게.
+        async function addScoreAPI(payload) {
+            try {
+                const res = await fetch('/api/score/add', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) { console.warn('점수 반영 실패', res.status); return null; }
+                return await res.json();
+            } catch (e) {
+                console.warn('점수 반영 실패', e);
+                return null;
+            }
         }
 
         async function pushAPI() {
@@ -3104,6 +3127,7 @@
             if (donIdx === -1) return;   // 그 사이 다른 곳에서 이미 처리됨 → 이중 지급 방지
 
             const addPoint = Math.round(gd.pending_donations[donIdx].amount / 10000);
+            // 화면만 먼저 움직인다. 점수를 실제로 더하는 건 서버다.
             target.score += addPoint;
             if (target.contribution === undefined) target.contribution = 0;
             target.contribution += addPoint;
@@ -3113,23 +3137,19 @@
 
             // ⚠️ 정렬한 뒤에 targetList[bjIdx] 를 읽으면 안 된다. 그 자리는 이미 다른 사람이다.
             //    (실제로 로그에 엉뚱한 사람 이름이 찍혀서, 운영자가 그걸 보고 '정정'하다 점수를 두 번 틀리게 만들었다)
-            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (!gd.logs) gd.logs = [];
-            gd.logs.unshift({time: timeStr, name: chosenName, val: addPoint});
-            if(gd.logs.length > 200) gd.logs.pop();
-
             const don0 = gd.pending_donations[donIdx];
             gd.pending_donations.splice(donIdx, 1);
+            renderUI();
 
-            // ⚠️ 점수 전송이 실패했는데 대기함에서만 지워지면 그 후원은 흔적 없이 증발한다.
-            //    화면엔 이미 지급된 것처럼 보이고, 몇 초 뒤 SSE 가 점수를 되돌리는데
-            //    그때는 다시 지급할 카드가 대기함에 없다. 그래서 '점수가 서버에 들어간 뒤에만' 지운다.
-            const ok = await pushAPI();
-            if (ok === false) {
-                // 서버에 안 들어갔으므로 화면도 원상복구한다(점수·로그·대기함 전부).
+            // ⚠️ 예전에는 '점수(상태 전체) 전송'과 '대기함에서 제거'가 왕복 두 번이었다. 그 사이에
+            //    실패하면 후원이 어디에도 없는 상태가 될 수 있었고, 상태 전체를 보내는 탓에
+            //    폰에서 같은 순간에 준 점수를 덮어썼다. 이제 서버가 둘을 같은 잠금 안에서 처리한다.
+            const r = await addScoreAPI({ scope: 'rank', name: chosenName, delta: addPoint,
+                                         pending_id: donId });
+            if (!r) {
+                // 서버에 안 들어갔으므로 화면도 원상복구한다(점수·대기함).
                 target.score -= addPoint;
                 target.contribution -= addPoint;
-                if (gd.logs && gd.logs.length) gd.logs.shift();
                 gd.pending_donations.splice(donIdx, 0, don0);   // 되살려서 다시 누를 수 있게
                 renderUI();
                 await premiumAlert(
@@ -3137,10 +3157,45 @@
                     '지급 실패', 'error');
                 return;
             }
-            removePending(donId);
         }
 
-        function assignHalf(donId) {
+        // 반반·N분할 공통 처리.
+        // ⚠️ 예전에는 두 함수가 각각 pushAPI() 를 기다리지 않고 곧바로 removePending() 을 불렀다.
+        //    전송이 실패하면 점수는 안 들어갔는데 대기함에서는 사라져 그 후원이 증발했다.
+        //    이제 서버가 '점수 지급'과 '대기함 제거'를 같은 잠금 안에서 함께 처리한다.
+        async function assignToNames(donId, names, addPoint, label) {
+            const isExtra = gd.extra_game_active || false;
+            const targetList = (isExtra ? gd.extra_bjs : gd.bjs) || [];
+            const found = names.map(n => targetList.find(b => b.name === n)).filter(Boolean);
+            if (!found.length) {
+                await premiumAlert('적어주신 이름을 명단에서 찾을 수 없어 지급하지 않았습니다.', label, 'warning');
+                return;
+            }
+            const donIdx = gd.pending_donations.findIndex(d => d.id === donId);
+            if (donIdx === -1) return;   // 그 사이 다른 곳에서 처리됨 → 이중 지급 방지
+            const don0 = gd.pending_donations[donIdx];
+
+            // 화면만 먼저 움직인다
+            found.forEach(t => {
+                t.score += addPoint;
+                t.contribution = (t.contribution || 0) + addPoint;
+            });
+            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
+            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
+            gd.pending_donations.splice(donIdx, 1);
+            renderUI();
+
+            const r = await addScoreAPI({ scope: 'rank', pending_id: donId,
+                                         items: found.map(t => ({ name: t.name, delta: addPoint })) });
+            if (!r) {
+                found.forEach(t => { t.score -= addPoint; t.contribution -= addPoint; });
+                gd.pending_donations.splice(donIdx, 0, don0);
+                renderUI();
+                await premiumAlert('지급하지 못했습니다. 네트워크를 확인하고 다시 눌러주세요.', label, 'error');
+            }
+        }
+
+        async function assignHalf(donId) {
             let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
             if(donIdx === -1) return;
             let don = gd.pending_donations[donIdx];
@@ -3148,34 +3203,11 @@
             let namesStr = prompt(`[${don.name} - ${don.amount.toLocaleString()}원]\n반반 나눠줄 사람의 이름을 쉼표(,)로 구분해서 적어주세요.\n(예: 철수,영희)`);
             if(!namesStr) return;
 
-            let names = namesStr.split(',').map(n => n.trim());
-            
-            let halfAmt = don.amount / 2;
-            let addPoint = Math.round(halfAmt / 10000);
+            let names = namesStr.split(',').map(n => n.trim()).filter(n => n !== "");
+            if (!names.length) return;
 
-            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (!gd.logs) gd.logs = [];
-
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-
-            names.forEach(n => {
-                let targetBj = targetList.find(b => b.name === n);
-                if(targetBj) {
-                    targetBj.score += addPoint;
-                    if(targetBj.contribution === undefined) targetBj.contribution = 0;
-                    targetBj.contribution += addPoint;
-                    gd.logs.unshift({time: timeStr, name: targetBj.name, val: addPoint});
-                }
-            });
-
-            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
-            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
-
-            if(gd.logs.length > 200) gd.logs.splice(200);
-            gd.pending_donations.splice(donIdx, 1);
-            pushAPI();
-            removePending(donId);
+            // '반반'은 이름 수와 무관하게 절반씩 (예전 동작 그대로)
+            await assignToNames(donId, names, Math.round((don.amount / 2) / 10000), '반반 지급');
         }
 
         async function deletePending(donId) {
@@ -3827,7 +3859,7 @@
         //    랭킹은 기여도순으로 계속 재정렬되므로, 렌더 당시의 인덱스를 그대로 쓰면
         //    (후원/SSE로 순서가 바뀐 사이에) 철수 칸에서 올린 점수가 영희에게 들어가는 사고가 났다.
         //    이제 입력칸의 data-tname(이름)으로 대상을 특정해 절대 어긋나지 않는다.
-        function addScoreEl(scope, el) {
+        async function addScoreEl(scope, el) {
             if (!el) return;
             let val = parseInt(String(el.value).replace(/[^\d-]/g, ''));
             if (isNaN(val) || val === 0) { el.value = ''; el.blur(); return; }
@@ -3840,22 +3872,27 @@
             else { target = (targetList || []).find(b => b.name === name); }
             if (!target) { el.value = ''; el.blur(); return; }   // 대상을 못 찾으면 안전하게 무시(엉뚱한 기록 방지)
 
-            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (scope === 'rank' || scope === 'bot') { if (!gd.logs) gd.logs = []; gd.logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.logs.length > 200) gd.logs.pop(); }
-            else if (scope === 'match') { if (!gd.match_logs) gd.match_logs = []; gd.match_logs.unshift({time: timeStr, name: target.name, val: val}); if(gd.match_logs.length > 200) gd.match_logs.pop(); }
-            let prev1st = (scope === 'rank' && targetList.length > 0) ? targetList[0].name : null;
+            el.value = ''; el.blur();
+            // 화면만 먼저 움직인다(손맛). 진짜 값은 서버가 더해서 SSE 로 돌려준다.
+            const tname = target.name;
             target.score += val;
             if (scope === 'rank') { if (target.contribution === undefined) target.contribution = 0; target.contribution += val; }
-            if (val > 0) gd.latest_popup = {time: Date.now(), name: target.name, diff: val};
             if (scope === 'rank') {
                 targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
                 if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
-                let curr1st = targetList.length > 0 ? targetList[0].name : null;
-                if (val > 0 && prev1st && curr1st && prev1st !== curr1st && curr1st === target.name) { gd.latest_takeover = {time: Date.now(), name: curr1st}; }
             }
-            // ↩ 되돌리기용 기록 (방금 준 점수를 정확히 역산해 취소할 수 있게)
-            recordScoreAction({ scope, name: target.name, delta: val, isExtra, addedContrib: (scope === 'rank'), logTime: timeStr });
-            el.value = ''; el.blur(); pushAPI();
+            renderUI();
+
+            const r = await addScoreAPI({ scope, name: tname, delta: val, popup: true, takeover: (scope === 'rank') });
+            if (!r) {   // 서버에 안 들어갔다 → 화면을 원래대로
+                target.score -= val;
+                if (scope === 'rank' && target.contribution !== undefined) target.contribution -= val;
+                renderUI();
+                await premiumAlert('점수를 반영하지 못했습니다. 다시 입력해주세요.', '지급 실패', 'warning');
+                return;
+            }
+            // ↩ 되돌리기용 기록 (서버가 남긴 로그 시각을 그대로 받아둔다)
+            recordScoreAction({ scope, name: tname, delta: val, isExtra, addedContrib: (scope === 'rank'), logTime: r.time });
         }
 
         // ===== ↩ 점수 되돌리기(undo) =====
@@ -3892,14 +3929,16 @@
             else if (a.scope === 'match') target = ((gd.match_data && gd.match_data.players) || []).find(p => p.name === a.name);
             else { const list = a.isExtra ? gd.extra_bjs : gd.bjs; target = (list || []).find(b => b.name === a.name); }
             if (!target) { hideUndoToast(); return; }   // 대상이 사라졌으면 조용히 종료
+            // 화면 먼저 되돌리고, 서버에는 '부호 반대인 더할 값'을 보낸다.
+            // (상태 전체를 보내면 그 사이 폰에서 들어온 점수까지 같이 되돌려버린다)
             target.score -= a.delta;
             if (a.addedContrib && target.contribution !== undefined) target.contribution -= a.delta;
-            // 로그에서 방금 그 기록만 제거
-            const logs = (a.scope === 'match') ? gd.match_logs : gd.logs;
-            if (logs) { const i = logs.findIndex(l => l.time === a.logTime && l.name === a.name && l.val === a.delta); if (i >= 0) logs.splice(i, 1); }
             // 랭킹은 기여도순 재정렬
             if (a.scope === 'rank') { const list = a.isExtra ? gd.extra_bjs : gd.bjs; if (list) { list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0)); if (a.isExtra) gd.extra_bjs = list; else gd.bjs = list; } }
-            pushAPI();
+            renderUI();
+            // 원래 남긴 로그 줄을 지운다 — '+3'과 '-3'이 나란히 남지 않게
+            addScoreAPI({ scope: a.scope, name: a.name, delta: -a.delta, log: false,
+                          undo_log: { time: a.logTime, name: a.name, val: a.delta } });
             // 이전 조작이 더 남아있으면 그 토스트를 이어서 띄운다(연속 취소 가능)
             if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
             else hideUndoToast();
@@ -3978,7 +4017,7 @@
         }
 
 
-        function assignSplitEqual(donId) {
+        async function assignSplitEqual(donId) {
             let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
             if(donIdx === -1) return;
             let don = gd.pending_donations[donIdx];
@@ -3989,32 +4028,7 @@
             let names = namesStr.split(',').map(n => n.trim()).filter(n => n !== "");
             if (names.length === 0) return;
 
-            let splitAmt = don.amount / names.length;
-            let addPoint = Math.round(splitAmt / 10000);
-
-            let timeStr = new Date().toLocaleTimeString('ko-KR', { hour12: false });
-            if (!gd.logs) gd.logs = [];
-
-            let isExtra = gd.extra_game_active || false;
-            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-
-            names.forEach(n => {
-                let targetBj = targetList.find(b => b.name === n);
-                if(targetBj) {
-                    targetBj.score += addPoint;
-                    if(targetBj.contribution === undefined) targetBj.contribution = 0;
-                    targetBj.contribution += addPoint;
-                    gd.logs.unshift({time: timeStr, name: targetBj.name, val: addPoint});
-                }
-            });
-
-            targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
-            if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
-
-            if(gd.logs.length > 200) gd.logs.splice(200);
-            gd.pending_donations.splice(donIdx, 1);
-            pushAPI();
-            removePending(donId);
+            await assignToNames(donId, names, Math.round((don.amount / names.length) / 10000), 'N등분 지급');
         }
 
         async function bulkImportBJs() {

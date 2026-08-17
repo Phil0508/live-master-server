@@ -233,8 +233,10 @@ NIM_MODEL = "meta/llama-3.1-8b-instruct"   # 작고 빠름(≈0.7s). 단순 분�
 NIM_CHAT_MODEL = "nvidia/nvidia-nemotron-nano-9b-v2"  # AI 서포트 채팅용. 8b보다 서술·추론이 좋고 ~3-4s.
 NIM_CHAT_PREFIX = "/no_think "  # nemotron 계열: 추론 CoT를 끄는 지시(빠르고 빈 응답 방지). 다른 모델이면 그냥 텍스트로 무시됨.
 
-# 분당 호출 한도. 외부 계정 한도(40/분)보다 안전하게 낮춰 잡고, 넘으면 검증을 조용히 건너뛴다.
-NIM_RATE_LIMIT = 35
+# 분당 호출 한도. 넘으면 검증을 조용히 건너뛴다.
+# 35 로 뒀을 때 부하 테스트에서 45건을 밀어넣으니 우리 리미터는 11건만 막았고
+# 1건은 NVIDIA 쪽에서 그대로 429 를 맞았다. 즉 35 는 실제 허용치에 붙어 있었다.
+NIM_RATE_LIMIT = 30
 _nim_calls = []                 # 최근 호출 시각(초) 슬라이딩 윈도우
 _nim_lock = threading.Lock()
 
@@ -557,6 +559,13 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
 # 오버레이가 안 돌고 있을 때 리액션 큐가 무한정 쌓이는 것을 막는 상한.
 # 전체 큐가 매 update 마다 모든 클라이언트로 나가므로 메모리·트래픽에 직접 영향을 준다.
 REACTION_QUEUE_MAX = 40
+
+# 점수 로그 보관 개수. 위와 같은 이유로 상한이 필요하다.
+LOG_MAX = 200
+
+# 대기함이 이만큼 쌓이면 경고한다. 버리지는 않는다 — 대기함 한 건은 아직 배정 안 된 '돈'이라
+# 조용히 버리면 그 후원은 누구에게도 못 들어간다. 리액션 큐(연출)와 성격이 다르다.
+PENDING_WARN_AT = 200
 
 
 def _norm_donor(name):
@@ -2158,6 +2167,11 @@ def receive_donation():
                 'time': time.strftime('%H:%M:%S')
             }
             state['pending_donations'].append(parsed_don_entry)
+            # 대기함이 커지면 state 전체가 그만큼 무거워지고, 그게 접속 대수만큼 곱해져 나간다.
+            # (부하 테스트: 802건 → state 120KB → 12대에 1.4MB/회)
+            if len(state['pending_donations']) == PENDING_WARN_AT:
+                print(f"⚠️ [대기함 {PENDING_WARN_AT}건] 배정이 밀려 있습니다. 화면 갱신이 무거워집니다 "
+                      f"— 조종실에서 처리하거나 오토파일럿을 켜주세요.")
             state['latest_donation'] = {
                 'name': parsed_name,
                 'amount': amount,
@@ -2375,6 +2389,14 @@ def api_data():
             # 큐에 항목이 남아 있으면 리액션 모드는 항상 켜져 있어야 한다(스테일 클라이언트가 끄는 사고 방지)
             if state.get('reaction_queue'):
                 state['reaction_mode'] = True
+
+            # 🧹 로그 상한을 서버에서 지킨다.
+            #   조종실은 삽입 지점마다 200건으로 잘랐지만 mobile.html 은 안 잘랐고, 서버도 룰렛 경로에서만
+            #   잘랐다. 그래서 폰으로만 배정하면 상한이 없었다(소크에서 432건까지 쌓이는 걸 확인).
+            #   state 전체가 매 update 마다 모든 클라이언트로 나가므로 여기서 한 번에 막는 게 맞다.
+            for _lk in ('logs', 'match_logs'):
+                if isinstance(state.get(_lk), list) and len(state[_lk]) > LOG_MAX:
+                    del state[_lk][LOG_MAX:]
 
             # [버전] 409 경고 대신 마지막 전송 기준으로 버전만 올린다.
             state['version'] = max(incoming.get('version', 0), current_state.get('version', 1)) + 1
@@ -3398,6 +3420,136 @@ def remove_pending_donation(don_id):
         return jsonify({"status": "success", "message": "Removed from pending"})
     except Exception as e:
         print(f"Error in remove_pending_donation: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def _find_score_target(state, scope, name):
+    """점수를 더할 대상 하나를 찾는다. 언제나 '이름'으로 찾는다 —
+       랭킹은 기여도순으로 계속 재정렬되므로 위치 인덱스로 찾으면 엉뚱한 사람에게 돈이 들어간다."""
+    if scope == 'bot':
+        return state.get('bottom_fixed')
+    if scope == 'match':
+        md = state.get('match_data') or {}
+        return next((p for p in (md.get('players') or []) if p.get('name') == name), None)
+    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    return next((b for b in (state.get(src) or []) if b.get('name') == name), None)
+
+
+@app.route('/api/score/add', methods=['POST'])
+def api_score_add():
+    """점수는 '더할 값'만 받아서 서버가 읽고-더하고-쓴다.
+
+    ⚠️ 이 엔드포인트가 생긴 이유:
+       폰(mobile.html)과 조종실은 둘 다 '상태 전체'를 POST 했고, /api/data 는 필드를 통째로
+       교체한다(state.update). 그래서 같은 스냅샷을 들고 각자 점수를 더해 보내면 나중에 도착한
+       쪽이 앞선 점수를 덮어썼다. 부하 테스트에서 동시 배정 12건 중 6건이 사라졌다.
+       위험 구간은 SSE 전파 지연만큼인데 Render 실측이 약 0.5초라 사람이 충분히 부딪힌다.
+       (자리 비운 사이 폰으로 배정하는데 PC 에서 오토파일럿이 돌고 있으면 정확히 그 조건이다)
+       여기서는 스냅샷을 주고받지 않으므로 두 조작이 겹쳐도 둘 다 남는다.
+
+    pending_id 를 함께 주면 '점수 지급'과 '대기함에서 제거'가 같은 잠금 안에서 끝난다.
+    예전에는 왕복 두 번이라 그 사이에 실패하면 후원이 어디에도 없는 상태가 될 수 있었다.
+
+    items 로 여러 명을 한 번에 줄 수 있다(반반·N분할). 한 명이라도 못 찾으면 아무것도 반영하지 않는다.
+    """
+    try:
+        body = request.json or {}
+        scope = (body.get('scope') or 'rank').strip()
+        if scope not in ('rank', 'bot', 'match'):
+            return jsonify({"status": "error", "message": f"알 수 없는 scope: {scope}"}), 400
+
+        raw = body.get('items') or [{"name": body.get('name'), "delta": body.get('delta'),
+                                     "contribution": body.get('contribution')}]
+        # 값 검증을 먼저 다 끝낸다 — 절반만 반영되는 일이 없게
+        wanted = []
+        for it in raw:
+            name = str(it.get('name') or '').strip()
+            if not name and scope != 'bot':
+                return jsonify({"status": "error", "message": "name 이 비어 있다"}), 400
+            try:
+                delta = int(it.get('delta') or 0)
+                contrib = delta if it.get('contribution') is None else int(it.get('contribution'))
+            except (TypeError, ValueError):
+                return jsonify({"status": "error", "message": "delta/contribution 이 숫자가 아니다"}), 400
+            wanted.append((name, delta, contrib))
+
+        want_log = bool(body.get('log', True))
+        want_popup = bool(body.get('popup', False))
+        want_takeover = bool(body.get('takeover', False))
+        pending_id = body.get('pending_id')
+        undo_log = body.get('undo_log')
+
+        with file_lock:
+            state = load_data()
+            src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+            prev_first = None
+            if scope == 'rank':
+                lst = state.get(src) or []
+                prev_first = (lst[0].get('name') if lst else None)
+
+            # ⚠️ 대상을 '전부 찾은 뒤에' 더한다. load_data() 는 살아 있는 메모리 상태를 돌려주므로,
+            #    더하다가 중간에 빠져나가면 저장을 건너뛰어도 앞사람 점수는 이미 올라가 있다.
+            #    (반반 지급에서 두 번째 이름이 오타일 때 첫 사람만 점수를 받는 사고가 난다)
+            targets = []
+            for name, delta, contrib in wanted:
+                t = _find_score_target(state, scope, name)
+                if t is None:
+                    return jsonify({"status": "error",
+                                    "message": f"'{name}' 을(를) 찾을 수 없습니다"}), 404
+                targets.append((t, delta, contrib, t.get('name') or name))
+
+            applied = []
+            for t, delta, contrib, tname in targets:
+                t['score'] = (t.get('score') or 0) + delta
+                if scope == 'rank':
+                    t['contribution'] = (t.get('contribution') or 0) + contrib
+                applied.append({"name": tname, "delta": delta,
+                                "score": t.get('score'), "contribution": t.get('contribution')})
+
+            time_str = time.strftime('%H:%M:%S')
+            log_key = 'match_logs' if scope == 'match' else 'logs'
+            logs = state.get(log_key)
+            if not isinstance(logs, list):
+                logs = []
+            state[log_key] = logs
+            if want_log:
+                for a in applied:
+                    logs.insert(0, {"time": time_str, "name": a['name'], "val": a['delta']})
+            # 되돌리기: '-3점' 줄을 새로 남기는 대신 원래 줄을 지운다(장부가 깔끔하게 남는다).
+            # 반반·N분할을 되돌릴 때는 지울 줄이 여러 개라 목록도 받는다.
+            for u in ([undo_log] if isinstance(undo_log, dict) else (undo_log or [])):
+                for i, l in enumerate(logs):
+                    if (l.get('time') == u.get('time') and l.get('name') == u.get('name')
+                            and l.get('val') == u.get('val')):
+                        del logs[i]
+                        break
+            del logs[LOG_MAX:]
+
+            if want_popup:
+                top = max(applied, key=lambda a: a['delta'])
+                if top['delta'] > 0:
+                    state['latest_popup'] = {"time": int(time.time() * 1000),
+                                             "name": top['name'], "diff": top['delta']}
+
+            if scope == 'rank':
+                lst = state.get(src) or []
+                lst.sort(key=lambda b: -(b.get('contribution') or 0))
+                state[src] = lst
+                if want_takeover and prev_first and lst:
+                    curr = lst[0].get('name')
+                    gained = {a['name'] for a in applied if a['delta'] > 0}
+                    if curr and curr != prev_first and curr in gained:
+                        state['latest_takeover'] = {"time": int(time.time() * 1000), "name": curr}
+
+            if pending_id:
+                pend = state.get('pending_donations') or []
+                state['pending_donations'] = [d for d in pend if d.get('id') != pending_id]
+
+            save_data(state)
+            broadcast_event('update', state)
+        return jsonify({"status": "success", "applied": applied, "time": time_str})
+    except Exception as e:
+        print(f"Error in api_score_add: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================

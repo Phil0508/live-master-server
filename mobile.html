@@ -148,13 +148,22 @@ function players() {
 }
 
 // ── 서버 전송 ─────────────────────────────────────────────
-// 상태 전체를 보내므로, 보내기 직전의 gd 가 최신이어야 한다(SSE 로 계속 갱신된다).
-async function push() {
-    const res = await fetch('/api/data', {
+// 점수는 '더할 값'만 보낸다. 상태 전체를 보내면, PC 조종실(오토파일럿 포함)이 같은 순간에
+// 점수를 주고 있을 때 나중에 도착한 쪽이 앞선 점수를 통째로 덮어써서 한쪽이 사라졌다.
+// 위험 구간은 SSE 전파 지연만큼인데 실측이 약 0.5초라 밖에서 누르다 보면 충분히 부딪힌다.
+// pending_id 를 같이 보내면 '점수 지급'과 '대기함에서 제거'가 서버의 같은 잠금 안에서 끝나
+// 그 사이에 실패해 후원이 어디에도 없는 상태가 되는 일도 없다.
+async function addScore(payload) {
+    const res = await fetch('/api/score/add', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(gd)
+        body: JSON.stringify(payload)
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    if (!res.ok) {
+        let msg = 'HTTP ' + res.status;
+        try { msg = (await res.json()).message || msg; } catch (e) {}
+        throw new Error(msg);
+    }
+    return res.json();
 }
 
 // ── 배정 ──────────────────────────────────────────────────
@@ -168,23 +177,20 @@ async function assign(donId, name) {
     busy = true;
 
     const pts = Math.round((don.amount || 0) / 10000);
+    // 화면만 먼저 움직여 손맛을 준다. 서버 응답이 오면 SSE 가 진짜 값으로 맞춰준다.
     const before = { score: p.score || 0, contribution: p.contribution || 0 };
     p.score = before.score + pts;
     p.contribution = before.contribution + pts;
-    if (!gd.logs) gd.logs = [];
-    gd.logs.unshift({ time: new Date().toLocaleTimeString('ko-KR', { hour12: false }), name, val: pts });
     gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
     render();
 
     try {
-        await push();
-        // 점수가 실제로 들어간 뒤에만 대기함에서 지운다. 순서가 반대면
-        // 전송이 실패했을 때 후원이 흔적 없이 사라진다.
-        await fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' });
-        rememberUndo(`${don.name}님 → ${name} +${pts}점`, { type: 'assign', name, pts });
+        const r = await addScore({ scope: 'rank', name, delta: pts, pending_id: donId });
+        rememberUndo(`${don.name}님 → ${name} +${pts}점`,
+                     { type: 'assign', name, pts, logTime: r.time });
     } catch (e) {
+        // 서버에 아무것도 안 들어갔다. 화면을 원래대로 되돌리고 다시 누를 수 있게 카드를 살린다.
         p.score = before.score; p.contribution = before.contribution;
-        gd.logs.shift();
         gd.pending_donations.unshift(don);
         render();
         showErr('지급하지 못했습니다. 다시 눌러주세요.');
@@ -201,15 +207,18 @@ async function assignSplit(donId, mode) {
     const pts = Math.floor(Math.round((don.amount || 0) / 10000) / targets.length);
     if (pts <= 0) { busy = false; showErr('나누기엔 금액이 너무 작습니다.'); return; }
 
+    const names = targets.map(t => t.name);
     const before = targets.map(p => ({ p, s: p.score || 0, c: p.contribution || 0 }));
     targets.forEach(p => { p.score = (p.score || 0) + pts; p.contribution = (p.contribution || 0) + pts; });
     gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
     render();
     try {
-        await push();
-        await fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' });
+        // 여러 명을 한 요청으로 보낸다. 서버는 한 명이라도 못 찾으면 아무것도 반영하지 않으므로
+        // '절반만 들어간' 상태가 생기지 않는다.
+        const r = await addScore({ scope: 'rank', pending_id: donId,
+                                   items: names.map(n => ({ name: n, delta: pts })) });
         rememberUndo(`${don.name}님 → ${targets.length}명 각 +${pts}점`,
-                     { type: 'split', targets: targets.map(t => t.name), pts });
+                     { type: 'split', targets: names, pts, logTime: r.time });
     } catch (e) {
         before.forEach(b => { b.p.score = b.s; b.p.contribution = b.c; });
         gd.pending_donations.unshift(don);
@@ -244,14 +253,13 @@ async function bump(name, delta) {
     const before = { s: p.score || 0, c: p.contribution || 0 };
     p.score = before.s + delta;
     p.contribution = before.c + delta;
-    if (!gd.logs) gd.logs = [];
-    gd.logs.unshift({ time: new Date().toLocaleTimeString('ko-KR', { hour12: false }), name, val: delta });
     render();
     try {
-        await push();
-        rememberUndo(`${name} ${delta > 0 ? '+' : ''}${delta}점`, { type: 'bump', name, delta });
+        const r = await addScore({ scope: 'rank', name, delta });
+        rememberUndo(`${name} ${delta > 0 ? '+' : ''}${delta}점`,
+                     { type: 'bump', name, delta, logTime: r.time });
     } catch (e) {
-        p.score = before.s; p.contribution = before.c; gd.logs.shift(); render();
+        p.score = before.s; p.contribution = before.c; render();
         showErr('점수를 바꾸지 못했습니다.');
     } finally { busy = false; }
 }
@@ -272,19 +280,21 @@ async function undoLast() {
     lastAction = null;
     $('undo').style.display = 'none';
     busy = true;
+    // 되돌리기도 '더할 값'으로 보낸다(부호만 반대). 그래야 그 사이 다른 데서 들어온 점수를 지우지 않는다.
+    // 원래 남긴 로그 줄은 undo_log 로 지워서 장부에 '+3'과 '-3'이 나란히 남지 않게 한다.
+    const items = (a.type === 'split')
+        ? a.targets.map(n => ({ name: n, delta: -a.pts }))
+        : [{ name: a.name, delta: -(a.type === 'assign' ? a.pts : a.delta) }];
     try {
-        if (a.type === 'assign' || a.type === 'bump') {
-            const d = a.type === 'assign' ? -a.pts : -a.delta;
-            const p = players().find(b => b.name === a.name);
-            if (p) { p.score = (p.score || 0) + d; p.contribution = (p.contribution || 0) + d; }
-        } else if (a.type === 'split') {
-            a.targets.forEach(n => {
-                const p = players().find(b => b.name === n);
-                if (p) { p.score = (p.score || 0) - a.pts; p.contribution = (p.contribution || 0) - a.pts; }
-            });
-        }
+        items.forEach(it => {
+            const p = players().find(b => b.name === it.name);
+            if (p) { p.score = (p.score || 0) + it.delta; p.contribution = (p.contribution || 0) + it.delta; }
+        });
         render();
-        await push();
+        await addScore({
+            scope: 'rank', items, log: false,
+            undo_log: a.logTime ? items.map(it => ({ time: a.logTime, name: it.name, val: -it.delta })) : null,
+        });
     } catch (e) {
         showErr('되돌리지 못했습니다.');
     } finally { busy = false; }
