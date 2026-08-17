@@ -3423,6 +3423,48 @@ def remove_pending_donation(don_id):
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+# 설정 패치로는 건드릴 수 없는 필드.
+# 점수·로그는 /api/score/add 로만, 큐·대기함은 후원 수신과 전용 엔드포인트로만 바뀌어야 한다.
+# (여기에 구멍을 두면 patch 가 또 하나의 덮어쓰기 경로가 된다)
+PATCH_DENY = frozenset((
+    'bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
+    'reaction_queue', 'latest_donation', 'pending_donations',
+    'api_token', 'server_time', 'version',
+))
+
+
+@app.route('/api/settings/patch', methods=['POST'])
+def api_settings_patch():
+    """바뀐 필드만 받아서 합친다.
+
+    ⚠️ 이 엔드포인트가 생긴 이유:
+       편집기(admin.html)는 SSE 를 안 쓰고 1초마다 상태 전체를 받아 들고 있다가,
+       편집할 때 그 스냅샷을 통째로 POST 했다. 그래서 슬라이더를 한 번 움직이면
+       그 1초 사이에 들어온 점수가 통째로 사라졌다.
+       (측정: 슬라이더 한 번에 5점 소실. 드래그 중에는 10점 중 9점 소실)
+       바뀐 필드만 보내면 남이 바꾼 것을 건드릴 이유가 없다.
+    """
+    try:
+        body = request.json or {}
+        if not isinstance(body, dict) or not body:
+            return jsonify({"status": "error", "message": "바꿀 필드가 없다"}), 400
+        bad = [k for k in body if k in PATCH_DENY]
+        if bad:
+            return jsonify({"status": "error",
+                            "message": f"이 필드는 설정 패치로 바꿀 수 없습니다: {', '.join(bad)}"}), 400
+
+        with file_lock:
+            state = load_data()
+            state.update(body)
+            state['version'] = (state.get('version') or 1) + 1
+            save_data(state)
+            broadcast_event('update', state)
+        return jsonify({"status": "success", "patched": sorted(body.keys())})
+    except Exception as e:
+        print(f"Error in api_settings_patch: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 def _find_score_target(state, scope, name):
     """점수를 더할 대상 하나를 찾는다. 언제나 '이름'으로 찾는다 —
        랭킹은 기여도순으로 계속 재정렬되므로 위치 인덱스로 찾으면 엉뚱한 사람에게 돈이 들어간다."""

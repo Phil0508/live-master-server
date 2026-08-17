@@ -348,24 +348,39 @@
 
 
 
+            // ⚠️ 편집기는 '바꾼 필드만' 보낸다.
+            //    예전에는 globalData(상태 전체)를 통째로 POST 했다. 이 화면은 SSE 를 안 쓰고
+            //    1초마다 폴링하므로 스냅샷이 최대 1초 낡아 있는데, 그 낡은 점수·로그까지 같이
+            //    보내는 셈이어서 방송 중에 슬라이더를 한 번 움직이면 그 사이 들어온 점수가
+            //    통째로 사라졌다. (측정: 슬라이더 한 번에 5점 소실, 드래그 중엔 10점 중 9점)
+            async function patchSettings(fields) {
+                try {
+                    await fetch('/api/settings/patch', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(fields)
+                    });
+                } catch(e) {}
+            }
+
             window.liveUpdateAccount = async function() {
-                if(!globalData) return;
-                globalData.account = { bank: document.getElementById('admin-acc-bank').value, acc_num: document.getElementById('admin-acc-num').value, name: document.getElementById('admin-acc-name').value };
-                try { await fetch('/api/data', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalData) }); } catch(e) {}
+                await patchSettings({ account: {
+                    bank: document.getElementById('admin-acc-bank').value,
+                    acc_num: document.getElementById('admin-acc-num').value,
+                    name: document.getElementById('admin-acc-name').value,
+                }});
             };
 
             // 🎬 시그니처 리액션 위젯 크기/위치/타이밍 실시간 조절
-            // 편집값을 pendingReac에 모아뒀다가 POST 직전에 최신 globalData에 재적용한다.
-            // fetchRealData가 1초마다 globalData를 통째로 교체해도 편집이 유실되지 않게 하는 장치.
+            // pendingReac 에는 '방금 만진 값'만 모인다. 그래서 그대로 보내면 된다.
+            // (예전에는 이걸 상태 전체에 다시 얹어 보내려고 Object.assign 을 하고 있었다)
             let _reacPushTimer = null;
             let pendingReac = {};
             function pushReac() {
                 clearTimeout(_reacPushTimer);
                 _reacPushTimer = setTimeout(async () => {
-                    if(!globalData) return;
-                    Object.assign(globalData, pendingReac);   // 1초 새로고침이 덮어썼어도 편집값을 최신 상태에 재적용
+                    const fields = pendingReac;
                     pendingReac = {};
-                    try { await fetch('/api/data', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(globalData) }); } catch(e) {}
+                    if (Object.keys(fields).length) await patchSettings(fields);
                 }, 120);
             }
             window.updateReac = function(key, val, labelId) {
