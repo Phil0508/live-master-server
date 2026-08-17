@@ -1062,6 +1062,11 @@
                 <button onclick="startKaraoke()" style="height:40px; padding:0 18px; border-radius:var(--r-2); border:none; background:linear-gradient(135deg,#5b6cff,#8b7bff); color:#fff; font-weight:800; cursor:pointer; white-space:nowrap;"><i class="fa-solid fa-play"></i> 노래방 켜기</button>
                 <button onclick="stopKaraoke()" style="height:40px; padding:0 16px; border-radius:var(--r-2); border:1px solid rgba(255,69,58,0.4); background:rgba(255,69,58,0.1); color:var(--danger); font-weight:800; cursor:pointer; white-space:nowrap;"><i class="fa-solid fa-stop"></i> 끄기</button>
             </div>
+            <div style="display:flex; align-items:center; gap:10px; margin-top:12px;">
+                <span style="font-size:var(--fs-2); color:var(--text-muted); white-space:nowrap;"><i class="fa-solid fa-volume-high"></i> 영상 음량</span>
+                <input type="range" id="karaoke-volume-slider" min="0" max="100" step="5" value="70" oninput="changeKaraokeVolume(this.value)" style="flex:1; min-width:120px; accent-color:#8b7bff;">
+                <span id="karaoke-vol-text" style="font-size:var(--fs-2); font-weight:800; color:#9fb0ff; min-width:44px; text-align:right;">70%</span>
+            </div>
             <div id="karaoke-status" style="margin-top:10px; font-size:var(--fs-2); color:var(--text-muted);">⚫ 꺼짐</div>
         </div>
         <div class="group-box" id="extra-game-banner" style="margin-bottom: 15px; border-color: var(--border-light); background: rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
@@ -2205,6 +2210,19 @@
         //    점수는 /api/score/add 로만 들어간다. 명단·기여도·로그를 실제로 고치는 곳만
         //    opts.include 로 그 필드를 명시해서 보낸다.
         const PUSH_OWNED = ['bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs'];
+        // 설정 하나만 바꿀 때는 상태 전체를 보내지 않는다 — 편집기와 같은 통로.
+        // 슬라이더처럼 값이 빠르게 바뀌는 조작에 특히 맞다(보내는 양이 수십 KB → 수십 바이트).
+        async function patchAPI(fields) {
+            try {
+                const res = await fetch('/api/settings/patch', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(fields)
+                });
+                if (!res.ok) console.warn('설정 반영 실패', res.status);
+                return res.ok;
+            } catch (e) { console.warn('설정 반영 실패', e); return false; }
+        }
+
         async function pushAPI(opts) {
             if(!gd) return;
             lastPushTime = Date.now();
@@ -3080,6 +3098,29 @@
             } else {
                 s.textContent = '⚫ 꺼짐';
             }
+            // 음량 슬라이더를 서버 값에 맞춘다. (끌고 있는 동안에는 renderUI 가 조기 반환하므로 안 튄다)
+            const sl = document.getElementById('karaoke-volume-slider');
+            const vt = document.getElementById('karaoke-vol-text');
+            const vol = (gd && gd.karaoke_volume !== undefined) ? gd.karaoke_volume : 70;
+            if (sl && document.activeElement !== sl && String(sl.value) !== String(vol)) sl.value = vol;
+            if (vt) vt.innerText = vol + '%';
+        }
+
+        // 🎤 노래방 영상 음량. 슬라이더는 끌면 값이 초당 수십 번 바뀐다.
+        //    화면 숫자는 즉시 바꾸고, 서버에는 바뀐 필드 하나만 묶어 보낸다.
+        // ⚠️ 디바운스 타이머를 모듈 변수(let)로 두지 않고 슬라이더 요소에 붙인다.
+        //    이 파일은 위쪽에서 뭔가 한 번 throw 하면 그 뒤의 let 선언들이 통째로 초기화되지 않아,
+        //    버튼을 누르는 순간 TDZ 오류로 죽는다(이 함정에 이미 세 번 걸렸다).
+        //    요소에 붙이면 선언 순서와 무관하게 항상 동작한다.
+        function changeKaraokeVolume(val) {
+            const vol = Math.max(0, Math.min(100, parseInt(val, 10) || 0));
+            const vt = document.getElementById('karaoke-vol-text');
+            if (vt) vt.innerText = vol + '%';
+            if (gd) gd.karaoke_volume = vol;
+            const sl = document.getElementById('karaoke-volume-slider');
+            if (!sl) { patchAPI({ karaoke_volume: vol }); return; }
+            clearTimeout(sl._volTimer);      // 처음엔 undefined — clearTimeout 이 그냥 무시한다
+            sl._volTimer = setTimeout(() => patchAPI({ karaoke_volume: vol }), 150);
         }
 
         async function assignPending(donId, bjIdx) {

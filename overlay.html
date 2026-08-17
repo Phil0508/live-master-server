@@ -1740,6 +1740,30 @@
         // 🎤 노래방 모드: karaoke_enabled + karaoke_video 면 유튜브 영상을 큰 화면에 띄운다.
         //   video id가 바뀔 때만 iframe을 새로 만든다(매 업데이트마다 재생이 처음으로 튀는 것 방지).
         let karaokeCurrentId = null;
+        let karaokeVolWanted = 70;      // 조종실이 정한 값
+        let karaokeVolApplied = null;   // 영상에 실제로 먹인 값
+        let karaokeVolTimer = null;
+
+        function karaokeClampVol(v) {
+            const n = Math.round(Number(v));
+            if (!isFinite(n)) return 70;
+            return Math.max(0, Math.min(100, n));
+        }
+
+        // 유튜브 iframe 에 명령을 보낸다.
+        // IFrame Player API 스크립트(youtube.com/iframe_api)를 따로 받지 않고 postMessage 규약만 쓴다 —
+        // 오버레이는 OBS 안에서 도는 화면이라 외부 스크립트를 하나라도 덜 얹는 편이 낫다.
+        // iframe src 에 enablejsapi=1 이 있어야 이 메시지를 받아준다.
+        function karaokeCmd(func, args) {
+            const f = document.querySelector('#karaoke-frame iframe');
+            if (!f || !f.contentWindow) return;
+            try {
+                f.contentWindow.postMessage(
+                    JSON.stringify({ event: 'command', func: func, args: args || [] }),
+                    'https://www.youtube.com');
+            } catch (e) {}
+        }
+
         function updateKaraoke(d) {
             const box = document.getElementById('karaoke-container');
             const frame = document.getElementById('karaoke-frame');
@@ -1748,18 +1772,45 @@
             if (!on) {
                 if (karaokeCurrentId !== null) {
                     karaokeCurrentId = null;
+                    karaokeVolApplied = null;
+                    if (karaokeVolTimer) { clearInterval(karaokeVolTimer); karaokeVolTimer = null; }
                     frame.innerHTML = '';        // iframe 제거 → 재생/소리 완전 정지
                     box.style.display = 'none';
                 }
                 return;
             }
+            karaokeVolWanted = karaokeClampVol(d.karaoke_volume !== undefined ? d.karaoke_volume : 70);
+
             if (karaokeCurrentId !== d.karaoke_video) {
                 karaokeCurrentId = d.karaoke_video;
-                const src = 'https://www.youtube.com/embed/' + encodeURIComponent(d.karaoke_video)
-                    + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=0';
+                karaokeVolApplied = null;
+                let src = 'https://www.youtube.com/embed/' + encodeURIComponent(d.karaoke_video)
+                    + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=0&enablejsapi=1';
+                // origin 은 http(s) 로 서비스될 때만 붙인다. file:// 로 열면 'null' 이 되어 임베드가 거부된다.
+                if (location.protocol === 'http:' || location.protocol === 'https:') {
+                    src += '&origin=' + encodeURIComponent(location.origin);
+                }
                 frame.innerHTML = '<iframe width="100%" height="100%" src="' + src
                     + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border:0;display:block;"></iframe>';
                 box.style.display = 'block';
+
+                // ⚠️ 영상이 준비되기 전에 보낸 명령은 그냥 버려진다. onReady 를 받으려면 IFrame API
+                //    스크립트가 필요하니, 대신 준비될 때까지 몇 번 다시 보낸다(0.5초 × 8회 = 4초).
+                //    그 사이 운영자가 슬라이더를 움직여도 karaokeVolWanted 를 읽으므로 최신 값이 먹는다.
+                if (karaokeVolTimer) clearInterval(karaokeVolTimer);
+                let tries = 0;
+                karaokeVolTimer = setInterval(() => {
+                    karaokeCmd('unMute');
+                    karaokeCmd('setVolume', [karaokeVolWanted]);
+                    karaokeVolApplied = karaokeVolWanted;
+                    if (++tries >= 8) { clearInterval(karaokeVolTimer); karaokeVolTimer = null; }
+                }, 500);
+                return;
+            }
+
+            if (karaokeVolWanted !== karaokeVolApplied) {
+                karaokeVolApplied = karaokeVolWanted;
+                karaokeCmd('setVolume', [karaokeVolWanted]);
             }
         }
 
