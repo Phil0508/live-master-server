@@ -229,11 +229,30 @@
             let layout = {}; let activeWidget = null; let isDragging = false; let isResizing = false; let startX, startY, initialX, initialY; let startScale = 1.0; let baseWidth = 100;
             let globalData = null;
 
+            // 📡 상태는 SSE 로 받는다.
+            // ⚠️ 예전에는 setInterval(fetchRealData, 1000) 으로 /api/data 를 1초마다 통째로 받아왔다.
+            //    state 는 방송이 길어지면 수십 KB 까지 커지므로, 편집기를 켜두기만 해도 계속
+            //    받아오는 셈이었다(state 64KB 기준 탭 하나당 시간당 약 225MB).
+            //    오버레이·조종실·폰은 이미 SSE 를 쓴다. 편집기도 '바뀔 때만' 받게 한다.
+            let _paintTimer = null;
+            function renderFromState(d) {
+                if (!d) return;
+                globalData = d;
+                // 후원이 몰리면 SSE 가 초당 수십 번 온다. 편집 화면을 그만큼 다시 그릴 이유는 없다.
+                if (_paintTimer) return;
+                _paintTimer = setTimeout(() => { _paintTimer = null; paint(globalData); }, 200);
+            }
+
+            // 처음 한 번, 그리고 SSE 가 조용히 죽었을 때만 직접 받아온다.
             async function fetchRealData() {
                 try {
-                    let res = await fetch('/api/data'); if(!res.ok) return; 
-                    let d = await res.json(); globalData = d;
+                    let res = await fetch('/api/data'); if(!res.ok) return;
+                    renderFromState(await res.json());
+                } catch(e) {}
+            }
 
+            function paint(d) {
+                try {
                     let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = d.target_goal || 1; 
                     let tot = bot.score || 0; bjs.forEach(b => tot += b.score);
                     let leftCount = Math.max(3, Math.ceil(bjs.length / 2)); let leftHtml = ''; let rightHtml = '';
@@ -353,6 +372,30 @@
             //    1초마다 폴링하므로 스냅샷이 최대 1초 낡아 있는데, 그 낡은 점수·로그까지 같이
             //    보내는 셈이어서 방송 중에 슬라이더를 한 번 움직이면 그 사이 들어온 점수가
             //    통째로 사라졌다. (측정: 슬라이더 한 번에 5점 소실, 드래그 중엔 10점 중 9점)
+            // ⚠️ 서버는 이름 붙은 이벤트(init/update)로 보낸다. onmessage 로는 아무것도 못 받는다.
+            let adminEs = null;
+            let adminLastMsg = Date.now();
+            function connectAdminSSE() {
+                if (adminEs) adminEs.close();
+                adminEs = new EventSource('/api/stream');
+                const onState = e => {
+                    adminLastMsg = Date.now();
+                    try { renderFromState(JSON.parse(e.data)); } catch (err) {}
+                };
+                adminEs.addEventListener('init', onState);
+                adminEs.addEventListener('update', onState);
+                adminEs.addEventListener('ping', () => { adminLastMsg = Date.now(); });
+                adminEs.onerror = () => { adminEs.close(); setTimeout(connectAdminSSE, 3000); };
+            }
+            // 연결이 조용히 죽는 경우(프록시가 끊었는데 onerror 가 안 뜨는 상황) 대비 — 다른 화면과 같은 방식
+            setInterval(() => {
+                if (Date.now() - adminLastMsg > 45000) {
+                    adminLastMsg = Date.now();
+                    fetchRealData();
+                    connectAdminSSE();
+                }
+            }, 10000);
+
             async function patchSettings(fields) {
                 try {
                     await fetch('/api/settings/patch', {
@@ -471,7 +514,7 @@
             function resizing(e) { if (!isResizing || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const dx = (clientX - startX) / scaleRatio; let newScale = startScale + (dx / baseWidth); newScale = Math.max(0.3, Math.min(newScale, 3.0)); activeWidget.style.transform = `scale(${newScale})`; activeWidget.dataset.scale = newScale; const scaleSlider = document.getElementById('prop-scale'); if(scaleSlider) { scaleSlider.value = newScale; document.getElementById('prop-scale-val').innerText = newScale.toFixed(2); } }
             function resizeEnd() { if(isResizing) { isResizing = false; autoSaveLayout(); } document.removeEventListener('mousemove', resizing); document.removeEventListener('touchmove', resizing); document.removeEventListener('mouseup', resizeEnd); document.removeEventListener('touchend', resizeEnd); }
 
-            setTimeout(loadLayout, 100); fetchRealData(); setInterval(fetchRealData, 1000);
+            setTimeout(loadLayout, 100); fetchRealData(); connectAdminSSE();
         });
     </script>
 </body>

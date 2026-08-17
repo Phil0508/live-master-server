@@ -2198,42 +2198,29 @@
             }
         }
 
-        async function pushAPI() {
+        // 🛡️ 점수를 담은 필드는 기본적으로 보내지 않는다.
+        //    설정 토글 하나가 '상태 전체'를 보내면서, 그 사이 폰에서 들어온 점수를 낡은 값으로
+        //    되돌리는 사고가 있었다. 편집기에서 같은 구조를 측정해보니 슬라이더 한 번에 5점,
+        //    드래그 중에는 10점 중 9점이 사라졌다.
+        //    점수는 /api/score/add 로만 들어간다. 명단·기여도·로그를 실제로 고치는 곳만
+        //    opts.include 로 그 필드를 명시해서 보낸다.
+        const PUSH_OWNED = ['bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs'];
+        async function pushAPI(opts) {
             if(!gd) return;
             lastPushTime = Date.now();
-            isPushing = true; gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); renderUI(); 
+            isPushing = true; gd.bjs.sort((a, b) => (b.contribution || 0) - (a.contribution || 0)); renderUI();
+            const include = (opts && opts.include) || [];
+            const body = Object.assign({}, gd);
+            PUSH_OWNED.forEach(k => { if (include.indexOf(k) === -1) delete body[k]; });
             try {
-                const res = await fetch('/api/data', { 
-                    method: 'POST', 
-                    headers:{'Content-Type':'application/json'}, 
-                    body: JSON.stringify(gd) 
+                // 409 재시도 분기는 지웠다 — 서버는 버전이 어긋나도 max()+1 로 올리고 409 를 주지 않는다
+                // (server.py 의 '409 경고 대신 마지막 전송 기준으로 버전만 올린다'). 닿지 않는 코드였다.
+                const res = await fetch('/api/data', {
+                    method: 'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify(body)
                 });
-                if (res.status === 409) {
-                    // 🔄 버전 충돌 시 최신 데이터를 받아와서 버전만 갱신 후 자동 재전송
-                    console.warn("⚠️ 버전 충돌 감지, 자동 동기화 후 재전송...");
-                    isPushing = false;
-                    lastPushTime = 0;
-                    const freshRes = await fetch('/api/data');
-                    const freshData = await freshRes.json();
-                    gd.version = freshData.version; // 서버 최신 버전으로 갱신
-                    // 즉시 재전송
-                    lastPushTime = Date.now();
-                    isPushing = true;
-                    const retryRes = await fetch('/api/data', {
-                        method: 'POST',
-                        headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify(gd)
-                    });
-                    if (retryRes.status === 409) {
-                        // 두 번째 충돌 시에만 조용히 전체 동기화
-                        console.warn("⚠️ 재시도에서도 충돌, 전체 동기화 수행");
-                        isPushing = false;
-                        lastPushTime = 0;
-                        await fetchAPI();
-                        return;
-                    }
-                }
-                if (!res.ok && res.status !== 409) throw new Error('HTTP ' + res.status);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
             } catch(e) {
                 console.error("⚠️ pushAPI Error:", e);
                 setTimeout(() => { isPushing = false; }, 80);
@@ -2439,26 +2426,26 @@
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI();" disabled style="flex: 1; text-align: left; padding-left: 10px;">
+                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" disabled style="flex: 1; text-align: left; padding-left: 10px;">
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
-                        <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI();" disabled><i class="fa-solid fa-trash-can"></i></button></td>
+                        <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI({include:['bjs','extra_bjs']});" disabled><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
                 } else {
                     rHtml += `<tr>
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI();" style="flex: 1; text-align: left; padding-left: 10px;">
+                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" style="flex: 1; text-align: left; padding-left: 10px;">
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
-                        <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI();"><i class="fa-solid fa-trash-can"></i></button></td>
+                        <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI({include:['bjs','extra_bjs']});"><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
                 }
             });
@@ -2467,7 +2454,7 @@
                     <td>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                             <span class="rank-badge badge-normal" style="background:rgba(74, 158, 255, 0.1); color:var(--accent); border: 1px dashed rgba(74, 158, 255, 0.3);"><i class="fa-solid fa-anchor" style="font-size:var(--fs-1);"></i></span>
-                            <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI();" style="flex: 1; text-align: left; padding-left: 10px;">
+                            <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI({include:['bottom_fixed']});" style="flex: 1; text-align: left; padding-left: 10px;">
                         </div>
                     </td>
                     <td class="score-display" style="color:var(--accent);">${gd.bottom_fixed.score.toLocaleString()}</td>
@@ -3341,7 +3328,7 @@
                     //    통째로 조기 반환해서, 정렬로 순서가 바뀐 뒤에도 화면은 옛 순서를 그대로 유지한다.
                     //    그 상태에서 지급 버튼을 누르면 엉뚱한 사람에게 점수가 들어간다.
                     cancelContribEdit();
-                    pushAPI();
+                    pushAPI({include:['bjs','extra_bjs']});
                 } else {
                     cancelContribEdit();
                 }
@@ -3353,8 +3340,8 @@
             let targetList = isExtra ? gd.extra_bjs : gd.bjs;
             let currentVal = targetList[idx].contribution || 0;
             targetList[idx].contribution = currentVal + amount;
-            
-            pushAPI();
+
+            pushAPI({include:['bjs','extra_bjs']});
         }
 
         function cancelContribEdit() {
@@ -3370,7 +3357,7 @@
                 let isExtra = gd.extra_game_active || false;
                 let targetList = isExtra ? gd.extra_bjs : gd.bjs;
                 targetList[idx].contribution = parsed;
-                pushAPI();
+                pushAPI({include:['bjs','extra_bjs']});
             } else {
                 renderUI();
             }
@@ -3819,7 +3806,7 @@
                 return;
             }
             gd.bjs.push({name:"New", score:0, contribution:0});
-            pushAPI();
+            pushAPI({include:['bjs']});
         }
         function triggerNeon(color) {
             gd.effect_trigger = {time: Date.now(), color: color, infinite: true};
@@ -3944,7 +3931,7 @@
             else hideUndoToast();
         }
 
-        function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI(); }
+        function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI({include:['logs','match_logs']}); }
         function updateMatchTitle() { gd.match_data.title = document.getElementById('in-match-title').value; pushAPI(); }
         function addMatchPlayer() { if(gd.match_data.players.length<4) { gd.match_data.players.push({name:"Player", score:0}); pushAPI(); } }
         
