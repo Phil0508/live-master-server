@@ -53,6 +53,10 @@ except ImportError:
 DATABASE_URL = os.environ.get('DATABASE_URL')
 IS_POSTGRES = bool(DATABASE_URL)
 
+# 서버가 언제 켜졌는지. /api/health 가 가동시간을 계산하는 데 쓴다.
+# 이 값이 자꾸 0 근처면 서버가 계속 재시작되고 있다는 뜻이라 그 자체가 신호다.
+SERVER_BOOT_TS = time.time()
+
 def db_query(query):
     if IS_POSTGRES:
         return query.replace('?', '%s')
@@ -735,6 +739,11 @@ def require_login():
         '/alertbox.html',
         '/api/stream',
         '/api/ping',
+        # 🩺 상태 확인은 로그인 없이 열어둔다. 폰으로 '서버 괜찮나' 보는 용도라
+        #    로그인을 요구하면 쓸모가 없다. 담기는 내용은 api_health() 참고 —
+        #    이름·금액·토큰은 없고, 보안 항목은 로그인했을 때만 붙는다.
+        '/health',
+        '/api/health',
         '/api/donation',
         '/api/streamdeck/neon',
         '/api/streamdeck/save',
@@ -1417,6 +1426,97 @@ def sse_stream():
 @app.route('/api/ping')
 def api_ping():
     return jsonify({'status': 'pong'})
+
+
+def _rss_mb():
+    """이 프로세스가 쓰는 메모리(MB). 리눅스 밖에서는 None."""
+    try:
+        with open('/proc/self/status', 'r') as f:
+            for ln in f:
+                if ln.startswith('VmRSS:'):
+                    return round(int(ln.split()[1]) / 1024, 1)
+    except Exception:
+        pass
+    return None
+
+
+# 🩺 서버가 살아있고 제대로 일하는지 한눈에 — 폰으로 여는 /health 페이지가 쓴다.
+#
+# ⚠️ 무인증으로 열어둔다. 로그인해야 볼 수 있으면 폰에서 '괜찮나?' 확인하는
+#    용도로 못 쓰기 때문이다. 대신 후원자 이름·금액·메시지·토큰처럼 남이 보면
+#    안 되는 것은 절대 담지 않는다. 담는 것은 '몇 건'까지다.
+#    보안 상태(약한 키 등)는 남에게 공격 힌트가 되므로 로그인했을 때만 덧붙인다.
+@app.route('/api/health')
+def api_health():
+    out = {
+        'status': 'ok',
+        # server.py 는 datetime 을 import 하지 않는다. 이미 있는 time 으로 만든다.
+        'server_time': time.strftime('%Y-%m-%d %H:%M:%S'),
+        'uptime_sec': int(time.time() - SERVER_BOOT_TS),
+        'rss_mb': _rss_mb(),
+    }
+
+    # 저장소는 '설정돼 있다'가 아니라 '지금 실제로 응답하는가'를 본다.
+    # 붙은 줄 알았는데 끊겨 있는 상황이 제일 위험하다.
+    t0 = time.perf_counter()
+    try:
+        with get_db_connection() as conn:
+            conn.cursor().execute('SELECT 1')
+        out['storage'] = {
+            'kind': 'postgres' if IS_POSTGRES else 'sqlite',
+            'persistent': IS_POSTGRES,
+            'ok': True,
+            'latency_ms': round((time.perf_counter() - t0) * 1000, 1),
+        }
+    except Exception as e:
+        out['status'] = 'degraded'
+        out['storage'] = {
+            'kind': 'postgres' if IS_POSTGRES else 'sqlite',
+            'persistent': IS_POSTGRES,
+            'ok': False,
+            'error': type(e).__name__,
+        }
+
+    try:
+        state = load_data()
+        out['counts'] = {
+            'players': len(state.get('bjs') or []),
+            'pending': len(state.get('pending_donations') or []),
+            'reaction_queue': len(state.get('reaction_queue') or []),
+            'logs': len(state.get('logs') or []),
+        }
+        out['modes'] = {
+            'reaction': bool(state.get('reaction_mode')),
+            'match': bool((state.get('match_data') or {}).get('active')),
+            'karaoke': bool(state.get('karaoke_enabled')),
+            'home_race': bool(state.get('home_race_enabled')),
+        }
+        # 마지막 후원이 '언제'인지만. 누가 얼마인지는 담지 않는다.
+        lt = ((state.get('latest_donation') or {}).get('time')) or 0
+        out['last_donation_age_sec'] = int(time.time() - lt / 1000) if lt else None
+    except Exception as e:
+        out['status'] = 'degraded'
+        out['counts_error'] = type(e).__name__
+
+    with sse_lock:
+        out['sse_clients'] = len(sse_clients)
+
+    # 여기부터는 로그인한 사람에게만. 남이 보면 공격 힌트가 되는 것들이다.
+    if session.get('authenticated'):
+        out['private'] = {
+            'weak_admin_secret': SECRET_IS_WEAK,
+            'self_ping_enabled': bool(load_data().get('self_ping_enabled')),
+            'self_ping_blocked': (os.environ.get('SELF_PING') or '').strip().lower() in ('0', 'off', 'false', 'no'),
+            'bind_host': (os.environ.get('BIND_HOST') or '0.0.0.0').strip(),
+            'ai_key_present': bool((os.environ.get('NVIDIA_API_KEY') or '').strip()),
+        }
+
+    return jsonify(out)
+
+
+@app.route('/health')
+def serve_health():
+    return serve_html_file('health.html')
 
 # 🟢 시그니처 목록 (Supabase 대리 조회) — 오버레이/컨트롤러/슬롯이 공통으로 사용
 @app.route('/api/signatures')
