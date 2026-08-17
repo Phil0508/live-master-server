@@ -862,6 +862,10 @@ DEFAULT_STATE = {
     "karaoke_enabled": False,
     "karaoke_video": "",     # 유튜브 영상 ID
     "karaoke_volume": 70,    # 영상 음량 0~100 (유튜브 척도). 노래를 부르는 사람 목소리와 균형을 잡는 값
+    # 💸 서버 깨워두기. 켜면 Render 무료 인스턴스 시간을 하루 24시간씩 먹는다(월 720h / 한도 750h).
+    #    방송 중에는 SSE 연결이 붙어 있어 저절로 깨어 있으므로 기본은 꺼둔다.
+    #    방송 준비하며 자리를 비울 때만 조종실에서 켜는 용도.
+    "self_ping_enabled": False,
     # 🎰 슬롯머신
     # load_data()는 DEFAULT_STATE에 있는 키만 복원하므로, 여기 없으면 재시작 때 조용히 사라진다.
     "slot_enabled": True,
@@ -2736,8 +2740,10 @@ def get_server_status():
             'last_db_error_time': LAST_DB_ERROR.get('time'),
             # 관리자 키가 아직 '공개된 기본값'인지. True 면 주소만 아는 사람이 조작할 수 있다.
             'weak_admin_secret': SECRET_IS_WEAK,
-            # 깨우기 루프가 도는지. 켜져 있으면 무료 인스턴스 시간을 월 720시간 쓴다.
-            'self_ping': (os.environ.get('SELF_PING') or '').strip().lower() not in ('0', 'off', 'false', 'no'),
+            # 깨우기가 지금 켜져 있는지(조종실 스위치). 켜두면 무료 인스턴스 시간을 하루 24시간 쓴다.
+            'self_ping': bool(load_data().get('self_ping_enabled')),
+            # 이 서비스에서 깨우기를 아예 못 쓰게 막아뒀는지(환경변수 하드 스위치)
+            'self_ping_blocked': (os.environ.get('SELF_PING') or '').strip().lower() in ('0', 'off', 'false', 'no'),
             'player_count': player_count,
             'history_count': history_count,
             'snapshot_count': snapshot_count,
@@ -3622,46 +3628,62 @@ def api_score_add():
 # ==========================================
 # 🖥️ GUI 관리자 및 로그인 창
 # ==========================================
+SELF_PING_INTERVAL = 600      # 10분마다 (Render 무료 비활성화 임계치 15분보다 짧게)
+SELF_PING_POLL = 20           # 조종실에서 켠 걸 이만큼 안에 알아챈다
+
+
 def start_self_ping():
+    """Render 무료 인스턴스가 잠들지 않게 주기적으로 자기를 부른다.
+
+    💸 이 루프가 도는 동안 서비스는 24시간 깨어 있고, 그게 무료 인스턴스 시간을 월 720시간 먹는다.
+       무료 한도가 월 750시간이라 켜둔 서비스 하나가 한도를 거의 다 쓴다(2026-08 실측으로 확인).
+       그런데 방송 중에는 오버레이·조종실의 SSE 연결이 계속 붙어 있어 저절로 깨어 있다.
+       즉 이 루프가 실제로 지키는 건 '방송이 없는 동안의 깨어 있음'이다.
+       그래서 기본은 꺼두고, 필요할 때만 조종실에서 켠다(state['self_ping_enabled']).
+
+    SELF_PING=off 환경변수는 '조종실에서도 못 켜게' 하는 하드 스위치다(개발·예비 서비스용).
+    """
     import urllib.request
-    import threading
-    import time
-    
+
     url = os.environ.get('RENDER_EXTERNAL_URL')
     if not url:
-        return
+        return          # 로컬 실행 — 잠들 일이 없다
 
-    # 💸 이 루프는 서비스를 24시간 깨워두므로 무료 인스턴스 시간을 월 720시간 먹는다.
-    #    무료 한도가 월 750시간이라, 이걸 켜둔 서비스 하나가 한도를 거의 다 쓴다.
-    #    방송은 주 1회 몇 시간뿐이고, 방송 중에는 SSE 트래픽이 계속 흐르므로 잠들 일이 없다.
-    #    즉 이 루프가 지키는 건 '방송이 없는 동안의 깨어 있음'이라, 켤 가치는 상황에 따라 다르다.
-    #    개발용·예비 서비스에서는 SELF_PING=off 로 끄면 그만큼 방송 서버에 시간을 남길 수 있다.
     if (os.environ.get('SELF_PING') or '').strip().lower() in ('0', 'off', 'false', 'no'):
-        print("⏰ [Self-Ping] SELF_PING=off — 깨우기를 끕니다 (무료 인스턴스 시간 절약, "
-              "첫 요청은 콜드스타트로 50초 이상 걸릴 수 있음)", flush=True)
+        print("⏰ [Self-Ping] SELF_PING=off — 이 서비스에서는 깨우기를 쓰지 않습니다", flush=True)
         return
-
 
     def ping_loop():
-        # 즉시 초기화 로그 출력
-        print(f"⏰ [Self-Ping] Daemon initialized for: {url}", flush=True)
-        # 서버 시작 후 첫 30초 대기
+        print(f"⏰ [Self-Ping] 준비됨 (조종실에서 켜면 시작): {url}", flush=True)
         time.sleep(30)
-        print(f"⏰ [Self-Ping] Starting self-ping loop...", flush=True)
+        last_ping = 0.0
+        was_on = None
         while True:
+            # 상태 한 칸만 읽으므로 file_lock 없이 본다(잠금을 오래 쥐면 후원 처리가 밀린다).
             try:
-                req = urllib.request.Request(
-                    url,
-                    headers={'User-Agent': 'LiveMaster-KeepAwake/1.0'}
-                )
-                with urllib.request.urlopen(req, timeout=15) as response:
-                    print(f"⏰ [Self-Ping] Ping sent successfully, response code: {response.getcode()}", flush=True)
-            except Exception as e:
-                print(f"⚠️ [Self-Ping] Ping failed: {e}", flush=True)
-            time.sleep(600)  # 10분마다 실행 (Render 무료 비활성화 임계치인 15분보다 짧음)
-            
-    ping_thread = threading.Thread(target=ping_loop, daemon=True)
-    ping_thread.start()
+                on = bool(load_data().get('self_ping_enabled'))
+            except Exception:
+                on = False
+
+            if on != was_on:
+                print("⏰ [Self-Ping] " + ("켜짐 — 10분마다 깨웁니다 (무료 시간 소모)"
+                                          if on else "꺼짐 — 요청이 없으면 15분 뒤 잠듭니다"), flush=True)
+                was_on = on
+
+            if on and (time.time() - last_ping) >= SELF_PING_INTERVAL:
+                last_ping = time.time()
+                try:
+                    req = urllib.request.Request(url, headers={'User-Agent': 'LiveMaster-KeepAwake/1.0'})
+                    with urllib.request.urlopen(req, timeout=15) as response:
+                        print(f"⏰ [Self-Ping] 깨움 {response.getcode()}", flush=True)
+                except Exception as e:
+                    print(f"⚠️ [Self-Ping] 실패: {e}", flush=True)
+
+            # ⚠️ 짧게 돌면서 상태를 살피지만, 이 자체로는 인스턴스가 깨어 있지 않는다.
+            #    Render 의 잠들기 판정은 '들어온 HTTP 요청'이 기준이라 내부 스레드는 세지 않는다.
+            time.sleep(SELF_PING_POLL)
+
+    threading.Thread(target=ping_loop, daemon=True).start()
 
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
