@@ -94,8 +94,13 @@ Render 대시보드 → `live-master-server` → Environment 에서 값을 복�
 |---|---|
 | `DATABASE_URL` | Render 에서 복사 (같은 Supabase 를 계속 쓴다 = 데이터 그대로) |
 | `SUPABASE_URL` / `SUPABASE_SECRET_KEY` | Render 에서 복사 |
-| `SESSION_SECRET` | 새로 정한다. **영문·숫자만** (한글은 HTTP 헤더에 못 실어 Bearer 요청이 깨진다) |
+| `SESSION_SECRET` | 새로 정한다. **영문·숫자만** (한글은 HTTP 헤더에 못 실어 Bearer 요청이 깨진다). 서버에서 `openssl rand -hex 24` |
+| `ADMIN_PASSWORD` | 새로 정한다. ⚠️ **비워두면 기본값 `0508`** 이 쓰인다 (`server.py:142`) |
 | `NVIDIA_API_KEY` | `NVIDIA_CREDENTIALS.txt` |
+
+> 2단계 인증(OTP)은 환경변수가 아니라 저장소의 `auth_config.json` 에서 온다.
+> 거기 `totp_secret` 이 커밋돼 있어 **새 서버에서도 지금 쓰는 OTP 앱이 그대로 된다.**
+> `TOTP_SECRET` 환경변수를 넣으면 그 값이 이기므로 건드리지 말 것.
 
 `Ctrl+O` → `Enter` 로 저장, `Ctrl+X` 로 나온다.
 

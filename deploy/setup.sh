@@ -65,8 +65,18 @@ DATABASE_URL=
 SUPABASE_URL=
 SUPABASE_SECRET_KEY=
 
-# 관리자 키 — 영문·숫자만. 비워두면 공개된 기본값이 쓰여 위험하다.
+# 관리자 키 — 영문·숫자만(한글은 HTTP 헤더에 못 실어 Bearer 요청이 깨진다).
+# 비워두면 저장소에 흔적이 남은 공개된 기본값이 쓰인다. 서버에서 만들려면:
+#   openssl rand -hex 24
 SESSION_SECRET=
+
+# 조종실 로그인 비밀번호. ⚠️ 비워두면 기본값 '0508' 이 쓰인다(server.py:142).
+# 인터넷에 열린 주소라 네 자리 숫자로 두면 안 된다.
+ADMIN_PASSWORD=
+
+# 2단계 인증(OTP)은 저장소의 auth_config.json 에서 온다. 여기 넣지 않아도 된다.
+# 넣으면 그 값이 이기는데, 지금 쓰는 OTP 앱과 달라지면 로그인이 막히니 건드리지 말 것.
+# TOTP_SECRET=
 
 # AI 기입검증·오토파일럿용 (없으면 AI 기능만 조용히 꺼진다)
 NVIDIA_API_KEY=
