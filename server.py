@@ -3688,7 +3688,13 @@ def start_self_ping():
 def run_flask():
     port = int(os.environ.get('PORT', 5000))
     start_self_ping()
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    # ⚠️ Render 는 컨테이너 밖에서 들어오므로 0.0.0.0 이어야 한다(기본값 유지).
+    #    반대로 직접 빌린 서버(VPS)에서는 앞단에 Caddy 가 HTTPS 를 받아 넘겨주므로,
+    #    0.0.0.0 이면 이 포트가 인터넷에 그대로 열려 암호화 없는 우회로가 생긴다.
+    #    (실제로 Vultr 서울 서버에서 8080 이 밖에서 응답하는 것을 확인했다)
+    #    그런 곳에서는 BIND_HOST=127.0.0.1 을 넣어 Caddy 를 거치게 강제한다.
+    host = (os.environ.get('BIND_HOST') or '0.0.0.0').strip()
+    app.run(host=host, port=port, debug=False, use_reloader=False)
 
 def has_gui_support():
     if os.environ.get('HEADLESS') or os.environ.get('DATABASE_URL'):

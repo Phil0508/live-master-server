@@ -59,6 +59,10 @@ Products → Compute → **Deploy Server**
 
 > Vultr 는 Firewall Group 을 따로 지정하지 않으면 포트가 열려 있다.
 > 오라클처럼 콘솔에서 80/443 을 여는 절차가 **없다.**
+>
+> ⚠️ 그 말은 **모든 포트가 열려 있다**는 뜻이기도 하다. 앱이 쓰는 8080 이
+> 인터넷에 그대로 노출돼 Caddy(HTTPS)를 건너뛰는 우회로가 생긴다 — 실제로 그랬다.
+> `BIND_HOST=127.0.0.1` 이 그것을 막는다(5단계). 빼먹지 말 것.
 
 ## 2단계 — 접속
 
@@ -97,6 +101,7 @@ Render 대시보드 → `live-master-server` → Environment 에서 값을 복�
 | `SESSION_SECRET` | 새로 정한다. **영문·숫자만** (한글은 HTTP 헤더에 못 실어 Bearer 요청이 깨진다). 서버에서 `openssl rand -hex 24` |
 | `ADMIN_PASSWORD` | 새로 정한다. ⚠️ **비워두면 기본값 `0508`** 이 쓰인다 (`server.py:142`) |
 | `NVIDIA_API_KEY` | `NVIDIA_CREDENTIALS.txt` |
+| `BIND_HOST` | **`127.0.0.1` 고정.** 없으면 8080 이 인터넷에 열려 HTTPS 를 우회당한다 |
 
 > 2단계 인증(OTP)은 환경변수가 아니라 저장소의 `auth_config.json` 에서 온다.
 > 거기 `totp_secret` 이 커밋돼 있어 **새 서버에서도 지금 쓰는 OTP 앱이 그대로 된다.**

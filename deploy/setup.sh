@@ -60,6 +60,11 @@ if [ ! -f "$ENV_FILE" ]; then
 HEADLESS=1
 PORT=8080
 
+# ⚠️ 반드시 127.0.0.1 로 둘 것. 앞단의 Caddy 가 HTTPS 를 받아 여기로 넘겨준다.
+#    0.0.0.0 이면 8080 이 인터넷에 그대로 열려서, 암호화도 없고 Caddy 도 안 거치는
+#    우회로가 생긴다(조종실 비밀번호·OTP 가 평문으로 오가고, 후원 주입도 가능해진다).
+BIND_HOST=127.0.0.1
+
 # Supabase (Render 대시보드의 live-master-server 환경변수에서 그대로 복사)
 DATABASE_URL=
 SUPABASE_URL=
@@ -97,10 +102,12 @@ mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 systemctl daemon-reload
 systemctl enable --quiet livemaster caddy
 
-say "7/7  방화벽 열기"
-# Vultr 기본 이미지는 막혀 있지 않아 사실상 확인만 하고 지나간다(여러 번 돌려도 안전).
-# ⚠️ 업체 콘솔에 별도 방화벽(오라클 VCN, Vultr Firewall Group 등)을 걸어뒀다면
-#    거기서도 80/443 을 열어야 한다. 이 스크립트는 서버 안쪽만 건드린다.
+say "7/7  방화벽"
+# ⚠️ 업체마다 기본값이 정반대다. 오라클은 전부 막혀 있어 열어줘야 하고,
+#    Vultr 는 전부 열려 있어 아래 ACCEPT 규칙이 사실상 아무 일도 하지 않는다.
+#    그래서 '80/443 만 열었으니 안전하다'고 믿으면 안 된다 —
+#    실제 보호는 BIND_HOST=127.0.0.1 로 앱을 밖에서 안 보이게 하는 쪽이 한다.
+#    (Vultr 서울 서버에서 8080 이 인터넷에 응답하던 것을 그렇게 막았다)
 iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
 iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
 if command -v netfilter-persistent >/dev/null; then
