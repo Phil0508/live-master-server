@@ -1536,8 +1536,12 @@ def api_health():
             'home_race': bool(state.get('home_race_enabled')),
         }
         # 마지막 후원이 '언제'인지만. 누가 얼마인지는 담지 않는다.
+        # ⚠️ 이 값은 server.py:2365 에서 time.time() 으로 넣는 '초'다(밀리초 아님).
+        #    1000 으로 나눴다가 '56년 전'이 찍힌 적이 있다.
         lt = ((state.get('latest_donation') or {}).get('time')) or 0
-        out['last_donation_age_sec'] = int(time.time() - lt / 1000) if lt else None
+        age = int(time.time() - lt) if lt else None
+        # 시계가 틀어졌거나 값이 이상하면 숫자를 지어내지 말고 모른다고 한다.
+        out['last_donation_age_sec'] = age if (age is not None and 0 <= age < 60 * 60 * 24 * 365) else None
     except Exception as e:
         out['status'] = 'degraded'
         out['counts_error'] = type(e).__name__
