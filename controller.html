@@ -1487,6 +1487,20 @@
             <button onclick="triggerServerLogout()" style="height: 40px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
         </div>
 
+        <!-- 📋 패치노트 -->
+        <div class="group-box" style="margin-bottom: 20px;">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fa-solid fa-scroll" style="color: var(--accent);"></i> 패치노트</span>
+                <button class="secondary" onclick="loadPatchNotes()" style="height:30px; font-size:var(--fs-2); padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+            </div>
+            <div style="font-size:var(--fs-2); color:var(--text-muted); margin:10px 0 14px; line-height:1.6;">
+                무엇이 바뀌었는지 여기서 확인할 수 있어요. 새 버전이 배포되면 자동으로 최신 내용이 뜹니다.
+            </div>
+            <div id="patchnotes-area" style="max-height:420px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:var(--r-2); padding:14px;">
+                <div style="color:var(--text-muted); font-size:var(--fs-2);">불러오는 중…</div>
+            </div>
+        </div>
+
         <!-- 🧩 투네이션 연동 스크립트 (템퍼몽키 유저스크립트) -->
         <div class="group-box" style="margin-bottom: 20px;">
             <div class="group-title"><i class="fa-solid fa-puzzle-piece" style="color: var(--accent);"></i> 투네이션 연동 스크립트 (템퍼몽키)</div>
@@ -1958,7 +1972,7 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
+        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); loadPatchNotes(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         // 내 전송과 겹쳐서 버린 SSE 업데이트가 있었는지. true 면 아래 워치독이 다시 받아온다.
         let needsResync = false;
@@ -2267,6 +2281,120 @@
             box.appendChild(el);
             requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'none'; });
             setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; setTimeout(() => el.remove(), 350); }, 4000);
+        }
+
+        // 📋 패치노트 — 저장소의 PATCHNOTES.md 를 서버가 읽어서 내려준다.
+        //    배포하면 곧바로 최신 내용이 뜬다(따로 저장하지 않는다).
+        let _patchNotesLoaded = false;
+        async function loadPatchNotes(force) {
+            const box = document.getElementById("patchnotes-area");
+            if (!box) return;
+            if (_patchNotesLoaded && !force) return;   // 탭을 오갈 때마다 다시 부르지 않는다
+            try {
+                const res = await fetch("/api/patchnotes");
+                if (!res.ok) throw new Error("HTTP " + res.status);
+                const d = await res.json();
+                const rels = (d && d.releases) || [];
+                if (!rels.length) { box.innerHTML = '<div style="color:var(--text-muted); font-size:var(--fs-2);">아직 기록이 없습니다.</div>'; return; }
+                const color = { "추가":"#2ecc71", "수정":"#f5a524", "보안":"#ff453a", "성능":"#00bfff" };
+                box.innerHTML = rels.map((r, ri) => {
+                    const items = (r.items || []).map(it => {
+                        const c = color[it.kind] || "var(--text-dim)";
+                        const tag = it.kind
+                            ? '<span style="flex:none; min-width:38px; text-align:center; font-size:var(--fs-1); font-weight:800; color:' + c + '; border:1px solid ' + c + '; border-radius:6px; padding:1px 6px;">' + escapeHTML(it.kind) + '</span>'
+                            : "";
+                        return '<div style="display:flex; gap:9px; align-items:flex-start; margin-bottom:7px; line-height:1.6;">' + tag +
+                               '<span style="color:#e6e6ea; font-size:var(--fs-2);">' + escapeHTML(it.text) + '</span></div>';
+                    }).join("");
+                    const latest = ri === 0
+                        ? ' <span style="font-size:var(--fs-1); background:var(--accent); color:#000; font-weight:900; padding:1px 7px; border-radius:8px;">최신</span>'
+                        : "";
+                    return '<div style="margin-bottom:18px;">' +
+                           '<div style="font-weight:900; color:#fff; font-size:var(--fs-3); margin-bottom:9px;">' + escapeHTML(r.date) + latest + '</div>' +
+                           items + '</div>';
+                }).join("");
+                _patchNotesLoaded = true;
+            } catch (e) {
+                box.innerHTML = '<div style="color:var(--danger); font-size:var(--fs-2);">패치노트를 불러오지 못했습니다.</div>';
+            }
+        }
+
+        // 🏦 계좌 고액후원 영상 — 금액대별 유튜브 링크 설정
+        //
+        // ⚠️ 이 칸은 renderUI() 가 주기적으로 다시 그린다. 아무 조건 없이 덮어쓰면
+        //    입력 중인 글자가 지워지고 커서가 튄다. 그렇다고 "값이 있으면 안 그린다"로
+        //    막으면 한 번 저장한 뒤로는 칸이 영영 갱신되지 않는다(실제로 그런 적이 있다).
+        //    그래서 "지금 이 칸을 만지고 있는 중"일 때만 건너뛰고, 그 외에는
+        //    내용이 실제로 달라졌을 때만 다시 그린다.
+        let _acctRowsSignature = null;
+        function ytIdToUrl(v){ return v ? ("https://youtu.be/" + v) : ""; }
+        function renderAccountVideoRows() {
+            const box = document.getElementById("acct-video-rows");
+            if (!box || !gd) return;
+            const tiers = gd.account_video_tiers || [];
+
+            // 입력 중이면 절대 건드리지 않는다(글자 사라짐·커서 튐 방지)
+            const ae = document.activeElement;
+            if (ae && ae.classList && ae.classList.contains("acct-vid-input")) return;
+
+            const sig = JSON.stringify(tiers.map(t => [t.label, t.video]));
+            if (sig === _acctRowsSignature && box.children.length) return;   // 달라진 게 없으면 그대로 둔다
+            _acctRowsSignature = sig;
+
+            box.innerHTML = tiers.map((t, i) => {
+                const val = ytIdToUrl(t.video);
+                const badge = t.video
+                    ? '<span style="font-size:var(--fs-1); color:#2ecc71; font-weight:800; white-space:nowrap;">설정됨</span>'
+                    : '<span style="font-size:var(--fs-1); color:var(--text-dim); white-space:nowrap;">비어있음</span>';
+                const clear = t.video
+                    ? '<button onclick="clearAccountVideo(' + i + ')" title="이 구간 영상 지우기" style="height:34px; width:34px; flex:none; border-radius:var(--r-2); border:1px solid rgba(255,69,58,0.4); background:rgba(255,69,58,0.1); color:var(--danger); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>'
+                    : "";
+                return '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+                    '<span style="min-width:84px; font-size:var(--fs-2); color:#8fe3b0; font-weight:800;">' + (t.label || "") + '</span>' +
+                    '<input class="acct-vid-input" data-i="' + i + '" type="text" value="' + val + '" placeholder="유튜브 링크 (비우면 해제)" ' +
+                    'style="flex:1; min-width:180px; height:38px; padding:0 12px; border-radius:var(--r-2); border:1px solid var(--border-light); background:rgba(0,0,0,0.35); color:#fff; font-size:var(--fs-2); outline:none;">' +
+                    badge + clear +
+                    '</div>';
+            }).join("");
+        }
+
+        // 한 구간만 즉시 비운다(저장까지 한 번에)
+        async function clearAccountVideo(i) {
+            if (!gd) return;
+            const tiers = (gd.account_video_tiers || []).map(t => Object.assign({}, t));
+            if (!tiers[i]) return;
+            tiers[i].video = "";
+            gd.account_video_tiers = tiers;
+            _acctRowsSignature = null;          // 강제로 다시 그리게
+            const ok = await patchAPI({ account_video_tiers: tiers });
+            const msg = document.getElementById("acct-video-savemsg");
+            if (msg) { msg.style.color = ok ? "#2ecc71" : "var(--danger)"; msg.textContent = ok ? (tiers[i].label + " 영상을 지웠습니다") : "지우지 못했습니다"; }
+            renderAccountVideoRows();
+        }
+
+        async function saveAccountVideos() {
+            if (!gd) return;
+            const tiers = (gd.account_video_tiers || []).map(t => Object.assign({}, t));
+            const bad = [];
+            document.querySelectorAll(".acct-vid-input").forEach(inp => {
+                const i = Number(inp.dataset.i);
+                if (!tiers[i]) return;
+                const raw = (inp.value || "").trim();
+                if (!raw) { tiers[i].video = ""; return; }        // 비우면 해제
+                const id = extractYtVideoId(raw) || (/^[A-Za-z0-9_-]{11}$/.test(raw) ? raw : null);
+                if (!id) { bad.push(tiers[i].label); return; }
+                tiers[i].video = id;
+            });
+            const msg = document.getElementById("acct-video-savemsg");
+            if (bad.length) {
+                if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "링크를 인식하지 못했습니다: " + bad.join(", ") + " (유튜브 주소인지 확인해주세요)"; }
+                return;
+            }
+            gd.account_video_tiers = tiers;
+            _acctRowsSignature = null;          // 저장 뒤에는 반드시 다시 그린다
+            const ok = await patchAPI({ account_video_tiers: tiers });
+            if (msg) { msg.style.color = ok ? "#2ecc71" : "var(--danger)"; msg.textContent = ok ? "저장했습니다 ✓" : "저장 실패"; }
+            renderAccountVideoRows();
         }
 
         async function pushAPI(opts) {

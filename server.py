@@ -2746,6 +2746,40 @@ def api_account_play_video():
     return jsonify({"status": "ok", "played": True, "label": label})
 
 
+@app.route('/api/patchnotes', methods=['GET'])
+def api_patchnotes():
+    """저장소의 PATCHNOTES.md 를 읽어 조종실 시스템 탭에 보여준다.
+
+    파일을 그대로 읽으므로 배포하면 곧바로 최신 내용이 뜬다(따로 DB에 넣지 않는다).
+    파싱은 '## 날짜' 아래 '- [분류] 내용' 만 본다.
+    """
+    path = os.path.join(BASE_DIR, 'PATCHNOTES.md')
+    if not os.path.exists(path):
+        path = os.path.join(BUNDLE_DIR, 'PATCHNOTES.md')
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            text = f.read()
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"패치노트를 읽지 못했습니다: {e}"}), 500
+
+    releases, cur = [], None
+    for line in text.splitlines():
+        line = line.rstrip()
+        if line.startswith('## '):
+            cur = {"date": line[3:].strip(), "items": []}
+            releases.append(cur)
+        elif line.startswith('- ') and cur is not None:
+            body = line[2:].strip()
+            kind = ''
+            if body.startswith('['):
+                end = body.find(']')
+                if end > 0:
+                    kind = body[1:end].strip()
+                    body = body[end + 1:].strip()
+            cur['items'].append({"kind": kind, "text": body})
+    return jsonify({"status": "success", "releases": releases})
+
+
 @app.route('/api/account/stop', methods=['POST'])
 def api_account_stop_video():
     """재생 중인 영상을 즉시 끈다. 잘못 눌렀거나 길 때 손으로 멈출 수 있어야 한다."""
