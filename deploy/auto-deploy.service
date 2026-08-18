@@ -1,0 +1,13 @@
+# 🔄 GitHub main 자동 배포 (git pull + 재시작). auto-deploy.timer 가 주기적으로 부른다.
+#    한 번 실행하고 끝나는 oneshot. 새 커밋이 없으면 아무 일도 안 한다.
+[Unit]
+Description=Live Master 자동 배포 (GitHub main 확인 후 갱신)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/livemaster/deploy/auto-deploy.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=auto-deploy

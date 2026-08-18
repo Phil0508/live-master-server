@@ -120,8 +120,13 @@ mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
 # 🎧 후원 리스너도 등록해 둔다. 다만 ALERTBOX_URL 이 채워졌을 때만 켠다
 #    (안 채워졌는데 켜면 즉시 종료→재시작을 반복해 로그만 지저분해진다).
 install -m 644 "$APP_DIR/deploy/toon-listener.service" /etc/systemd/system/toon-listener.service
+# 🔄 자동 배포(2분마다 GitHub main 확인 → 갱신). Render 의 자동배포처럼.
+install -m 644 "$APP_DIR/deploy/auto-deploy.service" /etc/systemd/system/auto-deploy.service
+install -m 644 "$APP_DIR/deploy/auto-deploy.timer"   /etc/systemd/system/auto-deploy.timer
 systemctl daemon-reload
 systemctl enable --quiet livemaster caddy
+systemctl enable --quiet --now auto-deploy.timer
+echo "     자동 배포 켬 (2분마다 main 확인). 끄려면: systemctl disable --now auto-deploy.timer"
 if grep -q '^ALERTBOX_URL=.\+' "$ENV_FILE"; then
   systemctl enable --quiet toon-listener
   echo "     후원 리스너 켬 (ALERTBOX_URL 있음)"

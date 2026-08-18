@@ -1,0 +1,12 @@
+# ⏱️ 2분마다 GitHub main 을 확인한다. push → 최대 2분 안에 서버 반영.
+#    (Render 도 build/deploy 에 몇 분 걸리므로 체감은 비슷하다)
+[Unit]
+Description=Live Master 자동 배포 타이머 (2분마다)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Unit=auto-deploy.service
+
+[Install]
+WantedBy=timers.target

@@ -300,3 +300,31 @@ ALERTBOX_URL=https://toon.at/widget/alertbox/<내키> \
 - '후원 테스트'는 기본적으로 서버로 전달하지 않는다(실제 장부를 더럽히지 않으려고).
   전체 경로까지 시험하려면 `INCLUDE_TEST=1` 을 주면 된다.
 - 소켓 토큰은 알림창 주소에서 자동으로 뽑는다. 알림창 키를 재발급하면 자동으로 새 토큰을 쓴다.
+
+## 🔄 자동 배포 (GitHub 자동 갱신 — Render 처럼)
+
+Render 는 main 에 push 하면 알아서 받아 배포했다. Vultr 서버도 똑같이 만들었다.
+
+`auto-deploy.timer` 가 **2분마다 GitHub main 을 확인**해서, 새 커밋이 있으면
+자동으로 `git reset --hard origin/main` + 서버 재시작을 한다(후원 리스너가 켜져
+있으면 그것도 같이). 변경이 없으면 아무 일도 안 한다.
+
+- 설치는 `setup.sh` 가 자동으로 켠다. 이미 서버가 돌고 있다면 한 번만:
+  ```bash
+  cd /opt/livemaster && sudo -u livemaster git pull        # 이 파일들을 먼저 받고
+  sudo install -m 644 deploy/auto-deploy.service /etc/systemd/system/
+  sudo install -m 644 deploy/auto-deploy.timer   /etc/systemd/system/
+  sudo systemctl daemon-reload && sudo systemctl enable --now auto-deploy.timer
+  ```
+- 잘 도는지 / 마지막 배포 로그:
+  ```bash
+  systemctl status auto-deploy.timer
+  journalctl -u auto-deploy -n 30 --no-pager
+  ```
+- 끄기(수동 배포로 돌아가기): `sudo systemctl disable --now auto-deploy.timer`
+
+> ⚠️ **방송 중에는 main 에 push 하지 말 것.** 새 커밋이 들어오면 2분 안에 서버가
+> 재시작되어 방송이 잠깐 끊긴다. (Render 도 마찬가지였다) main 승격은 방송이 없을 때.
+>
+> ⚠️ 폴링 방식이라 push 후 **최대 2분** 걸린다. 즉시 반영하려면 서버에서
+> `sudo systemctl start auto-deploy` 를 한 번 실행하면 바로 확인·배포한다.
