@@ -40,9 +40,9 @@
         
         .row-bottom { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: rgba(246, 196, 83, 0.06); border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 5px; } .row-bottom .b-name { color: rgba(235,235,245,0.62); font-weight: 800; font-size: 18px; } .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 24px; position: relative; }
 
-        .excel-gauge-box { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 17px 22px; min-width: 380px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); } .total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 21px; font-weight: 800; margin-bottom: 12px; } .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; height: 18px; padding: 3px; } .goal-bar-fill { background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0); height: 100%; border-radius: 7px; width: 50%; box-shadow: 0 0 14px var(--gold-glow); } .goal-text { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: rgba(235,235,245,0.35); margin-top: 8px; }
+        .excel-gauge-box { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 14px; min-width: 380px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 10px; } .gauge-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 15px; text-align: center; padding: 7px 0; border-radius: 12px; box-shadow: 0 4px 14px var(--gold-glow); } .gauge-total { text-align: center; font-size: 38px; font-weight: 900; color: var(--gold); line-height: 1.1; } .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.10); border-radius: 12px; height: 22px; padding: 3px; } .goal-bar-fill { background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0); height: 100%; border-radius: 9px; width: 50%; box-shadow: 0 0 14px var(--gold-glow); } .goal-text { display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; color: rgba(235,235,245,0.62); padding: 0 4px; }
 
-        .acc-box-v2 { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 18px 22px; width: 280px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.55); } .acc-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; } .acc-bank-tag { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 15px; padding: 4px 12px; border-radius: 9px; box-shadow: 0 4px 14px var(--gold-glow); } .acc-name-tag { color: rgba(235,235,245,0.62); font-size: 15px; font-weight: 700; } .acc-num-v2 { font-size: 34px; font-weight: 800; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.25; }
+        .acc-box-v2 { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 14px; width: 300px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 10px; } .acc-header { display: flex; align-items: center; justify-content: center; gap: 9px; background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 15px; padding: 7px 0; border-radius: 12px; box-shadow: 0 4px 14px var(--gold-glow); } .acc-header .acc-holder { font-weight: 800; color: rgba(36,26,5,0.75); } .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; }
 
         .match-wrapper { display: flex; flex-direction: column; align-items: center; gap: 20px; }
         .m-timer-pill { background: linear-gradient(180deg, #23232e, #14141c); border: 1px solid rgba(255,255,255,0.14); clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); padding: 8px 42px; color: #fff; font-size: 40px; font-weight: 900; font-style: italic; }
@@ -145,7 +145,8 @@
 
                 <div class="widget" id="gauge" data-id="gauge" style="left:50px; top:420px;">
                     <div class="excel-gauge-box">
-                        <div class="total-row"><div style="color:#fff;">💰 방송 총 후원</div><div style="color:var(--excel-yellow);" id="ui-total-score">0</div></div>
+                        <div class="gauge-header">💰 방송 총 후원</div>
+                        <div class="gauge-total" id="ui-total-score">0</div>
                         <div class="goal-bar-bg"><div class="goal-bar-fill" id="goal-chunk"></div></div>
                         <div class="goal-text"><span id="goal-percent">🔥 달성률: 0%</span><span id="goal-target">목표: 0</span></div>
                     </div>
@@ -153,7 +154,7 @@
 
                 <div class="widget" id="account" data-id="account" style="left:50px; top:580px; display: none;">
                     <div class="acc-box-v2">
-                        <div class="acc-top"><span class="acc-bank-tag" id="ui-bank">기업은행</span> <span class="acc-name-tag" id="ui-name">드래곤엔터</span></div>
+                        <div class="acc-header"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></div>
                         <div class="acc-num-v2" id="ui-num">464-068673-04-016</div>
                     </div>
                 </div>
@@ -191,16 +192,16 @@
                 </div>
                 <!-- 📊 시그니처 신청 집계 패널 -->
                 <div class="widget" id="sig-tally" data-id="sig-tally" style="left:850px; top:300px; display: none;">
-                    <div style="width: 190px; display: flex; flex-direction: column; gap: 7px;">
-                        <div style="text-align:center; font-size:15px; font-weight:900; font-style:italic; letter-spacing:1px; color:#0e0e14; padding:4px 0; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);">시그니처 순위</div>
+                    <div style="width: 206px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px;">
+                        <div style="text-align:center; font-size:15px; font-weight:900; letter-spacing:-0.3px; color:#241a05; padding:6px 0; background: linear-gradient(120deg, var(--gold), var(--gold-deep)); border-radius:12px; box-shadow:0 4px 14px var(--gold-glow);">🎵 시그니처 순위</div>
                         <div style="display:flex; flex-direction:column; gap:6px;">
-                            <div style="height:52px; background:#14141c; clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%); position:relative;"><div style="position:absolute;left:5px;top:4px;font-size:11px;font-weight:900;color:#0e0e14;background:linear-gradient(100deg,var(--gold),var(--gold-deep));padding:1px 6px;">3개</div><div style="position:absolute;left:0;right:0;top:16px;text-align:center;font-size:13px;font-weight:800;color:#fff;">시그니처</div><div style="position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:15px;font-weight:900;color:#fff;">23,000</div></div>
-                            <div style="height:52px; background:#14141c; clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%); position:relative;"><div style="position:absolute;left:5px;top:4px;font-size:11px;font-weight:900;color:#0e0e14;background:linear-gradient(100deg,var(--gold),var(--gold-deep));padding:1px 6px;">2개</div><div style="position:absolute;left:0;right:0;top:16px;text-align:center;font-size:13px;font-weight:800;color:#fff;">시그니처</div><div style="position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:15px;font-weight:900;color:#fff;">22,000</div></div>
+                            <div style="height:54px; background:#14141c; border-radius:12px; border:1px solid rgba(255,255,255,0.10);"></div>
+                            <div style="height:54px; background:#14141c; border-radius:12px; border:1px solid rgba(255,255,255,0.10);"></div>
                         </div>
                     </div>
                 </div>
-
-                <!-- 🎤 노래방 영상 (오버레이 노래방 모드 위치/크기) -->
+                
+<!-- 🎤 노래방 영상 (오버레이 노래방 모드 위치/크기) -->
                 <div class="widget" id="karaoke" data-id="karaoke" style="left:40px; top:560px;">
                     <div style="width:1000px; height:563px; border-radius:20px; background:rgba(120,135,255,0.14); border:3px dashed rgba(140,155,255,0.8); display:flex; align-items:center; justify-content:center; color:#cdd6ff; font-size:38px; font-weight:900; letter-spacing:2px; text-shadow:0 2px 8px #000;">🎤 노래방 영상 영역</div>
                 </div>

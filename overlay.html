@@ -300,29 +300,59 @@
         .row-bottom .b-name { color: var(--tx-2); font-weight: 800; font-size: 18px; }
         .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 24px; position: relative; font-variant-numeric: tabular-nums; }
 
-        /* ── 총후원 게이지: 유리 + 골드 필 ── */
-        .excel-gauge-box { padding: 17px 22px; min-width: 380px; }
-        .total-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 21px; font-weight: 800; margin-bottom: 12px; }
-        .total-row > div:first-child { font-size: 15px; color: var(--tx-2) !important; font-weight: 700; }
-        .total-row > div:last-child { color: var(--gold) !important; font-variant-numeric: tabular-nums; text-shadow: 0 0 18px var(--gold-glow), 0 2px 4px rgba(0,0,0,0.85); }
-        .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; height: 18px; padding: 3px; position: relative; }
-        .goal-bar-fill {
-            background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0);
-            height: 100%; border-radius: 7px; width: 0%; transition: width 0.8s ease;
-            box-shadow: 0 0 14px var(--gold-glow);
-        }
-        .goal-text { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--tx-3); margin-top: 8px; }
-
-        /* ── 계좌판: 유리 + 골드 은행 태그 ── */
-        .acc-box-v2 { padding: 18px 22px; width: 280px; text-align: center; }
-        .acc-top { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-        .acc-bank-tag {
+        /* ── 총후원 게이지 ──
+           점수판(excel-board)과 같은 문법: 유리 카드 + 둥근 골드 헤더 배너 + 큰 골드 숫자.
+           예전에는 라벨 15px·숫자 21px·하단 12.5px 로 점수판(22~23px) 옆에서 유독 작아 보였다. */
+        .excel-gauge-box { padding: 14px; min-width: 380px; display: flex; flex-direction: column; gap: 10px; }
+        .gauge-header {
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 15px; padding: 4px 12px; border-radius: 9px;
+            color: #241a05; font-weight: 900; font-size: 15px; text-align: center; letter-spacing: -0.3px;
+            padding: 7px 0; border-radius: 12px;
             box-shadow: 0 4px 14px var(--gold-glow);
         }
-        .acc-name-tag { color: var(--tx-2); font-size: 15px; font-weight: 700; }
-        .acc-num-v2 { font-size: 34px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.25; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
+        .gauge-total {
+            text-align: center; font-size: 38px; font-weight: 900; color: var(--gold); line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 18px var(--gold-glow), 0 2px 4px rgba(0,0,0,0.85);
+        }
+        .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.10); border-radius: 12px; height: 22px; padding: 3px; position: relative; }
+        .goal-bar-fill {
+            background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0);
+            height: 100%; border-radius: 9px; width: 0%; transition: width 0.8s ease;
+            box-shadow: 0 0 14px var(--gold-glow);
+        }
+        .goal-text { display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; color: var(--tx-2); padding: 0 4px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+
+        /* ── 계좌판 ── 점수판과 같은 문법: 골드 헤더 배너(은행·예금주) + 큰 흰 계좌번호 */
+        .acc-box-v2 { padding: 14px; width: 300px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
+        .acc-header {
+            display: flex; align-items: center; justify-content: center; gap: 9px; flex-wrap: wrap;
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+            color: #241a05; font-weight: 900; font-size: 15px;
+            padding: 7px 0; border-radius: 12px;
+            box-shadow: 0 4px 14px var(--gold-glow);
+        }
+        .acc-header .acc-holder { font-weight: 800; color: rgba(36,26,5,0.75); }
+        .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
+
+        /* ── 시그니처 순위판 ── 각진 클립패스 대신 점수판과 같은 유리 카드 + 둥근 골드 헤더 */
+        .sig-tally-board {
+            position: relative; width: 206px; padding: 10px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .sig-tally-board::before {
+            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
+            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+            pointer-events:none;
+        }
+        .sig-tally-header {
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+            color: #241a05; font-weight: 900; font-size: 15px; text-align: center; letter-spacing: -0.3px;
+            padding: 6px 0; border-radius: 12px;
+            box-shadow: 0 4px 14px var(--gold-glow);
+        }
 
         /* --------------------------------------------------
             ⚔️ 퓨처리스트 네온 아크릴 대결판 (리뉴얼)
@@ -1166,15 +1196,16 @@
 
                 <div id="gauge-container" class="widget-container">
                     <div class="excel-gauge-box" id="goal-box-ui">
-                        <div class="total-row"><div style="color:#fff;">💰 방송 총 후원</div><div style="color:var(--excel-yellow);" id="ui-total-score">0</div></div>
+                        <div class="gauge-header">💰 방송 총 후원</div>
+                        <div class="gauge-total" id="ui-total-score">0</div>
                         <div class="goal-bar-bg"><div class="goal-bar-fill" id="goal-chunk"></div></div>
                         <div class="goal-text"><span id="goal-percent">🔥 달성률: 0%</span><span id="goal-target">목표: 0</span></div>
                     </div>
                 </div>
-                
+
                 <div id="account-container" class="widget-container">
                     <div class="acc-box-v2" id="account-box-ui" style="opacity: 0; visibility: hidden;">
-                        <div class="acc-top"><span class="acc-bank-tag" id="ui-bank">기업은행</span> <span class="acc-name-tag" id="ui-name">드래곤엔터</span></div>
+                        <div class="acc-header"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></div>
                         <div class="acc-num-v2" id="ui-num">464-068673-04-016</div>
                     </div>
                 </div>
@@ -1233,10 +1264,8 @@
 
             <!-- 📊 시그니처 신청 집계 패널 (이번 방송 기준). 켜야 보이며 위치/크기는 에디터에서 조절 -->
             <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 850px; top: 300px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
-                <div style="width: 190px; display: flex; flex-direction: column; gap: 7px;">
-                    <div style="text-align:center; font-size:15px; font-weight:900; font-style:italic; letter-spacing:1px; color:#0e0e14; padding:4px 0; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%); box-shadow:0 4px 14px rgba(0,0,0,0.6);">
-                        시그니처 순위
-                    </div>
+                <div class="sig-tally-board">
+                    <div class="sig-tally-header">🎵 시그니처 순위</div>
                     <div id="sig-tally-rows" style="display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
             </div>
@@ -4042,13 +4071,14 @@
             const rowsEl = document.getElementById('sig-tally-rows');
             if (!rowsEl) return;
             const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+            // 점수판 테마에 맞춘 둥근 카드 행 (예전 각진 클립패스 → border-radius)
             const html = list.map(r => `
-                <div style="position:relative; height:52px; overflow:hidden; clip-path: polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%); box-shadow:0 6px 16px rgba(0,0,0,0.6);">
+                <div style="position:relative; height:54px; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.10); box-shadow:0 6px 16px rgba(0,0,0,0.6);">
                     ${r.image_url ? `<img src="${esc(r.image_url)}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">` : `<div style="position:absolute; inset:0; background:#14141c;"></div>`}
                     <div style="position:absolute; inset:0; background:linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.72) 100%);"></div>
-                    <div style="position:absolute; left:5px; top:4px; font-size:11px; font-weight:900; color:#0e0e14; background:linear-gradient(100deg,var(--gold),var(--gold-deep)); padding:1px 6px; clip-path: polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);">${r.count}개</div>
-                    <div style="position:absolute; left:0; right:0; bottom:3px; text-align:center; font-size:15px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8); letter-spacing:0.3px;">${formatNum(r.amount || 0)}</div>
-                    <div style="position:absolute; left:0; right:0; top:16px; text-align:center; font-size:13px; font-weight:800; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px;">${esc(r.title || '')}</div>
+                    <div style="position:absolute; left:5px; top:5px; font-size:12px; font-weight:900; color:#241a05; background:linear-gradient(120deg,var(--gold),var(--gold-deep)); padding:1px 8px; border-radius:8px; box-shadow:0 2px 8px var(--gold-glow);">${r.count}개</div>
+                    <div style="position:absolute; left:0; right:0; bottom:4px; text-align:center; font-size:16px; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums; text-shadow:0 0 10px var(--gold-glow), 0 2px 5px rgba(0,0,0,0.95); letter-spacing:0.3px;">${formatNum(r.amount || 0)}</div>
+                    <div style="position:absolute; left:0; right:0; top:16px; text-align:center; font-size:14px; font-weight:800; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px;">${esc(r.title || '')}</div>
                 </div>`).join('');
             if (html !== lastSigTallyHtml) { rowsEl.innerHTML = html; lastSigTallyHtml = html; }
         }
