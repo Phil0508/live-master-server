@@ -1858,8 +1858,14 @@
             acctVideoSafetyTimer = setTimeout(acctVideoStop, 20 * 60 * 1000);
         }
         // 유튜브가 보내는 상태 메시지 수신 — ENDED(0)면 숨긴다.
+        // ⚠️ 노래방도 같은 방식의 유튜브 iframe 을 쓴다. 보낸 쪽을 확인하지 않으면
+        //    '노래방 곡이 끝났다'는 신호에 계좌 영상이 잘려나간다. 그래서 이 이벤트가
+        //    계좌 영상 iframe 에서 온 것인지 반드시 대조한다.
         window.addEventListener('message', function (e) {
             if (typeof e.origin === 'string' && e.origin.indexOf('youtube.com') === -1) return;
+            const frame = document.getElementById('acct-video-frame');
+            const mine = frame ? frame.querySelector('iframe') : null;
+            if (!mine || !e.source || e.source !== mine.contentWindow) return;
             let data = e.data;
             if (typeof data === 'string') { try { data = JSON.parse(data); } catch (err) { return; } }
             if (!data || typeof data !== 'object') return;
