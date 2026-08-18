@@ -942,6 +942,17 @@ DEFAULT_STATE = {
     "karaoke_enabled": False,
     "karaoke_video": "",     # 유튜브 영상 ID
     "karaoke_volume": 70,    # 영상 음량 0~100 (유튜브 척도). 노래를 부르는 사람 목소리와 균형을 잡는 값
+    # 🏦 계좌 고액후원 영상: 조종실에서 [계좌] 를 누르면 금액대에 맞는 유튜브 영상을 재생한다.
+    #    금액대는 '이상' 기준으로 겹치지 않게 나눈다(빈틈 없이). 30만원 미만이면 재생하지 않는다.
+    #    video 는 유튜브 영상 ID(설정 UI가 URL 을 넣어도 ID만 뽑아 저장한다). 비어 있으면 그 구간은 재생 안 함.
+    "account_video_tiers": [
+        {"min": 300000,  "label": "30~50만",   "video": ""},
+        {"min": 500000,  "label": "50~70만",   "video": ""},
+        {"min": 700000,  "label": "70~100만",  "video": ""},
+        {"min": 1000000, "label": "100~200만", "video": ""},
+        {"min": 2000000, "label": "200~300만", "video": ""},
+        {"min": 3000000, "label": "300만~",    "video": ""},
+    ],
     # 💸 서버 깨워두기. 켜면 Render 무료 인스턴스 시간을 하루 24시간씩 먹는다(월 720h / 한도 750h).
     #    방송 중에는 SSE 연결이 붙어 있어 저절로 깨어 있으므로 기본은 꺼둔다.
     #    방송 준비하며 자리를 비울 때만 조종실에서 켜는 용도.
@@ -2702,6 +2713,44 @@ def api_match_timeup():
         save_data(state)
         broadcast_event('update', state)
     return jsonify({"status": "success"})
+
+
+@app.route('/api/account/play', methods=['POST'])
+def api_account_play_video():
+    """조종실에서 [계좌] 를 눌렀을 때, 금액대에 맞는 유튜브 영상을 오버레이에 재생한다.
+
+    - 30만원 미만이면 재생하지 않는다(played=False, reason=under_min).
+    - 금액대는 '이상' 기준. 예) 60만원이면 50만 구간(50~70만)이 걸린다.
+    - 해당 구간에 영상이 설정돼 있지 않으면 재생하지 않고 그 사실을 알린다.
+
+    상태를 바꾸지 않고 이벤트만 쏘므로 file_lock 을 잡지 않는다(후원 처리를 막지 않는다).
+    """
+    data = request.json or {}
+    try:
+        amount = int(data.get('amount') or 0)
+    except (TypeError, ValueError):
+        amount = 0
+
+    ACCOUNT_VIDEO_MIN = 300000
+    if amount < ACCOUNT_VIDEO_MIN:
+        return jsonify({"status": "ok", "played": False, "reason": "under_min"})
+
+    tiers = load_data().get('account_video_tiers') or []
+    # '이상' 매칭: min 이 금액 이하인 구간 중 가장 높은 것.
+    match = None
+    for t in sorted(tiers, key=lambda x: x.get('min') or 0):
+        if amount >= (t.get('min') or 0):
+            match = t
+    if not match:
+        return jsonify({"status": "ok", "played": False, "reason": "no_tier"})
+
+    video = (match.get('video') or '').strip()
+    label = match.get('label') or ''
+    if not video:
+        return jsonify({"status": "ok", "played": False, "reason": "no_video", "label": label})
+
+    broadcast_event('account_video', {"videoId": video, "label": label, "amount": amount})
+    return jsonify({"status": "ok", "played": True, "label": label})
 
 
 @app.route('/api/roulette/winner', methods=['POST'])

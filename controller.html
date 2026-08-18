@@ -1077,6 +1077,16 @@
             </div>
             <div id="karaoke-status" style="margin-top:10px; font-size:var(--fs-2); color:var(--text-muted);">⚫ 꺼짐</div>
         </div>
+        <!-- 🏦 계좌 고액후원 영상 -->
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(46,204,113,0.4); background: rgba(46,204,113,0.05);">
+            <div class="group-title"><span style="color:#2ecc71;"><i class="fa-solid fa-building-columns"></i> 🏦 계좌 고액후원 영상</span></div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 12px; line-height: 1.6;">
+                대기함에서 <b>[🏦 계좌]</b>를 누르면, 금액대에 맞는 유튜브 영상이 오버레이에 재생돼요(30만원 이상, 미만은 재생 안 함). 아래에 금액대별 링크를 넣어두세요.
+            </div>
+            <div id="acct-video-rows" style="display:flex; flex-direction:column; gap:8px;"></div>
+            <button onclick="saveAccountVideos()" style="margin-top:12px; height:40px; padding:0 18px; border-radius:var(--r-2); border:none; background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; font-weight:800; cursor:pointer;"><i class="fa-solid fa-floppy-disk"></i> 영상 링크 저장</button>
+            <div id="acct-video-savemsg" style="margin-top:8px; font-size:var(--fs-2); color:var(--text-muted);"></div>
+        </div>
         <div class="group-box" id="extra-game-banner" style="margin-bottom: 15px; border-color: var(--border-light); background: rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
             <div class="group-title" style="color: #fff; border-bottom-color: var(--border-light); display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span><i class="fa-solid fa-rocket"></i> 지능형 번외 임시 게임판 제어 센터</span>
@@ -2231,6 +2241,90 @@
             } catch (e) { console.warn('설정 반영 실패', e); return false; }
         }
 
+        // 🏦 계좌 고액후원 영상 — 대기함 카드의 [계좌] 버튼이 부른다.
+        //   30만원 이상이면 서버가 금액대 영상을 오버레이에 재생하고, 여기선 작은 알림만 띄운다.
+        //   30만원 미만이면 아무 영상도 안 나간다.
+        function acctToast(msg, kind) {
+            let box = document.getElementById('acct-video-toast');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'acct-video-toast';
+                box.style.cssText = 'position:fixed; left:18px; bottom:18px; z-index:5000; display:flex; flex-direction:column; gap:8px; pointer-events:none;';
+                document.body.appendChild(box);
+            }
+            const colors = {
+                ok:   ['rgba(46,204,113,0.16)', '#2ecc71'],
+                info: ['rgba(148,163,184,0.16)', '#cbd5e1'],
+                warn: ['rgba(245,165,36,0.16)', '#f5a524'],
+            };
+            const c = colors[kind] || colors.info;
+            const el = document.createElement('div');
+            el.style.cssText = 'pointer-events:auto; background:' + c[0] + '; color:' + c[1] +
+                '; border:1px solid ' + c[1] + '; border-radius:12px; padding:12px 16px; font-size:15px; font-weight:800;' +
+                ' box-shadow:0 10px 30px rgba(0,0,0,0.4); transition:opacity .3s, transform .3s; opacity:0; transform:translateY(10px);';
+            el.textContent = msg;
+            box.appendChild(el);
+            requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'none'; });
+            setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; setTimeout(() => el.remove(), 350); }, 4000);
+        }
+
+        async function accountVideoPlay(amount) {
+            amount = Number(amount) || 0;
+            try {
+                const res = await fetch('/api/account/play', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: amount })
+                });
+                const d = await res.json().catch(() => ({}));
+                if (d && d.played) {
+                    acctToast('▶ 영상이 재생됩니다! (' + (d.label || '') + ')', 'ok');
+                } else if (d && d.reason === 'under_min') {
+                    acctToast('30만원 미만이라 영상은 없습니다', 'info');
+                } else if (d && d.reason === 'no_video') {
+                    acctToast('이 금액대(' + (d.label || '') + ') 영상이 아직 설정 안 됨', 'warn');
+                } else {
+                    acctToast('영상을 재생할 수 없습니다', 'warn');
+                }
+            } catch (e) {
+                acctToast('서버에 연결하지 못했습니다', 'warn');
+            }
+        }
+
+        // 🏦 계좌 영상 설정 UI — 금액대별 유튜브 링크 입력/저장
+        function renderAccountVideoRows() {
+            const box = document.getElementById('acct-video-rows');
+            if (!box || !gd) return;
+            // 입력 중이면 다시 그리지 않는다(커서 튐 방지)
+            if (document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('acct-vid-input')) return;
+            const tiers = gd.account_video_tiers || [];
+            box.innerHTML = tiers.map(function(t, i) {
+                const val = t.video ? ('https://youtu.be/' + t.video) : '';
+                return '<div style="display:flex; align-items:center; gap:10px;">' +
+                    '<span style="min-width:84px; font-size:var(--fs-2); color:#8fe3b0; font-weight:800;">' + (t.label||'') + '</span>' +
+                    '<input class="acct-vid-input" data-i="' + i + '" type="text" value="' + val + '" placeholder="유튜브 링크" ' +
+                    'style="flex:1; min-width:180px; height:38px; padding:0 12px; border-radius:var(--r-2); border:1px solid var(--border-light); background:rgba(0,0,0,0.35); color:#fff; font-size:var(--fs-2); outline:none;">' +
+                    '</div>';
+            }).join('');
+        }
+        async function saveAccountVideos() {
+            if (!gd) return;
+            const tiers = (gd.account_video_tiers || []).map(function(t){ return Object.assign({}, t); });
+            const bad = [];
+            document.querySelectorAll('.acct-vid-input').forEach(function(inp) {
+                const i = Number(inp.dataset.i);
+                const raw = (inp.value || '').trim();
+                if (!raw) { tiers[i].video = ''; return; }
+                const id = extractYtVideoId(raw) || (raw.length === 11 ? raw : null);
+                if (!id) { bad.push(tiers[i].label); return; }
+                tiers[i].video = id;
+            });
+            const msg = document.getElementById('acct-video-savemsg');
+            if (bad.length) { if(msg){ msg.style.color='var(--danger)'; msg.textContent='링크를 인식 못한 구간: ' + bad.join(', '); } return; }
+            gd.account_video_tiers = tiers;
+            const ok = await patchAPI({ account_video_tiers: tiers });
+            if (msg) { msg.style.color = ok ? '#2ecc71' : 'var(--danger)'; msg.textContent = ok ? '저장했습니다 ✓' : '저장 실패'; }
+        }
+
         async function pushAPI(opts) {
             if(!gd) return;
             lastPushTime = Date.now();
@@ -2264,6 +2358,7 @@
             
             let isActive = gd.broadcast_active || false;
             try { renderKaraokeStatus(); } catch(e) {}   // 🎤 노래방 상태 표시 갱신
+            try { renderAccountVideoRows(); } catch(e) {}   // 🏦 계좌 영상 링크 칸 갱신
             document.getElementById('setup-broadcast-area').style.display = isActive ? 'none' : 'block';
             document.getElementById('active-broadcast-area').style.display = isActive ? 'block' : 'none';
             
@@ -2349,7 +2444,7 @@
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="bj-btn" style="background:rgba(46, 204, 113, 0.15); color:#2ecc71; border-color:#2ecc71;" onclick="accountVideoPlay(${Number(don.amount) || 0})" title="계좌 후원 — 30만원 이상이면 금액대 영상을 재생합니다">🏦 계좌</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청

@@ -1026,6 +1026,11 @@
                 <div id="karaoke-frame" style="width:100%; height:100%;"></div>
             </div>
 
+            <!-- 🏦 계좌 고액후원 영상: [계좌] 버튼으로 트리거 → 화면 가운데 크게 재생, 끝나면 자동으로 사라짐 -->
+            <div id="acct-video-container" style="display:none; position:absolute; left:0; top:0; width:1920px; height:1080px; z-index:99000; background:rgba(0,0,0,0.88); align-items:center; justify-content:center;">
+                <div id="acct-video-frame" style="width:1280px; height:720px; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 30px 90px rgba(0,0,0,0.7);"></div>
+            </div>
+
             <div id="toon-popup-container">
                 <div id="toon-popup" class="donation-popup-content">
                     <div class="donator-text"><span id="toon-name" class="donator-name">누군가</span> <span id="toon-action-text">님이 후원하셨습니다!</span></div>
@@ -1813,6 +1818,56 @@
                 karaokeCmd('setVolume', [karaokeVolWanted]);
             }
         }
+
+        // 🏦 계좌 고액후원 영상 재생.
+        //   SSE 'account_video' 이벤트가 오면 화면 가운데 크게 틀고, 영상이 끝나면 자동으로 숨긴다.
+        //   끝을 감지하는 방법: 유튜브 iframe(enablejsapi=1)이 보내오는 상태 메시지에서
+        //   playerState 가 0(ENDED)이 되는 순간을 잡는다. 노래방과 같은 postMessage 방식이라
+        //   외부 IFrame API 스크립트를 얹지 않는다.
+        let acctVideoSafetyTimer = null;
+        function acctVideoStop() {
+            const box = document.getElementById('acct-video-container');
+            const frame = document.getElementById('acct-video-frame');
+            if (acctVideoSafetyTimer) { clearTimeout(acctVideoSafetyTimer); acctVideoSafetyTimer = null; }
+            if (frame) frame.innerHTML = '';   // iframe 제거 → 재생·소리 완전 정지
+            if (box) box.style.display = 'none';
+        }
+        function acctVideoPlay(videoId) {
+            const box = document.getElementById('acct-video-container');
+            const frame = document.getElementById('acct-video-frame');
+            if (!box || !frame || !videoId) return;
+            let src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId)
+                + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=0&enablejsapi=1';
+            if (location.protocol === 'http:' || location.protocol === 'https:') {
+                src += '&origin=' + encodeURIComponent(location.origin);
+            }
+            frame.innerHTML = '<iframe width="100%" height="100%" src="' + src
+                + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border:0;display:block;"></iframe>';
+            box.style.display = 'flex';
+            // 유튜브가 상태 메시지를 보내오도록 '듣기 시작' 신호를 몇 번 보낸다(iframe 준비 전 명령은 버려지므로).
+            let tries = 0;
+            const kick = setInterval(() => {
+                const f = frame.querySelector('iframe');
+                if (f && f.contentWindow) {
+                    try { f.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: videoId }), 'https://www.youtube.com'); } catch (e) {}
+                }
+                if (++tries >= 8) clearInterval(kick);
+            }, 500);
+            // 안전장치: 끝 감지를 놓쳐 영상이 화면에 눌러앉는 것을 막는다(최대 20분).
+            if (acctVideoSafetyTimer) clearTimeout(acctVideoSafetyTimer);
+            acctVideoSafetyTimer = setTimeout(acctVideoStop, 20 * 60 * 1000);
+        }
+        // 유튜브가 보내는 상태 메시지 수신 — ENDED(0)면 숨긴다.
+        window.addEventListener('message', function (e) {
+            if (typeof e.origin === 'string' && e.origin.indexOf('youtube.com') === -1) return;
+            let data = e.data;
+            if (typeof data === 'string') { try { data = JSON.parse(data); } catch (err) { return; } }
+            if (!data || typeof data !== 'object') return;
+            const info = data.info;
+            const state = (info && typeof info === 'object') ? info.playerState : (typeof info === 'number' ? info : undefined);
+            if (data.event === 'onStateChange' && data.info === 0) acctVideoStop();
+            else if (data.event === 'infoDelivery' && state === 0) acctVideoStop();
+        });
 
         function handleData(d) {
             if (d && d.server_time) {
@@ -3710,6 +3765,14 @@
             sseSource.addEventListener('goal_celebration', function(e) {
                 console.log("🎯 [목표 100% 달성 신호 수신]");
                 triggerGoalCelebrationEffect();
+            });
+
+            sseSource.addEventListener('account_video', function(e) {
+                try {
+                    const data = e.data ? JSON.parse(e.data) : {};
+                    console.log("🏦 [계좌 고액후원 영상 재생]", data.label || '', data.videoId || '');
+                    if (data.videoId) acctVideoPlay(data.videoId);
+                } catch (err) { console.error("account_video 처리 오류:", err); }
             });
 
             sseSource.addEventListener('vips_updated', function(e) {
