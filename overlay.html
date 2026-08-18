@@ -1026,9 +1026,13 @@
                 <div id="karaoke-frame" style="width:100%; height:100%;"></div>
             </div>
 
-            <!-- 🏦 계좌 고액후원 영상: [계좌] 버튼으로 트리거 → 화면 가운데 크게 재생, 끝나면 자동으로 사라짐 -->
-            <div id="acct-video-container" style="display:none; position:absolute; left:0; top:0; width:1920px; height:1080px; z-index:99000; background:rgba(0,0,0,0.88); align-items:center; justify-content:center;">
-                <div id="acct-video-frame" style="width:1280px; height:720px; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 30px 90px rgba(0,0,0,0.7);"></div>
+            <!-- 🏦 고액후원 영상: 후원 콘솔의 금액대 버튼으로 재생. 끝나면 자동으로 사라진다.
+                 ⚠️ 화면 전체를 덮지 않는다. 예전에는 1920x1080 검은 배경으로 깔아서
+                    시그니처(z-index 90000)와 리액션이 그 밑에 가려 '영상 때문에 아무것도
+                    안 보이는' 상태가 됐다. 지금은 가운데 영상 상자만 두고, z-index 도
+                    시그니처보다 낮춰 시그니처가 영상 위에 정상적으로 뜨게 한다. -->
+            <div id="acct-video-container" style="display:none; position:absolute; left:320px; top:180px; width:1280px; height:720px; z-index:88000; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 30px 90px rgba(0,0,0,0.7); border:3px solid rgba(46,204,113,0.6);">
+                <div id="acct-video-frame" style="width:100%; height:100%;"></div>
             </div>
 
             <div id="toon-popup-container">
@@ -1843,7 +1847,7 @@
             }
             frame.innerHTML = '<iframe width="100%" height="100%" src="' + src
                 + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border:0;display:block;"></iframe>';
-            box.style.display = 'flex';
+            box.style.display = 'block';   // 화면을 덮는 flex 배경이 아니라 영상 상자만 띄운다
             // 유튜브가 상태 메시지를 보내오도록 '듣기 시작' 신호를 몇 번 보낸다(iframe 준비 전 명령은 버려지므로).
             let tries = 0;
             const kick = setInterval(() => {
@@ -3776,9 +3780,14 @@
             sseSource.addEventListener('account_video', function(e) {
                 try {
                     const data = e.data ? JSON.parse(e.data) : {};
-                    console.log("🏦 [계좌 고액후원 영상 재생]", data.label || '', data.videoId || '');
+                    console.log("🏦 [고액후원 영상 재생]", data.label || '', data.videoId || '');
                     if (data.videoId) acctVideoPlay(data.videoId);
                 } catch (err) { console.error("account_video 처리 오류:", err); }
+            });
+
+            sseSource.addEventListener('account_video_stop', function(e) {
+                console.log("🏦 [고액후원 영상 중지]");
+                acctVideoStop();
             });
 
             sseSource.addEventListener('vips_updated', function(e) {

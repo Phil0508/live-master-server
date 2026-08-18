@@ -148,6 +148,7 @@
         <button class="tab active" id="tab-btn-send" onclick="switchTab('send')"><i class="fa-solid fa-paper-plane"></i> 수동 송출</button>
         <button class="tab" id="tab-btn-queue" onclick="switchTab('queue')"><i class="fa-solid fa-list-ol"></i> 대기열 <span id="tab-queue-badge" style="display:none; background:var(--pink); color:#fff; font-size:11px; padding:1px 7px; border-radius:10px; margin-left:2px;">0</span></button>
         <button class="tab" id="tab-btn-rank" onclick="switchTab('rank')"><i class="fa-solid fa-trophy"></i> 후원 순위</button>
+        <button class="tab" id="tab-btn-video" onclick="switchTab('video')"><i class="fa-solid fa-clapperboard"></i> 고액 영상</button>
         <button class="tab" id="tab-btn-manage" onclick="switchTab('manage')"><i class="fa-solid fa-compact-disc"></i> 시그니처 관리</button>
     </div>
 
@@ -193,6 +194,21 @@
                 <div class="gal-head"><i class="fa-solid fa-compact-disc" style="color:var(--accent-2)"></i> 빠른 선택 <span class="count" id="gal-count">0개</span></div>
                 <div class="gallery" id="gallery"><div style="color:var(--muted);font-size:12px;grid-column:1/-1;padding:18px;text-align:center">시그니처 목록을 불러오는 중…</div></div>
             </div>
+        </div>
+    </div>
+
+    <!-- ═══ 고액 후원 영상 ═══ -->
+    <div class="pane" id="pane-video">
+        <div class="card card-pad">
+            <div style="font-size:15px; font-weight:800; margin-bottom:6px;"><i class="fa-solid fa-clapperboard" style="color:#2ecc71"></i> 금액대별 영상 재생</div>
+            <div style="color:var(--muted); font-size:13px; line-height:1.7; margin-bottom:16px;">
+                계좌로 고액 후원이 들어왔을 때 <b>해당 금액대 버튼</b>을 누르면 방송 화면에 영상이 재생돼요.<br>
+                영상이 끝나면 저절로 사라지고, 중간에 끄고 싶으면 <b>[중지]</b>를 누르면 됩니다.<br>
+                <span style="color:var(--faint)">영상 링크는 조종실 → <b>🏦 계좌 고액후원 영상</b> 에서 설정해요.</span>
+            </div>
+            <div id="video-tier-buttons" style="display:flex; flex-wrap:wrap; gap:10px;"></div>
+            <button id="btn-video-stop" style="margin-top:16px; height:44px; padding:0 20px; border-radius:10px; border:1px solid rgba(255,69,58,0.5); background:rgba(255,69,58,0.12); color:#ff453a; font-weight:800; cursor:pointer; font-family:inherit; font-size:14px;"><i class="fa-solid fa-stop"></i> 재생 중지</button>
+            <div id="video-msg" style="margin-top:12px; font-size:13px; color:var(--muted); min-height:20px;"></div>
         </div>
     </div>
 
@@ -296,14 +312,65 @@
 
     /* ── 탭 전환 ── */
     function switchTab(which){
-        ['send','queue','rank','manage'].forEach(t=>{
+        ['send','queue','rank','manage','video'].forEach(t=>{
             $('tab-btn-'+t).classList.toggle('active', which===t);
             $('pane-'+t).classList.toggle('active', which===t);
         });
         if(which==='rank'){ loadRanking(true); startRankAuto(); }
         else { stopRankAuto(); }
         if(which==='manage'){ renderManageList(); }
+        if(which==='video'){ loadVideoTiers(); }
     }
+
+    /* ── 🏦 고액 후원 영상: 금액대 버튼으로 직접 재생 ──
+       예전에는 후원 금액으로 '알아서' 골라 자동 재생했는데, 그 버튼이 점수 배정 자리에
+       있어서 배정·시그니처 재생과 순서가 뒤엉켰다. 지금은 어느 영상을 틀지 직접 고른다. */
+    async function loadVideoTiers(){
+        const box=$('video-tier-buttons'); const msg=$('video-msg');
+        box.innerHTML='<span style="color:var(--muted);font-size:13px">불러오는 중…</span>';
+        try{
+            const res=await fetch('/api/data'); const d=await res.json();
+            const tiers=d.account_video_tiers||[];
+            if(!tiers.length){ box.innerHTML='<span style="color:var(--muted);font-size:13px">설정된 금액대가 없습니다.</span>'; return; }
+            box.innerHTML=tiers.map((t,i)=>{
+                const has=!!(t.video&&t.video.trim());
+                const style=has
+                    ? 'background:rgba(46,204,113,0.14); color:#2ecc71; border:1px solid rgba(46,204,113,0.55); cursor:pointer;'
+                    : 'background:rgba(255,255,255,0.04); color:var(--faint); border:1px solid rgba(255,255,255,0.1); cursor:not-allowed;';
+                return '<button data-tier="'+i+'" '+(has?'':'disabled ')+
+                    'style="'+style+' height:52px; min-width:120px; padding:0 18px; border-radius:12px; font-weight:800; font-size:15px; font-family:inherit;">'+
+                    (t.label||('구간 '+(i+1)))+(has?'':' (미설정)')+'</button>';
+            }).join('');
+            box.querySelectorAll('button[data-tier]').forEach(b=>{
+                b.addEventListener('click',()=>playVideoTier(Number(b.dataset.tier), b.textContent.trim()));
+            });
+            msg.textContent='';
+        }catch(e){ box.innerHTML='<span style="color:var(--pink);font-size:13px">불러오지 못했습니다.</span>'; }
+    }
+    async function playVideoTier(i, label){
+        const msg=$('video-msg');
+        try{
+            const res=await fetch('/api/account/play',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tier:i})});
+            const d=await res.json();
+            if(d.played){ msg.style.color='#2ecc71'; msg.textContent='▶ '+(d.label||label)+' 영상이 재생됩니다!'; }
+            else if(d.reason==='no_video'){ msg.style.color='var(--pink)'; msg.textContent='이 금액대는 영상이 설정되지 않았습니다.'; }
+            else { msg.style.color='var(--pink)'; msg.textContent='재생하지 못했습니다'+(res.ok?'.':' (HTTP '+res.status+')'); }
+        }catch(e){ msg.style.color='var(--pink)'; msg.textContent='서버에 연결하지 못했습니다.'; }
+    }
+    document.addEventListener('DOMContentLoaded',()=>{
+        const sb=$('btn-video-stop');
+        if(sb) sb.addEventListener('click', async ()=>{
+            const msg=$('video-msg');
+            // ⚠️ fetch 는 401·500 에도 예외를 던지지 않는다. res.ok 를 보지 않으면
+            //    실패해도 '중지했습니다'라고 거짓 보고하게 된다.
+            try{
+                const r=await fetch('/api/account/stop',{method:'POST'});
+                if(r.ok){ msg.style.color='var(--muted)'; msg.textContent='영상을 중지했습니다.'; }
+                else { msg.style.color='var(--pink)'; msg.textContent='중지하지 못했습니다 (HTTP '+r.status+')'; }
+            }
+            catch(e){ msg.style.color='var(--pink)'; msg.textContent='서버에 연결하지 못했습니다.'; }
+        });
+    });
 
     /* ── 매칭 (서버 로직과 동일: 입력 이상인 가장 싼 시그니처 → 없으면 최고가) ── */
     function matchSig(amount){

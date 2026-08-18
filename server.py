@@ -2716,40 +2716,41 @@ def api_match_timeup():
 
 @app.route('/api/account/play', methods=['POST'])
 def api_account_play_video():
-    """조종실에서 [계좌] 를 눌렀을 때, 금액대에 맞는 유튜브 영상을 오버레이에 재생한다.
+    """후원 콘솔에서 금액대 버튼을 눌렀을 때 그 구간의 유튜브 영상을 오버레이에 재생한다.
 
-    - 30만원 미만이면 재생하지 않는다(played=False, reason=under_min).
-    - 금액대는 '이상' 기준. 예) 60만원이면 50만 구간(50~70만)이 걸린다.
-    - 해당 구간에 영상이 설정돼 있지 않으면 재생하지 않고 그 사실을 알린다.
+    ⚠️ 예전에는 후원 금액을 받아 '알아서' 구간을 골라 자동 재생했다. 그런데 계좌 버튼이
+       점수 배정 자리(대기함 카드)에 붙어 있어서, 배정·시그니처 재생과 순서가 뒤엉켰다.
+       지금은 운영자가 '어느 영상을' 트는지 직접 고른다. 자동 매칭은 없앴다.
+
+    body: {"tier": 구간 번호(0부터)}
 
     상태를 바꾸지 않고 이벤트만 쏘므로 file_lock 을 잡지 않는다(후원 처리를 막지 않는다).
     """
     data = request.json or {}
-    try:
-        amount = int(data.get('amount') or 0)
-    except (TypeError, ValueError):
-        amount = 0
-
-    ACCOUNT_VIDEO_MIN = 300000
-    if amount < ACCOUNT_VIDEO_MIN:
-        return jsonify({"status": "ok", "played": False, "reason": "under_min"})
-
     tiers = load_data().get('account_video_tiers') or []
-    # '이상' 매칭: min 이 금액 이하인 구간 중 가장 높은 것.
-    match = None
-    for t in sorted(tiers, key=lambda x: x.get('min') or 0):
-        if amount >= (t.get('min') or 0):
-            match = t
-    if not match:
-        return jsonify({"status": "ok", "played": False, "reason": "no_tier"})
 
-    video = (match.get('video') or '').strip()
-    label = match.get('label') or ''
+    try:
+        idx = int(data.get('tier'))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "tier 번호가 필요합니다"}), 400
+    if not (0 <= idx < len(tiers)):
+        return jsonify({"status": "error", "message": "없는 구간입니다"}), 400
+
+    t = tiers[idx]
+    video = (t.get('video') or '').strip()
+    label = t.get('label') or ''
     if not video:
         return jsonify({"status": "ok", "played": False, "reason": "no_video", "label": label})
 
-    broadcast_event('account_video', {"videoId": video, "label": label, "amount": amount})
+    broadcast_event('account_video', {"videoId": video, "label": label})
     return jsonify({"status": "ok", "played": True, "label": label})
+
+
+@app.route('/api/account/stop', methods=['POST'])
+def api_account_stop_video():
+    """재생 중인 영상을 즉시 끈다. 잘못 눌렀거나 길 때 손으로 멈출 수 있어야 한다."""
+    broadcast_event('account_video_stop', {})
+    return jsonify({"status": "ok"})
 
 
 @app.route('/api/roulette/winner', methods=['POST'])
