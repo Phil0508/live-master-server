@@ -1031,7 +1031,7 @@
                     시그니처(z-index 90000)와 리액션이 그 밑에 가려 '영상 때문에 아무것도
                     안 보이는' 상태가 됐다. 지금은 가운데 영상 상자만 두고, z-index 도
                     시그니처보다 낮춰 시그니처가 영상 위에 정상적으로 뜨게 한다. -->
-            <div id="acct-video-container" style="display:none; position:absolute; left:320px; top:180px; width:1280px; height:720px; z-index:88000; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 30px 90px rgba(0,0,0,0.7); border:3px solid rgba(46,204,113,0.6);">
+            <div id="acct_video-container" class="widget-container" style="display:none; left:320px; top:180px; width:1280px; height:720px; z-index:88000; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 30px 90px rgba(0,0,0,0.7); border:3px solid rgba(46,204,113,0.6);">
                 <div id="acct-video-frame" style="width:100%; height:100%;"></div>
             </div>
 
@@ -1534,7 +1534,7 @@
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke'].forEach(id => {
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke', 'acct_video'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if(ly && el) {
                     let coord = ly[id];
@@ -1830,14 +1830,14 @@
         //   외부 IFrame API 스크립트를 얹지 않는다.
         let acctVideoSafetyTimer = null;
         function acctVideoStop() {
-            const box = document.getElementById('acct-video-container');
+            const box = document.getElementById('acct_video-container');
             const frame = document.getElementById('acct-video-frame');
             if (acctVideoSafetyTimer) { clearTimeout(acctVideoSafetyTimer); acctVideoSafetyTimer = null; }
             if (frame) frame.innerHTML = '';   // iframe 제거 → 재생·소리 완전 정지
             if (box) box.style.display = 'none';
         }
         function acctVideoPlay(videoId) {
-            const box = document.getElementById('acct-video-container');
+            const box = document.getElementById('acct_video-container');
             const frame = document.getElementById('acct-video-frame');
             if (!box || !frame || !videoId) return;
             let src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId)
@@ -2805,6 +2805,10 @@
         let audioSafetyTimeout = null;
         let currentPlayingId = null;
 
+        // 소리를 내는 리더 창이 큐 넘김을 맡는다. 리더가 이 시간 안에 안 넘기면
+        // 다른 창이 대신 넘겨서 큐가 멈추는 것을 막는다(리더 창이 죽은 경우 대비).
+        const NON_LEADER_POP_GRACE_MS = 4000;
+
 
         // 🔇 모니터 모드: /overlay?monitor=1 로 열면 소리 재생과 큐 넘김을 하지 않는다.
         // OBS는 기존 주소 그대로 쓰고, 확인용 브라우저 탭만 ?monitor=1 로 열면
@@ -3500,6 +3504,28 @@
                 stopReactionVisuals();
                 return;
             }
+            // ⚠️ [여러 창이 서로를 끊던 문제] 오버레이를 두 곳 이상 띄우면(OBS + 확인용 탭,
+            //    또는 OBS 소스를 새로고침해서 시작 시점이 어긋난 경우) 각 창이 제각기
+            //    '끝났다'며 큐를 넘겼다. 먼저 끝난 창이 큐를 비우면 → reaction_mode 가 꺼지고
+            //    → 아직 재생 중이던 창이 stopReactionVisuals() 로 음원을 통째로 끊었다.
+            //    ("음원이 몇 초 만에 갑자기 끝난다"의 정체)
+            //
+            //    소리를 내는 리더 창이 큐 넘김도 맡는다. 다른 창은 바로 넘기지 않고 기다린다.
+            //    ⚠️ 다만 리더가 죽거나 멈추면 큐가 영영 안 넘어가므로(방송 중 최악의 사고),
+            //       유예 시간이 지나도 그 항목이 여전히 큐 머리에 있으면 대신 넘긴다.
+            if (!isAudioLeader()) {
+                stopReactionVisuals();
+                setTimeout(() => {
+                    const q = (globalData && globalData.reaction_queue) || [];
+                    if (q.length && q[0].id === popId && !isAudioLeader()) {
+                        console.warn('[큐 안전망] 리더가 넘기지 않아 대신 넘깁니다:', popId);
+                        poppingId = popId;
+                        advanceReactionQueue(popId, 0);
+                    }
+                }, NON_LEADER_POP_GRACE_MS);
+                return;
+            }
+
             // ⚠️ 서버가 큐에서 이 항목을 실제로 빼기 전까지는 여전히 큐 머리에 남아 있다.
             //    그 왕복(무료 서버에서 0.3~2초) 사이에 SSE update 가 한 번만 들어와도
             //    currentPlayingId 가 이미 null 이라 checkReactionQueue 가 같은 시그니처를
