@@ -148,6 +148,7 @@
         <button class="tab active" id="tab-btn-send" onclick="switchTab('send')"><i class="fa-solid fa-paper-plane"></i> 수동 송출</button>
         <button class="tab" id="tab-btn-queue" onclick="switchTab('queue')"><i class="fa-solid fa-list-ol"></i> 대기열 <span id="tab-queue-badge" style="display:none; background:var(--pink); color:#fff; font-size:11px; padding:1px 7px; border-radius:10px; margin-left:2px;">0</span></button>
         <button class="tab" id="tab-btn-rank" onclick="switchTab('rank')"><i class="fa-solid fa-trophy"></i> 후원 순위</button>
+        <button class="tab" id="tab-btn-fx" onclick="switchTab('fx')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트</button>
         <button class="tab" id="tab-btn-video" onclick="switchTab('video')"><i class="fa-solid fa-clapperboard"></i> 고액 영상</button>
         <button class="tab" id="tab-btn-manage" onclick="switchTab('manage')"><i class="fa-solid fa-compact-disc"></i> 시그니처 관리</button>
     </div>
@@ -194,6 +195,48 @@
                 <div class="gal-head"><i class="fa-solid fa-compact-disc" style="color:var(--accent-2)"></i> 빠른 선택 <span class="count" id="gal-count">0개</span></div>
                 <div class="gallery" id="gallery"><div style="color:var(--muted);font-size:12px;grid-column:1/-1;padding:18px;text-align:center">시그니처 목록을 불러오는 중…</div></div>
             </div>
+        </div>
+    </div>
+
+    <!-- ═══ 조종실 후원 이펙트 ═══ -->
+    <div class="pane" id="pane-fx">
+        <div class="card card-pad">
+            <div style="font-size:15px; font-weight:800; margin-bottom:6px;"><i class="fa-solid fa-crown" style="color:#ffc454"></i> 조종실 후원 연출</div>
+            <div style="color:var(--muted); font-size:13px; line-height:1.7; margin-bottom:16px;">
+                사장님께 후원해주신 분을 위한 연출이에요. 아래에 적고 <b>[연출 쏘기]</b>를 누르면 방송 화면에 나갑니다.<br>
+                <span style="color:var(--faint)">시그니처 재생과 따로 도는 연출이라, 시그니처가 나오는 중에 쏴도 서로 끊기지 않아요.</span>
+            </div>
+
+            <div class="fld">
+                <label>후원자 이름</label>
+                <input type="text" id="fx-name" placeholder="예) 홍길동" autocomplete="off">
+            </div>
+            <div class="fld">
+                <label>금액 <span style="color:var(--faint);font-weight:500">(선택 — 비우면 안 나옵니다)</span></label>
+                <div class="amt-wrap">
+                    <input type="number" id="fx-amount" placeholder="30000" min="0" inputmode="numeric" autocomplete="off">
+                    <span class="won">원</span>
+                </div>
+            </div>
+            <div class="fld">
+                <label>문구 <span style="color:var(--faint);font-weight:500">(선택 — 전광판에 흐릅니다)</span></label>
+                <input type="text" id="fx-msg" placeholder="비우면 &quot;○○님 후원 감사합니다!&quot;" autocomplete="off">
+            </div>
+
+            <div style="margin:6px 0 14px;">
+                <div style="font-size:13px; color:var(--muted); margin-bottom:8px;">쏠 연출 고르기</div>
+                <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-banner" checked><span>화면 가운데 <b>큰 배너</b></span></label>
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-flash" checked><span>화면 <b>번쩍 + 테두리 빛</b></span></label>
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-ticker" checked><span><b>전광판</b>에 흐르는 문구</span></label>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="send-btn" id="btn-fx-fire" style="flex:1; min-width:180px;"><i class="fa-solid fa-wand-magic-sparkles"></i> 연출 쏘기</button>
+                <button id="btn-fx-clear" style="height:48px; padding:0 20px; border-radius:10px; border:1px solid rgba(255,69,58,0.5); background:rgba(255,69,58,0.12); color:#ff453a; font-weight:800; cursor:pointer; font-family:inherit; font-size:14px;"><i class="fa-solid fa-eraser"></i> 걷기</button>
+            </div>
+            <div id="fx-msg-out" style="margin-top:12px; font-size:13px; color:var(--muted); min-height:20px;"></div>
         </div>
     </div>
 
@@ -312,7 +355,7 @@
 
     /* ── 탭 전환 ── */
     function switchTab(which){
-        ['send','queue','rank','manage','video'].forEach(t=>{
+        ['send','queue','rank','manage','video','fx'].forEach(t=>{
             $('tab-btn-'+t).classList.toggle('active', which===t);
             $('pane-'+t).classList.toggle('active', which===t);
         });
@@ -321,6 +364,49 @@
         if(which==='manage'){ renderManageList(); }
         if(which==='video'){ loadVideoTiers(); }
     }
+
+    /* ── 👑 조종실 후원 연출 ──
+       사장님께 후원한 분을 위한 전용 연출. 시그니처 큐를 건드리지 않는 독립 이벤트라
+       시그니처가 재생 중일 때 쏴도 서로 끊지 않는다. */
+    async function fireOperatorEffect(){
+        const out=$('fx-msg-out');
+        const kinds=[];
+        if($('fx-k-banner').checked) kinds.push('banner');
+        if($('fx-k-flash').checked)  kinds.push('flash');
+        if($('fx-k-ticker').checked) kinds.push('ticker');
+        if(!kinds.length){ out.style.color='var(--pink)'; out.textContent='연출을 하나 이상 골라주세요.'; return; }
+        const payload={
+            kinds:kinds,
+            name:($('fx-name').value||'').trim(),
+            amount:Number($('fx-amount').value||0)||0,
+            message:($('fx-msg').value||'').trim()
+        };
+        try{
+            const r=await fetch('/api/effect/fire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+            const d=await r.json().catch(()=>({}));
+            if(r.ok && d.status==='ok'){
+                const names={banner:'배너',flash:'번쩍',ticker:'전광판'};
+                out.style.color='#2ecc71';
+                out.textContent='✨ 연출을 쐈습니다 — ' + kinds.map(k=>names[k]||k).join(', ');
+            } else {
+                out.style.color='var(--pink)';
+                out.textContent=(d && d.message) ? d.message : ('쏘지 못했습니다 (HTTP '+r.status+')');
+            }
+        }catch(e){ out.style.color='var(--pink)'; out.textContent='서버에 연결하지 못했습니다.'; }
+    }
+    async function clearOperatorEffect(){
+        const out=$('fx-msg-out');
+        try{
+            const r=await fetch('/api/effect/clear',{method:'POST'});
+            if(r.ok){ out.style.color='var(--muted)'; out.textContent='연출을 걷었습니다.'; }
+            else { out.style.color='var(--pink)'; out.textContent='걷지 못했습니다 (HTTP '+r.status+')'; }
+        }catch(e){ out.style.color='var(--pink)'; out.textContent='서버에 연결하지 못했습니다.'; }
+    }
+    document.addEventListener('DOMContentLoaded',()=>{
+        const f=$('btn-fx-fire'), c=$('btn-fx-clear');
+        if(f) f.addEventListener('click', fireOperatorEffect);
+        if(c) c.addEventListener('click', clearOperatorEffect);
+    });
 
     /* ── 🏦 고액 후원 영상: 금액대 버튼으로 직접 재생 ──
        예전에는 후원 금액으로 '알아서' 골라 자동 재생했는데, 그 버튼이 점수 배정 자리에

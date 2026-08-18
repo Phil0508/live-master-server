@@ -2746,6 +2746,46 @@ def api_account_play_video():
     return jsonify({"status": "ok", "played": True, "label": label})
 
 
+@app.route('/api/effect/fire', methods=['POST'])
+def api_effect_fire():
+    """후원 콘솔의 '이펙트' 탭에서 조종실(사장님) 후원 연출을 쏜다.
+
+    body: {"kinds": ["banner","flash","ticker"], "name": 후원자, "amount": 금액, "message": 문구}
+
+    ⚠️ 기존 시그니처·목표달성 연출과 섞지 않는다. 그쪽은 큐·게이지 상태에 묶여 있어서
+       끼어들면 서로를 끊는다(실제로 그런 사고가 있었다). 전용 이벤트로 따로 보낸다.
+    상태를 바꾸지 않고 이벤트만 쏘므로 file_lock 을 잡지 않는다.
+    """
+    data = request.json or {}
+    kinds = data.get('kinds') or []
+    if isinstance(kinds, str):
+        kinds = [kinds]
+    allowed = {'banner', 'flash', 'ticker'}
+    kinds = [k for k in kinds if k in allowed]
+    if not kinds:
+        return jsonify({"status": "error", "message": "연출을 하나 이상 골라주세요"}), 400
+
+    name = (data.get('name') or '').strip()
+    message = (data.get('message') or '').strip()
+    try:
+        amount = int(data.get('amount') or 0)
+    except (TypeError, ValueError):
+        amount = 0
+
+    broadcast_event('operator_effect', {
+        "kinds": kinds, "name": name, "amount": amount, "message": message,
+        "time": int(time.time() * 1000),
+    })
+    return jsonify({"status": "ok", "fired": kinds})
+
+
+@app.route('/api/effect/clear', methods=['POST'])
+def api_effect_clear():
+    """연출을 즉시 걷는다(잘못 눌렀을 때)."""
+    broadcast_event('operator_effect_clear', {})
+    return jsonify({"status": "ok"})
+
+
 @app.route('/api/patchnotes', methods=['GET'])
 def api_patchnotes():
     """저장소의 PATCHNOTES.md 를 읽어 조종실 시스템 탭에 보여준다.

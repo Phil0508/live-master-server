@@ -906,6 +906,59 @@
             50% { transform: translateX(-50%) scale(1.03); }
             100% { transform: translateX(-50%) scale(1); }
         }
+
+        /* ===== 👑 조종실 후원 연출 =====
+           후원 콘솔 이펙트 탭에서 쏘는 전용 연출. 시그니처·목표달성 레이어와 섞지 않는다.
+           전부 pointer-events:none — OBS 화면 조작을 막지 않는다. */
+        #op-fx-flash {
+            position: fixed; inset: 0; z-index: 101000; pointer-events: none;
+            background: radial-gradient(circle at 50% 45%, rgba(255,225,150,0.95), rgba(255,190,90,0.35) 45%, transparent 72%);
+            opacity: 0; transition: opacity .18s ease-out;
+        }
+        #op-fx-flash.on { opacity: 1; }
+        #op-fx-edge {
+            position: fixed; inset: 0; z-index: 101001; pointer-events: none; opacity: 0;
+            box-shadow: inset 0 0 90px 26px rgba(255,196,84,0.85), inset 0 0 200px 60px rgba(255,150,40,0.45);
+            transition: opacity .25s ease;
+        }
+        #op-fx-edge.on { opacity: 1; animation: opEdgePulse 1.5s ease-in-out infinite; }
+        @keyframes opEdgePulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+
+        #op-fx-banner {
+            position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.82);
+            z-index: 101002; pointer-events: none; text-align: center;
+            opacity: 0; transition: opacity .3s ease, transform .45s cubic-bezier(0.16,1,0.3,1);
+            width: 92vw;
+        }
+        #op-fx-banner.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        #op-fx-banner-name {
+            font-family: "Black Han Sans", "Malgun Gothic", sans-serif;
+            font-size: 150px; font-weight: 900; line-height: 1.05; color: #fff;
+            text-shadow: 0 0 22px rgba(255,205,110,0.95), 0 0 60px rgba(255,170,60,0.8), 0 8px 26px rgba(0,0,0,0.75);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        #op-fx-banner-sub {
+            margin-top: 10px; font-size: 54px; font-weight: 900; color: #ffdf9b;
+            text-shadow: 0 0 16px rgba(255,180,70,0.9), 0 6px 20px rgba(0,0,0,0.7);
+        }
+
+        #op-fx-ticker {
+            position: fixed; left: 0; right: 0; top: 0; height: 92px; z-index: 101003;
+            pointer-events: none; overflow: hidden; opacity: 0; transition: opacity .3s ease;
+            background: linear-gradient(90deg, rgba(20,10,0,0.92), rgba(60,32,0,0.88), rgba(20,10,0,0.92));
+            border-bottom: 3px solid rgba(255,196,84,0.9);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+        }
+        #op-fx-ticker.on { opacity: 1; }
+        #op-fx-ticker-track {
+            position: absolute; top: 0; height: 100%; display: flex; align-items: center;
+            white-space: nowrap; will-change: transform;
+        }
+        #op-fx-ticker-text {
+            font-size: 54px; font-weight: 900; color: #ffe6ad; padding: 0 60px;
+            text-shadow: 0 0 14px rgba(255,180,70,0.9);
+        }
+
     </style>
 </head>
 <body>
@@ -1025,6 +1078,13 @@
             <div id="karaoke-container" class="widget-container" style="display:none; left:40px; top:560px; width:1000px; height:563px; border-radius:20px; overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(140,155,255,0.75); box-shadow:0 22px 64px rgba(0,0,0,0.65), 0 0 34px rgba(120,135,255,0.5);">
                 <div id="karaoke-frame" style="width:100%; height:100%;"></div>
             </div>
+
+            <!-- 👑 조종실 후원 연출: 후원 콘솔 '이펙트' 탭에서 쏜다. 시그니처·목표달성과 독립.
+                 pointer-events:none 이라 화면 조작을 막지 않는다. -->
+            <div id="op-fx-flash"></div>
+            <div id="op-fx-edge"></div>
+            <div id="op-fx-banner"><div id="op-fx-banner-name"></div><div id="op-fx-banner-sub"></div></div>
+            <div id="op-fx-ticker"><div id="op-fx-ticker-track"><span id="op-fx-ticker-text"></span></div></div>
 
             <!-- 🏦 고액후원 영상: 후원 콘솔의 금액대 버튼으로 재생. 끝나면 자동으로 사라진다.
                  ⚠️ 화면 전체를 덮지 않는다. 예전에는 1920x1080 검은 배경으로 깔아서
@@ -1878,6 +1938,79 @@
             if (data.event === 'onStateChange' && data.info === 0) acctVideoStop();
             else if (data.event === 'infoDelivery' && state === 0) acctVideoStop();
         });
+
+        // 👑 조종실 후원 연출 — 후원 콘솔 '이펙트' 탭에서 쏜다.
+        //    시그니처 큐·게이지 상태를 전혀 건드리지 않는 독립 레이어라, 시그니처가
+        //    재생 중이어도 서로 끊지 않는다.
+        const OP_FX_BANNER_MS = 6000;
+        const OP_FX_EDGE_MS   = 6000;
+        const OP_FX_TICKER_MS = 12000;
+        let opFxTimers = [];
+        function opFxClearTimers() { opFxTimers.forEach(t => clearTimeout(t)); opFxTimers = []; }
+        function opFxLater(fn, ms) { opFxTimers.push(setTimeout(fn, ms)); }
+
+        function opFxClear() {
+            opFxClearTimers();
+            ['op-fx-flash', 'op-fx-edge', 'op-fx-banner', 'op-fx-ticker'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('on');
+            });
+            const tr = document.getElementById('op-fx-ticker-track');
+            if (tr) { tr.style.transition = 'none'; tr.style.transform = 'translateX(0)'; }
+        }
+
+        function opFxFire(data) {
+            const kinds = (data && data.kinds) || [];
+            const name = (data && data.name || '').trim();
+            const amount = parseInt(data && data.amount) || 0;
+            const msg = (data && data.message || '').trim();
+            opFxClear();   // 겹쳐 쏘면 이전 것을 정리하고 새로 시작
+
+            if (kinds.indexOf('flash') !== -1) {
+                const fl = document.getElementById('op-fx-flash');
+                const ed = document.getElementById('op-fx-edge');
+                if (fl) { fl.classList.add('on'); opFxLater(() => fl.classList.remove('on'), 220); }
+                if (ed) { ed.classList.add('on'); opFxLater(() => ed.classList.remove('on'), OP_FX_EDGE_MS); }
+            }
+
+            if (kinds.indexOf('banner') !== -1) {
+                const b = document.getElementById('op-fx-banner');
+                const bn = document.getElementById('op-fx-banner-name');
+                const bs = document.getElementById('op-fx-banner-sub');
+                if (b && bn && bs) {
+                    bn.textContent = name || '감사합니다';
+                    // 금액이 0이면 굳이 '0원'을 띄우지 않는다
+                    const parts = [];
+                    if (amount > 0) parts.push(amount.toLocaleString() + '원');
+                    if (msg) parts.push(msg);
+                    bs.textContent = parts.join('  ·  ');
+                    bs.style.display = parts.length ? 'block' : 'none';
+                    b.classList.add('on');
+                    opFxLater(() => b.classList.remove('on'), OP_FX_BANNER_MS);
+                }
+            }
+
+            if (kinds.indexOf('ticker') !== -1) {
+                const t = document.getElementById('op-fx-ticker');
+                const tr = document.getElementById('op-fx-ticker-track');
+                const tx = document.getElementById('op-fx-ticker-text');
+                if (t && tr && tx) {
+                    const line = msg || ((name ? name + '님 ' : '') + '후원 감사합니다!');
+                    tx.textContent = line;
+                    t.classList.add('on');
+                    // 오른쪽 밖 → 왼쪽 밖으로 한 번 흘려보낸다
+                    tr.style.transition = 'none';
+                    tr.style.transform = 'translateX(' + window.innerWidth + 'px)';
+                    // 다음 프레임에 시작해야 transition 이 먹는다
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        const dist = window.innerWidth + tr.offsetWidth;
+                        tr.style.transition = 'transform ' + OP_FX_TICKER_MS + 'ms linear';
+                        tr.style.transform = 'translateX(' + (-tr.offsetWidth) + 'px)';
+                    }));
+                    opFxLater(() => t.classList.remove('on'), OP_FX_TICKER_MS);
+                }
+            }
+        }
 
         function handleData(d) {
             if (d && d.server_time) {
@@ -3814,6 +3947,19 @@
             sseSource.addEventListener('account_video_stop', function(e) {
                 console.log("🏦 [고액후원 영상 중지]");
                 acctVideoStop();
+            });
+
+            sseSource.addEventListener('operator_effect', function(e) {
+                try {
+                    const data = e.data ? JSON.parse(e.data) : {};
+                    console.log("👑 [조종실 후원 연출]", (data.kinds || []).join(','), data.name || '');
+                    opFxFire(data);
+                } catch (err) { console.error("operator_effect 처리 오류:", err); }
+            });
+
+            sseSource.addEventListener('operator_effect_clear', function(e) {
+                console.log("👑 [조종실 후원 연출 걷기]");
+                opFxClear();
             });
 
             sseSource.addEventListener('vips_updated', function(e) {
