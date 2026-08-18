@@ -1,0 +1,36 @@
+# 🎧 투네이션 후원을 크롬 없이 서버가 직접 받아 방송 서버로 넘긴다.
+#
+# 이 서비스가 있으면 크롬·템퍼몽키·OBS 브라우저 소스(후원 유입용)가 필요 없다.
+# wss://ws.toon.at 에 직접 붙어 후원(code 101)을 받아 127.0.0.1:8080/api/donation 으로 전달한다.
+#
+# ⚠️ 투네이션의 비공개 규격이라 그쪽이 바꾸면 끊길 수 있다(공식 API 아님).
+#    끊겨도 방송 서버 자체는 멀쩡하고, 기존 템퍼몽키+OBS 로 되돌리면 후원은 다시 들어온다.
+#
+# ⚠️ 동작하려면 /etc/livemaster.env 에 ALERTBOX_URL 이 있어야 한다. 없으면 조용히 종료한다.
+
+[Unit]
+Description=Toonation 후원 리스너 (ws.toon.at → /api/donation)
+After=livemaster.service network-online.target
+Wants=network-online.target
+# 방송 서버가 떠 있어야 후원을 넘길 수 있다
+Requires=livemaster.service
+
+[Service]
+Type=simple
+User=livemaster
+WorkingDirectory=/opt/livemaster
+EnvironmentFile=/etc/livemaster.env
+ExecStart=/opt/livemaster/.venv/bin/python /opt/livemaster/toon_listener.py
+
+# 끊기면 계속 되살린다(투네이션이 소켓을 끊거나 네트워크가 흔들려도 스스로 재연결)
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=toon-listener
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+[Install]
+WantedBy=multi-user.target

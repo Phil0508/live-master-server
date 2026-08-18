@@ -101,6 +101,11 @@ NVIDIA_API_KEY=
 
 # 깨우기는 VPS 에선 필요 없다(항상 켜져 있으므로). 조종실 스위치도 막아둔다.
 SELF_PING=off
+
+# 🎧 크롬 없이 후원 받기(toon-listener). 투네이션 알림창 주소를 넣으면
+#    서버가 wss://ws.toon.at 에 직접 붙어 후원을 받는다. 비우면 리스너는 조용히 쉰다.
+#    통합알림창 > 알림창 URL 의 그 주소(https://toon.at/widget/alertbox/....)
+ALERTBOX_URL=
 EOF
   chmod 600 "$ENV_FILE"
   echo "     만들었습니다 → $ENV_FILE (아직 비어 있습니다)"
@@ -112,8 +117,18 @@ say "6/7  서비스 등록"
 install -m 644 "$APP_DIR/deploy/livemaster.service" /etc/systemd/system/livemaster.service
 install -m 644 "$APP_DIR/deploy/Caddyfile" /etc/caddy/Caddyfile
 mkdir -p /var/log/caddy && chown caddy:caddy /var/log/caddy
+# 🎧 후원 리스너도 등록해 둔다. 다만 ALERTBOX_URL 이 채워졌을 때만 켠다
+#    (안 채워졌는데 켜면 즉시 종료→재시작을 반복해 로그만 지저분해진다).
+install -m 644 "$APP_DIR/deploy/toon-listener.service" /etc/systemd/system/toon-listener.service
 systemctl daemon-reload
 systemctl enable --quiet livemaster caddy
+if grep -q '^ALERTBOX_URL=.\+' "$ENV_FILE"; then
+  systemctl enable --quiet toon-listener
+  echo "     후원 리스너 켬 (ALERTBOX_URL 있음)"
+else
+  systemctl disable --quiet toon-listener 2>/dev/null || true
+  echo "     후원 리스너는 쉼 (ALERTBOX_URL 비어있음 - 나중에 켜려면 env 채우고 systemctl enable --now toon-listener)"
+fi
 
 say "7/7  방화벽"
 # ⚠️ 업체마다 기본값이 정반대다. 오라클은 전부 막혀 있어 열어줘야 하고,

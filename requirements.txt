@@ -4,3 +4,4 @@ pyotp
 psycopg2-binary
 requests
 Pillow
+websockets
