@@ -1466,8 +1466,8 @@
                         <tr style="background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border-light);">
                             <th style="padding: 10px 14px; text-align: left; color: var(--text-muted); font-weight: 600; white-space: nowrap;">시간</th>
                             <th style="padding: 10px 14px; text-align: left; color: var(--text-muted); font-weight: 600; white-space: nowrap;">이름</th>
-                            <th style="padding: 10px 14px; text-align: right; color: var(--text-muted); font-weight: 600; white-space: nowrap;">변동</th>
-                            <th style="padding: 10px 14px; text-align: right; color: var(--text-muted); font-weight: 600; white-space: nowrap;">누적</th>
+                            <th style="padding: 10px 14px; text-align: right; color: var(--text-muted); font-weight: 600; white-space: nowrap;">변동(원)</th>
+                            <th style="padding: 10px 14px; text-align: right; color: var(--text-muted); font-weight: 600; white-space: nowrap;">누적(원)</th>
                             <th style="padding: 10px 14px; text-align: left; color: var(--text-muted); font-weight: 600; white-space: nowrap;">메시지</th>
                             <th style="padding: 10px 14px; text-align: center; color: var(--text-muted); font-weight: 600; white-space: nowrap;">출처</th>
                         </tr>
@@ -1507,7 +1507,8 @@
                 <button class="secondary" onclick="recalcBankBalances()" style="height: 30px; font-size: var(--fs-2); padding: 0 14px; border-radius: var(--r-2);"><i class="fa-solid fa-rotate-left"></i> 잔액 재정산</button>
             </div>
             <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 14px; line-height: 1.6;">
-                점수가 바뀔 때마다 <b>변동분과 그때의 잔액</b>이 통장처럼 기록돼요.<br>
+                여기는 <b>점수(점)</b> 장부예요. 후원금(원) 내역은 <b>정산 장부</b>에서 따로 봅니다.<br>
+                점수가 바뀔 때마다 <b>변동분과 그때의 잔액</b>이 통장처럼 기록돼요. 점수를 잘못 넣었을 때 여기서 되짚어볼 수 있어요.<br>
                 숫자가 이상해졌을 때 <b>[잔액 재정산]</b>을 누르면 이 기록을 다시 합산해서 정확한 값으로 되돌립니다.
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;" id="bank-player-buttons"></div>

@@ -1252,7 +1252,7 @@ def save_data_sync(new_data, is_initial=False, _retry=True):
                 old_scores = {p["name"]: p.get("score", 0) for p in old_data.get("bjs", [])}
                 old_contribs = {p["name"]: p.get("contribution", 0) for p in old_data.get("bjs", [])}
                 now_str = time.strftime('%Y-%m-%d %H:%M:%S')
-                hist_rows, ledger_rows = [], []
+                ledger_rows = []
                 for new_p in new_data.get("bjs", []):
                     p_name = new_p["name"]
                     p_score = int(new_p.get("score") or 0)
@@ -1260,8 +1260,13 @@ def save_data_sync(new_data, is_initial=False, _retry=True):
                     score_diff = p_score - old_scores.get(p_name, 0)
                     contrib_diff = p_contrib - old_contribs.get(p_name, 0)
 
-                    if score_diff != 0:
-                        hist_rows.append((now_str, p_name, score_diff, p_score, "수동 점수 조작", "mobile"))
+                    # ⚠️ 예전에는 여기서 donation_history 에도 한 줄을 넣었다.
+                    #    그런데 그 표의 amount 는 '후원 금액(원)' 칸이다. 점수(점)를 거기 넣으니
+                    #    한 열에 30,000(원)과 1(점)이 섞여, 합계도 평균도 의미가 없어졌다.
+                    #    (실제로 -1 같은 값이 '후원 -1원'처럼 보였다)
+                    #    점수 변동은 바로 아래 bank_ledger 에 score_change/score_balance 로
+                    #    이미 온전히 남고 조종실의 '점수 통장 내역'에서 볼 수 있으므로,
+                    #    돈 장부에는 넣지 않는다. 장부는 원, 통장은 점 — 단위를 섞지 않는다.
                     # 🏦 은행 원장: 변동분과 거래 후 잔액을 남겨 나중에 재정산할 수 있게 한다
                     if score_diff != 0 or contrib_diff != 0:
                         ledger_rows.append((now_str, p_name, "MANUAL_CHANGE", score_diff, p_score,
@@ -1269,12 +1274,6 @@ def save_data_sync(new_data, is_initial=False, _retry=True):
                                             f"점수 {score_diff:+} / 기여도 {contrib_diff:+}"))
 
                 # N분할처럼 여러 명이 한꺼번에 바뀔 때 왕복이 인원수만큼 늘지 않도록 묶어서 넣는다
-                if hist_rows:
-                    ph = ', '.join([('(%s, %s, %s, %s, %s, %s)' if IS_POSTGRES else '(?, ?, ?, ?, ?, ?)')] * len(hist_rows))
-                    cursor.execute(
-                        f"INSERT INTO donation_history (timestamp, name, amount, current_total, message, source) VALUES {ph}",
-                        [v for r in hist_rows for v in r]
-                    )
                 if ledger_rows:
                     ph = ', '.join([('(%s, %s, %s, %s, %s, %s, %s, %s)' if IS_POSTGRES else '(?, ?, ?, ?, ?, ?, ?, ?)')] * len(ledger_rows))
                     cursor.execute(
