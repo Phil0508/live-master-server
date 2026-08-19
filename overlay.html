@@ -336,6 +336,105 @@
         .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
 
         /* ── 시그니처 순위판 ── 각진 클립패스 대신 점수판과 같은 유리 카드 + 둥근 골드 헤더 */
+
+        /* ═══ 🃏 시그 뒤집기 게임 ═══
+           원본(React)의 연출을 그대로 옮겼다. 다만 상태는 서버가 들고 SSE 로 온다.
+           pointer-events:none — OBS 화면 조작을 막지 않는다(조작은 조종실에서 한다). */
+        #siggame-container {
+            position: absolute; z-index: 99000; pointer-events: none;
+            opacity: 0; visibility: hidden; transition: opacity .4s ease, visibility .4s;
+        }
+        #siggame-container.on { opacity: 1; visibility: visible; }
+        .sg-timer {
+            text-align: center; font-size: 64px; font-weight: 900; letter-spacing: 2px;
+            color: var(--gold); text-shadow: 0 0 18px var(--gold-glow), 0 4px 0 rgba(0,0,0,.5);
+            margin-bottom: 14px; font-variant-numeric: tabular-nums;
+        }
+        .sg-timer.urgent { color: #ff4d6d; text-shadow: 0 0 18px rgba(255,77,109,.8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
+        @keyframes sg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+        .sg-grid { display: grid; gap: 12px; perspective: 1500px; }
+        .sg-card { position: relative; perspective: 1500px;
+            transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s .4s; }
+        .sg-card.popped { transform: scale(1.6) translateZ(100px); z-index: 100;
+            transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s 0s; }
+        .sg-inner { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d;
+            transition: transform .6s cubic-bezier(.4,0,.2,1); }
+        .sg-inner.flipped { transform: rotateY(180deg); }
+        .sg-front, .sg-back {
+            width: 100%; height: 100%; position: absolute; backface-visibility: hidden;
+            border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,.5);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sg-front { background: #fff; border: 4px solid var(--gold); }
+        .sg-front img { width: 100%; height: 100%; object-fit: cover; }
+        .sg-back {
+            transform: rotateY(180deg); border: 4px solid var(--gold-deep);
+            background: linear-gradient(145deg, #16161f, #0d0d14);
+        }
+        .sg-back::after {   /* 카드 뒷면 무늬 */
+            content: ''; position: absolute; inset: 0; opacity: .18;
+            background: repeating-linear-gradient(45deg, var(--gold) 0 6px, transparent 6px 14px);
+        }
+        .sg-head { display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 14px; }
+        .sg-progress { display: flex; gap: 8px; }
+        .sg-dot {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 3px solid var(--gold); background: transparent;
+            box-shadow: 0 0 10px var(--gold-glow);
+        }
+        .sg-dot.done { background: var(--gold); box-shadow: 0 0 18px var(--gold), 0 0 34px var(--gold-glow); }
+        /* 목표를 받아낸 카드 — 금테와 체크로 확실히 구분한다(방송에서 한눈에 보여야 한다) */
+        .sg-card.done .sg-front { border-color: #2ecc71; box-shadow: 0 0 0 3px rgba(46,204,113,.55), 0 0 26px rgba(46,204,113,.6); }
+        .sg-card.done .sg-front::after {
+            content: '✔'; position: absolute; top: 6px; right: 8px; z-index: 2;
+            font-size: 34px; font-weight: 900; color: #2ecc71; text-shadow: 0 2px 6px #000;
+        }
+        .sg-card.done .sg-front img { filter: saturate(1.15); }
+        /* 아직 못 받은 목표 — 살짝 흐리게 두어 대비를 준다 */
+        .sg-card.todo .sg-front img { filter: grayscale(.55) brightness(.8); }
+        .sg-title {
+            position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px;
+            background: linear-gradient(transparent, rgba(0,0,0,.82));
+            color: #fff; font-size: 15px; font-weight: 800; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sg-front { position: relative; }
+        .sg-num {
+            position: relative; z-index: 1; font-size: 44px; font-weight: 900; color: var(--gold);
+            text-shadow: 0 0 14px var(--gold-glow), 0 3px 0 rgba(0,0,0,.6);
+        }
+        /* 카드 깔기 — 위에서 하나씩 떨어진다 */
+        .sg-card.fly { animation: sg-fly .5s cubic-bezier(.175,.885,.32,1.275) backwards; }
+        @keyframes sg-fly {
+            from { opacity: 0; transform: translateY(-120px) scale(.6) rotateX(60deg); }
+            to   { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
+        }
+        /* 섞기 — 원본의 10가지 중 대표 4가지만 옮겼다(나머지는 서로 거의 구분되지 않았다) */
+        .sg-sh1 { animation: sg-chaos 1.2s ease-in-out; }
+        @keyframes sg-chaos {
+            0% { transform: scale(1) translate(0,0) rotate(0); }
+            50% { transform: scale(.5) translate(var(--tx),var(--ty)) rotate(540deg); opacity: .6; z-index: 100; }
+            100% { transform: scale(1) translate(0,0) rotate(720deg); }
+        }
+        .sg-sh2 { animation: sg-tornado 1.2s ease-in-out; }
+        @keyframes sg-tornado {
+            0% { transform: translate(0,0) rotateY(0); }
+            50% { transform: translate(var(--tx),var(--ty)) rotateY(900deg) scale(.4); opacity: .5; z-index: 100; }
+            100% { transform: translate(0,0) rotateY(1800deg); }
+        }
+        .sg-sh3 { animation: sg-wave 1.2s ease-in-out; }
+        @keyframes sg-wave {
+            0% { transform: translateY(0); }
+            30% { transform: translateY(-160px) rotate(-25deg); z-index: 100; }
+            60% { transform: translateY(120px) rotate(25deg); }
+            100% { transform: translateY(0) rotate(0); }
+        }
+        .sg-sh4 { animation: sg-spinout 1.2s ease-in-out; }
+        @keyframes sg-spinout {
+            0% { transform: scale(1) rotate(0); }
+            50% { transform: scale(.3) translate(var(--tx),var(--ty)) rotate(-720deg); opacity: .4; z-index: 100; }
+            100% { transform: scale(1) rotate(0); }
+        }
         .sig-tally-board {
             position: relative; width: 206px; padding: 10px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -1263,6 +1362,15 @@
             </div>
 
             <!-- 📊 시그니처 신청 집계 패널 (이번 방송 기준). 켜야 보이며 위치/크기는 에디터에서 조절 -->
+            <!-- 🃏 시그 뒤집기 게임 -->
+            <div id="siggame-container" class="widget-container" style="left: 420px; top: 140px; width: 1080px;">
+                <div class="sg-head">
+                    <div class="sg-timer" id="sg-timer">10:00</div>
+                    <div class="sg-progress" id="sg-progress"></div>
+                </div>
+                <div class="sg-grid" id="sg-grid"></div>
+            </div>
+
             <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 850px; top: 300px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="sig-tally-board">
                     <div class="sig-tally-header">🎵 시그니처 순위</div>
@@ -1619,11 +1727,175 @@
         // 🎯 목표 달성 연출 진행 중 여부 (applyLayout이 게이지 transform을 덮어쓰지 않도록 하는 플래그)
         let isGoalCelebrating = false;
 
+
+        // ═══ 🃏 시그 뒤집기 게임 ═══
+        // 규칙: 시그니처를 덮어 깔고 몇 장을 뒤집는다. 뒤집힌 것이 '목표'이고,
+        //       제한 시간 안에 그 시그니처를 후원으로 받아내면 달성이다.
+        //
+        // 서버가 상태의 정본이다. 여기서는 '그리기'와 '시간이 지나면 저절로 풀리는 연출'만 맡는다.
+        // ⚠️ 덮인 카드는 서버가 사진·이름을 아예 안 보내준다(mask_siggame). 그래서 번호만 그린다.
+        // ⚠️ [깜빡임 방지] 판을 매번 통째로 다시 만들면 안 된다. 후원이 들어올 때마다 상태가
+        //    갱신되는데, 그때마다 innerHTML 을 갈아끼우면 뒤집기 애니메이션이 끊기고 사진이
+        //    다시 불려와 화면이 깜빡인다. 구성이 바뀔 때만 새로 만들고, 평소에는 상태만 손댄다.
+        const SG_POP_MS = 2600;        // 방금 뒤집은 카드가 크게 보이는 시간
+        const SG_SHUFFLE_MS = 1200;    // 섞기 연출 길이
+        let sgLayoutKey = null;
+        let sgLastActionTs = 0;
+        let sgTimerTick = null;
+        let sgRepaintTimer = null;
+
+        function sgFmt(sec) {
+            sec = Math.max(0, Math.floor(sec));
+            return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+        }
+
+        function sgSyncTimer(g) {
+            if (sgTimerTick) { clearInterval(sgTimerTick); sgTimerTick = null; }
+            const el = document.getElementById('sg-timer');
+            if (!el) return;
+            const t = (g && g.timer) || {};
+            const paint = () => {
+                const left = (t.status === 'PLAYING' && t.expiresAt)
+                    ? (t.expiresAt - Date.now()) / 1000 : (t.timeLeft || 0);
+                el.textContent = sgFmt(left);
+                el.classList.toggle('urgent', t.status === 'PLAYING' && left <= 30);
+            };
+            paint();
+            if (t.status === 'PLAYING') sgTimerTick = setInterval(paint, 200);
+        }
+
+        function sgBuild(g, grid, box) {
+            const cards = g.cards || [];
+            const cols = Math.max(1, g.cols || 4);
+            const rows = Math.max(1, g.rows || Math.ceil(cards.length / cols));
+            const gap = 12;
+            const width = box.offsetWidth || 1080;
+            const cw = Math.max(40, Math.floor((width - gap * (cols - 1)) / cols));
+            const ch = Math.round(cw * 1.35);
+            grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cw + 'px)';
+            grid.style.gridTemplateRows = 'repeat(' + rows + ', ' + ch + 'px)';
+            grid.innerHTML = cards.map(c =>
+                '<div class="sg-card" data-id="' + c.id + '">' +
+                    '<div class="sg-inner">' +
+                        '<div class="sg-front"><img alt=""><div class="sg-title"></div></div>' +
+                        '<div class="sg-back"><span class="sg-num">' + c.id + '</span></div>' +
+                    '</div>' +
+                '</div>').join('');
+        }
+
+        function sgRenderGame(g) {
+            const box = document.getElementById('siggame-container');
+            const grid = document.getElementById('sg-grid');
+            if (!box || !grid) return;
+
+            const cards = (g && g.cards) || [];
+            const on = !!(g && g.enabled && cards.length);
+            box.classList.toggle('on', on);
+            box.style.opacity = on ? (g.opacity != null ? g.opacity : 1) : 0;
+            if (!on) {
+                grid.innerHTML = '';
+                sgLayoutKey = null;
+                const pr = document.getElementById('sg-progress');
+                if (pr) pr.innerHTML = '';
+                if (sgTimerTick) { clearInterval(sgTimerTick); sgTimerTick = null; }
+                return;
+            }
+
+            const key = cards.length + '|' + (g.cols || 0) + '|' + cards.map(c => c.id).join(',');
+            if (key !== sgLayoutKey) { sgLayoutKey = key; sgBuild(g, grid, box); }
+
+            const act = (g.action || {});
+            const now = Date.now();
+            const isNewAction = act.ts && act.ts !== sgLastActionTs;
+            if (isNewAction) sgLastActionTs = act.ts;
+            const shuffling = act.type === 'SHUFFLE' && (now - act.ts) < SG_SHUFFLE_MS;
+
+            const els = grid.children;
+            for (let i = 0; i < els.length && i < cards.length; i++) {
+                const el = els[i], c = cards[i];
+                const revealed = c.state === 'REVEALED';
+                // '목표'는 뒤집어서 연 카드(flippedAt)만이다. 끝나고 구경용으로 전부 공개한 건 목표가 아니다.
+                const isGoal = revealed && !!c.flippedAt;
+                const done = !!c.doneAt;
+                const popped = (c.flippedAt && (now - c.flippedAt) < SG_POP_MS)
+                            || (c.doneAt && (now - c.doneAt) < SG_POP_MS);
+
+                el.querySelector('.sg-inner').classList.toggle('flipped', !revealed);
+                el.classList.toggle('popped', !!popped);
+                el.classList.toggle('done', done);
+                el.classList.toggle('todo', isGoal && !done);
+
+                const img = el.querySelector('.sg-front img');
+                const want = revealed ? (c.image || '') : '';
+                if (img && img.getAttribute('src') !== want) {
+                    if (want) img.setAttribute('src', want); else img.removeAttribute('src');
+                }
+                const cap = el.querySelector('.sg-title');
+                const title = revealed
+                    ? ((c.title || '') + (c.amount ? ' · ' + Number(c.amount).toLocaleString() + '원' : ''))
+                    : '';
+                if (cap && cap.textContent !== title) cap.textContent = title;
+
+                if (isNewAction) {
+                    el.classList.remove('fly', 'sg-sh1', 'sg-sh2', 'sg-sh3', 'sg-sh4');
+                    void el.offsetWidth;   // 같은 애니메이션을 다시 재생하려면 리플로우가 필요하다
+                    if (act.type === 'PLACE') {
+                        el.style.animationDelay = (i * 50) + 'ms';
+                        el.classList.add('fly');
+                    } else if (act.type === 'SHUFFLE') {
+                        // ⚠️ 흩어지는 방향을 매 그리기마다 새로 뽑으면 후원 하나에도 카드가 튄다.
+                        //    번호와 신호 시각으로 정해 늘 같은 값이 나오게 한다.
+                        const s1 = (act.ts + c.id * 7919) % 1000 / 1000;
+                        const s2 = (act.ts + c.id * 104729) % 1000 / 1000;
+                        el.style.setProperty('--tx', ((s1 - 0.5) * 700).toFixed(0) + 'px');
+                        el.style.setProperty('--ty', ((s2 - 0.5) * 500).toFixed(0) + 'px');
+                        el.style.animationDelay = (s1 * 100).toFixed(0) + 'ms';
+                        el.classList.add('sg-sh' + (((act.animIndex || 1) - 1) % 4 + 1));
+                    }
+                } else if (!shuffling) {
+                    el.classList.remove('sg-sh1', 'sg-sh2', 'sg-sh3', 'sg-sh4');
+                }
+            }
+
+            // 목표 진행 표시(●●●○○) — 몇 개를 받아냈는지 한눈에 보이게.
+            const goals = cards.filter(c => c.flippedAt);
+            const target = Math.max(goals.length, g.target || goals.length);
+            const doneCount = goals.filter(c => c.doneAt).length;
+            const pr = document.getElementById('sg-progress');
+            if (pr) {
+                const wantDots = target;
+                if (pr.children.length !== wantDots) {
+                    pr.innerHTML = Array.from({ length: wantDots }, () => '<div class="sg-dot"></div>').join('');
+                }
+                for (let k = 0; k < pr.children.length; k++) {
+                    pr.children[k].classList.toggle('done', k < doneCount);
+                }
+            }
+
+            if (sgRepaintTimer) { clearTimeout(sgRepaintTimer); sgRepaintTimer = null; }
+            const waits = [];
+            cards.forEach(c => {
+                if (c.flippedAt && now - c.flippedAt < SG_POP_MS) waits.push(SG_POP_MS - (now - c.flippedAt));
+                if (c.doneAt && now - c.doneAt < SG_POP_MS) waits.push(SG_POP_MS - (now - c.doneAt));
+            });
+            if (shuffling) waits.push(SG_SHUFFLE_MS - (now - act.ts));
+            if (waits.length) {
+                sgRepaintTimer = setTimeout(() => {
+                    sgRenderGame((globalData || {}).siggame);
+                }, Math.max(30, Math.min.apply(null, waits) + 30));
+            }
+        }
+
+        function sgUpdate(g) {
+            try { sgRenderGame(g); sgSyncTimer(g); }
+            catch (e) { console.error('[시그게임] 화면 갱신 실패 — 방송은 계속됩니다:', e); }
+        }
+
         function applyLayout(ly) {
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke', 'acct_video'].forEach(id => {
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke', 'acct_video', 'siggame'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if(ly && el) {
                     let coord = ly[id];
@@ -2050,6 +2322,11 @@
             // 전광판은 방송 On/Off 와 무관하게(시그니처는 방송무관 재생) 항상 갱신한다.
             updateTickers(d);
             updateKaraoke(d);   // 🎤 노래방 영상 (방송 On/Off 무관)
+            // 🃏 시그 뒤집기 게임도 방송 On/Off 와 무관하다.
+            //    ⚠️ 아래 '방송 꺼져 있으면 return' 보다 반드시 앞에 둬야 한다.
+            //       뒤에 두면 방송 시작을 누르기 전에는 카드가 아예 안 그려진다
+            //       (예전에 시그니처 재생이 같은 이유로 통째로 막혔던 자리다).
+            sgUpdate(d.siggame);
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.

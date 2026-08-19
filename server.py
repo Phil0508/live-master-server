@@ -23,6 +23,8 @@ else:
 
 import json
 import copy
+import random   # 시그게임 카드 배치·섞기, 슬롯 당첨 뽑기
+import math     # 시그게임 판을 정사각형에 가깝게 잡을 때
 import threading
 import logging
 import pyotp
@@ -826,12 +828,46 @@ sse_lock = threading.Lock()
 # state 전체가 실리므로(수십 KB) 이 값이 곧 '밀린 클라 1대당 최대 메모리'다.
 SSE_QUEUE_MAX = 120
 
+def mask_siggame(data):
+    """밖으로 나가는 상태에서 '아직 안 뒤집힌 카드'의 속을 지운다.
+
+    ⚠️ 이게 없으면 재미가 통째로 사라진다. /api/stream 과 /api/data 는 무인증으로 열려 있어서
+       개발자도구만 열면 덮인 카드가 무슨 시그니처인지 그대로 보인다.
+       뒤집힌 카드만 사진·이름을 싣고, 덮인 카드는 번호와 '덮임'만 내보낸다.
+    ⚠️ 원본 상태를 건드리면 안 된다(서버가 정답을 잃어버린다).
+       그래서 '새 dict 를 만들어 돌려주는' 형태다. 반드시 반환값을 받아 써야 한다:
+           data = mask_siggame(data)
+    """
+    if not isinstance(data, dict):
+        return data
+    g = data.get('siggame')
+    if not isinstance(g, dict) or not isinstance(g.get('cards'), list):
+        return data
+    data = dict(data)
+    safe = []
+    for c in g['cards']:
+        if not isinstance(c, dict):
+            continue
+        if c.get('state') == 'REVEALED':
+            safe.append({"id": c.get('id'), "state": "REVEALED",
+                         "image": c.get('image'), "title": c.get('title') or '',
+                         "amount": c.get('amount'),
+                         "flippedAt": c.get('flippedAt'), "doneAt": c.get('doneAt')})
+        else:
+            safe.append({"id": c.get('id'), "state": "HIDDEN"})
+    g2 = dict(g)
+    g2['cards'] = safe
+    data['siggame'] = g2
+    return data
+
+
 def broadcast_event(event_name, data):
     if isinstance(data, dict):
         data = data.copy()
         # 🔐 /api/stream 은 무인증으로 열려 있다(오버레이·알림창이 붙어야 하므로).
         #    상태에 관리자 토큰이 섞여 있어도 절대 전파되지 않게 마지막 관문에서 지운다.
         data.pop('api_token', None)
+        data = mask_siggame(data)   # 🃏 덮인 카드의 정체를 지운다(무인증 경로다)
         data['server_time'] = int(time.time() * 1000)
     with sse_lock:
         message = f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
@@ -945,6 +981,27 @@ DEFAULT_STATE = {
     # 🏦 계좌 고액후원 영상: 조종실에서 [계좌] 를 누르면 금액대에 맞는 유튜브 영상을 재생한다.
     #    구간은 조종실의 버튼 순서 그대로다(자동 금액 판정은 하지 않는다).
     #    video 는 유튜브 영상 ID(설정 UI가 URL 을 넣어도 ID만 뽑아 저장한다). 비어 있으면 그 구간은 재생 안 함.
+    # 🃏 시그 뒤집기 게임. 시그니처 사진으로 카드를 깔고, 뒤집어서 맞히는 게임.
+    #    카드 사진은 따로 올리지 않고 이미 등록된 시그니처 이미지를 그대로 쓴다.
+    #    ⚠️ 상태는 서버가 정본이다. 원본 프로그램은 localStorage 로 창끼리 맞췄는데,
+    #       OBS 브라우저 소스는 조종실 크롬과 저장소를 공유하지 않아 아예 동기화가 안 됐다.
+    "siggame": {
+        "enabled": False,
+        "cols": 4,
+        "rows": 4,
+        "opacity": 1.0,
+        "target": 5,       # 뒤집을 장수. 이만큼 뒤집으면 그게 이번 판의 목표가 된다.
+        # 조종실이 고른 시그니처들: [{sig_id, title, image}]
+        "picks": [],
+        # 판에 깔린 카드. id 는 화면에 보이는 번호(1..N)다.
+        # [{id, sig_id, image, title, state, doneAt}]
+        #   state : HIDDEN(덮임) | REVEALED(뒤집힘 = 목표)
+        #   doneAt: 그 시그니처를 후원으로 받아낸 시각(달성). 없으면 아직이다.
+        "cards": [],
+        "timer": {"status": "STOPPED", "timeLeft": 600, "expiresAt": None},
+        # 오버레이가 재생할 연출 신호. {type: PLACE|SHUFFLE|FLIP|DONE|REVEAL, ts, ...}
+        "action": None,
+    },
     # ⏸️ 알림(시그니처) 일시정지. 중요한 순간에 말이 끊기지 않게 잠깐 멈추는 스위치.
     #    큐는 그대로 쌓이고, 풀면 순서대로 이어서 나간다. '전체 비우기'와 전혀 다르다.
     "reaction_paused": False,
@@ -1515,7 +1572,9 @@ def sse_stream():
 
     def event_generator():
         try:
-            initial_state = load_data()
+            # ⚠️ 이 첫 전송은 broadcast_event 를 거치지 않는다. 거기서 하는 정리를 여기서도 해야 한다.
+            #    오버레이·조종실이 붙을 때 받는 바로 그 데이터라, 빠뜨리면 가장 크게 샌다.
+            initial_state = mask_siggame(load_data())   # 🃏 덮인 카드의 정체를 지운다
             yield f"event: init\ndata: {json.dumps(initial_state, ensure_ascii=False)}\n\n"
 
             if os.path.exists(LAYOUT_FILE):
@@ -2510,6 +2569,9 @@ def receive_donation():
             # 🎵 자동 시그니처 리액션 연동 (매칭은 위에서 락 밖에 끝냈고, 여기서는 큐에만 넣는다)
             if matched_sig:
                 enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg)
+                # 🃏 시그게임이 돌고 있으면, 뒤집어 둔 목표를 후원으로 받아낸 것인지 본다.
+                #    (게임의 핵심이다 — 사람이 눈으로 대조해 손으로 체크하면 방송 중에 반드시 놓친다)
+                _siggame_mark_done(state, matched_sig.get('id'))
                 print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{matched_sig.get('title')}' (#{matched_sig.get('id')}, {matched_sig.get('amount')}원) 큐 추가 완료")
 
 
@@ -2656,7 +2718,7 @@ def api_data():
             #   덮어쓰지 못하게 서버 값을 유지한다. (이 필드들은 후원 수신·큐 조작 엔드포인트에서만 바뀐다.
             #   조종실/모바일/에디터의 어떤 조작도 /api/data 로 이 필드를 직접 수정하지 않으므로 안전하다.)
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
-                            'reaction_paused')
+                            'reaction_paused', 'siggame')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -2702,6 +2764,8 @@ def api_data():
         state = state.copy()
         # 🔐 과거에 상태로 새어 들어간 값이 남아 있어도 무인증 응답에 절대 실려나가지 않게 먼저 지운다
         state.pop('api_token', None)
+        state = mask_siggame(state)   # 🃏 덮인 카드의 정체를 지운다(로그인 여부와 무관하게 —
+                                      #    조종실도 모르는 편이 공정하고, 새어나갈 길도 없앤다)
         state['server_time'] = int(time.time() * 1000)
         # 조종실 웹에 로그인 세션이 있을 경우에만 보안 API 토큰을 제공
         if session.get('authenticated'):
@@ -3718,6 +3782,338 @@ def next_reaction():
         print(f"Error in next_reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ==========================================
+# 🃏 시그 뒤집기 게임
+# ==========================================
+# 규칙: 조종실이 카드를 직접 고르고, 그중 몇 장을 '당첨'으로 지정한다.
+#       판에는 고른 카드가 전부 깔리지만, 뒤집히는 건 당첨 카드뿐이다.
+#       나머지는 자리만 채운다 — 눌러도 덮인 채 그대로다(어디가 당첨인지 새어나가면 안 된다).
+#
+# 상태는 전부 서버가 들고 SSE 로 뿌린다. 원본 프로그램은 창끼리 localStorage 로 맞췄는데,
+# OBS 브라우저 소스는 조종실 크롬과 저장소를 공유하지 않아 애초에 동기화가 되지 않았다.
+SIGGAME_MAX_CARDS = 36   # 6x6. 이보다 크면 상태가 무거워지고 OBS 가 버벅인다.
+
+
+def _siggame_state(state):
+    """항상 온전한 모양의 게임 상태를 돌려준다(예전 저장본에 없던 키 보정)."""
+    g = state.get('siggame')
+    if not isinstance(g, dict):
+        g = copy.deepcopy(DEFAULT_STATE['siggame'])
+        state['siggame'] = g
+    for k, v in DEFAULT_STATE['siggame'].items():
+        g.setdefault(k, copy.deepcopy(v))
+    if not isinstance(g.get('timer'), dict):
+        g['timer'] = copy.deepcopy(DEFAULT_STATE['siggame']['timer'])
+    for k in ('cards', 'picks'):
+        if not isinstance(g.get(k), list):
+            g[k] = []
+    return g
+
+
+def _siggame_save(state, g):
+    state['siggame'] = g
+    save_data(state)
+    broadcast_event('update', state)
+
+
+def _siggame_mark_done(state, sig_id):
+    """후원으로 그 시그니처를 받아냈다 — 뒤집혀 있는 목표 카드에 달성 표시를 한다.
+
+    후원 접수 경로에서 부른다. 아직 안 뒤집힌 카드는 목표가 아니므로 건드리지 않는다.
+    이미 달성한 카드도 그대로 둔다(같은 시그니처가 또 와도 처음 시각을 지킨다).
+    """
+    if sig_id is None:
+        return None
+    g = state.get('siggame')
+    if not isinstance(g, dict) or not g.get('enabled'):
+        return None
+    try:
+        sid = int(sig_id)
+    except (TypeError, ValueError):
+        return None
+    for c in (g.get('cards') or []):
+        if c.get('state') == 'REVEALED' and not c.get('doneAt') and c.get('sig_id') == sid:
+            c['doneAt'] = int(time.time() * 1000)
+            g['action'] = {"type": "DONE", "ts": c['doneAt'], "id": c.get('id')}
+            left = sum(1 for x in g['cards']
+                       if x.get('state') == 'REVEALED' and not x.get('doneAt'))
+            print("🃏 [시그게임] %d번 '%s' 달성! (남은 목표 %d장)"
+                  % (c.get('id'), c.get('title') or '', left), flush=True)
+            return c
+    return None
+
+
+@app.route('/api/siggame/picks', methods=['POST'])
+def api_siggame_picks():
+    """이번 판에 깔 시그니처를 고른다.
+
+    body: {"picks": [12345, 12346, ...]}   (시그니처 id 목록)
+    ⚠️ 여기에는 감출 것이 없다. 어느 카드가 무엇인지는 '깔고 나서' 감춰진다(mask_siggame).
+    """
+    data = request.get_json(silent=True) or {}
+    ids = data.get('picks')
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"status": "error", "message": "시그니처를 하나 이상 골라주세요"}), 400
+    if len(ids) > SIGGAME_MAX_CARDS:
+        return jsonify({"status": "error",
+                        "message": "카드는 최대 %d장까지입니다 (지금 %d장)"
+                                   % (SIGGAME_MAX_CARDS, len(ids))}), 400
+
+    by_id = {int(s['id']): s for s in (supabase_list_signatures() or []) if s.get('id') is not None}
+    picks, missing = [], []
+    for raw_id in ids:
+        try:
+            sid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        s = by_id.get(sid)
+        if not s:
+            missing.append(sid)
+            continue
+        picks.append({"sig_id": sid, "title": s.get('title') or '',
+                      "image": s.get('image_url') or '', "amount": s.get('amount')})
+    if not picks:
+        return jsonify({"status": "error", "message": "고른 시그니처를 찾을 수 없습니다"}), 400
+
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        g['picks'] = picks
+        _siggame_save(state, g)
+    print("🃏 [시그게임] 시그니처 %d장 선택" % len(picks), flush=True)
+    return jsonify({"status": "success", "count": len(picks), "missing": missing})
+
+
+@app.route('/api/siggame/deal', methods=['POST'])
+def api_siggame_deal():
+    """고른 시그니처를 무작위 자리에 깔고 전부 덮는다."""
+    data = request.get_json(silent=True) or {}
+    try:
+        minutes = max(0, min(180, int(data.get('minutes', 10))))
+    except (TypeError, ValueError):
+        minutes = 10
+
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        picks = list(g.get('picks') or [])
+        if not picks:
+            return jsonify({"status": "error",
+                            "message": "먼저 시그니처를 골라주세요 (아래 목록에서 선택)"}), 400
+        try:
+            target = int(data.get('target', g.get('target') or 5))
+        except (TypeError, ValueError):
+            target = 5
+        target = max(1, min(len(picks), target))
+
+        random.shuffle(picks)   # 자리를 섞는다 — 번호만 보고는 무엇인지 알 수 없어야 한다
+        n = len(picks)
+        cols = int(math.ceil(math.sqrt(n)))
+        rows = int(math.ceil(n / cols))
+        g['cards'] = [{"id": i + 1, "sig_id": p.get('sig_id'), "image": p.get('image'),
+                       "title": p.get('title'), "amount": p.get('amount'),
+                       "state": "HIDDEN", "doneAt": None, "flippedAt": None}
+                      for i, p in enumerate(picks)]
+        g.update({"cols": cols, "rows": rows, "enabled": True, "target": target,
+                  "timer": {"status": "STOPPED", "timeLeft": minutes * 60, "expiresAt": None},
+                  "action": {"type": "PLACE", "ts": int(time.time() * 1000)}})
+        _siggame_save(state, g)
+    print("🃏 [시그게임] %d장 배치 (%dx%d, 목표 %d장, %d분)" % (n, cols, rows, target, minutes), flush=True)
+    return jsonify({"status": "success", "count": n, "target": target, "cols": cols, "rows": rows})
+
+
+@app.route('/api/siggame/shuffle', methods=['POST'])
+def api_siggame_shuffle():
+    """자리를 다시 섞고 전부 덮는다(달성 기록도 초기화된다 — 새 판이나 마찬가지다)."""
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        cards = g.get('cards') or []
+        if not cards:
+            return jsonify({"status": "error", "message": "먼저 카드를 깔아주세요"}), 400
+        faces = [{"sig_id": c.get('sig_id'), "image": c.get('image'),
+                  "title": c.get('title'), "amount": c.get('amount')} for c in cards]
+        random.shuffle(faces)
+        g['cards'] = [{"id": c["id"], "sig_id": f["sig_id"], "image": f["image"],
+                       "title": f["title"], "amount": f["amount"],
+                       "state": "HIDDEN", "doneAt": None, "flippedAt": None}
+                      for c, f in zip(cards, faces)]
+        g['action'] = {"type": "SHUFFLE", "ts": int(time.time() * 1000),
+                       "animIndex": random.randint(1, 4)}
+        n = len(cards)
+        _siggame_save(state, g)
+    print("🃏 [시그게임] 카드 %d장 다시 섞음" % n, flush=True)
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/siggame/flip', methods=['POST'])
+def api_siggame_flip():
+    """카드 한 장을 뒤집는다. 뒤집힌 카드가 이번 판의 '목표'가 된다.
+
+    ⚠️ 목표 장수(target)를 넘겨 뒤집지 못하게 막는다. 실수로 하나 더 뒤집으면
+       참가자가 받아야 할 금액이 늘어난다 — 돈이 걸린 문제라 되돌리기보다 막는 쪽이 낫다.
+    ⚠️ '크게 보이는 2초'는 서버 상태로 두지 않는다. 요청이 실패하거나 조종실이 닫혔을 때
+       카드가 확대된 채 방송에 박히기 때문이다. 뒤집은 시각만 남기고 연출은 화면이 판단한다.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        cid = int(data.get('id'))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "카드 번호가 필요합니다"}), 400
+    now_ms = int(time.time() * 1000)
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        cards = g.get('cards') or []
+        found = next((c for c in cards if c.get('id') == cid), None)
+        if not found:
+            return jsonify({"status": "error", "message": "%d번 카드가 없습니다" % cid}), 404
+        if found.get('state') == 'REVEALED':
+            return jsonify({"status": "success", "id": cid, "already": True,
+                            "title": found.get('title') or ''})
+        opened = sum(1 for c in cards if c.get('state') == 'REVEALED')
+        target = int(g.get('target') or 5)
+        if opened >= target:
+            return jsonify({"status": "error",
+                            "message": "이미 %d장을 뒤집었습니다 (목표 %d장)" % (opened, target)}), 400
+        found['state'] = 'REVEALED'
+        found['flippedAt'] = now_ms
+        g['action'] = {"type": "FLIP", "ts": now_ms, "id": cid}
+        title = found.get('title') or ''
+        amount = found.get('amount')
+        left = target - (opened + 1)
+        _siggame_save(state, g)
+    print("🃏 [시그게임] %d번 뒤집음 → '%s' (%s원) / 더 뒤집을 수 있는 카드 %d장"
+          % (cid, title, format(amount or 0, ','), left), flush=True)
+    return jsonify({"status": "success", "id": cid, "title": title,
+                    "amount": amount, "remaining_flips": left})
+
+
+@app.route('/api/siggame/done', methods=['POST'])
+def api_siggame_done():
+    """목표 카드를 손으로 달성/취소 처리한다.
+
+    후원이 들어오면 자동으로 달성되지만(_siggame_mark_done), 계좌 후원처럼
+    자동 인식이 안 되는 경로도 있어서 손으로 고칠 길을 열어둔다.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        cid = int(data.get('id'))
+    except (TypeError, ValueError):
+        return jsonify({"status": "error", "message": "카드 번호가 필요합니다"}), 400
+    want = data.get('done')
+    now_ms = int(time.time() * 1000)
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        found = next((c for c in (g.get('cards') or []) if c.get('id') == cid), None)
+        if not found:
+            return jsonify({"status": "error", "message": "%d번 카드가 없습니다" % cid}), 404
+        if found.get('state') != 'REVEALED':
+            return jsonify({"status": "error", "message": "아직 뒤집지 않은 카드입니다"}), 400
+        done = (not found.get('doneAt')) if want is None else bool(want)
+        found['doneAt'] = now_ms if done else None
+        g['action'] = {"type": "DONE", "ts": now_ms, "id": cid} if done else None
+        _siggame_save(state, g)
+    return jsonify({"status": "success", "id": cid, "done": done})
+
+
+@app.route('/api/siggame/reveal', methods=['POST'])
+def api_siggame_reveal():
+    """남은 카드를 전부 공개한다(게임이 끝난 뒤 무엇이 있었는지 보여줄 때).
+
+    ⚠️ 이건 '목표 추가'가 아니다. 공개만 하고 달성 판정에는 넣지 않기 위해
+       flippedAt 을 남기지 않는다.
+    """
+    now_ms = int(time.time() * 1000)
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        if not (g.get('cards') or []):
+            return jsonify({"status": "error", "message": "깔린 카드가 없습니다"}), 400
+        for c in g['cards']:
+            if c.get('state') != 'REVEALED':
+                c['state'] = 'REVEALED'
+                c['flippedAt'] = None   # 목표가 아니라 '구경용 공개'
+        g['action'] = {"type": "REVEAL", "ts": now_ms}
+        _siggame_save(state, g)
+    print("🃏 [시그게임] 남은 카드 전체 공개", flush=True)
+    return jsonify({"status": "success"})
+
+
+@app.route('/api/siggame/timer', methods=['POST'])
+def api_siggame_timer():
+    """타이머 시작·일시정지·초기화.
+
+    ⚠️ 남은 시간을 서버가 1초씩 세지 않는다. '끝나는 시각'만 두고 화면이 계산한다.
+       그래야 오버레이를 새로 띄우거나 늦게 붙어도 시간이 어긋나지 않는다.
+    """
+    data = request.get_json(silent=True) or {}
+    action = str(data.get('action') or '').upper()
+    if action not in ('START', 'PAUSE', 'STOP'):
+        return jsonify({"status": "error", "message": "action 은 START/PAUSE/STOP"}), 400
+    now_ms = int(time.time() * 1000)
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        t = g['timer']
+        if action == 'START' and t.get('status') != 'PLAYING':
+            left = max(0, int(t.get('timeLeft') or 0))
+            if left <= 0:
+                return jsonify({"status": "error", "message": "남은 시간이 없습니다"}), 400
+            t.update({"status": "PLAYING", "expiresAt": now_ms + left * 1000})
+        elif action == 'PAUSE' and t.get('status') == 'PLAYING':
+            left = max(0, int(((t.get('expiresAt') or now_ms) - now_ms) / 1000))
+            t.update({"status": "PAUSED", "timeLeft": left, "expiresAt": None})
+        elif action == 'STOP':
+            try:
+                minutes = int(data.get('minutes'))
+            except (TypeError, ValueError):
+                minutes = None
+            left = minutes * 60 if minutes is not None else int(t.get('timeLeft') or 0)
+            t.update({"status": "STOPPED", "timeLeft": max(0, left), "expiresAt": None})
+        timer_out = dict(t)
+        _siggame_save(state, g)
+    return jsonify({"status": "success", "timer": timer_out})
+
+
+@app.route('/api/siggame/set', methods=['POST'])
+def api_siggame_set():
+    """켜기/끄기, 투명도, 목표 장수 같은 설정."""
+    data = request.get_json(silent=True) or {}
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        if 'enabled' in data:
+            g['enabled'] = bool(data['enabled'])
+        if 'opacity' in data:
+            try:
+                g['opacity'] = max(0.1, min(1.0, float(data['opacity'])))
+            except (TypeError, ValueError):
+                pass
+        if 'target' in data:
+            try:
+                g['target'] = max(1, min(SIGGAME_MAX_CARDS, int(data['target'])))
+            except (TypeError, ValueError):
+                pass
+        out = {"enabled": g['enabled'], "opacity": g['opacity'], "target": g['target']}
+        _siggame_save(state, g)
+    return jsonify({"status": "success", **out})
+
+
+@app.route('/api/siggame/clear', methods=['POST'])
+def api_siggame_clear():
+    """판을 치운다. 고른 시그니처 목록은 남겨 다음 판에 그대로 다시 쓴다."""
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        g.update({"cards": [], "enabled": False, "action": None,
+                  "timer": copy.deepcopy(DEFAULT_STATE['siggame']['timer'])})
+        _siggame_save(state, g)
+    print("🃏 [시그게임] 판을 치웠습니다 (고른 시그니처는 유지)", flush=True)
+    return jsonify({"status": "success"})
+
+
 @app.route('/api/reaction/pause', methods=['POST'])
 def api_reaction_pause():
     """알림(시그니처) 재생을 잠시 멈추거나 다시 내보낸다.
@@ -3785,7 +4181,6 @@ def api_slot_spin():
                 else:
                     print("⚠️ [슬롯] 선택된 후보가 목록에 없어 전체에서 뽑습니다.")
 
-            import random
             winner = random.choice(sigs)
             candidates = sigs
 
