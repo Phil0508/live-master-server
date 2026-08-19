@@ -213,11 +213,22 @@
 
                 <!-- 🃏 시그 뒤집기 게임: 조종실에서 카드를 깔면 여기 자리에 나온다.
                      미리보기는 기본값(5x6, 폭 1080px) 기준 크기다. -->
-                <div class="widget" id="siggame" data-id="siggame" style="left:420px; top:140px;">
-                    <div style="width:1080px; padding:10px 0; display:flex; flex-direction:column; align-items:center; gap:12px;">
-                        <div style="font-size:64px; font-weight:900; color:var(--gold, #f6c453); text-shadow:0 0 18px rgba(246,196,83,.5), 0 4px 0 rgba(0,0,0,.5); letter-spacing:2px;">10:00</div>
-                        <div style="display:grid; grid-template-columns:repeat(5, 204px); grid-template-rows:repeat(6, 275px); gap:12px;">
-                            <div style="grid-column:1/-1; grid-row:1/-1; border-radius:12px; background:rgba(246,196,83,0.10); border:3px dashed rgba(246,196,83,0.75); display:flex; align-items:center; justify-content:center; color:#f6c453; font-size:44px; font-weight:900; letter-spacing:3px; text-shadow:0 2px 8px #000;">🃏 시그 뒤집기 카드판 (5 × 6)</div>
+                <div class="widget" id="siggame" data-id="siggame" style="left:362px; top:520px;">
+                    <div style="width:700px; display:flex; flex-direction:column; align-items:center; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:14px;">
+                            <span style="font-size:34px; font-weight:900; color:var(--gold, #f6c453); text-shadow:0 0 12px rgba(246,196,83,.5); letter-spacing:1px;">10:00</span>
+                            <span style="display:flex; gap:5px;">
+                                <span style="width:15px; height:15px; border-radius:50%; background:#f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                            </span>
+                        </div>
+                        <!-- 16장(4x4) 이 다 깔린 상태가 가장 크다. 이 크기로 자리를 잡으면 된다. -->
+                        <div style="width:700px; height:412px; border-radius:8px; background:rgba(246,196,83,0.10); border:3px dashed rgba(246,196,83,0.75); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:#f6c453; text-shadow:0 2px 8px #000;">
+                            <div style="font-size:26px; font-weight:900; letter-spacing:2px;">🃏 시그 뒤집기 카드판</div>
+                            <div style="font-size:15px; font-weight:700; opacity:.85;">16장(4 × 4) 기준 — 5장을 다 뒤집으면 한 줄로 줄어듭니다</div>
                         </div>
                     </div>
                 </div>
