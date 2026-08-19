@@ -29,13 +29,14 @@ except ImportError:
 ALERTBOX_URL = os.environ.get("ALERTBOX_URL", "")
 DONATION_URL = os.environ.get("DONATION_URL", "http://127.0.0.1:8080/api/donation")
 INCLUDE_TEST = os.environ.get("INCLUDE_TEST", "").strip() in ("1", "on", "true", "yes")
-# 💵 소액 후원 걸러내기. 템퍼몽키가 하던 일을 그대로 이어받는다(1,000원 미만 무시).
+# 💵 소액 후원 걸러내기. 10,000원 미만은 서버로 보내지 않는다.
+#    10,000원당 1점이라 그 아래는 어차피 0점이고, 시그니처 최저가도 10,300원이라 걸리는 게 없다.
 #    0원은 통과시킨다 — '시그니처 신청'이 0원으로 들어오기 때문이다.
 #    MIN_AMOUNT=0 으로 두면 전부 통과한다.
 try:
-    MIN_AMOUNT = int(os.environ.get("MIN_AMOUNT", "1000"))
+    MIN_AMOUNT = int(os.environ.get("MIN_AMOUNT", "10000"))
 except ValueError:
-    MIN_AMOUNT = 1000
+    MIN_AMOUNT = 10000
 DRY = "--dry" in sys.argv
 
 DONATION_CODE = 101  # 투네이션 후원 이벤트 코드 (실측 확인)
@@ -125,7 +126,7 @@ async def listen(token):
             log("💰 후원 감지:", tag + payload["name"], payload["amount"], "캐시",
                 repr(payload["message"][:30]), "|", hint)
             # ⚠️ 서버(/api/donation)는 음수만 막고 소액은 안 거른다. 예전에는 템퍼몽키가
-            #    1,000원 미만을 걸러서 서버까지 오지도 않았다. 리스너로 갈아타면서 그 체가
+            #    소액을 걸러서 서버까지 오지도 않았다. 리스너로 갈아타면서 그 체가
             #    사라지면 100원짜리 후원까지 팝업·장부·대기함에 들어온다. 여기서 이어받는다.
             if MIN_AMOUNT > 0 and 0 < payload["amount"] < MIN_AMOUNT:
                 log(f"   → {MIN_AMOUNT:,}원 미만이라 무시 (MIN_AMOUNT=0 으로 끌 수 있음)")
