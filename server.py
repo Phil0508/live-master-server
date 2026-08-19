@@ -945,6 +945,9 @@ DEFAULT_STATE = {
     # 🏦 계좌 고액후원 영상: 조종실에서 [계좌] 를 누르면 금액대에 맞는 유튜브 영상을 재생한다.
     #    구간은 조종실의 버튼 순서 그대로다(자동 금액 판정은 하지 않는다).
     #    video 는 유튜브 영상 ID(설정 UI가 URL 을 넣어도 ID만 뽑아 저장한다). 비어 있으면 그 구간은 재생 안 함.
+    # ⏸️ 알림(시그니처) 일시정지. 중요한 순간에 말이 끊기지 않게 잠깐 멈추는 스위치.
+    #    큐는 그대로 쌓이고, 풀면 순서대로 이어서 나간다. '전체 비우기'와 전혀 다르다.
+    "reaction_paused": False,
     "account_video_tiers": [
         {"min": 200000,  "label": "20만",    "video": ""},
         {"min": 300000,  "label": "30만",    "video": ""},
@@ -2645,7 +2648,8 @@ def api_data():
             #   큐에서 사라졌다("시그니처가 씹힌다"). 그래서 '서버만 건드리는 필드'는 클라이언트가
             #   덮어쓰지 못하게 서버 값을 유지한다. (이 필드들은 후원 수신·큐 조작 엔드포인트에서만 바뀐다.
             #   조종실/모바일/에디터의 어떤 조작도 /api/data 로 이 필드를 직접 수정하지 않으므로 안전하다.)
-            SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations')
+            SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
+                            'reaction_paused')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -3706,6 +3710,29 @@ def next_reaction():
     except Exception as e:
         print(f"Error in next_reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/reaction/pause', methods=['POST'])
+def api_reaction_pause():
+    """알림(시그니처) 재생을 잠시 멈추거나 다시 내보낸다.
+
+    ⚠️ 큐는 건드리지 않는다. 멈춘 동안 들어온 후원은 그대로 쌓였다가 풀면 순서대로 나간다.
+       큐를 지우는 '전체 비우기'(/api/reaction/stop)와 혼동하면 안 된다.
+    ⚠️ 재생 중인 시그니처는 끊지 않는다. 오버레이가 '다음 것을 시작하지 않는' 방식으로 멈추므로,
+       지금 나가고 있는 것은 끝까지 나가고 그 다음부터 멈춘다.
+       (중간에 끊으면 돈 낸 후원자의 시그니처가 잘려나간다)
+
+    body 에 paused 가 있으면 그 값으로, 없으면 현재값을 뒤집는다(버튼 한 개로 토글).
+    """
+    data = request.json or {}
+    with file_lock:
+        state = load_data()
+        paused = bool(data['paused']) if 'paused' in data else not bool(state.get('reaction_paused'))
+        state['reaction_paused'] = paused
+        queued = len(state.get('reaction_queue') or [])
+        save_data(state)
+        broadcast_event('update', state)
+    print(f"{'⏸️ 알림 일시정지' if paused else '▶️ 알림 재개'} (대기 {queued}건)", flush=True)
+    return jsonify({"status": "success", "paused": paused, "queued": queued})
 
 @app.route('/api/reaction/stop', methods=['POST'])
 def stop_reaction():

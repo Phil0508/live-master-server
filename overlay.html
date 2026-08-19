@@ -3100,6 +3100,12 @@
                 return;
             }
             
+            // ⏸️ 일시정지: 새 리액션을 '시작'하지 않는다.
+            //    이미 나가고 있는 것은 건드리지 않으므로 끝까지 재생된다
+            //    (중간에 끊으면 돈 낸 후원자의 시그니처가 잘려나간다).
+            //    큐는 그대로 쌓여 있다가 풀면 순서대로 이어진다.
+            if (globalData.reaction_paused && currentPlayingId === null) return;
+
             const firstItem = globalData.reaction_queue[0];
             // 방금 끝나서 서버에 pop 요청을 보내둔 항목이면 아직 큐 머리에 남아 있다.
             // 여기서 다시 재생하면 같은 시그니처가 통째로 두 번 나간다.

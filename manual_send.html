@@ -263,9 +263,13 @@
                 <div class="stat"><div class="k">연결 상태</div><div class="v" id="q-conn" style="font-size:15px; color:var(--muted);">연결 중…</div></div>
             </div>
             <div class="refresh">
+                <button id="btn-pause" onclick="togglePause()" style="border-color:rgba(255,203,69,0.5); color:var(--gold);"><i class="fa-solid fa-pause"></i> 알림 멈춤</button>
                 <button onclick="skipCurrent()" style="border-color:rgba(255,203,69,0.5); color:var(--gold);"><i class="fa-solid fa-forward-step"></i> 건너뛰기</button>
                 <button onclick="clearQueue()" style="border-color:rgba(255,92,138,0.5); color:var(--pink);"><i class="fa-solid fa-trash-can"></i> 전체 비우기</button>
             </div>
+        </div>
+        <div id="q-paused-note" style="display:none; margin:0 0 10px; padding:10px 14px; border-radius:12px; background:rgba(120,255,170,0.10); border:1px solid rgba(120,255,170,0.35); color:#7effaa; font-weight:700; font-size:14px;">
+            <i class="fa-solid fa-pause"></i> 알림이 멈춰 있습니다 — 후원은 계속 쌓입니다. 다시 누르면 순서대로 이어서 나갑니다.
         </div>
         <div class="rank-list" id="queue-list"><div class="rank-empty">불러오는 중…</div></div>
     </div>
@@ -666,6 +670,9 @@
 
     function renderQueue(d){
         const q = (d && d.reaction_queue) || [];
+        // 서버가 정본이다. 다른 기기에서 멈춰도 여기 버튼이 같이 바뀐다.
+        const paused = !!(d && d.reaction_paused);
+        applyPauseUI(paused);
         $('q-count').textContent = q.length + '개';
         const badge = $('tab-queue-badge');
         if(badge){ badge.style.display = q.length ? 'inline-block' : 'none'; badge.textContent = q.length; }
@@ -676,12 +683,12 @@
             return;
         }
         box.innerHTML = q.map((it,i)=>{
-            const playing = i===0;
+            const playing = i===0 && !paused;   // 멈춰 있으면 맨 위도 아직 안 나간 것이다
             return `<div class="qrow${playing?' playing':''}">
                 ${it.image_url?`<img class="qthumb" src="${escapeHtml(it.image_url)}" alt="">`:`<div class="qthumb" style="display:flex;align-items:center;justify-content:center;color:#4a4d5a"><i class="fa-solid fa-music"></i></div>`}
                 <div class="qbody">
                     <div class="qtop">
-                        <span class="qbadge${playing?' live':''}">${playing?'재생중':'대기 '+i}</span>
+                        <span class="qbadge${playing?' live':''}">${playing?'재생중':(paused&&i===0?'다음 차례':'대기 '+i)}</span>
                         <span class="qname">${escapeHtml(it.donator||'익명')}</span>
                     </div>
                     <div class="qsig">${escapeHtml(it.title||'')}</div>
@@ -727,6 +734,31 @@
             toast('목록에서 제거했습니다');
             refreshQueueOnce();
         }catch(e){ toast('제거 실패: '+e.message, true); }
+    };
+    function applyPauseUI(paused){
+        const btn = $('btn-pause');
+        if(btn){
+            btn.innerHTML = paused ? '<i class="fa-solid fa-play"></i> 알림 재개'
+                                   : '<i class="fa-solid fa-pause"></i> 알림 멈춤';
+            btn.style.borderColor = paused ? 'rgba(120,255,170,0.6)' : 'rgba(255,203,69,0.5)';
+            btn.style.color       = paused ? '#7effaa' : 'var(--gold)';
+        }
+        const note = $('q-paused-note');
+        if(note) note.style.display = paused ? 'block' : 'none';
+    }
+    window.togglePause = async function(){
+        const btn = $('btn-pause');
+        if(btn) btn.disabled = true;
+        try{
+            const res = await fetch('/api/reaction/pause', {method:'POST'});
+            // fetch 는 401/500 에도 예외를 안 던진다. 확인하지 않으면 실패를 성공처럼 알린다.
+            if(!res.ok) throw new Error('HTTP '+res.status);
+            const d = await res.json();
+            applyPauseUI(d.paused);
+            toast(d.paused ? '알림을 멈췄습니다 — 재생 중인 것은 끝까지 나갑니다'
+                           : '알림을 다시 내보냅니다');
+        }catch(e){ toast('실패: '+e.message, true); }
+        finally{ if(btn) btn.disabled = false; }
     };
     window.skipCurrent = async function(){
         try{
