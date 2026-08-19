@@ -3002,33 +3002,83 @@
         //    ⚠️ fail-open 설계: 채널이 없거나 오류가 나면 항상 리더로 간주해 '무조건 재생'한다.
         //       (혼자(OBS 하나)만 있으면 언제나 리더 → 항상 소리남. 절대 침묵하지 않는다.)
         const AUDIO_TAB_ID = Math.random().toString(36).slice(2) + '_' + performance.now().toFixed(0);
-        let audioPeers = {};   // otherTabId -> lastSeen(ms)
+        let audioPeers = {};   // otherTabId -> { seen: ms, visible: bool }
         let audioChannel = null;
+
+        // 👁️ 이 창이 지금 화면에 나오고 있는가.
+        //    OBS 브라우저 소스는 숨기거나 다른 장면으로 넘어가면 document.hidden 이 true 가 된다.
+        //    (단 '보이지 않을 때 소스 종료'가 꺼져 있으면 페이지 자체는 계속 살아서 돌아간다)
+        function amVisible() { return !document.hidden; }
+
         function isAudioLeader() {
             if (IS_MONITOR) return false;   // 모니터 탭은 절대 소리 안 냄
-            if (FORCE_AUDIO) return true;    // ?audio=1 로 지정된 창은 항상 리더
+            if (FORCE_AUDIO) return true;   // ?audio=1 로 지정된 창은 항상 리더
             const now = performance.now();
-            let minId = AUDIO_TAB_ID;
+            const alive = [];
             for (const id in audioPeers) {
-                if (now - audioPeers[id] < 3000 && id < minId) minId = id;
+                const p = audioPeers[id];
+                if (p && now - p.seen < 3000) alive.push({ id: id, visible: !!p.visible });
+            }
+            const selfVisible = amVisible();
+
+            // ⚠️ [보이는 창 우선] 예전에는 tabId 가 가장 작은 창이 무조건 리더였다.
+            //    그런데 OBS 에서 숨긴(또는 다른 장면에 있는) 브라우저 소스는 페이지가 계속 살아 있고,
+            //    그게 리더가 되면 소리를 자기가 가져간다. OBS 는 화면에 안 나오는 소스의 소리를
+            //    방송에 섞지 않으므로, 소리는 아무 데도 안 나가고 정작 보이는 소스는 음소거된다.
+            //    → 방송 내내 시그니처가 무음. 게다가 이 음소거는 '자동재생 차단'이 아니라서
+            //      화면을 클릭해도(상호작용) 절대 풀리지 않는다.
+            //    보이는 창이 하나라도 있으면 안 보이는 창은 리더를 양보하게 한다.
+            const anyVisiblePeer = alive.some(p => p.visible);
+            if (!selfVisible && anyVisiblePeer) return false;
+
+            // 같은 처지(둘 다 보이거나, 전부 안 보이거나)끼리만 tabId 로 겨룬다.
+            let minId = AUDIO_TAB_ID;
+            for (const p of alive) {
+                if (selfVisible && !p.visible) continue;
+                if (p.id < minId) minId = p.id;
             }
             return minId === AUDIO_TAB_ID;
         }
+
+        // 왜 음소거인지 콘솔에 남긴다. 상태가 바뀔 때만 찍어 로그가 넘치지 않게 한다.
+        let _lastMuteReason = null;
+        function applyAudioMute() {
+            const a = document.getElementById('reaction-audio');
+            if (!a || !a.src) return;
+            const leader = isAudioLeader();
+            a.muted = IS_MONITOR || !leader || autoplayMutedFallback;
+            const reason = IS_MONITOR ? '모니터 모드'
+                : autoplayMutedFallback ? '자동재생 차단(클릭하면 풀림)'
+                : !leader ? '다른 오버레이 창이 소리를 맡고 있음'
+                : null;
+            if (reason !== _lastMuteReason) {
+                _lastMuteReason = reason;
+                if (reason) console.warn('🔇 이 창은 음소거입니다 — ' + reason);
+                else console.log('🔊 이 창이 소리를 냅니다.');
+            }
+        }
+
         try {
             if ('BroadcastChannel' in window && !IS_MONITOR) {
                 audioChannel = new BroadcastChannel('overlay-audio');
                 audioChannel.onmessage = (ev) => {
                     const d = ev && ev.data;
-                    if (d && d.tabId && d.tabId !== AUDIO_TAB_ID) audioPeers[d.tabId] = performance.now();
+                    if (d && d.tabId && d.tabId !== AUDIO_TAB_ID) {
+                        audioPeers[d.tabId] = { seen: performance.now(), visible: !!d.visible };
+                    }
                 };
                 setInterval(() => {
-                    try { audioChannel.postMessage({ tabId: AUDIO_TAB_ID }); } catch (e) {}
+                    try { audioChannel.postMessage({ tabId: AUDIO_TAB_ID, visible: amVisible() }); } catch (e) {}
                     const now = performance.now();
-                    for (const id in audioPeers) if (now - audioPeers[id] > 4000) delete audioPeers[id];
-                    // 리더십이 바뀌면(다른 탭이 닫혔거나 등장) 현재 재생 중인 오디오 음소거를 갱신
-                    const a = document.getElementById('reaction-audio');
-                    if (a && a.src) a.muted = IS_MONITOR || !isAudioLeader() || autoplayMutedFallback;
+                    for (const id in audioPeers) if (now - audioPeers[id].seen > 4000) delete audioPeers[id];
+                    // 리더십이 바뀌면(다른 창이 닫혔거나 숨겨졌거나 등장) 음소거를 즉시 갱신
+                    applyAudioMute();
                 }, 1000);
+                // 숨김/보임이 바뀌는 순간은 1초를 기다리지 않고 바로 반영한다.
+                document.addEventListener('visibilitychange', () => {
+                    try { audioChannel.postMessage({ tabId: AUDIO_TAB_ID, visible: amVisible() }); } catch (e) {}
+                    applyAudioMute();
+                });
             }
         } catch (e) { console.warn('BroadcastChannel 초기화 실패 — 오디오는 항상 재생됩니다.', e); }
 
@@ -3543,7 +3593,7 @@
                 if (data.audio_url) {
                     // Supabase Storage(CDN)는 안정적이므로 캐시버스터 없이 그대로 사용 → 브라우저 캐싱/미리받기 활용
                     audio.src = data.audio_url;
-                    audio.muted = IS_MONITOR || !isAudioLeader() || autoplayMutedFallback;
+                    applyAudioMute();   // 음소거 여부 + 그 이유를 콘솔에 남긴다
 
                     audio.onended = function() {
                         console.log('Audio play ended naturally.');
