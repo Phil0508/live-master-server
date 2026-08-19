@@ -2978,6 +2978,15 @@
         const IS_MONITOR = new URLSearchParams(location.search).get('monitor') === '1';
         if (IS_MONITOR) console.log('🔇 [모니터 모드] 소리 재생과 큐 넘김이 비활성화되었습니다.');
 
+        // 🔊 [소리 강제] /overlay?audio=1 로 열면 이 창이 무조건 소리를 낸다.
+        //    같은 주소의 오버레이가 둘 이상 떠 있으면(OBS 에서 숨긴 브라우저 소스도
+        //    '보이지 않을 때 소스 종료'가 꺼져 있으면 계속 살아 있다) tabId 가 작은 쪽이
+        //    리더가 돼, 정작 화면에 보이는 소스가 음소거될 수 있다.
+        //    방송에 쓰는 소스 주소 끝에만 붙이면 리더 다툼과 무관하게 소리가 나온다.
+        //    ⚠️ 두 창에 같이 붙이면 소리가 두 번 난다. 한 곳에만 붙일 것.
+        const FORCE_AUDIO = new URLSearchParams(location.search).get('audio') === '1';
+        if (FORCE_AUDIO) console.log('🔊 [소리 강제] 이 창이 항상 소리를 냅니다(리더 고정).');
+
         // 🔒 자동재생이 브라우저 정책으로 막혔는지 여부. 클릭(사용자 제스처)으로만 복구한다.
         //    이 플래그가 켜져 있을 때만 클릭이 재생을 다시 시도하게 해서,
         //    "재생 로딩 중 우연한 클릭"이 같은 시그니처를 두 번 재생하는 사고를 막는다.
@@ -2997,6 +3006,7 @@
         let audioChannel = null;
         function isAudioLeader() {
             if (IS_MONITOR) return false;   // 모니터 탭은 절대 소리 안 냄
+            if (FORCE_AUDIO) return true;    // ?audio=1 로 지정된 창은 항상 리더
             const now = performance.now();
             let minId = AUDIO_TAB_ID;
             for (const id in audioPeers) {
@@ -3463,6 +3473,13 @@
             const startPlayback = () => {
                 // 팝업이 끝나고 난 뒤 실제 리액션 시작!
                 autoplayBlocked = false;   // 새 재생 시도 시작 — 차단 플래그 초기화
+                // ⚠️ 음소거 폴백 플래그도 반드시 같이 푼다.
+                //    예전에는 이 줄이 없어서, 자동재생이 '한 번' 막히면 autoplayMutedFallback 이
+                //    켜진 채 영영 남았다. 그러면 그 뒤 모든 시그니처가 muted 로 재생돼
+                //    화면은 멀쩡한데 소리만 방송 내내 안 나갔다.
+                //    OBS 에는 클릭할 사람이 없어 recoverFromAutoplayBlock 이 절대 안 불리므로
+                //    스스로 풀리지 않는다. 매 재생마다 '소리 있는 재생'을 다시 시도하게 한다.
+                autoplayMutedFallback = false;
 
                 // 2. 새로운 리액션 데이터 입력 (후원자명 + 금액 / 메시지)
                 let donatorName = data.donator || '익명';
