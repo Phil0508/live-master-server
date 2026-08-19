@@ -3723,7 +3723,10 @@ def api_reaction_pause():
 
     body 에 paused 가 있으면 그 값으로, 없으면 현재값을 뒤집는다(버튼 한 개로 토글).
     """
-    data = request.json or {}
+    # ⚠️ request.json 은 Content-Type 이 application/json 이 아니면 415 를 던진다.
+    #    이 엔드포인트는 '본문 없이 눌러서 토글'하는 쓰임이 정상이므로 그걸로 실패하면 안 된다.
+    #    (실제로 콘솔 버튼이 헤더 없이 보내 415 로 막혔다)
+    data = request.get_json(silent=True) or {}
     with file_lock:
         state = load_data()
         paused = bool(data['paused']) if 'paused' in data else not bool(state.get('reaction_paused'))

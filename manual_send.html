@@ -750,7 +750,11 @@
         const btn = $('btn-pause');
         if(btn) btn.disabled = true;
         try{
-            const res = await fetch('/api/reaction/pause', {method:'POST'});
+            const res = await fetch('/api/reaction/pause', {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},   // 없으면 서버가 415 로 거른다
+                body:'{}'
+            });
             // fetch 는 401/500 에도 예외를 안 던진다. 확인하지 않으면 실패를 성공처럼 알린다.
             if(!res.ok) throw new Error('HTTP '+res.status);
             const d = await res.json();
