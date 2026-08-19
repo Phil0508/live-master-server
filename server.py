@@ -943,15 +943,19 @@ DEFAULT_STATE = {
     "karaoke_video": "",     # 유튜브 영상 ID
     "karaoke_volume": 70,    # 영상 음량 0~100 (유튜브 척도). 노래를 부르는 사람 목소리와 균형을 잡는 값
     # 🏦 계좌 고액후원 영상: 조종실에서 [계좌] 를 누르면 금액대에 맞는 유튜브 영상을 재생한다.
-    #    금액대는 '이상' 기준으로 겹치지 않게 나눈다(빈틈 없이). 30만원 미만이면 재생하지 않는다.
+    #    구간은 조종실의 버튼 순서 그대로다(자동 금액 판정은 하지 않는다).
     #    video 는 유튜브 영상 ID(설정 UI가 URL 을 넣어도 ID만 뽑아 저장한다). 비어 있으면 그 구간은 재생 안 함.
     "account_video_tiers": [
-        {"min": 300000,  "label": "30~50만",   "video": ""},
-        {"min": 500000,  "label": "50~70만",   "video": ""},
-        {"min": 700000,  "label": "70~100만",  "video": ""},
-        {"min": 1000000, "label": "100~200만", "video": ""},
-        {"min": 2000000, "label": "200~300만", "video": ""},
-        {"min": 3000000, "label": "300만~",    "video": ""},
+        {"min": 200000,  "label": "20만",    "video": ""},
+        {"min": 300000,  "label": "30만",    "video": ""},
+        {"min": 400000,  "label": "40만",    "video": ""},
+        {"min": 500000,  "label": "50만",    "video": ""},
+        {"min": 600000,  "label": "60~70만", "video": ""},
+        {"min": 800000,  "label": "80~90만", "video": ""},
+        {"min": 1000000, "label": "100만",   "video": ""},
+        {"min": 2000000, "label": "200만",   "video": ""},
+        {"min": 3000000, "label": "300만",   "video": ""},
+        {"min": 5000000, "label": "500만",   "video": ""},
     ],
     # 💸 서버 깨워두기. 켜면 Render 무료 인스턴스 시간을 하루 24시간씩 먹는다(월 720h / 한도 750h).
     #    방송 중에는 SSE 연결이 붙어 있어 저절로 깨어 있으므로 기본은 꺼둔다.
@@ -1200,6 +1204,43 @@ def load_data():
                 state['saved_colors'].append(default_colors[i])
     else:
         state['saved_colors'] = default_colors
+
+    # 🏦 계좌 고액후원 영상 구간 마이그레이션.
+    #    구간 목록(금액·이름)은 코드가 정본이고, DB 에는 '어느 구간에 어떤 영상을 넣었는지'만 남는다.
+    #    위 for 문이 DB 값을 그대로 쓰기 때문에, 예전에는 코드에서 구간을 바꿔도
+    #    조종실에는 옛날 구간이 계속 보였다(DB 가 이김). 그래서 여기서 새 목록으로 갈아끼운다.
+    #    금액(min)이 같은 구간에 넣어둔 영상은 그대로 옮겨주고, 사라진 구간의 영상은 로그로 알린다.
+    default_tiers = DEFAULT_STATE['account_video_tiers']
+    saved_tiers = state.get('account_video_tiers')
+    kept = {}
+    if isinstance(saved_tiers, list):
+        for t in saved_tiers:
+            if not isinstance(t, dict):
+                continue
+            vid = str(t.get('video') or '').strip()
+            if not vid:
+                continue
+            try:
+                kept[int(t.get('min'))] = vid
+            except (TypeError, ValueError):
+                pass
+    # 금액이 딱 맞는 구간에 먼저 넣고, 없어진 구간의 영상은 '그 금액을 담는 새 구간'으로 내려보낸다.
+    # (예: 없어진 70만 구간의 영상 → 새 60~70만 구간). 그렇게도 갈 곳이 없을 때만 버린다.
+    merged = [{"min": t['min'], "label": t['label'], "video": kept.get(t['min'], "")}
+              for t in default_tiers]
+    by_min = {t['min']: t for t in merged}
+    for old_min in sorted(kept):
+        if old_min in by_min:
+            continue
+        fits = [t for t in merged if t['min'] <= old_min]
+        target = max(fits, key=lambda t: t['min']) if fits else None
+        if target and not target['video']:
+            target['video'] = kept[old_min]
+            print(f"ℹ️ [계좌영상] 없어진 {old_min:,}원 구간의 영상을 '{target['label']}' 로 옮겼습니다", flush=True)
+        else:
+            print(f"⚠️ [계좌영상] {old_min:,}원 구간의 영상은 갈 곳이 없어 버립니다: {kept[old_min]}", flush=True)
+    state['account_video_tiers'] = merged
+
     
     MEMORY_STATE = state
     # DB에서 막 읽어온 값이 곧 "DB에 저장된 내용"이므로 비교 기준을 여기에 맞춘다.
