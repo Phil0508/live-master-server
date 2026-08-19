@@ -1151,7 +1151,7 @@
                         <div class="home-race-goal-line" id="home-race-goal-line" style="display:none;">
                             <span class="home-race-goal-badge">GOAL</span>
                             <span class="hr-goal-name" id="hr-goal-name">-</span>
-                            <span class="hr-goal-label">남은 금액</span>
+                            <span class="hr-goal-label">남은 점수</span>
                             <span class="hr-goal-remain" id="hr-goal-remain">-</span>
                             <span class="hr-goal-target" id="hr-goal-target">목표 -</span>
                             <span class="hr-goal-count" id="hr-goal-count">-</span>
@@ -4252,7 +4252,9 @@
                 if (tagEl && tagEl.textContent !== tagTxt) tagEl.textContent = tagTxt;
             });
 
-            // 하단 GOAL 바: 플레이어별 '남은 금액'을 5초마다 순서대로 순환 표시
+            // 하단 GOAL 바: 플레이어별 '남은 점수'를 5초마다 순서대로 순환 표시
+            //   ⚠️ 여기 값은 b.score — 원이 아니라 '점'이다(10,000원당 1점).
+            //      단위를 '원'으로 적어두었다가 방송 중에 잘못 안내된 적이 있다.
             homeRaceCycleData = bjs.map(b => ({ name: b.name, cur: b.score || 0, goal: parseInt(goals[b.name]) || 0 }));
             startHomeRaceCycle();
         }
@@ -4285,8 +4287,8 @@
             if (nameEl) nameEl.textContent = p.name;
             if (remEl) remEl.innerHTML = (p.goal > 0 && remain === 0)
                 ? '퇴근 완료 🎉'
-                : (formatNum(remain) + '<span style="font-size:15px;color:#aab2d6;margin-left:2px;">원</span>');
-            if (tgtEl) tgtEl.textContent = '목표 ' + manLabel(p.goal);
+                : (formatNum(remain) + '<span style="font-size:15px;color:#aab2d6;margin-left:2px;">점</span>');
+            if (tgtEl) tgtEl.textContent = '목표 ' + manLabel(p.goal) + '점';
             if (cntEl) cntEl.textContent = (homeRaceCycleIdx + 1) + '/' + data.length;   // 예: 1/6
             // 순환으로 사람이 바뀔 때만 부드러운 스왑(같은 사람 금액 갱신은 애니메이션 없이)
             if (animate) { line.classList.remove('swap'); void line.offsetWidth; line.classList.add('swap'); }
