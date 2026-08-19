@@ -346,10 +346,14 @@
         }
         #siggame-container.on { opacity: 1; visibility: visible; }
         .sg-timer {
-            text-align: center; font-size: 34px; font-weight: 900; letter-spacing: 1px;
-            color: var(--gold); text-shadow: 0 0 12px var(--gold-glow), 0 3px 0 rgba(0,0,0,.5);
-            font-variant-numeric: tabular-nums; line-height: 1;
+            font-size: 26px; font-weight: 900; letter-spacing: 0.5px;
+            color: #241a05; font-variant-numeric: tabular-nums; line-height: 1;
         }
+        /* 30초 아래로 떨어지면 헤더째 붉게 물들여 확실히 눈에 띄게 한다 */
+        .sg-header.urgent { background: linear-gradient(120deg, #ff6b81, #d63049); box-shadow: 0 4px 16px rgba(214,48,73,.55); }
+        .sg-header.urgent .sg-header-title, .sg-header.urgent .sg-timer { color: #fff; }
+        .sg-header.urgent .sg-dot { border-color: rgba(255,255,255,.6); }
+        .sg-header.urgent .sg-dot.done { background: #fff; border-color: #fff; }
         .sg-timer.urgent { color: #ff4d6d; text-shadow: 0 0 18px rgba(255,77,109,.8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
         @keyframes sg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
         /* --sg-cw : 카드 한 장의 폭. 글자 크기를 여기에 비례시켜, 칸이 줄어도 균형이 유지된다. */
@@ -369,21 +373,40 @@
         .sg-front { background: #fff; border: 2px solid var(--gold); }
         .sg-front img { width: 100%; height: 100%; object-fit: cover; }
         .sg-back {
-            transform: rotateY(180deg); border: 2px solid var(--gold-deep);
-            background: linear-gradient(145deg, #16161f, #0d0d14);
+            transform: rotateY(180deg); border: 2px solid rgba(246,196,83,0.55);
+            background: linear-gradient(145deg, rgba(46,46,60,0.92), rgba(18,18,26,0.96));
         }
         .sg-back::after {   /* 카드 뒷면 무늬 */
             content: ''; position: absolute; inset: 0; opacity: .16;
             background: repeating-linear-gradient(45deg, var(--gold) 0 4px, transparent 4px 10px);
         }
-        .sg-head { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 8px; }
-        .sg-progress { display: flex; gap: 5px; }
-        .sg-dot {
-            width: 15px; height: 15px; border-radius: 50%;
-            border: 2px solid var(--gold); background: transparent;
-            box-shadow: 0 0 6px var(--gold-glow);
+        /* 다른 위젯(점수판·계좌·게이지)과 같은 유리 카드. 값은 전부 공통 변수를 쓴다 —
+           테마를 바꾸면 여기도 같이 따라간다. */
+        .sg-board {
+            position: relative; padding: 12px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
+            display: flex; flex-direction: column; gap: 10px;
         }
-        .sg-dot.done { background: var(--gold); box-shadow: 0 0 10px var(--gold), 0 0 20px var(--gold-glow); }
+        .sg-board::before {   /* 윗면에 스치는 빛 — 다른 위젯과 동일 */
+            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
+            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+            pointer-events:none;
+        }
+        .sg-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+            color: #241a05; padding: 6px 14px; border-radius: 12px;
+            box-shadow: 0 4px 14px var(--gold-glow);
+        }
+        .sg-header-title { font-weight: 900; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap; }
+        .sg-progress { display: flex; gap: 5px; align-items: center; }
+        /* 헤더가 금색이라 점도 어두운 색으로 뒤집는다(금색 위 금색은 안 보인다) */
+        .sg-dot {
+            width: 13px; height: 13px; border-radius: 50%;
+            border: 2px solid rgba(36,26,5,0.55); background: transparent;
+        }
+        .sg-dot.done { background: #241a05; border-color: #241a05; box-shadow: 0 0 8px rgba(0,0,0,.35); }
         /* 목표를 받아낸 카드 — 금테와 체크로 확실히 구분한다(방송에서 한눈에 보여야 한다) */
         .sg-card.done .sg-front { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,.55), 0 0 16px rgba(46,204,113,.6); }
         .sg-card.done .sg-front::after {
@@ -1368,11 +1391,14 @@
             <!-- 📊 시그니처 신청 집계 패널 (이번 방송 기준). 켜야 보이며 위치/크기는 에디터에서 조절 -->
             <!-- 🃏 시그 뒤집기 게임 -->
             <div id="siggame-container" class="widget-container" style="left: 362px; top: 520px; width: 700px;">
-                <div class="sg-head">
-                    <div class="sg-timer" id="sg-timer">10:00</div>
-                    <div class="sg-progress" id="sg-progress"></div>
+                <div class="sg-board">
+                    <div class="sg-header">
+                        <span class="sg-header-title">🃏 시그 뒤집기</span>
+                        <span class="sg-timer" id="sg-timer">10:00</span>
+                        <span class="sg-progress" id="sg-progress"></span>
+                    </div>
+                    <div class="sg-grid" id="sg-grid"></div>
                 </div>
-                <div class="sg-grid" id="sg-grid"></div>
             </div>
 
             <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 850px; top: 300px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
@@ -1762,7 +1788,8 @@
                 const left = (t.status === 'PLAYING' && t.expiresAt)
                     ? (t.expiresAt - Date.now()) / 1000 : (t.timeLeft || 0);
                 el.textContent = sgFmt(left);
-                el.classList.toggle('urgent', t.status === 'PLAYING' && left <= 30);
+                const head = el.closest('.sg-header');
+                if (head) head.classList.toggle('urgent', t.status === 'PLAYING' && left <= 30);
             };
             paint();
             if (t.status === 'PLAYING') sgTimerTick = setInterval(paint, 200);
