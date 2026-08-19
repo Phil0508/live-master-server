@@ -1744,6 +1744,10 @@
                         <span class="apple-slider"></span>
                     </div>
                 </label>
+                <!-- 스위치만 켜고 카드가 없으면 화면에 아무것도 안 나온다. 그 이유를 여기 띄운다. -->
+                <div id="sg-why-hidden" style="display:none; width:100%; margin-top:4px; padding:10px 14px; border-radius: var(--r-2);
+                     background: rgba(245,165,36,0.12); border:1px solid rgba(245,165,36,0.45); color:#f5a524; font-weight:700; font-size: var(--fs-2);">
+                </div>
             </div>
 
             <!-- 3) 카드 뒤집기 -->
@@ -6327,7 +6331,12 @@
         async function sgTimer(action) {
             await sgCall('timer', action === 'STOP' ? { action, minutes: sgNum('sg-min', 10) } : { action });
         }
-        async function sgToggle(on) { await sgCall('set', { enabled: !!on }); }
+        async function sgToggle(on) {
+            const d = await sgCall('set', { enabled: !!on });
+            if (!d) return;
+            const cards = (sgState() || {}).cards || [];
+            if (on && !cards.length) acctToast('표시를 켰지만 깔린 카드가 없습니다 — «카드 깔기»를 눌러주세요', 'warn');
+        }
 
         /* ── 3단계: 뒤집기 / 4단계: 달성 ── */
         window.sgFlip = async function (id) {
@@ -6351,6 +6360,22 @@
             const cards = (g && g.cards) || [];
             const cols = Math.max(1, (g && g.cols) || 4);
             const target = (g && g.target) || 5;
+            // 스위치는 켰는데 화면에 안 나오는 이유를 짚어준다(제일 헷갈리는 지점이다).
+            const why = document.getElementById('sg-why-hidden');
+            if (why) {
+                const picks = (g && g.picks) || [];
+                let msg = '';
+                if (g && g.enabled && !cards.length) {
+                    msg = picks.length
+                        ? '⚠️ 표시는 켜져 있지만 깔린 카드가 없어 화면에 안 나옵니다 — 위 <b>2. 판 깔기</b>의 «카드 깔기»를 눌러주세요.'
+                        : '⚠️ 아직 아무것도 고르지 않았습니다 — <b>1. 시그니처 고르기</b>에서 고르고 «선택 저장», 그 다음 «카드 깔기»입니다.';
+                } else if (g && !g.enabled && cards.length) {
+                    msg = '카드는 깔려 있지만 <b>표시가 꺼져 있어</b> 방송 화면에는 안 보입니다.';
+                }
+                why.innerHTML = msg;
+                why.style.display = msg ? 'block' : 'none';
+            }
+
             const sig = JSON.stringify([cols, target, cards.map(c => [c.id, c.state, !!c.doneAt, !!c.flippedAt])]);
             if (sig !== _sgSig) {
                 _sgSig = sig;
