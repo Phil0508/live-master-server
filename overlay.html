@@ -2969,7 +2969,12 @@
 
         // 소리를 내는 리더 창이 큐 넘김을 맡는다. 리더가 이 시간 안에 안 넘기면
         // 다른 창이 대신 넘겨서 큐가 멈추는 것을 막는다(리더 창이 죽은 경우 대비).
-        const NON_LEADER_POP_GRACE_MS = 4000;
+        // ⚠️ 4초였을 때 사고가 났다. 두 번째 창의 음원 로딩이 실패하면 그 창은 '끝났다'고 보고
+        //    4초 뒤 큐를 넘겨버렸는데, 그때 리더는 30초짜리 노래를 4초째 틀고 있었다.
+        //    → 다음 곡이 겹쳐 시작되고 순서가 어긋나 같은 곡이 다시 처음부터 나갔다.
+        //    이제 시간만 보지 않고 livePlayingLeader() 로 '리더가 진짜 멈췄는지'를 확인한다.
+        //    시간은 리더가 죽는 드문 사고를 위한 것이므로 넉넉히 잡는다.
+        const NON_LEADER_POP_GRACE_MS = 10000;
 
 
         // 🔇 모니터 모드: /overlay?monitor=1 로 열면 소리 재생과 큐 넘김을 하지 않는다.
@@ -3040,6 +3045,24 @@
             return minId === AUDIO_TAB_ID;
         }
 
+        // 다른 창에게 보내는 생존 신호. '나 리더야 / 나 이거 재생 중이야'까지 같이 알린다.
+        // 이 두 값이 있어야 다른 창이 '리더가 죽었는지 vs 그냥 긴 노래를 틀고 있는지'를 구분한다.
+        function heartbeat() {
+            return { tabId: AUDIO_TAB_ID, visible: amVisible(),
+                     leader: isAudioLeader(), playing: currentPlayingId || null };
+        }
+
+        // 살아있는 리더가 '무언가를 재생 중'이면 그 정보를 돌려준다. 없으면 null.
+        function livePlayingLeader() {
+            const now = performance.now();
+            for (const id in audioPeers) {
+                const p = audioPeers[id];
+                if (!p || now - p.seen > 3000) continue;   // 3초 넘게 소식 없으면 죽은 것으로 본다
+                if (p.leader && p.playing) return p;
+            }
+            return null;
+        }
+
         // 왜 음소거인지 콘솔에 남긴다. 상태가 바뀔 때만 찍어 로그가 넘치지 않게 한다.
         let _lastMuteReason = null;
         function applyAudioMute() {
@@ -3064,11 +3087,16 @@
                 audioChannel.onmessage = (ev) => {
                     const d = ev && ev.data;
                     if (d && d.tabId && d.tabId !== AUDIO_TAB_ID) {
-                        audioPeers[d.tabId] = { seen: performance.now(), visible: !!d.visible };
+                        audioPeers[d.tabId] = {
+                            seen: performance.now(),
+                            visible: !!d.visible,
+                            leader: !!d.leader,          // 저쪽이 스스로 리더라고 하는가
+                            playing: d.playing || null   // 지금 재생 중인 시그니처 id (없으면 null)
+                        };
                     }
                 };
                 setInterval(() => {
-                    try { audioChannel.postMessage({ tabId: AUDIO_TAB_ID, visible: amVisible() }); } catch (e) {}
+                    try { audioChannel.postMessage(heartbeat()); } catch (e) {}
                     const now = performance.now();
                     for (const id in audioPeers) if (now - audioPeers[id].seen > 4000) delete audioPeers[id];
                     // 리더십이 바뀌면(다른 창이 닫혔거나 숨겨졌거나 등장) 음소거를 즉시 갱신
@@ -3076,7 +3104,7 @@
                 }, 1000);
                 // 숨김/보임이 바뀌는 순간은 1초를 기다리지 않고 바로 반영한다.
                 document.addEventListener('visibilitychange', () => {
-                    try { audioChannel.postMessage({ tabId: AUDIO_TAB_ID, visible: amVisible() }); } catch (e) {}
+                    try { audioChannel.postMessage(heartbeat()); } catch (e) {}
                     applyAudioMute();
                 });
             }
@@ -3752,11 +3780,17 @@
                 stopReactionVisuals();
                 setTimeout(() => {
                     const q = (globalData && globalData.reaction_queue) || [];
-                    if (q.length && q[0].id === popId && !isAudioLeader()) {
-                        console.warn('[큐 안전망] 리더가 넘기지 않아 대신 넘깁니다:', popId);
-                        poppingId = popId;
-                        advanceReactionQueue(popId, 0);
+                    if (!(q.length && q[0].id === popId && !isAudioLeader())) return;
+                    // ⚠️ 리더가 살아서 뭔가 재생 중이면 넘기지 않는다.
+                    //    (내 음원만 실패해 먼저 끝났을 뿐, 리더는 멀쩡히 틀고 있는 경우)
+                    const lead = livePlayingLeader();
+                    if (lead) {
+                        console.log('[큐 안전망] 리더가 아직 재생 중이라 넘기지 않습니다:', lead.playing);
+                        return;
                     }
+                    console.warn('[큐 안전망] 리더가 멈춘 것으로 보여 대신 넘깁니다:', popId);
+                    poppingId = popId;
+                    advanceReactionQueue(popId, 0);
                 }, NON_LEADER_POP_GRACE_MS);
                 return;
             }

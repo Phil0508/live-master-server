@@ -2399,8 +2399,15 @@ def receive_donation():
         #    tx_id 검사는 통과해버리고(값이 다르니까) 이 검사는 아예 건너뛰어서,
         #    같은 후원이 두 번 들어와 시그니처가 두 번 재생되고 장부에도 두 줄이 남았다.
         #    tx_id 유무와 무관하게 항상 내용 기반으로도 걸러야 한다.
+        #    ⚠️ 단, 웹소켓 리스너(tx_id 가 'toon_' 로 시작)가 보낸 것은 예외로 둔다.
+        #       리스너는 실패해도 재시도하지 않고, 소켓 재전송은 리스너가 스스로 걸러낸다.
+        #       그래서 여기까지 온 리스너 후원은 '진짜로 두 번 쏜 것'이며, 버리면 돈이 사라진다.
+        #       (실제 방송에서 같은 사람이 같은 금액·같은 메시지로 연달아 쏘자 두 번째가 날아갔다)
+        #       이 예외는 템퍼몽키를 끄고 리스너만 쓸 때를 전제로 한다. 둘을 같이 켜면
+        #       알림창 애니메이션이 긴 후원에서 중복이 통과할 수 있으니 한쪽만 쓸 것.
+        from_listener = str(tx_id or '').startswith('toon_')
         dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
-        if is_duplicate_donation(dup_key):
+        if not from_listener and is_duplicate_donation(dup_key):
             print("⚠️ [내용 기반 중복 후원 무시] 동일 후원이 짧은 시간에 재수신됨")
             return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
 

@@ -61,6 +61,28 @@ def fetch_token(alert_url):
 _recent = {}
 REPLAY_TTL = 90  # 초. 이 안에 똑같은 후원이 또 오면 '소켓 재전송'으로 보고 버린다.
 
+# ⚠️ [후원이 사라지던 문제] 예전에는 이 재전송 방어를 '항상' 걸었다. 그런데 투네이션은
+#    후원마다 고유번호를 주지 않아서(실측 확인) 이름+금액+메시지로만 판단할 수밖에 없다.
+#    그래서 같은 사람이 같은 금액을 같은 메시지(빈 메시지 포함)로 90초 안에 또 쏘면
+#    두 번째가 통째로 버려졌다 — 실제 방송에서 후원이 사라졌다.
+#
+#    재전송은 '소켓이 끊겼다 다시 붙었을 때'만 생긴다. 그리고 우리는 언제 다시 붙었는지 안다.
+#    그러니 평소에는 방어를 아예 걸지 않고, 재연결 직후 이 시간 동안만 건다.
+#    (0 으로 두면 방어를 완전히 끈다)
+try:
+    REPLAY_GUARD_AFTER_RECONNECT = int(os.environ.get("REPLAY_GUARD_SEC", "60"))
+except ValueError:
+    REPLAY_GUARD_AFTER_RECONNECT = 60
+
+# 마지막으로 소켓에 붙은 시각. 0 이면 아직 한 번도 안 붙은 것.
+_connected_at = 0.0
+
+def _replay_guard_active(now):
+    """지금 재전송 방어를 걸어야 하는 구간인가."""
+    if REPLAY_GUARD_AFTER_RECONNECT <= 0 or not _connected_at:
+        return False
+    return (now - _connected_at) < REPLAY_GUARD_AFTER_RECONNECT
+
 def to_donation(msg):
     """투네이션 packet → (방송 서버 후원 형식, 테스트여부, 건너뛸사유).
        후원이 아니면 payload=None. 소켓 재전송이면 skip='replay'."""
@@ -88,8 +110,10 @@ def to_donation(msg):
     now = time.time()
     for kk in [k for k, t in _recent.items() if now - t > REPLAY_TTL]:
         _recent.pop(kk, None)
-    # 고유 id 가 없을 때만, 짧은 시간 내 동일 후원 재수신을 소켓 재전송으로 보고 버린다
-    if stable is None and ident in _recent and now - _recent[ident] < REPLAY_TTL:
+    # 고유 id 가 없고, '재연결 직후 구간'일 때만 동일 후원 재수신을 재전송으로 보고 버린다.
+    # 평소(연결이 계속 유지된 상태)에는 같은 내용이 또 와도 진짜 후원이므로 그냥 통과시킨다.
+    if (stable is None and _replay_guard_active(now)
+            and ident in _recent and now - _recent[ident] < REPLAY_TTL):
         return None, is_test, "replay"
     _recent[ident] = now
 
@@ -106,8 +130,12 @@ def post_donation(payload):
 
 async def listen(token):
     url = "wss://ws.toon.at/" + token
+    global _connected_at
     async with websockets.connect(url, open_timeout=15, ping_interval=20) as ws:
-        log("✅ 연결됨 →", DONATION_URL, "(dry-run)" if DRY else "")
+        _connected_at = time.time()
+        log("✅ 연결됨 →", DONATION_URL, "(dry-run)" if DRY else "",
+            "| 재전송 방어 {}초".format(REPLAY_GUARD_AFTER_RECONNECT)
+            if REPLAY_GUARD_AFTER_RECONNECT > 0 else "| 재전송 방어 꺼짐")
         async for raw in ws:
             try:
                 msg = json.loads(raw)
@@ -116,7 +144,9 @@ async def listen(token):
             payload, is_test, skip = to_donation(msg)
             if payload is None:
                 if skip == "replay":
-                    log("· 소켓 재전송으로 보이는 중복 후원 무시")
+                    # 조용히 버리면 방송이 끝난 뒤에야 알게 된다. 재연결 직후에만 나오는 로그다.
+                    log("⚠️ 재연결 직후라 '재전송'으로 보고 버렸습니다 —",
+                        "진짜 후원이었다면 후원 콘솔에서 수동 송출해 주세요.")
                 continue
             tag = "[테스트] " if is_test else ""
             # ⚠️ 계좌/투네이션 구분용 힌트. 내일 진짜 계좌 후원이 들어오면 이 값으로 식별한다.
