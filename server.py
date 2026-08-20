@@ -748,6 +748,14 @@ def add_header(r):
 @app.before_request
 def require_login():
     path = request.path
+
+    # 🛰️ 대기 모드: 화면은 보여주되 상태를 바꾸는 요청은 받지 않는다.
+    #    저장(save_data)도 이미 막혀 있지만, 여기서 먼저 끊어야 메모리 상태까지
+    #    운영과 어긋나지 않는다(어긋난 채로 승격되면 그 값이 그대로 DB 로 간다).
+    if STANDBY and request.method not in ('GET', 'HEAD', 'OPTIONS') and path not in STANDBY_ALLOWED:
+        return jsonify({"status": "error",
+                        "message": "이 서버는 대기 모드입니다. 운영 서버로 보내주세요."}), 503
+
     
     # 정적 자원 파일 프리패스
     if (path.endswith('.css') or path.endswith('.js') or path.endswith('.png') or 
@@ -821,6 +829,73 @@ def require_login():
             return redirect(url_for('serve_login') + '?' + request.query_string.decode('utf-8'))
         return redirect(url_for('serve_login'))
 
+# ==========================================
+# 🛰️ 대기 모드 (STANDBY)
+# ==========================================
+# 폴백 서버를 켜둔 채 운영 서버와 같은 DB 를 보게 하면, 두 서버가 서로의 데이터를 지운다.
+#
+# load_data() 는 한 번 읽은 상태를 메모리에 들고 계속 재사용하고(DB 를 다시 안 본다),
+# save_data() 는 그 기억을 통째로 DB 에 쓴다. 그래서 뒤처진 서버가 저장하는 순간
+# 상대가 받은 후원과 점수가 되돌려진다. 실제로 방송 중에 두 서버의 마지막 후원이
+# 서로 달랐고, 폴백이 재시작할 때마다 옛 큐를 읽어 같은 시그니처를 다시 재생했다.
+#
+# STANDBY=1 로 켜면 그 서버는 '구경만' 한다:
+#   - DB 에 쓰지 않는다        → 운영 데이터를 건드릴 수 없다
+#   - 상태를 바꾸는 요청을 거절한다 → 시그니처를 재생시키거나 큐를 넘기지 못한다
+# 운영 서버가 죽어 실제로 넘겨받을 때는 이 값을 끄고 재시작하면 된다
+# (그때 DB 에서 최신 상태를 새로 읽는다).
+STANDBY = (os.environ.get('STANDBY') or '').strip().lower() in ('1', 'on', 'true', 'yes')
+
+# 상태를 바꾸지 않아 대기 모드에서도 허용하는 경로
+STANDBY_ALLOWED = ('/login', '/logout', '/api/ping', '/api/health', '/api/stream')
+
+
+# ==========================================
+# 🔒 무인증 경로 보호
+# ==========================================
+# 오버레이·알림창은 로그인 세션이 없어서 몇몇 경로를 열어둘 수밖에 없다.
+# 그런데 그 경로들이 '주소만 알면 누구나' 쓸 수 있다는 뜻이기도 하다.
+# 방송 화면에 주소가 나오고 저장소도 공개라, 사실상 아무나 안다고 봐야 한다.
+# 아래 도구들로 '열어두되 함부로 못 쓰게' 만든다.
+
+
+def request_is_authed():
+    """로그인 세션이 있거나 관리자 키를 들고 왔는가."""
+    if session.get('authenticated'):
+        return True
+    auth = request.headers.get('Authorization') or ''
+    token = auth.split(' ', 1)[1].strip() if auth.startswith('Bearer ') else request.args.get('token')
+    return bool(token) and secrets.compare_digest(token, load_auth_config()['session_secret'])
+
+
+def request_is_from_this_server():
+    """이 서버 안에서 들어온 요청인가(예: 같은 기계에서 도는 투네이션 리스너).
+
+    ⚠️ remote_addr 만 보면 안 된다. 앞단의 Caddy 가 127.0.0.1 로 넘겨주므로
+       바깥에서 온 요청도 전부 로컬로 보인다. 프록시를 거친 요청에는
+       X-Forwarded-For 가 붙으므로, 그게 '없을 때'만 진짜 로컬이다.
+    """
+    if request.headers.get('X-Forwarded-For') or request.headers.get('X-Real-IP'):
+        return False
+    return request.remote_addr in ('127.0.0.1', '::1', 'localhost')
+
+
+# 무인증 응답에서 빼는 항목. 오버레이·알림창은 이 중 무엇도 쓰지 않는다(확인함).
+# 대기 후원에는 아직 화면에 안 뜬 후원자의 이름·금액·메시지가 들어 있어 특히 민감하다.
+PRIVATE_STATE_FIELDS = ('pending_donations', 'logs', 'match_logs',
+                        'bank_ledger', 'donation_history', 'snapshots')
+
+
+def strip_private_state(state):
+    """무인증 상대에게 보낼 상태에서 민감한 항목을 뺀다(원본은 건드리지 않는다)."""
+    if not isinstance(state, dict):
+        return state
+    out = dict(state)
+    for k in PRIVATE_STATE_FIELDS:
+        out.pop(k, None)
+    return out
+
+
 # 📡 실시간 SSE 클라이언트 관리 시스템
 sse_clients = []
 sse_lock = threading.Lock()
@@ -869,18 +944,23 @@ def broadcast_event(event_name, data):
         data.pop('api_token', None)
         data = mask_siggame(data)   # 🃏 덮인 카드의 정체를 지운다(무인증 경로다)
         data['server_time'] = int(time.time() * 1000)
+    # 로그인한 쪽(조종실·후원 콘솔)과 아닌 쪽(오버레이)에 다른 내용을 보낸다.
+    public_data = strip_private_state(data) if isinstance(data, dict) else data
     with sse_lock:
         message = f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+        public_message = (f"event: {event_name}\ndata: {json.dumps(public_data, ensure_ascii=False)}\n\n"
+                          if public_data is not data else message)
         for client_q in sse_clients:
+            msg = message if getattr(client_q, '_authed', False) else public_message
             try:
-                client_q.put_nowait(message)
+                client_q.put_nowait(msg)
             except queue.Full:
                 # 밀린 클라이언트(느린 네트워크·멈춘 OBS): 가장 오래된 것을 버리고 최신을 넣는다.
                 # update 는 state 전체를 싣고 다니므로 중간 것을 버려도 최신 상태는 그대로 도착한다.
                 # 버리지 않고 쌓아두면 그 클라이언트 큐가 서버 메모리를 계속 먹는다.
                 try:
                     client_q.get_nowait()
-                    client_q.put_nowait(message)
+                    client_q.put_nowait(msg)
                 except Exception:
                     pass
 
@@ -1507,7 +1587,22 @@ def drain_db_writes(timeout=30):
         print("⚠️ [DB 쓰기 큐 비우기 시간 초과] 낡은 저장이 뒤늦게 반영될 수 있습니다.")
 
 
+_STANDBY_SAVE_WARNED = False
+
+
 def save_data(new_data, is_initial=False, sync=False, wait=True):
+    # 🛰️ 대기 모드에서는 절대 DB 에 쓰지 않는다. 여기서 막지 않으면 이 서버의
+    #    (뒤처졌을 수 있는) 기억이 운영 서버의 후원·점수를 덮어쓴다.
+    if STANDBY:
+        global _STANDBY_SAVE_WARNED
+        if not _STANDBY_SAVE_WARNED:
+            _STANDBY_SAVE_WARNED = True
+            print("🛰️ [대기 모드] 이 서버는 DB 에 쓰지 않습니다. 저장 요청을 무시합니다.", flush=True)
+        return None
+    return _save_data_real(new_data, is_initial=is_initial, sync=sync, wait=wait)
+
+
+def _save_data_real(new_data, is_initial=False, sync=False, wait=True):
     """상태 저장.
 
     sync=True: 후원 접수·점수 변경·방송 시작/종료처럼 잃으면 안 되는 기록은
@@ -1567,6 +1662,10 @@ def sse_stream():
     # ⚠️ maxsize 를 반드시 준다. 무제한이면 끊기거나 멈춘 클라이언트의 큐에 update 가
     #    무한정 쌓여 서버 메모리를 계속 먹는다(부하 테스트: 60대 재접속만으로 +53MB).
     q = queue.Queue(maxsize=SSE_QUEUE_MAX)
+    # ⚠️ 붙는 시점의 신분을 기억해 둔다. 나중에 broadcast 할 때 조종실에는 전부,
+    #    오버레이(무인증)에는 민감 항목을 뺀 것을 보내기 위해서다.
+    #    (제너레이터 안에서는 요청 컨텍스트가 없어 session 을 다시 볼 수 없다)
+    q._authed = request_is_authed()
     with sse_lock:
         sse_clients.append(q)
 
@@ -1574,7 +1673,9 @@ def sse_stream():
         try:
             # ⚠️ 이 첫 전송은 broadcast_event 를 거치지 않는다. 거기서 하는 정리를 여기서도 해야 한다.
             #    오버레이·조종실이 붙을 때 받는 바로 그 데이터라, 빠뜨리면 가장 크게 샌다.
-            initial_state = mask_siggame(load_data())   # 🃏 덮인 카드의 정체를 지운다
+            initial_state = mask_siggame(load_data())        # 🃏 덮인 카드의 정체를 지운다
+            if not q._authed:
+                initial_state = strip_private_state(initial_state)   # 🔒 대기 후원·장부·로그도 뺀다
             yield f"event: init\ndata: {json.dumps(initial_state, ensure_ascii=False)}\n\n"
 
             if os.path.exists(LAYOUT_FILE):
@@ -1686,6 +1787,7 @@ def api_health():
         out['status'] = 'degraded'
         out['counts_error'] = type(e).__name__
 
+    out['standby'] = STANDBY   # 🛰️ 대기 모드면 이 서버는 DB 를 건드리지 않는다
     with sse_lock:
         out['sse_clients'] = len(sse_clients)
 
@@ -2429,8 +2531,72 @@ def serve_dynamic_file(filename):
 # ==========================================
 # 🛡️ 투네이션 후원 안전 접수 및 파서
 # ==========================================
+
+# 메시지 앞에 붙은 "닉네임: 내용" 을 대리 후원 표기로 볼지 판정한다.
+#
+# ⚠️ 예전에는 '콜론이 있고 앞이 15자 이하'면 무조건 이름으로 갈아끼웠다. 그래서
+#    "수고하셨습니다 :)" 는 후원자가 '수고하셨습니다' 가 되고, "10:30에 봐요" 는 '10',
+#    "목표: 100만" 은 '목표' 가 됐다. 이모티콘과 시각 표기가 흔해 자주 터졌고,
+#    바뀐 이름이 그대로 대기함·장부·순위에 박혀 되돌릴 방법도 없었다.
+#    아래 조건은 전부 '그건 이름일 리 없다'가 확실한 경우만 걸러낸다.
+_EMOTICON_AFTER_COLON = set(')(dDpPoO3/\\|<>^_-*;')
+
+
+# 플랫폼이 이름을 제대로 안 준 경우들. 이때만 메시지에서 이름을 가져온다.
+_ANONYMOUS_NAMES = {'', '-', '익명', '익명의 후원자', '익명후원자', '무명', '후원자',
+                    'anonymous', 'anon', 'unknown'}
+
+
+def name_is_missing(name):
+    """플랫폼이 준 이름이 '사실상 없는' 것인가."""
+    return str(name or '').strip().lower() in _ANONYMOUS_NAMES
+
+
+def looks_like_proxy_name(prefix, rest):
+    """prefix 가 '대리 후원 닉네임'으로 보이는가."""
+    if not prefix or len(prefix) > 12:
+        return False            # 너무 길면 이름이 아니라 문장이다
+    if not rest:
+        return False            # 콜론 뒤가 비었으면 이름이 아니다
+    if rest[0] in _EMOTICON_AFTER_COLON:
+        return False            # :) :D :3 :/ ... 이모티콘
+    if prefix.isdigit():
+        return False            # 10:30 같은 시각·숫자
+    if any(ch in prefix for ch in '.,!?~…'):
+        return False            # 문장 부호가 섞였으면 이름이 아니다
+    if not any(ch.isalnum() for ch in prefix):
+        return False            # 글자가 하나도 없으면 이름이 아니다
+    return True
+def donation_source_allowed():
+    """후원 접수를 받아줄 상대인가.
+
+    ⚠️ 이 경로는 예전에 완전히 열려 있었다. 크롬 유저스크립트가 바깥에서 쏴야 했기 때문인데,
+       그 대가로 '주소만 알면 누구나 100만원 후원을 만들어낼 수 있는' 상태였다.
+       가짜 후원은 대기함에 쌓이고, 금액에 맞는 시그니처가 방송에 재생되고, 장부에도 남는다.
+    ⚠️ 이제 투네이션 리스너가 같은 서버 안에서(127.0.0.1) 부르므로 바깥을 막을 수 있다.
+       유저스크립트를 다시 쓰려면 DONATION_KEY 를 정하고 스크립트에 같은 값을
+       X-Donation-Key 헤더로 넣으면 된다.
+    """
+    if request_is_from_this_server():
+        return True                      # 서버 안의 리스너
+    if request_is_authed():
+        return True                      # 조종실에서 수동 송출
+    key = (os.environ.get('DONATION_KEY') or '').strip()
+    if key:
+        sent = (request.headers.get('X-Donation-Key') or '').strip()
+        if sent and secrets.compare_digest(sent, key):
+            return True
+    return False
+
+
 @app.route('/api/donation', methods=['POST'])
 def receive_donation():
+    if not donation_source_allowed():
+        print(f"⛔ [후원 접수 거부] 허용되지 않은 곳에서 왔습니다 (ip={request.remote_addr}, "
+              f"xff={request.headers.get('X-Forwarded-For')})", flush=True)
+        return jsonify({"status": "error",
+                        "message": "이 서버에서만 후원을 접수합니다. 바깥에서 보내려면 "
+                                   "DONATION_KEY 를 정하고 X-Donation-Key 헤더에 같은 값을 넣으세요."}), 401
     try:
         new_don = request.json or {}
         amount = int(new_don.get('amount', 0))
@@ -2488,25 +2654,44 @@ def receive_donation():
             name = new_don.get('name', '익명')
             msg = new_don.get('message', '')
             
-            parsed_name = name.strip()
+            orig_name = name.strip()          # 투네이션이 준 진짜 닉네임. 무슨 일이 있어도 보존한다.
+            parsed_name = orig_name
             cleaned_msg = msg.strip()
-            
-            # 💡 [핵심] 메시지 내 콜론(:)을 감지하여 이름과 메시지를 분리해주는 오토 파서 (시그니처 신청 태그는 제외)
+
+            # 💡 "닉네임: 내용" 형태로 보낸 이름을 가져온다(시그니처 신청 태그는 제외).
+            #
+            # ⚠️ 플랫폼이 이름을 제대로 준 경우에는 절대 건드리지 않는다.
+            #    이 기능은 '익명'처럼 이름이 안 들어올 때 메시지로 알려주라고 있는 것인데,
+            #    예전에는 이름이 멀쩡해도 메시지에 콜론만 있으면 갈아끼웠다.
+            #    그래서 "목표: 100만 가자" 같은 평범한 문장에도 후원자가 '목표'가 됐다.
+            #    "목표: …" 와 "철수: …" 는 글자 모양이 같아 내용만으로는 구분할 수 없다.
+            #    그래서 '이름이 없을 때만' 이라는, 헷갈릴 여지가 없는 기준을 쓴다.
             cleaned_msg_for_split = cleaned_msg.replace('：', ':')
-            if cleaned_msg_for_split and ':' in cleaned_msg_for_split and not cleaned_msg.startswith("[시그니처 신청:"):
+            if (name_is_missing(orig_name)
+                    and cleaned_msg_for_split and ':' in cleaned_msg_for_split
+                    and not cleaned_msg.startswith("[시그니처 신청:")):
                 split_char = ':' if ':' in cleaned_msg else '：'
                 parts = cleaned_msg.split(split_char, 1)
                 potential_name = parts[0].strip()
-                if 0 < len(potential_name) <= 15:
+                rest = parts[1].strip() if len(parts) > 1 else ''
+                if looks_like_proxy_name(potential_name, rest):
                     parsed_name = potential_name
-                    cleaned_msg = parts[1].strip()
-                    
-            if parsed_name.endswith('님') and len(parsed_name) > 1:
-                parsed_name = parsed_name[:-1]
-                
+                    cleaned_msg = rest
+                    print(f"  ↪️ [이름 보정] 이름이 '{orig_name}' 으로 들어와, 메시지에서 '{parsed_name}' 을 가져왔습니다")
+
+            # ⚠️ '님' 떼기는 화면 글자를 긁어오던 시절의 보정이다("홍길동님이 후원하셨습니다").
+            #    웹소켓 리스너(tx_id 가 toon_)는 닉네임을 그대로 주므로 떼면 안 된다 —
+            #    '하늘님' 같은 닉네임이 '하늘' 로 바뀌어 순위가 두 사람으로 쪼개진다.
+            if not str(tx_id or '').startswith('toon_'):
+                if parsed_name.endswith('님') and len(parsed_name) > 1:
+                    parsed_name = parsed_name[:-1]
+
             parsed_don_entry = {
                 'id': don_id,
                 'name': parsed_name,
+                # 실제로 돈을 보낸 사람. parsed_name 이 대리 후원 표기로 바뀌어도 여기는 그대로다.
+                # (예전에는 원본이 어디에도 안 남아, 잘못 바뀌면 되돌릴 방법이 없었다)
+                'orig_name': orig_name,
                 'amount': amount,
                 'message': cleaned_msg,
                 'time': time.strftime('%H:%M:%S')
@@ -2770,6 +2955,10 @@ def api_data():
         # 조종실 웹에 로그인 세션이 있을 경우에만 보안 API 토큰을 제공
         if session.get('authenticated'):
             state['api_token'] = load_auth_config()['session_secret']
+        else:
+            # 무인증(오버레이·알림창)에는 대기 후원·장부·로그를 주지 않는다.
+            # 그쪽 화면은 이 항목들을 쓰지 않는다(확인함).
+            state = strip_private_state(state)
     return jsonify(state)
 
 @app.route('/api/offwork/pending', methods=['POST'])
@@ -2822,6 +3011,17 @@ def api_match_timeup():
         md = state.get('match_data') or {}
         if not md.get('active'):
             return jsonify({"status": "ignored"})   # 이미 끝난 대결이면 아무것도 하지 않는다
+
+        # ⚠️ 이 경로도 무인증이라, 진행 중인 대결을 밖에서 아무 때나 끝낼 수 있었다.
+        #    '정말 시간이 다 됐는지'를 서버가 직접 확인한다. 3초는 시계 차이·전송 지연 몫이다.
+        end_ms = md.get('end_time_ms')
+        if md.get('is_running') and end_ms and not request_is_authed():
+            now_ms = int(time.time() * 1000)
+            if now_ms < int(end_ms) - 3000:
+                left = (int(end_ms) - now_ms) / 1000
+                print(f"⛔ [대결 종료 거부] 아직 {left:.1f}초 남았습니다 (ip={request.remote_addr})", flush=True)
+                return jsonify({"status": "error", "message": "아직 시간이 남았습니다"}), 409
+
         md['is_running'] = False
         md['time_left_ms'] = 0
         state['match_data'] = md
@@ -2943,6 +3143,8 @@ def api_account_stop_video():
     return jsonify({"status": "ok"})
 
 
+# ⚠️ 아래 둘은 오버레이가 부르므로 로그인을 요구할 수 없다. 대신 '지금 그럴 상황인가'를
+#    상태로 확인해, 아무 때나 밖에서 불러 방송을 흔드는 것을 막는다.
 @app.route('/api/roulette/winner', methods=['POST'])
 def api_roulette_winner():
     try:
@@ -2962,6 +3164,14 @@ def api_roulette_winner():
                     "item_source": "bj",
                     "custom_items": ["벌칙 1", "벌칙 2", "벌칙 3", "벌칙 4", "벌칙 5"]
                 }
+            # ⚠️ 돌고 있지 않은데 결과가 들어오면 밖에서 부른 것이다.
+            #    (오버레이는 자기가 돌린 룰렛이 멈출 때만 부른다)
+            #    로그인한 요청은 그대로 통과시킨다 — 조종실 조작이나 시험용이다.
+            if not state['roulette'].get('is_spinning') and not request_is_authed():
+                print(f"⛔ [룰렛 결과 거부] 돌고 있지 않은데 결과가 들어왔습니다 "
+                      f"(ip={request.remote_addr}, 이름={winner_name})", flush=True)
+                return jsonify({"status": "error", "message": "지금은 룰렛이 돌고 있지 않습니다"}), 409
+
             state['roulette']['winner_name'] = winner_name
             state['roulette']['command'] = 'ended'
             state['roulette']['is_spinning'] = False
@@ -3763,9 +3973,17 @@ def next_reaction():
             state = load_data()
             queue = state.get('reaction_queue', [])
             
+            # ⚠️ 이 경로는 무인증으로 열려 있다(오버레이가 재생을 끝내고 스스로 넘겨야 하므로).
+            #    그래서 '번호 없이 무조건 pop' 은 허용하면 안 된다 — 주소만 알면 누구나
+            #    빈 POST 를 반복해 대기 중인 시그니처를 하나씩 지울 수 있다.
+            #    돈을 낸 후원의 시그니처가 재생도 없이 사라지는데 흔적도 안 남는다.
+            #    번호를 대면(오버레이가 하는 일) 큐 머리와 일치할 때만 지운다.
+            #    번호 없이 넘기는 건 조종실·후원 콘솔의 '건너뛰기' 뿐이라 로그인을 요구한다.
+            if not pop_id and not request_is_authed():
+                return jsonify({"status": "error",
+                                "message": "넘길 항목의 번호(id)가 필요합니다"}), 400
+
             if queue:
-                # ID가 지정된 경우: 첫 번째 아이템의 ID가 일치할 때만 pop (이중 pop 방지)
-                # ID가 없는 경우: 기존 방식대로 무조건 pop (하위 호환)
                 if not pop_id or queue[0].get('id') == pop_id:
                     queue.pop(0)
                 
@@ -3777,7 +3995,10 @@ def next_reaction():
         # 오버레이가 이 응답의 state 를 그대로 써서 다음 시그니처를 즉시 재생한다
         # (예전엔 pop 후 /api/data 를 한 번 더 불러 왕복이 2회였고, 그 사이 SSE 와 겹쳐
         #  대기열이 깊을 때 재생이 불안정했다. 이제 왕복 1회로 줄여 겹침/지연을 낮춘다.)
-        return jsonify({"status": "success", "message": "Popped reaction", "state": state})
+        # 오버레이(무인증)에는 대기 후원·장부 같은 민감 항목을 빼고 돌려준다.
+        # 오버레이는 그것들을 쓰지 않는다(확인함).
+        out_state = state if request_is_authed() else strip_private_state(state)
+        return jsonify({"status": "success", "message": "Popped reaction", "state": out_state})
     except Exception as e:
         print(f"Error in next_reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
