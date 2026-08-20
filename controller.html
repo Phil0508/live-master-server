@@ -1167,10 +1167,18 @@
                 <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-desktop"></i> 대결 위젯 표시</span><div class="apple-switch"><input type="checkbox" id="chk-match" onchange="toggleMatch()"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1; border-color: #552222;"><span class="toggle-label" style="color: #ff6b6b;"><i class="fa-solid fa-fire"></i> 이글이글 효과</span><div class="apple-switch"><input type="checkbox" id="chk-match-fire" onchange="toggleMatchFire()"><span class="apple-slider" style="background-color: var(--line);"></span></div></label>
             </div>
-            <div class="control-group" style="margin-bottom: 0;">
+            <div class="control-group" style="margin-bottom: 12px;">
                 <input type="text" id="in-match-title" placeholder="대결 타이틀 입력 (선택)" style="flex: 1;" oninput="updateMatchTitle()">
                 <button onclick="addMatchPlayer()"><i class="fa-solid fa-user-plus"></i> 대결자 추가</button>
             </div>
+            <label class="toggle-row" style="margin-bottom: 0;">
+                <span class="toggle-label"><i class="fa-solid fa-people-group" style="color: var(--accent);"></i> 팀전 모드
+                    <span style="font-size: var(--fs-1); color: var(--text-muted); font-weight: 500; margin-left: 8px;">
+                        켜면 아래에서 고른 <b>팀원에게 들어온 후원이 그 팀 점수로 함께 올라갑니다</b>
+                    </span>
+                </span>
+                <div class="apple-switch"><input type="checkbox" id="chk-match-team" onchange="toggleMatchTeam()"><span class="apple-slider"></span></div>
+            </label>
         </div>
 
 
@@ -2689,8 +2697,10 @@
 
 
             // 대결진 테이블 렌더링
-            let mHtml = ''; md.players.forEach((p, i) => { mHtml += `<tr><td><input type="text" value="${p.name}" onchange="gd.match_data.players[${i}].name=this.value; pushAPI();"></td><td class="score-display">${p.score.toLocaleString()}</td><td><input type="number" id="match-add-${i}" data-scope="match" data-tname="${escapeHtml(p.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('match', this)"></td><td><button onclick="gd.match_data.players.splice(${i},1); pushAPI();"><i class="fa-solid fa-trash-can"></i></button></td></tr>`; }); 
+            const teamOn = !!md.team_mode;
+            let mHtml = ''; md.players.forEach((p, i) => { mHtml += `<tr><td><input type="text" value="${p.name}" onchange="gd.match_data.players[${i}].name=this.value; pushAPI();">${teamOn ? matchMembersHtml(p, i) : ''}</td><td class="score-display">${p.score.toLocaleString()}</td><td><input type="number" id="match-add-${i}" data-scope="match" data-tname="${escapeHtml(p.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('match', this)"></td><td><button onclick="gd.match_data.players.splice(${i},1); pushAPI();"><i class="fa-solid fa-trash-can"></i></button></td></tr>`; }); 
             if (lastMHtml !== mHtml) { document.getElementById('match-tbody').innerHTML = mHtml; lastMHtml = mHtml; }
+            setChk('chk-match-team', teamOn);
 
             setVal('in-speed', gd.ticker_speed || 70); 
             setHtml('lbl-speed', gd.ticker_speed || 70); 
@@ -4178,7 +4188,63 @@
 
         function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI({include:['logs','match_logs']}); }
         function updateMatchTitle() { gd.match_data.title = document.getElementById('in-match-title').value; pushAPI(); }
-        function addMatchPlayer() { if(gd.match_data.players.length<4) { gd.match_data.players.push({name:"Player", score:0}); pushAPI(); } }
+        // ⚔️ 팀전 — 팀원은 점수판에 있는 사람 중에서 고른다.
+        //    직접 적게 하면 오타 하나로 합산이 조용히 멈춘다(서버는 이름으로 찾는다).
+        // ⚠️ 이름을 onclick 문자열에 끼워 넣지 않는다. 따옴표가 든 이름이 오면
+        //    HTML 이 엔티티를 되돌리는 순간 자바스크립트 문자열이 깨진다.
+        //    대신 명단에서의 자리 번호만 넘기고, 이름은 눌렀을 때 다시 찾는다.
+        function matchRoster() {
+            return ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []).map(b => String(b.name || '').trim());
+        }
+
+        function matchMembersHtml(p, i) {
+            const roster = matchRoster();
+            const mine = (p.members || []).map(m => String(m || '').trim());
+            const chips = roster.map((nm, ri) => {
+                const on = mine.indexOf(nm) !== -1;
+                return `<span onclick="toggleMatchMember(${i}, ${ri})"
+                    style="display:inline-block; margin:3px 4px 0 0; padding:3px 9px; border-radius:999px; cursor:pointer;
+                           font-size:12px; font-weight:700; user-select:none;
+                           border:1px solid ${on ? 'var(--accent)' : 'var(--border-light)'};
+                           background:${on ? 'rgba(74,158,255,0.16)' : 'transparent'};
+                           color:${on ? 'var(--accent)' : 'var(--text-muted)'};">${on ? '✓ ' : ''}${escapeHtml(nm)}</span>`;
+            }).join('');
+            // 점수판에서 이름이 바뀌었거나 빠진 팀원 — 그대로 두면 합산이 조용히 멈추므로 눈에 보이게 한다
+            const orphans = mine.filter(m => roster.indexOf(m) === -1);
+            const orphanHtml = orphans.length
+                ? `<div style="margin-top:4px; font-size:11px; color:#f5a524;">⚠️ 점수판에 없는 팀원: ${orphans.map(escapeHtml).join(', ')} — 다시 골라주세요</div>`
+                : '';
+            return `<div style="margin-top:6px;">${chips || '<span style="font-size:11px;color:var(--text-muted);">점수판에 사람이 없습니다</span>'}${orphanHtml}</div>`;
+        }
+
+        function toggleMatchMember(teamIdx, rosterIdx) {
+            const md = gd.match_data; if (!md || !md.players[teamIdx]) return;
+            const name = matchRoster()[rosterIdx];
+            if (!name) return;
+            const t = md.players[teamIdx];
+            if (!Array.isArray(t.members)) t.members = [];
+            const at = t.members.indexOf(name);
+            if (at !== -1) { t.members.splice(at, 1); }
+            else {
+                // 한 사람이 두 팀에 들어가면 어느 팀에 더할지 알 수 없다 — 옮기는 것으로 처리한다
+                md.players.forEach(o => { if (Array.isArray(o.members)) {
+                    const k = o.members.indexOf(name); if (k !== -1) o.members.splice(k, 1);
+                } });
+                t.members.push(name);
+            }
+            lastMHtml = '';   // 칩 상태가 바뀌었으니 표를 다시 그린다
+            pushAPI();
+        }
+
+        function toggleMatchTeam() {
+            const on = document.getElementById('chk-match-team').checked;
+            if (!gd.match_data) return;
+            gd.match_data.team_mode = on;
+            lastMHtml = '';
+            pushAPI();
+        }
+
+        function addMatchPlayer() { if(gd.match_data.players.length<4) { gd.match_data.players.push({name:"Player", score:0, members:[]}); lastMHtml=''; pushAPI(); } }
         
         function modifyTimer(amt, unit) {
             if(!gd || !gd.match_data) return;

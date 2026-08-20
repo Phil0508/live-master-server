@@ -434,6 +434,16 @@
             font-family: 'Pretendard', sans-serif; font-weight: 900; font-size: 26px; color: #fff;
             letter-spacing: -0.3px; text-shadow: 0 2px 4px #000, 0 0 10px rgba(var(--rgb, 136,136,136), 0.5); white-space: nowrap;
         }
+        /* ⚔️ 팀전일 때 이름 밑에 팀원 이름을 작게 적는다.
+           이름과 세로로 묶어야 하므로 카드(가로 배치) 안에 세로 묶음을 하나 둔다. */
+        .m-card-id { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
+        .m-card-members {
+            font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 15px;
+            color: rgba(255,255,255,0.62); letter-spacing: -0.2px; white-space: nowrap;
+            text-shadow: 0 1px 3px #000;
+        }
+        .m-card-members:empty { display: none; }
+
         .m-card-amt {
             margin-left: auto; font-family: 'Pretendard', sans-serif; font-weight: 900;
             font-size: 27px; color: var(--c, #fff); text-shadow: 0 0 14px rgba(var(--rgb, 136,136,136), 0.7), 0 2px 3px #000;
@@ -1623,7 +1633,10 @@
                 cards.innerHTML = players.map((p, i) =>
                     `<div class="m-card" id="m-card-${i}" style="--c:${M_COLS[i % 6]}; --rgb:${M_RGB[i % 6]};">
                         <span class="m-crown">👑</span>
-                        <span class="m-card-name" id="m-card-name-${i}">${escapeSlotText(p.name || '')}</span>
+                        <span class="m-card-id">
+                            <span class="m-card-name" id="m-card-name-${i}">${escapeSlotText(p.name || '')}</span>
+                            <span class="m-card-members" id="m-card-members-${i}"></span>
+                        </span>
                         <span class="m-card-amt" id="m-card-amt-${i}">0</span>
                     </div>`
                 ).join('');
@@ -1641,6 +1654,13 @@
             players.forEach((p, i) => {
                 const nameEl = document.getElementById(`m-card-name-${i}`);
                 if (nameEl && nameEl.innerText !== (p.name || '')) nameEl.innerText = p.name || '';
+
+                // 팀전이면 누가 이 팀 소속인지 보여준다. 팀전을 끄면 줄 자체가 사라진다(:empty).
+                const memEl = document.getElementById(`m-card-members-${i}`);
+                if (memEl) {
+                    const mem = (md && md.team_mode) ? (p.members || []).filter(Boolean).join(' · ') : '';
+                    if (memEl.innerText !== mem) memEl.innerText = mem;
+                }
 
                 // 게이지 비율 (0점도 살짝 보이도록 최소치)
                 const frac = total > 0 ? Math.max(0.05, Math.max(0, p.score || 0) / total) : (1 / Math.max(1, players.length));

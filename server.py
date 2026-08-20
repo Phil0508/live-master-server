@@ -1011,7 +1011,12 @@ DEFAULT_STATE = {
     "ticker_enabled": True,
     "ticker_speed": 70,
     "ticker_text": "📢 환영합니다! 후원은 방송에 큰 힘이 됩니다!",
-    "match_data": {"active": False, "players": [], "time_left_ms": 180000, "is_running": False},
+    # ⚔️ 대결. players 는 대결자(또는 팀)다.
+    #    team_mode 를 켜면 players[i].members 에 넣은 점수판 사람들에게 들어온 후원이
+    #    그 팀의 점수로도 함께 올라간다. 꺼두면 예전처럼 손으로만 넣는다.
+    #    [{name, score, members: ["제이양", "밍밍"]}]
+    "match_data": {"active": False, "players": [], "time_left_ms": 180000,
+                   "is_running": False, "team_mode": False},
     "account": {"bank": "기업은행", "acc_num": "464-068673-04-016", "name": "드래곤엔터"},
     "pending_donations": [],
     "latest_donation": {"name": "", "amount": 0, "message": "", "time": 0},
@@ -2869,8 +2874,19 @@ def api_data():
             _md = state.get('match_data')
             if isinstance(_md, dict):
                 for _p in (_md.get('players') or []):
-                    if isinstance(_p, dict) and isinstance(_p.get('name'), str):
+                    if not isinstance(_p, dict):
+                        continue
+                    if isinstance(_p.get('name'), str):
                         _p['name'] = _p['name'].strip()
+                    # ⚔️ 팀원 이름도 같은 이유로 다듬는다. 여기 공백이 하나 남으면
+                    #    그 사람 후원이 팀 점수에 조용히 안 붙는다.
+                    if isinstance(_p.get('members'), list):
+                        _seen = []
+                        for _m in _p['members']:
+                            _m = str(_m or '').strip()
+                            if _m and _m not in _seen:
+                                _seen.append(_m)
+                        _p['members'] = _seen
             _bf = state.get('bottom_fixed')
             if isinstance(_bf, dict) and isinstance(_bf.get('name'), str):
                 _bf['name'] = _bf['name'].strip()
@@ -3427,7 +3443,8 @@ def end_broadcast():
             state['bjs'] = []
             state['bottom_fixed']['score'] = 0
             state['reaction_mode'] = False
-            state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000, "is_running": False}
+            state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000,
+                                   "is_running": False, "team_mode": False}
             state['pending_donations'] = []
             state['latest_donation'] = {"name": "", "amount": 0, "message": "", "time": 0}
             state['extra_game_active'] = False
@@ -3501,7 +3518,8 @@ def start_broadcast():
             state['bjs'] = [{"name": name.strip(), "score": 0, "contribution": 0} for name in names if name.strip()]
             state['bottom_fixed']['score'] = 0
             state['reaction_mode'] = False
-            state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000, "is_running": False}
+            state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000,
+                                   "is_running": False, "team_mode": False}
             state['pending_donations'] = []
             state['latest_donation'] = {"name": "", "amount": 0, "message": "", "time": 0}
             state['extra_game_active'] = False
@@ -4136,6 +4154,26 @@ def api_settings_patch():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
+def _match_team_of(state, member_name):
+    """그 사람이 속한 대결 팀을 돌려준다. 팀전이 꺼져 있거나 소속이 없으면 None.
+
+    ⚠️ 이름 비교는 양쪽 모두 공백을 떼고 한다. 팀원 이름은 점수판에서 골라 넣지만,
+       나중에 점수판에서 이름을 고치면 팀원 목록에는 옛 이름이 남는다.
+       그때는 조용히 합산이 멈춘다 — 조종실이 그 사실을 보여준다(팀원 칸에 회색 표시).
+    """
+    md = state.get('match_data') or {}
+    if not md.get('active') or not md.get('team_mode'):
+        return None
+    want = str(member_name or '').strip()
+    if not want:
+        return None
+    for team in (md.get('players') or []):
+        for m in (team.get('members') or []):
+            if str(m or '').strip() == want:
+                return team
+    return None
+
+
 def _find_score_target(state, scope, name):
     """점수를 더할 대상 하나를 찾는다. 언제나 '이름'으로 찾는다 —
        랭킹은 기여도순으로 계속 재정렬되므로 위치 인덱스로 찾으면 엉뚱한 사람에게 돈이 들어간다.
@@ -4224,12 +4262,21 @@ def api_score_add():
                 targets.append((t, delta, contrib, t.get('name') or name))
 
             applied = []
+            team_hits = []
             for t, delta, contrib, tname in targets:
                 t['score'] = (t.get('score') or 0) + delta
                 if scope == 'rank':
                     t['contribution'] = (t.get('contribution') or 0) + contrib
+                    # ⚔️ 팀전: 이 사람이 어느 팀 소속이면 그 팀 점수도 같이 올린다.
+                    #    대결판이 후원을 따라 실시간으로 움직여야 보는 재미가 있다.
+                    team = _match_team_of(state, tname) if delta else None
+                    if team is not None:
+                        team['score'] = (team.get('score') or 0) + delta
+                        team_hits.append((team.get('name'), tname, delta))
                 applied.append({"name": tname, "delta": delta,
                                 "score": t.get('score'), "contribution": t.get('contribution')})
+            for tn, mn, dv in team_hits:
+                print(f"  ⚔️ [팀전] {mn} 의 {dv:+d} 점이 '{tn}' 팀 점수에도 반영됐습니다", flush=True)
 
             time_str = time.strftime('%H:%M:%S')
             log_key = 'match_logs' if scope == 'match' else 'logs'
