@@ -3029,7 +3029,8 @@ def api_effect_fire():
     kinds = data.get('kinds') or []
     if isinstance(kinds, str):
         kinds = [kinds]
-    allowed = {'banner', 'flash', 'ticker'}
+    # 오버레이가 실제로 그릴 줄 아는 연출만 받는다(오타로 아무 일도 안 일어나는 것을 막는다)
+    allowed = {'banner', 'flash', 'ticker', 'card', 'shock', 'glitch', 'warn'}
     kinds = [k for k in kinds if k in allowed]
     if not kinds:
         return jsonify({"status": "error", "message": "연출을 하나 이상 골라주세요"}), 400

@@ -230,6 +230,13 @@
                     <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-flash" checked><span>화면 <b>번쩍 + 테두리 빛</b></span></label>
                     <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-ticker" checked><span><b>전광판</b>에 흐르는 문구</span></label>
                 </div>
+                <div style="font-size:13px; color:var(--muted); margin:14px 0 8px;">화려한 연출 <span style="color:var(--faint)">(화면을 크게 덮습니다)</span></div>
+                <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-card"><span>🃏 <b>화면 전체 인수 카드</b></span></label>
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-shock"><span>💥 <b>충격파 + 화면 흔들림</b></span></label>
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-glitch"><span>⚡ <b>네온 글리치</b></span></label>
+                    <label class="chk" style="margin:0;"><input type="checkbox" id="fx-k-warn"><span>🚨 <b>비상 경보</b> (붉은색)</span></label>
+                </div>
             </div>
 
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
@@ -378,6 +385,10 @@
         if($('fx-k-banner').checked) kinds.push('banner');
         if($('fx-k-flash').checked)  kinds.push('flash');
         if($('fx-k-ticker').checked) kinds.push('ticker');
+        if($('fx-k-card').checked)   kinds.push('card');
+        if($('fx-k-shock').checked)  kinds.push('shock');
+        if($('fx-k-glitch').checked) kinds.push('glitch');
+        if($('fx-k-warn').checked)   kinds.push('warn');
         if(!kinds.length){ out.style.color='var(--pink)'; out.textContent='연출을 하나 이상 골라주세요.'; return; }
         const payload={
             kinds:kinds,
@@ -389,7 +400,8 @@
             const r=await fetch('/api/effect/fire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
             const d=await r.json().catch(()=>({}));
             if(r.ok && d.status==='ok'){
-                const names={banner:'배너',flash:'번쩍',ticker:'전광판'};
+                const names={banner:'배너',flash:'번쩍',ticker:'전광판',
+                             card:'전체화면 카드',shock:'충격파',glitch:'글리치',warn:'비상경보'};
                 out.style.color='#2ecc71';
                 out.textContent='✨ 연출을 쐈습니다 — ' + kinds.map(k=>names[k]||k).join(', ');
             } else {
