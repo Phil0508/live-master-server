@@ -2858,6 +2858,23 @@ def api_data():
             for k in SERVER_OWNED:
                 if k in current_state:
                     state[k] = current_state[k]          # 서버 소유 필드는 서버의 최신 값을 유지
+            # ⚠️ 이름 앞뒤 공백을 저장 단계에서 떼어낸다.
+            #    이름 칸에 공백을 하나만 더 눌러도 그 사람이 점수를 못 받는 사고가 있었다.
+            #    찾을 때도 공백을 무시하도록 고쳤지만(_find_score_target), 저장되는 값 자체가
+            #    깨끗해야 장부와 순위에 '밍밍' 과 '밍밍 ' 이 따로 쌓이는 일이 없다.
+            for _k in ('bjs', 'extra_bjs'):
+                for _p in (state.get(_k) or []):
+                    if isinstance(_p, dict) and isinstance(_p.get('name'), str):
+                        _p['name'] = _p['name'].strip()
+            _md = state.get('match_data')
+            if isinstance(_md, dict):
+                for _p in (_md.get('players') or []):
+                    if isinstance(_p, dict) and isinstance(_p.get('name'), str):
+                        _p['name'] = _p['name'].strip()
+            _bf = state.get('bottom_fixed')
+            if isinstance(_bf, dict) and isinstance(_bf.get('name'), str):
+                _bf['name'] = _bf['name'].strip()
+
             # 큐에 항목이 남아 있으면 리액션 모드는 항상 켜져 있어야 한다(스테일 클라이언트가 끄는 사고 방지)
             if state.get('reaction_queue'):
                 state['reaction_mode'] = True
@@ -4120,14 +4137,26 @@ def api_settings_patch():
 
 def _find_score_target(state, scope, name):
     """점수를 더할 대상 하나를 찾는다. 언제나 '이름'으로 찾는다 —
-       랭킹은 기여도순으로 계속 재정렬되므로 위치 인덱스로 찾으면 엉뚱한 사람에게 돈이 들어간다."""
+       랭킹은 기여도순으로 계속 재정렬되므로 위치 인덱스로 찾으면 엉뚱한 사람에게 돈이 들어간다.
+
+    ⚠️ 이름을 비교할 때 양쪽 모두 앞뒤 공백을 뗀다.
+       들어온 이름은 위에서 이미 strip 되는데 저장된 이름은 안 됐다. 그래서 이름 칸에
+       공백을 하나만 더 눌러도('밍밍 ') 그 사람은 그때부터 점수를 받을 수 없었다.
+       화면에는 '밍밍' 으로 멀쩡히 보이니 원인을 찾을 수도 없다.
+       대결·점수판 양쪽 모두에서 재현된다.
+    """
+    want = str(name or '').strip()
+
+    def same(v):
+        return str(v or '').strip() == want
+
     if scope == 'bot':
         return state.get('bottom_fixed')
     if scope == 'match':
         md = state.get('match_data') or {}
-        return next((p for p in (md.get('players') or []) if p.get('name') == name), None)
+        return next((p for p in (md.get('players') or []) if same(p.get('name'))), None)
     src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
-    return next((b for b in (state.get(src) or []) if b.get('name') == name), None)
+    return next((b for b in (state.get(src) or []) if same(b.get('name'))), None)
 
 
 @app.route('/api/score/add', methods=['POST'])
