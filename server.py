@@ -1061,8 +1061,8 @@ DEFAULT_STATE = {
     # 🏦 계좌 고액후원 영상: 조종실에서 [계좌] 를 누르면 금액대에 맞는 유튜브 영상을 재생한다.
     #    구간은 조종실의 버튼 순서 그대로다(자동 금액 판정은 하지 않는다).
     #    video 는 유튜브 영상 ID(설정 UI가 URL 을 넣어도 ID만 뽑아 저장한다). 비어 있으면 그 구간은 재생 안 함.
-    # 🃏 시그 뒤집기 게임. 시그니처 사진으로 카드를 깔고, 뒤집어서 맞히는 게임.
-    #    카드 사진은 따로 올리지 않고 이미 등록된 시그니처 이미지를 그대로 쓴다.
+    # 🃏 시그 뒤집기 게임. 시그니처를 덮어 깔고 몇 장을 뒤집어, 그 시그니처를
+    #    제한 시간 안에 후원으로 받아내는 게임. 사진은 등록된 시그니처를 그대로 쓴다.
     #    ⚠️ 상태는 서버가 정본이다. 원본 프로그램은 localStorage 로 창끼리 맞췄는데,
     #       OBS 브라우저 소스는 조종실 크롬과 저장소를 공유하지 않아 아예 동기화가 안 됐다.
     "siggame": {
@@ -1074,12 +1074,15 @@ DEFAULT_STATE = {
         # 조종실이 고른 시그니처들: [{sig_id, title, image}]
         "picks": [],
         # 판에 깔린 카드. id 는 화면에 보이는 번호(1..N)다.
-        # [{id, sig_id, image, title, state, doneAt}]
-        #   state : HIDDEN(덮임) | REVEALED(뒤집힘 = 목표)
-        #   doneAt: 그 시그니처를 후원으로 받아낸 시각(달성). 없으면 아직이다.
+        # [{id, sig_id, image, title, amount, state, flippedAt, doneAt}]
+        #   state    : HIDDEN(덮임) | REVEALED(공개됨)
+        #   flippedAt: 목표로 뒤집은 시각. 이게 있어야 '목표'다.
+        #              (게임이 끝나고 전부 공개한 카드는 REVEALED 이지만 목표가 아니다)
+        #   doneAt   : 받아냈다고 표시한 시각. 진행자가 직접 누른다.
         "cards": [],
         "timer": {"status": "STOPPED", "timeLeft": 600, "expiresAt": None},
-        # 오버레이가 재생할 연출 신호. {type: PLACE|SHUFFLE|FLIP|DONE|REVEAL, ts, ...}
+        # 오버레이가 재생할 연출 신호.
+        # {type: PLACE|SHUFFLE|FLIP|DONE|ALLCLEAR|REVEAL, ts, ...}
         "action": None,
     },
     # ⏸️ 알림(시그니처) 일시정지. 중요한 순간에 말이 끊기지 않게 잠깐 멈추는 스위치.
@@ -2754,9 +2757,6 @@ def receive_donation():
             # 🎵 자동 시그니처 리액션 연동 (매칭은 위에서 락 밖에 끝냈고, 여기서는 큐에만 넣는다)
             if matched_sig:
                 enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg)
-                # 🃏 시그게임이 돌고 있으면, 뒤집어 둔 목표를 후원으로 받아낸 것인지 본다.
-                #    (게임의 핵심이다 — 사람이 눈으로 대조해 손으로 체크하면 방송 중에 반드시 놓친다)
-                _siggame_mark_done(state, matched_sig.get('id'))
                 print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{matched_sig.get('title')}' (#{matched_sig.get('id')}, {matched_sig.get('amount')}원) 큐 추가 완료")
 
 
@@ -4006,9 +4006,13 @@ def next_reaction():
 # ==========================================
 # 🃏 시그 뒤집기 게임
 # ==========================================
-# 규칙: 조종실이 카드를 직접 고르고, 그중 몇 장을 '당첨'으로 지정한다.
-#       판에는 고른 카드가 전부 깔리지만, 뒤집히는 건 당첨 카드뿐이다.
-#       나머지는 자리만 채운다 — 눌러도 덮인 채 그대로다(어디가 당첨인지 새어나가면 안 된다).
+# 규칙: 시그니처를 덮어 깔고, 그중 몇 장(기본 5장)을 뒤집는다.
+#       뒤집힌 것이 이번 판의 '목표'이고, 제한 시간 안에 그 시그니처를 후원으로 받아내면 달성이다.
+#
+# ⚠️ 달성 표시는 전부 사람이 누른다. 후원이 들어올 때 자동으로 찍지 않는다 —
+#    후원은 즉시 접수되지만 시그니처는 대기열에 쌓였다가 나중에 재생되기 때문에,
+#    자동으로 찍으면 아직 화면에 나오지도 않은 시그니처가 이미 달성된 것처럼 보인다.
+#    타이밍은 진행자가 잡아야 연출이 산다.
 #
 # 상태는 전부 서버가 들고 SSE 로 뿌린다. 원본 프로그램은 창끼리 localStorage 로 맞췄는데,
 # OBS 브라우저 소스는 조종실 크롬과 저장소를 공유하지 않아 애초에 동기화가 되지 않았다.
@@ -4035,33 +4039,6 @@ def _siggame_save(state, g):
     state['siggame'] = g
     save_data(state)
     broadcast_event('update', state)
-
-
-def _siggame_mark_done(state, sig_id):
-    """후원으로 그 시그니처를 받아냈다 — 뒤집혀 있는 목표 카드에 달성 표시를 한다.
-
-    후원 접수 경로에서 부른다. 아직 안 뒤집힌 카드는 목표가 아니므로 건드리지 않는다.
-    이미 달성한 카드도 그대로 둔다(같은 시그니처가 또 와도 처음 시각을 지킨다).
-    """
-    if sig_id is None:
-        return None
-    g = state.get('siggame')
-    if not isinstance(g, dict) or not g.get('enabled'):
-        return None
-    try:
-        sid = int(sig_id)
-    except (TypeError, ValueError):
-        return None
-    for c in (g.get('cards') or []):
-        if c.get('state') == 'REVEALED' and not c.get('doneAt') and c.get('sig_id') == sid:
-            c['doneAt'] = int(time.time() * 1000)
-            g['action'] = {"type": "DONE", "ts": c['doneAt'], "id": c.get('id')}
-            left = sum(1 for x in g['cards']
-                       if x.get('state') == 'REVEALED' and not x.get('doneAt'))
-            print("🃏 [시그게임] %d번 '%s' 달성! (남은 목표 %d장)"
-                  % (c.get('id'), c.get('title') or '', left), flush=True)
-            return c
-    return None
 
 
 @app.route('/api/siggame/picks', methods=['POST'])
@@ -4101,8 +4078,11 @@ def api_siggame_picks():
         g = _siggame_state(state)
         g['picks'] = picks
         _siggame_save(state, g)
+    if missing:
+        print("⚠️ [시그게임] 고른 시그니처 %d장을 찾을 수 없어 뺐습니다: %s" % (len(missing), missing), flush=True)
     print("🃏 [시그게임] 시그니처 %d장 선택" % len(picks), flush=True)
-    return jsonify({"status": "success", "count": len(picks), "missing": missing})
+    return jsonify({"status": "success", "count": len(picks), "missing": missing,
+                    "requested": len(ids)})
 
 
 @app.route('/api/siggame/deal', methods=['POST'])
@@ -4204,8 +4184,14 @@ def api_siggame_flip():
         amount = found.get('amount')
         left = target - (opened + 1)
         _siggame_save(state, g)
+    # ⚠️ 여기서 예외가 나면 이미 저장·전파가 끝난 뒤라, 카드는 뒤집혔는데 조종실엔 500 이 뜬다.
+    #    금액이 숫자가 아니어도 로그 한 줄 때문에 요청이 실패하면 안 된다.
+    try:
+        amount_txt = format(int(amount or 0), ',')
+    except (TypeError, ValueError):
+        amount_txt = str(amount)
     print("🃏 [시그게임] %d번 뒤집음 → '%s' (%s원) / 더 뒤집을 수 있는 카드 %d장"
-          % (cid, title, format(amount or 0, ','), left), flush=True)
+          % (cid, title, amount_txt, left), flush=True)
     return jsonify({"status": "success", "id": cid, "title": title,
                     "amount": amount, "remaining_flips": left})
 
@@ -4214,8 +4200,9 @@ def api_siggame_flip():
 def api_siggame_done():
     """목표 카드를 손으로 달성/취소 처리한다.
 
-    후원이 들어오면 자동으로 달성되지만(_siggame_mark_done), 계좌 후원처럼
-    자동 인식이 안 되는 경로도 있어서 손으로 고칠 길을 열어둔다.
+    ⚠️ 달성은 전부 이 경로로만 찍힌다. 후원이 들어올 때 자동으로 찍지 않는다 —
+       후원은 즉시 접수되지만 시그니처는 대기열에 쌓였다가 나중에 재생되므로,
+       자동으로 찍으면 아직 화면에 안 나온 시그니처가 이미 달성된 것처럼 보인다.
     """
     data = request.get_json(silent=True) or {}
     try:
@@ -4237,6 +4224,32 @@ def api_siggame_done():
         g['action'] = {"type": "DONE", "ts": now_ms, "id": cid} if done else None
         _siggame_save(state, g)
     return jsonify({"status": "success", "id": cid, "done": done})
+
+
+@app.route('/api/siggame/allclear', methods=['POST'])
+def api_siggame_allclear():
+    """올클리어 연출을 터뜨린다.
+
+    ⚠️ 5장을 다 채웠다고 자동으로 터뜨리지 않는다. '한 번에 몰아서 보낸 사람'에게만
+       주는 연출이라, 언제 터뜨릴지는 진행자가 정해야 한다.
+       (30분에 걸쳐 하나씩 채운 것과 한 번에 쏟아부은 것은 다르게 대접해야 한다)
+    """
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        goals = [c for c in (g.get('cards') or []) if c.get('flippedAt')]
+        if not goals:
+            return jsonify({"status": "error", "message": "뒤집은 카드가 없습니다"}), 400
+        left = [c for c in goals if not c.get('doneAt')]
+        if left:
+            return jsonify({"status": "error",
+                            "message": "아직 %d장이 남았습니다 (%s)"
+                                       % (len(left), ", ".join(str(c['id']) + "번" for c in left))}), 400
+        g['action'] = {"type": "ALLCLEAR", "ts": int(time.time() * 1000), "count": len(goals)}
+        n = len(goals)
+        _siggame_save(state, g)
+    print("🎉 [시그게임] 올클리어! (%d장)" % n, flush=True)
+    return jsonify({"status": "success", "count": n})
 
 
 @app.route('/api/siggame/reveal', methods=['POST'])

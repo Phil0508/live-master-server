@@ -1730,7 +1730,15 @@
                         <span style="font-size: var(--fs-3); font-weight:800; color:#fff;"><i class="fa-solid fa-list-check" style="color: var(--accent);"></i> 받아야 할 시그니처</span>
                         <span id="sg-goal-count" style="font-size: var(--fs-2); color: var(--accent); font-weight:900;"></span>
                     </div>
-                    <div style="font-size:11px; color: var(--text-muted); margin-bottom:10px;">후원이 들어오면 <b>자동으로 체크</b>됩니다.</div>
+                    <button id="sg-allclear-btn" onclick="sgAllClear()" disabled
+                            style="width:100%; height:44px; margin-bottom:10px; border-radius: var(--r-2); cursor:pointer;
+                                   font-weight:900; font-size: var(--fs-3); border:none; color:#fff;
+                                   background: linear-gradient(120deg, #2ecc71, #12a05a); opacity:.35;">
+                        🎉 ALL CLEAR 터뜨리기
+                    </button>
+                    <div style="font-size:11px; color: var(--text-muted); margin-bottom:10px;">
+                        시그니처가 <b>실제로 재생되는 순간</b> 아래 «받음»을 눌러주세요. 그때 방송 화면에 도장이 찍힙니다.
+                    </div>
                     <div id="sg-goals" style="display:flex; flex-direction:column; gap:6px;">
                         <div style="color:var(--text-muted); text-align:center; padding:26px;">아직 뒤집은 카드가 없습니다.</div>
                     </div>
@@ -6302,7 +6310,12 @@
             const d = await sgCall('picks', { picks: [...sgPicks] });
             if (d) {
                 sgRenderSigGrid();
-                acctToast('저장했습니다 (' + d.count + '장) — 이제 «카드 깔기»를 누르세요', 'ok');
+                if (d.missing && d.missing.length) {
+                    // 고른 뒤 시그니처가 지워졌거나 바뀐 경우. 조용히 빠지면 판이 한 장 모자란 채 깔린다.
+                    acctToast(d.missing.length + '장은 목록에 없어 빠졌습니다 (저장된 것 ' + d.count + '장)', 'warn');
+                } else {
+                    acctToast('저장했습니다 (' + d.count + '장) — 이제 «카드 깔기»를 누르세요', 'ok');
+                }
             }
         }
 
@@ -6342,6 +6355,10 @@
                            + (d.remaining_flips > 0 ? ' (' + d.remaining_flips + '장 더)' : ' (다 뒤집었습니다)'), 'ok');
         };
         window.sgToggleDone = async function (id) { await sgCall('done', { id }); };
+        async function sgAllClear() {
+            const d = await sgCall('allclear');
+            if (d) acctToast('🎉 ALL CLEAR! (' + d.count + '장)', 'ok');
+        }
 
         /* ── 서버 상태 → 화면 ── */
         let _sgSig = null;
@@ -6378,8 +6395,8 @@
                 let msg = '';
                 if (g && g.enabled && !cards.length) {
                     msg = picks.length
-                        ? '⚠️ 표시는 켜져 있지만 깔린 카드가 없어 화면에 안 나옵니다 — 위 <b>2. 판 깔기</b>의 «카드 깔기»를 눌러주세요.'
-                        : '⚠️ 아직 아무것도 고르지 않았습니다 — <b>1. 시그니처 고르기</b>에서 고르고 «선택 저장», 그 다음 «카드 깔기»입니다.';
+                        ? '⚠️ 표시는 켜져 있지만 깔린 카드가 없습니다 — 위쪽 «카드 깔기» 를 눌러주세요.'
+                        : '⚠️ 아직 아무것도 고르지 않았습니다 — 맨 아래 «깔 시그니처 고르기» 를 펼쳐 고르고 «저장», 그 다음 «카드 깔기» 입니다.';
                 } else if (g && !g.enabled && cards.length) {
                     msg = '카드는 깔려 있지만 <b>표시가 꺼져 있어</b> 방송 화면에는 안 보입니다.';
                 }
@@ -6430,6 +6447,16 @@
             const cnt = document.getElementById('sg-goal-count');
             const done = goals.filter(c => c.doneAt).length;
             if (cnt) cnt.textContent = goals.length ? ('달성 ' + done + ' / ' + goals.length) : '';
+            // 올클리어는 다 채웠을 때만. 자동으로 터지지 않는다 — 언제 터뜨릴지는 진행자가 정한다.
+            const acb = document.getElementById('sg-allclear-btn');
+            if (acb) {
+                const ready = goals.length > 0 && done === goals.length;
+                acb.disabled = !ready;
+                acb.style.opacity = ready ? '1' : '.35';
+                acb.style.cursor = ready ? 'pointer' : 'not-allowed';
+                acb.textContent = ready ? '🎉 ALL CLEAR 터뜨리기'
+                                        : '🎉 ALL CLEAR (' + done + '/' + (goals.length || '?') + ' 채우면 켜집니다)';
+            }
             if (!goals.length) {
                 box.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">아직 뒤집은 카드가 없습니다.</div>';
                 return;
