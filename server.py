@@ -2483,6 +2483,16 @@ def serve_dynamic_file(filename):
 _EMOTICON_AFTER_COLON = set(')(dDpPoO3/\\|<>^_-*;')
 
 
+# 플랫폼이 이름을 제대로 안 준 경우들. 이때만 메시지에서 이름을 가져온다.
+_ANONYMOUS_NAMES = {'', '-', '익명', '익명의 후원자', '익명후원자', '무명', '후원자',
+                    'anonymous', 'anon', 'unknown'}
+
+
+def name_is_missing(name):
+    """플랫폼이 준 이름이 '사실상 없는' 것인가."""
+    return str(name or '').strip().lower() in _ANONYMOUS_NAMES
+
+
 def looks_like_proxy_name(prefix, rest):
     """prefix 가 '대리 후원 닉네임'으로 보이는가."""
     if not prefix or len(prefix) > 12:
@@ -2589,10 +2599,18 @@ def receive_donation():
             parsed_name = orig_name
             cleaned_msg = msg.strip()
 
-            # 💡 "닉네임: 내용" 형태의 대리 후원 표기를 분리한다(시그니처 신청 태그는 제외).
-            #    판정은 looks_like_proxy_name() 이 한다 — 이유는 그 함수의 주석 참고.
+            # 💡 "닉네임: 내용" 형태로 보낸 이름을 가져온다(시그니처 신청 태그는 제외).
+            #
+            # ⚠️ 플랫폼이 이름을 제대로 준 경우에는 절대 건드리지 않는다.
+            #    이 기능은 '익명'처럼 이름이 안 들어올 때 메시지로 알려주라고 있는 것인데,
+            #    예전에는 이름이 멀쩡해도 메시지에 콜론만 있으면 갈아끼웠다.
+            #    그래서 "목표: 100만 가자" 같은 평범한 문장에도 후원자가 '목표'가 됐다.
+            #    "목표: …" 와 "철수: …" 는 글자 모양이 같아 내용만으로는 구분할 수 없다.
+            #    그래서 '이름이 없을 때만' 이라는, 헷갈릴 여지가 없는 기준을 쓴다.
             cleaned_msg_for_split = cleaned_msg.replace('：', ':')
-            if cleaned_msg_for_split and ':' in cleaned_msg_for_split and not cleaned_msg.startswith("[시그니처 신청:"):
+            if (name_is_missing(orig_name)
+                    and cleaned_msg_for_split and ':' in cleaned_msg_for_split
+                    and not cleaned_msg.startswith("[시그니처 신청:")):
                 split_char = ':' if ':' in cleaned_msg else '：'
                 parts = cleaned_msg.split(split_char, 1)
                 potential_name = parts[0].strip()
@@ -2600,7 +2618,7 @@ def receive_donation():
                 if looks_like_proxy_name(potential_name, rest):
                     parsed_name = potential_name
                     cleaned_msg = rest
-                    print(f"  ↪️ [대리 후원 표기] '{orig_name}' 이(가) 보냈지만 '{parsed_name}' 앞으로 처리합니다")
+                    print(f"  ↪️ [이름 보정] 이름이 '{orig_name}' 으로 들어와, 메시지에서 '{parsed_name}' 을 가져왔습니다")
 
             # ⚠️ '님' 떼기는 화면 글자를 긁어오던 시절의 보정이다("홍길동님이 후원하셨습니다").
             #    웹소켓 리스너(tx_id 가 toon_)는 닉네임을 그대로 주므로 떼면 안 된다 —
