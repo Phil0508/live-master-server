@@ -1686,6 +1686,14 @@ def sse_stream():
             initial_state = mask_siggame(load_data())        # 🃏 덮인 카드의 정체를 지운다
             if not q._authed:
                 initial_state = strip_private_state(initial_state)   # 🔒 대기 후원·장부·로그도 뺀다
+            initial_state = dict(initial_state)
+            initial_state.pop('api_token', None)                 # 🔐 broadcast_event 와 같은 정리
+            # ⏱️ 시계 맞추기. broadcast_event 는 붙여 보내는데 여기만 빠져 있었다.
+            #    이게 없으면 오버레이가 갓 붙었을 때 serverTimeOffset 이 0 이라,
+            #    다음 update 가 올 때까지(조용한 방송이면 몇 분이다) 시그게임 타이머와
+            #    카드 연출이 서버 시계와 어긋난 채로 돈다. OBS 를 새로고침한 직후가
+            #    정확히 그 구간이다.
+            initial_state['server_time'] = int(time.time() * 1000)
             yield f"event: init\ndata: {json.dumps(initial_state, ensure_ascii=False)}\n\n"
 
             if os.path.exists(LAYOUT_FILE):
@@ -1824,10 +1832,20 @@ def serve_health():
     return serve_html_file('health.html')
 
 # 🟢 시그니처 목록 (Supabase 대리 조회) — 오버레이/컨트롤러/슬롯이 공통으로 사용
+# 로그인 없이 볼 수 있는 항목. 오버레이가 사진·음원을 미리 받아두는 데 필요한 것뿐이다.
+# ⚠️ title 과 amount 를 빼는 이유: 시그게임에서 어느 시그니처가 판에 깔렸는지가
+#    번호(sig_id)로 나가는데, 여기서 번호→이름·금액을 그대로 조회할 수 있으면
+#    카드를 감춘 의미가 절반은 사라진다. 오버레이는 이 두 값을 쓰지 않는다.
+_PUBLIC_SIG_FIELDS = ('id', 'image_url', 'sound_url', 'duration')
+
+
 @app.route('/api/signatures')
 def api_signatures():
     try:
         sigs = supabase_list_signatures()
+        if not request_is_authed():
+            sigs = [{k: s.get(k) for k in _PUBLIC_SIG_FIELDS if k in s}
+                    for s in sigs if isinstance(s, dict)]
         return jsonify({'status': 'success', 'signatures': sigs, 'count': len(sigs)})
     except Exception as e:
         print(f"[시그니처 목록 조회 오류] {e}")
@@ -4334,7 +4352,10 @@ def api_siggame_set():
                 pass
         if 'target' in data:
             try:
-                g['target'] = max(1, min(SIGGAME_MAX_CARDS, int(data['target'])))
+                # 깔린 카드보다 많이 뒤집을 수는 없다. 넘겨두면 '③ 카드를 뒤집으세요 (5/10)'
+                # 에서 영원히 멈추고, 오버레이도 목표만 남기는 화면으로 넘어가지 않는다.
+                cap = len(g.get('cards') or []) or SIGGAME_MAX_CARDS
+                g['target'] = max(1, min(cap, int(data['target'])))
             except (TypeError, ValueError):
                 pass
         out = {"enabled": g['enabled'], "opacity": g['opacity'], "target": g['target']}
