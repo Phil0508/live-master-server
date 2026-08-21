@@ -361,7 +361,9 @@
         .sg-timer.urgent { color: #ff4d6d; text-shadow: 0 0 18px rgba(255,77,109,.8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
         @keyframes sg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
         /* --sg-cw : 카드 한 장의 폭. 글자 크기를 여기에 비례시켜, 칸이 줄어도 균형이 유지된다. */
-        .sg-grid { display: grid; gap: 8px; perspective: 1200px; }
+        /* 카드 폭은 px 로 고정된다(sgBuild). 나눗셈에서 남는 몇 px 이 한쪽으로
+           쏠리지 않도록 가운데에 놓는다. */
+        .sg-grid { display: grid; gap: 8px; perspective: 1200px; justify-content: center; }
         .sg-card { position: relative; perspective: 1500px;
             transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s .4s; }
         .sg-card.popped { transform: scale(1.45) translateZ(60px); z-index: 100;
@@ -2068,8 +2070,20 @@
         function sgBuild(shown, cols, grid, box) {
             const rows = Math.max(1, Math.ceil(shown.length / cols));
             const gap = 8;
-            const width = box.offsetWidth || 700;
-            const cw = Math.max(30, Math.floor((width - gap * (cols - 1)) / cols));
+            // ⚠️ 판(.sg-board)에는 테두리와 안쪽 여백(12px)이 있다. 바깥 상자 폭(700px)으로
+            //    카드 크기를 잡으면 딱 그만큼 카드가 판 밖으로 삐져나온다 —
+            //    4열이면 오른쪽으로 26px, 5열(목표만 남은 화면)이면 23px 씩 튀어나왔다.
+            //    카드가 실제로 놓이는 자리의 '안쪽 폭'을 재서 쓴다.
+            const holder = grid.parentElement;
+            let avail = box.offsetWidth || 700;
+            if (holder) {
+                const cs = getComputedStyle(holder);
+                const inner = holder.clientWidth
+                            - (parseFloat(cs.paddingLeft) || 0)
+                            - (parseFloat(cs.paddingRight) || 0);
+                if (inner > 0) avail = inner;
+            }
+            const cw = Math.max(30, Math.floor((avail - gap * (cols - 1)) / cols));
             // ⚠️ 카드 비율은 16:9 다. 시그니처 사진이 가로형이라 세로로 길게 잡으면
             //    사진이 좌우로 잘려나가고, 판도 쓸데없이 높아져 점수판 옆에 안 들어간다.
             const ch = Math.round(cw * 9 / 16);
