@@ -184,7 +184,7 @@ def load_auth_config():
         
     if not config['totp_secret']:
         config['totp_secret'] = pyotp.random_base32()
-        save_auth_config(config)
+        save_auth_config(config)   # ⚠️ totp_secret 만 저장된다(save_auth_config 참고)
 
     global AUTH_POSTURE_WARNED
     if not AUTH_POSTURE_WARNED:
@@ -215,10 +215,19 @@ def load_auth_config():
 
     return config
 
+# 저장하는 것은 totp_secret 하나뿐이다.
+# ⚠️ 예전에는 config 를 통째로 썼다. 그러면 환경변수로 넣은 실제 운영
+#    비밀번호(ADMIN_PASSWORD)와 관리자 키(SESSION_SECRET)가 auth_config.json 에
+#    평문으로 적힌다. 그 파일은 저장소에 추적되고 있어서, 무심코 커밋하면
+#    공개 저장소에 그대로 올라간다. 환경변수는 환경변수로만 두고 파일에 옮기지 않는다.
+_AUTH_PERSIST_KEYS = ('totp_secret',)
+
+
 def save_auth_config(config):
     try:
+        keep = {k: config[k] for k in _AUTH_PERSIST_KEYS if config.get(k)}
         with open(AUTH_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=4)
+            json.dump(keep, f, indent=4)
     except Exception as e:
         print(f"Error writing auth config: {e}")
 
@@ -1030,6 +1039,67 @@ ADMIN_PASSWORD_UNSET_MSG = (
 # ⚠️ 이 코드는 '두 번째 자물쇠'를 통째로 대신한다. 짧고 뻔한 값(생일·0508 등)을
 #    넣으면 2단계 인증이 사실상 없는 것과 같아진다. 그래도 쓰겠다면 최소한
 #    조종실 비밀번호(ADMIN_PASSWORD)만은 길고 어렵게 두어야 한다.
+# 🐢 로그인 시도를 늦춘다.
+#    /login 과 /setup 은 비밀번호 한 개로 통과하는데 시도 횟수에 제한이 없었다.
+#    기본 비밀번호가 네 자리(0508)라, 자동 도구면 몇 초 만에 다 넣어본다.
+#    /setup 은 통과하면 OTP 비밀키를 그대로 보여주므로 두 번째 자물쇠까지 같이 열린다.
+#
+# ⚠️ '몇 번 틀리면 잠금' 은 일부러 쓰지 않는다. 남이 아무 비밀번호나 계속 넣어
+#    방송 직전에 사장님을 못 들어오게 만들 수 있다(그게 더 큰 사고다).
+#    대신 틀릴수록 응답을 늦춘다. 사람은 한두 번 틀려도 못 느끼고,
+#    자동 도구는 시도 속도가 사실상 0 이 된다.
+_LOGIN_FAILS = {}                     # {누구: (실패횟수, 마지막 실패시각)}
+_LOGIN_FAIL_LOCK = threading.Lock()
+LOGIN_FAIL_RESET_SEC = 900            # 15분 조용하면 없던 일로 한다
+LOGIN_MAX_DELAY_SEC = 8.0
+
+
+def _login_key():
+    """시도한 쪽을 구분하는 값. 앞단 Caddy 때문에 remote_addr 은 전부 127.0.0.1 이라,
+       프록시가 붙여주는 실제 주소를 먼저 본다."""
+    xff = (request.headers.get('X-Forwarded-For') or '').split(',')
+    tail = xff[-1].strip() if xff and xff[-1].strip() else ''
+    return tail or (request.headers.get('X-Real-IP') or '').strip() or (request.remote_addr or '?')
+
+
+def _login_fail_count(key, now):
+    n, ts = _LOGIN_FAILS.get(key, (0, 0.0))
+    return 0 if (now - ts) > LOGIN_FAIL_RESET_SEC else n
+
+
+def login_throttle():
+    """직전 실패 횟수만큼 기다렸다가 돌아온다. 2번까지는 지연이 없다."""
+    now = time.time()
+    with _LOGIN_FAIL_LOCK:
+        n = _login_fail_count(_login_key(), now)
+    if n >= 2:
+        time.sleep(min(LOGIN_MAX_DELAY_SEC, 0.5 * (2 ** (n - 2))))
+
+
+def login_failed(what):
+    key = _login_key()
+    now = time.time()
+    with _LOGIN_FAIL_LOCK:
+        n = _login_fail_count(key, now) + 1
+        _LOGIN_FAILS[key] = (n, now)
+        if len(_LOGIN_FAILS) > 500:   # 방치하면 메모리를 계속 먹는다
+            for k in [k for k, (_, t) in _LOGIN_FAILS.items()
+                      if (now - t) > LOGIN_FAIL_RESET_SEC]:
+                _LOGIN_FAILS.pop(k, None)
+    if n in (5, 20, 100) or n % 500 == 0:
+        print(f"🚨 {what} 실패 {n}회 (ip={key}) — 누가 비밀번호를 찍어보고 있습니다", flush=True)
+
+
+def login_ok():
+    with _LOGIN_FAIL_LOCK:
+        _LOGIN_FAILS.pop(_login_key(), None)
+
+
+def password_matches(given):
+    """비밀번호 비교. 한 글자씩 비교하다 멈추면 응답 시간으로 앞자리를 알아낼 수 있다."""
+    return secrets.compare_digest(str(given or ''), str(load_auth_config()['admin_password'] or ''))
+
+
 def otp_master_matches(code):
     master = (os.environ.get('OTP_MASTER_CODE') or '').strip()
     if not master:
@@ -2256,10 +2326,14 @@ def serve_setup():
             if admin_password_is_unset():
                 return jsonify({'status': 'error', 'message': ADMIN_PASSWORD_UNSET_MSG}), 403
 
-            if p == load_auth_config()['admin_password']:
+            login_throttle()   # 여기는 통과하면 OTP 비밀키가 보인다 — 로그인보다 더 세게 막는다
+
+            if password_matches(p):
+                login_ok()
                 session['setup_authorized'] = True
                 return jsonify({'status': 'success'})
             else:
+                login_failed('OTP 등록 게이트')
                 return jsonify({'status': 'error', 'message': '비밀번호가 잘못되었습니다.'}), 400
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -2464,7 +2538,9 @@ def serve_login():
             if admin_password_is_unset():
                 return jsonify({'status': 'error', 'message': ADMIN_PASSWORD_UNSET_MSG}), 403
 
-            if p == load_auth_config()['admin_password']:
+            login_throttle()   # 앞서 틀린 만큼 늦춘다(찍어보기 방지)
+
+            if password_matches(p):
                 totp_secret = get_or_create_totp_secret()
                 totp = pyotp.TOTP(totp_secret)
 
@@ -2479,13 +2555,18 @@ def serve_login():
                     how = 'skipped'
 
                 if how:
+                    login_ok()
                     session['authenticated'] = True
                     if how == 'master':
-                        print(f"🔑 조종실 로그인: 마스터 코드 사용 (ip={request.remote_addr})", flush=True)
+                        print(f"🔑 조종실 로그인: 마스터 코드 사용 (ip={_login_key()})", flush=True)
                     return jsonify({'status': 'success'})
                 else:
+                    # OTP 가 틀린 것도 실패로 센다. 비밀번호를 알아낸 뒤
+                    # OTP 여섯 자리를 찍어보는 것도 같은 방식으로 막아야 한다.
+                    login_failed('조종실 OTP')
                     return jsonify({'status': 'error', 'message': '보안 OTP 번호가 일치하지 않습니다.'}), 400
             else:
+                login_failed('조종실 로그인')
                 return jsonify({'status': 'error', 'message': '비밀번호가 잘못되었습니다.'}), 400
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -2555,12 +2636,34 @@ def serve_admin():
 def serve_upload():
     return serve_html_file('upload.html')
 
+# 이 폴더에는 화면 파일만 있는 게 아니다. server.py, live_master.db,
+# SUPABASE_CREDENTIALS.txt, auth_config.json, .env, 로그가 전부 같이 있다.
+# 아래 catch-all 이 '있으면 준다' 였던 탓에, 주소만 대면 그것들이 그대로 내려왔다
+# (관리자 키가 공개 기본값이면 로그인 없이도 통했다).
+# 그래서 화면이 실제로 부르는 확장자만 통과시킨다. 목록에 없는 것은
+# 로그인한 사람에게도 주지 않는다 — 조종실도 이 파일들을 주소로 꺼내 쓰지 않는다.
+SERVABLE_EXTS = {
+    '.html', '.htm', '.css', '.js', '.mjs', '.map',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.avif',
+    '.woff', '.woff2', '.ttf', '.otf', '.eot',
+    '.mp3', '.m4a', '.aac', '.ogg', '.wav', '.webm', '.mp4',
+}
+
+
 @app.route('/<path:filename>')
 def serve_dynamic_file(filename):
     if filename.startswith('api/'):
         return jsonify({"status": "error", "message": "API endpoint not found"}), 404
+    if os.path.splitext(filename)[1].lower() not in SERVABLE_EXTS:
+        return jsonify({"error": "File not found"}), 404
     for root in [BASE_DIR, BUNDLE_DIR]:
-        if os.path.exists(os.path.join(root, filename)):
+        # 상위 폴더로 빠져나가는 경로를 두 겹으로 막는다
+        # (send_from_directory 도 막지만, 여기서 os.path.exists 로 존재 여부를
+        #  먼저 알려주는 것 자체가 힌트가 된다)
+        full = os.path.normpath(os.path.join(root, filename))
+        if not full.startswith(os.path.normpath(root) + os.sep):
+            continue
+        if os.path.exists(full):
             return send_from_directory(root, filename)
     return jsonify({"error": "File not found"}), 404
 

@@ -209,12 +209,19 @@
             };
         }
 
+        // 제목이나 사진 주소에 따옴표·부등호가 있으면 카드가 통째로 깨진다
+        function escText(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         function createCardHTML(item) {
             const imgUrl = item.image_url || (item.image_file ? `/uploads/${item.image_file}` : '/money.png');
             return `
                 <div class="reel-card">
-                    <img src="${imgUrl}" onerror="this.src='/money.png'">
-                    <div class="title">${item.title || '시그니처'}</div>
+                    <img src="${escText(imgUrl)}" onerror="this.src='/money.png'">
+                    <div class="title">${escText(item.title || '시그니처')}</div>
                     <div class="amount">${(item.amount || 0).toLocaleString()}원</div>
                 </div>
             `;

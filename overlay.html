@@ -2631,13 +2631,13 @@
                         if(i < extraBjs.length) {
                             let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
-                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
+                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < extraBjs.length) {
                             let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
+                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
 
@@ -2847,13 +2847,13 @@
                         if(i < bjs.length) {
                             let b = bjs[i]; let id = safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
-                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
+                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
                             let b = bjs[i]; let id = safeId(b.name); let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
+                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
 

@@ -249,7 +249,14 @@
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
             const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기' };
-            function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+            // 이름에 부등호나 따옴표가 들어와도 칸이 깨지지 않게 다듬는다
+        function escText(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
             
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; scaleRatio = Math.min(availableW / 1080, availableH / 1920); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; }
             window.addEventListener('resize', resizeCanvas); resizeCanvas();
@@ -289,13 +296,13 @@
                         if(i < bjs.length) {
                             let b = bjs[i]; let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
                             let colorStyle = i===0 ? 'color:#FFD700; text-shadow:0 0 10px #FFD700;' : i===1 ? 'color:#E0E0E0; text-shadow:0 0 10px #E0E0E0;' : i===2 ? 'color:#CD7F32; text-shadow:0 0 10px #CD7F32;' : '';
-                            leftHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
+                            leftHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
                             let b = bjs[i]; let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row"><div class="r-rank">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
+                            rightHtml += `<div class="excel-row"><div class="r-rank">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;
                     }
                     document.getElementById('rank-left').innerHTML = leftHtml; document.getElementById('rank-right').innerHTML = rightHtml;
