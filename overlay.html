@@ -371,7 +371,10 @@
         .sg-grid { display: grid; gap: 8px; justify-content: center; }
         .sg-card { position: relative; perspective: 1500px;
             transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s .4s; }
-        .sg-card.popped { transform: scale(1.45) translateZ(60px); z-index: 100;
+        /* ⚠️ translateZ 를 쓰지 않는다. 조상 어디에든 perspective 가 있으면 카드가
+           원근에 밀려 제자리를 벗어나 뜬다(화면 위쪽 카드는 위로, 아래쪽은 아래로).
+           제자리에서 커지기만 해야 판을 크게 벗어나지 않는다. */
+        .sg-card.popped { transform: scale(1.3); z-index: 100;
             transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s 0s; }
         .sg-inner { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d;
             transition: transform .6s cubic-bezier(.4,0,.2,1); }
@@ -2249,7 +2252,10 @@
                 //    서로 물고 늘어지다 한쪽이 1.45배로 굳어버린다(실제로 한 장이
                 //    커진 채 판 밖으로 튀어나온 채 82초를 버텼다).
                 //    커지는 건 뒤집는 순간에만.
-                const popped = !!(c.flippedAt && (now - c.flippedAt) < SG_POP_MS);
+                // ⚠️ 경과가 음수(시계가 어긋나 flippedAt 이 미래)여도 확대로 치지 않는다.
+                //    음수를 그대로 두면 leftMs 가 커져 카드가 확대된 채 몇 분씩 굳는다.
+                const flipDt = c.flippedAt ? (now - c.flippedAt) : -1;
+                const popped = flipDt >= 0 && flipDt < SG_POP_MS;
 
                 el.querySelector('.sg-inner').classList.toggle('flipped', !revealed);
                 // ⚠️ 커진 상태를 푸는 일을 '다음 그리기'에만 맡기면 안 된다.
@@ -2264,7 +2270,7 @@
                     el.style.transform = '';          // 클래스 규칙(확대)이 먹게 비운다
                     el.classList.add('popped');
                     clearTimeout(el._popTimer);
-                    const leftMs = Math.max(0, SG_POP_MS - (now - c.flippedAt));
+                    const leftMs = Math.min(SG_POP_MS, Math.max(0, SG_POP_MS - flipDt));
                     el._popTimer = setTimeout(() => {
                         el.classList.remove('popped');
                         el.style.transform = 'none';
