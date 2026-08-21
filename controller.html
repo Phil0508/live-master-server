@@ -6280,7 +6280,7 @@
                     '<img src="' + String(s.image_url).replace(/"/g, '&quot;') + '"' +
                         ' style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block; opacity:' + (on ? 1 : .38) + ';">' +
                     '<div style="padding:5px 6px; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
-                        (s.title || '') + ' · ' + sgWon(s.amount) + '원</div>' +
+                        escapeHtml(s.title || '') + ' · ' + sgWon(s.amount) + '원</div>' +
                     (on ? '<div style="position:absolute; top:5px; right:5px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#000; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900;">✓</div>' : '') +
                     '</div>';
             }).join('');
@@ -6321,6 +6321,15 @@
 
         /* ── 2단계: 판 ── */
         async function sgDeal() {
+            // 이미 판이 깔려 있으면 새로 까는 순간 뒤집은 것도 달성 기록도 전부 사라진다.
+            // 섞기·치우기는 묻는데 이것만 안 물어서, 방송 중에 제일 위험한 버튼이었다.
+            const cur = (sgState() || {}).cards || [];
+            if (cur.length) {
+                const flipped = cur.filter(c => c.flippedAt).length;
+                if (!confirm('이미 ' + cur.length + '장이 깔려 있습니다'
+                           + (flipped ? ' (뒤집은 카드 ' + flipped + '장)' : '') + '.\n\n'
+                           + '새로 깔면 지금 판과 달성 기록이 모두 사라집니다. 계속할까요?')) return;
+            }
             const d = await sgCall('deal', { minutes: sgNum('sg-min', 10), target: sgNum('sg-target', 5) });
             if (d) acctToast(d.count + '장을 깔았습니다 (' + d.cols + '×' + d.rows + ', 뒤집을 장수 ' + d.target + ')', 'ok');
         }
@@ -6347,7 +6356,17 @@
         }
 
         /* ── 3단계: 뒤집기 / 4단계: 달성 ── */
-        window.sgFlip = async function (id) {
+        // ⚠️ 뒤집기에는 '되돌리기'가 없다. 잘못 누르면 참가자가 받아야 할 금액이 그대로 늘고,
+        //    되돌리려면 판을 통째로 다시 섞는 수밖에 없다(그러면 달성 기록도 날아간다).
+        //    방송 중에 손이 스치는 사고를 막으려고 한 번 묻는다.
+        window.sgFlip = async function (id, alreadyOpen) {
+            if (alreadyOpen) { acctToast(id + '번은 이미 뒤집혀 있습니다', 'info'); return; }
+            const g = sgState() || {};
+            const flipped = ((g.cards || []).filter(c => c.flippedAt)).length;
+            const target = g.target || 5;
+            if (!confirm(id + '번 카드를 뒤집을까요?\n\n'
+                       + '뒤집으면 이번 판의 목표가 되고 되돌릴 수 없습니다.\n'
+                       + '(지금 ' + flipped + '/' + target + '장)')) return;
             const d = await sgCall('flip', { id });
             if (!d) return;
             if (d.already) acctToast(id + '번은 이미 뒤집혔습니다', 'info');
@@ -6426,8 +6445,9 @@
                 const done = !!c.doneAt;
                 const border = done ? '#2ecc71' : open ? 'var(--accent)' : 'rgba(255,255,255,0.35)';
                 const bg = done ? 'rgba(46,204,113,0.16)' : open ? 'rgba(74,158,255,0.14)' : 'rgba(255,255,255,0.07)';
-                return '<button onclick="sgFlip(' + c.id + ')" title="' + (open ? '이미 뒤집힘' : '뒤집기') + '"' +
-                    ' style="aspect-ratio:3/4; border-radius: var(--r-2); cursor:pointer; font-weight:900; font-size: var(--fs-5);' +
+                return '<button onclick="sgFlip(' + c.id + ', ' + (open ? 'true' : 'false') + ')"' +
+                    ' title="' + (open ? '이미 뒤집힘' : '뒤집기') + '"' +
+                    ' style="aspect-ratio:16/9; border-radius: var(--r-2); cursor:' + (open ? 'default' : 'pointer') + '; font-weight:900; font-size: var(--fs-5);' +
                     ' display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;' +
                     ' border:2px solid ' + border + '; background:' + bg + '; color:' + (done ? '#2ecc71' : open ? 'var(--accent)' : '#fff') + ';">' +
                     (open && c.image ? '<img src="' + String(c.image).replace(/"/g, '&quot;') + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.4;">' : '') +
@@ -6468,7 +6488,7 @@
                     ' background:' + (ok ? 'rgba(46,204,113,.10)' : 'rgba(255,255,255,.03)') + ';">' +
                     (c.image ? '<img src="' + String(c.image).replace(/"/g, '&quot;') + '" style="width:64px; height:36px; object-fit:cover; border-radius:6px; flex:none;">' : '') +
                     '<span style="font-weight:900; color:' + (ok ? '#2ecc71' : '#fff') + '; min-width:34px;">' + c.id + '번</span>' +
-                    '<span style="flex:1; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (c.title || '') + '</span>' +
+                    '<span style="flex:1; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(c.title || '') + '</span>' +
                     '<span style="font-weight:800; color: var(--accent);">' + sgWon(c.amount) + '원</span>' +
                     '<button onclick="sgToggleDone(' + c.id + ')" style="height:30px; padding:0 12px; border-radius: var(--r-1); cursor:pointer; font-weight:800;' +
                     ' border:1px solid ' + (ok ? '#2ecc71' : 'var(--border-light)') + '; background:transparent; color:' + (ok ? '#2ecc71' : 'var(--text-muted)') + ';">' +
@@ -6483,7 +6503,10 @@
             if (!el) return;
             const t = (g && g.timer) || { status: 'STOPPED', timeLeft: 600 };
             const paint = () => {
-                let left = (t.status === 'PLAYING' && t.expiresAt) ? (t.expiresAt - Date.now()) / 1000 : (t.timeLeft || 0);
+                // ⚠️ expiresAt 은 서버 시계다. 이 PC 시계가 어긋나 있으면 남은 시간이 통째로 틀린다.
+                //    (대결 타이머가 이미 쓰고 있는 보정값이다)
+                let left = (t.status === 'PLAYING' && t.expiresAt)
+                    ? (t.expiresAt - (Date.now() + serverTimeOffset)) / 1000 : (t.timeLeft || 0);
                 left = Math.max(0, Math.floor(left));
                 el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
                 el.style.color = (left <= 30 && t.status === 'PLAYING') ? '#ff4d6d' : 'var(--accent)';

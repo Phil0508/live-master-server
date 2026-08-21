@@ -932,6 +932,13 @@ def mask_siggame(data):
             safe.append({"id": c.get('id'), "state": "HIDDEN"})
     g2 = dict(g)
     g2['cards'] = safe
+    # picks(이번 판에 쓸 시그니처 후보)는 카드와 달리 감춰지지 않고 그대로 나가고 있었다.
+    # 사진 주소·이름·금액이 전부 실려서, 갱신이 있을 때마다 접속한 오버레이 수만큼
+    # 같은 목록이 다시 나간다. 조종실은 sig_id 만 있으면 선택을 되살릴 수 있으므로
+    # 번호만 남긴다. (목록 자체를 완전히 감추려면 /api/signatures 도 잠가야 하는데,
+    #  그건 알림창이 쓰고 있어 여기서 건드리지 않는다)
+    g2['picks'] = [{"sig_id": p.get('sig_id')}
+                   for p in (g.get('picks') or []) if isinstance(p, dict)]
     data['siggame'] = g2
     return data
 

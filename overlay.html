@@ -1954,7 +1954,11 @@
             if (key !== sgLayoutKey) { sgLayoutKey = key; sgBuild(shown, cols, grid, box); }
 
             const act = (g.action || {});
-            const now = Date.now();
+            // ⚠️ flippedAt·doneAt·action.ts 는 전부 '서버 시계'로 찍힌 값이다.
+            //    OBS PC 시계가 서버보다 몇 초만 앞서 있어도 (now - doneAt) 이 8초를 넘어버려
+            //    CLEAR 도장이 아예 안 찍히고, 반대로 뒤처져 있으면 음수가 되어 카드가
+            //    커진 채 굳는다. 타이머는 이미 이 보정을 쓰고 있었는데 카드 쪽만 빠져 있었다.
+            const now = Date.now() + serverTimeOffset;
             const isNewAction = act.ts && act.ts !== sgLastActionTs;
             if (isNewAction) sgLastActionTs = act.ts;
             const shuffling = act.type === 'SHUFFLE' && (now - act.ts) < SG_SHUFFLE_MS;
