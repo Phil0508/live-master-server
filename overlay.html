@@ -396,6 +396,11 @@
         }
         /* 다른 위젯(점수판·계좌·게이지)과 같은 유리 카드. 값은 전부 공통 변수를 쓴다 —
            테마를 바꾸면 여기도 같이 따라간다. */
+        /* 깔기·섞기 연출이 도는 동안만 붙는다. 카드가 아무리 날뛰어도 판 밖으로는
+           안 보이게 잘라낸다. 평소에는 안 붙는다 — 뒤집을 때 커지는 연출과
+           올클리어 확대는 판 가장자리를 살짝 넘는 맛으로 사는 연출이라
+           항상 잘라버리면 가장자리 카드가 뭉텅 잘린 것처럼 보인다. */
+        .sg-board.sg-clip { overflow: hidden; }
         .sg-board {
             position: relative; padding: 12px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -502,8 +507,12 @@
         }
         /* 카드 깔기 — 위에서 하나씩 떨어진다 */
         .sg-card.fly { animation: sg-fly .5s cubic-bezier(.175,.885,.32,1.275) backwards; }
+        /* ⚠️ 카드가 이동하는 연출은 전부 '판 안'에서 끝나야 한다.
+           예전에는 위 120px 에서 날아 들어와서, 까는 동안 1초 넘게 카드들이
+           판 밖(위쪽)에 떠 있었다 — 방송 화면에서 UI 가 삐져나온 것처럼 보인다.
+           격자가 판 위 60px 에서 시작하므로 -40px 까지는 판 안(헤더 위)이다. */
         @keyframes sg-fly {
-            from { opacity: 0; transform: translateY(-120px) scale(.6) rotateX(60deg); }
+            from { opacity: 0; transform: translateY(-40px) scale(.5) rotateX(70deg); }
             to   { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
         }
         /* 섞기 — 원본의 10가지 중 대표 4가지만 옮겼다(나머지는 서로 거의 구분되지 않았다) */
@@ -522,9 +531,9 @@
         .sg-sh3 { animation: sg-wave 1.2s ease-in-out; }
         @keyframes sg-wave {
             0% { transform: translateY(0); }
-            30% { transform: translateY(-160px) rotate(-25deg); z-index: 100; }
-            60% { transform: translateY(120px) rotate(25deg); }
-            100% { transform: translateY(0) rotate(0); }
+            30% { transform: translateY(-48px) scale(.8) rotate(-18deg); z-index: 100; }
+            60% { transform: translateY(40px) scale(.85) rotate(18deg); }
+            100% { transform: translateY(0) rotate(0) scale(1); }
         }
         .sg-sh4 { animation: sg-spinout 1.2s ease-in-out; }
         @keyframes sg-spinout {
@@ -2172,6 +2181,8 @@
             box.style.opacity = on ? (g.opacity != null ? g.opacity : 1) : 0;
             if (!on) {
                 sgClearTimers();
+                const bd = grid.closest('.sg-board');
+                if (bd) bd.classList.remove('sg-clip', 'allclear');   // 연출 도중 치워도 흔적이 안 남게
                 const bn = document.getElementById('sg-allclear');
                 if (bn) bn.classList.remove('on');
                 sgSeenDone.clear();
@@ -2207,6 +2218,24 @@
             const isNewAction = act.ts && act.ts !== sgLastActionTs;
             if (isNewAction) sgLastActionTs = act.ts;
             const shuffling = act.type === 'SHUFFLE' && (now - act.ts) < SG_SHUFFLE_MS;
+
+            // 깔기·섞기 연출이 도는 동안만 판 밖을 잘라낸다(위 CSS 주석 참고).
+            const boardEl = grid.closest('.sg-board');
+            const motionMs = 2200;   // 가장 긴 섞기(1.2초) + 카드별 시차 + 여유
+            const inMotion = (act.type === 'PLACE' || act.type === 'SHUFFLE')
+                          && (now - act.ts) < motionMs;
+            if (boardEl) boardEl.classList.toggle('sg-clip', inMotion);
+
+            // 올클리어 연출이 남아 있는데 새 판을 깔거나 섞으면, 예약된 타이머가
+            // 이미 사라진 카드를 붙잡고 있다가 몇 초 뒤 빈 판 위에 ALL CLEAR
+            // 배너를 띄운다. 새 판 신호가 오면 그 예약을 전부 걷는다.
+            if (isNewAction && (act.type === 'PLACE' || act.type === 'SHUFFLE')) {
+                sgClearTimers();
+                const bn = document.getElementById('sg-allclear');
+                if (bn) bn.classList.remove('on');
+                if (boardEl) boardEl.classList.remove('allclear');
+                grid.classList.remove('allclear');
+            }
 
             const els = grid.children;
             for (let i = 0; i < els.length && i < shown.length; i++) {
@@ -2272,8 +2301,11 @@
                         //    번호와 신호 시각으로 정해 늘 같은 값이 나오게 한다.
                         const s1 = (act.ts + c.id * 7919) % 1000 / 1000;
                         const s2 = (act.ts + c.id * 104729) % 1000 / 1000;
-                        el.style.setProperty('--tx', ((s1 - 0.5) * 700).toFixed(0) + 'px');
-                        el.style.setProperty('--ty', ((s2 - 0.5) * 500).toFixed(0) + 'px');
+                        // ⚠️ 흩어지는 거리는 판 안에서 끝나야 한다. 예전 ±350/±250px 은
+                        //    가장자리 카드를 판 밖 300px 까지 내던졌다. 흩어질 때 카드가
+                        //    0.5~0.3 배로 줄어들므로 ±140/±90 이면 판 안에서 충분히 어지럽다.
+                        el.style.setProperty('--tx', ((s1 - 0.5) * 280).toFixed(0) + 'px');
+                        el.style.setProperty('--ty', ((s2 - 0.5) * 180).toFixed(0) + 'px');
                         el.style.animationDelay = (s1 * 100).toFixed(0) + 'ms';
                         el.classList.add('sg-sh' + (((act.animIndex || 1) - 1) % 4 + 1));
                     }
@@ -2331,6 +2363,7 @@
                 if (c.doneAt && now - c.doneAt < SG_POP_MS) waits.push(SG_POP_MS - (now - c.doneAt));
             });
             if (shuffling) waits.push(SG_SHUFFLE_MS - (now - act.ts));
+            if (inMotion) waits.push(motionMs - (now - act.ts));   // sg-clip 해제용
             if (waits.length) {
                 sgRepaintTimer = setTimeout(() => {
                     sgRenderGame((globalData || {}).siggame);
