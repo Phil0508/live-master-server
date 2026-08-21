@@ -1160,6 +1160,16 @@
             100% { transform: translateX(-50%) scale(1); }
         }
 
+        /* ── 🎆 시그니처 전용 연출(sig-fx.js) 무대 ──
+           방송판(1080x1920 세로)을 그대로 판으로 쓴다. 잘라내거나 축소해 얹지 않는다 —
+           sig-fx.js 가 판 크기를 재서 좌표를 세로 기준으로 옮겨 그린다(그 파일 _fit 참고).
+           ⚠️ 시그니처 카드(z-index 100010) 위에 얹는다. 미리보기에서 그렇게 보고 정했다. */
+        #sigfx-stage, #sigfx-inner {
+            position: absolute; inset: 0;
+            pointer-events: none; overflow: hidden;
+        }
+        #sigfx-stage { z-index: 101005; }
+
         /* ── 🃏 화면 전체 인수 카드 ── */
         #op-fx-card {
             position: fixed; inset: 0; z-index: 101010; pointer-events: none;
@@ -1470,6 +1480,9 @@
             <!-- 💥 충격파 — 가운데서 빛 고리가 퍼진다(화면 흔들림은 body 에 건다) -->
             <div id="op-fx-shock"><span></span><span></span><span></span></div>
 
+            <!-- 🎆 시그니처 전용 연출이 그려지는 자리 (sig-fx.js) -->
+            <div id="sigfx-stage"><div id="sigfx-inner"></div></div>
+
             <!-- ⚡ 네온 글리치 — 화면이 갈라지며 이름이 어긋난다 -->
             <div id="op-fx-glitch">
                 <div class="op-glitch-text" id="op-fx-glitch-text" data-txt=""></div>
@@ -1656,6 +1669,8 @@
         </div>
     </div>
 
+    <!-- 🎆 시그니처 전용 연출 17종. 외부 라이브러리·이미지 없이 CSS/JS 로만 그린다. -->
+    <script src="/sig-fx.js"></script>
     <script>
         // URL에서 token 파라미터 추출 및 window.apiToken 저장
         const urlParams = new URLSearchParams(window.location.search);
@@ -4099,6 +4114,42 @@
             return String(item.title || '').trim() === MARTIAL_LAW_TITLE;
         }
 
+        // ═══ 🎆 시그니처 전용 연출 ═══
+        // 10만원 이상 시그니처마다 하나씩. 계엄령(25만)의 비상경보와 같은 자리에서 터진다.
+        // ⚠️ 계엄령은 이미 만들어 둔 경보를 쓰므로 이 표에 넣지 않는다.
+        // ⚠️ 후원 금액이 아니라 '시그니처 자신의 값' 으로 고른다 —
+        //    26만원을 쏴도 30만원짜리가 걸릴 수 있어서다(isMartialLaw 주석 참고).
+        const SIGFX_BY_AMOUNT = {
+            100009: 'gazua',   130000: 'lambada', 150000: 'hotel',
+            160000: 'crazy',   180000: 'bounce',  200000: 'martini',
+            200001: 'pocha',   300000: 'pucha',   350000: 'edm',
+            500000: 'sail',    500001: 'shield',  600001: 'slash',
+            700000: 'nuna',    800000: 'club',   1000000: 'vip',
+            2000000: 'angel', 3000000: 'mvp',
+        };
+
+        function sigFxKey(item) {
+            if (!item || item.sig_amount == null) return null;
+            return SIGFX_BY_AMOUNT[Number(item.sig_amount)] || null;
+        }
+
+        function sigFxPlay(item) {
+            const key = sigFxKey(item);
+            if (!key || typeof SigFX === 'undefined') return false;
+            try {
+                // 흔들림은 방송 내용물(#master-container)에 건다. 무대를 흔들면 연출만 흔들리고,
+                // #scale-wrapper 를 흔들면 거기 걸린 배율이 날아가 화면이 통째로 어긋난다.
+                SigFX.play(key, document.getElementById('sigfx-inner'),
+                           { shakeEl: document.getElementById('master-container') });
+                console.log('[시그연출] ' + key + ' (' + item.sig_amount + '원)');
+                return true;
+            } catch (e) {
+                // 연출 하나 때문에 시그니처 재생이 멈추면 안 된다.
+                console.error('[시그연출] 실패 — 시그니처는 그대로 나갑니다:', e);
+                return false;
+            }
+        }
+
         function showReactionTitle(who, isSlot, amount) {
             const gd = globalData || {};
             let name = (who || '').trim();
@@ -4153,6 +4204,13 @@
         }
 
         function stopReactionVisuals() {
+            // 🎆 전용 연출도 같이 걷는다. 재생을 끊었는데 연출만 남아 돌면 화면이 어수선하다.
+            const sfx = document.getElementById('sigfx-inner');
+            if (sfx) {
+                sfx.querySelectorAll('[data-sigfx]').forEach(n => n.remove());
+                const mc = document.getElementById('master-container');
+                if (mc) mc.getAnimations().forEach(a => a.cancel());
+            }
             // 🚨 계엄령 경보는 4초짜리다. 재생을 중간에 끊으면 시그니처만 사라지고
             //    붉은 화면이 남는다. '전체 비우기' 는 급할 때 누르는 버튼이라 즉시 깨끗해져야 한다.
             //    ⚠️ opFxClear() 를 부르면 안 된다. 그건 조종실에서 따로 쏜 연출까지 지운다 —
@@ -4520,6 +4578,11 @@
                     hideReactionTitle();
                     hideTickers();
                     opFxFire({ kinds: ['warn'], message: '주의 계엄령 발동' });
+                } else if (sigFxKey(data) && sigFxPlay(data)) {
+                    // 전용 연출이 있는 시그니처는 계엄령과 같은 대접 — '@@업' 은 띄우지 않는다.
+                    // 연출마다 자기 글자('가즈아', '참격', 'CLUB OPEN' …)를 이미 갖고 있어서 겹친다.
+                    hideReactionTitle();
+                    hideTickers();
                 } else {
                     showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup, data.amount);
                 }
