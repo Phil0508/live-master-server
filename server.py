@@ -943,16 +943,34 @@ def mask_siggame(data):
     return data
 
 
+def state_for_client(state, authed):
+    """밖으로 내보낼 상태 한 벌을 만든다.
+
+    ⚠️ state 를 응답이나 SSE 에 실을 때는 반드시 이 함수를 거친다.
+       같은 정리를 경로마다 손으로 되풀이하다 세 번 빠뜨렸다:
+         ① SSE 첫 전송(init)에서 덮인 카드의 정체가 그대로 나갔다
+         ② 그 자리에 server_time 도 빠져, 갓 붙은 오버레이는 시계를 못 맞췄다
+         ③ /api/reaction/next 는 시그게임 마스킹을 아예 안 했다 —
+            시그니처가 재생될 때마다(방송 중 가장 잦은 일이다) 16장 전부의
+            이름·사진·금액·번호가 무인증으로 나갔다
+       경로가 하나 더 생겨도 여기만 거치면 같은 실수가 안 난다.
+    """
+    out = mask_siggame(state)            # 🃏 덮인 카드의 정체 — 로그인 여부와 무관하게 지운다
+    if not authed:
+        out = strip_private_state(out)   # 🔒 대기 후원·장부·로그는 오버레이가 쓰지 않는다
+    out = dict(out)                      # 원본을 건드리면 서버가 정답을 잃는다
+    out.pop('api_token', None)           # 🔐 상태에 섞여 들어갔더라도 절대 내보내지 않는다
+    out['server_time'] = int(time.time() * 1000)   # ⏱️ 화면이 서버 시계에 맞출 수 있게
+    return out
+
+
 def broadcast_event(event_name, data):
-    if isinstance(data, dict):
-        data = data.copy()
-        # 🔐 /api/stream 은 무인증으로 열려 있다(오버레이·알림창이 붙어야 하므로).
-        #    상태에 관리자 토큰이 섞여 있어도 절대 전파되지 않게 마지막 관문에서 지운다.
-        data.pop('api_token', None)
-        data = mask_siggame(data)   # 🃏 덮인 카드의 정체를 지운다(무인증 경로다)
-        data['server_time'] = int(time.time() * 1000)
     # 로그인한 쪽(조종실·후원 콘솔)과 아닌 쪽(오버레이)에 다른 내용을 보낸다.
-    public_data = strip_private_state(data) if isinstance(data, dict) else data
+    if isinstance(data, dict):
+        data = state_for_client(data, True)
+        public_data = strip_private_state(data)
+    else:
+        public_data = data
     with sse_lock:
         message = f"event: {event_name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
         public_message = (f"event: {event_name}\ndata: {json.dumps(public_data, ensure_ascii=False)}\n\n"
@@ -1683,17 +1701,7 @@ def sse_stream():
         try:
             # ⚠️ 이 첫 전송은 broadcast_event 를 거치지 않는다. 거기서 하는 정리를 여기서도 해야 한다.
             #    오버레이·조종실이 붙을 때 받는 바로 그 데이터라, 빠뜨리면 가장 크게 샌다.
-            initial_state = mask_siggame(load_data())        # 🃏 덮인 카드의 정체를 지운다
-            if not q._authed:
-                initial_state = strip_private_state(initial_state)   # 🔒 대기 후원·장부·로그도 뺀다
-            initial_state = dict(initial_state)
-            initial_state.pop('api_token', None)                 # 🔐 broadcast_event 와 같은 정리
-            # ⏱️ 시계 맞추기. broadcast_event 는 붙여 보내는데 여기만 빠져 있었다.
-            #    이게 없으면 오버레이가 갓 붙었을 때 serverTimeOffset 이 0 이라,
-            #    다음 update 가 올 때까지(조용한 방송이면 몇 분이다) 시그게임 타이머와
-            #    카드 연출이 서버 시계와 어긋난 채로 돈다. OBS 를 새로고침한 직후가
-            #    정확히 그 구간이다.
-            initial_state['server_time'] = int(time.time() * 1000)
+            initial_state = state_for_client(load_data(), q._authed)
             yield f"event: init\ndata: {json.dumps(initial_state, ensure_ascii=False)}\n\n"
 
             if os.path.exists(LAYOUT_FILE):
@@ -2971,19 +2979,11 @@ def api_data():
         
     state = load_data()
     if isinstance(state, dict):
-        state = state.copy()
-        # 🔐 과거에 상태로 새어 들어간 값이 남아 있어도 무인증 응답에 절대 실려나가지 않게 먼저 지운다
-        state.pop('api_token', None)
-        state = mask_siggame(state)   # 🃏 덮인 카드의 정체를 지운다(로그인 여부와 무관하게 —
-                                      #    조종실도 모르는 편이 공정하고, 새어나갈 길도 없앤다)
-        state['server_time'] = int(time.time() * 1000)
-        # 조종실 웹에 로그인 세션이 있을 경우에만 보안 API 토큰을 제공
+        state = state_for_client(state, session.get('authenticated'))
+        # 조종실 웹에 로그인 세션이 있을 때만 보안 API 토큰을 붙인다.
+        # (state_for_client 가 방금 지운 것을, 여기서만 의도적으로 다시 넣는다)
         if session.get('authenticated'):
             state['api_token'] = load_auth_config()['session_secret']
-        else:
-            # 무인증(오버레이·알림창)에는 대기 후원·장부·로그를 주지 않는다.
-            # 그쪽 화면은 이 항목들을 쓰지 않는다(확인함).
-            state = strip_private_state(state)
     return jsonify(state)
 
 @app.route('/api/offwork/pending', methods=['POST'])
@@ -4020,9 +4020,10 @@ def next_reaction():
         # 오버레이가 이 응답의 state 를 그대로 써서 다음 시그니처를 즉시 재생한다
         # (예전엔 pop 후 /api/data 를 한 번 더 불러 왕복이 2회였고, 그 사이 SSE 와 겹쳐
         #  대기열이 깊을 때 재생이 불안정했다. 이제 왕복 1회로 줄여 겹침/지연을 낮춘다.)
-        # 오버레이(무인증)에는 대기 후원·장부 같은 민감 항목을 빼고 돌려준다.
-        # 오버레이는 그것들을 쓰지 않는다(확인함).
-        out_state = state if request_is_authed() else strip_private_state(state)
+        # ⚠️ 여기도 반드시 state_for_client 를 거쳐야 한다.
+        #    예전에는 strip_private_state 만 불러서 시그게임 마스킹이 빠져 있었고,
+        #    시그니처가 재생될 때마다 덮인 카드 16장의 정체가 통째로 나갔다.
+        out_state = state_for_client(state, request_is_authed())
         return jsonify({"status": "success", "message": "Popped reaction", "state": out_state})
     except Exception as e:
         print(f"Error in next_reaction: {e}")
