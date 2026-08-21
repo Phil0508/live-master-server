@@ -363,7 +363,12 @@
         /* --sg-cw : 카드 한 장의 폭. 글자 크기를 여기에 비례시켜, 칸이 줄어도 균형이 유지된다. */
         /* 카드 폭은 px 로 고정된다(sgBuild). 나눗셈에서 남는 몇 px 이 한쪽으로
            쏠리지 않도록 가운데에 놓는다. */
-        .sg-grid { display: grid; gap: 8px; perspective: 1200px; justify-content: center; }
+        /* ⚠️ 여기에 perspective 를 걸면 안 된다. 격자 한가운데를 소실점으로 삼아
+           카드들이 바깥으로 밀려 그려진다 — 덮인 면(.sg-back)은 뒤집혀 있어서 더 크게
+           밀리고, 양끝 카드가 판 밖으로 37px 씩 튀어나왔다.
+           (공개된 카드는 멀쩡해 보여서 한참 헤맸다. 앞면은 안 뒤집혀 있어서다)
+           뒤집기 원근은 카드마다 따로 걸려 있다(.sg-card { perspective: 1500px }). */
+        .sg-grid { display: grid; gap: 8px; justify-content: center; }
         .sg-card { position: relative; perspective: 1500px;
             transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s .4s; }
         .sg-card.popped { transform: scale(1.45) translateZ(60px); z-index: 100;
@@ -372,6 +377,9 @@
             transition: transform .6s cubic-bezier(.4,0,.2,1); }
         .sg-inner.flipped { transform: rotateY(180deg); }
         .sg-front, .sg-back {
+            /* ⚠️ box-sizing 이 없으면 테두리 2px 이 100% 바깥에 붙어, 면이 카드보다
+               가로세로 4px 씩 커진다. 16장이면 그게 그대로 판 밖으로 나간다. */
+            box-sizing: border-box;
             width: 100%; height: 100%; position: absolute; backface-visibility: hidden;
             border-radius: 8px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,.5);
             display: flex; align-items: center; justify-content: center;
@@ -1611,7 +1619,7 @@
             <div id="siggame-container" class="widget-container" style="left: 362px; top: 520px; width: 700px;">
                 <div class="sg-board">
                     <div class="sg-header">
-                        <span class="sg-header-title">🃏 시그 뒤집기</span>
+                        <span class="sg-header-title" id="sg-total">0원</span>
                         <span class="sg-timer" id="sg-timer">10:00</span>
                         <span class="sg-progress" id="sg-progress"></span>
                     </div>
@@ -2180,7 +2188,11 @@
             const goals = cards.filter(c => c.flippedAt);
             const target = Math.max(1, g.target || 5);
             const compact = goals.length >= target;
-            const shown = compact ? goals : cards;
+            // 목표만 남기고 보여줄 때는 싼 것부터 왼쪽에 세운다.
+            // 받아내는 순서가 눈에 보이고, 소리도 왼쪽부터 한 단계씩 올라간다.
+            const sortedGoals = goals.slice().sort(
+                (a, b) => ((a.amount || 0) - (b.amount || 0)) || ((a.id || 0) - (b.id || 0)));
+            const shown = compact ? sortedGoals : cards;
             const cols = compact ? shown.length : Math.max(1, g.cols || 4);
 
             const key = (compact ? 'C' : 'F') + shown.length + '|' + cols + '|' + shown.map(c => c.id).join(',');
@@ -2203,11 +2215,36 @@
                 // '목표'는 뒤집어서 연 카드(flippedAt)만이다. 끝나고 구경용으로 전부 공개한 건 목표가 아니다.
                 const isGoal = revealed && !!c.flippedAt;
                 const done = !!c.doneAt;
-                const popped = (c.flippedAt && (now - c.flippedAt) < SG_POP_MS)
-                            || (c.doneAt && (now - c.doneAt) < SG_POP_MS);
+                // ⚠️ '받음' 을 찍을 때는 커지지 않는다. 그때는 도장(stamping)이 카드를
+                //    한 번 때리는 연출을 하는데, 둘 다 같은 카드의 transform 을 건드려서
+                //    서로 물고 늘어지다 한쪽이 1.45배로 굳어버린다(실제로 한 장이
+                //    커진 채 판 밖으로 튀어나온 채 82초를 버텼다).
+                //    커지는 건 뒤집는 순간에만.
+                const popped = !!(c.flippedAt && (now - c.flippedAt) < SG_POP_MS);
 
                 el.querySelector('.sg-inner').classList.toggle('flipped', !revealed);
-                el.classList.toggle('popped', !!popped);
+                // ⚠️ 커진 상태를 푸는 일을 '다음 그리기'에만 맡기면 안 된다.
+                //    다시 그릴 일이 없으면(조용한 순간) 카드가 1.45배로 커진 채 굳는다 —
+                //    실제로 한 장이 82초 동안 커진 채 판 밖으로 튀어나와 있었다.
+                //    카드마다 스스로 풀리는 타이머를 달아 둔다.
+                // ⚠️ 클래스를 떼는 것만으로는 확대가 안 풀리는 경우가 있다. 실제로 한 장이
+                //    1.45배로 굳은 채 판 밖으로 튀어나와 48초를 버텼다(클래스는 이미 없었다).
+                //    그래서 '풀린 상태'를 인라인으로 못 박는다. 인라인은 클래스 규칙을 이기고,
+                //    도장 애니메이션(sg-punch)은 애니메이션이라 인라인보다 세서 그대로 동작한다.
+                if (popped) {
+                    el.style.transform = '';          // 클래스 규칙(확대)이 먹게 비운다
+                    el.classList.add('popped');
+                    clearTimeout(el._popTimer);
+                    const leftMs = Math.max(0, SG_POP_MS - (now - c.flippedAt));
+                    el._popTimer = setTimeout(() => {
+                        el.classList.remove('popped');
+                        el.style.transform = 'none';
+                    }, leftMs + 60);
+                } else {
+                    clearTimeout(el._popTimer);
+                    el.classList.remove('popped');
+                    el.style.transform = 'none';
+                }
                 el.classList.toggle('done', done);
                 el.classList.toggle('todo', isGoal && !done);
                 // 목표로 뒤집은 카드만 도장이 찍힌다. 끝나고 구경용으로 공개한 건 아니다.
@@ -2243,6 +2280,15 @@
                 } else if (!shuffling) {
                     el.classList.remove('sg-sh1', 'sg-sh2', 'sg-sh3', 'sg-sh4');
                 }
+            }
+
+            // 왼쪽 자리에는 '다 받아내려면 얼마인가' 를 적는다.
+            // 뒤집을 때마다 늘어나므로, 참가자도 보는 사람도 목표 금액을 바로 안다.
+            const totalEl = document.getElementById('sg-total');
+            if (totalEl) {
+                const sum = goals.reduce((a, c) => a + (Number(c.amount) || 0), 0);
+                const txt = sum.toLocaleString() + '원';
+                if (totalEl.textContent !== txt) totalEl.textContent = txt;
             }
 
             // 목표 진행 표시(●●●○○) — 몇 개를 받아냈는지 한눈에 보이게.
@@ -2306,12 +2352,15 @@
         }
 
         // 한 장이 방금 달성됐을 때 — 그 카드만 쾅
-        function sgStampOne(el, index) {
+        // ⚠️ 소리는 올클리어 때만 낸다(withSound). 한 장씩 받을 때마다 킬사운드가 나면
+        //    30분에 걸쳐 하나씩 채우는 판에서는 그저 시끄럽기만 하다.
+        //    한 번에 몰아서 보낸 사람에게만 주는 연출이라 그때 몰아서 들려준다.
+        function sgStampOne(el, index, withSound) {
             if (!el) return;
             el.classList.remove('stamping');
             void el.offsetWidth;              // 같은 애니메이션을 다시 재생하려면 리플로우가 필요하다
             el.classList.add('stamping');
-            sgClearSound(index);
+            if (withSound) sgClearSound(index);
             setTimeout(() => el.classList.remove('stamping'), 600);
         }
 
@@ -2324,9 +2373,10 @@
             grid.classList.add('allclear');
             cards.forEach(c => c.classList.remove('stamping'));
 
-            const STEP = 350;
+            // 0.35초는 소리가 서로 겹쳐 뭉개졌다. 한 소리가 자리를 잡을 만큼 띄운다.
+            const STEP = 700;
             cards.forEach((el, i) => {
-                sgAllClearTimers.push(setTimeout(() => sgStampOne(el, i), 250 + i * STEP));
+                sgAllClearTimers.push(setTimeout(() => sgStampOne(el, i, true), 250 + i * STEP));
             });
             const finale = 250 + goalCount * STEP + 150;
             sgAllClearTimers.push(setTimeout(() => {
