@@ -12,3 +12,9 @@ auth_config.json
 .env.*
 SUPABASE_CREDENTIALS.txt
 NVIDIA_CREDENTIALS.txt
+
+# 백업·로그는 저장소에 두지 않는다 (예전에 auth_config.json 이 추적돼
+#  OTP 비밀키가 공개 저장소에 그대로 올라가 있었다)
+*.bak
+*.test_backup
+*.log

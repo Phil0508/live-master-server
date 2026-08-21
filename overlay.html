@@ -336,6 +336,192 @@
         .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
 
         /* ── 시그니처 순위판 ── 각진 클립패스 대신 점수판과 같은 유리 카드 + 둥근 골드 헤더 */
+
+        /* ═══ 🃏 시그 뒤집기 게임 ═══
+           원본(React)의 연출을 그대로 옮겼다. 다만 상태는 서버가 들고 SSE 로 온다.
+           pointer-events:none — OBS 화면 조작을 막지 않는다(조작은 조종실에서 한다). */
+        #siggame-container {
+            position: absolute; z-index: 99000; pointer-events: none;
+            opacity: 0; visibility: hidden; transition: opacity .4s ease, visibility .4s;
+        }
+        #siggame-container.on { opacity: 1; visibility: visible; }
+        .sg-timer {
+            font-size: 26px; font-weight: 900; letter-spacing: 0.5px;
+            color: #241a05; font-variant-numeric: tabular-nums; line-height: 1;
+        }
+        /* 30초 아래로 떨어지면 헤더째 붉게 물들여 확실히 눈에 띄게 한다 */
+        .sg-header.urgent { background: linear-gradient(120deg, #ff6b81, #d63049); box-shadow: 0 4px 16px rgba(214,48,73,.55); }
+        .sg-header.urgent .sg-header-title, .sg-header.urgent .sg-timer { color: #fff; }
+        .sg-header.urgent .sg-dot { border-color: rgba(255,255,255,.6); }
+        .sg-header.urgent .sg-dot.done { background: #fff; border-color: #fff; }
+        /* 시간이 다 되면 깜빡임을 멈추고 '끝났다'는 것만 또렷하게 보여준다 */
+        .sg-header.timeup { background: linear-gradient(120deg, #6b7280, #374151); box-shadow: none; animation: none; }
+        .sg-header.timeup .sg-header-title, .sg-header.timeup .sg-timer { color: #e5e7eb; }
+        .sg-header.timeup .sg-timer { font-size: 22px; letter-spacing: 0; }
+        .sg-timer.urgent { color: #ff4d6d; text-shadow: 0 0 18px rgba(255,77,109,.8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
+        @keyframes sg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+        /* --sg-cw : 카드 한 장의 폭. 글자 크기를 여기에 비례시켜, 칸이 줄어도 균형이 유지된다. */
+        .sg-grid { display: grid; gap: 8px; perspective: 1200px; }
+        .sg-card { position: relative; perspective: 1500px;
+            transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s .4s; }
+        .sg-card.popped { transform: scale(1.45) translateZ(60px); z-index: 100;
+            transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s 0s; }
+        .sg-inner { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d;
+            transition: transform .6s cubic-bezier(.4,0,.2,1); }
+        .sg-inner.flipped { transform: rotateY(180deg); }
+        .sg-front, .sg-back {
+            width: 100%; height: 100%; position: absolute; backface-visibility: hidden;
+            border-radius: 8px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,.5);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .sg-front { background: #fff; border: 2px solid var(--gold); }
+        .sg-front img { width: 100%; height: 100%; object-fit: cover; }
+        .sg-back {
+            transform: rotateY(180deg); border: 2px solid rgba(246,196,83,0.55);
+            background: linear-gradient(145deg, rgba(46,46,60,0.92), rgba(18,18,26,0.96));
+        }
+        .sg-back::after {   /* 카드 뒷면 무늬 */
+            content: ''; position: absolute; inset: 0; opacity: .16;
+            background: repeating-linear-gradient(45deg, var(--gold) 0 4px, transparent 4px 10px);
+        }
+        /* 다른 위젯(점수판·계좌·게이지)과 같은 유리 카드. 값은 전부 공통 변수를 쓴다 —
+           테마를 바꾸면 여기도 같이 따라간다. */
+        .sg-board {
+            position: relative; padding: 12px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .sg-board::before {   /* 윗면에 스치는 빛 — 다른 위젯과 동일 */
+            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
+            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+            pointer-events:none;
+        }
+        .sg-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+            color: #241a05; padding: 6px 14px; border-radius: 12px;
+            box-shadow: 0 4px 14px var(--gold-glow);
+        }
+        .sg-header-title { font-weight: 900; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap; }
+        .sg-progress { display: flex; gap: 5px; align-items: center; }
+        /* 헤더가 금색이라 점도 어두운 색으로 뒤집는다(금색 위 금색은 안 보인다) */
+        .sg-dot {
+            width: 13px; height: 13px; border-radius: 50%;
+            border: 2px solid rgba(36,26,5,0.55); background: transparent;
+        }
+        .sg-dot.done { background: #241a05; border-color: #241a05; box-shadow: 0 0 8px rgba(0,0,0,.35); }
+        /* 목표를 받아낸 카드 — 금테와 체크로 확실히 구분한다(방송에서 한눈에 보여야 한다) */
+        .sg-card.done .sg-front { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,.55), 0 0 16px rgba(46,204,113,.6); }
+        .sg-card.done .sg-front::after {
+            content: '✔'; position: absolute; top: 2px; right: 4px; z-index: 2;
+            font-weight: 900; color: #2ecc71; text-shadow: 0 2px 5px #000;
+            font-size: calc(var(--sg-cw, 160px) * 0.20);
+        }
+        .sg-card.done .sg-front img { filter: saturate(1.15); }
+        /* 아직 못 받은 목표 — 살짝 흐리게 두어 대비를 준다 */
+        .sg-card.todo .sg-front img { filter: grayscale(.55) brightness(.8); }
+        /* ── 클리어 도장 ── 발로란트 킬 배너처럼 쾅 찍히고 살짝 튄다 */
+        .sg-stamp {
+            position: absolute; inset: 0; z-index: 3; display: none;
+            align-items: center; justify-content: center; pointer-events: none;
+        }
+        .sg-card.cleared .sg-stamp { display: flex; }
+        .sg-stamp span {
+            font-weight: 900; letter-spacing: 1px; color: #fff;
+            font-size: calc(var(--sg-cw, 160px) * 0.17);
+            padding: 3px 10px; border-radius: 6px; transform: rotate(-9deg);
+            background: linear-gradient(120deg, #2ecc71, #17a55b);
+            box-shadow: 0 3px 12px rgba(0,0,0,.6), 0 0 18px rgba(46,204,113,.7);
+            text-shadow: 0 2px 4px rgba(0,0,0,.5);
+        }
+        /* 방금 찍힌 순간에만 쾅 */
+        .sg-card.stamping .sg-stamp span { animation: sg-stamp-in .45s cubic-bezier(.2,1.6,.4,1) backwards; }
+        @keyframes sg-stamp-in {
+            0%   { opacity: 0; transform: rotate(-9deg) scale(2.6); }
+            60%  { opacity: 1; transform: rotate(-9deg) scale(.92); }
+            100% { opacity: 1; transform: rotate(-9deg) scale(1); }
+        }
+        .sg-card.stamping { animation: sg-punch .45s cubic-bezier(.2,1.6,.4,1); }
+        @keyframes sg-punch {
+            0%   { transform: scale(1); }
+            35%  { transform: scale(1.28); }
+            100% { transform: scale(1); }
+        }
+
+        /* ── 올클리어 ── 판이 커지고 왼쪽부터 하나씩 터진 뒤 배너 ── */
+        .sg-board.allclear { box-shadow: var(--glass-shadow), 0 0 0 2px rgba(46,204,113,.55), 0 0 60px rgba(46,204,113,.45); }
+        .sg-grid.allclear { animation: sg-grid-swell 2.6s ease-in-out; }
+        @keyframes sg-grid-swell {
+            0%   { transform: scale(1); }
+            25%  { transform: scale(1.10); }
+            80%  { transform: scale(1.10); }
+            100% { transform: scale(1); }
+        }
+        .sg-allclear {
+            position: absolute; inset: 0; z-index: 5; display: none;
+            align-items: center; justify-content: center; pointer-events: none;
+        }
+        .sg-allclear.on { display: flex; }
+        .sg-allclear span {
+            font-size: 92px; font-weight: 900; letter-spacing: 4px; color: #fff;
+            padding: 10px 40px; border-radius: 18px; white-space: nowrap;
+            background: linear-gradient(120deg, #2ecc71, #12a05a);
+            box-shadow: 0 14px 50px rgba(0,0,0,.65), 0 0 70px rgba(46,204,113,.8);
+            text-shadow: 0 4px 10px rgba(0,0,0,.55);
+            animation: sg-allclear-in .55s cubic-bezier(.2,1.7,.4,1) backwards;
+        }
+        @keyframes sg-allclear-in {
+            0%   { opacity: 0; transform: scale(3) rotate(-6deg); }
+            55%  { opacity: 1; transform: scale(.94) rotate(2deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0); }
+        }
+
+        .sg-title {
+            position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 5px;
+            background: linear-gradient(transparent, rgba(0,0,0,.85));
+            color: #fff; font-weight: 800; text-align: center; line-height: 1.2;
+            font-size: calc(var(--sg-cw, 160px) * 0.095);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sg-front { position: relative; }
+        .sg-num {
+            position: relative; z-index: 1; font-weight: 900; color: var(--gold);
+            font-size: calc(var(--sg-cw, 160px) * 0.30);
+            text-shadow: 0 0 10px var(--gold-glow), 0 2px 0 rgba(0,0,0,.6);
+        }
+        /* 카드 깔기 — 위에서 하나씩 떨어진다 */
+        .sg-card.fly { animation: sg-fly .5s cubic-bezier(.175,.885,.32,1.275) backwards; }
+        @keyframes sg-fly {
+            from { opacity: 0; transform: translateY(-120px) scale(.6) rotateX(60deg); }
+            to   { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
+        }
+        /* 섞기 — 원본의 10가지 중 대표 4가지만 옮겼다(나머지는 서로 거의 구분되지 않았다) */
+        .sg-sh1 { animation: sg-chaos 1.2s ease-in-out; }
+        @keyframes sg-chaos {
+            0% { transform: scale(1) translate(0,0) rotate(0); }
+            50% { transform: scale(.5) translate(var(--tx),var(--ty)) rotate(540deg); opacity: .6; z-index: 100; }
+            100% { transform: scale(1) translate(0,0) rotate(720deg); }
+        }
+        .sg-sh2 { animation: sg-tornado 1.2s ease-in-out; }
+        @keyframes sg-tornado {
+            0% { transform: translate(0,0) rotateY(0); }
+            50% { transform: translate(var(--tx),var(--ty)) rotateY(900deg) scale(.4); opacity: .5; z-index: 100; }
+            100% { transform: translate(0,0) rotateY(1800deg); }
+        }
+        .sg-sh3 { animation: sg-wave 1.2s ease-in-out; }
+        @keyframes sg-wave {
+            0% { transform: translateY(0); }
+            30% { transform: translateY(-160px) rotate(-25deg); z-index: 100; }
+            60% { transform: translateY(120px) rotate(25deg); }
+            100% { transform: translateY(0) rotate(0); }
+        }
+        .sg-sh4 { animation: sg-spinout 1.2s ease-in-out; }
+        @keyframes sg-spinout {
+            0% { transform: scale(1) rotate(0); }
+            50% { transform: scale(.3) translate(var(--tx),var(--ty)) rotate(-720deg); opacity: .4; z-index: 100; }
+            100% { transform: scale(1) rotate(0); }
+        }
         .sig-tally-board {
             position: relative; width: 206px; padding: 10px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -1419,6 +1605,20 @@
             </div>
 
             <!-- 📊 시그니처 신청 집계 패널 (이번 방송 기준). 켜야 보이며 위치/크기는 에디터에서 조절 -->
+            <!-- 🃏 시그 뒤집기 게임 -->
+            <div id="siggame-container" class="widget-container" style="left: 362px; top: 520px; width: 700px;">
+                <div class="sg-board">
+                    <div class="sg-header">
+                        <span class="sg-header-title">🃏 시그 뒤집기</span>
+                        <span class="sg-timer" id="sg-timer">10:00</span>
+                        <span class="sg-progress" id="sg-progress"></span>
+                    </div>
+                    <div class="sg-grid" id="sg-grid"></div>
+                </div>
+                <!-- 🎉 올클리어 배너. 판 위에 겹쳐 뜬다(자리를 차지하지 않는다). -->
+                <div class="sg-allclear" id="sg-allclear"><span>ALL CLEAR</span></div>
+            </div>
+
             <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 850px; top: 300px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="sig-tally-board">
                     <div class="sig-tally-header">🎵 시그니처 순위</div>
@@ -1785,11 +1985,305 @@
         // 🎯 목표 달성 연출 진행 중 여부 (applyLayout이 게이지 transform을 덮어쓰지 않도록 하는 플래그)
         let isGoalCelebrating = false;
 
+
+        // ═══ 🃏 시그 뒤집기 게임 ═══
+        // 규칙: 시그니처를 덮어 깔고 몇 장을 뒤집는다. 뒤집힌 것이 '목표'이고,
+        //       제한 시간 안에 그 시그니처를 후원으로 받아내면 달성이다.
+        //
+        // 서버가 상태의 정본이다. 여기서는 '그리기'와 '시간이 지나면 저절로 풀리는 연출'만 맡는다.
+        // ⚠️ 덮인 카드는 서버가 사진·이름을 아예 안 보내준다(mask_siggame). 그래서 번호만 그린다.
+        // ⚠️ [깜빡임 방지] 판을 매번 통째로 다시 만들면 안 된다. 후원이 들어올 때마다 상태가
+        //    갱신되는데, 그때마다 innerHTML 을 갈아끼우면 뒤집기 애니메이션이 끊기고 사진이
+        //    다시 불려와 화면이 깜빡인다. 구성이 바뀔 때만 새로 만들고, 평소에는 상태만 손댄다.
+        const SG_POP_MS = 2600;        // 방금 뒤집은 카드가 크게 보이는 시간
+        const SG_SHUFFLE_MS = 1200;    // 섞기 연출 길이
+        let sgLayoutKey = null;
+        let sgLastActionTs = 0;
+        let sgTimerTick = null;
+        let sgRepaintTimer = null;
+
+        // 🔊 짧은 효과음. 파일 없이 브라우저가 직접 만든다 — 관리할 자산이 없고
+        //    인터넷이 끊겨도 나며, 음을 한 단계씩 올리기도 쉽다.
+        //    ⚠️ 소리는 '소리를 맡은 창'에서만 낸다. 안 그러면 오버레이를 여러 개 띄웠을 때 겹친다.
+        function sgBlip(freq, dur, vol, type) {
+            try {
+                if (!isAudioLeader()) return;
+                initAudio();
+                if (!audioCtx) return;
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const t0 = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type || 'triangle';
+                osc.frequency.setValueAtTime(freq, t0);
+                gain.gain.setValueAtTime(0.0001, t0);
+                gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(t0); osc.stop(t0 + dur + 0.02);
+            } catch (e) { /* 소리는 실패해도 게임 진행에 영향이 없어야 한다 */ }
+        }
+
+        // 클리어 한 장: 몇 번째냐에 따라 음이 올라간다(발로란트 킬 카운터 느낌)
+        function sgClearSound(index) {
+            const scale = [523, 587, 659, 784, 880, 988, 1047];   // 도레미…
+            sgBlip(scale[Math.min(index, scale.length - 1)], 0.16, 0.30);
+        }
+        function sgAllClearSound() {
+            [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => sgBlip(f, 0.5, 0.34, 'sawtooth'), i * 70));
+        }
+
+        function sgFmt(sec) {
+            sec = Math.max(0, Math.floor(sec));
+            return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+        }
+
+        function sgSyncTimer(g) {
+            if (sgTimerTick) { clearInterval(sgTimerTick); sgTimerTick = null; }
+            const el = document.getElementById('sg-timer');
+            if (!el) return;
+            const t = (g && g.timer) || {};
+            const head = el.closest('.sg-header');
+            const paint = () => {
+                // ⚠️ 서버가 준 '끝나는 시각'은 서버 시계 기준이다. OBS PC 시계가 어긋나 있으면
+                //    Date.now() 로 그냥 빼면 남은 시간이 통째로 틀린다(10분 게임이 08:00 부터
+                //    시작하거나, 심하면 시작하자마자 00:00 이 뜬다).
+                //    이 파일은 이미 serverTimeOffset 으로 그 차이를 재고 있다(대결 타이머와 같은 방식).
+                const now = Date.now() + serverTimeOffset;
+                const left = (t.status === 'PLAYING' && t.expiresAt)
+                    ? (t.expiresAt - now) / 1000 : (t.timeLeft || 0);
+                el.textContent = left <= 0 && t.status === 'PLAYING' ? '시간 종료' : sgFmt(left);
+                if (head) {
+                    // 다 됐으면 '급함(빨강)'이 아니라 '끝남(회색)'이다. 둘이 겹치면 어정쩡해진다.
+                    head.classList.toggle('urgent', t.status === 'PLAYING' && left <= 30 && left > 0);
+                    head.classList.toggle('timeup', t.status === 'PLAYING' && left <= 0);
+                }
+                // 다 됐으면 더 셀 것이 없다. 계속 돌면 화면만 깜빡인다.
+                if (left <= 0 && sgTimerTick) { clearInterval(sgTimerTick); sgTimerTick = null; }
+            };
+            paint();
+            if (t.status === 'PLAYING') sgTimerTick = setInterval(paint, 200);
+        }
+
+        function sgBuild(shown, cols, grid, box) {
+            const rows = Math.max(1, Math.ceil(shown.length / cols));
+            const gap = 8;
+            const width = box.offsetWidth || 700;
+            const cw = Math.max(30, Math.floor((width - gap * (cols - 1)) / cols));
+            // ⚠️ 카드 비율은 16:9 다. 시그니처 사진이 가로형이라 세로로 길게 잡으면
+            //    사진이 좌우로 잘려나가고, 판도 쓸데없이 높아져 점수판 옆에 안 들어간다.
+            const ch = Math.round(cw * 9 / 16);
+            grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cw + 'px)';
+            grid.style.gridTemplateRows = 'repeat(' + rows + ', ' + ch + 'px)';
+            grid.style.setProperty('--sg-cw', cw + 'px');   // 글자 크기를 카드 폭에 비례시킨다
+            grid.innerHTML = shown.map(c =>
+                '<div class="sg-card" data-id="' + c.id + '">' +
+                    '<div class="sg-inner">' +
+                        '<div class="sg-front"><img alt=""><div class="sg-title"></div>' +
+                            '<div class="sg-stamp"><span>CLEAR</span></div></div>' +
+                        '<div class="sg-back"><span class="sg-num">' + c.id + '</span></div>' +
+                    '</div>' +
+                '</div>').join('');
+        }
+
+        function sgRenderGame(g) {
+            const box = document.getElementById('siggame-container');
+            const grid = document.getElementById('sg-grid');
+            if (!box || !grid) return;
+
+            const cards = (g && g.cards) || [];
+            const on = !!(g && g.enabled && cards.length);
+            box.classList.toggle('on', on);
+            box.style.opacity = on ? (g.opacity != null ? g.opacity : 1) : 0;
+            if (!on) {
+                sgClearTimers();
+                const bn = document.getElementById('sg-allclear');
+                if (bn) bn.classList.remove('on');
+                sgSeenDone.clear();
+                grid.innerHTML = '';
+                sgLayoutKey = null;
+                const pr = document.getElementById('sg-progress');
+                if (pr) pr.innerHTML = '';
+                if (sgTimerTick) { clearInterval(sgTimerTick); sgTimerTick = null; }
+                return;
+            }
+
+            // ⚠️ 목표를 다 뒤집으면 나머지는 치우고 목표만 한 줄로 남긴다.
+            //    16장을 계속 깔아두면 화면을 크게 먹는데, 그때부터는 '받아야 할 5장'만 보면 된다.
+            const goals = cards.filter(c => c.flippedAt);
+            const target = Math.max(1, g.target || 5);
+            const compact = goals.length >= target;
+            const shown = compact ? goals : cards;
+            const cols = compact ? shown.length : Math.max(1, g.cols || 4);
+
+            const key = (compact ? 'C' : 'F') + shown.length + '|' + cols + '|' + shown.map(c => c.id).join(',');
+            if (key !== sgLayoutKey) { sgLayoutKey = key; sgBuild(shown, cols, grid, box); }
+
+            const act = (g.action || {});
+            // ⚠️ flippedAt·doneAt·action.ts 는 전부 '서버 시계'로 찍힌 값이다.
+            //    OBS PC 시계가 서버보다 몇 초만 앞서 있어도 (now - doneAt) 이 8초를 넘어버려
+            //    CLEAR 도장이 아예 안 찍히고, 반대로 뒤처져 있으면 음수가 되어 카드가
+            //    커진 채 굳는다. 타이머는 이미 이 보정을 쓰고 있었는데 카드 쪽만 빠져 있었다.
+            const now = Date.now() + serverTimeOffset;
+            const isNewAction = act.ts && act.ts !== sgLastActionTs;
+            if (isNewAction) sgLastActionTs = act.ts;
+            const shuffling = act.type === 'SHUFFLE' && (now - act.ts) < SG_SHUFFLE_MS;
+
+            const els = grid.children;
+            for (let i = 0; i < els.length && i < shown.length; i++) {
+                const el = els[i], c = shown[i];
+                const revealed = c.state === 'REVEALED';
+                // '목표'는 뒤집어서 연 카드(flippedAt)만이다. 끝나고 구경용으로 전부 공개한 건 목표가 아니다.
+                const isGoal = revealed && !!c.flippedAt;
+                const done = !!c.doneAt;
+                const popped = (c.flippedAt && (now - c.flippedAt) < SG_POP_MS)
+                            || (c.doneAt && (now - c.doneAt) < SG_POP_MS);
+
+                el.querySelector('.sg-inner').classList.toggle('flipped', !revealed);
+                el.classList.toggle('popped', !!popped);
+                el.classList.toggle('done', done);
+                el.classList.toggle('todo', isGoal && !done);
+                // 목표로 뒤집은 카드만 도장이 찍힌다. 끝나고 구경용으로 공개한 건 아니다.
+                el.classList.toggle('cleared', isGoal && done);
+
+                const img = el.querySelector('.sg-front img');
+                const want = revealed ? (c.image || '') : '';
+                if (img && img.getAttribute('src') !== want) {
+                    if (want) img.setAttribute('src', want); else img.removeAttribute('src');
+                }
+                const cap = el.querySelector('.sg-title');
+                const title = revealed
+                    ? ((c.title || '') + (c.amount ? ' · ' + Number(c.amount).toLocaleString() + '원' : ''))
+                    : '';
+                if (cap && cap.textContent !== title) cap.textContent = title;
+
+                if (isNewAction) {
+                    el.classList.remove('fly', 'sg-sh1', 'sg-sh2', 'sg-sh3', 'sg-sh4');
+                    void el.offsetWidth;   // 같은 애니메이션을 다시 재생하려면 리플로우가 필요하다
+                    if (act.type === 'PLACE') {
+                        el.style.animationDelay = (i * 50) + 'ms';
+                        el.classList.add('fly');
+                    } else if (act.type === 'SHUFFLE') {
+                        // ⚠️ 흩어지는 방향을 매 그리기마다 새로 뽑으면 후원 하나에도 카드가 튄다.
+                        //    번호와 신호 시각으로 정해 늘 같은 값이 나오게 한다.
+                        const s1 = (act.ts + c.id * 7919) % 1000 / 1000;
+                        const s2 = (act.ts + c.id * 104729) % 1000 / 1000;
+                        el.style.setProperty('--tx', ((s1 - 0.5) * 700).toFixed(0) + 'px');
+                        el.style.setProperty('--ty', ((s2 - 0.5) * 500).toFixed(0) + 'px');
+                        el.style.animationDelay = (s1 * 100).toFixed(0) + 'ms';
+                        el.classList.add('sg-sh' + (((act.animIndex || 1) - 1) % 4 + 1));
+                    }
+                } else if (!shuffling) {
+                    el.classList.remove('sg-sh1', 'sg-sh2', 'sg-sh3', 'sg-sh4');
+                }
+            }
+
+            // 목표 진행 표시(●●●○○) — 몇 개를 받아냈는지 한눈에 보이게.
+            const doneCount = goals.filter(c => c.doneAt).length;
+            const pr = document.getElementById('sg-progress');
+            if (pr) {
+                const wantDots = Math.max(target, goals.length);
+                if (pr.children.length !== wantDots) {
+                    pr.innerHTML = Array.from({ length: wantDots }, () => '<div class="sg-dot"></div>').join('');
+                }
+                for (let k = 0; k < pr.children.length; k++) {
+                    pr.children[k].classList.toggle('done', k < doneCount);
+                }
+            }
+
+            // ── 연출 판단 ──
+            // 방금 달성된 카드가 있으면 그 카드만 도장을 찍는다(올클리어 중에는 건너뛴다).
+            const allClearRunning = act.type === 'ALLCLEAR' && (now - act.ts) < 12000;
+            if (!allClearRunning) {
+                shown.forEach((c, i) => {
+                    if (!c.doneAt || !c.flippedAt) return;
+                    const key = c.id + ':' + c.doneAt;
+                    if (sgSeenDone.has(key)) return;
+                    sgSeenDone.add(key);
+                    // 오래된 달성(새로고침 직후 등)은 다시 터뜨리지 않는다
+                    if (now - c.doneAt < 8000) sgStampOne(els[i], goals.filter(x => x.doneAt && x.doneAt <= c.doneAt).length - 1);
+                });
+            }
+            // 올클리어 신호가 새로 왔을 때만 한 번 재생한다
+            if (act.type === 'ALLCLEAR' && act.ts !== sgAllClearTs && (now - act.ts) < 8000) {
+                sgAllClearTs = act.ts;
+                shown.forEach(c => { if (c.doneAt) sgSeenDone.add(c.id + ':' + c.doneAt); });
+                sgPlayAllClear(grid, box.querySelector('.sg-board') || box, goals.length);
+            }
+
+            if (sgRepaintTimer) { clearTimeout(sgRepaintTimer); sgRepaintTimer = null; }
+            const waits = [];
+            cards.forEach(c => {
+                if (c.flippedAt && now - c.flippedAt < SG_POP_MS) waits.push(SG_POP_MS - (now - c.flippedAt));
+                if (c.doneAt && now - c.doneAt < SG_POP_MS) waits.push(SG_POP_MS - (now - c.doneAt));
+            });
+            if (shuffling) waits.push(SG_SHUFFLE_MS - (now - act.ts));
+            if (waits.length) {
+                sgRepaintTimer = setTimeout(() => {
+                    sgRenderGame((globalData || {}).siggame);
+                }, Math.max(30, Math.min.apply(null, waits) + 30));
+            }
+        }
+
+        // ═══ 클리어 연출 ═══
+        // 서버는 '누가 언제 달성됐는지'만 준다. 언제 어떻게 터뜨릴지는 여기서 정한다.
+        // ⚠️ 이미 본 달성을 기억해 둔다. 안 그러면 후원이 하나 들어와 상태가 갱신될 때마다
+        //    예전에 찍힌 도장이 처음부터 다시 터진다.
+        const sgSeenDone = new Set();
+        let sgAllClearTs = 0;
+        let sgAllClearTimers = [];
+
+        function sgClearTimers() {
+            sgAllClearTimers.forEach(t => clearTimeout(t));
+            sgAllClearTimers = [];
+        }
+
+        // 한 장이 방금 달성됐을 때 — 그 카드만 쾅
+        function sgStampOne(el, index) {
+            if (!el) return;
+            el.classList.remove('stamping');
+            void el.offsetWidth;              // 같은 애니메이션을 다시 재생하려면 리플로우가 필요하다
+            el.classList.add('stamping');
+            sgClearSound(index);
+            setTimeout(() => el.classList.remove('stamping'), 600);
+        }
+
+        // 올클리어 — 왼쪽부터 하나씩 다시 터뜨리고 마지막에 배너
+        function sgPlayAllClear(grid, board, goalCount) {
+            sgClearTimers();
+            const banner = document.getElementById('sg-allclear');
+            const cards = [...grid.children];
+            board.classList.add('allclear');
+            grid.classList.add('allclear');
+            cards.forEach(c => c.classList.remove('stamping'));
+
+            const STEP = 350;
+            cards.forEach((el, i) => {
+                sgAllClearTimers.push(setTimeout(() => sgStampOne(el, i), 250 + i * STEP));
+            });
+            const finale = 250 + goalCount * STEP + 150;
+            sgAllClearTimers.push(setTimeout(() => {
+                if (banner) { banner.classList.remove('on'); void banner.offsetWidth; banner.classList.add('on'); }
+                sgAllClearSound();
+            }, finale));
+            // 원래대로 되돌린다. 안 되돌리면 배너가 방송 화면에 계속 박혀 있는다.
+            sgAllClearTimers.push(setTimeout(() => {
+                if (banner) banner.classList.remove('on');
+                board.classList.remove('allclear');
+                grid.classList.remove('allclear');
+            }, finale + 3200));
+        }
+
+        function sgUpdate(g) {
+            try { sgRenderGame(g); sgSyncTimer(g); }
+            catch (e) { console.error('[시그게임] 화면 갱신 실패 — 방송은 계속됩니다:', e); }
+        }
+
         function applyLayout(ly) {
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke', 'acct_video'].forEach(id => {
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke', 'acct_video', 'siggame'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if(ly && el) {
                     let coord = ly[id];
@@ -2282,6 +2776,11 @@
             // 전광판은 방송 On/Off 와 무관하게(시그니처는 방송무관 재생) 항상 갱신한다.
             updateTickers(d);
             updateKaraoke(d);   // 🎤 노래방 영상 (방송 On/Off 무관)
+            // 🃏 시그 뒤집기 게임도 방송 On/Off 와 무관하다.
+            //    ⚠️ 아래 '방송 꺼져 있으면 return' 보다 반드시 앞에 둬야 한다.
+            //       뒤에 두면 방송 시작을 누르기 전에는 카드가 아예 안 그려진다
+            //       (예전에 시그니처 재생이 같은 이유로 통째로 막혔던 자리다).
+            sgUpdate(d.siggame);
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
@@ -2364,13 +2863,13 @@
                         if(i < extraBjs.length) {
                             let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
-                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
+                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < extraBjs.length) {
                             let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
+                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
 
@@ -2580,13 +3079,13 @@
                         if(i < bjs.length) {
                             let b = bjs[i]; let id = safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
-                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
+                            leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
                             let b = bjs[i]; let id = safeId(b.name); let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
+                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
 

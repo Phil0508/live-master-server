@@ -1049,6 +1049,7 @@
         <span class="tab-glabel">게임</span>
         <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+        <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
         <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 모드</button>
         <span class="tab-sep"></span>
         <!-- 설정 -->
@@ -1677,6 +1678,103 @@
 
     <!-- 🎰 슬롯머신 탭 -->
     <!-- 👑 특별 후원자(VIP) 탭 -->
+    <div id="tab-siggame" class="tab-content">
+        <div class="group-box">
+            <div class="group-title" style="color: var(--accent); font-size: var(--fs-6); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span><i class="fa-solid fa-clone"></i> 시그 뒤집기</span>
+                <span id="sg-phase" style="font-size: var(--fs-2); font-weight:800; padding:4px 12px; border-radius:999px; background:rgba(255,255,255,.06); color:var(--text-muted);">준비 안 됨</span>
+                <label class="toggle-row" style="margin-left:auto; background: rgba(0,0,0,0.25); border:1px solid var(--border-light); padding:6px 14px; border-radius: var(--r-2); gap:10px; width:auto;">
+                    <span class="toggle-label" style="font-size: var(--fs-2); font-weight:bold; color:#fff;">방송에 표시</span>
+                    <div class="apple-switch">
+                        <input type="checkbox" id="sg-enabled" onchange="sgToggle(this.checked)">
+                        <span class="apple-slider"></span>
+                    </div>
+                </label>
+            </div>
+
+            <div id="sg-why-hidden" style="display:none; margin-bottom:12px; padding:10px 14px; border-radius: var(--r-2);
+                 background: rgba(245,165,36,0.12); border:1px solid rgba(245,165,36,0.45); color:#f5a524; font-weight:700; font-size: var(--fs-2);"></div>
+
+            <!-- ── 조작 줄: 타이머 + 판 버튼을 한 줄에 ── -->
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; background: rgba(0,0,0,0.3);
+                        border:1px solid var(--border-light); border-radius: var(--r-3); padding:14px 16px; margin-bottom:14px;">
+                <div id="sg-timer-view" style="font-size:44px; font-weight:900; color: var(--accent); font-variant-numeric: tabular-nums; min-width:120px; line-height:1;">10:00</div>
+                <div style="display:flex; gap:6px;">
+                    <button onclick="sgTimer('START')" class="primary" style="height:38px; padding:0 16px; border-radius: var(--r-2); cursor:pointer;" title="시작"><i class="fa-solid fa-play"></i></button>
+                    <button onclick="sgTimer('PAUSE')" class="secondary" style="height:38px; padding:0 16px; border-radius: var(--r-2); cursor:pointer;" title="일시정지"><i class="fa-solid fa-pause"></i></button>
+                    <button onclick="sgTimer('STOP')" class="secondary" style="height:38px; padding:0 16px; border-radius: var(--r-2); cursor:pointer;" title="되돌리기"><i class="fa-solid fa-rotate-left"></i></button>
+                </div>
+                <div style="width:1px; height:34px; background: var(--border-light);"></div>
+                <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <label style="display:block; font-size:11px; color: var(--text-muted); margin-bottom:2px;">뒤집을 장수</label>
+                        <input type="number" id="sg-target" value="5" min="1" max="36" style="width:78px; height:38px;">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:11px; color: var(--text-muted); margin-bottom:2px;">시간(분)</label>
+                        <input type="number" id="sg-min" value="10" min="0" max="180" style="width:78px; height:38px;">
+                    </div>
+                    <button onclick="sgDeal()" class="primary" style="height:38px; padding:0 18px; border-radius: var(--r-2); cursor:pointer; font-weight:800;"><i class="fa-solid fa-layer-group"></i> 카드 깔기</button>
+                    <button onclick="sgShuffle()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="자리를 다시 섞습니다(달성 초기화)"><i class="fa-solid fa-shuffle"></i></button>
+                    <button onclick="sgRevealAll()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="남은 카드를 전부 공개"><i class="fa-solid fa-eye"></i></button>
+                    <button onclick="sgClear()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="판 치우기"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            </div>
+
+            <!-- ── 카드판 + 목표를 좌우로 ── -->
+            <div style="display:grid; grid-template-columns: minmax(320px, 1fr) minmax(300px, 1fr); gap:14px; align-items:start;">
+                <div style="background: rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius: var(--r-3); padding:16px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                        <span style="font-size: var(--fs-3); font-weight:800; color:#fff;"><i class="fa-solid fa-hand-pointer" style="color: var(--accent);"></i> 카드판</span>
+                        <span id="sg-remain" style="font-size: var(--fs-2); color: var(--accent); font-weight:900;"></span>
+                    </div>
+                    <div id="sg-board" style="display:grid; gap:6px;">
+                        <div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:26px;">카드를 깔면 여기에 번호가 나옵니다.</div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius: var(--r-3); padding:16px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                        <span style="font-size: var(--fs-3); font-weight:800; color:#fff;"><i class="fa-solid fa-list-check" style="color: var(--accent);"></i> 받아야 할 시그니처</span>
+                        <span id="sg-goal-count" style="font-size: var(--fs-2); color: var(--accent); font-weight:900;"></span>
+                    </div>
+                    <button id="sg-allclear-btn" onclick="sgAllClear()" disabled
+                            style="width:100%; height:44px; margin-bottom:10px; border-radius: var(--r-2); cursor:pointer;
+                                   font-weight:900; font-size: var(--fs-3); border:none; color:#fff;
+                                   background: linear-gradient(120deg, #2ecc71, #12a05a); opacity:.35;">
+                        🎉 ALL CLEAR 터뜨리기
+                    </button>
+                    <div style="font-size:11px; color: var(--text-muted); margin-bottom:10px;">
+                        시그니처가 <b>실제로 재생되는 순간</b> 아래 «받음»을 눌러주세요. 그때 방송 화면에 도장이 찍힙니다.
+                    </div>
+                    <div id="sg-goals" style="display:flex; flex-direction:column; gap:6px;">
+                        <div style="color:var(--text-muted); text-align:center; padding:26px;">아직 뒤집은 카드가 없습니다.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── 설정: 평소엔 접어둔다 ── -->
+            <div style="margin-top:14px; background: rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius: var(--r-3); overflow:hidden;">
+                <div onclick="sgTogglePicker()" style="display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; user-select:none;">
+                    <i id="sg-picker-caret" class="fa-solid fa-chevron-right" style="color: var(--accent); transition: transform .2s;"></i>
+                    <span style="font-size: var(--fs-3); font-weight:800; color:#fff;">깔 시그니처 고르기</span>
+                    <span id="sg-pick-summary" style="font-size: var(--fs-2); color: var(--text-muted); margin-left:auto;"></span>
+                </div>
+                <div id="sg-picker" style="display:none; padding:0 16px 16px;">
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; align-items:center;">
+                        <input type="search" id="sg-search" oninput="sgRenderSigGrid()" placeholder="이름 또는 금액으로 찾기" style="height:32px; flex:1; min-width:160px;">
+                        <button onclick="sgAutoPick(16)" class="primary" style="height:32px; font-size: var(--fs-1); padding:0 12px; border-radius: var(--r-1); cursor:pointer;"><i class="fa-solid fa-wand-magic-sparkles"></i> 무작위 16장</button>
+                        <button onclick="sgClearPicks()" class="secondary" style="height:32px; font-size: var(--fs-1); padding:0 10px; border-radius: var(--r-1); cursor:pointer;">해제</button>
+                        <button onclick="sgSavePicks()" class="primary" style="height:32px; font-size: var(--fs-1); padding:0 14px; border-radius: var(--r-1); cursor:pointer; font-weight:800;"><i class="fa-solid fa-floppy-disk"></i> 저장</button>
+                    </div>
+                    <div id="sg-sig-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap:8px; max-height:300px; overflow-y:auto; padding-right:4px;">
+                        <div style="grid-column:1/-1; color: var(--text-muted); text-align:center; padding:20px;">불러오는 중...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab-vip" class="tab-content">
         <div class="group-box">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
@@ -2434,6 +2532,7 @@
             // ⚠️ 아래 조기 반환보다 먼저 갱신한다. 입력칸에 포커스가 있으면 renderUI 가 통째로 빠져나가는데,
             //    깨워두기 표시가 실제 상태와 어긋난 채로 남으면 '켜둔 줄 알고' 자리를 비우게 된다.
             try { renderSelfPing(); } catch(e) {}
+            try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
             if(document.activeElement.tagName === "INPUT" && !document.activeElement.id.startsWith("chk") && !document.activeElement.classList.contains("setup-player-input") || document.activeElement.tagName === "TEXTAREA") return;
             
             let isActive = gd.broadcast_active || false;
@@ -6163,5 +6262,324 @@
         </div>
     </div>
 
+
+    <script>
+        // ═══ 🃏 시그 뒤집기 게임 ═══
+        // 규칙: 시그니처를 덮어 깔고 몇 장을 뒤집는다. 뒤집힌 것이 목표이고,
+        //       제한 시간 안에 그 시그니처를 후원으로 받아내면 달성이다(서버가 자동 판정).
+        // ⚠️ 서버는 덮인 카드의 사진·이름을 아예 안 보내준다(mask_siggame).
+        //    그래서 조종실 카드판도 번호만 보인다. 사장님도 모르는 편이 공정하고,
+        //    화면 공유나 개발자도구로 새어나갈 길도 없어진다.
+        let sgTimerView = null;
+        let sgAllSigs = [];
+        let sgPicks = new Set();     // 저장 전 임시 선택(시그니처 id)
+        const SG_MAX = 36;
+
+        function sgState() { return (typeof gd !== 'undefined' && gd && gd.siggame) ? gd.siggame : null; }
+
+        // 설정(그림 고르기)은 판을 만들 때만 쓴다. 평소엔 접어둬야 카드판이 한눈에 들어온다.
+        window.sgTogglePicker = function (force) {
+            const box = document.getElementById('sg-picker');
+            const caret = document.getElementById('sg-picker-caret');
+            if (!box) return;
+            const open = (force === undefined) ? (box.style.display === 'none') : !!force;
+            box.style.display = open ? 'block' : 'none';
+            if (caret) caret.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+            if (open && !sgAllSigs.length) sgLoadSigs();
+        };
+
+        async function sgCall(path, body) {
+            try {
+                const res = await fetch('/api/siggame/' + path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },   // 없으면 서버가 415 로 거른다
+                    body: JSON.stringify(body || {})
+                });
+                // fetch 는 401/500 에도 예외를 던지지 않는다. 확인하지 않으면 실패를 성공처럼 알린다.
+                const d = await res.json().catch(() => ({}));
+                if (!res.ok || d.status === 'error') throw new Error(d.message || ('HTTP ' + res.status));
+                return d;
+            } catch (e) { acctToast('실패: ' + e.message, 'warn'); return null; }
+        }
+        function sgNum(id, def) {
+            const v = parseInt(document.getElementById(id)?.value);
+            return isNaN(v) ? def : v;
+        }
+        function sgWon(n) { return Number(n || 0).toLocaleString(); }
+
+        /* ── 1단계: 시그니처 고르기 ── */
+        async function sgLoadSigs() {
+            try {
+                const r = await fetch('/api/signatures');
+                const d = await r.json();
+                sgAllSigs = (d.signatures || [])
+                    .filter(s => (s.image_url || '').trim())
+                    .sort((a, b) => (a.amount || 0) - (b.amount || 0));
+            } catch (e) { acctToast('시그니처 목록을 못 불러왔습니다: ' + e.message, 'warn'); }
+            // 저장돼 있던 선택을 되살린다(새로고침해도 남게).
+            const g = sgState();
+            if (g && Array.isArray(g.picks) && g.picks.length && !sgPicks.size) {
+                sgPicks = new Set(g.picks.map(x => x.sig_id));
+            }
+            sgRenderSigGrid();
+        }
+
+        function sgRenderSigGrid() {
+            const box = document.getElementById('sg-sig-grid');
+            if (!box) return;
+            if (!sgAllSigs.length) {
+                box.innerHTML = '<div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:20px;">사진이 있는 시그니처가 없습니다.</div>';
+                return;
+            }
+            const q = (document.getElementById('sg-search')?.value || '').trim().toLowerCase();
+            const list = q ? sgAllSigs.filter(s =>
+                String(s.title || '').toLowerCase().includes(q) || String(s.amount || '').includes(q)) : sgAllSigs;
+            if (!list.length) {
+                box.innerHTML = '<div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:20px;">찾는 시그니처가 없습니다.</div>';
+                return;
+            }
+            box.innerHTML = list.map(s => {
+                const on = sgPicks.has(s.id);
+                return '<div onclick="sgTogglePick(' + s.id + ')" style="position:relative; border-radius:10px; overflow:hidden; cursor:pointer;' +
+                    ' border:2px solid ' + (on ? 'var(--accent)' : 'transparent') + ';' +
+                    ' box-shadow:' + (on ? '0 0 14px rgba(74,158,255,.5)' : 'none') + ';">' +
+                    '<img src="' + String(s.image_url).replace(/"/g, '&quot;') + '"' +
+                        ' style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block; opacity:' + (on ? 1 : .38) + ';">' +
+                    '<div style="padding:5px 6px; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
+                        escapeHtml(s.title || '') + ' · ' + sgWon(s.amount) + '원</div>' +
+                    (on ? '<div style="position:absolute; top:5px; right:5px; width:24px; height:24px; border-radius:50%; background:var(--accent); color:#000; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:900;">✓</div>' : '') +
+                    '</div>';
+            }).join('');
+            const sum = document.getElementById('sg-pick-summary');
+            if (sum) sum.textContent = sgPicks.size ? (sgPicks.size + '장 선택됨') : '아직 안 골랐습니다';
+        }
+
+        window.sgTogglePick = function (id) {
+            if (sgPicks.has(id)) sgPicks.delete(id);
+            else {
+                if (sgPicks.size >= SG_MAX) { acctToast('카드는 최대 ' + SG_MAX + '장까지입니다', 'warn'); return; }
+                sgPicks.add(id);
+            }
+            sgRenderSigGrid();
+        };
+        window.sgClearPicks = function () { sgPicks.clear(); sgRenderSigGrid(); };
+        window.sgAutoPick = function (total) {
+            if (sgAllSigs.length < total) { acctToast('시그니처가 ' + total + '장보다 적습니다', 'warn'); return; }
+            const pool = sgAllSigs.slice();
+            for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+            sgPicks = new Set(pool.slice(0, total).map(s => s.id));
+            sgRenderSigGrid();
+            acctToast(total + '장을 무작위로 골랐습니다 — 저장을 눌러주세요', 'info');
+        };
+        async function sgSavePicks() {
+            if (!sgPicks.size) { acctToast('시그니처를 하나 이상 골라주세요', 'warn'); return; }
+            const d = await sgCall('picks', { picks: [...sgPicks] });
+            if (d) {
+                sgRenderSigGrid();
+                if (d.missing && d.missing.length) {
+                    // 고른 뒤 시그니처가 지워졌거나 바뀐 경우. 조용히 빠지면 판이 한 장 모자란 채 깔린다.
+                    acctToast(d.missing.length + '장은 목록에 없어 빠졌습니다 (저장된 것 ' + d.count + '장)', 'warn');
+                } else {
+                    acctToast('저장했습니다 (' + d.count + '장) — 이제 «카드 깔기»를 누르세요', 'ok');
+                }
+            }
+        }
+
+        /* ── 2단계: 판 ── */
+        async function sgDeal() {
+            // 이미 판이 깔려 있으면 새로 까는 순간 뒤집은 것도 달성 기록도 전부 사라진다.
+            // 섞기·치우기는 묻는데 이것만 안 물어서, 방송 중에 제일 위험한 버튼이었다.
+            const cur = (sgState() || {}).cards || [];
+            if (cur.length) {
+                const flipped = cur.filter(c => c.flippedAt).length;
+                if (!confirm('이미 ' + cur.length + '장이 깔려 있습니다'
+                           + (flipped ? ' (뒤집은 카드 ' + flipped + '장)' : '') + '.\n\n'
+                           + '새로 깔면 지금 판과 달성 기록이 모두 사라집니다. 계속할까요?')) return;
+            }
+            const d = await sgCall('deal', { minutes: sgNum('sg-min', 10), target: sgNum('sg-target', 5) });
+            if (d) acctToast(d.count + '장을 깔았습니다 (' + d.cols + '×' + d.rows + ', 뒤집을 장수 ' + d.target + ')', 'ok');
+        }
+        async function sgShuffle() {
+            if (!confirm('다시 섞을까요? 달성 기록도 초기화됩니다.')) return;
+            if (await sgCall('shuffle')) acctToast('자리를 다시 섞었습니다', 'ok');
+        }
+        async function sgRevealAll() {
+            if (!confirm('남은 카드를 전부 공개할까요? (게임이 끝난 뒤 쓰는 기능입니다)')) return;
+            if (await sgCall('reveal')) acctToast('전부 공개했습니다', 'ok');
+        }
+        async function sgClear() {
+            if (!confirm('판을 치울까요? 고른 시그니처 목록은 그대로 남습니다.')) return;
+            if (await sgCall('clear')) acctToast('판을 치웠습니다', 'ok');
+        }
+        async function sgTimer(action) {
+            await sgCall('timer', action === 'STOP' ? { action, minutes: sgNum('sg-min', 10) } : { action });
+        }
+        async function sgToggle(on) {
+            const d = await sgCall('set', { enabled: !!on });
+            if (!d) return;
+            const cards = (sgState() || {}).cards || [];
+            if (on && !cards.length) acctToast('표시를 켰지만 깔린 카드가 없습니다 — «카드 깔기»를 눌러주세요', 'warn');
+        }
+
+        /* ── 3단계: 뒤집기 / 4단계: 달성 ── */
+        // ⚠️ 뒤집기에는 '되돌리기'가 없다. 잘못 누르면 참가자가 받아야 할 금액이 그대로 늘고,
+        //    되돌리려면 판을 통째로 다시 섞는 수밖에 없다(그러면 달성 기록도 날아간다).
+        //    방송 중에 손이 스치는 사고를 막으려고 한 번 묻는다.
+        window.sgFlip = async function (id, alreadyOpen) {
+            if (alreadyOpen) { acctToast(id + '번은 이미 뒤집혀 있습니다', 'info'); return; }
+            const g = sgState() || {};
+            const flipped = ((g.cards || []).filter(c => c.flippedAt)).length;
+            const target = g.target || 5;
+            if (!confirm(id + '번 카드를 뒤집을까요?\n\n'
+                       + '뒤집으면 이번 판의 목표가 되고 되돌릴 수 없습니다.\n'
+                       + '(지금 ' + flipped + '/' + target + '장)')) return;
+            const d = await sgCall('flip', { id });
+            if (!d) return;
+            if (d.already) acctToast(id + '번은 이미 뒤집혔습니다', 'info');
+            else acctToast('🃏 ' + id + '번 → ' + (d.title || '') + ' · ' + sgWon(d.amount) + '원'
+                           + (d.remaining_flips > 0 ? ' (' + d.remaining_flips + '장 더)' : ' (다 뒤집었습니다)'), 'ok');
+        };
+        window.sgToggleDone = async function (id) { await sgCall('done', { id }); };
+        async function sgAllClear() {
+            const d = await sgCall('allclear');
+            if (d) acctToast('🎉 ALL CLEAR! (' + d.count + '장)', 'ok');
+        }
+
+        /* ── 서버 상태 → 화면 ── */
+        let _sgSig = null;
+        function sgSyncPanel() {
+            const g = sgState();
+            const board = document.getElementById('sg-board');
+            const chk = document.getElementById('sg-enabled');
+            if (!board) return;
+            if (chk && document.activeElement !== chk) chk.checked = !!(g && g.enabled);
+
+            const cards = (g && g.cards) || [];
+            const cols = Math.max(1, (g && g.cols) || 4);
+            const target = (g && g.target) || 5;
+            // 지금 무엇을 할 차례인지 배지로 알려준다.
+            const phase = document.getElementById('sg-phase');
+            if (phase) {
+                const picks = (g && g.picks) || [];
+                const flipped = cards.filter(c => c.flippedAt).length;
+                const doneN = cards.filter(c => c.doneAt).length;
+                let txt, col;
+                if (!picks.length)        { txt = '① 시그니처를 고르세요'; col = '#f5a524'; }
+                else if (!cards.length)   { txt = '② 카드를 까세요';       col = '#f5a524'; }
+                else if (flipped < target){ txt = '③ 카드를 뒤집으세요 (' + flipped + '/' + target + ')'; col = 'var(--accent)'; }
+                else if (doneN < flipped) { txt = '④ 후원을 기다리는 중 (' + doneN + '/' + flipped + ')'; col = 'var(--accent)'; }
+                else                      { txt = '🎉 전부 달성!';        col = '#2ecc71'; }
+                phase.textContent = txt;
+                phase.style.color = col;
+            }
+
+            // 스위치는 켰는데 화면에 안 나오는 이유를 짚어준다(제일 헷갈리는 지점이다).
+            const why = document.getElementById('sg-why-hidden');
+            if (why) {
+                const picks = (g && g.picks) || [];
+                let msg = '';
+                if (g && g.enabled && !cards.length) {
+                    msg = picks.length
+                        ? '⚠️ 표시는 켜져 있지만 깔린 카드가 없습니다 — 위쪽 «카드 깔기» 를 눌러주세요.'
+                        : '⚠️ 아직 아무것도 고르지 않았습니다 — 맨 아래 «깔 시그니처 고르기» 를 펼쳐 고르고 «저장», 그 다음 «카드 깔기» 입니다.';
+                } else if (g && !g.enabled && cards.length) {
+                    msg = '카드는 깔려 있지만 <b>표시가 꺼져 있어</b> 방송 화면에는 안 보입니다.';
+                }
+                why.innerHTML = msg;
+                why.style.display = msg ? 'block' : 'none';
+            }
+
+            const sig = JSON.stringify([cols, target, cards.map(c => [c.id, c.state, !!c.doneAt, !!c.flippedAt])]);
+            if (sig !== _sgSig) {
+                _sgSig = sig;
+                sgRenderBoard(board, cards, cols, target);
+                sgRenderGoals(cards, target);
+            }
+            sgSyncTimerView(g);
+        }
+
+        function sgRenderBoard(board, cards, cols, target) {
+            if (!cards.length) {
+                board.style.gridTemplateColumns = '1fr';
+                board.innerHTML = '<div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:30px;">아직 카드가 없습니다. 위에서 <b>카드 깔기</b>를 눌러주세요.</div>';
+                const r = document.getElementById('sg-remain'); if (r) r.textContent = '';
+                return;
+            }
+            board.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+            board.innerHTML = cards.map(c => {
+                const open = c.state === 'REVEALED';
+                const done = !!c.doneAt;
+                const border = done ? '#2ecc71' : open ? 'var(--accent)' : 'rgba(255,255,255,0.35)';
+                const bg = done ? 'rgba(46,204,113,0.16)' : open ? 'rgba(74,158,255,0.14)' : 'rgba(255,255,255,0.07)';
+                return '<button onclick="sgFlip(' + c.id + ', ' + (open ? 'true' : 'false') + ')"' +
+                    ' title="' + (open ? '이미 뒤집힘' : '뒤집기') + '"' +
+                    ' style="aspect-ratio:16/9; border-radius: var(--r-2); cursor:' + (open ? 'default' : 'pointer') + '; font-weight:900; font-size: var(--fs-5);' +
+                    ' display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden;' +
+                    ' border:2px solid ' + border + '; background:' + bg + '; color:' + (done ? '#2ecc71' : open ? 'var(--accent)' : '#fff') + ';">' +
+                    (open && c.image ? '<img src="' + String(c.image).replace(/"/g, '&quot;') + '" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:.4;">' : '') +
+                    '<span style="position:relative; z-index:1;">' + c.id + '</span>' +
+                    (done ? '<span style="position:absolute; top:3px; right:5px; font-size:14px; z-index:1;">✔</span>' : '') +
+                    '</button>';
+            }).join('');
+            const flipped = cards.filter(c => c.flippedAt).length;
+            const r = document.getElementById('sg-remain');
+            if (r) r.textContent = '뒤집음 ' + flipped + ' / ' + target;
+        }
+
+        function sgRenderGoals(cards, target) {
+            const box = document.getElementById('sg-goals');
+            if (!box) return;
+            const goals = cards.filter(c => c.flippedAt);
+            const cnt = document.getElementById('sg-goal-count');
+            const done = goals.filter(c => c.doneAt).length;
+            if (cnt) cnt.textContent = goals.length ? ('달성 ' + done + ' / ' + goals.length) : '';
+            // 올클리어는 다 채웠을 때만. 자동으로 터지지 않는다 — 언제 터뜨릴지는 진행자가 정한다.
+            const acb = document.getElementById('sg-allclear-btn');
+            if (acb) {
+                const ready = goals.length > 0 && done === goals.length;
+                acb.disabled = !ready;
+                acb.style.opacity = ready ? '1' : '.35';
+                acb.style.cursor = ready ? 'pointer' : 'not-allowed';
+                acb.textContent = ready ? '🎉 ALL CLEAR 터뜨리기'
+                                        : '🎉 ALL CLEAR (' + done + '/' + (goals.length || '?') + ' 채우면 켜집니다)';
+            }
+            if (!goals.length) {
+                box.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">아직 뒤집은 카드가 없습니다.</div>';
+                return;
+            }
+            box.innerHTML = goals.map(c => {
+                const ok = !!c.doneAt;
+                return '<div style="display:flex; align-items:center; gap:12px; padding:8px 12px; border-radius: var(--r-2);' +
+                    ' border:1px solid ' + (ok ? 'rgba(46,204,113,.5)' : 'var(--border-light)') + ';' +
+                    ' background:' + (ok ? 'rgba(46,204,113,.10)' : 'rgba(255,255,255,.03)') + ';">' +
+                    (c.image ? '<img src="' + String(c.image).replace(/"/g, '&quot;') + '" style="width:64px; height:36px; object-fit:cover; border-radius:6px; flex:none;">' : '') +
+                    '<span style="font-weight:900; color:' + (ok ? '#2ecc71' : '#fff') + '; min-width:34px;">' + c.id + '번</span>' +
+                    '<span style="flex:1; font-weight:700; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + escapeHtml(c.title || '') + '</span>' +
+                    '<span style="font-weight:800; color: var(--accent);">' + sgWon(c.amount) + '원</span>' +
+                    '<button onclick="sgToggleDone(' + c.id + ')" style="height:30px; padding:0 12px; border-radius: var(--r-1); cursor:pointer; font-weight:800;' +
+                    ' border:1px solid ' + (ok ? '#2ecc71' : 'var(--border-light)') + '; background:transparent; color:' + (ok ? '#2ecc71' : 'var(--text-muted)') + ';">' +
+                    (ok ? '✔ 받음' : '아직') + '</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function sgSyncTimerView(g) {
+            if (sgTimerView) { clearInterval(sgTimerView); sgTimerView = null; }
+            const el = document.getElementById('sg-timer-view');
+            if (!el) return;
+            const t = (g && g.timer) || { status: 'STOPPED', timeLeft: 600 };
+            const paint = () => {
+                // ⚠️ expiresAt 은 서버 시계다. 이 PC 시계가 어긋나 있으면 남은 시간이 통째로 틀린다.
+                //    (대결 타이머가 이미 쓰고 있는 보정값이다)
+                let left = (t.status === 'PLAYING' && t.expiresAt)
+                    ? (t.expiresAt - (Date.now() + serverTimeOffset)) / 1000 : (t.timeLeft || 0);
+                left = Math.max(0, Math.floor(left));
+                el.textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0');
+                el.style.color = (left <= 30 && t.status === 'PLAYING') ? '#ff4d6d' : 'var(--accent)';
+            };
+            paint();
+            if (t.status === 'PLAYING') sgTimerView = setInterval(paint, 250);
+        }
+    </script>
 </body>
 </html>

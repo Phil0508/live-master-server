@@ -169,11 +169,14 @@ async function addScore(payload) {
 // ── 배정 ──────────────────────────────────────────────────
 // ⚠️ 반드시 '이름'으로 사람을 찾는다. 목록은 기여도순으로 계속 재정렬되므로
 //    인덱스를 들고 있으면 엉뚱한 사람에게 점수가 들어간다.
-async function assign(donId, name) {
+// ⚠️ 이름이 아니라 명단에서의 자리 번호를 받는다(위 render 주석 참고).
+//    이름은 누른 순간 다시 찾는다.
+async function assign(donId, idx) {
     if (busy) return;
     const don = (gd.pending_donations || []).find(d => d.id === donId);
-    const p = players().find(b => b.name === name);
+    const p = players()[idx];
     if (!don || !p) return;
+    const name = p.name;
     busy = true;
 
     const pts = Math.round((don.amount || 0) / 10000);
@@ -245,10 +248,11 @@ async function ignore(donId) {
 }
 
 // ── 점수 직접 수정 ────────────────────────────────────────
-async function bump(name, delta) {
+async function bump(idx, delta) {
     if (busy) return;
-    const p = players().find(b => b.name === name);
+    const p = players()[idx];
     if (!p) return;
+    const name = p.name;
     busy = true;
     const before = { s: p.score || 0, c: p.contribution || 0 };
     p.score = before.s + delta;
@@ -325,9 +329,9 @@ function render() {
 
     $('pending').innerHTML = pend.length ? pend.map(d => {
         const s = suggest[d.id];
-        const btns = list.map(p =>
+        const btns = list.map((p, i) =>
             `<button class="${s && s.target === p.name ? 'reco' : ''}"
-                     onclick="assign('${d.id}','${esc(p.name).replace(/'/g, '&#39;')}')">${esc(p.name)}</button>`
+                     onclick="assign('${d.id}',${i})">${esc(p.name)}</button>`
         ).join('');
         return `<div class="card">
             <div><span class="who">${esc(d.name)}</span> · <span class="amt">${won(d.amount)}원</span></div>
@@ -343,11 +347,11 @@ function render() {
         </div>`;
     }).join('') : '<div class="empty">대기 중인 후원이 없습니다</div>';
 
-    $('players').innerHTML = list.length ? list.map(p => `<div class="prow">
+    $('players').innerHTML = list.length ? list.map((p, i) => `<div class="prow">
         <div class="nm">${esc(p.name)}</div>
         <div class="sc">${won(p.score)}</div>
-        <button class="minus" onclick="bump('${esc(p.name).replace(/'/g, '&#39;')}',-1)">−</button>
-        <button class="plus"  onclick="bump('${esc(p.name).replace(/'/g, '&#39;')}',1)">+</button>
+        <button class="minus" onclick="bump(${i},-1)">−</button>
+        <button class="plus"  onclick="bump(${i},1)">+</button>
     </div>`).join('') : '<div class="empty">플레이어가 없습니다</div>';
 
     pend.forEach(askSuggest);

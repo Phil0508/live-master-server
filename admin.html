@@ -211,6 +211,28 @@
                     <div style="width:1280px; height:720px; border-radius:18px; background:rgba(46,204,113,0.12); border:3px dashed rgba(46,204,113,0.8); display:flex; align-items:center; justify-content:center; color:#a9f0c8; font-size:38px; font-weight:900; letter-spacing:2px; text-shadow:0 2px 8px #000;">🎬 고액후원 영상 영역</div>
                 </div>
 
+                <!-- 🃏 시그 뒤집기 게임: 조종실에서 카드를 깔면 여기 자리에 나온다.
+                     미리보기는 기본값(5x6, 폭 1080px) 기준 크기다. -->
+                <div class="widget" id="siggame" data-id="siggame" style="left:362px; top:520px;">
+                    <div style="width:700px; display:flex; flex-direction:column; align-items:center; gap:8px;">
+                        <div style="display:flex; align-items:center; gap:14px;">
+                            <span style="font-size:34px; font-weight:900; color:var(--gold, #f6c453); text-shadow:0 0 12px rgba(246,196,83,.5); letter-spacing:1px;">10:00</span>
+                            <span style="display:flex; gap:5px;">
+                                <span style="width:15px; height:15px; border-radius:50%; background:#f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                                <span style="width:15px; height:15px; border-radius:50%; border:2px solid #f6c453;"></span>
+                            </span>
+                        </div>
+                        <!-- 16장(4x4) 이 다 깔린 상태가 가장 크다. 이 크기로 자리를 잡으면 된다. -->
+                        <div style="width:700px; height:412px; border-radius:8px; background:rgba(246,196,83,0.10); border:3px dashed rgba(246,196,83,0.75); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:#f6c453; text-shadow:0 2px 8px #000;">
+                            <div style="font-size:26px; font-weight:900; letter-spacing:2px;">🃏 시그 뒤집기 카드판</div>
+                            <div style="font-size:15px; font-weight:700; opacity:.85;">16장(4 × 4) 기준 — 5장을 다 뒤집으면 한 줄로 줄어듭니다</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 🏃 퇴근빵: 랭킹판 자리를 대신 차지 (계좌 위젯과 같은 유리 카드, 제목은 안쪽 헤더) -->
                 <div class="widget" id="home-race" data-id="home-race" style="left:50px; top:50px; display: none;">
                     <div style="width: 520px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); padding: 18px 22px 16px;">
@@ -226,8 +248,15 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상' };
-            function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기' };
+            // 이름에 부등호나 따옴표가 들어와도 칸이 깨지지 않게 다듬는다
+        function escText(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function formatNum(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
             
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; scaleRatio = Math.min(availableW / 1080, availableH / 1920); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; }
             window.addEventListener('resize', resizeCanvas); resizeCanvas();
@@ -267,13 +296,13 @@
                         if(i < bjs.length) {
                             let b = bjs[i]; let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
                             let colorStyle = i===0 ? 'color:#FFD700; text-shadow:0 0 10px #FFD700;' : i===1 ? 'color:#E0E0E0; text-shadow:0 0 10px #E0E0E0;' : i===2 ? 'color:#CD7F32; text-shadow:0 0 10px #CD7F32;' : '';
-                            leftHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
+                            leftHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
                             let b = bjs[i]; let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row"><div class="r-rank">${rankStr}</div><div class="r-name">${b.name}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
+                            rightHtml += `<div class="excel-row"><div class="r-rank">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;
                     }
                     document.getElementById('rank-left').innerHTML = leftHtml; document.getElementById('rank-right').innerHTML = rightHtml;
