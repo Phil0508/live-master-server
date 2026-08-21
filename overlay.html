@@ -3425,6 +3425,20 @@
         let reactionTitleTimeout = null;
         // 시그니처 재생 시작 시: 큰 가운데 '@@업' 배너가 잠깐 등장 → 위/아래로 갈라지며
         //   전광판으로 내려가 그대로 스크롤. (연출은 scheduleTickerSplit / revealTickerSplit 담당)
+        // 🚨 계엄령 — 25만원짜리 시그니처 하나에만 붙는 특별 연출.
+        //    이것만 '@@업' 을 띄우지 않고, 대신 붉은 비상경보를 앞에 세운다.
+        //    ⚠️ 후원 금액이 아니라 '시그니처 자신의 값' 으로 가린다. 후원 금액으로
+        //       보면 26만원을 쏴도 25만원짜리가 걸릴 수 있어 엉뚱하게 터진다.
+        //    제목도 같이 보는 이유: 이 패치 전에 이미 대기열에 들어간 항목에는
+        //    sig_amount 가 없다(방송 중에 배포하면 그 몇 건이 여기 걸린다).
+        const MARTIAL_LAW_AMOUNT = 250000;
+        const MARTIAL_LAW_TITLE = '계엄령';
+        function isMartialLaw(item) {
+            if (!item) return false;
+            if (item.sig_amount != null) return Number(item.sig_amount) === MARTIAL_LAW_AMOUNT;
+            return String(item.title || '').trim() === MARTIAL_LAW_TITLE;
+        }
+
         function showReactionTitle(who, isSlot, amount) {
             const gd = globalData || {};
             let name = (who || '').trim();
@@ -3479,6 +3493,12 @@
         }
 
         function stopReactionVisuals() {
+            // 🚨 계엄령 경보는 4초짜리다. 재생을 중간에 끊으면 시그니처만 사라지고
+            //    붉은 화면이 남는다. '전체 비우기' 는 급할 때 누르는 버튼이라 즉시 깨끗해져야 한다.
+            //    ⚠️ opFxClear() 를 부르면 안 된다. 그건 조종실에서 따로 쏜 연출까지 지운다 —
+            //       연출은 시그니처 재생과 독립이어야 한다. 경보 한 겹만 걷는다.
+            const warnLayer = document.getElementById('op-fx-warn');
+            if (warnLayer) warnLayer.classList.remove('on');
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
             const audio = document.getElementById('reaction-audio');
@@ -3835,7 +3855,14 @@
                 // 3-b. 화면 중앙에 대형 네온으로 잠깐 노출. 일반 후원은 "홍길동"→"홍길동업",
                 //      슬롯 당첨(skip_popup)은 후원자가 '🎰 슬롯머신'이라 접미사 없이 당첨 시그니처 이름을 띄운다.
                 //      금액(amount)에 따라 배너 색·크기·노출시간이 달라진다.
-                showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup, data.amount);
+                if (isMartialLaw(data)) {
+                    // 계엄령: 이름을 부르지 않는다. 사이렌이 먼저다.
+                    hideReactionTitle();
+                    hideTickers();
+                    opFxFire({ kinds: ['warn'], message: '주의 계엄령 발동' });
+                } else {
+                    showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup, data.amount);
+                }
                 
                 // 4. 설정한 시간 뒤 좌측으로 부드럽게 이동/축소 (BJ 가림 방지). admin 에디터에서 조절.
                 reactionMinimizeTimeout = setTimeout(() => {

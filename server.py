@@ -649,6 +649,10 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
         "id": reaction_uuid,
         "item_id": sig.get('id'),
         "title": sig.get('title'),
+        # ⚠️ 아래 amount 는 '후원 금액'이다. 어떤 시그니처가 걸렸는지는 그걸로 알 수 없다
+        #    (26만원을 쏴도 25만원짜리가 걸릴 수 있다). 화면이 시그니처별 연출을
+        #    고르려면 시그니처 자신의 값이 필요해서 따로 싣는다.
+        "sig_amount": sig.get('amount'),
         "audio_url": sig.get('sound_url') or "",
         "image_url": sig.get('image_url') or "",
         "duration": sig.get('duration') or 10,
