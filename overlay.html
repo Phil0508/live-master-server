@@ -502,7 +502,12 @@
             font-size: calc(var(--sg-cw, 160px) * 0.095);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .sg-front { position: relative; }
+        /* ⚠️ 여기서 .sg-front 에 position: relative 를 다시 주면 안 된다.
+           위의 '.sg-front, .sg-back { position: absolute }' 와 우선순위가 같아
+           나중에 나온 이쪽이 이긴다. 그러면 앞면이 일반 흐름으로 돌아가고,
+           뒷면(덮인 무늬)이 그 '아래'에 쌓여 카드 한 칸 밑에 그려진다 —
+           덮인 판 전체가 한 줄 내려앉고 뒤집힌 카드만 떠 보이던 바로 그 버그다.
+           (제목·번호를 앞면 안에 붙이는 데는 절대배치인 지금 상태로 충분하다) */
         .sg-num {
             position: relative; z-index: 1; font-weight: 900; color: var(--gold);
             font-size: calc(var(--sg-cw, 160px) * 0.30);
