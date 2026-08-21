@@ -821,7 +821,8 @@ def require_login():
     # 시그니처 등록(/upload, /노래등록)은 관리 기능이므로 로그인 필요로 변경했다.
     # (등록 API가 /api/signatures/add 로 바뀌면서 인증이 필요해졌기 때문)
     if (path in exempt_routes or
-        path.startswith('/uploads/')):
+        path.startswith('/uploads/') or
+        path.startswith('/sfx/')):      # 🔊 효과음 — 오버레이는 로그인 세션이 없다
         return
          
     # HTTP Authorization Bearer 토큰 및 ?token= 파라미터 검증 지원
@@ -2657,6 +2658,23 @@ SERVABLE_EXTS = {
     '.woff', '.woff2', '.ttf', '.otf', '.eot',
     '.mp3', '.m4a', '.aac', '.ogg', '.wav', '.webm', '.mp4',
 }
+
+
+# 🔊 효과음. 오버레이에는 로그인 세션이 없으므로 이 폴더만 따로 열어준다.
+#    ⚠️ sounds/ 안의 소리 파일만 나간다. 폴더를 벗어나거나 다른 확장자면 404 다.
+#       (아래 catch-all 은 .mp3 를 로그인 없이 주지 않는다 — 그래서 전용 길이 필요하다)
+SFX_DIR = os.path.join(BASE_DIR, 'sounds')
+SFX_EXTS = {'.mp3', '.m4a', '.ogg', '.wav', '.webm'}
+
+
+@app.route('/sfx/<path:filename>')
+def serve_sfx(filename):
+    if os.path.splitext(filename)[1].lower() not in SFX_EXTS:
+        return jsonify({"error": "File not found"}), 404
+    full = os.path.normpath(os.path.join(SFX_DIR, filename))
+    if not full.startswith(os.path.normpath(SFX_DIR) + os.sep) or not os.path.exists(full):
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(SFX_DIR, filename)
 
 
 @app.route('/<path:filename>')

@@ -2027,11 +2027,64 @@
         }
 
         // 클리어 한 장: 몇 번째냐에 따라 음이 올라간다(발로란트 킬 카운터 느낌)
+        // 🔊 CLEAR 소리 — 실제 음원 파일 5개를 쓴다(sounds/siggame/clear1~5.mp3).
+        //    1~4 는 짧은 타격음, 5 는 길게 울리는 마무리음이다.
+        //    ⚠️ 파일이 없거나 못 받으면 예전처럼 브라우저가 만든 삑 소리로 돌아간다.
+        //       방송 중에 소리 하나 때문에 게임이 멈추면 안 된다.
+        //    ⚠️ 같은 파일이 겹쳐 나야 하므로(올클리어는 0.35초 간격으로 5번 터진다)
+        //       Audio 객체 하나를 재사용하지 않고 매번 복제해서 튼다.
+        const SG_SOUND_COUNT = 5;
+        const sgSounds = [];
+        let sgSoundsReady = false;
+
+        (function sgLoadSounds() {
+            let ok = 0, done = 0;
+            for (let i = 1; i <= SG_SOUND_COUNT; i++) {
+                const a = new Audio('/sfx/siggame/clear' + i + '.mp3');
+                a.preload = 'auto';
+                a.addEventListener('canplaythrough', () => {
+                    if (!a._counted) { a._counted = true; ok++; done++; finish(); }
+                }, { once: true });
+                a.addEventListener('error', () => {
+                    if (!a._counted) { a._counted = true; done++; finish(); }
+                }, { once: true });
+                sgSounds[i - 1] = a;
+            }
+            function finish() {
+                if (done < SG_SOUND_COUNT) return;
+                sgSoundsReady = (ok === SG_SOUND_COUNT);
+                console.log(sgSoundsReady
+                    ? '[시그게임] CLEAR 음원 ' + ok + '개 준비됨'
+                    : '[시그게임] CLEAR 음원 ' + ok + '/' + SG_SOUND_COUNT + '개만 받아졌습니다 — 기본 소리로 대체합니다');
+            }
+        })();
+
+        function sgPlayFile(index) {
+            const src = sgSounds[Math.min(index, SG_SOUND_COUNT - 1)];
+            if (!sgSoundsReady || !src) return false;
+            try {
+                const a = src.cloneNode();      // 겹쳐 재생하려면 매번 새 재생기가 필요하다
+                a.volume = 0.85;
+                const p = a.play();
+                if (p && p.catch) p.catch(() => {});   // 자동재생이 막혀도 게임은 계속된다
+                return true;
+            } catch (e) { return false; }
+        }
+
+        // 몇 번째 클리어냐에 따라 다른 소리. 파일이 없으면 음이 올라가는 삑 소리.
         function sgClearSound(index) {
+            if (!isAudioLeader()) return;   // 오버레이를 여러 개 띄웠을 때 겹치지 않게
+            if (sgPlayFile(index)) return;
             const scale = [523, 587, 659, 784, 880, 988, 1047];   // 도레미…
             sgBlip(scale[Math.min(index, scale.length - 1)], 0.16, 0.30);
         }
+
         function sgAllClearSound() {
+            if (!isAudioLeader()) return;
+            // ⚠️ 파일을 쓸 때는 여기서 따로 소리를 내지 않는다.
+            //    올클리어는 카드 5장을 차례로 터뜨리는데, 그 마지막(clear5)이 4.5초짜리
+            //    마무리음이라 배너가 뜰 때까지 그대로 울린다. 여기서 또 내면 겹쳐서 지저분해진다.
+            if (sgSoundsReady) return;
             [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => sgBlip(f, 0.5, 0.34, 'sawtooth'), i * 70));
         }
 
