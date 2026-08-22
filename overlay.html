@@ -4137,25 +4137,41 @@
         // ⚠️ vibrantColorFromImage() 는 색을 하나만 준다. 연출은 2~3개를 쓰므로 같은 색으로 채운다.
         //    색이 하나뿐이어도 연출은 정상 동작한다.
         // ⚠️ CORS 로 캔버스가 오염되면 throw 한다. 실패하면 null 을 넘겨 기본 색으로 가게 한다.
-        function sigFxColorsNow(url) {
-            if (!url) return null;
+        // 시그니처 사진 주소 → 대표색. 미리받기 때 채워 둔다.
+        // 후원이 들어온 순간엔 '읽기만' 한다 — 그때 픽셀을 읽으려 하면 늦거나 캐시가 어긋난다.
+        const sigFxColorCache = {};
+
+        function sigFxCacheColors(url, img) {
+            if (!url || sigFxColorCache[url]) return;
             try {
-                // 캐시에 있으면 complete 가 그 자리에서 참이 된다(방송 시작 때 미리받기를 한다).
-                // 없으면 색 없이 간다 — 기다리면 연출이 시그니처보다 늦게 시작한다.
-                const p = new Image();
-                p.crossOrigin = 'anonymous';
-                p.src = url;
-                if (!(p.complete && p.naturalWidth > 0)) return null;
-                const c = vibrantColorFromImage(p);
-                if (!c) return null;
+                const c = vibrantColorFromImage(img);
+                if (!c) return;
                 const rgb = `rgb(${c.r}, ${c.g}, ${c.b})`;
-                return [rgb, rgb, rgb];
+                // ⚠️ 연출은 색을 2~3개 쓴다. vibrantColorFromImage 는 하나만 주므로 같은 색으로 채운다.
+                sigFxColorCache[url] = [rgb, rgb, rgb];
             } catch (e) {
                 // CORS 로 캔버스가 오염되면 여기로 온다. 기본 색으로 계속 간다.
-                console.warn('[시그연출] 대표색 추출 실패 — 기본 색으로 갑니다', e);
-                return null;
+                sigFxColorCache[url] = null;
             }
         }
+
+        function sigFxColorsNow(url) {
+            if (!url) return null;
+            if (sigFxColorCache[url] !== undefined) return sigFxColorCache[url];
+            // 미리받기에 없던 새 시그니처. 지금 받아 두고(다음 번엔 색이 붙는다) 이번은 기본 색으로 간다.
+            try {
+                const p = new Image();
+                p.crossOrigin = 'anonymous';
+                p.onload = () => sigFxCacheColors(url, p);
+                p.src = url;
+            } catch (e) {}
+            return null;
+        }
+
+        // 연출이 카드를 붙잡고 있는 동안은 축소(minimize)를 미룬다.
+        // 그냥 두면 축소 클래스는 붙는데 연출 애니메이션이 이겨서 안 움직이고,
+        // 연출이 끝나는 순간 카드가 옆으로 '툭' 하고 순간이동한다.
+        let sigFxBusyUntil = 0;
 
         function sigFxPlay(item) {
             const key = sigFxKey(item);
@@ -4170,16 +4186,17 @@
                 const imgUrl = item.image_url || null;
                 // 흔들림은 방송 내용물(#master-container)에 건다. 무대를 흔들면 연출만 흔들리고,
                 // #scale-wrapper 를 흔들면 거기 걸린 배율이 날아가 화면이 통째로 어긋난다.
-                SigFX.play(key, document.getElementById('sigfx-inner'), {
+                const ms = SigFX.play(key, document.getElementById('sigfx-inner'), {
                     shakeEl: document.getElementById('master-container'),
                     image:   imgUrl,
                     colors:  sigFxColorsNow(imgUrl),
-                    // ⚠️ 카드는 넘기지 않는다. 넘기면 연출이 카드를 fill:'both' 로 붙잡는데,
-                    //    이 오버레이는 2.5초 뒤 카드를 왼쪽으로 축소해 진행자 얼굴을 비켜주는
-                    //    동작(minimize)이 따로 있다. 연출이 붙잡고 있으면 그게 안 먹어서
-                    //    긴 연출(최대 7.5초) 동안 카드가 화면 한가운데를 막는다.
-                    //    사진·색만으로도 연출과 카드가 같은 색으로 묶인다.
+                    // 카드를 넘기면 연출이 등장 시점을 잡는다 — '연출이 자리를 만들고
+                    // 그 자리에 카드가 놓인다' 가 한 동작이 된다.
+                    // ⚠️ 그동안 카드는 연출에 붙잡혀 있어서 축소(minimize)가 안 먹는다.
+                    //    그래서 축소를 연출이 끝난 뒤로 미룬다(아래 sigFxBusyUntil).
+                    card:    document.getElementById('reaction-screen-overlay'),
                 });
+                sigFxBusyUntil = Date.now() + (ms || 0);
                 console.log('[시그연출] ' + key + ' (' + item.sig_amount + '원)'
                             + (imgUrl ? ' · 사진 O' : ' · 사진 X'));
                 return true;
@@ -4628,9 +4645,14 @@
                 }
                 
                 // 4. 설정한 시간 뒤 좌측으로 부드럽게 이동/축소 (BJ 가림 방지). admin 에디터에서 조절.
+                // ⚠️ 전용 연출이 도는 동안은 카드가 연출에 붙잡혀 있어 축소가 안 먹는다.
+                //    원래 시점에 그냥 걸면 클래스만 붙은 채 안 움직이다가, 연출이 끝나는
+                //    순간 카드가 옆으로 '툭' 순간이동한다. 연출이 끝난 뒤로 미룬다.
+                const shrinkBase = (globalData && globalData.reaction_shrink_delay) || 2500;
+                const shrinkWait = Math.max(shrinkBase, sigFxBusyUntil - Date.now() + 120);
                 reactionMinimizeTimeout = setTimeout(() => {
                     overlay.classList.add('minimize');
-                }, (globalData && globalData.reaction_shrink_delay) || 2500);
+                }, shrinkWait);
                 
                 // 5. 음원 재생 및 종료 콜백 설정
                 // ⚠️ [중요] 이 아이템의 id를 클로저에 고정한다.
@@ -5501,7 +5523,17 @@
                 const sigs = (data && data.signatures) || [];
                 window.__sigCache = sigs;
                 // 이미지: 즉시 병렬 프리로드 (총 ~8MB, 가벼움)
-                sigs.forEach(s => { if (s.image_url) { const im = new Image(); im.src = s.image_url; } });
+                // ⚠️ crossOrigin 을 반드시 붙인다. 안 붙이면 CORS 없는 응답이 캐시에 들어가고,
+                //    나중에 색을 뽑으려고 crossOrigin='anonymous' 로 같은 주소를 부르면
+                //    '다른 캐시 항목'이라 캐시 미스가 난다. 실제로 이것 때문에 연출 색 연동이
+                //    한 번도 안 걸렸다. 받는 김에 대표색도 뽑아 캐시에 넣어 둔다.
+                sigs.forEach(s => {
+                    if (!s.image_url) return;
+                    const im = new Image();
+                    im.crossOrigin = 'anonymous';
+                    im.onload = () => { sigFxCacheColors(s.image_url, im); };
+                    im.src = s.image_url;
+                });
                 // 사운드: 백그라운드 순차 프리캐시 (대역폭 스파이크 방지)
                 (async () => {
                     for (const s of sigs) {

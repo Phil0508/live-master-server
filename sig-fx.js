@@ -237,13 +237,37 @@ class SigEngine {
       { opacity: 1, transform: 'scale(1)', offset: 1 },
     ];
     try {
-      const a = this.card.animate(frames, {
+      const timing = {
         duration: (o.dur || 520) / this.S,
         delay: Math.max(0, delay || 0) / this.S,
         easing: o.ease || 'cubic-bezier(.16,1,.3,1)',
         fill: 'both',
+      };
+      // ⚠️ transform 을 통째로 덮어쓰면 안 된다. 카드에는 대개 자리를 잡는
+      //    transform(translate(-50%,-50%) 같은 것)이 이미 걸려 있는데, 여기서
+      //    scale(.84) 로 갈아치우면 그 정렬이 날아가 카드가 화면 밖으로 밀린다.
+      //    실측: 넘기는 순간 (156,466) → (601,1039) 로 튕겨 나갔다.
+      //    그래서 두 갈래로 나눈다 —
+      //      투명도는 그대로 덮어쓰고(replace),
+      //      transform 은 원래 값 뒤에 이어 붙인다(composite:'add').
+      const opa = frames.map(f => {
+        const g = {};
+        if (f.opacity !== undefined) g.opacity = f.opacity;
+        if (f.offset !== undefined) g.offset = f.offset;
+        return g;
       });
-      this._cardAnims.push(a);
+      const trs = frames.map(f => {
+        const g = {};
+        if (f.transform !== undefined) g.transform = f.transform;
+        if (f.offset !== undefined) g.offset = f.offset;
+        return g;
+      });
+      if (opa.some(g => g.opacity !== undefined)) {
+        this._cardAnims.push(this.card.animate(opa, timing));
+      }
+      if (trs.some(g => g.transform !== undefined)) {
+        this._cardAnims.push(this.card.animate(trs, Object.assign({ composite: 'add' }, timing)));
+      }
     } catch (e) {}
   }
 

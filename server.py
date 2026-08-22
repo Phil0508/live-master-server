@@ -758,6 +758,16 @@ def add_header(r):
     return r
 
 # 🔒 [보안 통제] 웹 제어실 및 중요 API 접근 제한 미들웨어
+# 로그인 없이 나가는 정적 자원 확장자.
+# 파일 서빙 허용목록(SERVABLE_EXTS)과 따로 놓면 한쪽에만 추가하고 빠뜨려
+# '허용된 것이 로그인으로 튐기는' 사고가 난다. 그림·글꼴·스크립트만 여기 넣는다.
+STATIC_FREE_EXTS = {
+    '.css', '.js', '.mjs', '.map',
+    '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.avif',
+    '.woff', '.woff2', '.ttf', '.otf', '.eot',
+}
+
+
 @app.before_request
 def require_login():
     path = request.path
@@ -771,9 +781,10 @@ def require_login():
 
     
     # 정적 자원 파일 프리패스
-    if (path.endswith('.css') or path.endswith('.js') or path.endswith('.png') or 
-        path.endswith('.jpg') or path.endswith('.ico') or path.endswith('.woff') or 
-        path.endswith('.woff2') or path.endswith('.ttf') or path.endswith('.svg')):
+    # ⚠️ 오버레이는 로그인 세션이 없다. 여기에 빠진 확장자는 로그인 페이지로 302 된다 —
+    #    그러면 방송 화면에서 그 그림만 조용히 안 나온다. 실제로 .webp 가 빠져 있었다.
+    #    소리·영상(.mp3 등)은 일부러 넣지 않는다 — 효과음은 /sfx/ 전용 길로 나간다.
+    if os.path.splitext(path)[1].lower() in STATIC_FREE_EXTS:
         return
         
     # 세션 검증 예외 경로 리스트
