@@ -10,6 +10,10 @@
  * play(key, stageEl, opts?)
  *   key     : SigFX.ITEMS 의 key ('gazua' … 'mvp')
  *   stageEl : 1920x1080 기준의 컨테이너 (position:relative / overflow:hidden 필수)
+ *   opts.image  : 시그니처 사진 주소. 넘기면 연출 바탕이 그 사진이 된다
+ *   opts.colors : 사진에서 뽑은 대표색 배열. 넘기면 빛·테두리·글자 색이 이걸 따른다
+ *   opts.card   : 시그니처 카드 요소. 넘기면 연출이 카드 등장 시점까지 맡는다
+ *   ⚠️ 세 개 다 없어도 정상 동작한다 (없으면 기본 색·기본 타이밍)
  *   opts    : { speed: 1, impact: 1 }  speed↑ = 빠름, impact = 흔들림·글리치 세기
  *
  * 연출 레이어는 stageEl 안에 z-index:60 으로 잠깐 생겼다 스스로 사라집니다.
@@ -23,7 +27,12 @@
 'use strict';
 
 class SigEngine {
-  constructor() { this.opts = { speed: 1, impact: 1 }; }
+  constructor() {
+    this.opts = { speed: 1, impact: 1 };
+    // ⚠️ null 로 시작해야 한다. undefined 면 첫 재생의 _cleanup() 이
+    //    --reac-glow 에 문자열 'undefined' 를 써버려 카드 테두리·발광이 죽는다.
+    this._glowPrev = null;
+  }
 
   // ⚠️ 이 두 개가 없으면 dur / this.S 가 NaN 이 되어 animate() 가 통째로 던진다.
   //    (연출 17개가 전부 첫 줄에서 죽는다 — 화면에 아무것도 안 나온다)
@@ -87,44 +96,162 @@ class SigEngine {
     });
   }
 
+  /* cardAt = 연출이 카드를 올릴 시점(ms). 연출 안에서 cardIn() 을 부르면 그게 우선한다.
+     dur 은 실제 연출 길이 — play() 가 이 값으로 정리 시점을 잡으니 반드시 맞춰 둔다. */
   ITEMS = [
-    { key: 'gazua',  tier: '10만',    name: '가즈아',        note: '화염 분출',   dur: 1.8, detail: '흰 컷이 때리고 빠지며 불기둥이 치솟습니다' },
-    { key: 'lambada',tier: '13만',    name: '람바다',        note: '선셋 탱고',   dur: 2.2, detail: '레트로 선셋이 떠오르고 야자 실루엣이 펼쳐집니다' },
-    { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '동결',        dur: 2.4, detail: '가장자리부터 결정이 자라고 HOTEL 사인이 점등됩니다' },
-    { key: 'crazy',  tier: '16만',    name: '크레이지 러브', note: '블랙홀',      dur: 2.4, detail: '화면이 소용돌이로 빨려들었다 무지개로 터집니다' },
-    { key: 'bounce', tier: '18만',    name: '바운스',        note: '바운스',      dur: 2.0, detail: '착지마다 화면이 눌리고 늘어납니다' },
-    { key: 'martini',tier: '20만',    name: '마티니',        note: '마티니 타임', dur: 2.8, detail: '화면이 흑백으로 내려앉고 금빛이 한 번 스칩니다' },
-    { key: 'pocha',  tier: '200,001', name: '뽀카치포',      note: '질주',        dur: 2.2, detail: '헤드라이트가 훑고 화면이 드리프트합니다' },
-    { key: 'pucha',  tier: '30만',    name: '푸차',          note: '심해',        dur: 2.8, detail: '물결이 두 겹으로 차오르고 기포가 올라옵니다' },
-    { key: 'edm',    tier: '35만',    name: 'EDM',           note: '산성 파열',   dur: 2.6, detail: '초록 균열이 갈라지고 스캔라인이 어긋납니다' },
-    { key: 'sail',   tier: '50만',    name: '출항',          note: '출항이요',    dur: 3.4, detail: '비단이 흐른 뒤 두루마리가 좌우로 펼쳐집니다' },
-    { key: 'shield', tier: '500,001', name: '50만 방패',     note: '방패 강림',   dur: 3.2, detail: '방패가 내려찍히고 충격파와 분홍 번개가 터집니다' },
-    { key: 'slash',  tier: '600,001', name: '74번 알림',     note: '참격',        dur: 2.6, detail: 'X자로 두 번 베고 화면이 갈라집니다' },
-    { key: 'nuna',   tier: '70만',    name: '누나누나',      note: '심쿵',        dur: 3.2, detail: '실제 심장 리듬으로 두 번씩 두근거립니다' },
-    { key: 'club',   tier: '80만',    name: '클럽음악',      note: '클럽 개장',   dur: 3.4, detail: '레이저가 스윙하고 이퀄라이저가 비트를 칩니다' },
-    { key: 'vip',    tier: '100만',   name: 'VIP',           note: 'VIP 입장',    dur: 4.6, detail: '금속 광택이 글자 위를 한 번 지나갑니다' },
-    { key: 'angel',  tier: '200만',   name: '엔젤 VIP',      note: '천상 강림',   dur: 5.2, detail: '빛기둥이 내려오고 날개가 천천히 펼쳐집니다' },
-    { key: 'mvp',    tier: '300만',   name: 'MVP',           note: '대관식',      dur: 7.5, detail: '불꽃놀이 뒤 왕관이 내려오고 인장이 찍힙니다' },
+    { key: 'gazua',  tier: '10만',    name: '가즈아',        note: '화염 분출',   dur: 1.8, cardAt: 620,  detail: '흰 컷이 때리고 빠지며 불기둥이 치솟습니다' },
+    { key: 'lambada',tier: '13만',    name: '람바다',        note: '선셋 탱고',   dur: 2.2, cardAt: 700,  detail: '레트로 선셋이 떠오르고 야자 실루엣이 펼쳐집니다' },
+    { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '간판 점등',   dur: 2.6, cardAt: 1050, detail: '화면이 툭 꺼졌다가 네온관이 지지직 살아납니다' },
+    { key: 'crazy',  tier: '16만',    name: '크레이지 러브', note: '하트 초신성', dur: 2.4, cardAt: 1250, detail: '한 점으로 빨려들었다 하트 충격파가 터집니다' },
+    { key: 'bounce', tier: '18만',    name: '바운스',        note: '네온 사인 조립', dur: 2.4, cardAt: 1500, detail: '네온관에 불이 차오르며 사인이 조립됩니다' },
+    { key: 'martini',tier: '20만',    name: '마티니',        note: '마티니 타임', dur: 2.8, cardAt: 900,  detail: '화면이 흑백으로 내려앉고 금빛이 한 번 스칩니다' },
+    { key: 'pocha',  tier: '200,001', name: '뽀카치포',      note: '스트립 질주', dur: 2.4, cardAt: 1900, detail: '네온 간판이 빛줄기로 흐르고 급브레이크로 멈춥니다' },
+    { key: 'pucha',  tier: '30만',    name: '푸차',          note: '명패 각인',   dur: 3.0, cardAt: 1950, detail: '파란 대리석에 글자가 파이고 금물이 흘러 찹니다' },
+    { key: 'edm',    tier: '35만',    name: 'EDM',           note: '크리스탈 파열', dur: 2.6, cardAt: 700,  detail: '초록 균열이 갈라지고 스캔라인이 어긋납니다' },
+    { key: 'sail',   tier: '50만',    name: '출항',          note: '부채 펼침',   dur: 3.4, cardAt: 1500, detail: '접선부채가 살부터 펼쳐지고 비단 광택이 훑고 지나갑니다' },
+    { key: 'shield', tier: '500,001', name: '50만 방패',     note: '방패 강림',   dur: 3.2, cardAt: 1040, detail: '방패가 내려찍히고 충격파와 분홍 번개가 터집니다' },
+    { key: 'slash',  tier: '600,001', name: '74번 알림',     note: '참격',        dur: 2.6, cardAt: 1100, detail: 'X자로 두 번 베고 화면이 갈라집니다' },
+    { key: 'nuna',   tier: '70만',    name: '누나누나',      note: '장미 개화',   dur: 3.2, cardAt: 1500, detail: '꽃잎이 테두리에 붙어 액자가 되고 결이 퍼집니다' },
+    { key: 'club',   tier: '80만',    name: '클럽음악',      note: '드롭',        dur: 3.4, cardAt: 1400, detail: '빌드업 뒤 0.2초 정적, 그리고 드롭' },
+    { key: 'vip',    tier: '100만',   name: 'VIP',           note: 'VIP 입장',    dur: 4.6, cardAt: 900,  detail: '금속 광택이 글자 위를 한 번 지나갑니다' },
+    { key: 'angel',  tier: '200만',   name: '엔젤 VIP',      note: '천상 강림',   dur: 5.2, cardAt: 1100, detail: '빛기둥이 내려오고 날개가 천천히 펼쳐집니다' },
+    { key: 'mvp',    tier: '300만',   name: 'MVP',           note: '대관식',      dur: 7.5, cardAt: 2500, detail: '불꽃놀이 뒤 왕관이 내려오고 인장이 찍힙니다' },
   ];
 
   play(key, stageEl, opts) {
     const item = this.ITEMS.find(i => i.key === key);
-    if (!item) throw new Error('SigFX: 알 수 없는 key — ' + key);
+    if (!item) { console.warn('SigFX: 알 수 없는 key —', key); return 0; }
     this.opts = Object.assign({ speed: 1, impact: 1 }, opts);
     this._fit(stageEl);   // 판 크기를 재서 좌표 옮김 배율을 정한다
+
+    // 시그니처 연동 재료. 없으면 null — 연출은 기본 색으로 그대로 간다.
+    this.img  = this.opts.image || null;
+    this.C    = (Array.isArray(this.opts.colors) && this.opts.colors.length) ? this.opts.colors : null;
+    this.card = this.opts.card || null;
+
+    // ⚠️ 앞 연출 정리를 먼저 한다. 후원이 연달아 들어올 때 여기서 흔적이 남아 사고가 난다.
+    this._cleanup();
     const old = stageEl.querySelector(':scope > [data-sigfx]');
     if (old) old.remove();
+
     // 흔들 대상. 오버레이처럼 무대와 방송 내용물이 다른 요소일 때는 opts.shakeEl 로 지정한다.
     const shake = this.opts.shakeEl || stageEl.querySelector('[data-shake]') || stageEl.firstElementChild || stageEl;
     shake.getAnimations().forEach(a => a.cancel());
+    this._shakeEl = shake;
+    this._cardAnims = [];
+    this._cardDone = false;
+    this._glowPrev = null;
+
     const fx = document.createElement('div');
     fx.setAttribute('data-sigfx', key);
     fx.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:60;';
     stageEl.appendChild(fx);
-    this['fx_' + key](fx, shake);
+
+    // ⚠️ 연출이 터져도 시그니처 재생은 그대로 가야 한다. 예외를 밖으로 내보내지 않는다.
+    try { this['fx_' + key](fx, shake); }
+    catch (e) { console.warn('SigFX: 연출 실패 —', key, e); }
+
+    // 연출이 카드를 직접 다루지 않았으면 기본 시점에 올려준다.
+    try { this.cardIn(item.cardAt != null ? item.cardAt : 300); } catch (e) {}
+
     const ms = (item.dur * 1000 + 160) / this.opts.speed;
-    setTimeout(() => { if (fx.parentNode) fx.remove(); }, ms);
+    this._timer = setTimeout(() => {
+      if (fx.parentNode) fx.remove();
+      this._cleanup();
+    }, ms);
     return ms;
+  }
+
+  /* 남은 것 되돌리기.
+     ⚠️ transform 이 굳어 남는 사고가 실제로 있었다. 카드·흔들 대상의 애니메이션은
+        commitStyles 하지 않고 cancel 해서 원래 스타일로 되돌린다. */
+  /* 재생 중인 연출을 즉시 끝낸다. 방송의 '전체 비우기'(리액션 강제 중단)가 이 경로다.
+
+     ⚠️ 레이어([data-sigfx])만 지우면 안 된다. 카드에 걸린 애니메이션은 fill:'both' 라
+        카드 요소 쪽에 붙어 살아남는다 — 레이어를 지워도 카드가 투명한 채(opacity 0,
+        scale 0.84) 화면에 남는다. 실제로 그 사고를 재현해 확인했다.
+        반드시 _cleanup() 을 함께 불러 카드 애니메이션을 취소하고 발광색을 되돌려야 한다. */
+  stop(stageEl) {
+    this._cleanup();
+    if (stageEl) stageEl.querySelectorAll('[data-sigfx]').forEach(n => n.remove());
+  }
+
+  _cleanup() {
+    if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    (this._cardAnims || []).forEach(a => { try { a.cancel(); } catch (e) {} });
+    this._cardAnims = [];
+    if (this.card && this._glowPrev !== null) {
+      try {
+        // 원래 인라인 값이 없었으면 지운다. 빈 문자열을 써 넣는 것으로는 안 지워진다.
+        if (this._glowPrev) this.card.style.setProperty('--reac-glow', this._glowPrev);
+        else this.card.style.removeProperty('--reac-glow');
+      } catch (e) {}
+      this._glowPrev = null;
+    }
+    if (this._shakeEl) {
+      try { this._shakeEl.getAnimations().forEach(a => a.cancel()); } catch (e) {}
+    }
+  }
+
+  /* ══ 시그니처 연동 도우미 ══ */
+
+  // 사진에서 뽑은 색. 없으면 연출별 기본색으로 되돌아간다.
+  col(i, fallback) {
+    if (!this.C) return fallback;
+    return this.C[i % this.C.length] || fallback;
+  }
+
+  /* ① 바탕을 시그니처 사진으로 깐다.
+     크게 확대 + 블러 + 어둡게 → 연출의 색·질감이 사진과 어긋날 수가 없다.
+     사진이 없으면 아무것도 만들지 않고 null 을 돌려준다(부르는 쪽은 신경 쓸 필요 없다). */
+  photoBg(fx, o) {
+    if (!this.img) return null;
+    o = o || {};
+    const from = o.from || 1.42, mid = o.mid || 1.2, to = o.to || 1.12;
+    const max = o.max != null ? o.max : .85;
+    const l = this.mk(fx, 'inset:0;background-image:url("' + this.img + '");background-size:cover;background-position:center;' +
+      'filter:blur(' + (o.blur != null ? o.blur : 26) + 'px) brightness(' + (o.bright != null ? o.bright : .42) + ') saturate(' + (o.sat != null ? o.sat : 1.25) + ');' +
+      'opacity:0;transform:scale(' + from + ');' + (o.blend ? 'mix-blend-mode:' + o.blend + ';' : ''));
+    this.a(l, [
+      { opacity: 0, transform: 'scale(' + from + ')' },
+      { opacity: max, transform: 'scale(' + mid + ')', offset: .22 },
+      { opacity: max, transform: 'scale(' + to + ')', offset: o.hold != null ? o.hold : .8 },
+      { opacity: 0, transform: 'scale(' + to + ')' },
+    ], o.dur || 2200, o.delay || 0, 'cubic-bezier(.3,0,.35,1)');
+    return l;
+  }
+
+  /* ③ 카드 등장을 연출이 맡는다.
+     fill:'both' 라서 delay 전에는 카드가 숨어 있다
+     → "연출이 자리를 만들고, 그 자리에 카드가 놓인다" 가 한 동작이 된다.
+     각 연출은 자기 클라이맥스 시점을 넘긴다. 안 부르면 play() 가 기본값으로 부른다. */
+  cardIn(delay, o) {
+    if (this._cardDone || !this.card) return;
+    this._cardDone = true;
+    o = o || {};
+    const frames = o.frames || [
+      { opacity: 0, transform: (o.from || 'scale(.84)'), offset: 0 },
+      { opacity: 1, transform: 'scale(1.035)', offset: .62 },
+      { opacity: 1, transform: 'scale(1)', offset: 1 },
+    ];
+    try {
+      const a = this.card.animate(frames, {
+        duration: (o.dur || 520) / this.S,
+        delay: Math.max(0, delay || 0) / this.S,
+        easing: o.ease || 'cubic-bezier(.16,1,.3,1)',
+        fill: 'both',
+      });
+      this._cardAnims.push(a);
+    } catch (e) {}
+  }
+
+  /* ④ 연출의 빛이 카드에 닿게 — 카드 테두리 발광색을 연출 색과 맞춘다. */
+  cardGlow(color) {
+    if (!this.card || !color) return;
+    try {
+      if (this._glowPrev === null) this._glowPrev = this.card.style.getPropertyValue('--reac-glow');
+      this.card.style.setProperty('--reac-glow', color);
+    } catch (e) {}
   }
 
   mk(p, css) { const d = document.createElement('div'); d.style.cssText = 'position:absolute;' + this.mapCss(css); p.appendChild(d); return d; }
@@ -143,6 +270,10 @@ class SigEngine {
     this.a(f, [{ opacity: op }, { opacity: 0 }], dur, delay, 'linear');
     return f;
   }
+  /* 화면 흔들기.
+     ⚠️ 카드가 흔들 대상 밖에 있어서 예전엔 카드만 가만히 있어 붕 떠 보였다.
+        같은 프레임을 카드에도 걸어 함께 흔든다(카드가 없으면 건너뛴다).
+        composite:'add' 라 카드 등장 애니메이션의 scale 을 덮어쓰지 않는다. */
   shake(shake, amp, dur, delay) {
     const n = Math.max(6, Math.round(dur / 26)), fr = [];
     for (let i = 0; i <= n; i++) {
@@ -150,12 +281,23 @@ class SigEngine {
       fr.push({ transform: 'translate(' + ((Math.random() * 2 - 1) * amp * this.P * f * this.KS).toFixed(1) + 'px,' + ((Math.random() * 2 - 1) * amp * this.P * f * this.KS).toFixed(1) + 'px)' });
     }
     fr.push({ transform: 'translate(0,0)' });
-    shake.animate(fr, { duration: dur / this.S, delay: (delay || 0) / this.S, easing: 'linear' });
+    const timing = { duration: dur / this.S, delay: (delay || 0) / this.S, easing: 'linear' };
+    shake.animate(fr, timing);
+    if (this.card && !this.card.contains(shake) && !shake.contains(this.card)) {
+      try {
+        const a = this.card.animate(fr, Object.assign({ composite: 'add' }, timing));
+        this._cardAnims.push(a);
+      } catch (e) {}
+    }
   }
   rnd(a, b) { return a + Math.random() * (b - a); }
 
   /* ══ 10만 가즈아 — 화염 분출 (1.8s) ══ */
   fx_gazua(fx, shake) {
+    const FIRE = this.col(0, '#ff4d00'), EMBER = this.col(1, '#ffa02a'), SPARK = this.col(2, '#ffd24a');
+    this.cardGlow(FIRE);
+    // 흰 컷이 빠진 뒤에 사진이 드러난다 — 컷 위에 겹치면 둘 다 죽는다.
+    this.photoBg(fx, { delay: 600, dur: 1300, blur: 24, bright: .4, max: .8, from: 1.3, to: 1.1 });
     const band = this.mk(fx, 'left:0;right:0;top:50%;height:6px;background:#fff;transform:translateY(-50%) scaleX(.15);');
     this.a(band, [{ transform: 'translateY(-50%) scaleX(.15)', opacity: .6 }, { transform: 'translateY(-50%) scaleX(1)', opacity: 1 }], 70, 0, 'cubic-bezier(.2,.9,.3,1)');
     this.a(band, [{ opacity: 1 }, { opacity: 0 }], 90, 70);
@@ -169,12 +311,12 @@ class SigEngine {
 
     [-620, -330, 0, 350, 640].forEach((x, i) => {
       const w = 40 + (i % 2) * 30;
-      const ch = this.mk(fx, 'left:50%;bottom:0;width:' + w + 'px;height:920px;background:linear-gradient(to top,#ff4d00,#ffa02a 40%,rgba(255,180,60,0));clip-path:polygon(50% 0,100% 14%,100% 100%,0 100%,0 14%);opacity:0;');
+      const ch = this.mk(fx, 'left:50%;bottom:0;width:' + w + 'px;height:920px;background:linear-gradient(to top,' + FIRE + ',' + EMBER + ' 40%,rgba(255,180,60,0));clip-path:polygon(50% 0,100% 14%,100% 100%,0 100%,0 14%);opacity:0;');
       this.a(ch, [{ transform: 'translateX(' + x + 'px) translateY(340px)', opacity: 0 }, { transform: 'translateX(' + x + 'px) translateY(-120px)', opacity: .95, offset: .34 }, { transform: 'translateX(' + x + 'px) translateY(-760px)', opacity: 0 }], 780, 180 + i * 50, 'cubic-bezier(.2,.85,.3,1)');
     });
     for (let i = 0; i < 20; i++) {
       const s = this.rnd(4, 9);
-      const p = this.mk(fx, 'left:' + this.rnd(0, 1900).toFixed(0) + 'px;bottom:0;width:' + s.toFixed(1) + 'px;height:' + s.toFixed(1) + 'px;background:#ffd24a;');
+      const p = this.mk(fx, 'left:' + this.rnd(0, 1900).toFixed(0) + 'px;bottom:0;width:' + s.toFixed(1) + 'px;height:' + s.toFixed(1) + 'px;background:' + SPARK + ';');
       this.a(p, [{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-' + this.rnd(500, 1000).toFixed(0) + 'px) translateX(' + this.rnd(-140, 140).toFixed(0) + 'px)', opacity: 0 }], this.rnd(700, 1300), this.rnd(120, 700), 'cubic-bezier(.3,0,.6,1)');
     }
 
@@ -188,10 +330,13 @@ class SigEngine {
 
   /* ══ 13만 람바다 — 선셋 탱고 (2.2s) ══ */
   fx_lambada(fx) {
+    const SUN = this.col(0, '#ff7a2e'), GLOW = this.col(2, '#ffd98a');
+    this.cardGlow(SUN);
+    this.photoBg(fx, { delay: 120, dur: 2000, blur: 28, bright: .4, max: .78 });
     const wash = this.mk(fx, 'inset:0;background:linear-gradient(to top,rgba(255,86,40,.62),rgba(255,150,60,.28) 48%,rgba(58,20,74,.34));opacity:0;');
     this.a(wash, [{ opacity: 0 }, { opacity: 1, offset: .22 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2200, 0, 'cubic-bezier(.3,0,.4,1)');
 
-    const sun = this.mk(fx, 'left:50%;bottom:60px;width:520px;height:520px;border-radius:50%;background:linear-gradient(to top,#ff7a2e,#ffd98a);transform:translateX(-50%) translateY(340px);opacity:0;-webkit-mask-image:linear-gradient(#000 0 62%, transparent 62% 65%, #000 65% 74%, transparent 74% 78%, #000 78% 85%, transparent 85% 89%, #000 89%);mask-image:linear-gradient(#000 0 62%, transparent 62% 65%, #000 65% 74%, transparent 74% 78%, #000 78% 85%, transparent 85% 89%, #000 89%);');
+    const sun = this.mk(fx, 'left:50%;bottom:60px;width:520px;height:520px;border-radius:50%;background:linear-gradient(to top,' + SUN + ',' + GLOW + ');transform:translateX(-50%) translateY(340px);opacity:0;-webkit-mask-image:linear-gradient(#000 0 62%, transparent 62% 65%, #000 65% 74%, transparent 74% 78%, #000 78% 85%, transparent 85% 89%, #000 89%);mask-image:linear-gradient(#000 0 62%, transparent 62% 65%, #000 65% 74%, transparent 74% 78%, #000 78% 85%, transparent 85% 89%, #000 89%);');
     this.a(sun, [{ transform: 'translateX(-50%) translateY(340px)', opacity: 0 }, { transform: 'translateX(-50%) translateY(40px)', opacity: .95, offset: .34 }, { transform: 'translateX(-50%) translateY(0)', opacity: .95, offset: .78 }, { transform: 'translateX(-50%) translateY(-30px)', opacity: 0 }], 2200, 60, 'cubic-bezier(.16,1,.3,1)');
 
     // 야자 실루엣 (좌우 잎사귀 부채꼴)
@@ -214,113 +359,164 @@ class SigEngine {
     this.a(t.w, [{ transform: 'translateY(26px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1, offset: .3 }, { transform: 'translateY(0)', opacity: 1, offset: .78 }, { transform: 'translateY(-18px)', opacity: 0 }], 2100, 420, 'cubic-bezier(.16,1,.3,1)');
   }
 
-  /* ══ 15만 부티호텔 — 동결 (2.4s) ══ */
-  fx_hotel(fx) {
-    const tint = this.mk(fx, 'inset:0;background:linear-gradient(180deg,rgba(120,190,255,.26),rgba(180,225,255,.14));opacity:0;');
-    this.a(tint, [{ opacity: 0 }, { opacity: 1, offset: .18 }, { opacity: 1, offset: .78 }, { opacity: 0 }], 2400);
+  /* ══ 15만 부티호텔 — 간판 점등 (2.6s) ══
+     사진은 얼음이 아니라 '파란 전기 네온 + 밤의 도시' 다. 그래서 얼리지 않고 켠다.
+     ⚠️ 이 연출의 핵심은 첫 0.3초 암전이다. 화려한 걸 더 얹지 말고 한 번 꺼라. */
+  fx_hotel(fx, shake) {
+    const NEON = this.col(0, '#4fc3ff'), WARM = this.col(2, '#ffd48a');
+    this.cardGlow(NEON);
 
-    const frost = this.mk(fx, 'inset:0;');
-    this.a(frost, [{ boxShadow: 'inset 0 0 0 0 rgba(200,232,255,0)' }, { boxShadow: 'inset 0 0 220px 90px rgba(206,234,255,.82)', offset: .3 }, { boxShadow: 'inset 0 0 220px 90px rgba(206,234,255,.82)', offset: .76 }, { boxShadow: 'inset 0 0 0 0 rgba(200,232,255,0)' }], 2400, 0, 'cubic-bezier(.2,.8,.3,1)');
+    // 사진 바탕은 점등 '뒤' 에 들어온다 — 암전이 먼저여야 세다.
+    this.photoBg(fx, { delay: 700, dur: 1900, blur: 30, bright: .38, max: .8 });
 
-    // 결정 스파이크 (가장자리에서 안쪽으로)
-    for (let i = 0; i < 22; i++) {
-      const edge = i % 4, len = this.rnd(140, 380), w = this.rnd(16, 40);
-      let css = 'width:' + w.toFixed(0) + 'px;height:' + len.toFixed(0) + 'px;background:linear-gradient(to bottom,rgba(255,255,255,.9),rgba(160,214,255,0));clip-path:polygon(50% 100%,100% 0,0 0);transform-origin:50% 0%;opacity:0;';
-      if (edge === 0) css += 'top:0;left:' + this.rnd(0, 1880).toFixed(0) + 'px;';
-      if (edge === 1) css += 'bottom:0;left:' + this.rnd(0, 1880).toFixed(0) + 'px;transform:rotate(180deg);';
-      if (edge === 2) css += 'left:0;top:' + this.rnd(0, 1000).toFixed(0) + 'px;transform:rotate(-90deg);transform-origin:50% 0%;';
-      if (edge === 3) css += 'right:0;top:' + this.rnd(0, 1000).toFixed(0) + 'px;transform:rotate(90deg);';
-      const sp = this.mk(fx, css);
-      const base = edge === 1 ? 'rotate(180deg)' : edge === 2 ? 'rotate(-90deg)' : edge === 3 ? 'rotate(90deg)' : '';
-      this.a(sp, [{ transform: base + ' scaleY(0)', opacity: 0 }, { transform: base + ' scaleY(1)', opacity: .85, offset: .3 }, { transform: base + ' scaleY(1)', opacity: .85, offset: .78 }, { transform: base + ' scaleY(.9)', opacity: 0 }], 2300, 60 + i * 32, 'cubic-bezier(.16,1,.3,1)');
-    }
+    // ① 암전. 완전히 꺼지고 0.3초 정적.
+    const black = this.mk(fx, 'inset:0;background:#04060a;opacity:0;');
+    this.a(black, [
+      { opacity: 0, offset: 0 }, { opacity: 1, offset: .02 },
+      { opacity: 1, offset: .13 },                    // 정적 구간
+      { opacity: .62, offset: .3 }, { opacity: .55, offset: .86 }, { opacity: 0, offset: 1 },
+    ], 2500, 0);
 
-    // HOTEL 네온 사인
-    const sign = this.mk(fx, 'left:50%;top:250px;transform:translateX(-50%);padding:26px 54px;border:3px solid rgba(120,200,255,.85);box-shadow:inset 0 0 0 9px rgba(0,0,0,.35);opacity:0;');
-    const label = document.createElement('div');
-    label.textContent = 'HOTEL';
-    label.style.cssText = "font-family:'Anton',sans-serif;font-size:126px;line-height:.92;letter-spacing:.14em;color:#d6ecff;";
-    sign.appendChild(label);
-    this.a(sign, [{ opacity: 0, offset: 0 }, { opacity: 1, offset: .06 }, { opacity: 0, offset: .09 }, { opacity: 1, offset: .13 }, { opacity: 0, offset: .16 }, { opacity: 1, offset: .2 }, { opacity: 1, offset: .8 }, { opacity: 0, offset: 1 }], 2300, 260, 'steps(1,end)');
-    const halo = this.mk(fx, 'left:50%;top:250px;width:820px;height:230px;transform:translateX(-50%);background:radial-gradient(60% 70% at 50% 50%,rgba(110,200,255,.4),transparent 70%);opacity:0;mix-blend-mode:screen;');
-    this.a(halo, [{ opacity: 0 }, { opacity: 1, offset: .2 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2300, 260);
-
-    for (let i = 0; i < 24; i++) {
-      const s = this.rnd(3, 6);
-      const sn = this.mk(fx, 'left:' + this.rnd(0, 1900).toFixed(0) + 'px;top:-20px;width:' + s.toFixed(1) + 'px;height:' + s.toFixed(1) + 'px;border-radius:50%;background:#f0f9ff;');
-      this.a(sn, [{ transform: 'translateY(0)', opacity: 0 }, { opacity: .85, offset: .1 }, { transform: 'translateY(1150px) translateX(' + this.rnd(-120, 120).toFixed(0) + 'px)', opacity: 0 }], this.rnd(1600, 2200), this.rnd(0, 700), 'cubic-bezier(.4,0,.6,1)');
-    }
-  }
-
-  /* ══ 16만 크레이지 러브 — 블랙홀 (2.4s) ══ */
-  fx_crazy(fx, shake) {
-    this.a(shake, [{ transform: 'scale(1) rotate(0deg)' }, { transform: 'scale(.52) rotate(-16deg)', offset: .42 }, { transform: 'scale(.5) rotate(12deg)', offset: .56 }, { transform: 'scale(1.06) rotate(0deg)', offset: .78 }, { transform: 'scale(1) rotate(0deg)' }], 2300, 0, 'cubic-bezier(.55,0,.3,1)');
-
-    const dark = this.mk(fx, 'inset:0;background:radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.92), rgba(0,0,0,.2) 70%, transparent);opacity:0;');
-    this.a(dark, [{ opacity: 0, transform: 'scale(.2)' }, { opacity: 1, transform: 'scale(1.1)', offset: .48 }, { opacity: 0, transform: 'scale(2.2)' }], 2300, 0, 'cubic-bezier(.4,0,.5,1)');
-
-    const vx = this.mk(fx, 'left:50%;top:50%;width:1500px;height:1500px;border-radius:50%;transform:translate(-50%,-50%) scale(.15);mix-blend-mode:screen;background:conic-gradient(from 0deg,rgba(176,108,255,0),#b06cff 18%,rgba(34,230,255,0) 34%,#22e6ff 56%,rgba(176,108,255,0) 74%,#b06cff 92%,rgba(176,108,255,0));-webkit-mask-image:radial-gradient(circle,transparent 22%,#000 42%,#000 66%,transparent 78%);mask-image:radial-gradient(circle,transparent 22%,#000 42%,#000 66%,transparent 78%);');
-    this.a(vx, [{ transform: 'translate(-50%,-50%) scale(.15) rotate(0deg)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(.85) rotate(420deg)', opacity: 1, offset: .45 }, { transform: 'translate(-50%,-50%) scale(.2) rotate(760deg)', opacity: .8, offset: .58 }, { transform: 'translate(-50%,-50%) scale(2.6) rotate(900deg)', opacity: 0 }], 2300, 0, 'cubic-bezier(.5,0,.35,1)');
-
-    this.flash(fx, '#ffffff', .9, 90, 1360);
-    const ring = this.mk(fx, 'left:50%;top:50%;width:400px;height:400px;border-radius:50%;border:14px solid transparent;border-image:conic-gradient(#ff5fa2,#ffd24a,#59ff9e,#22e6ff,#b06cff,#ff5fa2) 1;transform:translate(-50%,-50%) scale(.1);mix-blend-mode:screen;');
-    this.a(ring, [{ transform: 'translate(-50%,-50%) scale(.1)', opacity: 1 }, { transform: 'translate(-50%,-50%) scale(5.4)', opacity: 0 }], 720, 1380, 'cubic-bezier(.2,.9,.3,1)');
-
-    for (let i = 0; i < 18; i++) {
-      const ang = i / 18 * Math.PI * 2, r = this.rnd(360, 860);
-      const c = ['#ff5fa2', '#b06cff', '#22e6ff', '#ffffff'][i % 4];
-      const st = this.mk(fx, 'left:50%;top:50%;width:6px;height:26px;background:' + c + ';transform:translate(-50%,-50%) rotate(' + (ang * 180 / Math.PI) + 'deg);');
-      this.a(st, [{ transform: 'translate(-50%,-50%) rotate(' + (ang * 180 / Math.PI + 90) + 'deg) translateY(0)', opacity: 1 }, { transform: 'translate(-50%,-50%) rotate(' + (ang * 180 / Math.PI + 90) + 'deg) translateY(-' + r.toFixed(0) + 'px)', opacity: 0 }], 700, 1400 + i * 12, 'cubic-bezier(.15,.9,.3,1)');
-    }
-    const t = this.txt(fx, '크레이지 러브', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:700;font-size:96px;line-height:1;color:#fff;letter-spacing:.14em;", 760);
-    this.a(t.w, [{ transform: 'scale(1.5)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .18 }, { transform: 'scale(1)', opacity: 1, offset: .78 }, { transform: 'scale(1.04)', opacity: 0 }], 940, 1400, 'cubic-bezier(.16,1,.3,1)');
-  }
-
-  /* ══ 18만 바운스 (2.0s) ══ */
-  fx_bounce(fx, shake) {
-    const hits = [120, 640, 1080, 1420];
-    this.a(shake, [
-      { transform: 'translateY(0) scale(1,1)', offset: 0 },
-      { transform: 'translateY(-150px) scale(.96,1.06)', offset: .1 },
-      { transform: 'translateY(0) scale(1.07,.9)', offset: .2 },
-      { transform: 'translateY(-96px) scale(.98,1.04)', offset: .32 },
-      { transform: 'translateY(0) scale(1.05,.93)', offset: .44 },
-      { transform: 'translateY(-54px) scale(.99,1.02)', offset: .56 },
-      { transform: 'translateY(0) scale(1.03,.96)', offset: .66 },
-      { transform: 'translateY(-24px) scale(1,1.01)', offset: .76 },
-      { transform: 'translateY(0) scale(1,1)', offset: .86 },
-      { transform: 'translateY(0) scale(1,1)', offset: 1 },
-    ], 1900, 0, 'cubic-bezier(.4,0,.5,1)');
-
-    const floor = this.mk(fx, 'left:0;right:0;bottom:78px;height:7px;background:#fff;transform:scaleX(.2);opacity:0;');
-    this.a(floor, [{ transform: 'scaleX(.2)', opacity: 0 }, { transform: 'scaleX(1)', opacity: 1, offset: .1 }, { transform: 'scaleX(1)', opacity: 1, offset: .82 }, { transform: 'scaleX(.9)', opacity: 0 }], 1900, 0, 'cubic-bezier(.16,1,.3,1)');
-
-    hits.forEach((ms, k) => {
-      this.flash(fx, '#ff3b30', .22 - k * .04, 130, ms);
-      for (let i = 0; i < 6; i++) {
-        const s = this.rnd(16, 40);
-        const p = this.mk(fx, 'left:50%;bottom:' + (78 + this.rnd(0, 26)).toFixed(0) + 'px;width:' + s.toFixed(0) + 'px;height:' + s.toFixed(0) + 'px;border-radius:50%;background:rgba(255,255,255,.5);');
-        this.a(p, [{ transform: 'translateX(0) scale(.3)', opacity: .7 }, { transform: 'translateX(' + this.rnd(-560, 560).toFixed(0) + 'px) translateY(-' + this.rnd(20, 90).toFixed(0) + 'px) scale(1.5)', opacity: 0 }], 480, ms, 'cubic-bezier(.2,.9,.3,1)');
+    // ② 뒤 빌딩 창문 — 아래에서 위로 한 줄씩 불이 들어온다
+    [[150, 1], [1560, -1]].forEach((col, ci) => {
+      for (let row = 0; row < 7; row++) {
+        for (let k = 0; k < 3; k++) {
+          const wx = col[0] + k * 72 + (ci ? 0 : 0);
+          const wy = 880 - row * 96;
+          const w = this.mk(fx, 'left:' + wx + 'px;top:' + wy + 'px;width:44px;height:58px;background:' + WARM + ';opacity:0;');
+          this.a(w, [{ opacity: 0 }, { opacity: .55, offset: .1 }, { opacity: .38, offset: .8 }, { opacity: 0 }],
+            1700, 380 + row * 78 + this.rnd(0, 60) + ci * 40, 'steps(1,end)');
+        }
       }
     });
 
-    const t = this.txt(fx, 'BOUNCE!', "font-family:'Anton',sans-serif;font-size:184px;line-height:.92;letter-spacing:.03em;color:#fff;-webkit-text-stroke:0;", 400);
-    this.a(t.w, [
-      { transform: 'translateY(-360px) scale(1,1.3)', opacity: 0 },
-      { transform: 'translateY(0) scale(1,1)', opacity: 1, offset: .07 },
-      { transform: 'translateY(20px) scale(1.16,.8)', opacity: 1, offset: .1 },
-      { transform: 'translateY(-70px) scale(.94,1.1)', offset: .2 },
-      { transform: 'translateY(14px) scale(1.1,.87)', offset: .32 },
-      { transform: 'translateY(-38px) scale(.98,1.04)', offset: .46 },
-      { transform: 'translateY(6px) scale(1.05,.94)', offset: .58 },
-      { transform: 'translateY(0) scale(1,1)', offset: .74 },
-      { transform: 'translateY(0) scale(1,1)', opacity: 1, offset: .86 },
-      { transform: 'translateY(0) scale(1.06,1)', opacity: 0 },
-    ], 1900, 0, 'cubic-bezier(.4,0,.5,1)');
+    // ③ 네온관 — 지지직, 지직, 탁
+    const tube = this.mk(fx, 'left:960px;top:470px;width:900px;height:260px;transform:translate(-50%,-50%);' +
+      'border:7px solid ' + NEON + ';box-shadow:0 0 42px ' + NEON + ', inset 0 0 34px ' + NEON + ';opacity:0;');
+    const label = document.createElement('div');
+    label.textContent = 'HOTEL';
+    label.style.cssText = this.mapCss("position:absolute;inset:0;display:flex;align-items:center;justify-content:center;" +
+      "font-family:'Anton',sans-serif;font-size:150px;letter-spacing:16px;color:#eaf7ff;");
+    tube.appendChild(label);
+    // 점등 실패 → 성공 순서. steps(1,end) 로 딱딱 끊어야 형광등처럼 보인다.
+    this.a(tube, [
+      { opacity: 0, offset: 0 },   { opacity: .9, offset: .12 }, { opacity: 0, offset: .14 },
+      { opacity: 1, offset: .19 }, { opacity: 0, offset: .21 },  { opacity: .5, offset: .25 },
+      { opacity: 1, offset: .3 },  { opacity: 1, offset: .86 },  { opacity: 0, offset: 1 },
+    ], 2200, 320, 'steps(1,end)');
+    // 안정된 형광 웅웅거림
+    try {
+      tube.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.16)' }, { filter: 'brightness(.97)' }],
+        { duration: 260 / this.S, delay: 1000 / this.S, iterations: 5, easing: 'ease-in-out', composite: 'add' });
+    } catch (e) {}
+
+    const cap = this.txt(fx, '부티호텔', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:42px;letter-spacing:18px;color:rgba(214,236,255,.8);", 700);
+    this.a(cap.w, [{ opacity: 0 }, { opacity: 1, offset: .3 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 1600, 900);
+
+    this.shake(shake, 7, 160, 320);   // 점등 순간의 툭
+    this.cardIn(1050, { from: 'scale(.9)', dur: 480 });
   }
 
+  
+  /* ══ 16만 크레이지 러브 — 하트 초신성 (2.4s) ══
+     사진은 분홍 글자 + 무지개 성운. 빨려들었다 '하트 모양' 으로 터진다. */
+  fx_crazy(fx, shake) {
+    const P1 = this.col(0, '#ff5fa2'), P2 = this.col(1, '#b06cff'), P3 = this.col(2, '#22e6ff');
+    this.cardGlow(P1);
+    this.photoBg(fx, { delay: 1150, dur: 1250, blur: 22, bright: .44, max: .85, from: 1.3, to: 1.08 });
+
+    // 화면이 한 점으로 수축했다가 되돌아온다
+    this.a(shake, [
+      { transform: 'scale(1)' },
+      { transform: 'scale(.74)', offset: .34 }, { transform: 'scale(.7)', offset: .44 },
+      { transform: 'scale(1.06)', offset: .52 }, { transform: 'scale(1)', offset: .68 },
+    ], 2300, 0, 'cubic-bezier(.5,0,.3,1)');
+
+    // ① 주변을 삼키는 어둠 — 가운데 한 점만 남는다
+    const suck = this.mk(fx, 'inset:0;background:radial-gradient(circle at 50% 50%, transparent 0%, rgba(2,0,6,.2) 12%, rgba(2,0,6,.97) 46%);transform:scale(2.2);opacity:0;');
+    this.a(suck, [{ opacity: 0, transform: 'scale(2.4)' }, { opacity: 1, transform: 'scale(.5)', offset: .46 }, { opacity: .9, transform: 'scale(.42)', offset: .52 }, { opacity: 0, transform: 'scale(3)' }], 2300, 0, 'cubic-bezier(.55,0,.3,1)');
+
+    const pt = this.mk(fx, 'left:960px;top:540px;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 0 60px #fff;transform:translate(-50%,-50%) scale(0);');
+    this.a(pt, [{ transform: 'translate(-50%,-50%) scale(0)' }, { transform: 'translate(-50%,-50%) scale(1.5)', offset: .42 }, { transform: 'translate(-50%,-50%) scale(.4)', offset: .5 }, { transform: 'translate(-50%,-50%) scale(9)', opacity: 0, offset: .62 }, { opacity: 0 }], 2300, 0, 'cubic-bezier(.5,0,.3,1)');
+
+    // ② 하트 충격파 — 원+사각 조합. 세 겹이 시차를 두고 터져 나간다.
+    const IMP = 1150;
+    this.flash(fx, '#ffffff', .95, 110, IMP);
+    [[P1, 0, 1], [P2, 70, .8], [P3, 150, .55]].forEach(v => {
+      const h = this.mk(fx, 'left:960px;top:540px;width:420px;height:420px;transform:translate(-50%,-50%) rotate(-45deg) scale(.06);mix-blend-mode:screen;opacity:' + v[2] + ';');
+      this.mk(h, 'left:0;top:0;width:300px;height:300px;background:' + v[0] + ';');
+      this.mk(h, 'left:-150px;top:0;width:300px;height:300px;border-radius:50%;background:' + v[0] + ';');
+      this.mk(h, 'left:0;top:-150px;width:300px;height:300px;border-radius:50%;background:' + v[0] + ';');
+      this.a(h, [{ transform: 'translate(-50%,-50%) rotate(-45deg) scale(.06)', opacity: v[2] }, { transform: 'translate(-50%,-50%) rotate(-45deg) scale(4.6)', opacity: 0 }], 900, IMP + v[1], 'cubic-bezier(.15,.9,.3,1)');
+    });
+
+    // ③ 지나간 자리에 남는 무지개 성운
+    const neb = this.mk(fx, 'left:960px;top:540px;width:2000px;height:2000px;border-radius:50%;transform:translate(-50%,-50%) scale(.4);mix-blend-mode:screen;opacity:0;' +
+      'background:conic-gradient(from 0deg,' + P1 + ',' + P2 + ',' + P3 + ',' + P1 + ');' +
+      '-webkit-mask-image:radial-gradient(circle,transparent 26%,#000 44%,#000 62%,transparent 76%);mask-image:radial-gradient(circle,transparent 26%,#000 44%,#000 62%,transparent 76%);');
+    this.a(neb, [{ opacity: 0, transform: 'translate(-50%,-50%) scale(.4) rotate(0deg)' }, { opacity: .8, transform: 'translate(-50%,-50%) scale(1) rotate(60deg)', offset: .3 }, { opacity: .6, transform: 'translate(-50%,-50%) scale(1.1) rotate(120deg)', offset: .8 }, { opacity: 0, transform: 'translate(-50%,-50%) scale(1.3) rotate(160deg)' }], 1250, IMP, 'cubic-bezier(.2,.8,.3,1)');
+
+    this.shake(shake, 30, 340, IMP);
+    this.cardIn(IMP + 100, { from: 'scale(.7)', dur: 460 });
+  }
+
+  
+  /* ══ 18만 바운스 — 네온 사인 조립 (2.4s) ══
+     사진은 '빨간 네온 간판' 이다. 그래서 튀기지 않고 조립한다.
+     ⚠️ club(80만)·edm(35만) 과 겹치지 않게: 간판은 만들고, 크리스탈은 부수고, 무대는 터뜨린다. */
+  fx_bounce(fx, shake) {
+    const RED = this.col(0, '#ff2d4d'), WARM = this.col(2, '#ffcf9a');
+    this.cardGlow(RED);
+    this.photoBg(fx, { delay: 180, dur: 2100, blur: 28, bright: .34, max: .78 });
+
+    const dim = this.mk(fx, 'inset:0;background:rgba(6,2,6,.62);opacity:0;');
+    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 2400);
+
+    // ① 네온관 테두리에 불이 차오른다 (왼→오)
+    const frame = this.mk(fx, 'left:960px;top:470px;width:900px;height:300px;transform:translate(-50%,-50%);' +
+      'border:8px solid ' + RED + ';border-radius:22px;box-shadow:0 0 40px ' + RED + ', inset 0 0 26px ' + RED + ';');
+    this.a(frame, [{ clipPath: 'inset(0 100% 0 0)', opacity: 1 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: .34 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: .86 }, { clipPath: 'inset(0 0 0 0)', opacity: 0 }], 2300, 60, 'cubic-bezier(.4,0,.4,1)');
+
+    // ② 글자를 획순처럼 한 자씩 점등
+    const row = this.mk(fx, 'left:0;right:0;top:400px;display:flex;justify-content:center;gap:6px;');
+    'BOUNCE'.split('').forEach((ch, i) => {
+      const d = document.createElement('div');
+      d.textContent = ch;
+      d.style.cssText = this.mapCss("font-family:'Anton',sans-serif;font-size:168px;line-height:1;color:#fff3f4;") +
+        ';text-shadow:0 0 26px ' + RED + ',0 0 60px ' + RED + ';opacity:0;';
+      row.appendChild(d);
+      // 지지직 두 번 하고 붙는다
+      this.a(d, [{ opacity: 0, offset: 0 }, { opacity: 1, offset: .04 }, { opacity: .1, offset: .07 }, { opacity: 1, offset: .12 }, { opacity: 1, offset: .86 }, { opacity: 0, offset: 1 }],
+        2200, 200 + i * 120, 'steps(1,end)');
+    });
+
+    // ③ 별·음표 대신 네온 점·마름모가 톡톡
+    for (let i = 0; i < 12; i++) {
+      const sz = this.rnd(16, 34), dia = i % 2 === 0;
+      const p = this.mk(fx, 'left:' + this.rnd(330, 1590).toFixed(0) + 'px;top:' + this.rnd(200, 880).toFixed(0) + 'px;' +
+        'width:' + sz.toFixed(0) + 'px;height:' + sz.toFixed(0) + 'px;background:' + (i % 3 ? RED : WARM) + ';' +
+        (dia ? 'transform:rotate(45deg);' : 'border-radius:50%;') + 'opacity:0;box-shadow:0 0 24px ' + (i % 3 ? RED : WARM) + ';');
+      this.a(p, [{ opacity: 0 }, { opacity: .95, offset: .06 }, { opacity: .7, offset: .8 }, { opacity: 0 }], 1900, 700 + i * 70, 'steps(1,end)');
+    }
+
+    // ④ 완성 — 사인 전체가 두 번 깜빡
+    const all = this.mk(fx, 'inset:0;background:' + RED + ';mix-blend-mode:screen;opacity:0;');
+    this.a(all, [{ opacity: 0, offset: 0 }, { opacity: .2, offset: .1 }, { opacity: 0, offset: .2 }, { opacity: .16, offset: .34 }, { opacity: 0, offset: 1 }], 700, 1480, 'steps(1,end)');
+
+    const cap = this.txt(fx, '바운스', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:44px;letter-spacing:20px;color:rgba(255,225,228,.82);", 720);
+    this.a(cap.w, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)', offset: .3 }, { opacity: 1, transform: 'translateY(0)', offset: .84 }, { opacity: 0, transform: 'translateY(0)' }], 1500, 1000, 'cubic-bezier(.16,1,.3,1)');
+
+    this.shake(shake, 6, 140, 1480);
+    this.cardIn(1500, { from: 'scale(.92)', dur: 440 });
+  }
+
+  
   /* ══ 20만 마티니 — 마티니 타임 (2.8s) ══ */
   fx_martini(fx) {
+    const GOLD = this.col(2, '#c9a227');
+    this.cardGlow(GOLD);
+    // 흑백 배경 위라 사진은 아주 옅게만 — 여기서 진하게 깔면 흑백이 무너진다.
+    this.photoBg(fx, { delay: 300, dur: 2300, blur: 34, bright: .3, max: .5 });
     const mono = this.mk(fx, 'inset:0;backdrop-filter:grayscale(1) contrast(1.06) brightness(.82);-webkit-backdrop-filter:grayscale(1) contrast(1.06) brightness(.82);opacity:0;');
     this.a(mono, [{ opacity: 0 }, { opacity: 1, offset: .22 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2800, 0, 'cubic-bezier(.4,0,.3,1)');
     const vig = this.mk(fx, 'inset:0;background:radial-gradient(100% 76% at 50% 48%,rgba(0,0,0,.15),rgba(0,0,0,.8));opacity:0;');
@@ -328,9 +524,9 @@ class SigEngine {
 
     // 금 코너 브래킷 4개
     [[70, 70, 1, 1], [1850, 70, -1, 1], [70, 1010, 1, -1], [1850, 1010, -1, -1]].forEach((c, i) => {
-      const h = this.mk(fx, 'left:' + c[0] + 'px;top:' + c[1] + 'px;width:220px;height:2px;background:#c9a227;transform-origin:' + (c[2] > 0 ? '0%' : '100%') + ' 50%;transform:scaleX(0);');
+      const h = this.mk(fx, 'left:' + c[0] + 'px;top:' + c[1] + 'px;width:220px;height:2px;background:' + GOLD + ';transform-origin:' + (c[2] > 0 ? '0%' : '100%') + ' 50%;transform:scaleX(0);');
       this.a(h, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(' + c[2] + ')' }], 700, 200 + i * 70, 'cubic-bezier(.16,1,.3,1)');
-      const v = this.mk(fx, 'left:' + c[0] + 'px;top:' + c[1] + 'px;width:2px;height:150px;background:#c9a227;transform-origin:50% ' + (c[3] > 0 ? '0%' : '100%') + ';transform:scaleY(0);');
+      const v = this.mk(fx, 'left:' + c[0] + 'px;top:' + c[1] + 'px;width:2px;height:150px;background:' + GOLD + ';transform-origin:50% ' + (c[3] > 0 ? '0%' : '100%') + ';transform:scaleY(0);');
       this.a(v, [{ transform: 'scaleY(0)' }, { transform: 'scaleY(' + c[3] + ')' }], 700, 260 + i * 70, 'cubic-bezier(.16,1,.3,1)');
     });
 
@@ -349,58 +545,112 @@ class SigEngine {
     this.a(t2.w, [{ opacity: 0 }, { opacity: 1, offset: .4 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2200, 900);
   }
 
-  /* ══ 200,001 뽀카치포 — 질주 (2.2s) ══ */
+  /* ══ 200,001 뽀카치포 — 스트립 질주 (2.4s) ══
+     사진은 밤에 오픈카로 네온 스트립을 달리는 장면.
+     간판이 소실점에서 튀어나와 양옆으로 흘러 지나간다 → 마지막에 급브레이크. */
   fx_pocha(fx, shake) {
-    this.a(shake, [{ transform: 'skewX(0) translateX(0) rotate(0)' }, { transform: 'skewX(-7deg) translateX(70px) rotate(1.6deg)', offset: .14 }, { transform: 'skewX(4deg) translateX(-46px) rotate(-1deg)', offset: .38 }, { transform: 'skewX(-2deg) translateX(16px) rotate(.4deg)', offset: .62 }, { transform: 'skewX(0) translateX(0) rotate(0)', offset: .8 }], 2100, 0, 'cubic-bezier(.3,0,.4,1)');
+    const N1 = this.col(0, '#ff2bd0'), N2 = this.col(1, '#22e6ff'), G = this.col(2, '#ffd24a');
+    this.cardGlow(G);
+    this.photoBg(fx, { delay: 0, dur: 2300, blur: 30, bright: .3, max: .72, from: 1.5, to: 1.15 });
 
-    const dim = this.mk(fx, 'inset:0;background:rgba(4,4,8,.5);opacity:0;');
-    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2100);
+    const night = this.mk(fx, 'inset:0;background:rgba(3,2,10,.6);opacity:0;');
+    this.a(night, [{ opacity: 0 }, { opacity: 1, offset: .08 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 2300);
 
-    for (let i = 0; i < 34; i++) {
-      const y = this.rnd(0, 1080), w = this.rnd(180, 620), h = this.rnd(2, 7);
-      const l = this.mk(fx, 'left:-700px;top:' + y.toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.85));');
-      this.a(l, [{ transform: 'translateX(0)', opacity: 0 }, { opacity: 1, offset: .12 }, { transform: 'translateX(2900px)', opacity: 0 }], this.rnd(260, 480), this.rnd(0, 1500), 'cubic-bezier(.35,0,.5,1)');
+    // ① 소실점에서 간판이 흘러 나온다. scale 이 커지면서 좌우로 밀려 지나간다.
+    for (let i = 0; i < 26; i++) {
+      const side = i % 2 ? 1 : -1;
+      const c = [N1, N2, G][i % 3];
+      const w = this.rnd(120, 300), h = this.rnd(26, 90);
+      const y = 540 + this.rnd(-360, 360);
+      const sg = this.mk(fx, 'left:960px;top:' + y.toFixed(0) + 'px;width:' + w.toFixed(0) + 'px;height:' + h.toFixed(0) + 'px;' +
+        'background:linear-gradient(90deg,' + c + ',rgba(255,255,255,.9));box-shadow:0 0 30px ' + c + ';mix-blend-mode:screen;transform:translate(-50%,-50%) scale(.06);opacity:0;');
+      this.a(sg, [
+        { transform: 'translate(-50%,-50%) translateX(0px) scale(.06)', opacity: 0 },
+        { opacity: 1, offset: .18 },
+        { transform: 'translate(-50%,-50%) translateX(' + (side * 1500).toFixed(0) + 'px) scale(2.4)', opacity: 0 },
+      ], this.rnd(420, 700), this.rnd(0, 1600), 'cubic-bezier(.35,0,.65,1)');
     }
-    [140, 1080].forEach(ms => {
-      const hl = this.mk(fx, 'left:-800px;top:50%;width:900px;height:640px;border-radius:50%;transform:translateY(-50%);background:radial-gradient(50% 50% at 50% 50%,rgba(255,255,255,.85),rgba(255,240,200,.22) 55%,transparent 76%);mix-blend-mode:screen;');
-      this.a(hl, [{ transform: 'translateY(-50%) translateX(0)' }, { transform: 'translateY(-50%) translateX(3000px)' }], 700, ms, 'cubic-bezier(.4,0,.5,1)');
-    });
-    const red = this.mk(fx, 'left:0;right:0;top:712px;height:9px;background:#ff2d2d;transform-origin:0 50%;transform:scaleX(0);');
-    this.a(red, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)', offset: .2 }, { transform: 'scaleX(1)', offset: .78 }, { transform: 'scaleX(1) translateX(2000px)', opacity: 0 }], 2100, 260, 'cubic-bezier(.2,.9,.3,1)');
 
-    const t = this.txt(fx, '뽀카치포', "font-family:'Black Han Sans',sans-serif;font-size:170px;line-height:.95;color:#fff;letter-spacing:-.02em;transform:skewX(-13deg);", 530);
-    this.a(t.w, [{ transform: 'translateX(-900px)', opacity: 0 }, { transform: 'translateX(0)', opacity: 1, offset: .22 }, { transform: 'translateX(0)', opacity: 1, offset: .74 }, { transform: 'translateX(1200px)', opacity: 0 }], 2100, 200, 'cubic-bezier(.16,1,.3,1)');
+    // ② 속도가 붙을수록 가장자리가 휜다
+    const warp = this.mk(fx, 'inset:0;background:radial-gradient(58% 58% at 50% 50%, transparent 40%, rgba(2,2,8,.85) 100%);opacity:0;');
+    this.a(warp, [{ opacity: 0, transform: 'scale(1.4)' }, { opacity: .5, transform: 'scale(1.1)', offset: .3 }, { opacity: .9, transform: 'scale(1)', offset: .78 }, { opacity: 0, transform: 'scale(1.2)' }], 2300, 0, 'cubic-bezier(.4,0,.5,1)');
+
+    // 흔들림 간격이 좁아진다 = 속도감
+    [60, 420, 720, 960, 1150, 1300, 1420, 1520, 1620, 1700, 1780].forEach((ms, i) => this.shake(shake, 8 + i, 130, ms));
+
+    // ③ 급브레이크 — 흰 섬광, 정지, 그리고 카드가 박힌다
+    const BRK = 1900;
+    this.flash(fx, '#ffffff', .9, 130, BRK);
+    this.a(shake, [{ transform: 'scale(1.04) skewX(-4deg)' }, { transform: 'scale(1) skewX(0)' }], 260, BRK, 'cubic-bezier(.1,.9,.2,1)');
+    const streak = this.mk(fx, 'left:0;right:0;top:540px;height:14px;background:linear-gradient(90deg,transparent,' + G + ',transparent);mix-blend-mode:screen;transform:scaleX(0);');
+    this.a(streak, [{ transform: 'scaleX(0)', opacity: 1 }, { transform: 'scaleX(1)', opacity: 1, offset: .3 }, { transform: 'scaleX(1)', opacity: 0 }], 500, BRK, 'cubic-bezier(.1,.9,.2,1)');
+    this.shake(shake, 34, 300, BRK);
+    this.cardIn(BRK, { from: 'scale(1.45)', dur: 340, ease: 'cubic-bezier(.08,.95,.2,1)' });
   }
 
-  /* ══ 30만 푸차 — 심해 (2.8s) ══ */
-  fx_pucha(fx) {
-    const tint = this.mk(fx, 'inset:0;background:linear-gradient(to top,rgba(10,60,120,.62),rgba(26,127,212,.26));opacity:0;');
-    this.a(tint, [{ opacity: 0 }, { opacity: 1, offset: .25 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2800);
+  
+  /* ══ 30만 푸차 — 명패 각인 (3.0s) ══
+     사진은 '파란 대리석 명패 + 금색 글자 + 은빛 액자' 다. 바다가 아니다.
+     ⚠️ nuna(70만) 와 같은 액자 계열이라 일부러 반대 성격 — 여기는 차갑게 '파는' 쪽. */
+  fx_pucha(fx, shake) {
+    const MARB = this.col(0, '#2a9df4'), DEEP = this.col(1, '#0b3a6b'), GOLD = '#e8c46a';
+    this.cardGlow(MARB);
+    this.photoBg(fx, { delay: 300, dur: 2600, blur: 32, bright: .32, max: .7 });
 
-    [[0, 'rgba(26,127,212,.5)', 1200, 0], [1, 'rgba(60,170,235,.42)', 1500, 160]].forEach(v => {
-      const layer = this.mk(fx, 'left:-10%;right:-10%;bottom:0;height:1100px;transform:translateY(1100px);');
-      const body = this.mk(layer, 'left:0;right:0;bottom:0;top:70px;background:' + v[1] + ';');
-      const wave = this.mk(layer, 'left:-20%;right:-20%;top:0;height:150px;background:' + v[1] + ';border-radius:50% 50% 0 0 / 100% 100% 0 0;');
-      this.a(layer, [{ transform: 'translateY(1100px)' }, { transform: 'translateY(330px)', offset: .38 }, { transform: 'translateY(300px)', offset: .78 }, { transform: 'translateY(1100px)' }], 2700, v[3], 'cubic-bezier(.3,0,.35,1)');
-      this.a(wave, [{ transform: 'translateX(-120px) scaleY(1)' }, { transform: 'translateX(120px) scaleY(.7)', offset: .5 }, { transform: 'translateX(-120px) scaleY(1)' }], v[2] * 1.6, 0, 'ease-in-out').updatePlaybackRate ? null : null;
-      wave.animate([{ transform: 'translateX(-140px) scaleY(1)' }, { transform: 'translateX(140px) scaleY(.72)' }, { transform: 'translateX(-140px) scaleY(1)' }], { duration: v[2] / this.S, iterations: 3, easing: 'ease-in-out' });
+    const dim = this.mk(fx, 'inset:0;background:rgba(2,8,18,.72);opacity:0;');
+    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .12 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 3000);
+
+    // ① 빈 파란 대리석 판이 미끄러져 들어온다
+    const slab = this.mk(fx, 'left:960px;top:520px;width:1200px;height:420px;transform:translate(-50%,-50%);' +
+      'background:linear-gradient(152deg,' + MARB + ',' + DEEP + ' 46%,' + MARB + ' 78%,' + DEEP + ');' +
+      'box-shadow:inset 0 0 90px rgba(0,0,0,.5);opacity:0;');
+    // 대리석 결 — 흰 실선 몇 줄이 결처럼 지나간다
+    for (let i = 0; i < 5; i++) {
+      this.mk(slab, 'left:0;right:0;top:' + (40 + i * 78) + 'px;height:' + this.rnd(2, 6).toFixed(0) + 'px;background:rgba(255,255,255,' + this.rnd(.08, .2).toFixed(2) + ');transform:rotate(' + this.rnd(-4, 4).toFixed(1) + 'deg);');
+    }
+    this.a(slab, [{ transform: 'translate(-50%,-50%) translateX(-1500px)', opacity: 0 }, { transform: 'translate(-50%,-50%) translateX(0px)', opacity: 1, offset: .22 }, { transform: 'translate(-50%,-50%) translateX(0px)', opacity: 1, offset: .84 }, { transform: 'translate(-50%,-50%) translateX(0px)', opacity: 0 }], 2900, 120, 'cubic-bezier(.16,1,.3,1)');
+
+    const FONT = "font-family:'Black Han Sans',sans-serif;font-size:190px;line-height:1;letter-spacing:14px;";
+
+    // ② 글자가 한 획씩 깊게 파인다 — 어두운 홈이 왼→오로 드러난다
+    const carve = document.createElement('div');
+    carve.textContent = '푸차';
+    carve.style.cssText = this.mapCss('position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' + FONT) +
+      ';color:rgba(4,22,44,.92);text-shadow:2px 3px 0 rgba(255,255,255,.22);';
+    slab.appendChild(carve);
+    this.a(carve, [{ clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], 640, 700, 'cubic-bezier(.4,0,.4,1)');
+
+    // ③ 파인 홈에 금물이 흘러 들어가 찬다 (각인보다 살짝 늦게)
+    const gold = document.createElement('div');
+    gold.textContent = '푸차';
+    gold.style.cssText = this.mapCss('position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' + FONT) +
+      ';background-image:linear-gradient(102deg,#8a6a1c,' + GOLD + ' 34%,#fff3cf 50%,' + GOLD + ' 66%,#8a6a1c);' +
+      '-webkit-background-clip:text;background-clip:text;color:transparent;';
+    slab.appendChild(gold);
+    this.a(gold, [{ clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], 760, 1120, 'cubic-bezier(.3,0,.4,1)');
+
+    // ④ 금속 광택이 글자 위를 스윽
+    const sweep = this.mk(slab, 'top:-20%;bottom:-20%;left:0;width:260px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,248,220,.5),rgba(255,255,255,0));mix-blend-mode:screen;transform:skewX(-14deg) translateX(-400px);');
+    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-400px)' }, { transform: 'skewX(-14deg) translateX(1400px)' }], 900, 1780, 'cubic-bezier(.42,0,.5,1)');
+
+    // ⑤ 은빛 액자 모서리 네 개가 딱딱 물린다
+    [[300, 290, 1, 1], [1620, 290, -1, 1], [300, 750, 1, -1], [1620, 750, -1, -1]].forEach((c, i) => {
+      const h = this.mk(fx, 'left:' + c[0] + 'px;top:' + c[1] + 'px;width:180px;height:8px;background:linear-gradient(90deg,#f2f6fa,#8fa3b8);transform-origin:' + (c[2] > 0 ? '0%' : '100%') + ' 50%;transform:scaleX(0);');
+      this.a(h, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(' + c[2] + ')' }, { transform: 'scaleX(' + c[2] + ')', opacity: 1, offset: .9 }, { transform: 'scaleX(' + c[2] + ')', opacity: 0 }], 2400, 1500 + i * 90, 'cubic-bezier(.1,.95,.2,1)');
+      const v = this.mk(fx, 'left:' + c[0] + 'px;top:' + c[1] + 'px;width:8px;height:130px;background:linear-gradient(180deg,#f2f6fa,#8fa3b8);transform-origin:50% ' + (c[3] > 0 ? '0%' : '100%') + ';transform:scaleY(0);');
+      this.a(v, [{ transform: 'scaleY(0)' }, { transform: 'scaleY(' + c[3] + ')' }, { transform: 'scaleY(' + c[3] + ')', opacity: 1, offset: .9 }, { transform: 'scaleY(' + c[3] + ')', opacity: 0 }], 2400, 1540 + i * 90, 'cubic-bezier(.1,.95,.2,1)');
+      this.shake(shake, 5, 110, 1500 + i * 90);
     });
 
-    const caus = this.mk(fx, 'inset:0;mix-blend-mode:soft-light;opacity:0;background:repeating-linear-gradient(74deg,rgba(255,255,255,.16) 0 3px,transparent 3px 46px);');
-    this.a(caus, [{ opacity: 0, transform: 'translateX(-60px)' }, { opacity: 1, offset: .25 }, { opacity: 1, offset: .8 }, { opacity: 0, transform: 'translateX(60px)' }], 2800);
-
-    for (let i = 0; i < 20; i++) {
-      const d = this.rnd(20, 68);
-      const b = this.mk(fx, 'left:' + this.rnd(0, 1880).toFixed(0) + 'px;bottom:-90px;width:' + d.toFixed(0) + 'px;height:' + d.toFixed(0) + 'px;border-radius:50%;border:3px solid rgba(214,240,255,.72);');
-      this.a(b, [{ transform: 'translateY(0)', opacity: 0 }, { opacity: .9, offset: .14 }, { transform: 'translateY(-' + this.rnd(700, 1150).toFixed(0) + 'px) translateX(' + this.rnd(-90, 90).toFixed(0) + 'px)', opacity: 0 }], this.rnd(1500, 2300), this.rnd(200, 1200), 'cubic-bezier(.35,0,.6,1)');
-    }
-    const t = this.txt(fx, '푸차', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:700;font-size:132px;line-height:1;color:#e6f6ff;letter-spacing:.24em;", 440);
-    this.a(t.w, [{ transform: 'translateY(30px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1, offset: .28 }, { transform: 'translateY(-16px)', opacity: 1, offset: .78 }, { transform: 'translateY(-40px)', opacity: 0 }], 2700, 420, 'cubic-bezier(.16,1,.3,1)');
+    this.cardIn(1950, { from: 'scale(.9)', dur: 480 });
   }
 
+  
   /* ══ 35만 EDM — 산성 파열 (2.6s) ══ */
   fx_edm(fx, shake) {
-    const AC = '#59ff6a', CY = '#22e6ff';
+    const AC = this.col(0, '#59ff6a'), CY = this.col(1, '#22e6ff');
+    this.cardGlow(AC);
+    this.photoBg(fx, { delay: 100, dur: 2200, blur: 24, bright: .38, max: .8 });
     const dark = this.mk(fx, 'inset:0;background:radial-gradient(110% 80% at 50% 55%,rgba(6,14,8,.24),rgba(2,6,4,.76));opacity:0;');
     this.a(dark, [{ opacity: 0 }, { opacity: 1, offset: .06 }, { opacity: 1, offset: .9 }, { opacity: 0 }], 2400);
     const scan = this.mk(fx, 'inset:0;mix-blend-mode:overlay;opacity:0;background:repeating-linear-gradient(rgba(160,255,180,.13) 0 1px,transparent 1px 4px);');
@@ -452,39 +702,94 @@ class SigEngine {
     this.shake(shake, 20, 260, 1450);
   }
 
-  /* ══ 50만 출항이요 (3.4s) ══ */
-  fx_sail(fx) {
-    const glow = this.mk(fx, 'inset:0;background:radial-gradient(90% 70% at 50% 52%,rgba(201,162,39,.2),rgba(20,12,4,.72));opacity:0;');
-    this.a(glow, [{ opacity: 0 }, { opacity: 1, offset: .2 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 3400);
+  /* ══ 50만 출항 — 부채 펼침 (3.4s) ══
+     사진은 한복·부채·비단이다.
+     ⚠️ 살을 그냥 회전시키면 원형 그래프처럼 보인다. 실제 접선부채의 구조를 따른다:
+        · 살(rib)은 종이보다 아래로 튀어나오고 축(pivot)에서 한 점으로 모인다
+        · 외곽은 직선이 아니라 살마다 둥근 비늘 모양(부채는 원래 그렇다)
+        · 종이는 살 사이에서 접혀 있어 골과 마루가 번갈아 진다
+        · 축에는 리벳이 있고 종이는 축 근처까지 내려오지 않는다 */
+  fx_sail(fx, shake) {
+    const GOLD = this.col(0, '#d9b45a'), SILK = this.col(2, '#f2e4c4');
+    this.cardGlow(GOLD);
+    this.photoBg(fx, { delay: 400, dur: 2800, blur: 30, bright: .36, max: .76 });
 
-    [[130, -6, 0], [470, 5, 260], [820, -4, 520]].forEach(v => {
-      const s = this.mk(fx, 'left:-40%;width:180%;top:' + v[0] + 'px;height:120px;transform:rotate(' + v[1] + 'deg) translateX(-100%);background:linear-gradient(90deg,rgba(179,64,43,0),#b3402b 18%,#e0745c 42%,#b3402b 62%,rgba(179,64,43,0));border-top:2px solid rgba(255,214,150,.5);border-bottom:2px solid rgba(120,30,20,.6);opacity:.9;');
-      this.a(s, [{ transform: 'rotate(' + v[1] + 'deg) translateX(-110%) scaleY(.6)', opacity: 0 }, { transform: 'rotate(' + v[1] + 'deg) translateX(-6%) scaleY(1)', opacity: .92, offset: .34 }, { transform: 'rotate(' + v[1] + 'deg) translateX(4%) scaleY(1)', opacity: .92, offset: .74 }, { transform: 'rotate(' + v[1] + 'deg) translateX(110%) scaleY(.7)', opacity: 0 }], 3300, v[2], 'cubic-bezier(.3,0,.35,1)');
-    });
+    const dim = this.mk(fx, 'inset:0;background:radial-gradient(80% 70% at 50% 70%,rgba(24,14,4,.36),rgba(6,4,2,.88));opacity:0;');
+    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .16 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 3400);
 
-    // 두루마리
-    const scroll = this.mk(fx, 'left:50%;top:540px;width:1180px;height:230px;transform:translate(-50%,-50%) scaleX(0);background:linear-gradient(180deg,#f4e6c8,#e8d3a6);box-shadow:inset 0 0 40px rgba(140,100,40,.35);');
-    this.a(scroll, [{ transform: 'translate(-50%,-50%) scaleX(0)' }, { transform: 'translate(-50%,-50%) scaleX(1)', offset: .28 }, { transform: 'translate(-50%,-50%) scaleX(1)', offset: .78 }, { transform: 'translate(-50%,-50%) scaleX(0)' }], 3200, 700, 'cubic-bezier(.16,1,.3,1)');
-    const inner = document.createElement('div');
-    inner.textContent = '출항이요';
-    inner.style.cssText = "position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Black Han Sans',sans-serif;font-size:126px;color:#3a2408;letter-spacing:.16em;";
-    scroll.appendChild(inner);
-    this.a(inner, [{ clipPath: 'inset(0 50% 0 50%)' }, { clipPath: 'inset(0 0 0 0)' }], 700, 1000, 'cubic-bezier(.16,1,.3,1)');
+    const N = 17, SPAN = 62;          // 좌우 62도. 180도로 벌리면 납작해져 촌스럽다.
+    const PAPER = 900, RIB = 985;     // 살촉은 85 만 내민다. 더 내밀면 종이와 뼈대가 벌어져 보인다.
 
-    [[-590], [590]].forEach((v, i) => {
-      const rod = this.mk(fx, 'left:50%;top:540px;width:30px;height:290px;transform:translate(-50%,-50%);background:linear-gradient(90deg,#7d5a1c,#d9b45a 45%,#7d5a1c);');
-      this.a(rod, [{ transform: 'translate(-50%,-50%) translateX(0)', opacity: 0 }, { transform: 'translate(-50%,-50%) translateX(0)', opacity: 1, offset: .04 }, { transform: 'translate(-50%,-50%) translateX(' + v[0] + 'px)', opacity: 1, offset: .3 }, { transform: 'translate(-50%,-50%) translateX(' + v[0] + 'px)', opacity: 1, offset: .78 }, { transform: 'translate(-50%,-50%) translateX(0)', opacity: 0 }], 3200, 700, 'cubic-bezier(.16,1,.3,1)');
-    });
+    for (let i = 0; i < N; i++) {
+      const rot = -SPAN + (i / (N - 1)) * SPAN * 2;
+      const openAt = 140 + i * 40, closeAt = 2420 + (N - 1 - i) * 26;
+      const fold = i % 2 === 0;       // 골과 마루 — 접힌 종이의 명암
 
-    for (let i = 0; i < 24; i++) {
-      const s = this.rnd(2, 5);
-      const p = this.mk(fx, 'left:' + this.rnd(0, 1900).toFixed(0) + 'px;top:1120px;width:' + s.toFixed(1) + 'px;height:' + s.toFixed(1) + 'px;border-radius:50%;background:#f0dda4;');
-      this.a(p, [{ transform: 'translateY(0)', opacity: 0 }, { opacity: .6, offset: .2 }, { transform: 'translateY(-' + this.rnd(700, 1150).toFixed(0) + 'px) translateX(' + this.rnd(-120, 120).toFixed(0) + 'px)', opacity: 0 }], this.rnd(2200, 3000), this.rnd(0, 1200), 'cubic-bezier(.4,0,.6,1)');
+      // ① 살 — 축에서 한 점으로 모이고 종이 밖으로 튀어나온다
+      const rib = this.mk(fx, 'left:50%;bottom:70px;width:13px;height:' + RIB + 'px;transform-origin:50% 100%;' +
+        'background:linear-gradient(to top,#6b4f12,' + GOLD + ' 22%,#fff0c4 74%,' + GOLD + ');' +
+        'border-radius:7px;transform:translateX(-50%) rotate(0deg) scaleY(.06);opacity:0;');
+
+      // ② 종이 한 폭 — 축 쪽은 좁고 끝은 넓다. 끝을 둥글려 비늘 모양을 만든다.
+      const leaf = this.mk(fx, 'left:50%;bottom:' + (70 + RIB - PAPER) + 'px;width:258px;height:' + PAPER + 'px;transform-origin:50% 100%;' +
+        'clip-path:polygon(46% 100%,54% 100%,100% 10%,90% 0,10% 0,0 10%);' +
+        'background:linear-gradient(to top,rgba(140,102,32,' + (fold ? '.95' : '.8') + '),' + SILK + ' 46%,' + (fold ? 'rgba(255,255,255,.92)' : 'rgba(236,214,170,.9)') + ');' +
+        'transform:translateX(-50%) rotate(0deg) scaleY(.06);opacity:0;');
+      // 접힌 골의 그늘 — 종이가 평면이 아니라 접혀 있다는 신호
+      this.mk(leaf, 'left:0;top:0;bottom:0;width:34px;background:linear-gradient(90deg,rgba(90,62,18,.42),transparent);');
+
+      [[rib, 1], [leaf, fold ? .97 : .88]].forEach(v => {
+        const el = v[0], op = v[1];
+        this.a(el, [
+          { transform: 'translateX(-50%) rotate(0deg) scaleY(.06)', opacity: 0 },
+          { transform: 'translateX(-50%) rotate(' + (rot * 1.05).toFixed(1) + 'deg) scaleY(1)', opacity: op, offset: .78 },
+          { transform: 'translateX(-50%) rotate(' + rot.toFixed(1) + 'deg) scaleY(1)', opacity: op },
+        ], 560, openAt, 'cubic-bezier(.16,1,.3,1)');
+        // 다 펼쳐진 뒤 아주 약하게 숨쉰다. 완전히 굳어 있으면 종이로 안 보인다.
+        try {
+          el.animate([{ transform: 'rotate(-1.2deg)' }, { transform: 'rotate(1.2deg)' }],
+            { duration: 900 / this.S, delay: 1500 / this.S, iterations: 2, direction: 'alternate',
+              easing: 'ease-in-out', composite: 'add' });
+        } catch (e) {}
+        this.a(el, [
+          { transform: 'translateX(-50%) rotate(' + rot.toFixed(1) + 'deg) scaleY(1)', opacity: op },
+          { transform: 'translateX(-50%) rotate(0deg) scaleY(.06)', opacity: 0 },
+        ], 440, closeAt, 'cubic-bezier(.55,0,.4,1)');
+      });
     }
+
+    // ③ 축 리벳 — 여기가 없으면 부채가 아니라 부챗살 다발이다
+    const hub = this.mk(fx, 'left:50%;bottom:34px;width:78px;height:78px;border-radius:50%;transform:translateX(-50%) scale(0);' +
+      'background:radial-gradient(60% 60% at 38% 32%,#fff3cf,' + GOLD + ' 46%,#6b4f12);box-shadow:0 0 26px rgba(217,180,90,.8);');
+    this.a(hub, [{ transform: 'translateX(-50%) scale(0)', opacity: 0 }, { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: .1 }, { transform: 'translateX(-50%) scale(1)', opacity: 1, offset: .86 }, { transform: 'translateX(-50%) scale(.2)', opacity: 0 }], 3200, 140, 'cubic-bezier(.16,1,.3,1)');
+
+    // ④ 비단 광택이 부채 면을 축 기준으로 훑고 지나간다
+    const sheen = this.mk(fx, 'left:50%;bottom:70px;width:2600px;height:2600px;transform-origin:50% 100%;transform:translateX(-50%) rotate(-70deg);' +
+      'background:conic-gradient(from 176deg at 50% 100%, transparent 0deg, rgba(255,248,220,.34) 5deg, transparent 11deg);mix-blend-mode:screen;opacity:0;');
+    this.a(sheen, [
+      { transform: 'translateX(-50%) rotate(-70deg)', opacity: 0 },
+      { transform: 'translateX(-50%) rotate(-70deg)', opacity: 1, offset: .1 },
+      { transform: 'translateX(-50%) rotate(70deg)', opacity: 1, offset: .9 },
+      { transform: 'translateX(-50%) rotate(70deg)', opacity: 0 },
+    ], 1300, 1180, 'cubic-bezier(.42,0,.5,1)');
+
+    // ⑤ 금분 — 부채가 일으킨 바람
+    for (let i = 0; i < 26; i++) {
+      const sz = this.rnd(3, 7);
+      const p = this.mk(fx, 'left:' + this.rnd(0, 1920).toFixed(0) + 'px;bottom:0;width:' + sz.toFixed(1) + 'px;height:' + sz.toFixed(1) + 'px;border-radius:50%;background:#f4e3ae;');
+      this.a(p, [{ transform: 'translateY(0)', opacity: 0 }, { opacity: .7, offset: .2 }, { transform: 'translateY(-' + this.rnd(500, 1000).toFixed(0) + 'px) translateX(' + this.rnd(-140, 140).toFixed(0) + 'px)', opacity: 0 }], this.rnd(2000, 2900), this.rnd(200, 1400), 'cubic-bezier(.4,0,.6,1)');
+    }
+
+    this.shake(shake, 7, 180, 140);
+    this.cardIn(1500, { from: 'scale(.88)', dur: 520 });
   }
 
+  
   /* ══ 500,001 방패 강림 (3.2s) ══ */
   fx_shield(fx, shake) {
+    const BOLT = this.col(0, '#ff5fa2');
+    this.cardGlow(BOLT);
+    this.photoBg(fx, { delay: 820, dur: 2200, blur: 26, bright: .4, max: .82 });
     const dim = this.mk(fx, 'inset:0;background:rgba(4,4,10,.6);opacity:0;');
     this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .16 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 3200);
 
@@ -502,7 +807,7 @@ class SigEngine {
     });
     for (let i = 0; i < 7; i++) {
       const rot = -100 + i * 33 + this.rnd(-8, 8);
-      const b = this.mk(fx, 'left:50%;top:470px;width:26px;height:' + this.rnd(420, 780).toFixed(0) + 'px;background:linear-gradient(to bottom,#ff5fa2,rgba(255,95,162,0));transform-origin:50% 0%;transform:rotate(' + rot.toFixed(0) + 'deg) scaleY(0);clip-path:polygon(50% 0,100% 22%,32% 42%,100% 62%,20% 100%,64% 52%,0 34%);mix-blend-mode:screen;');
+      const b = this.mk(fx, 'left:50%;top:470px;width:26px;height:' + this.rnd(420, 780).toFixed(0) + 'px;background:linear-gradient(to bottom,' + BOLT + ',rgba(255,95,162,0));transform-origin:50% 0%;transform:rotate(' + rot.toFixed(0) + 'deg) scaleY(0);clip-path:polygon(50% 0,100% 22%,32% 42%,100% 62%,20% 100%,64% 52%,0 34%);mix-blend-mode:screen;');
       this.a(b, [{ transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(0)', opacity: 1 }, { transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(1)', opacity: 1, offset: .3 }, { transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(1)', opacity: 0 }], 620, IMP + 40 + i * 45, 'cubic-bezier(.1,.9,.2,1)');
     }
     const t = this.txt(fx, '방패', "font-family:'Black Han Sans',sans-serif;font-size:104px;color:#ffd9e8;letter-spacing:.3em;", 830);
@@ -514,6 +819,9 @@ class SigEngine {
 
   /* ══ 600,001 74번 알림 — 참격 (2.6s) ══ */
   fx_slash(fx, shake) {
+    const BLADE = this.col(0, '#e63946');
+    this.cardGlow(BLADE);
+    this.photoBg(fx, { delay: 220, dur: 2200, blur: 24, bright: .36, max: .8 });
     const dim = this.mk(fx, 'inset:0;background:rgba(2,2,6,.42);opacity:0;');
     this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 2600);
 
@@ -521,7 +829,7 @@ class SigEngine {
       const rot = v[0], ms = v[1];
       const sl = this.mk(fx, 'left:50%;top:50%;width:2900px;height:16px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff 12%,#fff 88%,rgba(255,255,255,0));transform:translate(-50%,-50%) rotate(' + rot + 'deg) scaleX(0);transform-origin:50% 50%;');
       this.a(sl, [{ transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) scaleX(0)', opacity: 1 }, { transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) scaleX(1)', opacity: 1, offset: .1 }, { transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) scaleX(1) scaleY(.2)', opacity: .9, offset: .3 }, { transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) scaleX(1) scaleY(.05)', opacity: 0 }], 900, ms, 'cubic-bezier(.05,.9,.2,1)');
-      const red = this.mk(fx, 'left:50%;top:50%;width:2900px;height:5px;background:#e63946;transform:translate(-50%,-50%) rotate(' + rot + 'deg) translateY(20px) scaleX(0);');
+      const red = this.mk(fx, 'left:50%;top:50%;width:2900px;height:5px;background:' + BLADE + ';transform:translate(-50%,-50%) rotate(' + rot + 'deg) translateY(20px) scaleX(0);');
       this.a(red, [{ transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) translateY(22px) scaleX(0)', opacity: 1 }, { transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) translateY(22px) scaleX(1)', opacity: 1, offset: .12 }, { transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) translateY(22px) scaleX(1)', opacity: 1, offset: .6 }, { transform: 'translate(-50%,-50%) rotate(' + rot + 'deg) translateY(22px) scaleX(1)', opacity: 0 }], 1400, ms + 40, 'cubic-bezier(.05,.9,.2,1)');
       this.flash(fx, '#ffffff', .82, 90, ms + 30);
       this.shake(shake, 30, 300, ms + 20);
@@ -536,75 +844,134 @@ class SigEngine {
     this.a(t.w, [{ transform: 'scale(1.3)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .12 }, { transform: 'scale(1)', opacity: 1, offset: .74 }, { transform: 'scale(1.03)', opacity: 0 }], 1400, 1120, 'cubic-bezier(.16,1,.3,1)');
   }
 
-  /* ══ 70만 누나누나 — 심쿵 (3.2s) ══ */
-  fx_nuna(fx) {
-    const wash = this.mk(fx, 'inset:0;background:radial-gradient(70% 60% at 50% 50%,rgba(255,92,138,.4),rgba(60,6,24,.66));opacity:0;');
-    this.a(wash, [{ opacity: 0 }, { opacity: 1, offset: .16 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 3200);
+  /* ══ 70만 누나누나 — 장미 개화 (3.2s) ══
+     사진은 '분홍 대리석 + 로즈골드 액자 + 분홍 보석' 이다.
+     ⚠️ pucha(30만) 와 같은 액자 계열이라 반대 성격 — 여기는 따뜻하게 '피는' 쪽. */
+  fx_nuna(fx, shake) {
+    const ROSE = this.col(0, '#ff7fa8'), GOLD = this.col(2, '#e8b978');
+    this.cardGlow(ROSE);
+    this.photoBg(fx, { delay: 200, dur: 2900, blur: 28, bright: .42, max: .82 });
 
-    const heart = this.mk(fx, 'left:50%;top:460px;width:340px;height:340px;transform:translate(-50%,-50%) rotate(-45deg) scale(.2);opacity:0;');
-    const sq = this.mk(heart, 'left:0;top:0;width:240px;height:240px;background:#ff5c8a;');
-    const c1 = this.mk(heart, 'left:-120px;top:0;width:240px;height:240px;border-radius:50%;background:#ff5c8a;');
-    const c2 = this.mk(heart, 'left:0;top:-120px;width:240px;height:240px;border-radius:50%;background:#ff5c8a;');
-    this.a(heart, [{ transform: 'translate(-50%,-50%) rotate(-45deg) scale(.2)', opacity: 0 }, { transform: 'translate(-50%,-50%) rotate(-45deg) scale(1)', opacity: 1, offset: .12 }, { transform: 'translate(-50%,-50%) rotate(-45deg) scale(1)', opacity: 1, offset: .84 }, { transform: 'translate(-50%,-50%) rotate(-45deg) scale(1.1)', opacity: 0 }], 3100, 100, 'cubic-bezier(.16,1,.3,1)');
+    const wash = this.mk(fx, 'inset:0;background:radial-gradient(70% 60% at 50% 48%,rgba(255,140,175,.28),rgba(46,10,24,.76));opacity:0;');
+    this.a(wash, [{ opacity: 0 }, { opacity: 1, offset: .14 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 3200);
 
-    // 심장 리듬 (쿵-쿵, 쉬고)
-    const beats = [420, 1180, 1940, 2560];
-    beats.forEach((ms, i) => {
-      const inner = heart;
-      inner.animate([
-        { transform: 'translate(-50%,-50%) rotate(-45deg) scale(1)' },
-        { transform: 'translate(-50%,-50%) rotate(-45deg) scale(' + (1.14 + i * .03) + ')', offset: .16 },
-        { transform: 'translate(-50%,-50%) rotate(-45deg) scale(1.02)', offset: .34 },
-        { transform: 'translate(-50%,-50%) rotate(-45deg) scale(' + (1.2 + i * .04) + ')', offset: .52 },
-        { transform: 'translate(-50%,-50%) rotate(-45deg) scale(1)', offset: 1 },
-      ], { duration: 620 / this.S, delay: ms / this.S, easing: 'cubic-bezier(.3,0,.4,1)', composite: 'replace' });
-      const ring = this.mk(fx, 'left:50%;top:460px;width:420px;height:420px;border-radius:50%;border:5px solid rgba(255,180,205,.75);transform:translate(-50%,-50%) scale(.6);');
-      this.a(ring, [{ transform: 'translate(-50%,-50%) scale(.6)', opacity: .9 }, { transform: 'translate(-50%,-50%) scale(2.4)', opacity: 0 }], 760, ms + 60, 'cubic-bezier(.15,.9,.3,1)');
-      this.flash(fx, '#ff9ebd', .12, 260, ms + 40);
+    // ① 분홍 대리석 결이 가운데서 물결처럼 퍼져 나간다
+    for (let i = 0; i < 5; i++) {
+      const r = this.mk(fx, 'left:960px;top:540px;width:520px;height:520px;border-radius:50%;transform:translate(-50%,-50%) scale(.2);' +
+        'border:5px solid rgba(255,190,210,' + (.5 - i * .07).toFixed(2) + ');mix-blend-mode:screen;');
+      this.a(r, [{ transform: 'translate(-50%,-50%) scale(.2)', opacity: .9 }, { transform: 'translate(-50%,-50%) scale(3.4)', opacity: 0 }], 1700, 300 + i * 230, 'cubic-bezier(.2,.85,.3,1)');
+    }
+
+    // ② 꽃잎이 회오리로 몰려와 화면 테두리에 붙어 액자가 된다.
+    //    ⚠️ 목표 지점을 테두리 위로 잡아야 '액자' 로 읽힌다. 흩날리면 그냥 파티클이다.
+    for (let i = 0; i < 44; i++) {
+      const edge = i % 4, sz = this.rnd(26, 58);
+      let tx, ty;
+      if (edge === 0) { tx = this.rnd(-880, 880); ty = -470; }
+      else if (edge === 1) { tx = this.rnd(-880, 880); ty = 470; }
+      else if (edge === 2) { tx = -890; ty = this.rnd(-440, 440); }
+      else { tx = 890; ty = this.rnd(-440, 440); }
+      const p = this.mk(fx, 'left:960px;top:540px;width:' + sz.toFixed(0) + 'px;height:' + (sz * .66).toFixed(0) + 'px;' +
+        'border-radius:100% 0 100% 0;background:linear-gradient(120deg,' + ROSE + ',' + GOLD + ');transform:translate(-50%,-50%) scale(.2);opacity:0;');
+      this.a(p, [
+        { transform: 'translate(-50%,-50%) translate(0px,0px) rotate(0deg) scale(.2)', opacity: 0 },
+        { opacity: 1, offset: .18 },
+        { transform: 'translate(-50%,-50%) translate(' + (tx * .55).toFixed(0) + 'px,' + (ty * .55).toFixed(0) + 'px) rotate(' + this.rnd(90, 220).toFixed(0) + 'deg) scale(1)', opacity: 1, offset: .5 },
+        { transform: 'translate(-50%,-50%) translate(' + tx.toFixed(0) + 'px,' + ty.toFixed(0) + 'px) rotate(' + this.rnd(240, 400).toFixed(0) + 'deg) scale(1)', opacity: 1, offset: .74 },
+        { transform: 'translate(-50%,-50%) translate(' + tx.toFixed(0) + 'px,' + ty.toFixed(0) + 'px) rotate(' + this.rnd(240, 400).toFixed(0) + 'deg) scale(1)', opacity: 0, offset: 1 },
+      ], 3000, 180 + i * 26, 'cubic-bezier(.2,.8,.25,1)');
+    }
+
+    // ③ 보석이 순서대로 반짝
+    [[430, 320], [1500, 300], [960, 830], [1660, 720], [300, 760], [1200, 240]].forEach((p, i) => {
+      const g1 = this.mk(fx, 'left:' + p[0] + 'px;top:' + p[1] + 'px;width:4px;height:74px;background:#fff;box-shadow:0 0 20px ' + ROSE + ';');
+      const g2 = this.mk(fx, 'left:' + p[0] + 'px;top:' + p[1] + 'px;width:74px;height:4px;background:#fff;box-shadow:0 0 20px ' + ROSE + ';');
+      [g1, g2].forEach(e => this.a(e, [{ transform: 'translate(-50%,-50%) scale(0) rotate(0deg)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1) rotate(45deg)', opacity: 1, offset: .35 }, { transform: 'translate(-50%,-50%) scale(0) rotate(90deg)', opacity: 0 }], 760, 900 + i * 250, 'cubic-bezier(.3,0,.4,1)'));
     });
 
-    for (let i = 0; i < 16; i++) {
-      const s = this.rnd(14, 26);
-      const p = this.mk(fx, 'left:' + this.rnd(0, 1880).toFixed(0) + 'px;top:-40px;width:' + s.toFixed(0) + 'px;height:' + (s * .68).toFixed(0) + 'px;border-radius:100% 0 100% 0;background:' + ['#ffd0dd', '#ff5c8a', '#fff0f4'][i % 3] + ';');
-      this.a(p, [{ transform: 'translateY(0) rotate(0)', opacity: 0 }, { opacity: .9, offset: .12 }, { transform: 'translateY(1180px) translateX(' + this.rnd(-200, 200).toFixed(0) + 'px) rotate(' + this.rnd(-360, 360).toFixed(0) + 'deg)', opacity: 0 }], this.rnd(2000, 2800), this.rnd(0, 1400), 'cubic-bezier(.4,0,.6,1)');
-    }
-    const t = this.txt(fx, '누나누나', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:600;font-size:104px;color:#fff;letter-spacing:.24em;", 790);
-    this.a(t.w, [{ transform: 'translateY(26px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1, offset: .2 }, { transform: 'translateY(0)', opacity: 1, offset: .82 }, { transform: 'translateY(-16px)', opacity: 0 }], 3000, 300, 'cubic-bezier(.16,1,.3,1)');
+    this.cardIn(1500, { from: 'scale(.86)', dur: 540 });
   }
 
-  /* ══ 80만 클럽음악 — 클럽 개장 (3.4s) ══ */
+  
+  /* ══ 80만 클럽음악 — 드롭 (3.4s) ══
+     ⚠️ 이 연출의 전부는 1.2~1.4초의 '멈춤' 이다. 계속 화려하게 채우면 밋밋해진다.
+        빌드업(0~1.2) → 정적(1.2~1.4) → 드롭(1.4~). 이 구조를 흐리지 마라. */
   fx_club(fx, shake) {
-    const cols = ['#ff2bd0', '#7a5cff', '#22e6ff', '#59ff9e', '#ffd24a'];
-    const dark = this.mk(fx, 'inset:0;background:rgba(3,2,10,.66);opacity:0;');
-    this.a(dark, [{ opacity: 0 }, { opacity: 1, offset: .08 }, { opacity: 1, offset: .86 }, { opacity: 0 }], 3400);
+    const PINK = this.col(0, '#ff2bd0'), CYAN = this.col(1, '#22e6ff'), GOLD = this.col(2, '#ffd24a');
+    this.cardGlow(PINK);
+    this.photoBg(fx, { delay: 1400, dur: 1900, blur: 26, bright: .42, max: .85, from: 1.3, to: 1.1 });
+
+    const DROP = 1400;
+
+    const dark = this.mk(fx, 'inset:0;background:rgba(3,2,10,.68);opacity:0;');
+    this.a(dark, [{ opacity: 0 }, { opacity: 1, offset: .06 }, { opacity: 1, offset: .86 }, { opacity: 0 }], 3400);
+
+    /* ── 빌드업 (0~1.2s) — 밝아지고, 떨림이 빨라지고, 레이저가 한 점으로 모인다 ── */
+    const rise = this.mk(fx, 'inset:0;background:#ffffff;mix-blend-mode:screen;opacity:0;');
+    this.a(rise, [{ opacity: 0 }, { opacity: .1, offset: .5 }, { opacity: .42, offset: .86 }, { opacity: .72, offset: 1 }], DROP, 0, 'cubic-bezier(.6,0,.9,1)');
 
     for (let i = 0; i < 8; i++) {
-      const c = cols[i % 5], base = (i - 3.5) * 15;
-      const l = this.mk(fx, 'left:50%;top:-40px;width:190px;height:1300px;transform-origin:50% 0%;clip-path:polygon(46% 0,54% 0,100% 100%,0 100%);background:linear-gradient(to bottom,' + c + ',rgba(0,0,0,0));mix-blend-mode:screen;opacity:0;');
-      this.a(l, [{ opacity: 0, transform: 'translateX(-50%) rotate(' + (base - 20) + 'deg)' }, { opacity: .8, offset: .08 }, { opacity: .8, offset: .88 }, { opacity: 0, transform: 'translateX(-50%) rotate(' + (base + 20) + 'deg)' }], 3300, i * 40);
-      l.animate([{ transform: 'translateX(-50%) rotate(' + (base - 16) + 'deg)' }, { transform: 'translateX(-50%) rotate(' + (base + 16) + 'deg)' }, { transform: 'translateX(-50%) rotate(' + (base - 16) + 'deg)' }], { duration: 1500 / this.S, iterations: 3, easing: 'ease-in-out', composite: 'replace' });
+      const c = [PINK, CYAN, GOLD][i % 3], spread = (i - 3.5) * 15;
+      const l = this.mk(fx, 'left:960px;top:-60px;width:190px;height:1500px;transform-origin:50% 0%;' +
+        'clip-path:polygon(46% 0,54% 0,100% 100%,0 100%);background:linear-gradient(to bottom,' + c + ',rgba(0,0,0,0));mix-blend-mode:screen;opacity:0;');
+      // 벌어져 있다가 위 한 점으로 모인다 = 터지기 직전의 긴장
+      this.a(l, [
+        { transform: 'translateX(-50%) rotate(' + spread + 'deg)', opacity: 0 },
+        { transform: 'translateX(-50%) rotate(' + spread + 'deg)', opacity: .7, offset: .12 },
+        { transform: 'translateX(-50%) rotate(' + (spread * .12).toFixed(1) + 'deg)', opacity: .95, offset: 1 },
+      ], DROP, i * 30, 'cubic-bezier(.5,0,.6,1)');
+      // 드롭 순간 사방으로 터진다
+      this.a(l, [
+        { transform: 'translateX(-50%) rotate(' + (spread * .12).toFixed(1) + 'deg)', opacity: .95 },
+        { transform: 'translateX(-50%) rotate(' + (spread * 3.2).toFixed(1) + 'deg)', opacity: .85, offset: .3 },
+        { transform: 'translateX(-50%) rotate(' + (spread * 2.6).toFixed(1) + 'deg)', opacity: .8, offset: .84 },
+        { transform: 'translateX(-50%) rotate(' + (spread * 3).toFixed(1) + 'deg)', opacity: 0 },
+      ], 1900, DROP, 'cubic-bezier(.1,.9,.3,1)');
+    }
+    // 저음 진동 — 간격이 점점 좁아진다
+    [0, 300, 540, 730, 880, 1000, 1090, 1160, 1215].forEach((ms, i) => this.shake(shake, 5 + i * 1.5, 120, ms));
+
+    /* ── 정적 (1.2~1.4s) — 아무 것도 움직이지 않는다 ── */
+    const hold = this.mk(fx, 'inset:0;background:#ffffff;opacity:0;');
+    this.a(hold, [{ opacity: 0, offset: 0 }, { opacity: .78, offset: .02 }, { opacity: .78, offset: .98 }, { opacity: 0, offset: 1 }], 200, 1200, 'steps(1,end)');
+
+    /* ── 드롭 (1.4s~) ── */
+    this.flash(fx, '#ffffff', 1, 90, DROP);
+    this.shake(shake, 44, 480, DROP);
+
+    // 좌우 스피커 충격파
+    [[250, -1], [1670, 1]].forEach(sp => {
+      for (let k = 0; k < 3; k++) {
+        const r = this.mk(fx, 'left:' + sp[0] + 'px;top:540px;width:340px;height:340px;border-radius:50%;' +
+          'border:' + (16 - k * 4) + 'px solid ' + (k % 2 ? CYAN : PINK) + ';transform:translate(-50%,-50%) scale(.1);mix-blend-mode:screen;');
+        this.a(r, [{ transform: 'translate(-50%,-50%) scale(.1)', opacity: 1 }, { transform: 'translate(-50%,-50%) scale(' + (4.4 + k) + ')', opacity: 0 }], 820 + k * 120, DROP + k * 90, 'cubic-bezier(.15,.9,.3,1)');
+      }
+    });
+
+    // 색종이
+    for (let i = 0; i < 46; i++) {
+      const w = this.rnd(14, 30), c = [PINK, CYAN, GOLD, '#ffffff'][i % 4];
+      const p = this.mk(fx, 'left:' + this.rnd(0, 1920).toFixed(0) + 'px;top:-60px;width:' + w.toFixed(0) + 'px;height:' + (w * .6).toFixed(0) + 'px;background:' + c + ';');
+      this.a(p, [{ transform: 'translateY(0) rotate(0deg)', opacity: 0 }, { opacity: 1, offset: .08 }, { transform: 'translateY(1250px) translateX(' + this.rnd(-260, 260).toFixed(0) + 'px) rotate(' + this.rnd(-720, 720).toFixed(0) + 'deg)', opacity: 0 }], this.rnd(1300, 1900), DROP + this.rnd(0, 700), 'cubic-bezier(.35,0,.6,1)');
     }
 
-    for (let i = 0; i < 26; i++) {
-      const c = cols[i % 5];
-      const b = this.mk(fx, 'left:' + (i * 74 + 12) + 'px;bottom:0;width:56px;height:' + this.rnd(90, 300).toFixed(0) + 'px;background:linear-gradient(to top,' + c + ',rgba(255,255,255,.85));transform-origin:50% 100%;transform:scaleY(0);');
-      this.a(b, [{ transform: 'scaleY(0)', opacity: 0 }, { transform: 'scaleY(1)', opacity: .95, offset: .06 }, { transform: 'scaleY(1)', opacity: .95, offset: .9 }, { transform: 'scaleY(0)', opacity: 0 }], 3300, 60);
-      b.animate([{ transform: 'scaleY(.3)' }, { transform: 'scaleY(1.5)' }, { transform: 'scaleY(.5)' }], { duration: this.rnd(260, 520) / this.S, iterations: 14, direction: 'alternate', easing: 'ease-in-out', delay: this.rnd(0, 300) / this.S, composite: 'replace' });
-    }
+    // 비트마다 부풀었다 줄었다
+    [0, 430, 860, 1290, 1720].forEach((ms, i) => {
+      this.a(fx, [{ transform: 'scale(1.03)' }, { transform: 'scale(1)' }], 170, DROP + ms, 'cubic-bezier(.2,.9,.3,1)');
+      if (i) this.shake(shake, 12, 150, DROP + ms);
+      this.flash(fx, i % 2 ? CYAN : PINK, .16, 150, DROP + ms);
+    });
 
-    for (let k = 0; k < 7; k++) {
-      const ms = 160 + k * 469;
-      this.a(fx, [{ transform: 'scale(1.02)' }, { transform: 'scale(1)' }], 160, ms, 'cubic-bezier(.2,.9,.3,1)');
-      if (k % 2 === 0) this.flash(fx, '#ffffff', .2, 70, ms);
-      this.shake(shake, 8, 130, ms);
-    }
-    const t = this.txt(fx, 'CLUB OPEN', "font-family:'Anton',sans-serif;font-size:150px;letter-spacing:.1em;color:#fff;", 420);
-    this.a(t.w, [{ transform: 'scale(1.25)', opacity: 0 }, { transform: 'scale(1)', opacity: 1, offset: .1 }, { transform: 'scale(1)', opacity: 1, offset: .84 }, { transform: 'scale(1.05)', opacity: 0 }], 3300, 200, 'cubic-bezier(.16,1,.3,1)');
+    // 카드는 드롭 순간에 박힌다 — 정적의 대가가 이거다.
+    this.cardIn(DROP, { from: 'scale(1.4)', dur: 380, ease: 'cubic-bezier(.08,.95,.2,1)' });
   }
 
+  
   /* ══ 100만 VIP (4.6s) ══ */
   fx_vip(fx) {
-    const GOLD = '#c9a227';
+    const GOLD = this.col(2, '#c9a227');
+    this.cardGlow(GOLD);
+    this.photoBg(fx, { delay: 260, dur: 4100, blur: 32, bright: .34, max: .68, hold: .84 });
     const vig = this.mk(fx, 'inset:0;background:radial-gradient(100% 78% at 50% 48%,rgba(4,4,6,.34),rgba(2,2,4,.92));opacity:0;');
     this.a(vig, [{ opacity: 0 }, { opacity: 1, offset: .2 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 4500, 0, 'cubic-bezier(.4,0,.3,1)');
 
@@ -639,6 +1006,8 @@ class SigEngine {
 
   /* ══ 200만 엔젤 VIP — 천상 강림 (5.2s) ══ */
   fx_angel(fx) {
+    this.cardGlow(this.col(2, '#ffecb4'));
+    this.photoBg(fx, { delay: 300, dur: 4700, blur: 34, bright: .38, max: .72, hold: .84 });
     const holy = this.mk(fx, 'inset:0;background:radial-gradient(70% 90% at 50% 0%,rgba(255,240,200,.5),rgba(20,16,8,.62) 66%);opacity:0;');
     this.a(holy, [{ opacity: 0 }, { opacity: 1, offset: .2 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 5200, 0, 'cubic-bezier(.4,0,.3,1)');
 
@@ -673,6 +1042,8 @@ class SigEngine {
 
   /* ══ 300만 MVP — 대관식 (7.5s) ══ */
   fx_mvp(fx, shake) {
+    this.cardGlow(this.col(2, '#d9b45a'));
+    this.photoBg(fx, { delay: 400, dur: 6800, blur: 34, bright: .34, max: .66, hold: .86 });
     const vig = this.mk(fx, 'inset:0;background:radial-gradient(100% 80% at 50% 46%,rgba(40,26,4,.2),rgba(2,2,4,.86));opacity:0;');
     this.a(vig, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .9 }, { opacity: 0 }], 7500);
 

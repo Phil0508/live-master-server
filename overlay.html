@@ -4133,15 +4133,55 @@
             return SIGFX_BY_AMOUNT[Number(item.sig_amount)] || null;
         }
 
+        // 시그니처 사진에서 대표색을 뽑아 연출에 넘긴다.
+        // ⚠️ vibrantColorFromImage() 는 색을 하나만 준다. 연출은 2~3개를 쓰므로 같은 색으로 채운다.
+        //    색이 하나뿐이어도 연출은 정상 동작한다.
+        // ⚠️ CORS 로 캔버스가 오염되면 throw 한다. 실패하면 null 을 넘겨 기본 색으로 가게 한다.
+        function sigFxColorsNow(url) {
+            if (!url) return null;
+            try {
+                // 캐시에 있으면 complete 가 그 자리에서 참이 된다(방송 시작 때 미리받기를 한다).
+                // 없으면 색 없이 간다 — 기다리면 연출이 시그니처보다 늦게 시작한다.
+                const p = new Image();
+                p.crossOrigin = 'anonymous';
+                p.src = url;
+                if (!(p.complete && p.naturalWidth > 0)) return null;
+                const c = vibrantColorFromImage(p);
+                if (!c) return null;
+                const rgb = `rgb(${c.r}, ${c.g}, ${c.b})`;
+                return [rgb, rgb, rgb];
+            } catch (e) {
+                // CORS 로 캔버스가 오염되면 여기로 온다. 기본 색으로 계속 간다.
+                console.warn('[시그연출] 대표색 추출 실패 — 기본 색으로 갑니다', e);
+                return null;
+            }
+        }
+
         function sigFxPlay(item) {
             const key = sigFxKey(item);
             if (!key || typeof SigFX === 'undefined') return false;
             try {
+                // ⚠️ 여기서 <img> 가 다 실렸는지 보면 거의 항상 '안 실림' 이다.
+                //    바로 몇 줄 위에서 src 를 막 지정했기 때문이다. 그걸 조건으로 걸었더니
+                //    실제 방송에서 사진 연동이 한 번도 안 걸렸다.
+                //    사진 주소는 그냥 넘긴다 — 배경은 CSS 가 알아서 받아 온다.
+                //    색만 '지금 당장 픽셀을 읽을 수 있을 때' 넘긴다(방송 시작 때 미리받기를
+                //    해두므로 대개 캐시에 있어서 바로 읽힌다).
+                const imgUrl = item.image_url || null;
                 // 흔들림은 방송 내용물(#master-container)에 건다. 무대를 흔들면 연출만 흔들리고,
                 // #scale-wrapper 를 흔들면 거기 걸린 배율이 날아가 화면이 통째로 어긋난다.
-                SigFX.play(key, document.getElementById('sigfx-inner'),
-                           { shakeEl: document.getElementById('master-container') });
-                console.log('[시그연출] ' + key + ' (' + item.sig_amount + '원)');
+                SigFX.play(key, document.getElementById('sigfx-inner'), {
+                    shakeEl: document.getElementById('master-container'),
+                    image:   imgUrl,
+                    colors:  sigFxColorsNow(imgUrl),
+                    // ⚠️ 카드는 넘기지 않는다. 넘기면 연출이 카드를 fill:'both' 로 붙잡는데,
+                    //    이 오버레이는 2.5초 뒤 카드를 왼쪽으로 축소해 진행자 얼굴을 비켜주는
+                    //    동작(minimize)이 따로 있다. 연출이 붙잡고 있으면 그게 안 먹어서
+                    //    긴 연출(최대 7.5초) 동안 카드가 화면 한가운데를 막는다.
+                    //    사진·색만으로도 연출과 카드가 같은 색으로 묶인다.
+                });
+                console.log('[시그연출] ' + key + ' (' + item.sig_amount + '원)'
+                            + (imgUrl ? ' · 사진 O' : ' · 사진 X'));
                 return true;
             } catch (e) {
                 // 연출 하나 때문에 시그니처 재생이 멈추면 안 된다.
@@ -4205,11 +4245,11 @@
 
         function stopReactionVisuals() {
             // 🎆 전용 연출도 같이 걷는다. 재생을 끊었는데 연출만 남아 돌면 화면이 어수선하다.
+            // ⚠️ 레이어만 지우면 안 된다 — 카드·흔들 대상에 걸린 애니메이션은 그쪽에 붙어
+            //    살아남아서 화면이 어긋난 채 굳는다. stop() 이 그것까지 되돌린다.
             const sfx = document.getElementById('sigfx-inner');
-            if (sfx) {
-                sfx.querySelectorAll('[data-sigfx]').forEach(n => n.remove());
-                const mc = document.getElementById('master-container');
-                if (mc) mc.getAnimations().forEach(a => a.cancel());
+            if (sfx && typeof SigFX !== 'undefined' && SigFX.stop) {
+                try { SigFX.stop(sfx); } catch (e) {}
             }
             // 🚨 계엄령 경보는 4초짜리다. 재생을 중간에 끊으면 시그니처만 사라지고
             //    붉은 화면이 남는다. '전체 비우기' 는 급할 때 누르는 버튼이라 즉시 깨끗해져야 한다.
