@@ -141,6 +141,7 @@ class SigEngine {
     this._cardAnims = [];
     this._cardDone = false;
     this._glowPrev = null;
+    this._glowEl = null;
 
     const fx = document.createElement('div');
     fx.setAttribute('data-sigfx', key);
@@ -180,13 +181,14 @@ class SigEngine {
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
     (this._cardAnims || []).forEach(a => { try { a.cancel(); } catch (e) {} });
     this._cardAnims = [];
-    if (this.card && this._glowPrev !== null) {
+    if (this._glowEl && this._glowPrev !== null) {
       try {
         // 원래 인라인 값이 없었으면 지운다. 빈 문자열을 써 넣는 것으로는 안 지워진다.
-        if (this._glowPrev) this.card.style.setProperty('--reac-glow', this._glowPrev);
-        else this.card.style.removeProperty('--reac-glow');
+        if (this._glowPrev) this._glowEl.style.setProperty('--reac-glow', this._glowPrev);
+        else this._glowEl.style.removeProperty('--reac-glow');
       } catch (e) {}
       this._glowPrev = null;
+      this._glowEl = null;
     }
     if (this._shakeEl) {
       try { this._shakeEl.getAnimations().forEach(a => a.cancel()); } catch (e) {}
@@ -249,7 +251,13 @@ class SigEngine {
   cardGlow(color) {
     if (!this.card || !color) return;
     try {
-      if (this._glowPrev === null) this._glowPrev = this.card.style.getPropertyValue('--reac-glow');
+      if (this._glowPrev === null) {
+        this._glowPrev = this.card.style.getPropertyValue('--reac-glow');
+        // ⚠️ 되돌릴 대상을 같이 붙잡아 둔다. play() 는 this.card 를 새 카드로 바꾼 뒤에
+        //    _cleanup() 을 부르기 때문에, this.card 만 보고 되돌리면 '앞 카드의 원래 색'
+        //    을 '뒤 카드' 에 써버린다.
+        this._glowEl = this.card;
+      }
       this.card.style.setProperty('--reac-glow', color);
     } catch (e) {}
   }
@@ -1081,8 +1089,15 @@ class SigEngine {
     const parts = [];
     let alive = true;
     setTimeout(() => { alive = false; }, totalMs);
+    // ⚠️ '아직 살아 있나' 는 parentNode 로 보면 안 된다.
+    //    stop() 은 연출 레이어를 통째로 떼는데, 그래도 캔버스의 부모는 여전히
+    //    그 레이어라서 parentNode 는 참으로 남는다. 그래서 예전에는 연출을 끊어도
+    //    불꽃 연쇄와 rAF 루프가 원래 길이(최대 7.5초)만큼 계속 돌면서, 화면에
+    //    붙어 있지도 않은 캔버스에 74개씩 입자를 뿌리고 그림을 그렸다.
+    //    문서에 실제로 붙어 있는지를 봐야 한다.
+    const onScreen = () => document.contains(cv);
     const burst = () => {
-      if (!alive || !cv.parentNode) return;
+      if (!alive || !onScreen()) return;
       const x = this.rnd(260, 1660), y = this.rnd(140, 520);
       const hue = [45, 42, 38, 50, 330][Math.floor(Math.random() * 5)];
       const n = 74;
@@ -1095,7 +1110,7 @@ class SigEngine {
     burst();
     setTimeout(burst, 240 / this.S);
     const tick = () => {
-      if (!cv.parentNode) return;
+      if (!onScreen()) return;
       if (!alive && !parts.length) { ctx.clearRect(0, 0, this.W, this.H); return; }
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(0,0,0,.22)';
