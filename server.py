@@ -811,6 +811,16 @@ def require_login():
         '/overlay.html',
         '/alertbox',
         '/alertbox.html',
+        # 🎰📺 슬롯·시그니처 표시 화면도 알림창과 같은 성격이다 — OBS 브라우저 소스로 띄우는
+        #    '보여주기만 하는' 페이지라 로그인 세션이 있을 수 없다. 여기에 없으면 OBS 가
+        #    로그인 화면을 띄워 아무것도 안 나오고, 억지로 쓰려면 주소에 관리자 키를 박아야 한다
+        #    (그 키가 화면에 잡히면 그대로 유출이다).
+        #    두 화면이 받는 것은 SSE 로 나가는 공개 상태뿐이라 새로 새는 것은 없다.
+        '/slot',
+        '/slot.html',
+        '/signature-display',
+        '/signature-display.html',
+        '/signature_display.html',   # 파일 이름 그대로 친 주소도 열어준다(밑줄)
         '/api/stream',
         '/api/ping',
         # 🩺 상태 확인은 로그인 없이 열어둔다. 폰으로 '서버 괜찮나' 보는 용도라
@@ -2483,6 +2493,7 @@ def serve_slot():
 
 @app.route('/signature-display')
 @app.route('/signature-display.html')
+@app.route('/signature_display.html')
 def serve_signature_display():
     return serve_html_file('signature_display.html')
 
