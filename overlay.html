@@ -2753,13 +2753,31 @@
             const box = document.getElementById('acct_video-container');
             const frame = document.getElementById('acct-video-frame');
             if (acctVideoSafetyTimer) { clearTimeout(acctVideoSafetyTimer); acctVideoSafetyTimer = null; }
-            if (frame) frame.innerHTML = '';   // iframe 제거 → 재생·소리 완전 정지
+            // ⚠️ <video> 는 지우기 전에 멈춰 둔다. 요소만 떼면 브라우저에 따라 소리가 남는다.
+            if (frame) {
+                const v = frame.querySelector('video');
+                if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (e) {} }
+            }
+            if (frame) frame.innerHTML = '';   // iframe/video 제거 → 재생·소리 완전 정지
             if (box) box.style.display = 'none';
         }
-        function acctVideoPlay(videoId) {
+        // 저장된 값이 '유튜브 영상 번호'인지 '영상 파일 주소'인지 판단한다.
+        // ⚠️ 이 판단을 화면이 하기 때문에, 나중에 파일을 어디에 두든(서버·Supabase·다른 곳)
+        //    저장된 주소 한 줄만 바꾸면 되고 코드는 손댈 필요가 없다.
+        //    유튜브 번호는 항상 11자다. 그보다 길거나 http/ 로 시작하면 파일로 본다.
+        function acctVideoIsFile(v) {
+            const t = String(v || '').trim();
+            return /^https?:\/\//i.test(t) || t.startsWith('/');
+        }
+
+        function acctVideoPlay(video) {
             const box = document.getElementById('acct_video-container');
             const frame = document.getElementById('acct-video-frame');
-            if (!box || !frame || !videoId) return;
+            if (!box || !frame || !video) return;
+
+            if (acctVideoIsFile(video)) { acctVideoPlayFile(video, box, frame); return; }
+
+            const videoId = video;
             let src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId)
                 + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&fs=0&enablejsapi=1';
             if (location.protocol === 'http:' || location.protocol === 'https:') {
@@ -2778,6 +2796,41 @@
                 if (++tries >= 8) clearInterval(kick);
             }, 500);
             // 안전장치: 끝 감지를 놓쳐 영상이 화면에 눌러앉는 것을 막는다(최대 20분).
+            if (acctVideoSafetyTimer) clearTimeout(acctVideoSafetyTimer);
+            acctVideoSafetyTimer = setTimeout(acctVideoStop, 20 * 60 * 1000);
+        }
+
+        // 🎬 영상 파일 재생. 유튜브와 달리 광고도 추천 썸네일도 로고도 없고,
+        //    끝을 onended 로 확실히 안다(유튜브는 postMessage 로 물어봐야 해서 놓칠 수 있다).
+        function acctVideoPlayFile(url, box, frame) {
+            frame.innerHTML = '';
+            const v = document.createElement('video');
+            v.src = url;
+            v.autoplay = true;
+            v.playsInline = true;
+            v.controls = false;
+            v.preload = 'auto';
+            v.style.cssText = 'width:100%;height:100%;display:block;object-fit:contain;background:#000;';
+            // 끝나면 스스로 내려간다. 실패해도(파일 없음·형식 안 맞음) 화면에 눌러앉지 않는다.
+            v.onended = () => acctVideoStop();
+            v.onerror = () => { console.warn('[고액후원 영상] 재생 실패 —', url); acctVideoStop(); };
+            frame.appendChild(v);
+            box.style.display = 'block';
+
+            // ⚠️ OBS 는 자동재생이 열려 있지만 일반 브라우저는 소리 있는 자동재생을 막는다.
+            //    막히면 음소거로라도 튼다 — 소리는 없어도 영상은 나가는 편이 통째로 안 나오는 것보다 낫다.
+            //    (시그니처 음원도 같은 방식으로 처리한다)
+            const p = v.play();
+            if (p && p.catch) {
+                p.catch(() => {
+                    v.muted = true;
+                    console.warn('[고액후원 영상] 소리 있는 자동재생이 막혀 음소거로 틉니다. '
+                                 + 'OBS 는 자동재생이 열려 있어 실제 방송에서는 소리가 납니다.');
+                    v.play().catch(e => { console.warn('[고액후원 영상] 음소거 재생도 실패:', e); acctVideoStop(); });
+                });
+            }
+
+            // 안전장치는 파일 재생에도 그대로 둔다(길이를 못 읽는 파일이 있을 수 있다).
             if (acctVideoSafetyTimer) clearTimeout(acctVideoSafetyTimer);
             acctVideoSafetyTimer = setTimeout(acctVideoStop, 20 * 60 * 1000);
         }

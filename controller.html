@@ -2434,7 +2434,10 @@
         //    그래서 "지금 이 칸을 만지고 있는 중"일 때만 건너뛰고, 그 외에는
         //    내용이 실제로 달라졌을 때만 다시 그린다.
         let _acctRowsSignature = null;
-        function ytIdToUrl(v){ return v ? ("https://youtu.be/" + v) : ""; }
+        // 저장된 값은 두 가지일 수 있다: 유튜브 영상 번호(11자) 또는 영상 파일 주소.
+        // 칸에 보여줄 때는 파일 주소는 그대로, 유튜브 번호는 링크 모양으로 바꿔 보여준다.
+        function acctVideoIsFile(v){ return /^https?:\/\//i.test(String(v||"").trim()); }
+        function ytIdToUrl(v){ if(!v) return ""; return acctVideoIsFile(v) ? v : ("https://youtu.be/" + v); }
         function renderAccountVideoRows() {
             const box = document.getElementById("acct-video-rows");
             if (!box || !gd) return;
@@ -2450,19 +2453,77 @@
 
             box.innerHTML = tiers.map((t, i) => {
                 const val = ytIdToUrl(t.video);
+                const isFile = acctVideoIsFile(t.video);
                 const badge = t.video
-                    ? '<span style="font-size:var(--fs-1); color:#2ecc71; font-weight:800; white-space:nowrap;">설정됨</span>'
+                    ? (isFile
+                        ? '<span style="font-size:var(--fs-1); color:#2ecc71; font-weight:800; white-space:nowrap;" title="광고·추천영상 없이 바로 재생됩니다">🎬 영상파일</span>'
+                        : '<span style="font-size:var(--fs-1); color:#f5a524; font-weight:800; white-space:nowrap;" title="유튜브는 광고가 붙거나 끝난 뒤 추천영상이 뜰 수 있습니다">▶ 유튜브</span>')
                     : '<span style="font-size:var(--fs-1); color:var(--text-dim); white-space:nowrap;">비어있음</span>';
+                const upload = '<button onclick="pickAccountVideoFile(' + i + ')" title="영상 파일 올리기 (mp4 · 최대 60MB)" ' +
+                    'style="height:34px; padding:0 12px; flex:none; border-radius:var(--r-2); border:1px solid rgba(46,204,113,0.45); ' +
+                    'background:rgba(46,204,113,0.10); color:#2ecc71; cursor:pointer; font-weight:700; font-size:var(--fs-1);">' +
+                    '<i class="fa-solid fa-upload"></i> 파일</button>';
                 const clear = t.video
                     ? '<button onclick="clearAccountVideo(' + i + ')" title="이 구간 영상 지우기" style="height:34px; width:34px; flex:none; border-radius:var(--r-2); border:1px solid rgba(255,69,58,0.4); background:rgba(255,69,58,0.1); color:var(--danger); cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>'
                     : "";
                 return '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
                     '<span style="min-width:84px; font-size:var(--fs-2); color:#8fe3b0; font-weight:800;">' + (t.label || "") + '</span>' +
-                    '<input class="acct-vid-input" data-i="' + i + '" type="text" value="' + val + '" placeholder="유튜브 링크 (비우면 해제)" ' +
+                    '<input class="acct-vid-input" data-i="' + i + '" type="text" value="' + val + '" placeholder="유튜브 링크 · 영상 주소 (비우면 해제)" ' +
                     'style="flex:1; min-width:180px; height:38px; padding:0 12px; border-radius:var(--r-2); border:1px solid var(--border-light); background:rgba(0,0,0,0.35); color:#fff; font-size:var(--fs-2); outline:none;">' +
-                    badge + clear +
+                    badge + upload + clear +
                     '</div>';
             }).join("");
+        }
+
+        // 🎬 영상 파일 올리기.
+        //    입력칸 10개마다 file input 을 두지 않고 하나를 돌려 쓴다(어느 구간인지는 기억해둔다).
+        let _acctVideoTargetTier = -1;
+        function pickAccountVideoFile(i) {
+            _acctVideoTargetTier = i;
+            let inp = document.getElementById('acct-video-file');
+            if (!inp) {
+                inp = document.createElement('input');
+                inp.type = 'file';
+                inp.id = 'acct-video-file';
+                inp.accept = 'video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov,.m4v';
+                inp.style.display = 'none';
+                inp.addEventListener("change", uploadAccountVideo);
+                document.body.appendChild(inp);
+            }
+            inp.value = '';
+            inp.click();
+        }
+
+        async function uploadAccountVideo(ev) {
+            const file = ev.target.files && ev.target.files[0];
+            const i = _acctVideoTargetTier;
+            const msg = document.getElementById("acct-video-savemsg");
+            if (!file || i < 0 || !gd) return;
+            const mb = file.size / 1024 / 1024;
+            if (mb > 60) {
+                if (msg) { msg.style.color = "var(--danger)"; msg.textContent = `파일이 ${mb.toFixed(0)}MB 입니다. 60MB 이하로 줄여주세요`; }
+                return;
+            }
+            const label = ((gd.account_video_tiers || [])[i] || {}).label || (i + 1) + "번 구간";
+            if (msg) { msg.style.color = "var(--text-muted)"; msg.textContent = `${label} 구간에 올리는 중… (${mb.toFixed(1)}MB)`; }
+            const fd = new FormData();
+            fd.append("tier", String(i));
+            fd.append("file", file);
+            try {
+                const res = await fetch("/api/account/video/upload", { method: "POST", body: fd });
+                const d = await res.json().catch(() => ({}));
+                if (res.ok && d.status === "success") {
+                    // 서버가 상태를 SSE 로 다시 뿌려주지만, 눌린 느낌을 바로 주려고 화면도 맞춘다
+                    if (gd.account_video_tiers && gd.account_video_tiers[i]) gd.account_video_tiers[i].video = d.url;
+                    _acctRowsSignature = null;
+                    renderAccountVideoRows();
+                    if (msg) { msg.style.color = "#2ecc71"; msg.textContent = `${d.label} 구간 영상을 올렸습니다 (${d.size_mb}MB) ✓`; }
+                } else {
+                    if (msg) { msg.style.color = "var(--danger)"; msg.textContent = d.message || ("올리지 못했습니다 (HTTP " + res.status + ")"); }
+                }
+            } catch (e) {
+                if (msg) { msg.style.color = "var(--danger)"; msg.textContent = "올리지 못했습니다: " + e.message; }
+            }
         }
 
         // 한 구간만 즉시 비운다(저장까지 한 번에)
@@ -2488,6 +2549,9 @@
                 if (!tiers[i]) return;
                 const raw = (inp.value || "").trim();
                 if (!raw) { tiers[i].video = ""; return; }        // 비우면 해제
+                // ⚠️ 파일 주소를 유튜브 링크로 해석하면 안 된다. 주소 모양이면 그대로 저장한다.
+                //    (올리기 버튼으로 넣은 값도 이 칸에 주소로 보이므로, 저장을 눌러도 안 깨져야 한다)
+                if (acctVideoIsFile(raw)) { tiers[i].video = raw; return; }
                 const id = extractYtVideoId(raw) || (/^[A-Za-z0-9_-]{11}$/.test(raw) ? raw : null);
                 if (!id) { bad.push(tiers[i].label); return; }
                 tiers[i].video = id;

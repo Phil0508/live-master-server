@@ -755,6 +755,9 @@ log.disabled = True
 
 app = Flask(__name__)
 app.secret_key = load_auth_config()['session_secret']
+# 📦 업로드 크기 상한. 이걸 안 두면 아무나(로그인은 필요하지만) 몇 GB 를 밀어넣어
+#    1GB 짜리 서버의 디스크를 채울 수 있다. 넘으면 Flask 가 413 을 돌려준다.
+app.config['MAX_CONTENT_LENGTH'] = 80 * 1024 * 1024
 # ⚠️ CORS 를 열지 않는다. 오버레이·조종실·후원 콘솔은 전부 같은 출처에서 돌고,
 #    투네이션 리스너는 서버 안에서(127.0.0.1), 템퍼몽키는 GM_xmlhttpRequest 로 부른다
 #    — 셋 다 CORS 를 타지 않는다. 열어두면 아무 웹페이지나 Bearer 토큰으로 이 API 를 부를 수 있다.
@@ -857,6 +860,7 @@ def require_login():
     # 시그니처 등록(/upload, /노래등록)은 관리 기능이므로 로그인 필요로 변경했다.
     # (등록 API가 /api/signatures/add 로 바뀌면서 인증이 필요해졌기 때문)
     if (path in exempt_routes or
+        path.startswith('/videos/') or   # 🎬 고액후원 영상 — 오버레이는 로그인 세션이 없다
         path.startswith('/sfx/')):      # 🔊 효과음 — 오버레이는 로그인 세션이 없다
         return
          
@@ -2567,6 +2571,26 @@ def serve_sfx(filename):
     return send_from_directory(SFX_DIR, filename)
 
 
+# 🎬 고액후원 영상. 효과음(/sfx/)과 같은 이유로 전용 길을 낸다 —
+#    오버레이에는 로그인 세션이 없어서, 일반 경로로 두면 영상이 로그인 화면으로 튕긴다.
+#    (지금은 Supabase 에 두므로 이 길이 없어도 되지만, 서버에 직접 두고 싶어질 때를 위해
+#     열어둔다. 그러면 조종실에 저장된 주소 한 줄만 바꾸면 되고 코드는 안 건드린다)
+#    ⚠️ videos/ 폴더 안의 영상만 나간다. 폴더를 벗어나거나 다른 확장자면 404 다.
+VIDEO_DIR = os.path.join(BASE_DIR, 'videos')
+VIDEO_EXTS = {'.mp4', '.webm', '.mov', '.m4v'}
+
+
+@app.route('/videos/<path:filename>')
+def serve_video(filename):
+    if os.path.splitext(filename)[1].lower() not in VIDEO_EXTS:
+        return jsonify({"error": "File not found"}), 404
+    full = os.path.normpath(os.path.join(VIDEO_DIR, filename))
+    if not full.startswith(os.path.normpath(VIDEO_DIR) + os.sep) or not os.path.exists(full):
+        return jsonify({"error": "File not found"}), 404
+    # 영상은 커서 탐색(range 요청)이 되어야 한다. conditional=True 가 그걸 처리한다.
+    return send_from_directory(VIDEO_DIR, filename, conditional=True)
+
+
 @app.route('/<path:filename>')
 def serve_dynamic_file(filename):
     if filename.startswith('api/'):
@@ -3211,6 +3235,85 @@ def api_patchnotes():
                     body = body[end + 1:].strip()
             cur['items'].append({"kind": kind, "text": body})
     return jsonify({"status": "success", "releases": releases})
+
+
+# 🎬 고액후원 영상 — 유튜브 대신 mp4 파일을 쓸 수 있게 한다.
+#
+# ⚠️ 유튜브 임베드는 방송에 쓰기엔 약점이 있다: 재생 전 광고가 붙을 수 있고, 끝나면
+#    추천 영상 썸네일이 뜨고, 로고와 제목이 화면에 남는다. 고액 후원 연출 끝에 남의
+#    영상 썸네일이 뜨는 셈이다. 게다가 '끝났다'를 postMessage 로 물어보는 구조라
+#    놓치면 20분 안전장치가 돌 때까지 화면을 점유한다.
+#    파일은 <video> 의 onended 로 확실히 끝나고, 광고도 로고도 없다.
+#
+# ⚠️ 파일은 Supabase Storage 에 둔다. 서버 디스크에 두면 서버를 다시 세팅할 때
+#    통째로 사라지는데, 시그니처는 이미 Supabase 라 영상만 취약해진다.
+#    저장 위치가 바뀌어도 화면은 손댈 필요가 없다 — 오버레이는 '주소'만 보고
+#    유튜브인지 파일인지 알아서 판단한다.
+ACCT_VIDEO_TYPES = {'mp4': 'video/mp4', 'webm': 'video/webm',
+                    'mov': 'video/quicktime', 'm4v': 'video/x-m4v'}
+ACCT_VIDEO_MAX_MB = 60
+
+
+@app.route('/api/account/video/upload', methods=['POST'])
+def api_account_video_upload():
+    """금액대 한 칸에 영상 파일을 올린다. form: tier(번호), file"""
+    try:
+        if not _supabase_ready():
+            return jsonify({'status': 'error', 'message': 'Supabase 가 설정되지 않았습니다.'}), 500
+        try:
+            idx = int(request.form.get('tier'))
+        except (TypeError, ValueError):
+            return jsonify({'status': 'error', 'message': '구간 번호가 필요합니다'}), 400
+        f = request.files.get('file')
+        if not f or not f.filename:
+            return jsonify({'status': 'error', 'message': '영상 파일을 골라주세요'}), 400
+        ext = (f.filename.rsplit('.', 1)[-1] or '').lower()
+        if ext not in ACCT_VIDEO_TYPES:
+            return jsonify({'status': 'error',
+                            'message': f"{ext or '?'} 형식은 쓸 수 없습니다 (mp4 · webm · mov · m4v)"}), 400
+
+        data = f.read()
+        mb = len(data) / 1024 / 1024
+        if mb > ACCT_VIDEO_MAX_MB:
+            return jsonify({'status': 'error',
+                            'message': f'파일이 {mb:.0f}MB 입니다. {ACCT_VIDEO_MAX_MB}MB 이하로 줄여주세요'}), 400
+        if not data:
+            return jsonify({'status': 'error', 'message': '빈 파일입니다'}), 400
+
+        with file_lock:
+            state = load_data()
+            tiers = state.get('account_video_tiers') or []
+            if not (0 <= idx < len(tiers)):
+                return jsonify({'status': 'error', 'message': '없는 구간입니다'}), 400
+            tier = tiers[idx]
+            old = (tier.get('video') or '').strip()
+
+        # ⚠️ 올리기는 락 밖에서 한다. 60MB 를 서울까지 보내는 동안 락을 쥐고 있으면
+        #    그동안 후원 접수·점수 지급이 통째로 멈춘다.
+        ver = int(time.time())
+        path = f"videos/acct_{tier.get('min')}.{ext}"
+        url = storage_upload(path, data, ACCT_VIDEO_TYPES[ext]) + f'?v={ver}'
+
+        with file_lock:
+            state = load_data()
+            tiers = state.get('account_video_tiers') or []
+            if 0 <= idx < len(tiers):
+                tiers[idx]['video'] = url
+                state['account_video_tiers'] = tiers
+                save_data(state, sync=True)
+                broadcast_event('update', state)
+
+        # 확장자가 바뀌면 옛 파일이 남는다(acct_200000.mov 를 mp4 로 갈아끼운 경우).
+        # 실패해도 새 영상은 이미 걸렸으므로 조용히 넘어간다.
+        if old.startswith('http') and '/storage/v1/object/public/' in old and old.split('?')[0] != url.split('?')[0]:
+            storage_delete_by_url(old)
+
+        print(f"  🎬 [고액후원 영상] {tier.get('label')} 구간에 {ext} {mb:.1f}MB 올림")
+        return jsonify({'status': 'success', 'url': url, 'label': tier.get('label'),
+                        'size_mb': round(mb, 1)})
+    except Exception as e:
+        print(f'[고액후원 영상 업로드 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @app.route('/api/account/stop', methods=['POST'])
