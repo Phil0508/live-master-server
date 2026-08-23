@@ -2228,12 +2228,13 @@
                 const sug = auditSuggest[don.id];
                 if (!sug || !sug.target) continue;                       // AI가 대상을 못 찾음 → 손대지 않는다
                 if ((sug.confidence || 0) < AUTOPILOT_MIN_CONF) continue; // 확신 부족 → 손대지 않는다
-                const idx = names.indexOf(sug.target);
-                if (idx === -1) continue;                                 // 목록에 없는 이름 → 손대지 않는다
+                if (names.indexOf(sug.target) === -1) continue;           // 목록에 없는 이름 → 손대지 않는다
 
                 autopilotHandled.add(don.id);
                 const points = Math.round((don.amount || 0) / 10000);
-                await assignPending(don.id, idx);
+                // ⚠️ 번호가 아니라 이름으로 넘긴다. 화면 버튼 줄이 얼려 있을 수 있어서,
+                //    랭킹 순서로 만든 번호를 넘기면 엉뚱한 사람에게 자동 배정된다.
+                await assignPending(don.id, sug.target);
                 autopilotLog.push({
                     time: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
                     donor: don.name, amount: don.amount || 0,
@@ -3664,13 +3665,20 @@
             //    SSE 업데이트가 오면 배열 자체가 통째로 교체된다. 그래서 인덱스는 딱 한 번, 지금 이 줄에서만
             //    쓰고 곧바로 '이름'으로 바꿔 고정한다. 이후로는 절대 인덱스로 사람을 찾지 않는다.
             //    (이걸 안 지키면 엉뚱한 사람에게 돈이 들어간다)
-            // ⚠️ 버튼에 박힌 번호는 "그려질 당시 버튼 줄"의 번호다. 순서를 얼려 그렸다면
-            //    gd.bjs 를 그대로 보면 안 된다 — 그게 바로 엉뚱한 사람에게 주는 길이다.
-            //    버튼을 그릴 때 쓴 바로 그 배열(_btnOrder)에서 이름을 꺼낸다.
-            const list0 = (_btnOrder && _btnOrder.length)
-                            ? _btnOrder
-                            : ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []);
-            const chosenName = (list0[bjIdx] || {}).name;
+            // ⚠️ 번호로 부르는 곳(화면 버튼)과 이름으로 부르는 곳(오토파일럿)이 둘 다 있다.
+            //    번호는 "그려질 당시 버튼 줄"의 번호라, 순서를 얼려 그렸으면 gd.bjs 와 어긋난다.
+            //    그대로 gd.bjs 를 보면 그게 곧 엉뚱한 사람에게 주는 길이다.
+            //    → 버튼은 그릴 때 쓴 배열(_btnOrder)에서 꺼내고,
+            //      사람이 아니라 코드가 부를 때는 아예 이름을 직접 받는다(번호를 거치지 않는다).
+            let chosenName;
+            if (typeof bjIdx === 'string') {
+                chosenName = bjIdx.trim();
+            } else {
+                const list0 = (_btnOrder && _btnOrder.length)
+                                ? _btnOrder
+                                : ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []);
+                chosenName = (list0[bjIdx] || {}).name;
+            }
             if (!chosenName) return;
             if (!gd.pending_donations.some(d => d.id === donId)) return;
 
