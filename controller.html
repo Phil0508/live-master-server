@@ -429,6 +429,11 @@
         /* 🤖 AI 기입 검증 배지 (메시지가 지목한 대상 추천) */
         .audit-badge { display:none; margin-left:8px; font-size:var(--fs-1); font-weight:800; color:#8fd1ff; background:rgba(0,150,255,0.12); border:1px solid rgba(0,150,255,0.38); padding:2px 9px; border-radius:var(--r-2); vertical-align:middle; white-space:nowrap; }
         .audit-badge b { color:#e6f4ff; }
+        /* 확신 단계별 색 — 자동으로 갈 만한 것, 사람이 봐야 하는 것, 모르는 것 */
+        .audit-badge.lv-auto    { color:#8ff0b0; background:rgba(52,199,89,0.12); border-color:rgba(52,199,89,0.45); }
+        .audit-badge.lv-auto b  { color:#e9fff0; }
+        .audit-badge.lv-unknown { color:#ffcf8a; background:rgba(255,159,10,0.10); border-color:rgba(255,159,10,0.40); }
+        .donor-hist { margin-top:5px; font-size:var(--fs-1); color:var(--text-dim); letter-spacing:.2px; }
         /* 🤖 AI 배정 제안 토스트 — 오른쪽 아래에 뜨고 화면을 막지 않는다(작업 흐름 방해 금지) */
         /* bottom 을 넉넉히 띄우는 이유: 오른쪽 아래 떠 있는 '백업' 플로팅 버튼과 겹치지 않게 */
         #ai-assign-toasts { position:fixed; right:18px; bottom:96px; z-index:4050; display:flex; flex-direction:column;
@@ -2226,8 +2231,11 @@
                 if (autopilotHandled.has(don.id)) continue;
                 if (removedPendingIds.has(don.id)) continue;
                 const sug = auditSuggest[don.id];
-                if (!sug || !sug.target) continue;                       // AI가 대상을 못 찾음 → 손대지 않는다
-                if ((sug.confidence || 0) < AUTOPILOT_MIN_CONF) continue; // 확신 부족 → 손대지 않는다
+                if (!sug || !sug.target) continue;                       // 대상을 못 찾음 → 손대지 않는다
+                // ⚠️ 서버가 정한 단계를 그대로 따른다. 예전에는 숫자 하나(0.85)로 잘랐는데,
+                //    이제 판단 근거마다 믿을 만한 정도가 달라서(이름 > 별명 > 이력 > AI)
+                //    서버가 그걸 반영해 auto/suggest/unknown 으로 나눠 준다.
+                if (!isAuto(sug)) continue;                              // 확신 부족 → 손대지 않는다
                 if (names.indexOf(sug.target) === -1) continue;           // 목록에 없는 이름 → 손대지 않는다
 
                 autopilotHandled.add(don.id);
@@ -2240,7 +2248,8 @@
                     donor: don.name, amount: don.amount || 0,
                     message: don.message || '', target: sug.target, points
                 });
-                aiAppendMsg('ai', `🚗 ${don.name}님 ${(don.amount||0).toLocaleString()}원 → ${sug.target}에게 ${points}점 (자동 배정)`);
+                aiAppendMsg('ai', `🚗 ${don.name}님 ${(don.amount||0).toLocaleString()}원 → ${sug.target}에게 ${points}점`
+                                 + (sug.why ? `\n    근거: ${sug.why}` : ''));
                 autopilotSyncUI();
                 return;   // 한 건 처리하고 빠진다. 다음 갱신 때 이어서 훑는다.
             }
@@ -2791,7 +2800,7 @@
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -3283,6 +3292,18 @@
         const auditSuggest = {};          // don.id -> {target, confidence}
         const auditRequested = new Set();  // 후원 1건당 1회만 호출(중복 방지)
         const AUDIT_MIN_CONF = 0.6;
+        // ⚠️ 이제 확신은 서버가 세 단계(auto / suggest / unknown)로 나눠서 준다.
+        //    예전에는 0.85 하나로 잘라서 0.84 짜리가 아무 표시 없이 조용히 묻혔다.
+        //    '모름' 도 눈에 보이게 하는 것이 핵심이다 — 사람이 봐야 할 것을 숨기지 않는다.
+        const isAuto = s => s && s.target && (s.tier ? s.tier === 'auto' : (s.confidence || 0) >= 0.9);
+        // 받침이 있으면 '으로', 없으면 '로'. '제이양로 보임' 처럼 어색하게 나오던 것.
+        function josaRo(name) {
+            const ch = String(name || '').trim().slice(-1);
+            const c = ch.charCodeAt(0);
+            if (!(c >= 0xac00 && c <= 0xd7a3)) return '로';   // 한글이 아니면 그냥 '로'
+            const jong = (c - 0xac00) % 28;
+            return (jong === 0 || jong === 8) ? '로' : '으로';   // 받침 없음 또는 'ㄹ'
+        }
 
         function currentPlayerNames() {
             const isExtra = gd.extra_game_active || false;
@@ -3291,27 +3312,35 @@
         function queueAudits(list) {
             (list || []).forEach(don => {
                 if (!don || don.type === 'off_work') return;
-                if (!don.message || !don.message.trim()) return;   // 메시지 없으면 검증할 게 없음
+                // ⚠️ 예전에는 메시지가 없으면 물어보지도 않았다. 그런데 이제는 메시지가 없어도
+                //    '이 후원자는 늘 밍밍에게 갔다' 는 이력만으로 풀린다. 그러니 다 물어본다.
                 if (auditRequested.has(don.id)) return;
                 auditRequested.add(don.id);
                 fetch('/api/audit/suggest', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message, players: currentPlayerNames() })
                 }).then(r => r.json()).then(res => {
-                    if (res && res.target) {
-                        auditSuggest[don.id] = { target: res.target, confidence: res.confidence || 0 };
-                        paintAuditBadge(don.id);
-                        // 확신이 충분하면 '이 사람에게 줄까요?' 를 한 번 물어본다(아직 대기 중일 때만)
-                        if ((res.confidence || 0) >= ASSIGN_TOAST_MIN_CONF
-                            && !assignToastShown.has(don.id)
-                            && !removedPendingIds.has(don.id)
-                            && (gd.pending_donations || []).some(p => p && p.id === don.id)) {
-                            assignToastShown.add(don.id);
-                            showAssignToast(don, res.target);
-                        }
-                        // 🚗 오토파일럿이 켜져 있으면 방금 판정이 끝난 이 건도 바로 훑는다
-                        try { autopilotSweep(); } catch (e) {}
+                    if (!res || res.status !== 'success') return;
+                    // ⚠️ 예전에는 target 과 confidence 만 챙기고 나머지를 버렸다. 그래서 근거도
+                    //    이력도 화면에 못 띄웠고, 무엇보다 '모름' 은 아예 저장되지 않아 조용히 묻혔다.
+                    //    자리를 비웠을 때 바로 그 '모름' 이 사람이 봐야 할 일이다. 통째로 받아 둔다.
+                    auditSuggest[don.id] = {
+                        target: res.target || null, confidence: res.confidence || 0,
+                        tier: res.tier || null, source: res.source || null,
+                        why: res.why || null, history: res.history || [],
+                    };
+                    paintAuditBadge(don.id);
+                    if (!res.target) return;
+                    // 확신이 충분하면 '이 사람에게 줄까요?' 를 한 번 물어본다(아직 대기 중일 때만)
+                    if ((res.confidence || 0) >= ASSIGN_TOAST_MIN_CONF
+                        && !assignToastShown.has(don.id)
+                        && !removedPendingIds.has(don.id)
+                        && (gd.pending_donations || []).some(p => p && p.id === don.id)) {
+                        assignToastShown.add(don.id);
+                        showAssignToast(don, res.target);
                     }
+                    // 🚗 오토파일럿이 켜져 있으면 방금 판정이 끝난 이 건도 바로 훑는다
+                    try { autopilotSweep(); } catch (e) {}
                 }).catch(() => {});   // 실패해도 조용히 무시(운영 방해 금지)
             });
         }
@@ -3319,11 +3348,33 @@
             const el = document.getElementById('audit-' + donId);
             if (!el) return;
             const s = auditSuggest[donId];
-            if (s && s.target && s.confidence >= AUDIT_MIN_CONF) {
-                el.innerHTML = `🤖 <b>${escapeHTML(s.target)}</b>로 보임`;
+            if (!s) { el.innerHTML = ''; el.style.display = 'none'; return; }
+
+            // ⚠️ 왜 그렇게 봤는지를 같이 보여준다. 근거 없는 추천은 확인할 방법이 없어서
+            //    결국 안 믿게 되고, 그러면 있으나 마나다.
+            const why = s.why ? ` <span style="opacity:.7;font-weight:600">· ${escapeHTML(s.why)}</span>` : '';
+
+            if (s.target && isAuto(s)) {
+                el.className = 'audit-badge lv-auto';
+                el.innerHTML = `✓ <b>${escapeHTML(s.target)}</b> (거의 확실)${why}`;
+                el.style.display = 'inline-block';
+            } else if (s.target && (s.confidence || 0) >= AUDIT_MIN_CONF) {
+                el.className = 'audit-badge lv-suggest';
+                el.innerHTML = `🤖 <b>${escapeHTML(s.target)}</b>${josaRo(s.target)} 보임${why}`;
                 el.style.display = 'inline-block';
             } else {
-                el.innerHTML = ''; el.style.display = 'none';
+                // '모름' 을 숨기지 않는다. 자리를 비웠을 때 이게 쌓이는 것이 곧 할 일이다.
+                el.className = 'audit-badge lv-unknown';
+                el.innerHTML = `❓ 누구 것인지 모르겠음${s.why ? ` · ${escapeHTML(s.why)}` : ''}`;
+                el.style.display = 'inline-block';
+            }
+
+            // ① 이 후원자가 예전에 누구에게 갔는지 — 사람이 판단할 재료를 준다.
+            const hi = document.getElementById('hist-' + donId);
+            if (hi) {
+                const h = (s.history || []).slice(0, 3);
+                hi.innerHTML = h.length ? ('지난 배정 · ' + h.map(x => `${escapeHTML(x.name)} ${x.count}번`).join(' · ')) : '';
+                hi.style.display = h.length ? 'block' : 'none';
             }
         }
         function paintAuditBadges(list) {
@@ -3721,8 +3772,11 @@
             // ⚠️ 예전에는 '점수(상태 전체) 전송'과 '대기함에서 제거'가 왕복 두 번이었다. 그 사이에
             //    실패하면 후원이 어디에도 없는 상태가 될 수 있었고, 상태 전체를 보내는 탓에
             //    폰에서 같은 순간에 준 점수를 덮어썼다. 이제 서버가 둘을 같은 잠금 안에서 처리한다.
+            // 🧠 누가 준 후원인지 함께 보낸다 — 서버가 "이 후원자는 누구에게 갔다" 를 기억한다.
+            //    다음에 같은 사람이 'ㄱㅇㅈ' 처럼 알아볼 수 없는 메시지를 보내도 이걸로 푼다.
             const r = await addScoreAPI({ scope: 'rank', name: chosenName, delta: addPoint,
-                                         pending_id: donId });
+                                         pending_id: donId,
+                                         donor: don0.name, donor_message: don0.message });
             if (r) {
                 // ⚠️ 배정도 되돌리기 기록에 남긴다. 예전에는 점수 칸 직접 입력만 남겨서,
                 //    가장 잦고 가장 위험한 조작인 배정이 정작 되돌릴 수 없었다.
@@ -3770,7 +3824,8 @@
             renderUI();
 
             const r = await addScoreAPI({ scope: 'rank', pending_id: donId,
-                                         items: found.map(t => ({ name: t.name, delta: addPoint })) });
+                                         items: found.map(t => ({ name: t.name, delta: addPoint })),
+                                         donor: don0.name, donor_message: don0.message });
             if (r) {
                 // 반반·N분할도 마찬가지. 여러 명이면 한 줄로 묶어 기록한다.
                 recordScoreAction({ scope: 'rank', names: found.map(t => t.name), delta: addPoint,

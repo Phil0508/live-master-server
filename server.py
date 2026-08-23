@@ -23,6 +23,7 @@ else:
 
 import json
 import copy
+import re       # 후원 메시지에서 별명 후보 토막내기
 import random   # 시그게임 카드 배치·섞기, 슬롯 당첨 뽑기
 import math     # 시그게임 판을 정사각형에 가깝게 잡을 때
 import threading
@@ -309,7 +310,7 @@ def _nim_allowed():
         _nim_calls.append(now)
         return True
 
-def nim_suggest_target(name, amount, message, players):
+def nim_suggest_target(name, amount, message, players, history=None, context=None):
     """후원 메시지가 지목하는 플레이어를 추정한다.
        반환: {"target": 이름 또는 None, "confidence": 0.0~1.0}
        키 없음/한도 초과/오류/타임아웃 시에는 target=None 으로 조용히 실패한다(예외를 던지지 않는다)."""
@@ -319,12 +320,21 @@ def nim_suggest_target(name, amount, message, players):
         return {"target": None, "confidence": 0.0, "skipped": True}
     if not _nim_allowed():
         return {"target": None, "confidence": 0.0, "skipped": True, "reason": "rate"}
+    # ⚠️ 메시지 글자만 주면 'ㄱㅇㅈ' 같은 건 영영 못 푼다.
+    #    이 후원자가 예전에 누구에게 갔는지, 지금 화면에서 뭐가 벌어지는지를 같이 준다.
+    extra = ""
+    if history:
+        extra += ("\n이 후원자의 과거 배정: "
+                  + ", ".join(f"{p} {c}번" for p, c in history[:4]))
+    if context:
+        extra += "\n지금 방송 상황: " + " / ".join(context)
     sys_prompt = (
         "너는 라이브 후원 방송의 기입 검증 도우미다. 후원 메시지를 읽고 "
         "그 후원이 아래 플레이어 중 누구를 지목/응원하는지 판단한다.\n"
-        "플레이어: " + ", ".join(names) + "\n"
+        "플레이어: " + ", ".join(names) + extra + "\n"
         "규칙: 이름/별명/맥락으로 특정 플레이어를 지목하면 그 이름을, "
         "지목이 전혀 없으면 target 을 null 로 둔다. 반드시 목록에 있는 정확한 이름만 사용한다.\n"
+        "과거 배정은 참고만 한다 — 메시지가 다른 사람을 가리키면 메시지를 따른다.\n"
         'JSON만 출력: {"target": "이름 또는 null", "confidence": 0.0~1.0}'
     )
     body = {
@@ -644,6 +654,105 @@ def _norm_donor(name):
     if n.endswith('님'):
         n = n[:-1].strip()
     return n or '익명'
+
+
+# ══ 🧠 후원자 기억 ══
+
+# 메시지에서 '이름 후보'가 될 만한 토막을 뽑는다.
+# ⚠️ 너무 많이 뽑으면 아무 말이나 별명이 되어 오답을 만든다. 짧고 흔한 말은 버린다.
+_ALIAS_STOP = {'화이팅', '파이팅', '감사', '감사합니다', '고생', '고생하셨어요', '수고',
+               '수고하셨습니다', '응원', '응원합니다', '축하', '사랑해요', '가즈아', '대박',
+               '오늘', '방송', '재밌어요', '잘보고있어요', '님', '언니', '누나', '형', '오빠'}
+
+
+def alias_tokens(message):
+    """메시지에서 별명 후보를 뽑는다."""
+    txt = str(message or '')
+    out = []
+    for w in re.split(r'[\s,./!?~\-()\[\]"\'·:;]+', txt):
+        w = w.strip().strip('님아야이가는은를을에게한테')
+        if not (2 <= len(w) <= 8):
+            continue
+        if w in _ALIAS_STOP:
+            continue
+        if w.isdigit():          # 순수 숫자는 금액·시각일 때가 많다
+            continue
+        out.append(w)
+    return out[:6]
+
+
+def remember_assignment(donor, player, amount, message):
+    """후원 한 건이 누구에게 갔는지 기억한다. 실패해도 배정은 이미 끝났으니 조용히 넘어간다."""
+    d = _norm_donor(donor)
+    p = str(player or '').strip()
+    if not p or d == '익명':      # 익명은 사람을 특정할 수 없어 기억해도 쓸모가 없다
+        return
+    try:
+        now = time.strftime('%Y-%m-%d %H:%M:%S')
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("INSERT INTO donor_memory (timestamp, donor, player, amount, message)"
+                                 " VALUES (?, ?, ?, ?, ?)"),
+                        (now, d, p, int(amount or 0), str(message or '')[:300]))
+            for tok in alias_tokens(message):
+                cur.execute(db_query("SELECT id, hits FROM alias_memory WHERE token = ? AND player = ?"),
+                            (tok, p))
+                row = cur.fetchone()
+                if row:
+                    cur.execute(db_query("UPDATE alias_memory SET hits = hits + 1, updated = ? WHERE id = ?"),
+                                (now, row[0]))
+                else:
+                    cur.execute(db_query("INSERT INTO alias_memory (token, player, hits, updated)"
+                                         " VALUES (?, ?, 1, ?)"), (tok, p, now))
+    except Exception as e:
+        print(f"⚠️ [후원자 기억 실패] {e}")
+
+
+def donor_history(donor, limit=5):
+    """이 후원자가 최근 누구에게 갔는지. [(플레이어, 횟수)] 를 많은 순으로."""
+    d = _norm_donor(donor)
+    if not d or d == '익명':
+        return []
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("SELECT player, COUNT(*) c FROM donor_memory WHERE donor = ?"
+                                 " GROUP BY player ORDER BY c DESC LIMIT ?"), (d, limit))
+            return [(r[0], int(r[1])) for r in cur.fetchall()]
+    except Exception:
+        return []
+
+
+def alias_lookup(message, players):
+    """메시지 안의 말이 특정 플레이어로만 이어져 왔는지 본다.
+       반환: (플레이어, 적중수, 그 말) 또는 None."""
+    toks = alias_tokens(message)
+    if not toks:
+        return None
+    names = {str(p).strip() for p in (players or []) if str(p or '').strip()}
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            ph = ', '.join(['?'] * len(toks))
+            cur.execute(db_query(f"SELECT token, player, hits FROM alias_memory WHERE token IN ({ph})"),
+                        tuple(toks))
+            rows = [r for r in cur.fetchall() if r[1] in names]
+    except Exception:
+        return None
+    if not rows:
+        return None
+    # 한 말이 여러 사람에게 이어져 왔으면 믿을 수 없다 — 아예 쓰지 않는다.
+    by_tok = {}
+    for tok, player, hits in rows:
+        by_tok.setdefault(tok, []).append((player, int(hits)))
+    best = None
+    for tok, lst in by_tok.items():
+        if len(lst) != 1:
+            continue          # 그 말이 두 사람 이상을 가리킨 적이 있다 → 버린다
+        player, hits = lst[0]
+        if not best or hits > best[1]:
+            best = (player, hits, tok)
+    return best
 
 
 def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, count_tally=True):
@@ -1369,6 +1478,40 @@ def init_db():
             )
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_bank_ledger_player ON bank_ledger(player_name)")
+
+        # 🧠 [후원자 기억] "이 후원자의 돈이 누구에게 갔나" 를 남긴다.
+        #
+        # ⚠️ 지금까지 이 연결이 어디에도 없었다. donation_history 는 후원자를,
+        #    bank_ledger 는 받은 사람을 갖고 있는데 둘을 잇는 것이 없었다.
+        #    그래서 "ㄱㅇㅈ" 같은 메시지는 영영 풀 수 없었다 — 글자만 봐서는 모르지만
+        #    "이 사람은 지난 세 번 다 밍밍에게 갔다" 는 것을 알면 풀린다.
+        # ⚠️ 방송이 끝나도 지우지 않는다. 방송을 거듭할수록 정확해지는 것이 요점이다.
+        #    (end_broadcast 는 players·donation_history·snapshots 와 kv_store 일부만 지운다)
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS donor_memory (
+                id {pk},
+                timestamp TEXT NOT NULL,
+                donor TEXT NOT NULL,
+                player TEXT NOT NULL,
+                amount INTEGER,
+                message TEXT
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_donor_memory_donor ON donor_memory(donor)")
+
+        # 🏷️ [별명 기억] 메시지에 있던 말이 어느 플레이어에게 이어졌는지 센다.
+        #    시청자는 본명 대신 별명·줄임말을 쓴다("ㅁㅁ", "밍밍이", "1번").
+        #    배정할 때마다 조용히 쌓아두면, 다음부터는 AI 를 부르지 않고도 맞힌다.
+        cursor.execute(f"""
+            CREATE TABLE IF NOT EXISTS alias_memory (
+                id {pk},
+                token TEXT NOT NULL,
+                player TEXT NOT NULL,
+                hits INTEGER NOT NULL DEFAULT 1,
+                updated TEXT
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_alias_memory_token ON alias_memory(token)")
 
         # 👑 [특별 후원자(VIP)] 닉네임별 등급/색상/뱃지. 방송 데이터와 무관하게 계속 유지된다.
         cursor.execute("""
@@ -2862,6 +3005,127 @@ def receive_donation():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+# ══ 🎯 배정 대상 판단 ══
+#
+# 예전에는 AI 에게 메시지 글자만 던지고 끝이었다. 그래서 'ㄱㅇㅈ' 처럼 글자만으로는
+# 풀 수 없는 것이 전부 '모름' 으로 떨어졌고, 자리를 비운 사이 대기함만 쌓였다.
+#
+# 이제 네 가지를 순서대로 본다. 앞의 것이 확실하면 AI 를 아예 부르지 않는다
+# (분당 한도를 아끼고, 무엇보다 즉시 답이 나온다).
+#   ① 메시지에 플레이어 이름이 그대로 있는가
+#   ② 그 말이 늘 특정 플레이어로 이어져 왔는가 (별명 기억)
+#   ③ 이 후원자가 늘 같은 사람에게 갔는가 (후원자 이력)
+#   ④ 그래도 애매하면 AI 에게 — 위 세 가지를 근거로 함께 넘긴다
+#
+# ⚠️ 확신은 하나의 문턱이 아니라 세 단계다. 예전에는 0.85 하나로 잘라서,
+#    0.84 는 아무 표시 없이 조용히 묻혔다. 이제 자동/추천/모름 으로 나눠
+#    '모름' 도 눈에 보이게 한다 — 사람이 봐야 할 것을 숨기지 않는 게 핵심이다.
+CONF_AUTO = 0.90      # 이 위는 오토파일럿이 스스로 배정한다
+CONF_SUGGEST = 0.60   # 이 위는 추천만 한다(사람이 누른다)
+
+
+def _tier(conf):
+    if conf >= CONF_AUTO:
+        return 'auto'
+    if conf >= CONF_SUGGEST:
+        return 'suggest'
+    return 'unknown'
+
+
+def game_context(state):
+    """지금 화면에서 벌어지는 일. AI 가 금액·이름을 문맥으로 읽게 해준다."""
+    out = []
+    try:
+        g = state.get('siggame') or {}
+        goals = [c for c in (g.get('cards') or []) if c.get('flippedAt') and not c.get('doneAt')]
+        if g.get('enabled') and goals:
+            out.append('시그뒤집기 진행 중 — 아직 못 받은 목표 금액: '
+                       + ', '.join(f"{int(c.get('amount') or 0):,}원" for c in goals))
+        md = state.get('match_data') or {}
+        if md.get('active'):
+            teams = []
+            for p in (md.get('players') or []):
+                mem = [str(m).strip() for m in (p.get('members') or []) if str(m or '').strip()]
+                teams.append(f"{p.get('name')}({'·'.join(mem)})" if mem else str(p.get('name')))
+            if teams:
+                out.append('대결 진행 중 — ' + ' vs '.join(teams))
+        if state.get('home_race_enabled'):
+            out.append('퇴근전쟁 진행 중')
+    except Exception:
+        pass
+    return out
+
+
+def suggest_target(donor, amount, message, players, state=None):
+    """이 후원이 누구를 지목하는지 판단한다.
+       반환: {target, confidence, tier, source, why, history}"""
+    names = [str(p.get('name') if isinstance(p, dict) else p or '').strip() for p in (players or [])]
+    names = [n for n in names if n]
+    msg = str(message or '')
+    hist = donor_history(donor)
+    base = {'target': None, 'confidence': 0.0, 'tier': 'unknown',
+            'source': None, 'why': None,
+            'history': [{'name': p, 'count': c} for p, c in hist]}
+    if not names:
+        return base
+
+    # ① 메시지에 이름이 그대로 — 가장 확실하다
+    hit = [n for n in names if n and n in msg]
+    if len(hit) == 1:
+        return dict(base, target=hit[0], confidence=0.97, tier='auto',
+                    source='이름', why=f'메시지에 \'{hit[0]}\' 이 있음')
+    if len(hit) > 1:
+        # 두 사람 이상을 부른 후원은 반반일 수 있다. 사람이 봐야 한다.
+        return dict(base, target=None, confidence=0.0, tier='unknown',
+                    source='이름', why='여러 사람을 부름: ' + ', '.join(hit))
+
+    # ② 별명 기억
+    al = alias_lookup(msg, names)
+    if al:
+        player, hits, tok = al
+        conf = min(0.95, 0.62 + 0.09 * hits)
+        return dict(base, target=player, confidence=round(conf, 2), tier=_tier(conf),
+                    source='별명', why=f'\'{tok}\' 은 지금까지 {hits}번 모두 {player} 였음')
+
+    # ③ 후원자 이력 — 늘 같은 사람에게 갔는가
+    known = [(p, c) for p, c in hist if p in names]
+    if known:
+        top_p, top_c = known[0]
+        others = sum(c for p, c in known[1:])
+        if others == 0 and top_c >= 2:
+            conf = min(0.93, 0.66 + 0.07 * top_c)
+            return dict(base, target=top_p, confidence=round(conf, 2), tier=_tier(conf),
+                        source='이력', why=f'이 후원자는 지금까지 {top_c}번 모두 {top_p} 였음')
+        if top_c >= 3 * max(1, others):
+            conf = 0.7
+            return dict(base, target=top_p, confidence=conf, tier=_tier(conf),
+                        source='이력', why=f'{top_c}번 {top_p} / 그 외 {others}번')
+
+    # ④ 여기까지 못 풀면 AI 에게. 위에서 모은 것을 근거로 같이 넘긴다.
+    ctx = game_context(state) if state else []
+    ai = nim_suggest_target(donor, amount, msg, names,
+                            history=known, context=ctx)
+    conf = float(ai.get('confidence') or 0)
+    if not ai.get('target'):
+        # ⚠️ 왜 모르는지를 사람 말로 돌려준다. 'rate' 같은 낱말은 화면에 그대로 뜨면
+        #    운영자가 무슨 뜻인지 알 수 없고, 그러면 그 표시를 아예 안 믿게 된다.
+        if ai.get('reason') == 'rate':
+            why = 'AI 호출이 잠시 몰려 못 물어봄 (조금 뒤 다시 봄)'
+        elif ai.get('skipped'):
+            why = 'AI 가 꺼져 있음 — 이름·별명·이력으로는 못 찾음'
+        elif ai.get('error'):
+            why = 'AI 오류로 못 물어봄'
+        elif hist:
+            why = '메시지로도 이력으로도 특정이 안 됨'
+        else:
+            why = '처음 보는 후원자이고 메시지에 단서가 없음'
+        return dict(base, target=None, confidence=0.0, tier='unknown', source='AI', why=why)
+    # AI 는 이력·별명만큼 믿지 않는다. 위쪽 단계에서 걸리지 않은 건은 애매한 것이다.
+    conf = min(conf, 0.88)
+    return dict(base, target=ai['target'], confidence=round(conf, 2), tier=_tier(conf),
+                source='AI', why='메시지 내용으로 추정')
+
+
 @app.route('/api/audit/suggest', methods=['POST'])
 def api_audit_suggest():
     """[AI 기입 검증] 후원 메시지가 지목하는 플레이어를 추정해 돌려준다.
@@ -2878,7 +3142,9 @@ def api_audit_suggest():
                 state = load_data()
                 src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
                 players = [b.get('name') for b in state.get(src, [])]
-        result = nim_suggest_target(name, amount, message, players)
+        with file_lock:
+            st = load_data()
+        result = suggest_target(name, amount, message, players, st)
         return jsonify({"status": "success", **result})
     except Exception as e:
         return jsonify({"status": "success", "target": None, "confidence": 0.0, "error": str(e)[:80]})
@@ -4622,6 +4888,10 @@ def api_score_add():
                 return jsonify({"status": "error", "message": "delta/contribution 이 숫자가 아니다"}), 400
             wanted.append((name, delta, contrib))
 
+        # 🧠 이 후원이 누구에게 갔는지 기억해 둔다(다음 판단의 재료).
+        #    조종실·폰이 배정할 때 donor 를 같이 보낸다. 없으면 그냥 기억하지 않는다.
+        donor_name = (body.get('donor') or '').strip()
+        donor_msg = (body.get('donor_message') or '').strip()
         want_log = bool(body.get('log', True))
         want_popup = bool(body.get('popup', False))
         want_takeover = bool(body.get('takeover', False))
@@ -4705,6 +4975,13 @@ def api_score_add():
 
             save_data(state)
             broadcast_event('update', state)
+
+        # ⚠️ 기억은 락 밖에서 적는다. DB 왕복이라 락 안에서 하면 그동안 후원 접수가 멈춘다.
+        #    되돌리기(delta<0)는 기억하지 않는다 — 취소한 것을 배운 것으로 쌓으면 오히려 나빠진다.
+        if donor_name and scope == 'rank':
+            for a in applied:
+                if (a.get('delta') or 0) > 0:
+                    remember_assignment(donor_name, a['name'], a.get('delta'), donor_msg)
         return jsonify({"status": "success", "applied": applied, "time": time_str})
     except Exception as e:
         print(f"Error in api_score_add: {e}")

@@ -55,6 +55,11 @@ header h1 { margin: 0; font-size: 16px; font-weight: 800; flex: 1; }
 .card .amt { color: var(--gold); font-weight: 900; font-variant-numeric: tabular-nums; }
 .card .msg { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.45;
              word-break: break-word; }
+.card.need{border-color:#f5a524; box-shadow:0 0 0 1px rgba(245,165,36,.25)}
+.sug.ok{color:#34c759}
+.sug.need{color:#f5a524}
+.sug i{opacity:.75; font-style:normal; font-weight:500}
+.hist{margin-top:4px; font-size:11px; color:#6f7280}
 .sug { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 800;
        color: #8fd1ff; background: rgba(0,150,255,0.12);
        border: 1px solid rgba(0,150,255,0.35); padding: 3px 9px; border-radius: 999px; }
@@ -121,6 +126,23 @@ header h1 { margin: 0; font-size: 16px; font-weight: 800; flex: 1; }
 <script>
 // 이 화면은 '자리 비웠을 때' 쓰는 물건이다. 밖에서는 네트워크가 불안정하므로
 // 어떤 조작이든 (1) 실패를 반드시 눈에 보이게 알리고 (2) 실패하면 화면을 원래대로 되돌린다.
+// 주소에 ?token= 이 있으면 그걸로 인증한다.
+// ⚠️ 폰은 비밀번호를 치기 번거로워 주소를 즐겨찾기에 넣고 쓴다. 그런데 이 화면은
+//    토큰을 아예 안 봤고, 특히 EventSource 는 헤더를 못 붙여서 실시간 연결이 인증되지
+//    않았다. 그러면 서버가 대기 후원을 뺀 상태를 보내 화면이 텅 빈 채로 뜬다
+//    (오류도 안 나서 '후원이 없나 보다' 로 오해하게 된다).
+const TOKEN = (() => { try { return new URLSearchParams(location.search).get('token') || ''; }
+                       catch (e) { return ''; } })();
+const _fetch = window.fetch;
+window.fetch = function (r, i) {
+    if (TOKEN && typeof r === 'string' && r.startsWith('/api/')) {
+        i = i || {}; i.headers = i.headers || {};
+        if (i.headers instanceof Headers) i.headers.set('Authorization', 'Bearer ' + TOKEN);
+        else i.headers['Authorization'] = 'Bearer ' + TOKEN;
+    }
+    return _fetch(r, i);
+};
+
 let gd = null;
 let busy = false;              // 조작 한 건이 끝나기 전에 다음 조작을 받지 않는다(중복 지급 방지)
 let lastAction = null;         // 되돌리기용
@@ -188,7 +210,9 @@ async function assign(donId, idx) {
     render();
 
     try {
-        const r = await addScore({ scope: 'rank', name, delta: pts, pending_id: donId });
+        // 🧠 누가 준 후원인지 함께 보낸다 — 서버가 기억해서 다음 판단에 쓴다
+        const r = await addScore({ scope: 'rank', name, delta: pts, pending_id: donId,
+                                   donor: don.name, donor_message: don.message });
         rememberUndo(`${don.name}님 → ${name} +${pts}점`,
                      { type: 'assign', name, pts, logTime: r.time });
     } catch (e) {
@@ -219,7 +243,8 @@ async function assignSplit(donId, mode) {
         // 여러 명을 한 요청으로 보낸다. 서버는 한 명이라도 못 찾으면 아무것도 반영하지 않으므로
         // '절반만 들어간' 상태가 생기지 않는다.
         const r = await addScore({ scope: 'rank', pending_id: donId,
-                                   items: names.map(n => ({ name: n, delta: pts })) });
+                                   items: names.map(n => ({ name: n, delta: pts })),
+                                   donor: don.name, donor_message: don.message });
         rememberUndo(`${don.name}님 → ${targets.length}명 각 +${pts}점`,
                      { type: 'split', targets: names, pts, logTime: r.time });
     } catch (e) {
@@ -313,7 +338,9 @@ function askSuggest(don) {
         body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message,
                                players: players().map(p => p.name) })
     }).then(r => r.json()).then(res => {
-        if (res && res.target && (res.confidence || 0) >= SUG_MIN) {
+        // ⚠️ 예전에는 신뢰도 0.6 을 못 넘으면 통째로 버렸다. 그런데 자리를 비웠을 때는
+        //    바로 그 "모르겠는 것" 이 사람이 봐야 할 일이다. 버리지 말고 받아 둔다.
+        if (res && res.status === "success") {
             suggest[don.id] = res;
             render();
         }
@@ -325,18 +352,34 @@ function render() {
     if (!gd) return;
     const list = players();
     const pend = (gd.pending_donations || []).filter(d => d.type !== 'off_work');
-    $('pcount').textContent = pend.length;
+    // 몇 건이 밀렸는지보다 "몇 건을 내가 봐야 하는지" 가 중요하다
+    const needCnt = pend.filter(d => { const s = suggest[d.id]; return !s || !s.target; }).length;
+    $('pcount').textContent = needCnt ? `${pend.length} (확인 ${needCnt})` : pend.length;
 
-    $('pending').innerHTML = pend.length ? pend.map(d => {
+    // ⚠️ 사람이 봐야 하는 건(모름)을 맨 위로 올린다.
+    //    폰은 화면이 좁아 아래로 밀린 것은 사실상 안 보인다. 자리를 비웠을 때
+    //    확인이 필요한 건이 아래에 묻히면 오토파일럿을 켜둔 의미가 없다.
+    const rank = d => {
         const s = suggest[d.id];
+        if (!s || !s.target) return 0;                    // 모름 — 사람이 봐야 한다
+        return s.tier === 'auto' ? 2 : 1;                 // 거의 확실 / 추천
+    };
+    const sorted = pend.slice().sort((a, b) => rank(a) - rank(b));
+    $('pending').innerHTML = sorted.length ? sorted.map(d => {
+        const s = suggest[d.id];
+        const need = !s || !s.target;                     // 사람 확인 필요
         const btns = list.map((p, i) =>
             `<button class="${s && s.target === p.name ? 'reco' : ''}"
                      onclick="assign('${d.id}',${i})">${esc(p.name)}</button>`
         ).join('');
-        return `<div class="card">
+        const hist = (s && s.history || []).slice(0, 3);
+        return `<div class="card${need ? ' need' : ''}">
             <div><span class="who">${esc(d.name)}</span> · <span class="amt">${won(d.amount)}원</span></div>
             ${d.message ? `<div class="msg">"${esc(d.message)}"</div>` : ''}
-            ${s ? `<div class="sug">🤖 ${esc(s.target)}로 보임</div>` : ''}
+            ${s && s.target
+                ? `<div class="sug${s.tier === 'auto' ? ' ok' : ''}">${s.tier === 'auto' ? '✓' : '🤖'} ${esc(s.target)}                   ${s.why ? `<i>· ${esc(s.why)}</i>` : ''}</div>`
+                : `<div class="sug need">❓ 누구 것인지 모르겠음</div>`}
+            ${hist.length ? `<div class="hist">지난 배정 · ${hist.map(h => esc(h.name) + ' ' + h.count + '번').join(' · ')}</div>` : ''}
             <div class="pay">${btns}
                 <div class="sub">
                     <button onclick="assignSplit('${d.id}','half')">🌓 반반</button>
@@ -361,7 +404,8 @@ function render() {
 let es = null, lastMsg = Date.now();
 function connect() {
     if (es) es.close();
-    es = new EventSource('/api/stream');
+    // EventSource 는 헤더를 못 붙인다. 토큰은 주소에 실어야 인증된다.
+    es = new EventSource('/api/stream' + (TOKEN ? ('?token=' + encodeURIComponent(TOKEN)) : ''));
     const onState = e => {
         lastMsg = Date.now();
         try {
