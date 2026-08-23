@@ -43,8 +43,12 @@ DRY = "--dry" in sys.argv
 #    (자동 배포가 커밋마다 서버를 재시작하므로, 이 창은 드물지 않게 열린다)
 SPOOL_FILE = os.environ.get("SPOOL_FILE") or os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "donation_spool.jsonl")
-# 전송 재시도 간격(초). 서버 재시작은 보통 몇 초면 끝난다.
-RETRY_DELAYS = (0.5, 1.5, 3.0)
+# 전송 재시도 간격(초).
+# ⚠️ 여기서 오래 붙잡고 있으면 그동안 웹소켓을 못 읽는다. websockets 는 20초마다 ping 을
+#    주고받는데 그게 밀리면 연결이 통째로 끊긴다 — 후원을 지키려다 소켓을 잃는 셈이다.
+#    그래서 한 번만 짧게 다시 보고, 안 되면 곧바로 대기줄에 넣는다.
+#    (대기줄은 아래 spool_watcher 가 10초마다 비워주므로 늦어야 10초다)
+RETRY_DELAYS = (0.6,)
 
 DONATION_CODE = 101  # 투네이션 후원 이벤트 코드 (실측 확인)
 
@@ -267,7 +271,7 @@ async def listen(token):
 async def spool_watcher():
     """후원이 한동안 없어도 밀린 것이 계속 묶여 있지 않게 주기적으로 다시 시도한다."""
     while True:
-        await asyncio.sleep(30)
+        await asyncio.sleep(10)
         try:
             spool_drain()
         except Exception as e:
@@ -277,7 +281,7 @@ async def spool_watcher():
 async def main():
     if not ALERTBOX_URL:
         print("ALERTBOX_URL 환경변수가 필요합니다."); return
-    asyncio.get_event_loop().create_task(spool_watcher())
+    asyncio.create_task(spool_watcher())
     token = fetch_token(ALERTBOX_URL)
     log("토큰 %d자 확보. ws.toon.at 접속 시작." % len(token))
     while True:
