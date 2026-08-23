@@ -84,11 +84,59 @@
             white-space: nowrap;
             border: 1px solid var(--border-light);
             box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 6px 18px rgba(0,0,0,0.35);
-            /* 📌 스크롤해도 항상 위에 붙어있게 (긴 패널에서 탭을 다시 찾으러 위로 안 올라가도 됨) */
-            position: sticky;
-            top: 10px;
-            z-index: 500;
+            margin-bottom: 0;   /* 간격은 #sticky-top 이 잡는다 */
         }
+
+        /* 📌 탭바 + 대기함을 한 덩어리로 위에 붙인다.
+           ⚠️ 둘을 따로 sticky 로 두면 위 것의 높이만큼 아래 것의 top 을 맞춰야 하는데,
+              대기함 높이는 후원 건수에 따라 계속 달라져서 그 숫자를 고정할 수 없다.
+              한 덩어리로 묶으면 그 계산 자체가 사라진다. */
+        #sticky-top {
+            position: sticky;
+            top: 0;
+            z-index: 500;
+            padding-top: 10px;
+            margin-bottom: 20px;
+            background: var(--bg-body);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        /* ⚠️ 대기함이 화면을 다 먹으면 정작 아래 내용을 못 본다.
+              후원이 많이 밀렸을 때만 걸리는 상한이고, 안쪽에서 스크롤된다.
+              비어 있을 때는 display:none 이라 한 픽셀도 안 차지한다. */
+        #sticky-top #pending-box {
+            max-height: min(34vh, 340px);
+            overflow-y: auto;
+            margin-bottom: 0;
+            /* ⚠️ 상자 기본 여백이 80px 이라, 후원 한 건만 있어도 화면의 45% 를 먹었다.
+               띠 안에서만 촘촘하게 만든다 — 다른 화면의 상자들은 그대로 둔다. */
+            padding: 12px 14px;
+        }
+        #sticky-top #pending-box .group-title {
+            font-size: var(--fs-3); margin-bottom: 10px; padding-bottom: 8px;
+        }
+        #sticky-top .pending-item { padding: 10px 12px; margin-bottom: 8px; }
+        #sticky-top .pending-item:last-child { margin-bottom: 0; }
+        #sticky-top .pending-info { margin-bottom: 7px; }
+        /* 접었을 때 — 제목줄만 남고 목록은 사라진다. 화면을 넓게 쓰고 싶을 때. */
+        #pending-box.folded #pending-list { display: none; }
+        #pending-box.folded { max-height: none; overflow: visible; }
+        /* ↩ 되돌리기 줄 */
+        #undo-strip {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+            padding: 7px 12px; border-radius: var(--r-2);
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            font-size: var(--fs-2);
+        }
+        #undo-strip .u-lbl { color: var(--text-muted); font-weight: 700; }
+        #undo-strip button {
+            height: 28px; padding: 0 10px; border-radius: var(--r-1); cursor: pointer;
+            border: 1px solid rgba(255,69,58,0.35); background: rgba(255,69,58,0.09);
+            color: #ff8a80; font-weight: 700; font-size: var(--fs-1); font-family: inherit;
+        }
+        #undo-strip button:hover { background: rgba(255,69,58,0.18); }
         /* 탭 그룹 라벨 (핵심 / 게임 / 연출 / 설정) */
         .tab-glabel {
             font-size: var(--fs-1); font-weight: 800; color: var(--text-muted);
@@ -611,7 +659,9 @@
         body.live-mode .tab-content { display:none !important; }
         body.live-mode #tab-ranking { display:block !important; }
         /* 랭킹 탭 안의 '기본 설정'(테마·목표금액·체크박스 등)은 방송 전 세팅이라 접는다 */
-        body.live-mode #tab-ranking > .group-box:not(#pending-box) { display:none !important; }
+        /* ⚠️ 대기함이 탭 밖으로 나갔으므로 예전 선택자(#tab-ranking > .group-box:not(#pending-box))는
+   더 이상 아무것도 안 가린다. 이제 라이브 모드는 탭바와 탭 내용만 접으면 되고,
+   대기함·되돌리기는 고정 덩어리에 있어 저절로 남는다. */
 
         /* 대기함을 화면의 주인공으로 — 방송 중 유일하게 시간 다투는 조작이다 */
         body.live-mode #pending-box { border-color:rgba(255,204,0,0.8) !important;
@@ -1031,32 +1081,68 @@
         (설정·연출·시그니처 관리는 그대로 있습니다)
     </div>
 
-    <div class="tabs">
-        <!-- 핵심(자주 쓰는 것) -->
-        <span class="tab-glabel accent">핵심</span>
-        <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
-        <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-key" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
-        <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
-        <button class="tab-btn tab-key" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
-        <span class="tab-sep"></span>
-        <!-- 연출 -->
-        <span class="tab-glabel">연출</span>
-        <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-        <span class="tab-sep"></span>
-        <!-- 게임 -->
-        <span class="tab-glabel">게임</span>
-        <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
-        <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 모드</button>
-        <span class="tab-sep"></span>
-        <!-- 설정 -->
-        <span class="tab-glabel">설정</span>
-        <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
-        <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: var(--accent); border-color: rgba(74,158,255,0.4); background: rgba(74,158,255,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
+    <!-- 📌 상단 고정 덩어리 — 탭바 + 후원 대기함.
+         ⚠️ 대기함은 원래 랭킹 탭 안에 있었다. 그런데 방송 중 가장 잦은 조작이 배정인데,
+            다른 탭(시그뒤집기·룰렛 등)을 보는 동안에는 대기함이 통째로 안 보였다.
+            게임을 돌리는 중에도 후원은 계속 들어오므로, 탭이 뭐든 항상 보여야 한다.
+            (그래서 "전부 감추는" 라이브 모드를 껐다 켰다 하게 됐던 것이다)
+         ⚠️ 버튼 배치는 그대로 둔다 — 손에 익은 자리가 바뀌면 방송 중에 그게 더 위험하다.
+            자리만 옮기고 항상 보이게 했다. -->
+    <div id="sticky-top">
+        <div class="tabs">
+            <!-- 핵심(자주 쓰는 것) -->
+            <span class="tab-glabel accent">핵심</span>
+            <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
+            <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-key" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
+            <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
+            <button class="tab-btn tab-key" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
+            <span class="tab-sep"></span>
+            <!-- 연출 -->
+            <span class="tab-glabel">연출</span>
+            <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <span class="tab-sep"></span>
+            <!-- 게임 -->
+            <span class="tab-glabel">게임</span>
+            <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
+            <span class="tab-sep"></span>
+            <!-- 설정 -->
+            <span class="tab-glabel">설정</span>
+            <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
+            <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: var(--accent); border-color: rgba(74,158,255,0.4); background: rgba(74,158,255,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
+        </div>
+        <!-- 후원 결재 대기함 (탭과 무관하게 항상 보인다) -->
+            <div class="group-box" id="pending-box" style="display: none; border-color: rgba(255, 204, 0, 0.5); background: rgba(255, 204, 0, 0.03);">
+                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 204, 0, 0.2); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span style="display:flex; align-items:center; gap:8px;">
+                    <button type="button" id="pending-fold" onclick="togglePendingFold()"
+                            title="대기함을 접어 아래 화면을 넓게 씁니다"
+                            style="height:26px; width:26px; flex:none; padding:0; border-radius:var(--r-1);
+                                   border:1px solid rgba(255,204,0,0.35); background:rgba(255,204,0,0.08);
+                                   color:var(--gold); cursor:pointer; font-family:inherit;">
+                        <i class="fa-solid fa-chevron-down" id="pending-fold-icon"></i>
+                    </button>
+                    <i class="fa-solid fa-inbox"></i> 후원 결재 대기함 (미확인 후원)
+                    <span id="pending-count-badge" style="font-size:var(--fs-1); font-weight:900; color:#241a05;
+                          background:var(--gold); padding:1px 9px; border-radius:999px;"></span>
+                </span>
+                    <label style="margin: 0; padding: 0; border: none; background: transparent; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+                        <span style="font-size: var(--fs-2); color: var(--text-muted); font-weight: bold;"><i class="fa-solid fa-volume-high"></i> 신규 알림음</span>
+                        <input type="checkbox" id="chk-pending-sound" checked style="width: 14px; height: 14px; cursor: pointer; accent-color: var(--gold); margin: 0;">
+                    </label>
+                </div>
+                <div id="pending-list"></div>
+            </div>
+        <!-- ↩ 방금 배정한 것 되돌리기. 여기 없으면, 잘못 준 걸 알아채도
+             로그 탭으로 건너가야 하고 그동안 대기함이 안 보인다.
+             "실수할 수 있다"보다 "실수를 알아챘는데 고칠 수 없다"가 더 나쁘다. -->
+        <div id="undo-strip" style="display:none;"></div>
     </div>
+
 
     <!-- 🎮 모드 탭: 임시게임판 + 퇴근전쟁 (랭킹 탭에서 분리해 옮김) -->
     <div id="tab-mode" class="tab-content">
@@ -1121,16 +1207,6 @@
 
     <div id="tab-ranking" class="tab-content active">
 
-        <div class="group-box" id="pending-box" style="display: none; border-color: rgba(255, 204, 0, 0.5); background: rgba(255, 204, 0, 0.03);">
-            <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 204, 0, 0.2); display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                <span><i class="fa-solid fa-inbox"></i> 후원 결재 대기함 (미확인 후원)</span>
-                <label style="margin: 0; padding: 0; border: none; background: transparent; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
-                    <span style="font-size: var(--fs-2); color: var(--text-muted); font-weight: bold;"><i class="fa-solid fa-volume-high"></i> 신규 알림음</span>
-                    <input type="checkbox" id="chk-pending-sound" checked style="width: 14px; height: 14px; cursor: pointer; accent-color: var(--gold); margin: 0;">
-                </label>
-            </div>
-            <div id="pending-list"></div>
-        </div>
 
         <div class="group-box">
             <div class="group-title"><i class="fa-solid fa-sliders"></i> 기본 설정</div>
@@ -2598,10 +2674,30 @@
         //    통째로 조기 반환하는데, 그때 대기함까지 같이 멈춰서 그 사이 들어온 후원이
         //    화면에 아예 안 나타났다(돈이 밀려 있는데 모른다). 대기함은 입력칸과
         //    상관이 없으므로 조기 반환보다 먼저 따로 부른다.
+        // 대기함 접기/펴기.
+        // ⚠️ 띠는 후원이 3건 넘게 밀리면 화면의 46% 를 먹는다(1600x950 기준 438px).
+        //    그게 필요할 때도 있고 아닐 때도 있어서, 어느 쪽이 옳은지는 쓰는 사람이 정해야 한다.
+        //    접어도 건수 배지는 남으므로 "몇 건 밀렸는지" 는 계속 보인다.
+        function togglePendingFold(force) {
+            const box = document.getElementById('pending-box');
+            if (!box) return;
+            const on = (force === undefined) ? !box.classList.contains('folded') : !!force;
+            box.classList.toggle('folded', on);
+            const ic = document.getElementById('pending-fold-icon');
+            if (ic) ic.className = 'fa-solid fa-chevron-' + (on ? 'right' : 'down');
+            try { localStorage.setItem('pendingFolded', on ? '1' : '0'); } catch (e) {}
+        }
+        try { if (localStorage.getItem('pendingFolded') === '1')
+                  document.addEventListener("DOMContentLoaded", () => togglePendingFold(true)); } catch (e) {}
+
         function renderPending() {
+            try { renderUndoStrip(); } catch (e) {}   // 대기함 바로 아래 줄도 같이 최신으로
             const pbox = document.getElementById('pending-box');
             if (!gd || !pbox) return;
             // 보관함
+            const _badge = document.getElementById('pending-count-badge');
+            const _cnt = (gd.pending_donations || []).filter(d => !removedPendingIds.has(d.id)).length;
+            if (_badge) _badge.textContent = _cnt + '건';
             if (gd.pending_donations && gd.pending_donations.length > 0) {
                 if(pbox.style.display !== 'block') pbox.style.display = 'block';
                 let pHtml = '';
@@ -3546,6 +3642,13 @@
             //    폰에서 같은 순간에 준 점수를 덮어썼다. 이제 서버가 둘을 같은 잠금 안에서 처리한다.
             const r = await addScoreAPI({ scope: 'rank', name: chosenName, delta: addPoint,
                                          pending_id: donId });
+            if (r) {
+                // ⚠️ 배정도 되돌리기 기록에 남긴다. 예전에는 점수 칸 직접 입력만 남겨서,
+                //    가장 잦고 가장 위험한 조작인 배정이 정작 되돌릴 수 없었다.
+                recordScoreAction({ scope: 'rank', name: chosenName, delta: addPoint,
+                                    isExtra, addedContrib: true, logTime: r.time,
+                                    donor: don0.name, amount: don0.amount });
+            }
             if (!r) {
                 // 서버에 안 들어갔으므로 화면도 원상복구한다(점수·대기함).
                 target.score -= addPoint;
@@ -3587,6 +3690,12 @@
 
             const r = await addScoreAPI({ scope: 'rank', pending_id: donId,
                                          items: found.map(t => ({ name: t.name, delta: addPoint })) });
+            if (r) {
+                // 반반·N분할도 마찬가지. 여러 명이면 한 줄로 묶어 기록한다.
+                recordScoreAction({ scope: 'rank', names: found.map(t => t.name), delta: addPoint,
+                                    isExtra, addedContrib: true, logTime: r.time,
+                                    donor: don0.name, amount: don0.amount, split: true });
+            }
             if (!r) {
                 found.forEach(t => { t.score -= addPoint; t.contribution -= addPoint; });
                 gd.pending_donations.splice(donIdx, 0, don0);
@@ -4338,6 +4447,35 @@
             lastScoreActions.push(a);
             if (lastScoreActions.length > 20) lastScoreActions.shift();
             showUndoToast(a);
+            renderUndoStrip();
+        }
+
+        // ↩ 대기함 바로 아래 되돌리기 줄. 최근 3건만 보여준다.
+        // ⚠️ 이게 없을 때는, 잘못 준 걸 알아채도 로그 탭으로 건너가야 했고
+        //    그동안 대기함이 안 보였다. 실수를 고치는 사이 새 후원이 쌓인다.
+        //    "실수할 수 있다"보다 "실수를 알아챘는데 고칠 수 없다"가 더 나쁘다.
+        function undoLabel(a) {
+            const who = a.split ? (a.names || []).join('·') : a.name;
+            const pts = (a.delta > 0 ? '+' : '') + a.delta + '점';
+            if (a.donor) {
+                return escapeHTML(a.donor) + ' ' + (a.amount || 0).toLocaleString() + '원 → '
+                     + '<b style="color:var(--accent)">' + escapeHTML(who) + '</b> ' + pts;
+            }
+            return '<b style="color:var(--accent)">' + escapeHTML(who) + '</b> ' + pts;
+        }
+
+        function renderUndoStrip() {
+            const el = document.getElementById('undo-strip');
+            if (!el) return;
+            const recent = lastScoreActions.slice(-3).reverse();   // 최근 것이 왼쪽
+            if (!recent.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+            el.style.display = 'flex';
+            el.innerHTML = '<span class="u-lbl"><i class="fa-solid fa-rotate-left"></i> 방금</span>'
+                + recent.map(a => {
+                    const idx = lastScoreActions.indexOf(a);
+                    return '<button onclick="undoScoreAt(' + idx + ')" title="이 지급을 취소합니다">'
+                         + undoLabel(a) + ' 취소</button>';
+                  }).join('');
         }
         function showUndoToast(a) {
             const t = document.getElementById('score-undo-toast');
@@ -4357,9 +4495,32 @@
             if (undoToastTimer) { clearTimeout(undoToastTimer); undoToastTimer = null; }
             setTimeout(() => { if (t.style.opacity === '0') t.style.display = 'none'; }, 260);
         }
-        function undoLastScore() {
-            const a = lastScoreActions.pop();
+        function undoLastScore() { undoScoreAt(lastScoreActions.length - 1); }
+
+        // ⚠️ 예전에는 pop() 으로 '마지막 것'만 되돌릴 수 있었다. 그런데 후원이 몰릴 때는
+        //    두세 건 배정한 뒤에야 두 번째 것이 틀렸다는 걸 알아챈다. 번호로 지목해 되돌린다.
+        function undoScoreAt(idx) {
+            if (idx < 0 || idx >= lastScoreActions.length) { hideUndoToast(); return; }
+            const a = lastScoreActions.splice(idx, 1)[0];
             if (!a) { hideUndoToast(); return; }
+            // 반반·N분할은 여러 명이 한 건이다. 그 사람들 것을 한꺼번에 되돌린다.
+            if (a.split && Array.isArray(a.names)) {
+                const list = a.isExtra ? gd.extra_bjs : gd.bjs;
+                a.names.forEach(nm => {
+                    const t = (list || []).find(b => b.name === nm);
+                    if (!t) return;
+                    t.score -= a.delta;
+                    if (a.addedContrib && t.contribution !== undefined) t.contribution -= a.delta;
+                });
+                if (list) { list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0)); }
+                renderUI(); renderUndoStrip();
+                addScoreAPI({ scope: 'rank', log: false,
+                              items: a.names.map(nm => ({ name: nm, delta: -a.delta })),
+                              undo_log: a.names.map(nm => ({ time: a.logTime, name: nm, val: a.delta })) });
+                if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
+                else hideUndoToast();
+                return;
+            }
             let target = null;
             if (a.scope === 'bot') target = gd.bottom_fixed;
             else if (a.scope === 'match') target = ((gd.match_data && gd.match_data.players) || []).find(p => p.name === a.name);
@@ -4376,6 +4537,7 @@
             addScoreAPI({ scope: a.scope, name: a.name, delta: -a.delta, log: false,
                           undo_log: { time: a.logTime, name: a.name, val: a.delta } });
             // 이전 조작이 더 남아있으면 그 토스트를 이어서 띄운다(연속 취소 가능)
+            renderUndoStrip();
             if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
             else hideUndoToast();
         }
