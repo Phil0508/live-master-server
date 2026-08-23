@@ -119,6 +119,12 @@
         #sticky-top .pending-item { padding: 10px 12px; margin-bottom: 8px; }
         #sticky-top .pending-item:last-child { margin-bottom: 0; }
         #sticky-top .pending-info { margin-bottom: 7px; }
+        /* 순서가 얼어 있는 동안 — 아주 옅게만 알린다. 방송 중에 요란하면 방해가 된다. */
+        #pending-box.order-frozen { border-color: rgba(255,204,0,0.75); }
+        #pending-box.order-frozen .group-title::after {
+            content: '순서 고정'; margin-left: 8px; font-size: var(--fs-1); font-weight: 700;
+            color: var(--gold); opacity: .75; letter-spacing: .3px;
+        }
         /* 접었을 때 — 제목줄만 남고 목록은 사라진다. 화면을 넓게 쓰고 싶을 때. */
         #pending-box.folded #pending-list { display: none; }
         #pending-box.folded { max-height: none; overflow: visible; }
@@ -2679,6 +2685,45 @@
             return true;
         }
 
+        // ══ 배정 버튼 순서 얼리기 ══
+        //
+        // ⚠️ 카드의 이름 버튼은 기여도 순(1등부터)으로 그린다. 그건 그대로 두는 게 맞다 —
+        //    누가 1등인지 보면서 배정하는 게 이 방송의 방식이다.
+        //    문제는 "누르려고 손을 뻗은 그 순간"에 순서가 바뀌는 것이다.
+        //    큰 후원 하나를 배정하면 그 사람이 1등으로 올라가고, 그러면 모든 카드의
+        //    버튼이 통째로 다시 배열된다(실측: 4명 중 4명 자리 이동).
+        //    후원이 몰려 연달아 누를 때는 화면을 자세히 안 보고 손이 기억한 자리를 누르므로,
+        //    바로 그때 엉뚱한 사람에게 돈이 간다.
+        //
+        //    그래서 마우스가 대기함 안에 있는 동안에는 순서를 그대로 붙잡아 둔다.
+        //    손을 빼면 그때 최신 순위로 정렬된다. 순위 표시가 늦어지는 것은 랭킹판이
+        //    따로 있으니 문제가 안 되고, 잘못 누르는 것은 돈이 걸린 문제다.
+        let _btnFreeze = null;    // 얼린 이름 순서 (마우스가 대기함 안에 있는 동안)
+        let _btnOrder = [];       // 지금 실제로 그려진 버튼 순서 — assignPending 이 이걸 본다
+
+        function playersForButtons(activeBjs) {
+            if (!_btnFreeze || !_btnFreeze.length) return activeBjs;
+            const rest = new Map(activeBjs.map(b => [b.name, b]));
+            const out = [];
+            _btnFreeze.forEach(nm => { if (rest.has(nm)) { out.push(rest.get(nm)); rest.delete(nm); } });
+            rest.forEach(v => out.push(v));   // 얼린 뒤 새로 생긴 사람은 맨 뒤에
+            return out;
+        }
+
+        function freezeBtnOrder(on) {
+            const box = document.getElementById('pending-box');
+            if (on) {
+                if (_btnFreeze) return;               // 이미 얼어 있으면 그대로
+                _btnFreeze = _btnOrder.map(b => b.name);
+            } else {
+                if (!_btnFreeze) return;
+                _btnFreeze = null;
+                lastPendingHtml = '';                 // 최신 순위로 다시 그린다
+                try { renderPending(); } catch (e) {}
+            }
+            if (box) box.classList.toggle('order-frozen', on);
+        }
+
         // 승인 대기함 그리기.
         // ⚠️ renderUI 안에 있던 것을 함수로 뗐다. renderUI 는 입력칸에 커서가 있으면
         //    통째로 조기 반환하는데, 그때 대기함까지 같이 멈춰서 그 사이 들어온 후원이
@@ -2702,6 +2747,16 @@
 
         function renderPending() {
             try { renderUndoStrip(); } catch (e) {}   // 대기함 바로 아래 줄도 같이 최신으로
+            // 마우스가 들락거리는 것을 한 번만 걸어둔다
+            const _pb = document.getElementById('pending-box');
+            if (_pb && !_pb._freezeBound) {
+                _pb._freezeBound = true;
+                _pb.addEventListener('mouseenter', () => freezeBtnOrder(true));
+                _pb.addEventListener('mouseleave', () => freezeBtnOrder(false));
+                // 폰·태블릿에서는 손가락이 닿는 동안만 얼린다
+                _pb.addEventListener('touchstart', () => freezeBtnOrder(true), { passive: true });
+                _pb.addEventListener('touchend', () => setTimeout(() => freezeBtnOrder(false), 1200), { passive: true });
+            }
             const pbox = document.getElementById('pending-box');
             if (!gd || !pbox) return;
             // 보관함
@@ -2712,7 +2767,10 @@
                 if(pbox.style.display !== 'block') pbox.style.display = 'block';
                 let pHtml = '';
                 let isExtra = gd.extra_game_active || false;
-                let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
+                // ⚠️ 버튼은 이 순서로 그리고, assignPending 도 반드시 같은 배열을 본다.
+                //    (다른 배열의 번호를 쓰면 그게 곧 오배정이다)
+                let activeBjs = playersForButtons(isExtra ? (gd.extra_bjs || []) : (gd.bjs || []));
+                _btnOrder = activeBjs;
                 gd.pending_donations.forEach(don => {
                     // 방금 승인/무시로 서버에 제거 요청한 건은, 서버 상태가 아직 반영되기 전이라도 다시 뜨지 않게 숨긴다
                     if (removedPendingIds.has(don.id)) return;
@@ -3606,7 +3664,12 @@
             //    SSE 업데이트가 오면 배열 자체가 통째로 교체된다. 그래서 인덱스는 딱 한 번, 지금 이 줄에서만
             //    쓰고 곧바로 '이름'으로 바꿔 고정한다. 이후로는 절대 인덱스로 사람을 찾지 않는다.
             //    (이걸 안 지키면 엉뚱한 사람에게 돈이 들어간다)
-            const list0 = ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []);
+            // ⚠️ 버튼에 박힌 번호는 "그려질 당시 버튼 줄"의 번호다. 순서를 얼려 그렸다면
+            //    gd.bjs 를 그대로 보면 안 된다 — 그게 바로 엉뚱한 사람에게 주는 길이다.
+            //    버튼을 그릴 때 쓴 바로 그 배열(_btnOrder)에서 이름을 꺼낸다.
+            const list0 = (_btnOrder && _btnOrder.length)
+                            ? _btnOrder
+                            : ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []);
             const chosenName = (list0[bjIdx] || {}).name;
             if (!chosenName) return;
             if (!gd.pending_donations.some(d => d.id === donId)) return;
