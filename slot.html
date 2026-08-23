@@ -217,7 +217,7 @@
         }
 
         function createCardHTML(item) {
-            const imgUrl = item.image_url || (item.image_file ? `/uploads/${item.image_file}` : '/money.png');
+            const imgUrl = item.image_url || '/money.png';
             return `
                 <div class="reel-card">
                     <img src="${escText(imgUrl)}" onerror="this.src='/money.png'">

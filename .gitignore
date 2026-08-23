@@ -18,3 +18,21 @@ NVIDIA_CREDENTIALS.txt
 *.bak
 *.test_backup
 *.log
+
+# ── 미디어·백업 폴더 (약 1.4GB) ────────────────────────────
+# ⚠️ 자격증명과 DB 는 위에서 막혀 있었지만 이 폴더들은 안 막혀 있었다.
+#    `git add .` 한 번이면 1.4GB 가 공개 저장소로 올라가고, 되돌리려면 이력을 다시 써야 한다.
+사진/
+저장본/
+시그니처프로그램/
+downloaded_toonation_assets/
+audio_backup_orig/
+audio_backup_loudness/
+backup_reaction_pre/
+media_cache/
+
+# 리스너가 보내지 못한 후원을 적어두는 파일 (기계마다 다르다)
+donation_spool.jsonl
+
+# *.log 만으로는 이런 이름이 안 걸린다
+*_log.txt

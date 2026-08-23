@@ -39,6 +39,13 @@ except ValueError:
     MIN_AMOUNT = 10000
 DRY = "--dry" in sys.argv
 
+# 📮 보내지 못한 후원을 적어두는 파일. 서버가 잠깐 죽어 있어도 후원이 사라지지 않게 한다.
+#    (자동 배포가 커밋마다 서버를 재시작하므로, 이 창은 드물지 않게 열린다)
+SPOOL_FILE = os.environ.get("SPOOL_FILE") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "donation_spool.jsonl")
+# 전송 재시도 간격(초). 서버 재시작은 보통 몇 초면 끝난다.
+RETRY_DELAYS = (0.5, 1.5, 3.0)
+
 DONATION_CODE = 101  # 투네이션 후원 이벤트 코드 (실측 확인)
 
 def log(*a):
@@ -128,11 +135,99 @@ def post_donation(payload):
     r = urllib.request.urlopen(req, timeout=10)
     return r.status, r.read().decode("utf-8", "replace")[:200]
 
+
+# ══ 후원을 잃지 않기 위한 장치 ══
+#
+# ⚠️ 예전에는 전송이 실패하면 로그 한 줄만 남기고 그 후원을 버렸다. 재시도도, 저장해
+#    뒀다 나중에 보내는 것도 없었다. 그런데 배포 스크립트가 새 커밋마다
+#    `systemctl restart livemaster` 를 하므로, 재시작하는 몇 초 사이에 들어온 후원은
+#    영구히 사라졌다. 방송 중에 코드를 올리면 정확히 그 창이 열린다.
+#
+#    이제 ① 몇 번 다시 보내보고 ② 그래도 안 되면 파일에 적어둔 뒤
+#    ③ 서버가 살아나면 밀린 것부터 흘려보낸다. tx_id 가 그대로라 서버가 중복을 걸러주므로
+#    같은 후원이 두 번 들어갈 걱정은 없다.
+
+def send_once(payload):
+    """한 번 보낸다. 성공하면 True."""
+    try:
+        st, body = post_donation(payload)
+        log("   → 서버 응답", st, body)
+        return True
+    except Exception as e:
+        log("   ⚠️ 전송 실패:", type(e).__name__, e)
+        return False
+
+
+def spool_add(payload):
+    """보내지 못한 후원을 파일 끝에 적어둔다."""
+    try:
+        with open(SPOOL_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        log("   📮 대기줄에 넣었습니다 —", os.path.basename(SPOOL_FILE),
+            "(서버가 살아나면 자동으로 다시 보냅니다)")
+    except Exception as e:
+        # 여기까지 실패하면 정말로 방법이 없다. 최소한 화면에는 남긴다.
+        log("   ❌❌ 대기줄 기록마저 실패 —", type(e).__name__, e)
+        log("   ❌❌ 사라진 후원:", json.dumps(payload, ensure_ascii=False))
+
+
+def spool_drain():
+    """밀린 후원을 순서대로 다시 보낸다. 못 보낸 것만 파일에 남긴다."""
+    if DRY or not os.path.exists(SPOOL_FILE):
+        return
+    try:
+        with open(SPOOL_FILE, "r", encoding="utf-8") as f:
+            rows = [ln.strip() for ln in f if ln.strip()]
+    except Exception as e:
+        log("⚠️ 대기줄을 읽지 못했습니다:", e)
+        return
+    if not rows:
+        return
+    log("📮 밀린 후원 %d건을 다시 보냅니다." % len(rows))
+    left = []
+    for i, ln in enumerate(rows):
+        try:
+            payload = json.loads(ln)
+        except Exception:
+            continue   # 깨진 줄은 버린다(되살릴 방법이 없다)
+        if send_once(payload):
+            log("   ✅ 재전송 성공:", payload.get("name"), payload.get("amount"))
+        else:
+            left.extend(rows[i:])   # 하나라도 실패하면 순서를 지키려고 나머지는 그대로 둔다
+            break
+    try:
+        if left:
+            with open(SPOOL_FILE, "w", encoding="utf-8") as f:
+                f.write("\n".join(left) + "\n")
+            log("📮 아직 %d건이 대기줄에 남아 있습니다." % len(left))
+        else:
+            os.remove(SPOOL_FILE)
+            log("📮 대기줄을 모두 비웠습니다.")
+    except Exception as e:
+        log("⚠️ 대기줄 정리 실패:", e)
+
+
+def deliver(payload):
+    """후원 한 건을 책임지고 넘긴다. 끝까지 안 되면 파일에 적어둔다."""
+    if send_once(payload):
+        spool_drain()   # 서버가 살아 있는 것을 확인했으니 밀린 것도 같이 보낸다
+        return True
+    for d in RETRY_DELAYS:
+        time.sleep(d)
+        log("   ↻ 다시 보냅니다 (%.1f초 뒤)" % d)
+        if send_once(payload):
+            spool_drain()
+            return True
+    spool_add(payload)
+    return False
+
 async def listen(token):
     url = "wss://ws.toon.at/" + token
     global _connected_at
     async with websockets.connect(url, open_timeout=15, ping_interval=20) as ws:
         _connected_at = time.time()
+        # 끊겨 있던 동안 못 보낸 후원이 있으면 먼저 흘려보낸다
+        spool_drain()
         log("✅ 연결됨 →", DONATION_URL, "(dry-run)" if DRY else "",
             "| 재전송 방어 {}초".format(REPLAY_GUARD_AFTER_RECONNECT)
             if REPLAY_GUARD_AFTER_RECONNECT > 0 else "| 재전송 방어 꺼짐")
@@ -167,15 +262,22 @@ async def listen(token):
             if DRY:
                 log("   → [dry] 보낼 내용:", json.dumps(payload, ensure_ascii=False))
                 continue
-            try:
-                st, body = post_donation(payload)
-                log("   → 서버 응답", st, body)
-            except Exception as e:
-                log("   ❌ 전송 실패:", type(e).__name__, e)
+            deliver(payload)
+
+async def spool_watcher():
+    """후원이 한동안 없어도 밀린 것이 계속 묶여 있지 않게 주기적으로 다시 시도한다."""
+    while True:
+        await asyncio.sleep(30)
+        try:
+            spool_drain()
+        except Exception as e:
+            log("⚠️ 대기줄 재시도 중 오류:", e)
+
 
 async def main():
     if not ALERTBOX_URL:
         print("ALERTBOX_URL 환경변수가 필요합니다."); return
+    asyncio.get_event_loop().create_task(spool_watcher())
     token = fetch_token(ALERTBOX_URL)
     log("토큰 %d자 확보. ws.toon.at 접속 시작." % len(token))
     while True:

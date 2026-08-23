@@ -26,6 +26,7 @@ import copy
 import random   # 시그게임 카드 배치·섞기, 슬롯 당첨 뽑기
 import math     # 시그게임 판을 정사각형에 가깝게 잡을 때
 import threading
+import uuid
 import logging
 import pyotp
 import secrets
@@ -34,10 +35,8 @@ import time
 import csv
 import queue
 import shutil
-import socket
 import sqlite3
 from contextlib import contextmanager
-import ssl
 import urllib.request
 import urllib.parse
 
@@ -113,7 +112,6 @@ def get_db_connection():
         _db_local.conn = None
         raise
 from flask import Flask, jsonify, request, send_from_directory, redirect, url_for, session
-from flask_cors import CORS
 try:
     import tkinter as tk
     from tkinter import messagebox
@@ -365,7 +363,7 @@ def nim_suggest_target(name, amount, message, players):
 
 # ---- AI 서포트 채팅: 현재 방송 상태 스냅샷 + 시스템 프롬프트 ----
 AI_SYSTEM_PROMPT = (
-    "너는 '드래곤쇼' 라이브 방송 운영 시스템의 AI 서포트 어시스턴트다.\n\n"
+    "너는 '엔젤컴퍼니' 라이브 방송 운영 시스템의 AI 서포트 어시스턴트다.\n\n"
     "[이 프로그램이 무엇인가]\n"
     "- 시청자 후원(투네이션)을 받아 방송 화면(오버레이)에 리액션·연출을 띄우고, "
     "플레이어(출연자)들의 점수·기여도 랭킹을 관리하는 라이브 방송 운영 도구다.\n"
@@ -403,6 +401,15 @@ def _top_donors(d, n=8):
     if len(items) > n:
         out["…그 외"] = f"{len(items) - n}명"
     return out
+
+
+def _goal_waiting(state):
+    """목표를 넘었는데 아직 연출을 송출하지 않았는가."""
+    tgt = int(state.get('target_goal') or 0)
+    if tgt <= 0 or state.get('goal_event_approved'):
+        return False
+    total = sum(int(b.get('contribution') or 0) for b in (state.get('bjs') or []))
+    return total >= tgt
 
 
 def build_ai_snapshot(state):
@@ -454,7 +461,9 @@ def build_ai_snapshot(state):
         "운영비": state.get("bottom_fixed"),
         "시그니처_신청집계": sig_tally_list,
         "시그니처_후원자_순위": sig_donor_rank,
-        "목표연출_승인대기": bool(state.get("goal_event_pending")),
+        # ⚠️ goal_event_pending 은 true 가 되는 코드가 없어서 늘 거짓이었다.
+        #    조종실이 승인 버튼을 띄우는 기준(기여도 합계가 목표를 넘었는가)과 같게 맞춘다.
+        "목표연출_승인대기": bool(_goal_waiting(state)),
         "슬롯": {"켜짐": bool(state.get("slot_enabled")), "후보수": len(state.get("slot_pool") or [])},
         "룰렛": {"켜짐": bool(state.get("roulette_enabled")), "당첨자": roul.get("winner_name"), "돌리는중": bool(roul.get("is_spinning"))},
         "티커_문구": state.get("ticker_text"),
@@ -746,15 +755,21 @@ log.disabled = True
 
 app = Flask(__name__)
 app.secret_key = load_auth_config()['session_secret']
-CORS(app)
+# ⚠️ CORS 를 열지 않는다. 오버레이·조종실·후원 콘솔은 전부 같은 출처에서 돌고,
+#    투네이션 리스너는 서버 안에서(127.0.0.1), 템퍼몽키는 GM_xmlhttpRequest 로 부른다
+#    — 셋 다 CORS 를 타지 않는다. 열어두면 아무 웹페이지나 Bearer 토큰으로 이 API 를 부를 수 있다.
 file_lock = threading.Lock()
 
 # 🚫 [강력 차단] 웹 브라우저 및 OBS CEF 캐싱 방지 헤더 이식
 @app.after_request
 def add_header(r):
-    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    r.headers["Pragma"] = "no-cache"
-    r.headers["Expires"] = "0"
+    # ⚠️ 예전에는 모든 응답에 걸었다. 그러면 .js·.css·글꼴·그림까지 캐시가 금지돼
+    #    OBS 오버레이를 새로고침할 때마다 정적 파일을 통째로 다시 받는다.
+    #    상하면 안 되는 것은 상태(API)뿐이라 거기에만 건다.
+    if request.path.startswith('/api/') or request.path in ('/login', '/setup'):
+        r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        r.headers["Pragma"] = "no-cache"
+        r.headers["Expires"] = "0"
     return r
 
 # 🔒 [보안 통제] 웹 제어실 및 중요 API 접근 제한 미들웨어
@@ -804,15 +819,15 @@ def require_login():
         '/health',
         '/api/health',
         '/api/donation',
-        '/api/streamdeck/neon',
-        '/api/streamdeck/save',
+        # ⚠️ /api/streamdeck/* 는 여기에 두면 안 된다. 무인증 GET 만으로 reaction_mode 를
+        #    켤 수 있어서, 주소만 아는 사람이 랭킹판·게이지를 숨겨버릴 수 있었다.
+        #    큐가 비어 있으면 그걸 끄는 코드가 없어 운영자가 손으로 끌 때까지 돌아오지 않는다.
+        #    streamdeck.html 자체가 이미 로그인 뒤에 있어서, 같은 출처 fetch 에 세션이 실린다.
         '/api/roulette/winner',
         '/api/match/timeup',
         '/api/signatures',
         '/api/reaction/next',
-        '/api/reaction/list',
         '/toonation_tampermonkey.user.js',
-        '/setup'
     ]
     
     # 메서드까지 봐야 하는 예외: 조회는 오버레이가 써야 해서 공개, 변경은 로그인 필요.
@@ -832,7 +847,6 @@ def require_login():
     # 시그니처 등록(/upload, /노래등록)은 관리 기능이므로 로그인 필요로 변경했다.
     # (등록 API가 /api/signatures/add 로 바뀌면서 인증이 필요해졌기 때문)
     if (path in exempt_routes or
-        path.startswith('/uploads/') or
         path.startswith('/sfx/')):      # 🔊 효과음 — 오버레이는 로그인 세션이 없다
         return
          
@@ -1164,7 +1178,9 @@ DEFAULT_STATE = {
     #    [{name, score, members: ["제이양", "밍밍"]}]
     "match_data": {"active": False, "players": [], "time_left_ms": 180000,
                    "is_running": False, "team_mode": False},
-    "account": {"bank": "기업은행", "acc_num": "464-068673-04-016", "name": "드래곤엔터"},
+    # ⚠️ 실제 계좌를 기본값으로 적지 않는다 — 이 저장소는 공개라 코드와 커밋 이력에 그대로 남는다.
+    #    조종실 편집기에서 한 번 입력하면 DB 에 저장돼 계속 유지된다.
+    "account": {"bank": "", "acc_num": "", "name": ""},
     "pending_donations": [],
     "latest_donation": {"name": "", "amount": 0, "message": "", "time": 0},
     "extra_game_active": False,
@@ -1297,25 +1313,6 @@ def init_db():
                     summary TEXT
                 )
             """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reaction_files (
-                    id VARCHAR(64) PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    content_type VARCHAR(128) NOT NULL,
-                    file_data BYTEA NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reaction_items (
-                    id SERIAL PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    amount INTEGER DEFAULT 0,
-                    audio_file_id VARCHAR(64),
-                    image_file_id VARCHAR(64),
-                    is_enabled BOOLEAN DEFAULT TRUE
-                )
-            """)
         else:
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS donation_history (
@@ -1335,25 +1332,6 @@ def init_db():
                     timestamp TEXT,
                     state_json TEXT,
                     summary TEXT
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reaction_files (
-                    id TEXT PRIMARY KEY,
-                    filename TEXT NOT NULL,
-                    content_type TEXT NOT NULL,
-                    file_data BLOB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reaction_items (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title TEXT NOT NULL,
-                    amount INTEGER DEFAULT 0,
-                    audio_file_id TEXT,
-                    image_file_id TEXT,
-                    is_enabled INTEGER DEFAULT 1
                 )
             """)
         
@@ -2336,125 +2314,15 @@ def import_bjs():
 # ==========================================
 # 🌐 페이지 라우팅
 # ==========================================
-@app.route('/setup', methods=['GET', 'POST'])
+@app.route('/setup')
 def serve_setup():
-    if request.method == 'POST':
-        try:
-            data = request.get_json() or {}
-            p = data.get('password', '').strip()
-            # ⚠️ 이 페이지는 통과하면 OTP 비밀키를 그대로 보여준다.
-            #    로그인보다 더 세게 막아야 할 곳이지 덜 막을 곳이 아니다.
-            if admin_password_is_unset():
-                return jsonify({'status': 'error', 'message': ADMIN_PASSWORD_UNSET_MSG}), 403
+    """OTP 페어링 화면. 통과하면 2단계 인증의 비밀키를 그대로 보여준다.
 
-            login_throttle()   # 여기는 통과하면 OTP 비밀키가 보인다 — 로그인보다 더 세게 막는다
-
-            if password_matches(p):
-                login_ok()
-                session['setup_authorized'] = True
-                return jsonify({'status': 'success'})
-            else:
-                login_failed('OTP 등록 게이트')
-                return jsonify({'status': 'error', 'message': '비밀번호가 잘못되었습니다.'}), 400
-        except Exception as e:
-            return jsonify({'status': 'error', 'message': str(e)}), 500
-
-    # GET request
-    if not session.get('setup_authorized'):
-        # Return a simple password protection UI for setup
-        html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔒 라이브 마스터 OTP 등록 게이트</title>
-    <style>
-        body {{
-            background: #0d0d0f;
-            color: #f5f5f7;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-        }}
-        .card {{
-            background: #16161a;
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 20px;
-            padding: 40px 30px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            max-width: 400px;
-            width: 90%;
-            box-sizing: border-box;
-        }}
-        h2 {{ color: #00ffcc; margin-top: 0; font-size: 22px; }}
-        input {{
-            width: 100%;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 12px;
-            border-radius: 8px;
-            color: #fff;
-            font-size: 16px;
-            text-align: center;
-            box-sizing: border-box;
-            outline: none;
-            margin: 20px 0;
-        }}
-        input:focus {{ border-color: #00ffcc; }}
-        .btn {{
-            background: #00ffcc;
-            color: #000;
-            border: none;
-            padding: 14px 28px;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            font-size: 15px;
-        }}
-        .err {{ color: #ff453a; font-size: 13px; margin-top: 10px; display: none; }}
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h2>🔒 OTP 등록 페이지 인증</h2>
-        <p style="font-size: 14px; color: #8e8e93;">보안을 위해 서버 비밀번호를 입력해 주세요.</p>
-        <input type="password" id="pw" placeholder="비밀번호 입력" autofocus onkeydown="if(event.key==='Enter') verifyPw()">
-        <button onclick="verifyPw()" class="btn">인증 및 등록 진행</button>
-        <div id="err" class="err">비밀번호가 올바르지 않습니다.</div>
-    </div>
-    <script>
-        async function verifyPw() {{
-            const p = document.getElementById('pw').value.trim();
-            const err = document.getElementById('err');
-            err.style.display = 'none';
-            try {{
-                const res = await fetch('/setup', {{
-                    method: 'POST',
-                    headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{password: p}})
-                }});
-                const data = await res.json();
-                if (data.status === 'success') {{
-                    window.location.reload();
-                }} else {{
-                    err.innerText = data.message;
-                    err.style.display = 'block';
-                }}
-            }} catch(e) {{
-                err.innerText = '인증 중 오류가 발생했습니다.';
-                err.style.display = 'block';
-            }}
-        }}
-    </script>
-</body>
-</html>
-"""
-        return html
+    ⚠️ 예전에는 비밀번호 한 겹만 넘으면 열렸다 — 그러면 자물쇠 두 개가 사실상 한 개다.
+       (비밀번호를 알아낸 사람이 여기서 OTP 키까지 가져가면 2단계가 무의미해진다)
+       이제 조종실 로그인을 먼저 통과해야 한다. 무인증 예외 목록에서도 뺐으므로
+       로그인하지 않으면 before_request 가 로그인 화면으로 돌려보낸다.
+    """
 
     secret = get_or_create_totp_secret()
     # QR Code compatible URL (ASCII only for label/issuer)
@@ -2519,7 +2387,7 @@ def serve_setup():
         }}
         .btn:hover {{ opacity: 0.9; }}
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+    <script src="/vendor/qrious.min.js"></script>
 </head>
 <body>
     <div class="card">
@@ -2827,7 +2695,9 @@ def receive_donation():
 
         with file_lock:
             state = load_data()
-            don_id = f"don_{int(time.time() * 1000)}"
+            # ⚠️ 예전에는 don_<밀리초> 였다. 같은 밀리초에 두 건이 들어오면 번호가 겹쳐,
+            #    한 건을 대기함에서 지울 때 두 건이 같이 사라진다. 리액션 큐는 이미 uuid 를 쓴다.
+            don_id = f"don_{int(time.time() * 1000)}_{uuid.uuid4().hex[:6]}"
             name = new_don.get('name', '익명')
             msg = new_don.get('message', '')
             
@@ -2956,49 +2826,6 @@ def receive_donation():
         return jsonify({'status': 'success', 'id': don_id})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
-# ==========================================
-# 📺 CORS 우회 유튜브 검색 API (SSL 무시)
-# ==========================================
-@app.route('/api/yt/search')
-def yt_search():
-    query = request.args.get('q', '')
-    if not query:
-        return jsonify([])
-        
-    instances = ['https://yewtu.be', 'https://invidious.flokinet.to', 'https://iv.melmac.space']
-    ssl_ctx = ssl._create_unverified_context()
-    
-    for base in instances:
-        try:
-            encoded_query = urllib.parse.quote(query)
-            url = f"{base}/api/v1/search?q={encoded_query}"
-            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-            
-            with urllib.request.urlopen(req, context=ssl_ctx, timeout=3) as response:
-                data = json.loads(response.read().decode('utf-8'))
-                results = []
-                for item in data:
-                    if item.get('type') == 'video':
-                         length = item.get('lengthSeconds', 0)
-                         mins = length // 60
-                         secs = length % 60
-                         duration_str = f"{mins}:{secs:02d}"
-                         
-                         video_id = item.get('videoId', '')
-                         results.append({
-                             'title': item.get('title', ''),
-                             'videoId': video_id,
-                             'author': item.get('author', ''),
-                             'duration': duration_str,
-                             'thumbnail': f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
-                         })
-                return jsonify(results)
-        except Exception as e:
-            print(f"[YT Search Exception on {base}] {e}")
-            continue
-            
-    return jsonify([])
 
 @app.route('/api/audit/suggest', methods=['POST'])
 def api_audit_suggest():
@@ -3148,12 +2975,56 @@ def api_data():
         
     state = load_data()
     if isinstance(state, dict):
-        state = state_for_client(state, session.get('authenticated'))
+        # ⚠️ 다른 곳은 전부 request_is_authed() 를 쓰는데 여기만 session 을 봤다.
+        #    그래서 관리자 키(Bearer)로 부르는 쪽은 대기 후원·장부가 빠진 상태를 받았고,
+        #    "보냈는데 안 들어갔다"로 보였다(실제로는 저장돼 있었다).
+        state = state_for_client(state, request_is_authed())
         # 조종실 웹에 로그인 세션이 있을 때만 보안 API 토큰을 붙인다.
         # (state_for_client 가 방금 지운 것을, 여기서만 의도적으로 다시 넣는다)
         if session.get('authenticated'):
             state['api_token'] = load_auth_config()['session_secret']
     return jsonify(state)
+
+
+@app.route('/api/restore', methods=['POST'])
+def api_restore():
+    """백업에서 상태를 통째로 되돌린다 (브라우저 자동 백업 · 내려받은 백업 파일).
+
+    ⚠️ 예전에는 조종실이 백업을 /api/data 로 밀어넣었다. 그런데 그 경로는
+       pending_donations · reaction_queue · siggame 를 서버 소유로 보호해서 받은 값을 버린다.
+       그래서 점수와 설정은 돌아오는데 '아직 배정 안 한 후원' 은 조용히 사라졌다.
+       화면에는 '복구 완료' 라고 떴으니 운영자는 돈이 사라진 걸 알 방법이 없었다.
+       복구는 그 필드까지 되돌려야 뜻이 있으므로 전용 경로로 분리한다.
+
+    ⚠️ 평소 조작은 절대 이 경로를 쓰면 안 된다. 상태를 통째로 갈아끼우므로,
+       그 사이 들어온 후원이 있으면 같이 지워진다. 그래서 되돌리기 전에 스냅샷을 남긴다.
+    """
+    try:
+        body = request.json or {}
+        if not isinstance(body, dict) or 'bjs' not in body:
+            return jsonify({"status": "error",
+                            "message": "복구할 상태가 아닙니다(백업 파일이 맞는지 확인해주세요)"}), 400
+        with file_lock:
+            before = load_data()
+            create_snapshot(before, '복구 직전 자동 백업')
+            # 모르는 키는 받지 않는다 — 백업 파일에 뭐가 들어 있든 상태를 오염시키지 않게.
+            state = copy.deepcopy(DEFAULT_STATE)
+            for k in DEFAULT_STATE:
+                if k in body:
+                    state[k] = body[k]
+            state.pop('api_token', None)
+            state['version'] = (before.get('version') or 1) + 1
+            # is_initial=True 로 전체 키를 다시 쓴다(변경분만 쓰면 복구가 절반만 반영된다)
+            save_data(state, is_initial=True, sync=True)
+            broadcast_event('update', state)
+        players = len(state.get('bjs') or [])
+        pending = len(state.get('pending_donations') or [])
+        print(f"  ♻️ [상태 복구] 플레이어 {players}명 · 대기함 {pending}건 · 큐 "
+              f"{len(state.get('reaction_queue') or [])}건")
+        return jsonify({"status": "success", "players": players, "pending": pending})
+    except Exception as e:
+        print(f"[상태 복구 오류] {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/offwork/pending', methods=['POST'])
 def api_offwork_pending():
@@ -3916,7 +3787,6 @@ def restore_by_time():
             goal_row = cursor.fetchone()
             target_goal = json.loads(goal_row[1]) if goal_row else 50000
             
-        import copy
         current_state = load_data()
         restored_state = copy.deepcopy(current_state)
         restored_state['target_goal'] = target_goal
@@ -3987,177 +3857,6 @@ def sd_neon():
         print(f"  💡 [스트림덱 명령] 네온 이펙트 조명 전환: {color}")
         return jsonify({"status": "success", "color": color})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# ==========================================
-# 🎵 커스텀 리액션 플랫폼 API (영구 보존형)
-# ==========================================
-import uuid
-
-@app.route('/uploads/<file_id>', methods=['GET'])
-def get_reaction_file(file_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT filename, content_type, file_data FROM reaction_files WHERE id = ?"), (file_id,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"status": "error", "message": "File not found"}), 404
-            
-            filename, content_type, file_data = row
-            data_bytes = bytes(file_data)
-            
-            import os
-            from flask import send_file
-            
-            # Save file to a local cache directory to serve as a real static file.
-            # This perfectly resolves HTML5 audio Range requests and buffering stream aborts.
-            cache_dir = os.path.join(app.root_path, 'media_cache')
-            os.makedirs(cache_dir, exist_ok=True)
-            cache_path = os.path.join(cache_dir, file_id)
-            
-            if not os.path.exists(cache_path):
-                with open(cache_path, 'wb') as f:
-                    f.write(data_bytes)
-            
-            response = send_file(
-                cache_path,
-                mimetype=content_type,
-                as_attachment=False,
-                download_name=filename,
-                conditional=True
-            )
-            response.headers.set('Cache-Control', 'public, max-age=31536000')
-            return response
-    except Exception as e:
-        print(f"Error serving reaction file {file_id}: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/list', methods=['GET'])
-def get_reactions_list():
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT id, title, amount, audio_file_id, image_file_id FROM reaction_items ORDER BY id ASC"))
-            rows = cursor.fetchall()
-            reactions = []
-            for r in rows:
-                reactions.append({
-                    "id": r[0],
-                    "title": r[1],
-                    "amount": r[2],
-                    "audio_url": f"/uploads/{r[3]}" if r[3] else "",
-                    "image_url": f"/uploads/{r[4]}" if r[4] else ""
-                })
-            return jsonify(reactions)
-    except Exception as e:
-        print(f"Error listing reactions: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/add', methods=['POST'])
-def add_reaction():
-    try:
-        title = request.form.get('title', '').strip()
-        amount = int(request.form.get('amount', 0))
-        
-        if not title:
-            return jsonify({"status": "error", "message": "제목을 입력해주세요."}), 400
-            
-        audio_file = request.files.get('audio')
-        image_file = request.files.get('image')
-        
-        audio_file_id = None
-        image_file_id = None
-        
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            
-            if audio_file and audio_file.filename:
-                audio_file_id = f"aud_{uuid.uuid4().hex}"
-                audio_data = audio_file.read()
-                cursor.execute(
-                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
-                    (audio_file_id, audio_file.filename, audio_file.content_type, psycopg2.Binary(audio_data) if IS_POSTGRES else audio_data)
-                )
-                
-            if image_file and image_file.filename:
-                image_file_id = f"img_{uuid.uuid4().hex}"
-                image_data = image_file.read()
-                cursor.execute(
-                    db_query("INSERT INTO reaction_files (id, filename, content_type, file_data) VALUES (?, ?, ?, ?)"),
-                    (image_file_id, image_file.filename, image_file.content_type, psycopg2.Binary(image_data) if IS_POSTGRES else image_data)
-                )
-                
-            cursor.execute(
-                db_query("INSERT INTO reaction_items (title, amount, audio_file_id, image_file_id) VALUES (?, ?, ?, ?)"),
-                (title, amount, audio_file_id, image_file_id)
-            )
-            conn.commit()
-            
-        return jsonify({"status": "success", "message": "리액션 곡 등록 완료!"})
-    except Exception as e:
-        print(f"Error adding reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/delete/<int:item_id>', methods=['POST', 'DELETE'])
-def delete_reaction(item_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
-                
-            audio_file_id, image_file_id = row
-            
-            cursor.execute(db_query("DELETE FROM reaction_items WHERE id = ?"), (item_id,))
-            
-            if audio_file_id:
-                cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (audio_file_id,))
-            if image_file_id:
-                cursor.execute(db_query("DELETE FROM reaction_files WHERE id = ?"), (image_file_id,))
-                
-            conn.commit()
-            
-        return jsonify({"status": "success", "message": "리액션 곡 삭제 완료!"})
-    except Exception as e:
-        print(f"Error deleting reaction: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/reaction/play/<int:item_id>', methods=['POST'])
-def play_reaction(item_id):
-    try:
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("SELECT title, audio_file_id, image_file_id FROM reaction_items WHERE id = ?"), (item_id,))
-            row = cursor.fetchone()
-            if not row:
-                return jsonify({"status": "error", "message": "Reaction item not found"}), 404
-                
-            title, audio_file_id, image_file_id = row
-            audio_url = f"/uploads/{audio_file_id}" if audio_file_id else ""
-            image_url = f"/uploads/{image_file_id}" if image_file_id else ""
-            
-            with file_lock:
-                state = load_data()
-                reaction_uuid = f"rq_{uuid.uuid4().hex}"
-                state['reaction_queue'].append({
-                    "id": reaction_uuid,
-                    "item_id": item_id,
-                    "title": title,
-                    "audio_url": audio_url,
-                    "image_url": image_url,
-                    "donator": "수동송출",
-                    "message": ""
-                })
-                state['reaction_mode'] = True
-                save_data(state)
-                broadcast_event('update', state)
-                
-        return jsonify({"status": "success", "message": "방송 송출 완료!"})
-    except Exception as e:
-        print(f"Error playing reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/reaction/next', methods=['POST'])
@@ -4915,8 +4614,6 @@ def start_self_ping():
 
     SELF_PING=off 환경변수는 '조종실에서도 못 켜게' 하는 하드 스위치다(개발·예비 서비스용).
     """
-    import urllib.request
-
     url = os.environ.get('RENDER_EXTERNAL_URL')
     if not url:
         return          # 로컬 실행 — 잠들 일이 없다
@@ -4985,7 +4682,9 @@ def run_login_gui():
     
     def check_login():
         p = entry_pass.get().strip()
-        if p == '0508':
+        # ⚠️ 예전에는 '0508' 을 그대로 비교했다. 공개 저장소에 적힌 비밀번호였고,
+        #    ADMIN_PASSWORD 를 넣어도 이 창만은 옛 값으로 열렸다.
+        if password_matches(p):
             login_success[0] = True
             login_win.destroy()
         else:
@@ -5032,7 +4731,7 @@ def run_login_gui():
     btn_login = tk.Button(login_win, text='🔓 서버 엔진 기동', command=check_login, fg='#000000', bg='#00ffcc', activebackground='#00cca3', font=('Malgun Gothic', 10, 'bold'), width=20, height=2, relief='flat')
     btn_login.pack(pady=15)
     
-    login_win.protocol('WM_DELETE_WINDOW', on_closing_exit if 'on_closing_exit' in globals() else on_login_closing)
+    login_win.protocol('WM_DELETE_WINDOW', on_login_closing)
     login_win.mainloop()
     
     return login_success[0]

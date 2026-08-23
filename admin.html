@@ -343,7 +343,7 @@
                         let mHtml = '';
                         md.players.forEach((p, i) => {
                             if (i > 0 && md.players.length === 2) mHtml += `<div class="m-vs">VS</div>`;
-                            mHtml += `<div class="m-team-box" style="--team-color:${cols[i%4]}; --team-color-rgb:${colsRgb[i%4]};"><div class="m-name-box">${p.name}</div><div class="m-score-box">${formatNum(p.score)}</div><div class="m-team-bar"></div></div>`;
+                            mHtml += `<div class="m-team-box" style="--team-color:${cols[i%4]}; --team-color-rgb:${colsRgb[i%4]};"><div class="m-name-box">${escText(p.name)}</div><div class="m-score-box">${formatNum(p.score)}</div><div class="m-team-bar"></div></div>`;
                         });
                         ma.innerHTML = mHtml;
                         

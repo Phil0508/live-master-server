@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <title>🚀 라이브 마스터 오버레이 (새로고침 방어막 패치)</title>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <!-- 컨페티는 서버에 두고 쓴다. 방송 중 외부 CDN 이 막히면 축포가 조용히 안 터진다.
+         (canvas-confetti 1.9.3 원본 그대로) -->
+    <script src="/vendor/confetti.browser.min.js"></script>
     <style>
+        /* ⚠️ 글꼴은 외부에서 받아온다. 방송 중 CDN 이 막히면 글꼴만 대체되고 화면은 그대로 나온다.
+           그래서 아래 font-family 마다 한글 대체 글꼴을 꼭 적어 뒀다 — 안 적으면 generic
+           sans-serif 로 떨어져 한글이 깨져 보인다. (기능이 걸린 스크립트는 /vendor 에 두고 쓴다) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Chakra+Petch:wght@700&family=Orbitron:wght@900&display=swap');
         
@@ -60,7 +65,7 @@
            투명이 아니라 '어두운 색'으로 칠해버려서 방송 화면이 가려진다.
            only light 로 고정해 캔버스가 강제로 칠해지는 것을 막는다. */
         :root { color-scheme: only light; }
-        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: transparent !important; background-color: rgba(0,0,0,0) !important; font-family: 'Pretendard', sans-serif; overflow: hidden; transition: opacity 0.4s ease-in-out; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: transparent !important; background-color: rgba(0,0,0,0) !important; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; overflow: hidden; transition: opacity 0.4s ease-in-out; }
         #scale-wrapper { position: absolute; top: 0; left: 0; width: 1080px; height: 1920px; transform-origin: top left; }
         #master-container { width: 100%; height: 100%; position: relative; will-change: transform; }
         
@@ -606,7 +611,7 @@
             border-radius: 14px;
             padding: 7px 44px;
             color: #fff;
-            font-family: 'Pretendard', sans-serif;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             font-size: 38px;
             font-weight: 900;
             font-variant-numeric: tabular-nums;
@@ -629,7 +634,7 @@
             transition: flex 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .m-seg-amt {
-            font-family: 'Pretendard', sans-serif; font-weight: 900; font-size: 27px;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 900; font-size: 27px;
             color: #06121a; text-shadow: 0 1px 0 rgba(255,255,255,0.3); white-space: nowrap; font-variant-numeric: tabular-nums;
         }
         .m-seg.lead .m-seg-amt { font-size: 30px; }
@@ -644,21 +649,21 @@
         }
         .m-crown { font-size: 19px; filter: drop-shadow(0 0 6px rgba(var(--rgb, 136,136,136), 0.9)); }
         .m-card-name {
-            font-family: 'Pretendard', sans-serif; font-weight: 900; font-size: 26px; color: #fff;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 900; font-size: 26px; color: #fff;
             letter-spacing: -0.3px; text-shadow: 0 2px 4px #000, 0 0 10px rgba(var(--rgb, 136,136,136), 0.5); white-space: nowrap;
         }
         /* ⚔️ 팀전일 때 이름 밑에 팀원 이름을 작게 적는다.
            이름과 세로로 묶어야 하므로 카드(가로 배치) 안에 세로 묶음을 하나 둔다. */
         .m-card-id { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
         .m-card-members {
-            font-family: 'Pretendard', sans-serif; font-weight: 700; font-size: 15px;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 15px;
             color: rgba(255,255,255,0.62); letter-spacing: -0.2px; white-space: nowrap;
             text-shadow: 0 1px 3px #000;
         }
         .m-card-members:empty { display: none; }
 
         .m-card-amt {
-            margin-left: auto; font-family: 'Pretendard', sans-serif; font-weight: 900;
+            margin-left: auto; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 900;
             font-size: 27px; color: var(--c, #fff); text-shadow: 0 0 14px rgba(var(--rgb, 136,136,136), 0.7), 0 2px 3px #000;
             font-variant-numeric: tabular-nums;
         }
@@ -693,7 +698,7 @@
             background: linear-gradient(180deg, #23232e, #101018);
             border: 1px solid rgba(255,255,255,0.22); border-radius: 10px;
             padding: 3px 14px; color: #fff;
-            font-family: 'Pretendard', sans-serif; font-size: 24px; font-weight: 900;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 24px; font-weight: 900;
             font-variant-numeric: tabular-nums; white-space: nowrap;
             text-shadow: 0 2px 4px #000; box-shadow: 0 6px 16px rgba(0,0,0,0.6);
             transition: border-color 0.3s ease, color 0.3s ease;
@@ -712,7 +717,7 @@
         /* ⚔️ 역전 — 1등이 바뀌는 순간에만 터진다 */
         .m-flash {
             position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(0.7);
-            font-family: 'Pretendard', sans-serif; font-size: 62px; font-weight: 900; font-style: italic;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 62px; font-weight: 900; font-style: italic;
             letter-spacing: -2px; color: #fff; white-space: nowrap;
             text-shadow: 0 0 24px rgba(255,213,74,0.95), 0 4px 10px #000;
             opacity: 0; pointer-events: none; z-index: 20;
@@ -752,7 +757,7 @@
             align-items: center;
             justify-content: center;
             color: var(--team-color, #ffffff);
-            font-family: 'Orbitron', 'Pretendard', sans-serif;
+            font-family: 'Orbitron', 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             font-size: 58px;
             font-weight: 900;
             font-style: italic; /* Orbitron엔 이탤릭이 없어 브라우저가 기울여줌 */
@@ -788,7 +793,7 @@
             background: none;
             border: none;
             color: var(--team-color, #ffffff);
-            font-family: 'Pretendard', sans-serif;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             font-size: 21px;
             font-weight: 900;
             font-style: italic;
@@ -1067,7 +1072,7 @@
             font-weight: 900;
             color: #ffffff;
             text-shadow: 2.5px 2.5px 0 #000, -2.5px 2.5px 0 #000, 2.5px -2.5px 0 #000, -2.5px -2.5px 0 #000, 0 4px 15px rgba(0,0,0,0.9);
-            font-family: 'Pretendard', sans-serif;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             text-align: center;
             letter-spacing: -0.5px;
         }
@@ -1081,7 +1086,7 @@
             padding: 12px 30px;
             border-radius: 16px;
             text-shadow: 1.5px 1.5px 3px rgba(0,0,0,0.8);
-            font-family: 'Pretendard', sans-serif;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             text-align: center;
             max-width: 520px;
             word-break: break-all;
@@ -1219,7 +1224,11 @@
             100% { transform: scale(22);  opacity: 0; border-width: 1px; }
         }
         /* 흔들림은 화면 전체에 건다. transform 을 쓰는 다른 위젯과 겹치지 않게 wrapper 에만. */
-        #scale-wrapper.op-shake { animation: op-shake .5s cubic-bezier(.36,.07,.19,.97); }
+        /* ⚠️ #scale-wrapper 를 흔들면 안 된다. 거기에는 resizeOverlay() 가 넣은 scale() 이
+           걸려 있는데, 애니메이션이 transform 을 통째로 대신하면서 그 배율이 0.5초 동안
+           날아간다(OBS 소스가 정확히 1080x1920 이 아니면 화면이 통째로 튄다).
+           방송 내용물(#master-container)만 흔든다 — 시그니처 연출도 같은 이유로 그렇게 한다. */
+        #master-container.op-shake { animation: op-shake .5s cubic-bezier(.36,.07,.19,.97); }
         @keyframes op-shake {
             10%, 90% { transform: translate(-3px, 2px); }
             20%, 80% { transform: translate(6px, -4px); }
@@ -1616,7 +1625,7 @@
             
             <div id="roulette-container" class="widget-container" style="position: absolute; left: 240px; top: 600px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s, left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto;">
                 <div class="roulette-wrap" style="position: relative; width: 660px; height: 740px; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px), linear-gradient(165deg, #16161f 0%, #0d0d14 100%); clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px); padding: 25px; box-shadow: 0 18px 44px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <h1 id="roulette-title" style="font-family: 'Pretendard', sans-serif; font-size: 28px; font-weight: 900; font-style: italic; color: #0e0e14; margin: 0 0 20px 0; text-align: center; display: inline-block; padding: 5px 28px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: 0 6px 18px var(--gold-glow);">🎡 행운의 돌림판</h1>
+                    <h1 id="roulette-title" style="font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 28px; font-weight: 900; font-style: italic; color: #0e0e14; margin: 0 0 20px 0; text-align: center; display: inline-block; padding: 5px 28px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: 0 6px 18px var(--gold-glow);">🎡 행운의 돌림판</h1>
                     <canvas id="roulette-canvas" width="600" height="600" style="display: block; width: 600px; height: 600px; border-radius: 50%;"></canvas>
                 </div>
             </div>
@@ -1626,7 +1635,7 @@
                 <!-- 🎰 배경 판 없이 릴만 방송 화면 위에 뜨는 형태.
                      릴 크기 170×120은 애니메이션 정지 좌표와 묶여 있어 반드시 유지 -->
                 <div class="slot-wrap" style="position: relative; width: 660px; height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <h1 id="slot-title" style="font-family: 'Pretendard', sans-serif; font-size: 26px; font-weight: 900; font-style: italic; color: #0e0e14; margin: 0 0 15px 0; text-align: center; display: inline-block; padding: 5px 26px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: 0 6px 18px var(--gold-glow), 0 4px 14px rgba(0,0,0,0.7);">
+                    <h1 id="slot-title" style="font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 26px; font-weight: 900; font-style: italic; color: #0e0e14; margin: 0 0 15px 0; text-align: center; display: inline-block; padding: 5px 26px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: 0 6px 18px var(--gold-glow), 0 4px 14px rgba(0,0,0,0.7);">
                         🎰 시그니처 슬롯머신
                     </h1>
 
@@ -1672,27 +1681,13 @@
     <!-- 🎆 시그니처 전용 연출 17종. 외부 라이브러리·이미지 없이 CSS/JS 로만 그린다. -->
     <script src="/sig-fx.js"></script>
     <script>
-        // URL에서 token 파라미터 추출 및 window.apiToken 저장
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get('token');
-        if (urlToken) {
-            window.apiToken = urlToken;
-        }
-
-        // 전역 fetch 인터셉터 (인증 토큰 자동 주입)
-        const originalFetch = window.fetch;
-        window.fetch = function(resource, init) {
-            if (window.apiToken && typeof resource === 'string' && resource.startsWith('/api/')) {
-                init = init || {};
-                init.headers = init.headers || {};
-                if (init.headers instanceof Headers) {
-                    init.headers.set('Authorization', 'Bearer ' + window.apiToken);
-                } else {
-                    init.headers['Authorization'] = 'Bearer ' + window.apiToken;
-                }
-            }
-            return originalFetch(resource, init);
-        };
+        // ⚠️ 오버레이는 관리자 토큰을 쓰지 않는다.
+        //    예전에는 주소의 ?token= 을 읽어 모든 /api/ 요청에 Bearer 로 붙였다. 그러면 이 창이
+        //    '인증된 상태'가 되어 대기 후원·장부까지 받아온다. OBS 소스 주소는 화면 공유나
+        //    설정 화면에 잡히기 쉬운데, 그때 관리자 키가 통째로 노출된다.
+        //    오버레이가 쓰는 경로(/api/stream, /api/data, /api/signatures, /api/reaction/next,
+        //    /api/vips, /api/roulette/winner, /api/match/timeup)는 전부 무인증으로 열려 있어
+        //    토큰 없이도 그대로 동작한다.
 
         // ==========================================
         // 기존 오버레이 로직
@@ -2824,7 +2819,7 @@
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('on');
             });
-            const sw = document.getElementById('scale-wrapper');
+            const sw = document.getElementById('master-container');
             if (sw) sw.classList.remove('op-shake');
             const tr = document.getElementById('op-fx-ticker-track');
             if (tr) { tr.style.transition = 'none'; tr.style.transform = 'translateX(0)'; }
@@ -2881,7 +2876,8 @@
             // 💥 충격파 + 화면 흔들림
             if (kinds.indexOf('shock') !== -1) {
                 const s = document.getElementById('op-fx-shock');
-                const sw = document.getElementById('scale-wrapper');
+                // 무대(#scale-wrapper)가 아니라 방송 내용물을 흔든다(위 CSS 주석 참고)
+                const sw = document.getElementById('master-container');
                 if (s) {
                     // 고리 애니메이션을 처음부터 다시 재생시키려면 한 번 떼었다 붙여야 한다
                     s.classList.remove('on'); void s.offsetWidth; s.classList.add('on');
@@ -3508,7 +3504,10 @@
                     "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800",
                     "#ff5722", "#795548", "#607d8b"
                 ];
-                if (!this.startColorIdx) {
+                // ⚠️ !this.startColorIdx 로 보면 안 된다. 뽑힌 값이 0 이면 참이라 다음 호출에서
+                //    또 뽑아, 한 판을 그리는 동안 칸마다 다른 기준으로 색이 정해진다.
+                //    (0 번 색은 시작 색으로 영영 안 나오기도 했다)
+                if (this.startColorIdx === undefined) {
                     this.startColorIdx = Math.floor(Math.random() * palette.length);
                 }
                 if (i === 0) return palette[this.startColorIdx];
@@ -4920,17 +4919,13 @@
             let finalName = donation.name || "익명";
             let finalMsg = donation.message || "";
 
-            // 📡 반각(:) 및 전각(：) 콜론 통합 분리 대응
-            let hasColon = finalMsg.includes(":") || finalMsg.includes("：");
-            if (hasColon && !finalMsg.startsWith("[시그니처 신청:")) {
-                let splitChar = finalMsg.includes(":") ? ":" : "：";
-                let parts = finalMsg.split(splitChar);
-                let potentialName = parts[0].trim();
-                if (potentialName.length > 0 && potentialName.length <= 15) {
-                    finalName = potentialName; 
-                    finalMsg = parts.slice(1).join(splitChar).trim(); 
-                }
-            }
+            // ⚠️ 여기서 "닉네임: 내용" 을 이름으로 갈아끼우지 않는다.
+            //    예전에는 콜론이 있고 앞이 15자 이하면 무조건 이름으로 봤다. 그래서
+            //    "수고하셨습니다 :)" 는 후원자가 '수고하셨습니다' 가 되고,
+            //    "10:30에 봐요" 는 '10' 이 되어 방송 화면에 그대로 떴다.
+            //    서버는 이미 이 판정을 제대로 한다(name_is_missing + looks_like_proxy_name).
+            //    이름이 없을 때만, 그것도 이름일 리 없는 경우를 전부 걸러낸 뒤에 가져온다.
+            //    화면은 서버가 정리해 보내준 값을 그대로 믿으면 된다.
 
             // 👑 [특별 후원자] 등록된 닉네임이면 팝업을 등급 색/뱃지로 꾸민다
             const popupEl = document.getElementById('toon-popup');
@@ -5431,7 +5426,7 @@
         function handleSlotSpinOverlay(data) {
             const winner = data.winner || {};
             const title = winner.title || (winner.amount ? (winner.amount.toLocaleString() + '원') : '시그니처');
-            const imgUrl = winner.image_url || (winner.image_file ? (`/uploads/${winner.image_file}`) : '/money.png');
+            const imgUrl = winner.image_url || '/money.png';
 
             const slotContainer = document.getElementById('slot-container');
             const winnerText = document.getElementById('slot-winner-text');
@@ -5458,7 +5453,7 @@
             const slotCard = (item, isWinner) => {
                 const t = item.title || '시그니처';
                 const amt = (item.amount || 0).toLocaleString();
-                const img = item.image_url || (item.image_file ? `/uploads/${item.image_file}` : '/money.png');
+                const img = item.image_url || '/money.png';
                 // 리뉴얼 팔레트: 일반 카드는 흰색, 당첨 카드만 엔젤 골드로 발광
                 const accent = isWinner ? '#f6c453' : '#ffffff';
                 const glow = isWinner ? 'rgba(246,196,83,0.8)' : 'rgba(0,0,0,0.6)';

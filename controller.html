@@ -1271,18 +1271,18 @@
         <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; align-items: start;">
             <!-- 유튜브 검색창 및 리스트 영역 -->
             <div class="group-box" style="display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; min-height: 520px; height: calc(100vh - 200px); max-height: 650px;">
-                <div class="group-title"><i class="fa-solid fa-magnifying-glass" style="color: var(--accent);"></i> 유튜브 검색 & 브라우징</div>
+                <div class="group-title"><i class="fa-solid fa-link" style="color: var(--accent);"></i> 유튜브 불러오기</div>
                 
                 <div style="display: flex; gap: 10px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
-                    <input type="text" id="in-yt-search" placeholder="검색어를 입력하거나 유튜브 주소를 복사해 넣으세요." style="flex: 1; height: 38px;" onkeydown="if(event.key==='Enter') searchYoutubeVideos()">
-                    <button class="primary" onclick="searchYoutubeVideos()" style="height: 38px; padding: 0 20px; font-weight: bold;"><i class="fa-solid fa-magnifying-glass"></i> 검색</button>
+                    <input type="text" id="in-yt-search" placeholder="유튜브 주소를 복사해 넣으세요." style="flex: 1; height: 38px;" onkeydown="if(event.key==='Enter') loadYoutubeLink()">
+                    <button class="primary" onclick="loadYoutubeLink()" style="height: 38px; padding: 0 20px; font-weight: bold;"><i class="fa-solid fa-arrow-right-to-bracket"></i> 불러오기</button>
                 </div>
                 
                 <!-- 검색 결과 리스트 스크롤 영역 -->
                 <div id="yt-search-results" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-light); background: rgba(0,0,0,0.15); box-shadow: inset 0 2px 6px rgba(0,0,0,0.4);">
                     <div style="color: var(--text-dim); font-size: var(--fs-3); text-align: center; padding: 50px 0;">
                         <i class="fa-brands fa-youtube" style="font-size: 40px; color: var(--line); margin-bottom: 10px; display: block;"></i>
-                        검색어를 입력하시면 광고 없는 고속 리스트가 나타납니다.
+                        유튜브에서 영상 주소를 복사해 위에 붙여넣으면 바로 재생됩니다.
                     </div>
                 </div>
             </div>
@@ -2054,8 +2054,9 @@
     <script>
         // HTML 특수기호 이스케이프 (XSS 방어 및 기호 깨짐 방지)
         function escapeHTML(str) {
-            if (!str) return '';
-            return str
+            // ⚠️ if (!str) return '' 였다. 그러면 숫자 0 이 빈 칸으로 사라진다.
+            if (str === null || str === undefined) return '';
+            return String(str)
                 .replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
@@ -2528,11 +2529,62 @@
             return true;
         }
 
+        // 승인 대기함 그리기.
+        // ⚠️ renderUI 안에 있던 것을 함수로 뗐다. renderUI 는 입력칸에 커서가 있으면
+        //    통째로 조기 반환하는데, 그때 대기함까지 같이 멈춰서 그 사이 들어온 후원이
+        //    화면에 아예 안 나타났다(돈이 밀려 있는데 모른다). 대기함은 입력칸과
+        //    상관이 없으므로 조기 반환보다 먼저 따로 부른다.
+        function renderPending() {
+            const pbox = document.getElementById('pending-box');
+            if (!gd || !pbox) return;
+            // 보관함
+            if (gd.pending_donations && gd.pending_donations.length > 0) {
+                if(pbox.style.display !== 'block') pbox.style.display = 'block';
+                let pHtml = '';
+                let isExtra = gd.extra_game_active || false;
+                let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
+                gd.pending_donations.forEach(don => {
+                    // 방금 승인/무시로 서버에 제거 요청한 건은, 서버 상태가 아직 반영되기 전이라도 다시 뜨지 않게 숨긴다
+                    if (removedPendingIds.has(don.id)) return;
+                    // 🏃 퇴근 성공 카드는 후원이 아니라 '송출' 버튼만 있는 별도 형태로 그린다
+                    if (don.type === 'off_work') {
+                        const nm = escapeHTML(don.name);
+                        pHtml += `<div class="pending-item" style="border-left-color:var(--gold); background:linear-gradient(90deg, rgba(217,164,65,0.08), rgba(26,26,29,1));">
+                            <div class="pending-info">
+                                <span style="display:inline-block; background:linear-gradient(90deg,var(--gold),#ff8c00); color:#000; font-size:var(--fs-1); font-weight:900; padding:2px 10px; border-radius:var(--r-2); margin-right:8px;">🏆 퇴근전쟁 승리</span>
+                                <span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">🎉 ${nm}님 퇴근 성공!</b><br>
+                                <span style="color:var(--gold); font-weight:700; font-size:var(--fs-2);">[송출하기]를 누르면 방송 화면에 축하 팝업이 나갑니다.</span>
+                            </div>
+                            <div class="bj-buttons">
+                                <button class="bj-btn" style="background:linear-gradient(90deg,var(--gold),#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCardById('${don.id}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
+                                <button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 삭제</button>
+                            </div></div>`;
+                        return;
+                    }
+                    let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                });
+                if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
+                queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
+                paintAuditBadges(gd.pending_donations); // 이미 받아둔 추천은 배지로 다시 그림
+                syncAssignToasts(gd.pending_donations); // 이미 처리된 건의 제안 토스트는 치운다
+                try { autopilotSweep(); } catch (e) {}  // 🚗 켜져 있으면 확실한 것만 자동 배정
+            } else {
+                syncAssignToasts([]);                   // 대기함이 비었으면 남은 토스트도 모두 정리
+                if(pbox.style.display !== 'none') pbox.style.display = 'none';
+            }
+        }
+
         function renderUI() {
             // ⚠️ 아래 조기 반환보다 먼저 갱신한다. 입력칸에 포커스가 있으면 renderUI 가 통째로 빠져나가는데,
             //    깨워두기 표시가 실제 상태와 어긋난 채로 남으면 '켜둔 줄 알고' 자리를 비우게 된다.
             try { renderSelfPing(); } catch(e) {}
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
+            // ⚠️ 아래 조기 반환은 "입력 중에 값이 튀는 것"을 막으려는 것이다. 그런데 예전에는
+            //    승인 대기함까지 같이 멈췄다 — 어디든 칸을 눌러둔 채 자리를 뜨면 그 사이 들어온
+            //    후원이 화면에 아예 안 나타났다(돈이 밀려 있는데 모른다).
+            //    대기함은 입력칸과 아무 상관이 없으므로 반환 전에 먼저 그린다.
+            try { renderPending(); } catch(e) {}
             if(document.activeElement.tagName === "INPUT" && !document.activeElement.id.startsWith("chk") && !document.activeElement.classList.contains("setup-player-input") || document.activeElement.tagName === "TEXTAREA") return;
             
             let isActive = gd.broadcast_active || false;
@@ -2597,43 +2649,6 @@
             setHtml('sys-db-mode', isCloudDb ? '클라우드 (PostgreSQL)' : '로컬 (SQLite)');
             setHtml('sys-player-count', (gd.bjs ? gd.bjs.length : 0) + '명');
 
-            // 보관함
-            let pbox = document.getElementById('pending-box');
-            if (gd.pending_donations && gd.pending_donations.length > 0) {
-                if(pbox.style.display !== 'block') pbox.style.display = 'block';
-                let pHtml = '';
-                let isExtra = gd.extra_game_active || false;
-                let activeBjs = isExtra ? (gd.extra_bjs || []) : (gd.bjs || []);
-                gd.pending_donations.forEach(don => {
-                    // 방금 승인/무시로 서버에 제거 요청한 건은, 서버 상태가 아직 반영되기 전이라도 다시 뜨지 않게 숨긴다
-                    if (removedPendingIds.has(don.id)) return;
-                    // 🏃 퇴근 성공 카드는 후원이 아니라 '송출' 버튼만 있는 별도 형태로 그린다
-                    if (don.type === 'off_work') {
-                        const nm = escapeHTML(don.name);
-                        pHtml += `<div class="pending-item" style="border-left-color:var(--gold); background:linear-gradient(90deg, rgba(217,164,65,0.08), rgba(26,26,29,1));">
-                            <div class="pending-info">
-                                <span style="display:inline-block; background:linear-gradient(90deg,var(--gold),#ff8c00); color:#000; font-size:var(--fs-1); font-weight:900; padding:2px 10px; border-radius:var(--r-2); margin-right:8px;">🏆 퇴근전쟁 승리</span>
-                                <span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">🎉 ${nm}님 퇴근 성공!</b><br>
-                                <span style="color:var(--gold); font-weight:700; font-size:var(--fs-2);">[송출하기]를 누르면 방송 화면에 축하 팝업이 나갑니다.</span>
-                            </div>
-                            <div class="bj-buttons">
-                                <button class="bj-btn" style="background:linear-gradient(90deg,var(--gold),#ff8c00); color:#000; font-weight:900; border:none;" onclick="broadcastOffWorkCardById('${don.id}')"><i class="fa-solid fa-paper-plane"></i> 🚀 송출하기</button>
-                                <button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 삭제</button>
-                            </div></div>`;
-                        return;
-                    }
-                    let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
-                });
-                if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
-                queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
-                paintAuditBadges(gd.pending_donations); // 이미 받아둔 추천은 배지로 다시 그림
-                syncAssignToasts(gd.pending_donations); // 이미 처리된 건의 제안 토스트는 치운다
-                try { autopilotSweep(); } catch (e) {}  // 🚗 켜져 있으면 확실한 것만 자동 배정
-            } else {
-                syncAssignToasts([]);                   // 대기함이 비었으면 남은 토스트도 모두 정리
-                if(pbox.style.display !== 'none') pbox.style.display = 'none';
-            }
 
 
 
@@ -3312,11 +3327,17 @@
                 }
                 if (!(m && m.active)) delete aiAlertAt['match_end'];   // 대결 꺼지면 다음 대결 위해 리셋
 
-                // 4) 목표 달성(퇴근 연출 승인 대기)
-                if (d.goal_event_pending && aiCanAlert('goal', 3600000)) {
-                    aiProactiveSay('목표 달성! 퇴근 연출이 승인 대기 중이에요.');
+                // 4) 목표 달성(연출 승인 대기)
+                // ⚠️ 예전에는 d.goal_event_pending 을 봤는데, 그 값을 true 로 만드는 코드가
+                //    어디에도 없다. 그래서 이 알림은 한 번도 뜬 적이 없었다.
+                //    화면에 승인 버튼을 띄우는 renderGoalAchievementNotice() 와 같은 기준을 쓴다.
+                const _tgt = d.target_goal || 0;
+                const _tot = (d.bjs || []).reduce((a2, b2) => a2 + (b2.contribution || 0), 0);
+                const _goalWaiting = (_tgt > 0 && _tot >= _tgt) && !d.goal_event_approved;
+                if (_goalWaiting && aiCanAlert('goal', 3600000)) {
+                    aiProactiveSay(`목표 ${_tgt.toLocaleString()}점을 넘었어요 (현재 ${_tot.toLocaleString()}점). 달성 연출이 승인 대기 중이에요.`);
                 }
-                if (!d.goal_event_pending) delete aiAlertAt['goal'];
+                if (!_goalWaiting) delete aiAlertAt['goal'];
             } catch (e) {}
         }
         // 오프라인 백업을 오래 안 하면 리마인드 (상태 변화와 무관하게 1분마다 확인)
@@ -3713,9 +3734,15 @@
             // 대결 타이머를 '남은 시간'으로 얼려둔다. 안 그러면 화면에 안 보이는 채로 계속 흘러간다.
             const md = gd.match_data;
             if (md && md.is_running) {
-                md.time_left_ms = Math.max(0, md.end_time_ms - Date.now());
+                // ⚠️ 반드시 서버 시계로 잰다. 손으로 일시정지할 때(toggleTimer)는 이미
+                //    serverTimeOffset 을 쓰는데 여기만 안 썼다. 조종실 PC 시계가 N초
+                //    어긋나 있으면 시그니처가 한 번 뜰 때마다 대결 시간이 N초씩 밀린다.
+                md.time_left_ms = Math.max(0, md.end_time_ms - (Date.now() + serverTimeOffset));
                 md.is_running = false;
                 md.was_running_before_reaction = true;
+                // ⚠️ 여기서 paused_time_left 를 같이 남긴다. 안 남기면 아래 exitContentMode 가
+                //    없는 값을 읽어 end_time_ms 가 NaN 이 되고 타이머가 NaN:NaN 으로 굳는다.
+                md.paused_time_left = md.time_left_ms || md.paused_time_left || 180000;
             }
         }
         function exitContentMode() {
@@ -3730,8 +3757,10 @@
             ytWasPlaying = false;
             const md = gd.match_data;
             if (md && md.was_running_before_reaction) {
-                if (md.time_left_ms <= 0) md.time_left_ms = md.paused_time_left;
-                md.end_time_ms = Date.now() + md.time_left_ms;
+                // ⚠️ paused_time_left 가 없을 수 있다(손으로 일시정지한 적이 없는 판).
+                //    그대로 두면 undefined 가 들어가 end_time_ms 가 NaN 이 된다.
+                if (md.time_left_ms <= 0) md.time_left_ms = md.paused_time_left || 180000;
+                md.end_time_ms = (Date.now() + serverTimeOffset) + md.time_left_ms;
                 md.is_running = true;
                 md.was_running_before_reaction = false;
             }
@@ -4173,9 +4202,11 @@
                         if (!audio.paused) { audio.dataset.wasPlaying = "true"; audio.pause(); } else { audio.dataset.wasPlaying = "false"; }
                     }
                     if (md && md.is_running) {
-                        md.time_left_ms = Math.max(0, md.end_time_ms - Date.now());
+                        // 위 enterContentMode 와 같은 이유로 서버 시계를 쓴다
+                        md.time_left_ms = Math.max(0, md.end_time_ms - (Date.now() + serverTimeOffset));
                         md.is_running = false;
                         md.was_running_before_reaction = true;
+                        md.paused_time_left = md.time_left_ms || md.paused_time_left || 180000;
                     }
                     showReactionToast(); // 🔔 최초 리액션 모드 진입할 때만 딱 한 번 토스트 팝업!
                 }
@@ -4520,6 +4551,8 @@
             }
         }
 
+        // 마지막으로 브라우저 백업을 저장한 시각(위 handleStreamData 참고)
+        let lastLocalBackupAt = 0;
         let sseSource = null;
         window.userInitiatedEnd = false;
         window.restorePromptShown = false;
@@ -4624,8 +4657,17 @@
 
             // --- 브라우저 자동 백업 및 복구 로직 ---
             if (gd.broadcast_active) {
-                localStorage.setItem('active_broadcast_backup', JSON.stringify(gd));
-                localStorage.setItem('active_broadcast_backup_time', Date.now().toString());
+                // ⚠️ 예전에는 갱신이 올 때마다 상태 전체를 저장했다. 후원이 몰리면 초당 수십 번
+                //    수십 KB 를 직렬화해 동기로 쓰는 셈이라, 가장 바쁜 순간에 조종실이 버벅였다
+                //    (localStorage 쓰기는 메인 스레드를 막는다).
+                //    5분 주기 자동 백업이 따로 있으므로 여기서는 20초에 한 번이면 충분하다.
+                if (Date.now() - lastLocalBackupAt > 20000) {
+                    lastLocalBackupAt = Date.now();
+                    try {
+                        localStorage.setItem('active_broadcast_backup', JSON.stringify(gd));
+                        localStorage.setItem('active_broadcast_backup_time', Date.now().toString());
+                    } catch (e) { console.warn("브라우저 백업 저장 실패:", e); }
+                }
             } else {
                 if (window.userInitiatedEnd) {
                     localStorage.removeItem('active_broadcast_backup');
@@ -4657,14 +4699,18 @@
                             premiumConfirm(msg, "서버 재기동/초기화 감지", "question").then(async (confirmed) => {
                                 if (confirmed) {
                                     try {
-                                        let res = await fetch('/api/data', {
+                                        // ⚠️ /api/data 로 보내면 안 된다. 그 경로는 대기함·리액션 큐를
+                                        //    서버 소유로 보호해서 받은 값을 버린다 — 점수는 돌아오는데
+                                        //    '아직 배정 안 한 후원'은 조용히 사라지고, 화면에는
+                                        //    '복구 완료'라고 떴다. 복구 전용 경로를 쓴다.
+                                        let res = await fetch('/api/restore', {
                                             method: 'POST',
                                             headers: {'Content-Type': 'application/json'},
                                             body: JSON.stringify(backupData)
                                         });
                                         let resData = await res.json();
                                         if (resData.status === 'success') {
-                                            await premiumAlert("성공적으로 백업 데이터가 복구되었습니다!", "복구 완료", "success");
+                                            await premiumAlert(`복구했습니다.\n플레이어 ${resData.players}명 · 대기함 ${resData.pending}건`, "복구 완료", "success");
                                             window.restorePromptShown = false;
                                         } else {
                                             await premiumAlert("복구 실패: " + resData.message, "복구 실패", "warning");
@@ -4961,14 +5007,15 @@
                         throw new Error("올바른 백업 파일 형식이 아닙니다.");
                     }
                     
-                    let res = await fetch('/api/data', {
+                    // 위 자동 백업 복구와 같은 이유로 복구 전용 경로를 쓴다(대기함까지 되돌린다)
+                    let res = await fetch('/api/restore', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify(backupData)
                     });
                     let resData = await res.json();
                     if (resData.status === 'success') {
-                        await premiumAlert("성공적으로 오프라인 백업 파일이 복원되었습니다!", "복원 완료", "success");
+                        await premiumAlert(`백업 파일을 복원했습니다.\n플레이어 ${resData.players}명 · 대기함 ${resData.pending}건`, "복원 완료", "success");
                     } else {
                         await premiumAlert("복원 실패: " + resData.message, "복원 실패", "warning");
                     }
@@ -5004,7 +5051,7 @@
                             <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(156, 39, 176, 0.25); border-radius: var(--r-2); padding: 12px 18px; transition: all 0.2s ease; gap: 15px;" class="tm-item">
                                 <div style="text-align: left; flex: 1; min-width: 0;">
                                     <div style="font-weight: 700; font-size: var(--fs-4); color: #e040fb;"><i class="fa-solid fa-calendar-day"></i> ${s.timestamp}</div>
-                                    <div style="font-size: var(--fs-3); color: var(--text-muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${s.summary}</div>
+                                    <div style="font-size: var(--fs-3); color: var(--text-muted); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(s.summary)}</div>
                                 </div>
                                 <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
                                     <button onclick="restoreSnapshot(${s.id}, '${s.timestamp}')" style="background: rgba(156, 39, 176, 0.2); border-color: #9c27b0; color: #e040fb; padding: 6px 12px; font-size: var(--fs-3); font-weight: bold; border-radius: var(--r-1); cursor: pointer;">
@@ -5271,50 +5318,23 @@
             return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
         
-        async function searchYoutubeVideos() {
-            const searchInput = document.getElementById('in-yt-search');
-            const query = searchInput.value.trim();
-            if (!query) return;
-            
+        // ⚠️ '검색' 기능은 없앴다. 공개 Invidious 인스턴스 세 곳에 TLS 인증서 검증까지 끄고
+        //    붙던 경로였는데, 그 인스턴스들은 대부분 문을 닫아 실제로는 늘 실패했다.
+        //    (검증을 끈 채 남의 서버 응답을 그대로 화면에 그리는 것 자체도 위험했다)
+        //    쓰던 것은 어차피 이쪽 — 주소를 복사해 붙여넣는 길이다. 그건 그대로 남긴다.
+        function loadYoutubeLink() {
+            const input = document.getElementById('in-yt-search');
+            const raw = (input.value || '').trim();
+            if (!raw) return;
+            const id = extractYtVideoId(raw);
             const container = document.getElementById('yt-search-results');
-            container.innerHTML = `<div style="color: var(--text-muted); font-size: var(--fs-3); text-align: center; padding: 50px 0;"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: var(--fs-7); color: var(--accent); margin-bottom: 10px; display: block;"></i> 유튜브 검색 중...</div>`;
-            
-            const parsedId = extractYtVideoId(query);
-            if (parsedId) {
-                selectYoutubeVideo(parsedId);
-                searchInput.value = "";
+            if (!id) {
+                container.innerHTML = `<div style="color: var(--danger); font-size: var(--fs-3); text-align: center; padding: 50px 0;"><i class="fa-solid fa-triangle-exclamation" style="font-size: var(--fs-7); margin-bottom: 10px; display: block;"></i> 유튜브 주소를 알아보지 못했습니다. 주소를 다시 확인해주세요.</div>`;
                 return;
             }
-            
-            try {
-                const res = await fetch(`/api/yt/search?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                if (data && data.length > 0) {
-                    let html = "";
-                    data.forEach(item => {
-                        html += `
-                            <div onclick="selectYoutubeVideo('${item.videoId}')" style="display: flex; gap: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: var(--r-2); padding: 10px; cursor: pointer; align-items: center;" class="yt-search-item">
-                                <div style="position: relative; width: 100px; aspect-ratio: 16/9; border-radius: var(--r-1); overflow: hidden; background: #111; flex-shrink: 0;">
-                                    <img src="${item.thumbnail}" style="width:100%; height:100%; object-fit: cover;">
-                                    <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.8); color: #fff; font-size: var(--fs-1); padding: 2px 4px; border-radius: var(--r-1); font-weight: bold;">${item.duration}</span>
-                                </div>
-                                <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;">
-                                    <div style="font-weight: 700; font-size: var(--fs-3); color: #fff; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4;">${item.title}</div>
-                                    <div style="font-size: var(--fs-2); color: var(--text-muted);">
-                                        <span>${item.author}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    container.innerHTML = html;
-                } else {
-                    container.innerHTML = `<div style="color: var(--text-dim); font-size: var(--fs-3); text-align: center; padding: 50px 0;"><i class="fa-solid fa-circle-question" style="font-size: var(--fs-7); margin-bottom: 10px; display: block;"></i> 검색 결과가 없습니다.</div>`;
-                }
-            } catch (e) {
-                console.error("YouTube search error:", e);
-                container.innerHTML = `<div style="color: var(--danger); font-size: var(--fs-3); text-align: center; padding: 50px 0;"><i class="fa-solid fa-triangle-exclamation" style="font-size: var(--fs-7); margin-bottom: 10px; display: block;"></i> 검색 중 통신 실패: ${e.message}</div>`;
-            }
+            selectYoutubeVideo(id);
+            input.value = '';
+            container.innerHTML = `<div style="color: var(--text-muted); font-size: var(--fs-3); text-align: center; padding: 50px 0;"><i class="fa-solid fa-circle-check" style="font-size: var(--fs-7); color: var(--accent); margin-bottom: 10px; display: block;"></i> 오른쪽 플레이어에 올렸습니다.</div>`;
         }
         
         function selectYoutubeVideo(videoId) {
@@ -5629,10 +5649,12 @@
         // ==========================================
         let setupPlayers = ["Player 1", "Player 2", "Player 3", "Player 4", "Player 5"];
 
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-        }
+        // escapeHtml 은 escapeHTML 과 같은 일을 하던 중복 함수였다. 이름만 대소문자가 달라
+        // 어느 쪽을 쓰는지 헷갈렸고, 둘 다 숫자 0 을 넣으면 빈 문자열을 돌려줬다.
+        // 하나로 합치고, 숫자·null 도 안전하게 다루게 한다.
+        // ⚠️ const 로 두면 안 된다. 이 파일은 위쪽에서 뭔가 한 번 throw 하면 뒤쪽 const/let 이
+        //    초기화되지 않아 TDZ 오류로 죽는다(이미 여러 번 겪은 함정). 선언식은 끌어올려진다.
+        function escapeHtml(str) { return escapeHTML(str); }
 
         function renderSetupUI() {
             const container = document.getElementById('setup-players-container');
@@ -5997,7 +6019,7 @@
                 return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: var(--r-1); ${borderStyle}">
                         <div style="flex: 1; min-width: 0; font-size: var(--fs-2); color: #fff;">
-                            ${badge}<span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:inline-block; max-width:110px; vertical-align:middle;">${item.title}</span>
+                            ${badge}<span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:inline-block; max-width:110px; vertical-align:middle;">${escapeHTML(item.title)}</span>
                         </div>
                         <button onclick="removeFromQueue('${item.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:var(--fs-2); padding: 0 4px; flex-shrink: 0; display: inline-flex; align-items: center;">
                             <i class="fa-solid fa-xmark"></i>

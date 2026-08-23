@@ -1,7 +1,9 @@
-Flask
-Flask-CORS
-pyotp
-psycopg2-binary
-requests
-Pillow
-websockets
+# 버전을 열어두면 자동 배포가 그때 나와 있는 최신판을 그대로 설치한다.
+# Flask 나 Werkzeug 가 메이저로 올라간 날 방송 서버가 안 뜨는 사고가 날 수 있어서,
+# '같은 메이저 안에서만' 올라가게 막아둔다. (2026-08 기준 실사용 버전으로 하한을 잡았다)
+Flask>=3.0,<4.0
+pyotp>=2.9,<3.0
+psycopg2-binary>=2.9,<3.0
+requests>=2.31,<3.0
+Pillow>=10.0,<13.0
+websockets>=12.0,<17.0
