@@ -704,6 +704,15 @@
             transition: border-color 0.3s ease, color 0.3s ease;
         }
         .m-front-num .unit { font-size: 14px; opacity: 0.6; margin-left: 4px; font-weight: 700; }
+        /* 몇 점을 받으면 뒤집히는지 — 추격하는 쪽 기준, 격차보다 1점 더 받아야 단독 1등이다 */
+        .m-front-hint {
+            margin-top: 4px; padding: 1px 10px; border-radius: 8px;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            font-size: 14px; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap;
+            color: #ffdf7a; background: rgba(16,16,24,0.85); border: 1px solid rgba(255,213,74,0.4);
+            text-shadow: 0 1px 3px #000; font-variant-numeric: tabular-nums;
+        }
+        .m-front-hint:empty { display: none; }
         /* 접전 — 뒤집힐 수 있는 거리에 들어왔다 */
         .m-front.tight .m-front-num { border-color: rgba(255,213,74,0.7); color: #ffdf7a; animation: mGapPulse 1s ease-in-out infinite; }
         .m-front.tight .m-front-line { background: #ffd54a; box-shadow: 0 0 18px #ffd54a; }
@@ -836,8 +845,12 @@
         #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; color: var(--text-main); pointer-events: none; } 
         /* 대결 컨테이너: 기본 숨김, .match-visible 클래스로만 표시 */
         #match-container { transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; }
-        /* 리액션 모드: 모든 위젯 강제 숨김 */
+        /* 리액션 모드: 모든 위젯 강제 숨김
+           ⚠️ 시그뒤집기 판도 같이 내린다. 시그니처가 재생되는 동안 판이 그대로 떠 있으면
+              연출과 겹쳐 어수선하다 — 재생이 끝나 리액션 모드가 꺼지면 저절로 돌아온다.
+              (아래 !important 가 sgRenderGame 이 넣는 인라인 opacity 도 이긴다) */
         body.reaction-mode #ui-layer,
+        body.reaction-mode #siggame-container,
         body.reaction-mode #match-container { opacity: 0 !important; visibility: hidden !important; }
 
         .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.6s ease-in-out; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
@@ -1612,6 +1625,7 @@
                         <div class="m-front-mark" id="m-front-mark">
                             <div class="m-front-tail"></div>
                             <div class="m-front-num"><span id="m-front-num">0</span><span class="unit" id="m-front-unit">차이</span></div>
+                    <div class="m-front-hint" id="m-front-hint"></div>
                         </div>
                     </div>
                     <div class="m-cards" id="m-players-area"></div>
@@ -1993,15 +2007,20 @@
             mark.style.left = pct;
             line.style.left = pct;
 
+            const wasGap = prevGap;     // 아래에서 prevGap 을 덮어쓰기 전의 값 — 연출 판정용
+            const hintEl = document.getElementById('m-front-hint');
             if (gap === 0) {
                 bumpGapGen(numEl);          // 진행 중인 숫자 애니메이션이 '동점'을 덮어쓰지 못하게
                 numEl.innerText = '동점';
                 unitEl.style.display = 'none';
+                if (hintEl) hintEl.innerText = '';
             } else {
                 unitEl.style.display = '';
                 unitEl.innerText = players.length > 2 ? '1·2위 차이' : '차이';
                 if (prevGap !== null && prevGap !== gap) animateGap(numEl, prevGap, gap, 700);
                 else { bumpGapGen(numEl); numEl.innerText = formatNum(gap); }
+                // 추격하는 쪽이 몇 점을 받으면 뒤집히는지 — 격차 그대로 받으면 동점일 뿐이다
+                if (hintEl) hintEl.innerText = formatNum(gap + 1) + '점시 역전!';
             }
             prevGap = gap;
 
@@ -2010,12 +2029,20 @@
             front.classList.toggle('tight', tight);
             gauge.classList.toggle('tight', tight);
 
-            // 역전 — 1등이 실제로 바뀐 순간에만 터진다. 첫 렌더에는 울리지 않는다
-            if (prevLeadIdx >= 0 && prevLeadIdx !== leadIdx) {
-                const fl = document.getElementById('m-flash');
-                if (fl) { fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); }
+            // 순간 연출 — '역전!'은 단독 1등이 실제로 바뀐 순간, '동점!'은 따라잡은 순간.
+            // ⚠️ 동점일 때 leadIdx 는 '배열에서 먼저 나온 사람'일 뿐이라 믿을 수 없다.
+            //    예전에는 이걸 그대로 비교해서, 따라잡아 동점이 됐을 뿐인데 '역전!'이 떴다.
+            //    동점인 동안에는 prevLeadIdx 를 얼려 두고, 동점이 깨질 때 1등이
+            //    바뀌어 있으면 그때가 진짜 역전이다.
+            const fl = document.getElementById('m-flash');
+            const flash = (txt) => { if (!fl) return; fl.innerText = txt;
+                                     fl.classList.remove('go'); void fl.offsetWidth; fl.classList.add('go'); };
+            if (gap === 0) {
+                if (wasGap !== null && wasGap > 0) flash('동점!');
+            } else {
+                if (prevLeadIdx >= 0 && prevLeadIdx !== leadIdx) flash('역전!');
+                prevLeadIdx = leadIdx;
             }
-            prevLeadIdx = leadIdx;
         }
         
         let lastLayoutData = null; // 전역 레이아웃 캐시

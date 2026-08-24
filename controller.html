@@ -6846,8 +6846,17 @@
         };
         window.sgToggleDone = async function (id) { await sgCall('done', { id }); };
         async function sgAllClear() {
+            // 남은 목표가 있으면 이 버튼이 전부 달성 처리까지 한다. 실수로 누르면
+            // 참가자가 받을 금액이 그대로 확정되므로 한 번 묻는다.
+            const g = sgState() || {};
+            const goals = (g.cards || []).filter(c => c.flippedAt);
+            const left = goals.filter(c => !c.doneAt).length;
+            if (left > 0 && !confirm('아직 ' + left + '장이 남아 있습니다.\n\n'
+                                   + '남은 목표를 전부 달성 처리하고 올클리어를 터뜨릴까요?\n'
+                                   + '(한 방에 몰아서 쏜 후원일 때 쓰는 버튼입니다)')) return;
             const d = await sgCall('allclear');
-            if (d) acctToast('🎉 ALL CLEAR! (' + d.count + '장)', 'ok');
+            if (d) acctToast('🎉 ALL CLEAR! (' + d.count + '장'
+                             + (d.filled ? ' · ' + d.filled + '장 한 번에 달성' : '') + ')', 'ok');
         }
 
         /* ── 서버 상태 → 화면 ── */
@@ -6938,15 +6947,18 @@
             const cnt = document.getElementById('sg-goal-count');
             const done = goals.filter(c => c.doneAt).length;
             if (cnt) cnt.textContent = goals.length ? ('달성 ' + done + ' / ' + goals.length) : '';
-            // 올클리어는 다 채웠을 때만. 자동으로 터지지 않는다 — 언제 터뜨릴지는 진행자가 정한다.
+            // 올클리어 — 뒤집은 카드만 있으면 언제든. 남은 목표는 서버가 한꺼번에 달성
+            // 처리하고 곧바로 연출을 터뜨린다('한 방에 몰아서 쏜' 후원용 버튼이다).
             const acb = document.getElementById('sg-allclear-btn');
             if (acb) {
-                const ready = goals.length > 0 && done === goals.length;
+                const ready = goals.length > 0;
+                const leftN = goals.length - done;
                 acb.disabled = !ready;
                 acb.style.opacity = ready ? '1' : '.35';
                 acb.style.cursor = ready ? 'pointer' : 'not-allowed';
-                acb.textContent = ready ? '🎉 ALL CLEAR 터뜨리기'
-                                        : '🎉 ALL CLEAR (' + done + '/' + (goals.length || '?') + ' 채우면 켜집니다)';
+                acb.textContent = !ready ? '🎉 ALL CLEAR (카드를 먼저 뒤집어주세요)'
+                                : leftN > 0 ? '🎉 ALL CLEAR (남은 ' + leftN + '장 한 번에 달성)'
+                                            : '🎉 ALL CLEAR 터뜨리기';
             }
             if (!goals.length) {
                 box.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">아직 뒤집은 카드가 없습니다.</div>';

@@ -4624,11 +4624,13 @@ def api_siggame_done():
 
 @app.route('/api/siggame/allclear', methods=['POST'])
 def api_siggame_allclear():
-    """올클리어 연출을 터뜨린다.
+    """남은 목표를 전부 달성 처리하고 올클리어 연출을 터뜨린다 — '한 방' 버튼.
 
-    ⚠️ 5장을 다 채웠다고 자동으로 터뜨리지 않는다. '한 번에 몰아서 보낸 사람'에게만
-       주는 연출이라, 언제 터뜨릴지는 진행자가 정해야 한다.
-       (30분에 걸쳐 하나씩 채운 것과 한 번에 쏟아부은 것은 다르게 대접해야 한다)
+    ⚠️ 다 채웠다고 자동으로 터지지는 않는다. 언제 터뜨릴지는 진행자가 정한다.
+       그리고 하나씩 채우다 누르는 게 아니라, '한 번에 몰아서 쏜' 후원이 들어왔을 때
+       목표를 일일이 찍을 겨를이 없으니 버튼 하나로 남은 것까지 전부 채우면서 터뜨린다.
+       (예전에는 다 채워야만 눌렸는데, 정작 이 연출이 필요한 순간은 한 방에 다 채운
+        순간이라 진행자가 5장을 급하게 하나씩 찍고 있어야 했다)
     """
     with file_lock:
         state = load_data()
@@ -4636,16 +4638,15 @@ def api_siggame_allclear():
         goals = [c for c in (g.get('cards') or []) if c.get('flippedAt')]
         if not goals:
             return jsonify({"status": "error", "message": "뒤집은 카드가 없습니다"}), 400
+        now_ms = int(time.time() * 1000)
         left = [c for c in goals if not c.get('doneAt')]
-        if left:
-            return jsonify({"status": "error",
-                            "message": "아직 %d장이 남았습니다 (%s)"
-                                       % (len(left), ", ".join(str(c['id']) + "번" for c in left))}), 400
-        g['action'] = {"type": "ALLCLEAR", "ts": int(time.time() * 1000), "count": len(goals)}
-        n = len(goals)
+        for c in left:
+            c['doneAt'] = now_ms
+        g['action'] = {"type": "ALLCLEAR", "ts": now_ms, "count": len(goals)}
+        n, filled = len(goals), len(left)
         _siggame_save(state, g)
-    print("🎉 [시그게임] 올클리어! (%d장)" % n, flush=True)
-    return jsonify({"status": "success", "count": n})
+    print("🎉 [시그게임] 올클리어! (%d장, 이번에 채운 %d장)" % (n, filled), flush=True)
+    return jsonify({"status": "success", "count": n, "filled": filled})
 
 
 @app.route('/api/siggame/reveal', methods=['POST'])
