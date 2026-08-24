@@ -36,6 +36,7 @@ import time
 import csv
 import queue
 import shutil
+import subprocess   # 버전 전환 때 git·systemctl 을 부른다
 import sqlite3
 from contextlib import contextmanager
 import urllib.request
@@ -3616,6 +3617,202 @@ def api_effect_clear():
     """연출을 즉시 걷는다(잘못 눌렀을 때)."""
     broadcast_event('operator_effect_clear', {})
     return jsonify({"status": "ok"})
+
+
+# ==========================================
+# 🕹️ 버전 되돌리기 / 올리기
+# ==========================================
+#
+# 방송 중에 뭔가 이상하면 조종실에서 바로 이전 버전으로 되돌릴 수 있게 한다.
+#
+# ⚠️ 자동배포와 싸우지 않게 하는 것이 핵심이다. auto-deploy 는 2분마다
+#    `git reset --hard origin/main` 을 하므로, 그냥 옛 커밋으로 옮겨두면
+#    2분 안에 최신으로 도로 끌려 올라간다. 그래서 '지금은 이 버전에 고정'
+#    이라는 표시(DEPLOY_PIN 파일)를 남기고, auto-deploy 가 그걸 먼저 읽게 했다.
+#
+# ⚠️ 고를 수 있는 것은 '저장소에 이미 올라간 최근 커밋'뿐이다. 아무 번호나 받으면
+#    남의 갈래(fork)에 있는 코드를 서버에서 돌리게 만들 수 있다.
+
+DEPLOY_PIN_FILE = os.path.join(BASE_DIR, 'DEPLOY_PIN')
+VERSION_LIST_MAX = 20      # 조종실에 보여주고 고를 수 있는 개수
+
+
+def _git(*args, timeout=25):
+    """저장소 폴더에서 git 을 부른다. (stdout, 성공여부)"""
+    try:
+        # ⚠️ encoding 을 못박아야 한다. 안 그러면 파이썬이 '이 컴퓨터의 기본 인코딩'으로
+        #    해독하는데, 커밋 메시지가 한글(UTF-8)이라 윈도우에서 통째로 깨져 빈 값이 된다
+        #    (예외가 읽기 갈래 안에서 조용히 삼켜져서, 오류 없이 목록만 비어 보였다).
+        r = subprocess.run(('git',) + args, cwd=BASE_DIR, capture_output=True,
+                           text=True, encoding='utf-8', errors='replace', timeout=timeout)
+        return (r.stdout or '').strip(), r.returncode == 0
+    except Exception as e:
+        print(f'⚠️ [git 실패] {" ".join(args)} → {e}')
+        return '', False
+
+
+def _pinned_sha():
+    """지금 고정해둔 버전. 없으면 None(= 최신을 따라간다)."""
+    try:
+        with open(DEPLOY_PIN_FILE, 'r', encoding='utf-8') as f:
+            v = f.read().strip()
+        return v or None
+    except Exception:
+        return None
+
+
+def _write_pin(sha):
+    """고정 표시를 남긴다(sha 가 None 이면 지운다). 이 파일 하나로 자동배포와 약속한다."""
+    try:
+        if sha:
+            with open(DEPLOY_PIN_FILE, 'w', encoding='utf-8') as f:
+                f.write(sha)
+        elif os.path.exists(DEPLOY_PIN_FILE):
+            os.remove(DEPLOY_PIN_FILE)
+        return True
+    except Exception as e:
+        print(f'⚠️ [고정 표시 기록 실패] {e}')
+        return False
+
+
+def _recent_commits(limit=VERSION_LIST_MAX):
+    """origin/main 의 최근 커밋 목록. [{sha, short, date, subject}]"""
+    out, ok = _git('log', f'-{int(limit)}', '--date=format:%Y-%m-%d %H:%M',
+                   '--pretty=%H\x1f%h\x1f%ad\x1f%s', 'origin/main')
+    if not ok:
+        # origin/main 을 모르는 환경(로컬 개발 등)에서는 현재 갈래로 대신 본다
+        out, ok = _git('log', f'-{int(limit)}', '--date=format:%Y-%m-%d %H:%M',
+                       '--pretty=%H\x1f%h\x1f%ad\x1f%s')
+    rows = []
+    for line in (out or '').splitlines():
+        parts = line.split('\x1f')
+        if len(parts) == 4:
+            rows.append({'sha': parts[0], 'short': parts[1],
+                         'date': parts[2], 'subject': parts[3],
+                         'has_ui': _has_version_ui(parts[0])})
+    return rows
+
+
+def _has_version_ui(sha):
+    """그 버전에 이 '버전' 화면이 들어 있는가.
+
+       ⚠️ 없는 버전으로 되돌리면 조종실에서 돌아올 방법이 사라진다
+          (서버에 직접 들어가 고정 파일을 지워야 한다). 미리 알려주려고 본다.
+    """
+    # ⚠️ 찾을 글자를 반드시 쪼개서 만든다. 통째로 적으면 '이 함수 자신'이 걸려서
+    #    어떤 버전이든 '있음'으로 나온다(실제로 그렇게 틀렸다).
+    marker = '/api/' + 'version/switch'
+    out, ok = _git('grep', '-l', marker, sha, '--', 'server.py', timeout=15)
+    return bool(ok and out)
+
+
+def _restart_services():
+    """서비스를 재시작한다. 권한이 없으면 조용히 실패하고 자동배포에 맡긴다.
+
+       ⚠️ 이 명령이 지금 이 프로세스를 죽인다. 그래서 응답을 먼저 보낸 뒤
+          딴 갈래에서 잠깐 있다가 부른다.
+    """
+    for unit in ('livemaster', 'toon-listener'):
+        try:
+            r = subprocess.run(['sudo', '-n', 'systemctl', 'restart', unit],
+                               capture_output=True, text=True, encoding='utf-8',
+                               errors='replace', timeout=30)
+            if r.returncode == 0:
+                print(f'🔄 [버전 전환] {unit} 재시작', flush=True)
+            else:
+                print(f'⚠️ [버전 전환] {unit} 재시작 권한 없음 — 자동배포가 2분 안에 처리합니다',
+                      flush=True)
+        except Exception as e:
+            print(f'⚠️ [버전 전환] {unit} 재시작 실패: {e} — 자동배포에 맡깁니다', flush=True)
+
+
+# 이 프로세스가 켜질 때 어떤 버전이었는지. 파일은 바뀌었는데 재시작이 안 됐으면
+# 이 값과 현재 HEAD 가 달라진다 — 그때 화면에 '아직 안 바뀌었다'고 알려야 한다.
+RUNNING_SHA = _git('rev-parse', 'HEAD')[0] or ''
+
+
+@app.route('/api/version/list', methods=['GET'])
+def api_version_list():
+    """고를 수 있는 버전 목록과 지금 돌고 있는 버전."""
+    head, ok = _git('rev-parse', 'HEAD')
+    if not ok:
+        return jsonify({'status': 'error',
+                        'message': '이 서버는 git 으로 배포된 것이 아니라 버전을 바꿀 수 없습니다'}), 400
+    _git('fetch', '--quiet', 'origin', 'main', timeout=20)
+    subj, _ = _git('log', '-1', '--pretty=%s')
+    date, _ = _git('log', '-1', '--date=format:%Y-%m-%d %H:%M', '--pretty=%ad')
+    # ⚠️ '파일이 이 버전' 과 '지금 돌고 있는 코드가 이 버전' 은 다르다.
+    #    재시작이 안 됐으면 파일만 바뀌고 옛 코드가 계속 돈다.
+    return jsonify({'status': 'success',
+                    'current': {'sha': head, 'short': head[:8], 'subject': subj, 'date': date},
+                    'running_sha': RUNNING_SHA,
+                    'needs_restart': bool(RUNNING_SHA and head and RUNNING_SHA != head),
+                    'pinned': _pinned_sha(),
+                    'commits': _recent_commits()})
+
+
+@app.route('/api/version/switch', methods=['POST'])
+def api_version_switch():
+    """고른 버전으로 옮기고 재시작한다."""
+    body = request.get_json(silent=True) or {}
+    want = str(body.get('sha') or '').strip()
+    if not want:
+        return jsonify({'status': 'error', 'message': '버전을 골라주세요'}), 400
+
+    _git('fetch', '--quiet', 'origin', 'main', timeout=25)
+    # ⚠️ 목록에 있는 것만 허용한다. 아무 번호나 받으면 남의 갈래 코드를 돌릴 수 있다.
+    allowed = {c['sha'] for c in _recent_commits()}
+    if want not in allowed:
+        return jsonify({'status': 'error',
+                        'message': '목록에 없는 버전입니다 (최근 %d개 중에서만 고를 수 있습니다)'
+                                   % VERSION_LIST_MAX}), 400
+
+    head, _ = _git('rev-parse', 'HEAD')
+    if head == want:
+        _write_pin(want)
+        return jsonify({'status': 'success', 'message': '이미 그 버전으로 돌고 있습니다',
+                        'restarting': False})
+
+    # 옮기기는 여기서 바로 한다(빠르고, 실패하면 재시작도 하지 않는다)
+    _write_pin(want)
+    # ⚠️ --force 가 필요하다. 서버에서 파일이 하나라도 손대져 있으면 그냥 checkout 은
+    #    거부한다. 어차피 자동배포도 매번 reset --hard 로 밀어버리므로(= 서버의 손댄 내용은
+    #    보존되지 않는 것이 이 서버의 규칙이다) 같은 규칙으로 맞춘다.
+    out, ok = _git('checkout', '--quiet', '--force', '--detach', want, timeout=40)
+    if not ok:
+        _write_pin(None)
+        return jsonify({'status': 'error',
+                        'message': '버전을 옮기지 못했습니다. 서버 상태를 확인해주세요'}), 500
+
+    subj, _ = _git('log', '-1', '--pretty=%s')
+    print(f'🕹️ [버전 전환] {head[:8]} → {want[:8]} · {subj}', flush=True)
+
+    # 응답을 먼저 보내고 재시작한다 — 재시작이 지금 이 프로세스를 죽이기 때문이다.
+    threading.Timer(1.0, _restart_services).start()
+    return jsonify({'status': 'success', 'restarting': True,
+                    'sha': want, 'short': want[:8], 'subject': subj,
+                    'message': f'{want[:8]} 로 옮겼습니다. 곧 다시 시작합니다'})
+
+
+@app.route('/api/version/latest', methods=['POST'])
+def api_version_latest():
+    """고정을 풀고 최신(main)으로 돌아간다."""
+    _git('fetch', '--quiet', 'origin', 'main', timeout=25)
+    remote, ok = _git('rev-parse', 'origin/main')
+    if not ok:
+        return jsonify({'status': 'error', 'message': '최신 버전을 확인하지 못했습니다'}), 500
+    _write_pin(None)
+    head, _ = _git('rev-parse', 'HEAD')
+    if head == remote:
+        return jsonify({'status': 'success', 'message': '이미 최신입니다', 'restarting': False})
+    out, ok = _git('checkout', '--quiet', '--force', '-B', 'main', 'origin/main', timeout=40)
+    if not ok:
+        return jsonify({'status': 'error', 'message': '최신으로 되돌리지 못했습니다'}), 500
+    print(f'🕹️ [버전 전환] 최신으로 복귀 → {remote[:8]}', flush=True)
+    threading.Timer(1.0, _restart_services).start()
+    return jsonify({'status': 'success', 'restarting': True,
+                    'sha': remote, 'short': remote[:8],
+                    'message': '최신으로 되돌렸습니다. 곧 다시 시작합니다'})
 
 
 @app.route('/api/patchnotes', methods=['GET'])

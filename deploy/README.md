@@ -301,6 +301,68 @@ ALERTBOX_URL=https://toon.at/widget/alertbox/<내키> \
   전체 경로까지 시험하려면 `INCLUDE_TEST=1` 을 주면 된다.
 - 소켓 토큰은 알림창 주소에서 자동으로 뽑는다. 알림창 키를 재발급하면 자동으로 새 토큰을 쓴다.
 
+## 🕹️ 조종실에서 버전 되돌리기 / 올리기
+
+조종실 → **시스템** 탭 → **버전** 에서 최근 20개 중 아무 버전으로나 오갈 수 있다.
+방송 중에 뭔가 이상하면 SSH 없이 바로 되돌리는 용도다.
+
+**쓰려면 서버에서 두 가지를 한 번만 해줘야 한다.**
+
+### ① 재시작 권한 (이게 없으면 파일만 바뀌고 옛 코드가 계속 돈다)
+
+조종실 프로그램은 권한 낮은 `livemaster` 사용자로 돌아서 자기 자신을 재시작하지 못한다.
+딱 그 두 서비스의 재시작만 허용한다 — 그 밖의 명령은 못 한다.
+
+```bash
+sudo tee /etc/sudoers.d/livemaster-restart >/dev/null <<'EOF'
+livemaster ALL=(root) NOPASSWD: /usr/bin/systemctl restart livemaster, \
+                                /usr/bin/systemctl restart toon-listener, \
+                                /bin/systemctl restart livemaster, \
+                                /bin/systemctl restart toon-listener
+EOF
+sudo chmod 440 /etc/sudoers.d/livemaster-restart
+sudo visudo -c        # 문법 확인 (parsed OK 가 나와야 한다)
+```
+
+> 안 해도 기능은 망가지지 않는다. 다만 재시작이 안 돼서 조종실 [버전] 화면에
+> **"파일은 바뀌었지만 서버가 아직 다시 시작되지 않았습니다"** 라는 빨간 경고가 뜬다.
+> 그때는 `sudo systemctl restart livemaster` 를 손으로 한 번 하면 된다.
+
+### ② 자동 배포가 고정을 존중하게 (유닛 파일 갱신)
+
+되돌린 뒤에도 2분마다 도는 자동 배포가 최신으로 도로 끌어올리면 되돌린 의미가 없다.
+그래서 `DEPLOY_PIN` 파일이 있으면 자동 배포를 건너뛰게 했다.
+
+⚠️ **이 확인은 반드시 유닛 파일에 있어야 한다.** `auto-deploy.sh` 는 저장소 안에 있어서,
+옛 버전으로 되돌리면 그 스크립트도 옛것으로 돌아간다 — 고정을 모르는 옛 스크립트가
+2분 뒤 최신으로 도로 끌어올린다. 유닛 파일은 `/etc/systemd/system` 에 설치되므로
+되돌려도 그대로 남는다.
+
+```bash
+cd /opt/livemaster && sudo -u livemaster git pull
+sudo install -m 644 deploy/auto-deploy.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+### 어떻게 도는가
+
+| | |
+|---|---|
+| 되돌리면 | `DEPLOY_PIN` 에 그 버전 번호가 적히고, 자동 배포가 멈춘다 |
+| [최신으로] 를 누르면 | `DEPLOY_PIN` 이 지워지고 자동 배포가 다시 따라간다 |
+| 고를 수 있는 범위 | `origin/main` 의 최근 20개뿐 (아무 번호나 못 넣는다) |
+| 재시작 중 들어온 후원 | 리스너가 대기줄에 적어뒀다 다시 보낸다 — 사라지지 않는다 |
+
+> ⚠️ **[버전] 화면이 없던 옛 버전으로는 되돌리지 말 것.** 목록에 `이 화면 없음` 이라고
+> 표시되고 누를 때도 경고가 뜬다. 그리로 가면 조종실에서 돌아올 방법이 없어서,
+> 서버에 직접 들어가 `sudo rm /opt/livemaster/DEPLOY_PIN` 하고 재시작해야 한다.
+
+> 서버에서 손으로 푸는 법 (막혔을 때):
+> ```bash
+> sudo rm -f /opt/livemaster/DEPLOY_PIN
+> sudo systemctl start auto-deploy      # 2분 기다리지 않고 즉시 최신으로
+> ```
+
 ## 🔄 자동 배포 (GitHub 자동 갱신 — Render 처럼)
 
 Render 는 main 에 push 하면 알아서 받아 배포했다. Vultr 서버도 똑같이 만들었다.

@@ -7,7 +7,12 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash /opt/livemaster/deploy/auto-deploy.sh
+# 📌 조종실에서 버전을 고정해 뒀으면 자동 배포를 건너뛴다.
+#    ⚠️ 이 확인은 반드시 여기(유닛 파일)에 있어야 한다. auto-deploy.sh 는 저장소 안에
+#       있어서, 옛 버전으로 되돌리면 그 스크립트도 옛것으로 돌아간다 — 고정을 모르는
+#       옛 스크립트가 2분 뒤 최신으로 도로 끌어올려 되돌린 의미가 없어진다.
+#       유닛 파일은 /etc/systemd/system 에 설치되므로 되돌려도 그대로 남는다.
+ExecStart=/bin/bash -c 'if [ -s /opt/livemaster/DEPLOY_PIN ]; then echo "📌 버전이 고정돼 있어 자동 배포를 건너뜁니다 ($(head -c 8 /opt/livemaster/DEPLOY_PIN))"; exit 0; fi; exec /bin/bash /opt/livemaster/deploy/auto-deploy.sh'
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=auto-deploy

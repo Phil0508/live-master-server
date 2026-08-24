@@ -36,3 +36,6 @@ donation_spool.jsonl
 
 # *.log 만으로는 이런 이름이 안 걸린다
 *_log.txt
+
+# 🕹️ 조종실에서 고정해둔 버전 — 서버마다 다르므로 저장소에 두지 않는다
+DEPLOY_PIN

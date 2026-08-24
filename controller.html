@@ -1580,16 +1580,19 @@
             <button onclick="triggerServerLogout()" style="height: 40px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
         </div>
 
-        <!-- 📋 패치노트 -->
+        <!-- 🕹️ 버전 -->
         <div class="group-box" style="margin-bottom: 20px;">
             <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
-                <span><i class="fa-solid fa-scroll" style="color: var(--accent);"></i> 패치노트</span>
-                <button class="secondary" onclick="loadPatchNotes()" style="height:30px; font-size:var(--fs-2); padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+                <span><i class="fa-solid fa-code-branch" style="color: var(--accent);"></i> 버전</span>
+                <button class="secondary" onclick="loadVersions(true)" style="height:30px; font-size:var(--fs-2); padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-rotate"></i> 새로고침</button>
             </div>
-            <div style="font-size:var(--fs-2); color:var(--text-muted); margin:10px 0 14px; line-height:1.6;">
-                무엇이 바뀌었는지 여기서 확인할 수 있어요. 새 버전이 배포되면 자동으로 최신 내용이 뜹니다.
+            <div id="ver-current" style="margin:10px 0 12px;"></div>
+            <div style="font-size:var(--fs-2); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
+                방송 중에 뭔가 이상하면 이전 버전으로 되돌릴 수 있어요.
+                누르면 서버가 <b>몇 초 동안 껐다 켜집니다</b> — 그 사이 들어온 후원은 사라지지 않고
+                다시 보내집니다. 되돌려두면 자동 배포가 멈추고, [최신으로]를 눌러야 다시 따라갑니다.
             </div>
-            <div id="patchnotes-area" style="max-height:420px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:var(--r-2); padding:14px;">
+            <div id="ver-list" style="max-height:420px; overflow-y:auto; background:rgba(0,0,0,0.2); border-radius:var(--r-2); padding:10px;">
                 <div style="color:var(--text-muted); font-size:var(--fs-2);">불러오는 중…</div>
             </div>
         </div>
@@ -2173,7 +2176,7 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); loadPatchNotes(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
+        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); loadVersions(); } if (tabId === 'tab-logs') { loadManualLogs(1); } }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         // 내 전송과 겹쳐서 버린 SSE 업데이트가 있었는지. true 면 아래 워치독이 다시 받아온다.
         let needsResync = false;
@@ -2489,39 +2492,137 @@
             setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; setTimeout(() => el.remove(), 350); }, 4000);
         }
 
-        // 📋 패치노트 — 저장소의 PATCHNOTES.md 를 서버가 읽어서 내려준다.
-        //    배포하면 곧바로 최신 내용이 뜬다(따로 저장하지 않는다).
-        let _patchNotesLoaded = false;
-        async function loadPatchNotes(force) {
-            const box = document.getElementById("patchnotes-area");
-            if (!box) return;
-            if (_patchNotesLoaded && !force) return;   // 탭을 오갈 때마다 다시 부르지 않는다
+        // 🕹️ 버전 — 어떤 코드를 돌릴지 여기서 고른다.
+        //
+        // ⚠️ 되돌리면 자동 배포가 멈춘다(그 버전에 '고정'된다). 안 그러면 2분 뒤
+        //    최신으로 도로 끌려 올라가서 되돌린 의미가 없다. [최신으로]를 눌러야 풀린다.
+        let _verLoaded = false;
+        let _verBusy = false;
+
+        async function loadVersions(force) {
+            const cur = document.getElementById('ver-current');
+            const box = document.getElementById('ver-list');
+            if (!box || !cur) return;
+            if (_verLoaded && !force) return;   // 탭을 오갈 때마다 다시 부르지 않는다
             try {
-                const res = await fetch("/api/patchnotes");
-                if (!res.ok) throw new Error("HTTP " + res.status);
+                const res = await fetch('/api/version/list');
                 const d = await res.json();
-                const rels = (d && d.releases) || [];
-                if (!rels.length) { box.innerHTML = '<div style="color:var(--text-muted); font-size:var(--fs-2);">아직 기록이 없습니다.</div>'; return; }
-                const color = { "추가":"#2ecc71", "수정":"#f5a524", "보안":"#ff453a", "성능":"#00bfff" };
-                box.innerHTML = rels.map((r, ri) => {
-                    const items = (r.items || []).map(it => {
-                        const c = color[it.kind] || "var(--text-dim)";
-                        const tag = it.kind
-                            ? '<span style="flex:none; min-width:38px; text-align:center; font-size:var(--fs-1); font-weight:800; color:' + c + '; border:1px solid ' + c + '; border-radius:6px; padding:1px 6px;">' + escapeHTML(it.kind) + '</span>'
-                            : "";
-                        return '<div style="display:flex; gap:9px; align-items:flex-start; margin-bottom:7px; line-height:1.6;">' + tag +
-                               '<span style="color:#e6e6ea; font-size:var(--fs-2);">' + escapeHTML(it.text) + '</span></div>';
-                    }).join("");
-                    const latest = ri === 0
-                        ? ' <span style="font-size:var(--fs-1); background:var(--accent); color:#000; font-weight:900; padding:1px 7px; border-radius:8px;">최신</span>'
-                        : "";
-                    return '<div style="margin-bottom:18px;">' +
-                           '<div style="font-weight:900; color:#fff; font-size:var(--fs-3); margin-bottom:9px;">' + escapeHTML(r.date) + latest + '</div>' +
-                           items + '</div>';
-                }).join("");
-                _patchNotesLoaded = true;
+                if (!res.ok || d.status !== 'success') throw new Error(d.message || ('HTTP ' + res.status));
+                const c = d.current || {};
+                const pinned = d.pinned;
+                // 파일은 바뀌었는데 재시작이 안 된 상태 — 재시작 권한이 없을 때 이렇게 된다.
+                // 이걸 안 알리면 '바꿨다'고 믿는데 실제로는 옛 코드가 돌고 있다.
+                const stale = !!d.needs_restart;
+                cur.innerHTML =
+                    '<div style="background:rgba(0,0,0,0.25); border:1px solid ' + (pinned ? 'rgba(255,204,0,0.6)' : 'var(--border-light)') + ';'
+                  + ' border-radius:var(--r-2); padding:12px 14px;">'
+                  + '<div style="font-size:var(--fs-1); color:var(--text-muted); font-weight:800; letter-spacing:.3px;">지금 돌고 있는 버전</div>'
+                  + '<div style="color:#fff; font-weight:900; font-size:var(--fs-3); margin-top:5px;">' + escapeHTML(c.subject || '(알 수 없음)') + '</div>'
+                  + '<div style="color:var(--text-dim); font-size:var(--fs-2); margin-top:4px;">' + escapeHTML(c.short || '') + ' · ' + escapeHTML(c.date || '') + '</div>'
+                  + (stale
+                      ? '<div style="margin-top:9px; color:var(--danger); font-size:var(--fs-2); font-weight:800;">⚠️ 파일은 이 버전으로 바뀌었지만 서버가 아직 다시 시작되지 않았습니다 — 옛 코드가 돌고 있습니다.<br>서버에 재시작 권한이 없을 수 있습니다(README 의 sudoers 설정 확인). 자동 배포는 고정 중이라 손대지 않습니다.</div>'
+                      : '')
+                  + (pinned
+                      ? '<div style="margin-top:9px; color:var(--gold); font-size:var(--fs-2); font-weight:800;">📌 이 버전에 고정돼 있습니다 — 새 버전이 올라와도 자동으로 안 바뀝니다</div>'
+                        + '<button class="primary" onclick="goLatestVersion()" style="margin-top:10px; height:34px; font-size:var(--fs-2); padding:0 16px; border-radius:var(--r-2);"><i class="fa-solid fa-arrow-up"></i> 최신으로 돌아가기</button>'
+                      : '<div style="margin-top:9px; color:#2ecc71; font-size:var(--fs-2); font-weight:800;">✓ 최신을 따라가는 중 (새 버전이 올라오면 2분 안에 자동 반영)</div>')
+                  + '</div>';
+
+                const list = d.commits || [];
+                if (!list.length) { box.innerHTML = '<div style="color:var(--text-muted); font-size:var(--fs-2);">기록이 없습니다.</div>'; return; }
+                box.innerHTML = list.map((v, i) => {
+                    const now = v.sha === c.sha;
+                    return '<div style="display:flex; gap:10px; align-items:center; padding:9px 10px; border-radius:var(--r-2);'
+                         + ' border:1px solid ' + (now ? 'rgba(46,204,113,.5)' : 'transparent') + ';'
+                         + ' background:' + (now ? 'rgba(46,204,113,.10)' : 'transparent') + '; margin-bottom:4px;">'
+                         + '<div style="flex:1; min-width:0;">'
+                         + '<div style="color:#e6e6ea; font-size:var(--fs-2); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">'
+                         + escapeHTML(v.subject) + '</div>'
+                         + '<div style="color:var(--text-dim); font-size:var(--fs-1); margin-top:2px;">' + escapeHTML(v.short) + ' · ' + escapeHTML(v.date)
+                         + (i === 0 ? ' · <span style="color:var(--accent); font-weight:800;">최신</span>' : '')
+                         + (v.has_ui === false ? ' · <span style="color:var(--danger); font-weight:800;">이 화면 없음</span>' : '')
+                         + '</div>'
+                         + '</div>'
+                         + (now
+                             ? '<span style="flex:none; color:#2ecc71; font-size:var(--fs-1); font-weight:900;">지금 이것</span>'
+                             : '<button class="secondary" onclick="switchVersion(\'' + v.sha + '\',' + (v.has_ui === false ? 'false' : 'true') + ')" style="flex:none; height:30px; font-size:var(--fs-1); padding:0 12px; border-radius:var(--r-2);">이 버전으로</button>')
+                         + '</div>';
+                }).join('');
+                _verLoaded = true;
             } catch (e) {
-                box.innerHTML = '<div style="color:var(--danger); font-size:var(--fs-2);">패치노트를 불러오지 못했습니다.</div>';
+                cur.innerHTML = '';
+                box.innerHTML = '<div style="color:var(--danger); font-size:var(--fs-2);">버전 정보를 불러오지 못했습니다. ' + escapeHTML(String(e.message || e)) + '</div>';
+            }
+        }
+
+        // 재시작이 끝나 서버가 돌아올 때까지 기다렸다가 화면을 새로 그린다
+        async function _waitServerBack(msg) {
+            const box = document.getElementById('ver-list');
+            if (box) box.innerHTML = '<div style="color:var(--gold); font-size:var(--fs-2); font-weight:800; padding:10px;">'
+                                   + escapeHTML(msg) + ' 서버가 다시 켜지길 기다리는 중…</div>';
+            for (let i = 0; i < 60; i++) {
+                await new Promise(r => setTimeout(r, 1000));
+                try {
+                    const r = await fetch('/api/ping', { cache: 'no-store' });
+                    if (r.ok) {
+                        await new Promise(r2 => setTimeout(r2, 1200));   // 뜨자마자 말고 조금 더
+                        _verBusy = false;
+                        await loadVersions(true);
+                        acctToast('✅ 서버가 다시 켜졌습니다. 화면을 새로고침하세요', 'ok');
+                        return;
+                    }
+                } catch (e) { /* 아직 안 켜졌다 */ }
+            }
+            _verBusy = false;
+            if (box) box.innerHTML = '<div style="color:var(--danger); font-size:var(--fs-2); padding:10px;">서버가 1분 안에 돌아오지 않았습니다. 서버 상태를 확인해주세요.</div>';
+        }
+
+        async function switchVersion(sha, hasUi) {
+            if (_verBusy) return;
+            // ⚠️ 이 화면이 없던 시절로 되돌리면 조종실에서 돌아올 방법이 사라진다.
+            //    서버에 직접 들어가 고정 파일을 지워야 하므로 미리 세게 알린다.
+            const noWay = (hasUi === false)
+                ? '\n\n⚠️ 이 버전에는 [버전] 화면이 없습니다.\n'
+                  + '    되돌리면 조종실에서 최신으로 못 돌아옵니다 —\n'
+                  + '    서버에 직접 들어가 DEPLOY_PIN 파일을 지워야 합니다.'
+                : '';
+            if (!await premiumConfirm(
+                    '이 버전으로 되돌립니다.\n\n' +
+                    '· 서버가 몇 초 동안 껐다 켜집니다 (방송 화면이 잠깐 끊길 수 있습니다)\n' +
+                    '· 그 사이 들어온 후원은 사라지지 않고 다시 보내집니다\n' +
+                    '· 되돌려두면 자동 배포가 멈춥니다 ([최신으로]를 눌러야 다시 따라갑니다)' + noWay,
+                    '버전 되돌리기', 'warning')) return;
+            _verBusy = true;
+            try {
+                const res = await fetch('/api/version/switch', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sha })
+                });
+                const d = await res.json();
+                if (!res.ok || d.status !== 'success') throw new Error(d.message || ('HTTP ' + res.status));
+                if (!d.restarting) { _verBusy = false; acctToast(d.message || '이미 그 버전입니다', 'info'); return; }
+                await _waitServerBack(d.message || '버전을 옮겼습니다.');
+            } catch (e) {
+                _verBusy = false;
+                await premiumAlert('되돌리지 못했습니다.\n\n' + String(e.message || e), '실패', 'error');
+            }
+        }
+
+        async function goLatestVersion() {
+            if (_verBusy) return;
+            if (!await premiumConfirm(
+                    '최신 버전으로 돌아가고, 자동 배포도 다시 켭니다.\n\n' +
+                    '서버가 몇 초 동안 껐다 켜집니다.', '최신으로', 'warning')) return;
+            _verBusy = true;
+            try {
+                const res = await fetch('/api/version/latest', { method: 'POST' });
+                const d = await res.json();
+                if (!res.ok || d.status !== 'success') throw new Error(d.message || ('HTTP ' + res.status));
+                if (!d.restarting) { _verBusy = false; acctToast(d.message || '이미 최신입니다', 'info'); await loadVersions(true); return; }
+                await _waitServerBack(d.message || '최신으로 되돌렸습니다.');
+            } catch (e) {
+                _verBusy = false;
+                await premiumAlert('되돌리지 못했습니다.\n\n' + String(e.message || e), '실패', 'error');
             }
         }
 
