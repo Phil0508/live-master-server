@@ -1141,10 +1141,7 @@
                     <span id="pending-count-badge" style="font-size:var(--fs-1); font-weight:900; color:#241a05;
                           background:var(--gold); padding:1px 9px; border-radius:999px;"></span>
                 </span>
-                    <label style="margin: 0; padding: 0; border: none; background: transparent; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
-                        <span style="font-size: var(--fs-2); color: var(--text-muted); font-weight: bold;"><i class="fa-solid fa-volume-high"></i> 신규 알림음</span>
-                        <input type="checkbox" id="chk-pending-sound" checked style="width: 14px; height: 14px; cursor: pointer; accent-color: var(--gold); margin: 0;">
-                    </label>
+
                 </div>
                 <div id="pending-list"></div>
             </div>
@@ -3416,8 +3413,7 @@
                 if (i !== -1) assignPending(don.id, i);
             };
             el.querySelector('.t-no').onclick = () => dismissAssignToast(don.id);
-            wrap.appendChild(el);
-            try { if (typeof aiProactiveEnabled !== 'undefined' && aiProactiveEnabled) playChime(); } catch (e) {}
+            wrap.appendChild(el);   // 소리는 내지 않는다 — 토스트가 눈에 보인다
         }
 
         // 이미 처리(지급/삭제)된 후원의 토스트는 스스로 사라지게 한다
@@ -3533,11 +3529,10 @@
             const div = aiAppendMsg('ai', '🔔 ' + text);
             div.classList.add('ai-msg-proactive');
             const open = document.getElementById('ai-drawer').classList.contains('open');
-            if (!open) {   // 닫혀 있으면 화살표에 안읽음 배지 + 소리
+            if (!open) {   // 닫혀 있으면 화살표에 안읽음 배지 (소리는 내지 않는다)
                 aiUnread++;
                 const b = document.getElementById('ai-unread');
                 if (b) { b.textContent = aiUnread > 9 ? '9+' : aiUnread; b.style.display = 'block'; }
-                try { if (typeof playChime === 'function') playChime(); } catch (e) {}
             }
         }
         function aiToggleProactive() {
@@ -5018,12 +5013,9 @@
                     }
                 }
             }
-            // --- 신규 후원 도착 알림음 재생 ---
-            if (gd && gd.pending_donations && newData.pending_donations) {
-                if (newData.pending_donations.length > gd.pending_donations.length) {
-                    playChime();
-                }
-            }
+            // 후원이 들어와도 소리를 내지 않는다.
+            // 방송 중에는 마이크가 이 소리를 같이 주워 담고, 후원이 몰리면
+            // 쉬지 않고 울려서 오히려 방해가 된다. 새 후원은 대기함 숫자 배지로 보인다.
             gd = newData;
             if(!gd.bjs) { 
                 gd.bjs = []; 
@@ -5232,42 +5224,11 @@
                 };
             });
         }
-        // 🔊 신규 후원 알림 음향 합성 장치 (Web Audio API)
-        function playChime() {
-            if (!document.getElementById('chk-pending-sound') || !document.getElementById('chk-pending-sound').checked) return;
-            try {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContext) return;
-                const ctx = new AudioContext();
-                const now = ctx.currentTime;
-                
-                // 크리스탈 실버 차임 코드 합성
-                const osc1 = ctx.createOscillator();
-                const gain1 = ctx.createGain();
-                osc1.type = 'sine';
-                osc1.frequency.setValueAtTime(1318.51, now); // E6
-                gain1.gain.setValueAtTime(0.08, now);
-                gain1.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
-                osc1.connect(gain1);
-                gain1.connect(ctx.destination);
-                osc1.start(now);
-                osc1.stop(now + 1.2);
-
-                const osc2 = ctx.createOscillator();
-                const gain2 = ctx.createGain();
-                osc2.type = 'sine';
-                osc2.frequency.setValueAtTime(1975.53, now + 0.08); // B6
-                gain2.gain.setValueAtTime(0.08, now + 0.08);
-                gain2.gain.exponentialRampToValueAtTime(0.0001, now + 1.28);
-                osc2.connect(gain2);
-                gain2.connect(ctx.destination);
-                osc2.start(now + 0.08);
-                osc2.stop(now + 1.28);
-            } catch(e) {
-                console.error("Audio Context error:", e);
-            }
-        }
-
+        // 🔇 조종실은 소리를 내지 않는다.
+        //    예전에는 후원이 들어올 때마다 차임이 울렸는데, 방송 중에는 마이크가
+        //    그 소리를 같이 주워 담고 후원이 몰리면 쉬지 않고 울려서 방해가 됐다.
+        //    알림은 눈으로 본다 — 대기함 숫자 배지, 배정 제안 토스트,
+        //    오토파일럿 서랍의 안읽음 배지.
         // 🔄 5분 주기 로컬 자동 백업 관리 시스템
         let autoBackupTimer = null;
         const AUTO_BACKUP_KEY = 'auto_periodic_backup_enabled';
