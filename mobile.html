@@ -1,136 +1,202 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0e0f12">
+<meta charset="utf-8">
 <title>📱 모바일 조종실</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
 <style>
-/* 자리 비웠을 때 한 손으로 쓰는 화면이다.
-   목적은 딱 둘 — '대기함 후원을 배정한다', '점수를 고친다'.
-   그 외 기능은 일부러 넣지 않았다. 폰에서 컨트롤러를 다 재현하면 결국 똑같이 불편해진다. */
+/* ═══════════════════════════════════════════════════════════
+   📱 아이폰 방식 폰 조종실 (2026-08-25 전면 재구축)
+
+   홈 화면에 앱이 깔려 있고, 앱을 열어 조작한다. 알림은 위에서 내려온다.
+   PC 조종실의 기능을 전부 폰 크기에 맞춰 다시 얹었다.
+   ⚠️ 점수는 반드시 '더할 값'만 보낸다(/api/score/add) — 상태 전체를 보내면
+      PC 와 동시에 만질 때 한쪽이 사라진다. 설정류는 /api/settings/patch 로
+      바뀐 필드만 보낸다. 같은 이유다.
+   ═══════════════════════════════════════════════════════════ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 :root {
-    --bg: #0e0f12; --panel: #17191e; --panel-2: #1e2127;
-    --line: #2b2f37; --text: #eceef2; --muted: #8b909a; --dim: #6f7480;
-    --accent: #4a9eff; --gold: #d9a441; --danger: #ff453a; --success: #34c759;
-    --r1: 8px; --r2: 14px; --r3: 20px;
-    --ease: cubic-bezier(0.4,0,0.2,1); --ease-out: cubic-bezier(0.16,1,0.3,1);
+  --bg:#000; --card:#1c1c1e; --card2:#2c2c2e; --line:rgba(255,255,255,.09);
+  --tx:#fff; --mut:#98989f; --dim:#636369;
+  --blue:#0a84ff; --green:#30d158; --red:#ff453a; --amber:#ff9f0a; --gold:#ffd60a;
+  --mono:'SF Mono','JetBrains Mono','Consolas',monospace;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
 }
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: 'Pretendard', -apple-system, system-ui, sans-serif;
-    letter-spacing: -0.3px;
-    padding: 0 12px calc(28px + env(safe-area-inset-bottom));
-}
-button { font-family: inherit; border: none; cursor: pointer; transition: transform 120ms var(--ease), background 200ms var(--ease); }
-button:active { transform: scale(0.96); }
+html, body { height:100%; overscroll-behavior:none; }
+body { background:var(--bg); color:var(--tx); user-select:none;
+       font-family:-apple-system,'Pretendard','Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif; }
+button { font-family:inherit; cursor:pointer; border:none; }
+input, textarea { font-family:inherit; }
 
-/* ── 상단 상태바 ── */
-header {
-    position: sticky; top: 0; z-index: 50;
-    background: rgba(14,15,18,0.94); backdrop-filter: blur(16px);
-    margin: 0 -12px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
-    border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 10px;
-}
-header h1 { margin: 0; font-size: 16px; font-weight: 800; flex: 1; }
-#conn { font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 999px;
-        background: rgba(52,199,89,0.14); color: var(--success); white-space: nowrap; }
-#conn.bad { background: rgba(255,69,58,0.14); color: var(--danger); }
+/* ── 상태줄 ── */
+#statusbar { position:fixed; top:0; left:0; right:0; z-index:50;
+  display:flex; justify-content:space-between; align-items:center;
+  padding:calc(var(--safe-top) + 10px) 18px 8px;
+  font-size:13px; font-weight:700; font-variant-numeric:tabular-nums;
+  background:rgba(0,0,0,.72); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); }
+#sb-conn { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--mut); }
+#sb-dot { width:7px; height:7px; border-radius:50%; background:var(--green); }
+#sb-dot.off { background:var(--red); }
 
-/* ── 섹션 ── */
-.sec { margin-top: 18px; }
-.sec-title { font-size: 12px; font-weight: 800; color: var(--muted); margin: 0 4px 8px;
-             display: flex; align-items: center; gap: 8px; }
-.count { background: var(--gold); color: #000; font-size: 11px; font-weight: 900;
-         padding: 1px 8px; border-radius: 999px; }
+/* ── 홈 화면 ── */
+#home { padding:calc(var(--safe-top) + 52px) 20px calc(var(--safe-bot) + 30px); }
+#home h1 { font-size:26px; font-weight:800; letter-spacing:-.6px; margin-bottom:2px; }
+#home .sub { font-size:12.5px; color:var(--mut); margin-bottom:22px; }
+#grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:20px 12px; max-width:420px; margin:0 auto; }
+.app { display:flex; flex-direction:column; align-items:center; gap:7px; background:none; }
+.app .ic { position:relative; width:58px; height:58px; border-radius:14px;
+  display:flex; align-items:center; justify-content:center; font-size:27px;
+  box-shadow:0 6px 16px rgba(0,0,0,.45); transition:transform .12s; }
+.app:active .ic { transform:scale(.9); }
+.app .nm { font-size:11px; font-weight:600; color:#d9d9de; letter-spacing:-.2px; }
+.app .bdg { position:absolute; top:-6px; right:-8px; min-width:20px; height:20px; padding:0 5px;
+  border-radius:10px; background:var(--red); color:#fff; font-size:12px; font-weight:800;
+  display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums;
+  box-shadow:0 2px 6px rgba(0,0,0,.5); }
+
+/* ── 앱 시트 ── */
+#sheet { position:fixed; inset:0; z-index:60; background:var(--bg);
+  transform:translateX(102%); transition:transform .26s cubic-bezier(.32,.72,.35,1);
+  display:flex; flex-direction:column; }
+#sheet.on { transform:translateX(0); }
+#sheet-head { display:flex; align-items:center; gap:6px;
+  padding:calc(var(--safe-top) + 10px) 12px 10px;
+  background:rgba(0,0,0,.72); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+  border-bottom:.5px solid var(--line); }
+#sheet-back { background:none; color:var(--blue); font-size:16px; font-weight:600;
+  display:inline-flex; align-items:center; gap:2px; padding:6px 8px 6px 2px; }
+#sheet-title { font-size:16.5px; font-weight:800; letter-spacing:-.3px; }
+#sheet-body { flex:1; overflow-y:auto; padding:14px 16px calc(var(--safe-bot) + 30px);
+  -webkit-overflow-scrolling:touch; }
+
+/* ── iOS 그룹 카드 부품 ── */
+.grp { background:var(--card); border-radius:13px; margin-bottom:16px; overflow:hidden; }
+.grp-h { font-size:12px; font-weight:600; color:var(--mut); padding:0 4px 7px; }
+.cell { padding:12px 14px; border-bottom:.5px solid var(--line); }
+.cell:last-child { border-bottom:none; }
+.row { display:flex; align-items:center; gap:10px; }
+.btn { background:var(--card2); color:var(--tx); border-radius:10px;
+  padding:11px 0; font-size:14px; font-weight:700; text-align:center; }
+.btn:active { filter:brightness(1.3); }
+.btn.b { background:var(--blue); }
+.btn.g { background:var(--green); color:#04310f; }
+.btn.r { background:rgba(255,69,58,.16); color:var(--red); }
+.btn.a { background:rgba(255,159,10,.16); color:var(--amber); }
+.btn.big { font-size:17px; padding:15px 0; border-radius:13px; }
+.btnrow { display:flex; gap:8px; }
+.btnrow .btn { flex:1; }
+.num { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+input[type=text], input[type=number] { width:100%; background:#101012; color:#fff;
+  border:1px solid var(--line); border-radius:10px; padding:11px 13px; font-size:15px; outline:none; }
+input:focus { border-color:var(--blue); }
+.hint { font-size:11.5px; color:var(--dim); line-height:1.65; padding:2px 4px; }
 
 /* ── 대기함 카드 ── */
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r2);
-        padding: 14px; margin-bottom: 12px; animation: pop 320ms var(--ease-out); }
-@keyframes pop { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.card .who { font-size: 15px; font-weight: 800; }
-.card .amt { color: var(--gold); font-weight: 900; font-variant-numeric: tabular-nums; }
-.card .msg { color: var(--muted); font-size: 13px; margin-top: 6px; line-height: 1.45;
-             word-break: break-word; }
-.card.need{border-color:#f5a524; box-shadow:0 0 0 1px rgba(245,165,36,.25)}
-.sug.ok{color:#34c759}
-.sug.need{color:#f5a524}
-.sug i{opacity:.75; font-style:normal; font-weight:500}
-.hist{margin-top:4px; font-size:11px; color:#6f7280}
-.sug { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 800;
-       color: #8fd1ff; background: rgba(0,150,255,0.12);
-       border: 1px solid rgba(0,150,255,0.35); padding: 3px 9px; border-radius: 999px; }
-.pay { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-/* 터치 목표를 크게 — 밖에서 급하게 누른다 */
-.pay button { min-height: 46px; flex: 1 1 30%; border-radius: var(--r1);
-              background: var(--panel-2); color: var(--text);
-              font-size: 14px; font-weight: 800; border: 1px solid var(--line); }
-.pay button.reco { background: rgba(74,158,255,0.16); border-color: var(--accent); color: #cfe4ff; }
-.pay .sub { flex: 1 1 100%; display: flex; gap: 8px; }
-.pay .sub button { flex: 1; min-height: 40px; font-size: 13px; font-weight: 700; color: var(--muted); }
-.pay .sub button.del { color: var(--danger); }
+.don { }
+.don .top { display:flex; justify-content:space-between; align-items:baseline; }
+.don .who { font-size:16px; font-weight:800; }
+.don .amt { font-size:16px; font-weight:800; color:var(--gold); font-family:var(--mono); }
+.don .msg { font-size:13.5px; color:var(--mut); margin-top:3px; word-break:break-all; }
+.don .sug { display:inline-flex; align-items:center; gap:6px; margin-top:9px; font-size:12px;
+  font-weight:700; padding:5px 11px; border-radius:999px; }
+.don .sug.auto { background:rgba(48,209,88,.15); color:var(--green); }
+.don .sug.mid  { background:rgba(10,132,255,.14); color:#6db3ff; }
+.don .sug.unk  { background:rgba(255,159,10,.14); color:var(--amber); }
+.don .hist { font-size:11px; color:var(--dim); margin-top:5px; }
+.don .as { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:11px; }
+.don .as button { background:var(--card2); color:#fff; border-radius:10px; padding:11px 0;
+  font-size:14px; font-weight:700; }
+.don .as button.reco { background:var(--blue); }
+.don .as button.half { color:var(--mut); }
+.don.need { box-shadow:inset 3px 0 0 var(--amber); }
+.empty { text-align:center; color:var(--dim); font-size:13.5px; padding:46px 0; line-height:1.8; }
+.empty b { color:var(--green); font-size:15px; }
 
 /* ── 점수판 ── */
-.prow { display: flex; align-items: center; gap: 10px; background: var(--panel);
-        border: 1px solid var(--line); border-radius: var(--r2); padding: 10px 12px; margin-bottom: 8px; }
-.prow .nm { flex: 1; font-size: 15px; font-weight: 700; min-width: 0;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.prow .sc { font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums;
-            min-width: 56px; text-align: right; }
-.prow button { width: 44px; height: 44px; border-radius: 50%; background: var(--panel-2);
-               color: var(--text); font-size: 20px; font-weight: 800; border: 1px solid var(--line); }
-.prow button.plus { color: var(--success); }
-.prow button.minus { color: var(--danger); }
+.rk { display:flex; align-items:center; gap:11px; }
+.rk .no { width:20px; text-align:center; font-size:13px; font-weight:800; color:var(--dim); font-family:var(--mono); }
+.rk .no.f { color:var(--gold); }
+.rk .nm { flex:1; font-size:15.5px; font-weight:700; }
+.rk .pt { font-size:15.5px; font-weight:800; font-family:var(--mono); }
+.rk .qs { display:flex; gap:6px; }
+.rk .qs button { width:44px; padding:9px 0; border-radius:9px; background:var(--card2);
+  color:var(--blue); font-size:13px; font-weight:800; }
 
-.empty { color: var(--dim); font-size: 13px; text-align: center; padding: 26px 0; }
+/* ── 시그뒤집기 목표 ── */
+.goal { display:flex; align-items:center; gap:11px; }
+.goal img { width:58px; height:33px; object-fit:cover; border-radius:7px; flex:none; }
+.goal .t { flex:1; min-width:0; }
+.goal .t b { font-size:14px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.goal .t span { font-size:11.5px; color:var(--mut); font-family:var(--mono); }
+.goal button { flex:none; padding:9px 15px; border-radius:9px; font-size:13px; font-weight:800;
+  background:var(--card2); color:#fff; }
+.goal.ok button { background:rgba(48,209,88,.15); color:var(--green); }
 
-/* ── 되돌리기 토스트 ── */
-#undo { position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom));
-        background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r2);
-        padding: 12px 14px; display: none; align-items: center; gap: 12px; z-index: 100;
-        box-shadow: 0 12px 34px rgba(0,0,0,0.55); animation: pop 240ms var(--ease-out); }
-#undo span { flex: 1; font-size: 13px; font-weight: 700; }
-#undo button { background: var(--accent); color: #fff; font-weight: 900; font-size: 13px;
-               padding: 9px 16px; border-radius: var(--r1); }
-/* 실패 알림 */
-#err { position: fixed; left: 12px; right: 12px; top: calc(64px + env(safe-area-inset-top));
-       background: rgba(255,69,58,0.95); color: #fff; border-radius: var(--r2);
-       padding: 12px 14px; font-size: 13px; font-weight: 700; display: none; z-index: 200;
-       box-shadow: 0 12px 34px rgba(0,0,0,0.5); }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+/* ── 알림 배너 (위에서 내려온다) ── */
+#banners { position:fixed; top:calc(var(--safe-top) + 6px); left:10px; right:10px; z-index:100;
+  display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+.banner { pointer-events:auto; display:flex; gap:11px; align-items:center;
+  background:rgba(40,40,44,.92); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border:.5px solid rgba(255,255,255,.14); border-radius:16px; padding:12px 14px;
+  box-shadow:0 14px 40px rgba(0,0,0,.6);
+  transform:translateY(-130%); transition:transform .32s cubic-bezier(.3,1.2,.35,1), opacity .25s; }
+.banner.in { transform:translateY(0); }
+.banner.out { transform:translateY(-130%); opacity:0; }
+.banner .bi { width:34px; height:34px; border-radius:9px; flex:none;
+  display:flex; align-items:center; justify-content:center; font-size:17px; }
+.banner .bt { flex:1; min-width:0; }
+.banner .bt b { font-size:13.5px; display:block; }
+.banner .bt span { font-size:12px; color:var(--mut); display:block;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ── 토스트 / 패치 화면 ── */
+#toast { position:fixed; left:50%; bottom:calc(var(--safe-bot) + 22px); transform:translateX(-50%);
+  z-index:110; background:rgba(40,40,44,.95); border:.5px solid rgba(255,255,255,.14);
+  color:#fff; font-size:13.5px; font-weight:700; padding:11px 18px; border-radius:999px;
+  opacity:0; transition:opacity .2s; pointer-events:none; white-space:nowrap; }
+#toast.on { opacity:1; }
+#patchveil { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.9); display:none;
+  align-items:center; justify-content:center; text-align:center; }
+#patchveil.on { display:flex; }
+#patchveil .in b { display:block; font-size:20px; color:var(--gold); margin-bottom:8px; }
+#patchveil .in span { font-size:13px; color:var(--mut); }
 </style>
 </head>
 <body>
 
-<header>
-    <h1>📱 모바일 조종실</h1>
-    <span id="conn" class="bad">연결 중…</span>
-</header>
-
-<div class="sec">
-    <div class="sec-title">후원 대기함 <span class="count" id="pcount">0</span></div>
-    <div id="pending"><div class="empty">불러오는 중…</div></div>
+<div id="statusbar">
+  <span id="sb-time" class="num">--:--</span>
+  <span id="sb-conn"><span id="sb-dot"></span><span id="sb-txt">연결 중…</span><span id="sb-ver" class="num"></span></span>
 </div>
 
-<div class="sec">
-    <div class="sec-title">점수</div>
-    <div id="players"></div>
+<div id="home">
+  <h1>조종실</h1>
+  <div class="sub" id="home-sub">방송 대기 중</div>
+  <div id="grid"></div>
 </div>
 
-<div id="undo"><span id="undo-text"></span><button onclick="undoLast()">되돌리기</button></div>
-<div id="err"></div>
+<div id="sheet">
+  <div id="sheet-head">
+    <button id="sheet-back" onclick="closeApp()">‹ 홈</button>
+    <span id="sheet-title"></span>
+  </div>
+  <div id="sheet-body"></div>
+</div>
+
+<div id="banners"></div>
+<div id="toast"></div>
+<div id="patchveil"><div class="in"><b>패치 진행 중</b><span>서버가 다시 켜지고 있습니다…<br>끝나면 저절로 새로 열립니다</span></div></div>
 
 <script>
-// 이 화면은 '자리 비웠을 때' 쓰는 물건이다. 밖에서는 네트워크가 불안정하므로
-// 어떤 조작이든 (1) 실패를 반드시 눈에 보이게 알리고 (2) 실패하면 화면을 원래대로 되돌린다.
-// 주소에 ?token= 이 있으면 그걸로 인증한다.
-// ⚠️ 폰은 비밀번호를 치기 번거로워 주소를 즐겨찾기에 넣고 쓴다. 그런데 이 화면은
-//    토큰을 아예 안 봤고, 특히 EventSource 는 헤더를 못 붙여서 실시간 연결이 인증되지
-//    않았다. 그러면 서버가 대기 후원을 뺀 상태를 보내 화면이 텅 빈 채로 뜬다
-//    (오류도 안 나서 '후원이 없나 보다' 로 오해하게 된다).
+'use strict';
+/* ── 인증: 주소의 ?token= 을 모든 API 와 SSE 에 싣는다 ─────────────
+   ⚠️ 폰은 주소를 즐겨찾기로 쓴다. EventSource 는 헤더를 못 붙여서
+      토큰을 주소에 실어야 실시간 연결이 인증된다 — 안 그러면 서버가
+      대기 후원을 뺀 상태를 보내 화면이 텅 비어 보인다. */
 const TOKEN = (() => { try { return new URLSearchParams(location.search).get('token') || ''; }
                        catch (e) { return ''; } })();
 const _fetch = window.fetch;
@@ -144,84 +210,144 @@ window.fetch = function (r, i) {
 };
 
 let gd = null;
-let busy = false;              // 조작 한 건이 끝나기 전에 다음 조작을 받지 않는다(중복 지급 방지)
-let lastAction = null;         // 되돌리기용
-let undoTimer = null;
-const suggest = {};            // don.id -> {target, confidence}
-const asked = new Set();       // AI 추천을 이미 물어본 후원
-const SUG_MIN = 0.6;
+let busy = false;                  // 조작 한 건이 끝나기 전엔 다음 조작을 안 받는다
+let serverOffset = 0;              // 서버 시각 - 폰 시각
+let openedApp = null;
+const suggest = {};                // don.id -> 판정 전체 {target, tier, why, history}
+const asked = new Set();
+const seenDon = new Set();         // 알림 배너용 — 이미 본 후원
+let firstState = true;
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const won = n => (n || 0).toLocaleString();
+const players = () => gd ? ((gd.extra_game_active ? gd.extra_bjs : gd.bjs) || []) : [];
 
-function showErr(msg) {
-    const e = $('err');
-    e.textContent = '⚠️ ' + msg;
-    e.style.display = 'block';
-    clearTimeout(showErr._t);
-    showErr._t = setTimeout(() => { e.style.display = 'none'; }, 4000);
+function toast(msg, ok) {
+    const t = $('toast');
+    t.textContent = (ok === false ? '⚠️ ' : '') + msg;
+    t.classList.add('on');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('on'), 2200);
 }
 
-function players() {
-    if (!gd) return [];
-    return (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+async function api(path, body) {
+    const res = await fetch(path, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {}) });
+    let d = {};
+    try { d = await res.json(); } catch (e) {}
+    if (!res.ok) throw new Error(d.message || ('HTTP ' + res.status));
+    return d;
+}
+/* 설정류는 바뀐 필드만 — 상태 전체를 보내면 PC 와 부딪힐 때 남의 조작을 덮는다 */
+const patch = fields => api('/api/settings/patch', fields);
+const addScore = payload => api('/api/score/add', payload);
+
+/* ═══ 앱 목록 ═══ */
+const APPS = [
+  { id:'pending',  nm:'대기함',    ic:'📥', bg:'linear-gradient(135deg,#b8860b,#8a6508)', badge:() => (gd?.pending_donations||[]).length },
+  { id:'rank',     nm:'점수판',    ic:'🏆', bg:'linear-gradient(135deg,#0a84ff,#0055cc)' },
+  { id:'match',    nm:'대결',      ic:'⚔️', bg:'linear-gradient(135deg,#5e5ce6,#3634a3)', badge:() => gd?.match_data?.active ? '●' : 0 },
+  { id:'siggame',  nm:'시그뒤집기', ic:'🃏', bg:'linear-gradient(135deg,#30d158,#1d7a35)', badge:() => gd?.siggame?.enabled ? '●' : 0 },
+  { id:'slot',     nm:'슬롯',      ic:'🎰', bg:'linear-gradient(135deg,#ff375f,#a31226)' },
+  { id:'roulette', nm:'룰렛',      ic:'🎡', bg:'linear-gradient(135deg,#ff9f0a,#b36b00)' },
+  { id:'marquee',  nm:'전광판',    ic:'📢', bg:'linear-gradient(135deg,#64d2ff,#2b8db3)' },
+  { id:'queue',    nm:'재생 대기',  ic:'🎵', bg:'linear-gradient(135deg,#bf5af2,#7d2ea8)', badge:() => (gd?.reaction_queue||[]).length },
+  { id:'cmd',      nm:'빠른 명령',  ic:'⌨️', bg:'linear-gradient(135deg,#48484c,#2a2a2e)' },
+  { id:'logs',     nm:'로그',      ic:'📜', bg:'linear-gradient(135deg,#8e8e93,#55555a)' },
+  { id:'version',  nm:'버전',      ic:'🕹️', bg:'linear-gradient(135deg,#ac8e68,#77603f)' },
+  { id:'health',   nm:'상태',      ic:'🩺', bg:'linear-gradient(135deg,#30b0c7,#1a6f80)' }
+];
+
+function renderHome() {
+    $('grid').innerHTML = APPS.map(a => {
+        const b = a.badge ? a.badge() : 0;
+        return `<button class="app" onclick="openApp('${a.id}')">
+            <span class="ic" style="background:${a.bg}">${a.ic}
+              ${b ? `<span class="bdg">${b}</span>` : ''}</span>
+            <span class="nm">${a.nm}</span></button>`;
+    }).join('');
+    if (gd) $('home-sub').textContent = gd.broadcast_active
+        ? `방송 중 · 대기 ${(gd.pending_donations||[]).length}건`
+        : '방송 대기 중';
 }
 
-// ── 서버 전송 ─────────────────────────────────────────────
-// 점수는 '더할 값'만 보낸다. 상태 전체를 보내면, PC 조종실(오토파일럿 포함)이 같은 순간에
-// 점수를 주고 있을 때 나중에 도착한 쪽이 앞선 점수를 통째로 덮어써서 한쪽이 사라졌다.
-// 위험 구간은 SSE 전파 지연만큼인데 실측이 약 0.5초라 밖에서 누르다 보면 충분히 부딪힌다.
-// pending_id 를 같이 보내면 '점수 지급'과 '대기함에서 제거'가 서버의 같은 잠금 안에서 끝나
-// 그 사이에 실패해 후원이 어디에도 없는 상태가 되는 일도 없다.
-async function addScore(payload) {
-    const res = await fetch('/api/score/add', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-        let msg = 'HTTP ' + res.status;
-        try { msg = (await res.json()).message || msg; } catch (e) {}
-        throw new Error(msg);
+/* ═══ 앱 열고 닫기 ═══ */
+function openApp(id) {
+    openedApp = id;
+    const a = APPS.find(x => x.id === id);
+    $('sheet-title').textContent = a ? (a.ic + ' ' + a.nm) : '';
+    $('sheet').classList.add('on');
+    renderApp();
+    if (id === 'version') loadVersions();
+    if (id === 'health') loadHealth();
+}
+function closeApp() { openedApp = null; $('sheet').classList.remove('on'); }
+
+/* SSE 갱신 때 열린 앱을 다시 그린다 — 입력 중이면 건드리지 않는다 */
+function renderApp() {
+    if (!openedApp) return;
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
+    const R = { pending:rPending, rank:rRank, match:rMatch, siggame:rSiggame, slot:rSlot,
+                roulette:rRoulette, marquee:rMarquee, queue:rQueue, cmd:rCmd, logs:rLogs,
+                version:rVersion, health:rHealth };
+    if (R[openedApp]) R[openedApp]($('sheet-body'));
+}
+
+/* ═══ 📥 대기함 ═══ */
+function rPending(el) {
+    const pend = (gd?.pending_donations || []).slice();
+    // 사람이 봐야 하는 것(모름)을 맨 위로 — 폰은 아래로 밀리면 사실상 안 보인다
+    const rank = d => { const s = suggest[d.id];
+        if (!s || !s.target) return 0; return s.tier === 'auto' ? 2 : 1; };
+    pend.sort((a, b) => rank(a) - rank(b));
+    if (!pend.length) {
+        el.innerHTML = '<div class="empty"><b>✓ 대기 중인 후원이 없습니다</b><br>새 후원이 오면 위에서 알림이 내려옵니다</div>';
+        return;
     }
-    return res.json();
+    const list = players();
+    el.innerHTML = pend.map(d => {
+        const s = suggest[d.id];
+        const need = !s || !s.target;
+        const hist = ((s && s.history) || []).slice(0, 3);
+        const btns = list.map(p =>
+            `<button class="${s && s.target === p.name ? 'reco' : ''}"
+                     onclick="assign('${d.id}','${esc(p.name)}')">${esc(p.name)}</button>`).join('')
+            + `<button class="half" onclick="assignSplit('${d.id}','half')">반반</button>`
+            + `<button class="half" onclick="assignSplit('${d.id}','all')">1/N</button>`
+            + `<button class="half" style="color:var(--red)" onclick="removeDon('${d.id}')">삭제</button>`;
+        const sug = s && s.target
+            ? `<span class="sug ${s.tier === 'auto' ? 'auto' : 'mid'}">${s.tier === 'auto' ? '✓' : '🤖'} ${esc(s.target)}${s.why ? ' · ' + esc(s.why) : ''}</span>`
+            : `<span class="sug unk">? 누구 것인지 모르겠음${s && s.why ? ' · ' + esc(s.why) : ''}</span>`;
+        return `<div class="grp"><div class="cell don ${need ? 'need' : ''}">
+            <div class="top"><span class="who">${esc(d.name)}</span><span class="amt">${won(d.amount)}원</span></div>
+            ${d.message ? `<div class="msg">"${esc(d.message)}"</div>` : ''}
+            ${sug}
+            ${hist.length ? `<div class="hist">지난 배정 · ${hist.map(h => esc(h.name) + ' ' + h.count + '번').join(' · ')}</div>` : ''}
+            <div class="as">${btns}</div>
+        </div></div>`;
+    }).join('');
 }
 
-// ── 배정 ──────────────────────────────────────────────────
-// ⚠️ 반드시 '이름'으로 사람을 찾는다. 목록은 기여도순으로 계속 재정렬되므로
-//    인덱스를 들고 있으면 엉뚱한 사람에게 점수가 들어간다.
-// ⚠️ 이름이 아니라 명단에서의 자리 번호를 받는다(위 render 주석 참고).
-//    이름은 누른 순간 다시 찾는다.
-async function assign(donId, idx) {
+async function assign(donId, name) {
     if (busy) return;
     const don = (gd.pending_donations || []).find(d => d.id === donId);
-    const p = players()[idx];
+    const p = players().find(x => x.name === name);
     if (!don || !p) return;
-    const name = p.name;
     busy = true;
-
     const pts = Math.round((don.amount || 0) / 10000);
-    // 화면만 먼저 움직여 손맛을 준다. 서버 응답이 오면 SSE 가 진짜 값으로 맞춰준다.
-    const before = { score: p.score || 0, contribution: p.contribution || 0 };
-    p.score = before.score + pts;
-    p.contribution = before.contribution + pts;
-    gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
-    render();
-
     try {
-        // 🧠 누가 준 후원인지 함께 보낸다 — 서버가 기억해서 다음 판단에 쓴다
-        const r = await addScore({ scope: 'rank', name, delta: pts, pending_id: donId,
-                                   donor: don.name, donor_message: don.message });
-        rememberUndo(`${don.name}님 → ${name} +${pts}점`,
-                     { type: 'assign', name, pts, logTime: r.time });
-    } catch (e) {
-        // 서버에 아무것도 안 들어갔다. 화면을 원래대로 되돌리고 다시 누를 수 있게 카드를 살린다.
-        p.score = before.score; p.contribution = before.contribution;
-        gd.pending_donations.unshift(don);
-        render();
-        showErr('지급하지 못했습니다. 다시 눌러주세요.');
-    } finally { busy = false; }
+        // 🧠 후원자를 같이 보낸다 — 서버가 기억해서 다음 'ㄱㅇㅈ' 을 푼다
+        const r = await addScore({ scope:'rank', name, delta:pts, pending_id:donId,
+                                   donor:don.name, donor_message:don.message });
+        gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
+        renderApp(); renderHome();
+        undoBanner(`${don.name}님 → ${name} +${pts}점`,
+                   { name, pts, time: r.time });
+    } catch (e) { toast('지급 실패 — 다시 눌러주세요', false); }
+    finally { busy = false; }
 }
 
 async function assignSplit(donId, mode) {
@@ -230,211 +356,426 @@ async function assignSplit(donId, mode) {
     const list = players();
     if (!don || list.length < 2) return;
     const targets = mode === 'half' ? list.slice(0, 2) : list;
-    busy = true;
     const pts = Math.floor(Math.round((don.amount || 0) / 10000) / targets.length);
-    if (pts <= 0) { busy = false; showErr('나누기엔 금액이 너무 작습니다.'); return; }
-
-    const names = targets.map(t => t.name);
-    const before = targets.map(p => ({ p, s: p.score || 0, c: p.contribution || 0 }));
-    targets.forEach(p => { p.score = (p.score || 0) + pts; p.contribution = (p.contribution || 0) + pts; });
-    gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
-    render();
-    try {
-        // 여러 명을 한 요청으로 보낸다. 서버는 한 명이라도 못 찾으면 아무것도 반영하지 않으므로
-        // '절반만 들어간' 상태가 생기지 않는다.
-        const r = await addScore({ scope: 'rank', pending_id: donId,
-                                   items: names.map(n => ({ name: n, delta: pts })),
-                                   donor: don.name, donor_message: don.message });
-        rememberUndo(`${don.name}님 → ${targets.length}명 각 +${pts}점`,
-                     { type: 'split', targets: names, pts, logTime: r.time });
-    } catch (e) {
-        before.forEach(b => { b.p.score = b.s; b.p.contribution = b.c; });
-        gd.pending_donations.unshift(don);
-        render();
-        showErr('나눠주지 못했습니다. 다시 눌러주세요.');
-    } finally { busy = false; }
-}
-
-async function ignore(donId) {
-    if (busy) return;
-    const don = (gd.pending_donations || []).find(d => d.id === donId);
-    if (!don) return;
-    if (!confirm(`${don.name}님 ${won(don.amount)}원 후원을 무시할까요?\n(점수는 아무에게도 안 갑니다)`)) return;
+    if (pts <= 0) { toast('나누기엔 금액이 너무 작습니다', false); return; }
     busy = true;
-    gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
-    render();
     try {
-        const r = await fetch('/api/pending/remove/' + encodeURIComponent(donId), { method: 'POST' });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-    } catch (e) {
-        gd.pending_donations.unshift(don); render();
-        showErr('무시하지 못했습니다.');
-    } finally { busy = false; }
+        await addScore({ scope:'rank', pending_id:donId,
+                         items: targets.map(t => ({ name:t.name, delta:pts })),
+                         donor:don.name, donor_message:don.message });
+        gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
+        renderApp(); renderHome();
+        toast(`${targets.length}명에게 ${pts}점씩`);
+    } catch (e) { toast('지급 실패', false); }
+    finally { busy = false; }
 }
 
-// ── 점수 직접 수정 ────────────────────────────────────────
-async function bump(idx, delta) {
-    if (busy) return;
-    const p = players()[idx];
-    if (!p) return;
-    const name = p.name;
-    busy = true;
-    const before = { s: p.score || 0, c: p.contribution || 0 };
-    p.score = before.s + delta;
-    p.contribution = before.c + delta;
-    render();
-    try {
-        const r = await addScore({ scope: 'rank', name, delta });
-        rememberUndo(`${name} ${delta > 0 ? '+' : ''}${delta}점`,
-                     { type: 'bump', name, delta, logTime: r.time });
-    } catch (e) {
-        p.score = before.s; p.contribution = before.c; render();
-        showErr('점수를 바꾸지 못했습니다.');
-    } finally { busy = false; }
+async function removeDon(donId) {
+    if (!confirm('이 후원을 점수 없이 대기함에서 지웁니다.')) return;
+    try { await api('/api/pending/remove/' + donId); toast('지웠습니다'); }
+    catch (e) { toast('실패: ' + e.message, false); }
 }
 
-// ── 되돌리기 ──────────────────────────────────────────────
-// 밖에서 급하게 누르다 보면 오타가 난다. 마지막 한 건은 항상 되돌릴 수 있어야 한다.
-function rememberUndo(label, action) {
-    lastAction = action;
-    $('undo-text').textContent = label;
-    $('undo').style.display = 'flex';
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => { $('undo').style.display = 'none'; lastAction = null; }, 8000);
-}
-
-async function undoLast() {
-    if (!lastAction || busy) return;
-    const a = lastAction;
-    lastAction = null;
-    $('undo').style.display = 'none';
-    busy = true;
-    // 되돌리기도 '더할 값'으로 보낸다(부호만 반대). 그래야 그 사이 다른 데서 들어온 점수를 지우지 않는다.
-    // 원래 남긴 로그 줄은 undo_log 로 지워서 장부에 '+3'과 '-3'이 나란히 남지 않게 한다.
-    const items = (a.type === 'split')
-        ? a.targets.map(n => ({ name: n, delta: -a.pts }))
-        : [{ name: a.name, delta: -(a.type === 'assign' ? a.pts : a.delta) }];
-    try {
-        items.forEach(it => {
-            const p = players().find(b => b.name === it.name);
-            if (p) { p.score = (p.score || 0) + it.delta; p.contribution = (p.contribution || 0) + it.delta; }
-        });
-        render();
-        await addScore({
-            scope: 'rank', items, log: false,
-            undo_log: a.logTime ? items.map(it => ({ time: a.logTime, name: it.name, val: -it.delta })) : null,
-        });
-    } catch (e) {
-        showErr('되돌리지 못했습니다.');
-    } finally { busy = false; }
-}
-
-// ── AI 추천 (있으면 배지로만 보여준다. 자동으로 배정하지 않는다) ──
-function askSuggest(don) {
-    if (asked.has(don.id) || !don.message) return;
-    asked.add(don.id);
-    fetch('/api/audit/suggest', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message,
-                               players: players().map(p => p.name) })
-    }).then(r => r.json()).then(res => {
-        // ⚠️ 예전에는 신뢰도 0.6 을 못 넘으면 통째로 버렸다. 그런데 자리를 비웠을 때는
-        //    바로 그 "모르겠는 것" 이 사람이 봐야 할 일이다. 버리지 말고 받아 둔다.
-        if (res && res.status === "success") {
-            suggest[don.id] = res;
-            render();
-        }
-    }).catch(() => {});   // AI 가 없어도 화면은 그대로 동작해야 한다
-}
-
-// ── 그리기 ────────────────────────────────────────────────
-function render() {
-    if (!gd) return;
-    const list = players();
-    const pend = (gd.pending_donations || []).filter(d => d.type !== 'off_work');
-    // 몇 건이 밀렸는지보다 "몇 건을 내가 봐야 하는지" 가 중요하다
-    const needCnt = pend.filter(d => { const s = suggest[d.id]; return !s || !s.target; }).length;
-    $('pcount').textContent = needCnt ? `${pend.length} (확인 ${needCnt})` : pend.length;
-
-    // ⚠️ 사람이 봐야 하는 건(모름)을 맨 위로 올린다.
-    //    폰은 화면이 좁아 아래로 밀린 것은 사실상 안 보인다. 자리를 비웠을 때
-    //    확인이 필요한 건이 아래에 묻히면 오토파일럿을 켜둔 의미가 없다.
-    const rank = d => {
-        const s = suggest[d.id];
-        if (!s || !s.target) return 0;                    // 모름 — 사람이 봐야 한다
-        return s.tier === 'auto' ? 2 : 1;                 // 거의 확실 / 추천
-    };
-    const sorted = pend.slice().sort((a, b) => rank(a) - rank(b));
-    $('pending').innerHTML = sorted.length ? sorted.map(d => {
-        const s = suggest[d.id];
-        const need = !s || !s.target;                     // 사람 확인 필요
-        const btns = list.map((p, i) =>
-            `<button class="${s && s.target === p.name ? 'reco' : ''}"
-                     onclick="assign('${d.id}',${i})">${esc(p.name)}</button>`
-        ).join('');
-        const hist = (s && s.history || []).slice(0, 3);
-        return `<div class="card${need ? ' need' : ''}">
-            <div><span class="who">${esc(d.name)}</span> · <span class="amt">${won(d.amount)}원</span></div>
-            ${d.message ? `<div class="msg">"${esc(d.message)}"</div>` : ''}
-            ${s && s.target
-                ? `<div class="sug${s.tier === 'auto' ? ' ok' : ''}">${s.tier === 'auto' ? '✓' : '🤖'} ${esc(s.target)}                   ${s.why ? `<i>· ${esc(s.why)}</i>` : ''}</div>`
-                : `<div class="sug need">❓ 누구 것인지 모르겠음</div>`}
-            ${hist.length ? `<div class="hist">지난 배정 · ${hist.map(h => esc(h.name) + ' ' + h.count + '번').join(' · ')}</div>` : ''}
-            <div class="pay">${btns}
-                <div class="sub">
-                    <button onclick="assignSplit('${d.id}','half')">🌓 반반</button>
-                    <button onclick="assignSplit('${d.id}','n')">🔢 N분할</button>
-                    <button class="del" onclick="ignore('${d.id}')">무시</button>
-                </div>
-            </div>
-        </div>`;
-    }).join('') : '<div class="empty">대기 중인 후원이 없습니다</div>';
-
-    $('players').innerHTML = list.length ? list.map((p, i) => `<div class="prow">
-        <div class="nm">${esc(p.name)}</div>
-        <div class="sc">${won(p.score)}</div>
-        <button class="minus" onclick="bump(${i},-1)">−</button>
-        <button class="plus"  onclick="bump(${i},1)">+</button>
-    </div>`).join('') : '<div class="empty">플레이어가 없습니다</div>';
-
-    pend.forEach(askSuggest);
-}
-
-// ── 서버 연결 ─────────────────────────────────────────────
-let es = null, lastMsg = Date.now();
-function connect() {
-    if (es) es.close();
-    // EventSource 는 헤더를 못 붙인다. 토큰은 주소에 실어야 인증된다.
-    es = new EventSource('/api/stream' + (TOKEN ? ('?token=' + encodeURIComponent(TOKEN)) : ''));
-    const onState = e => {
-        lastMsg = Date.now();
+/* 되돌리기 배너 — 방금 준 점수를 한 번에 취소 */
+function undoBanner(text, u) {
+    banner('✔', text, '되돌리기는 여기를 누르세요', 'rgba(48,209,88,.25)', async () => {
         try {
-            const d = JSON.parse(e.data);
-            // 내가 조작하는 중에 들어온 갱신으로 화면이 튀지 않게 한다.
-            // (조작이 끝나면 다음 갱신에서 어차피 맞춰진다)
-            if (busy) return;
-            gd = d;
-            render();
-        } catch (err) {}
-        $('conn').textContent = '연결됨';
-        $('conn').className = '';
-    };
-    es.addEventListener('init', onState);     // ⚠️ 서버는 이름 붙은 이벤트로 보낸다. onmessage 로는 못 받는다.
-    es.addEventListener('update', onState);
-    es.addEventListener('ping', () => { lastMsg = Date.now(); });
+            await addScore({ scope:'rank', name:u.name, delta:-u.pts,
+                             undo_log:{ time:u.time, name:u.name, val:u.pts } });
+            toast('되돌렸습니다');
+        } catch (e) { toast('되돌리기 실패', false); }
+    }, 5000);
+}
+
+/* ═══ 🏆 점수판 ═══ */
+function rRank(el) {
+    const list = players();
+    el.innerHTML = `<div class="grp">` + (list.map((p, i) =>
+        `<div class="cell rk"><span class="no ${i === 0 ? 'f' : ''}">${i + 1}</span>
+         <span class="nm">${esc(p.name)}</span><span class="pt">${won(p.score)}</span>
+         <span class="qs"><button onclick="quickScore('${esc(p.name)}',1)">+1</button>
+         <button onclick="quickScore('${esc(p.name)}',5)">+5</button></span></div>`).join('')
+        || '<div class="empty">플레이어가 없습니다</div>') + `</div>
+        <div class="grp-h">직접 입력 (음수면 빼기)</div>
+        <div class="grp"><div class="cell row">
+          <input type="text" id="rk-name" placeholder="이름" style="flex:1.2">
+          <input type="number" id="rk-pts" placeholder="점수" style="flex:1">
+          <button class="btn b" style="flex:none; padding:11px 18px" onclick="manualScore()">지급</button>
+        </div></div>`;
+}
+async function quickScore(name, pts) {
+    if (busy) return; busy = true;
+    try { await addScore({ scope:'rank', name, delta:pts }); toast(`${name} +${pts}점`); }
+    catch (e) { toast('실패: ' + e.message, false); }
+    finally { busy = false; }
+}
+async function manualScore() {
+    const name = $('rk-name').value.trim();
+    const pts = parseInt($('rk-pts').value);
+    if (!name || isNaN(pts) || !pts) { toast('이름과 점수를 넣어주세요', false); return; }
+    const hit = players().filter(p => p.name.indexOf(name) !== -1);
+    if (hit.length !== 1) { toast(hit.length ? '이름이 여럿 걸립니다 — 정확히' : '없는 이름입니다', false); return; }
+    $('rk-name').value = ''; $('rk-pts').value = '';
+    await quickScore(hit[0].name, pts);
+}
+
+/* ═══ ⚔️ 대결 ═══ */
+function mdTimeText(md) {
+    let ms = md.is_running ? Math.max(0, (md.end_time_ms || 0) - (Date.now() + serverOffset))
+                           : (md.time_left_ms || 0);
+    const t = Math.floor(ms / 1000);
+    return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+}
+function rMatch(el) {
+    const md = gd?.match_data;
+    if (!md) { el.innerHTML = '<div class="empty">대결 정보가 없습니다</div>'; return; }
+    el.innerHTML = `
+      <div class="grp"><div class="cell" style="text-align:center; padding:20px">
+        <div class="num" id="m-clock" style="font-size:42px; font-weight:900; letter-spacing:2px">${mdTimeText(md)}</div>
+        <div style="font-size:12px; color:var(--dim); margin-top:2px">${md.active ? (md.is_running ? '진행 중' : '멈춤') : '대결 꺼짐'}</div>
+      </div></div>
+      <div class="btnrow" style="margin-bottom:16px">
+        <button class="btn ${md.active ? '' : 'g'}" onclick="matchToggleActive()">${md.active ? '대결 끄기' : '대결 켜기'}</button>
+        <button class="btn b" onclick="matchTimer('toggle')">${md.is_running ? '⏸ 정지' : '▶ 시작'}</button>
+        <button class="btn" onclick="matchTimer('plus')">+1분</button>
+        <button class="btn r" onclick="matchTimer('reset')">초기화</button>
+      </div>
+      <div class="grp">` + (md.players || []).map(p =>
+        `<div class="cell rk"><span class="nm">${esc(p.name)}</span>
+         <span class="pt">${won(p.score)}</span>
+         <span class="qs"><button onclick="matchScore('${esc(p.name)}',100)">+100</button>
+         <button onclick="matchScore('${esc(p.name)}',1000)">+1000</button></span></div>`).join('')
+      + `</div><div class="hint">팀 점수는 배정과 별개로 직접 더하는 값입니다. 후원 배정은 대기함에서.</div>`;
+}
+async function matchScore(name, pts) {
+    try { await addScore({ scope:'match', name, delta:pts }); toast(`${name} +${pts}`); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+/* ⚠️ 타이머는 match_data 를 통째로 patch 한다 — 점수(bjs)와 달리 이 객체는
+      한 사람(운영자)만 만지는 값이라 마지막 저장이 이기면 된다. */
+async function matchPatch(mut) {
+    const md = JSON.parse(JSON.stringify(gd.match_data || {}));
+    mut(md);
+    try { await patch({ match_data: md }); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+function matchToggleActive() { matchPatch(md => { md.active = !md.active; }); }
+function matchTimer(what) {
+    matchPatch(md => {
+        const now = Date.now() + serverOffset;
+        if (what === 'toggle') {
+            if (md.is_running) { md.time_left_ms = Math.max(0, (md.end_time_ms || 0) - now); md.is_running = false; }
+            else { if ((md.time_left_ms || 0) <= 0) md.time_left_ms = md.paused_time_left || 180000;
+                   md.end_time_ms = now + md.time_left_ms; md.is_running = true; }
+            md.was_running_before_reaction = false;
+        } else if (what === 'plus') {
+            if (md.is_running) md.end_time_ms = (md.end_time_ms || now) + 60000;
+            else md.time_left_ms = (md.time_left_ms || 0) + 60000;
+        } else if (what === 'reset') {
+            md.is_running = false; md.time_left_ms = 180000; md.paused_time_left = 180000;
+        }
+    });
+}
+setInterval(() => {   // 대결 시계는 초마다 — 열려 있을 때만, 숫자만
+    if (openedApp !== 'match' || !gd?.match_data) return;
+    const c = $('m-clock'); if (c) c.textContent = mdTimeText(gd.match_data);
+}, 1000);
+
+/* ═══ 🃏 시그뒤집기 ═══ */
+function rSiggame(el) {
+    const g = gd?.siggame;
+    if (!g || !g.enabled || !(g.cards || []).length) {
+        el.innerHTML = '<div class="empty">시그뒤집기가 꺼져 있습니다<br>판 깔기는 PC 조종실에서</div>'; return;
+    }
+    const goals = (g.cards || []).filter(c => c.flippedAt);
+    const done = goals.filter(c => c.doneAt).length;
+    el.innerHTML = `
+      <div class="grp"><div class="cell" style="text-align:center">
+        <span class="num" style="font-size:30px; font-weight:900">${done}<span style="color:var(--dim)"> / ${goals.length}</span></span>
+        <div style="font-size:12px; color:var(--dim)">목표 달성</div></div></div>
+      <div class="grp">` + (goals.map(c =>
+        `<div class="cell goal ${c.doneAt ? 'ok' : ''}">
+           ${c.image ? `<img src="${esc(c.image)}">` : ''}
+           <span class="t"><b>${esc(c.title || c.id + '번')}</b><span>${won(c.amount)}원</span></span>
+           <button onclick="sgDone(${c.id})">${c.doneAt ? '✓ 달성' : '달성 찍기'}</button>
+         </div>`).join('') || '<div class="empty">아직 뒤집은 목표가 없습니다</div>')
+      + `</div>
+      <button class="btn a big" style="width:100%" onclick="sgAllClearM()">🎉 올클리어 ${done < goals.length ? `(남은 ${goals.length - done}장 한 번에 달성)` : '터뜨리기'}</button>`;
+}
+async function sgDone(id) {
+    try { await api('/api/siggame/done', { id }); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+async function sgAllClearM() {
+    const g = gd?.siggame; if (!g) return;
+    const goals = (g.cards || []).filter(c => c.flippedAt);
+    const left = goals.filter(c => !c.doneAt).length;
+    if (left > 0 && !confirm(`아직 ${left}장이 남아 있습니다.\n남은 목표를 전부 달성 처리하고 올클리어를 터뜨릴까요?`)) return;
+    try { const d = await api('/api/siggame/allclear'); toast(`🎉 올클리어! (${d.count}장)`); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+
+/* ═══ 🎰 슬롯 ═══ */
+function rSlot(el) {
+    el.innerHTML = `
+      <div class="empty" style="padding:26px 0 18px">버튼을 누르면 방송 화면에서<br>슬롯이 돌아가고 당첨 시그니처가 재생됩니다</div>
+      <button class="btn b big" style="width:100%" onclick="slotSpin(this)">🎰 슬롯 돌리기</button>`;
+}
+async function slotSpin(btn) {
+    btn.disabled = true; btn.textContent = '돌아가는 중…';
+    try { await api('/api/slot/spin'); toast('🎰 슬롯을 돌립니다'); }
+    catch (e) { toast('실패: ' + e.message, false); }
+    setTimeout(() => { btn.disabled = false; btn.textContent = '🎰 슬롯 돌리기'; }, 5000);
+}
+
+/* ═══ 🎡 룰렛 ═══ */
+function rRoulette(el) {
+    const r = gd?.roulette || {};
+    el.innerHTML = `
+      <div class="grp"><div class="cell" style="text-align:center; padding:18px">
+        <div style="font-size:15px; font-weight:800">${r.is_spinning ? '🎡 돌아가는 중' : (r.winner_name ? '당첨: ' + esc(r.winner_name) : '멈춰 있음')}</div>
+      </div></div>
+      <div class="btnrow">
+        <button class="btn g" onclick="roulette('spin')">▶ 회전</button>
+        <button class="btn r" onclick="roulette('stop')">■ 정지</button>
+        <button class="btn" onclick="roulette('reset')">초기화</button>
+      </div>
+      <div class="hint" style="margin-top:10px">항목 편집은 PC 조종실 → 룰렛 탭에서.</div>`;
+}
+async function roulette(cmd) {
+    const r = JSON.parse(JSON.stringify(gd?.roulette || {}));
+    r.command = cmd; r.command_time = Date.now() + serverOffset;
+    if (cmd === 'spin') { r.is_spinning = true; r.winner_name = null; }
+    else if (cmd === 'reset') { r.is_spinning = false; r.winner_name = null; r.select_index = -1; r.select_name = ''; }
+    else if (cmd === 'stop') { r.is_spinning = false; }
+    try { await patch({ roulette: r }); toast('룰렛: ' + cmd); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+
+/* ═══ 📢 전광판 ═══ */
+function rMarquee(el) {
+    el.innerHTML = `
+      <div class="grp-h">방송 화면에 흐르는 문구를 쏩니다</div>
+      <div class="grp"><div class="cell">
+        <input type="text" id="mq-text" placeholder="띄울 문구" style="margin-bottom:10px">
+        <button class="btn b" style="width:100%" onclick="fireMarquee()">📢 송출</button>
+      </div></div>`;
+}
+async function fireMarquee() {
+    const txt = $('mq-text').value.trim();
+    if (!txt) { toast('문구를 먼저 적어주세요', false); return; }
+    try { await patch({ up_trigger: { time: Date.now() + serverOffset, text: txt } });
+          $('mq-text').value = ''; toast('송출했습니다'); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+
+/* ═══ 🎵 재생 대기 ═══ */
+function rQueue(el) {
+    const q = gd?.reaction_queue || [];
+    el.innerHTML = `
+      <div class="btnrow" style="margin-bottom:14px">
+        <button class="btn b" onclick="qSkip()">⏭ 지금 것 건너뛰기</button>
+        <button class="btn ${gd?.reaction_paused ? 'g' : 'a'}" onclick="qPause()">${gd?.reaction_paused ? '▶ 재생 재개' : '⏸ 일시정지'}</button>
+      </div>
+      <div class="grp">` + (q.map((x, i) =>
+        `<div class="cell row"><span class="num" style="color:var(--dim); width:18px">${i + 1}</span>
+         <span style="flex:1; font-size:14px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(x.title || '')}</span>
+         <span style="font-size:12px; color:var(--mut)">${esc(x.donator || '')}</span></div>`).join('')
+        || '<div class="empty">재생 대기가 없습니다</div>') + '</div>';
+}
+async function qSkip() { try { await api('/api/reaction/next'); toast('넘겼습니다'); }
+                          catch (e) { toast('실패: ' + e.message, false); } }
+async function qPause() { try { await api('/api/reaction/pause'); }
+                           catch (e) { toast('실패: ' + e.message, false); } }
+
+/* ═══ ⌨️ 빠른 명령 ═══ */
+function rCmd(el) {
+    el.innerHTML = `
+      <div class="grp"><div class="cell">
+        <input type="text" id="cmd-q" placeholder="예: 밍밍 5  /  슬롯  /  건너뛰기" style="margin-bottom:10px"
+               onkeydown="if(event.key==='Enter')runCmd()">
+        <button class="btn b" style="width:100%" onclick="runCmd()">실행</button>
+      </div></div>
+      <div class="hint">이름 숫자 = 점수 주기 · 슬롯 · 룰렛 · 건너뛰기 · 올클리어<br>PC 조종실의 Ctrl+K 와 같은 문법입니다.</div>
+      <div id="cmd-log" style="margin-top:12px"></div>`;
+}
+async function runCmd() {
+    const q = $('cmd-q').value.trim();
+    if (!q) return;
+    $('cmd-q').value = '';
+    const say = m => { $('cmd-log').insertAdjacentHTML('afterbegin',
+        `<div class="grp"><div class="cell" style="font-size:13px">${m}</div></div>`); };
+    const m = q.match(/^([가-힣A-Za-z0-9]+?)\s*(?:한테|에게)?\s*\+?(\d+)\s*점?\s*(?:줘|주기)?$/);
+    if (m) {
+        const hit = players().filter(p => p.name.indexOf(m[1]) !== -1);
+        if (hit.length === 1) { await quickScore(hit[0].name, parseInt(m[2]));
+            say(`✔ ${esc(hit[0].name)} +${m[2]}점`); return; }
+        say(hit.length ? '⚠ 이름이 여럿: ' + hit.map(p => esc(p.name)).join(', ') : '⚠ 없는 이름');
+        return;
+    }
+    if (/슬롯/.test(q)) { await api('/api/slot/spin').catch(() => {}); say('🎰 슬롯'); return; }
+    if (/룰렛/.test(q)) { await roulette('spin'); say('🎡 룰렛'); return; }
+    if (/건너뛰|스킵|넘겨/.test(q)) { await qSkip(); say('⏭ 건너뛰기'); return; }
+    if (/올클/.test(q)) { await sgAllClearM(); return; }
+    say('⚠ 알 수 없는 명령: ' + esc(q));
+}
+
+/* ═══ 📜 로그 ═══ */
+function rLogs(el) {
+    const logs = (gd?.logs || []).slice(0, 40);
+    el.innerHTML = '<div class="grp">' + (logs.map(l =>
+        `<div class="cell row"><span class="num" style="color:var(--dim); font-size:11.5px">${esc(l.time)}</span>
+         <span style="flex:1; font-size:14px; font-weight:700">${esc(l.name)}</span>
+         <span class="num" style="font-weight:800; color:${(l.val||0) >= 0 ? 'var(--green)' : 'var(--red)'}">${(l.val||0) >= 0 ? '+' : ''}${l.val}</span></div>`).join('')
+        || '<div class="empty">기록이 없습니다</div>') + '</div>';
+}
+
+/* ═══ 🕹️ 버전 ═══ */
+let verData = null;
+function rVersion(el) {
+    if (!verData) { el.innerHTML = '<div class="empty">불러오는 중…</div>'; return; }
+    if (verData.err) { el.innerHTML = '<div class="empty">⚠ ' + esc(verData.err) + '</div>'; return; }
+    const c = verData.current || {};
+    el.innerHTML = `
+      <div class="grp"><div class="cell">
+        <div style="font-size:11px; color:var(--mut); font-weight:700">지금 돌고 있는 버전</div>
+        <div style="margin-top:4px"><span class="num" style="color:var(--gold); font-size:20px; font-weight:900">${esc(c.label || '')}</span>
+          <span style="font-size:14px; font-weight:700; margin-left:8px">${esc(c.subject || '')}</span></div>
+        ${verData.pinned ? `<div style="font-size:12px; color:var(--gold); margin-top:7px">📌 고정됨 — 자동 배포 멈춤</div>
+          <button class="btn b" style="width:100%; margin-top:9px" onclick="verLatest()">최신으로 돌아가기</button>` : ''}
+      </div></div>
+      <div class="grp">` + (verData.commits || []).map(v => {
+        const now = v.sha === c.sha;
+        return `<div class="cell row">
+          <span class="num" style="color:${now ? 'var(--green)' : 'var(--gold)'}; font-weight:900; width:44px">${esc(v.label)}</span>
+          <span style="flex:1; font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">${esc(v.subject)}</span>
+          ${now ? '<span style="font-size:11px; color:var(--green); font-weight:800">지금</span>'
+                : `<button style="background:var(--card2); color:#fff; border-radius:8px; padding:7px 12px; font-size:11.5px; font-weight:700"
+                     onclick="verSwitch('${v.sha}','${esc(v.label)}',${v.has_ui === false ? 'false' : 'true'})">이걸로</button>`}
+        </div>`; }).join('') + '</div>';
+}
+async function loadVersions() {
+    try {
+        const res = await fetch('/api/version/list');
+        verData = await res.json();
+        if (!res.ok || verData.status !== 'success') verData = { err: verData.message || ('HTTP ' + res.status) };
+    } catch (e) { verData = { err: '서버에 연결하지 못했습니다' }; }
+    if (openedApp === 'version') rVersion($('sheet-body'));
+}
+async function verSwitch(sha, label, hasUi) {
+    let msg = label + ' 로 되돌립니다.\n서버가 몇 초 껐다 켜집니다. 그 사이 후원은 사라지지 않습니다.';
+    if (!hasUi) msg += '\n\n⚠️ 이 버전에는 버전 화면이 없어 폰에서 못 돌아옵니다!';
+    if (!confirm(msg)) return;
+    try {
+        const d = await api('/api/version/switch', { sha });
+        if (d.restarting) waitPatch();
+    } catch (e) { toast('실패: ' + e.message, false); }
+}
+async function verLatest() {
+    if (!confirm('최신 버전으로 돌아가고 자동 배포를 다시 켭니다.')) return;
+    try { const d = await api('/api/version/latest'); if (d.restarting) waitPatch(); else toast(d.message); }
+    catch (e) { toast('실패: ' + e.message, false); }
+}
+async function waitPatch() {
+    $('patchveil').classList.add('on');
+    for (let i = 0; i < 90; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try { const r = await fetch('/api/ping', { cache:'no-store' });
+              if (r.ok) { await new Promise(r2 => setTimeout(r2, 1000)); location.reload(); return; } }
+        catch (e) {}
+    }
+    $('patchveil').classList.remove('on');
+    toast('서버가 돌아오지 않습니다 — 상태를 확인해주세요', false);
+}
+
+/* ═══ 🩺 상태 ═══ */
+let healthData = null;
+function rHealth(el) {
+    if (!healthData) { el.innerHTML = '<div class="empty">불러오는 중…</div>'; return; }
+    const h = healthData;
+    const age = h.last_donation_age_sec;
+    const rows = [
+        ['서버', h.status === 'ok' ? '정상' : String(h.status)],
+        ['마지막 후원', age == null ? '없음' : (age < 60 ? age + '초 전' : Math.floor(age / 60) + '분 전')],
+        ['보고 있는 화면', (h.sse_clients || 0) + '대'],
+        ['대기함', ((h.counts || {}).pending || 0) + '건'],
+        ['재생 대기', ((h.counts || {}).reaction_queue || 0) + '건'],
+        ['저장소', (h.storage || {}).ok ? ((h.storage || {}).kind + ' 정상') : '⚠ 문제'],
+        ['켜진 지', Math.floor((h.uptime_sec || 0) / 60) + '분'],
+    ];
+    el.innerHTML = '<div class="grp">' + rows.map(r =>
+        `<div class="cell row"><span style="flex:1; font-size:14px; color:var(--mut)">${r[0]}</span>
+         <span class="num" style="font-size:14px; font-weight:700">${esc(String(r[1]))}</span></div>`).join('') + '</div>';
+}
+async function loadHealth() {
+    try { healthData = await (await fetch('/api/health')).json(); } catch (e) { healthData = { status:'연결 안 됨' }; }
+    if (openedApp === 'health') rHealth($('sheet-body'));
+}
+
+/* ═══ 🔔 알림 배너 — 위에서 내려온다 ═══ */
+function banner(icon, title, sub, iconBg, onTap, ms) {
+    const b = document.createElement('div');
+    b.className = 'banner';
+    b.innerHTML = `<span class="bi" style="background:${iconBg || 'var(--card2)'}">${icon}</span>
+                   <span class="bt"><b>${title}</b><span>${sub || ''}</span></span>`;
+    b.onclick = () => { dismiss(); if (onTap) onTap(); };
+    const wrap = $('banners');
+    wrap.prepend(b);
+    while (wrap.children.length > 3) wrap.lastChild.remove();
+    requestAnimationFrame(() => b.classList.add('in'));
+    let t = setTimeout(dismiss, ms || 4500);
+    function dismiss() { clearTimeout(t); b.classList.add('out'); setTimeout(() => b.remove(), 350); }
+}
+
+/* ═══ 오토파일럿 판정 물어보기 ═══ */
+async function queueAudits() {
+    if (!gd) return;
+    const names = players().map(p => p.name);
+    for (const don of (gd.pending_donations || [])) {
+        if (asked.has(don.id)) continue;
+        asked.add(don.id);
+        try {
+            const res = await api('/api/audit/suggest',
+                { name:don.name, amount:don.amount, message:don.message || '', players:names });
+            if (res && res.status === 'success') { suggest[don.id] = res; renderApp(); }
+        } catch (e) { asked.delete(don.id); }
+    }
+}
+
+/* ═══ SSE ═══ */
+function handleState(st) {
+    if (st.server_time) serverOffset = st.server_time - Date.now();
+    const prev = gd; gd = st;
+    // 새 후원 알림 — 처음 받은 상태는 '이미 있던 것'이라 울리지 않는다
+    for (const d of (st.pending_donations || [])) {
+        if (!seenDon.has(d.id)) {
+            seenDon.add(d.id);
+            if (!firstState) banner('💰', `${d.name} · ${won(d.amount)}원`,
+                d.message || '(메시지 없음)', 'linear-gradient(135deg,#b8860b,#8a6508)',
+                () => openApp('pending'));
+        }
+    }
+    firstState = false;
+    renderHome(); renderApp(); queueAudits();
+    $('sb-ver').textContent = '';
+}
+function connectSSE() {
+    const es = new EventSource('/api/stream' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : ''));
+    es.onopen = () => { $('sb-dot').classList.remove('off'); $('sb-txt').textContent = '연결됨'; };
+    const on = e => { try { handleState(JSON.parse(e.data)); } catch (err) {} };
+    es.addEventListener('init', on);
+    es.addEventListener('update', on);
     es.onerror = () => {
-        $('conn').textContent = '재연결 중…';
-        $('conn').className = 'bad';
-        es.close();
-        setTimeout(connect, 3000);
+        $('sb-dot').classList.add('off'); $('sb-txt').textContent = '재연결 중…';
+        es.close(); setTimeout(connectSSE, 1500);
     };
 }
-// 연결이 조용히 죽는 경우(프록시가 끊었는데 onerror 가 안 뜨는 상황) 대비
+connectSSE();
 setInterval(() => {
-    if (Date.now() - lastMsg > 45000) { lastMsg = Date.now(); connect(); }
-}, 10000);
-
-connect();
+    const d = new Date(Date.now() + serverOffset);
+    $('sb-time').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}, 1000);
+renderHome();
 </script>
 </body>
 </html>
