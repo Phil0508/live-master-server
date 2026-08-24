@@ -66,6 +66,54 @@
         #guide-h { height: 1px; left: 0; width: 1080px; }
         /* 드래그 중인 위젯은 그래픽카드가 맡는다 — 배치 계산을 건너뛴다 */
         .widget.dragging { will-change: transform; cursor: grabbing; z-index: 9999; }
+        /* ══════════════════════════════════════════════════
+           🎛️ 편집기 정리 (2026-08-25) — 조종실과 같은 콘솔 톤.
+           노랑=지금 활성 · 빨강=위험 · 나머지는 회색 계단.
+           설정 덩어리는 접힌다 — 이 화면에서 제일 많이 하는 일은
+           '위젯 끌어 놓기'이고, 왼쪽 설정은 한 번 맞추면 잘 안 건드린다.
+           ══════════════════════════════════════════════════ */
+        .sidebar-content { padding: 14px !important; }
+        .sidebar-header { padding: 16px 14px !important; }
+        .sidebar-header h1 { font-size: 15px !important; letter-spacing: -0.2px; }
+        .sidebar-header p { font-size: 11px !important; line-height: 1.6; color: #7d828c !important; }
+
+        .sec { border: 1px solid #262a31; border-radius: 9px; background: #191b20;
+               margin-bottom: 10px; overflow: hidden; }
+        .sec > .sec-h { display: flex; align-items: center; gap: 8px; cursor: pointer;
+               padding: 9px 12px; background: #1e2127; border-bottom: 1px solid #262a31;
+               font-size: 12px; font-weight: 800; color: #c9cdd5; letter-spacing: .4px;
+               user-select: none; }
+        .sec > .sec-h i:first-child { color: #ffcf4d; }
+        .sec > .sec-h .arrow { margin-left: auto; color: #6f7480; font-size: 11px;
+               transition: transform .15s ease; }
+        .sec.folded > .sec-h { border-bottom: none; }
+        .sec.folded > .sec-h .arrow { transform: rotate(-90deg); }
+        .sec.folded > .sec-b { display: none; }
+        .sec > .sec-b { padding: 12px; }
+        /* 덩어리 안에서는 낡은 상자 테두리를 걷는다 — 상자 속 상자가 지저분했다 */
+        .sec .property-box { background: transparent !important; border: none !important;
+               padding: 0 !important; margin: 0 !important; }
+
+        .sidebar button { background: #22252c; border: 1px solid #343943; color: #e8e8ec;
+               border-radius: 7px; font-size: 12.5px; padding: 9px 12px; margin-bottom: 8px; }
+        .sidebar button:hover { background: #262b33; border-color: #454b57; transform: none; }
+        .sidebar button.danger { background: rgba(255,69,58,.10); color: #ff6f66;
+               border-color: rgba(255,69,58,.45); }
+        .sidebar input[type="range"] { accent-color: #ffcf4d; }
+        .sidebar .admin-input, .sidebar input[type="text"], .sidebar input[type="number"] {
+               background: #101216; border: 1px solid #343943; border-radius: 7px;
+               color: #fff; padding: 8px 10px; font-size: 12.5px; }
+        .prop-row { font-size: 12px !important; color: #a8adb6 !important; margin-bottom: 9px !important; }
+        .prop-row span { color: #ffcf4d !important; font-family: 'JetBrains Mono','Consolas',monospace; font-size: 11.5px; }
+        .prop-name { font-size: 13.5px !important; color: #ffcf4d !important; }
+        /* 선택된 위젯 칸만 눈에 띄게 — 지금 무엇을 만지는지가 제일 중요하다 */
+        #property-panel.property-box.active { border: 1px solid rgba(255,207,77,.45) !important;
+               background: rgba(255,207,77,.05) !important; border-radius: 9px !important;
+               padding: 12px !important; margin-bottom: 10px !important; }
+        /* 실시간 표시는 작게 — 늘 켜져 있는 상태라 크게 외칠 이유가 없다 */
+        .live-badge { padding: 8px !important; font-size: 11.5px !important; box-shadow: none !important;
+               border-radius: 8px !important; }
+        .live-dot { width: 7px !important; height: 7px !important; }
         .guide-text { position: absolute; top: 15px; left: 30px; color: #888; font-size: 14px; font-weight: bold; pointer-events: none; }
     </style>
 </head>
@@ -73,6 +121,22 @@
     <div class="sidebar">
         <div class="sidebar-header"><h1><i class="fa-solid fa-mobile-screen"></i> 레이아웃 에디터</h1><p>1080x1920 (세로형) 화면입니다.<br>마우스로 실물 박스를 잡고 끄세요.</p></div>
         <div class="sidebar-content">
+            <!-- 📐 이 화면에서 가장 자주 쓰는 도구를 맨 위에 둔다 -->
+            <div class="sec" data-sec="tidy"><div class="sec-h" onclick="secToggle(this)"><i class="fa-solid fa-object-group"></i> 위젯 정리<span class="arrow">▾</span></div><div class="sec-b">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px;">
+                    <button onclick="tidy('left')" style="margin:0;"><i class="fa-solid fa-align-left"></i> 왼쪽 맞춤</button>
+                    <button onclick="tidy('centerX')" style="margin:0;"><i class="fa-solid fa-align-center"></i> 가운데</button>
+                    <button onclick="tidy('inside')" style="margin:0;"><i class="fa-solid fa-compress"></i> 화면 안으로</button>
+                    <button onclick="tidy('grid')" style="margin:0;"><i class="fa-solid fa-border-all"></i> 격자 맞춤</button>
+                </div>
+                <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
+                    <input type="checkbox" id="snap-on" checked style="width:auto; margin:0; accent-color:#ffcf4d;"> 격자·안내선에 붙이기
+                </label>
+                <div style="font-size:11px; color:#7d828c; margin-top:7px; line-height:1.65;">
+                    끄는 중 <b style="color:#a8adb6;">Alt</b> = 잠시 자유 이동<br>
+                    고른 뒤 <b style="color:#a8adb6;">화살표 키</b> = 1px씩 (Shift 10px)
+                </div>
+            </div></div>
             
 
 
@@ -89,7 +153,7 @@
                 </div>
             </div>
             
-            <div class="group-title"><i class="fa-solid fa-clapperboard"></i> 시그니처 리액션 위젯</div>
+            <div class="sec" data-sec="reaction"><div class="sec-h" onclick="secToggle(this)"><i class="fa-solid fa-clapperboard"></i> 시그니처 리액션 위젯<span class="arrow">▾</span></div><div class="sec-b">
             <div class="property-box" style="display:block;">
                 <div class="prop-row"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> 큰 크기<input type="range" id="reac-big" min="0.5" max="2.0" step="0.05" value="1.0" oninput="updateReac('reaction_big_scale', this.value, 'reac-big-val')"><span id="reac-big-val">1.00</span></div>
                 <div class="prop-row"><i class="fa-solid fa-down-left-and-up-right-to-center"></i> 작은 크기<input type="range" id="reac-small" min="0.3" max="1.5" step="0.05" value="0.6" oninput="updateReac('reaction_small_scale', this.value, 'reac-small-val')"><span id="reac-small-val">0.60</span></div>
@@ -114,7 +178,8 @@
                 <div style="font-size:11px;color:var(--accent);margin-top:6px;text-align:center;"><i class="fa-solid fa-bolt"></i> 값을 바꾸면 방송 오버레이에 즉시 적용</div>
             </div>
 
-            <div class="group-title"><i class="fa-solid fa-ranking-star"></i> 시그니처 순위 패널</div>
+            </div></div>
+            <div class="sec" data-sec="tally"><div class="sec-h" onclick="secToggle(this)"><i class="fa-solid fa-ranking-star"></i> 시그니처 순위 패널<span class="arrow">▾</span></div><div class="sec-b">
             <div class="property-box" style="display:block;">
                 <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; cursor:pointer; color:#fff;">
                     <input type="checkbox" id="tally-on" onchange="updateTallyOn(this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
@@ -125,23 +190,12 @@
                 <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5;">이번 방송에 신청된 시그니처를 횟수 순으로 보여줍니다. 방송 시작/종료 시 자동으로 초기화됩니다.</div>
             </div>
 
-            <div class="group-title"><i class="fa-solid fa-bolt"></i> 오토 세이브 (OBS 모드)</div>
-            <div class="live-badge"><div class="live-dot"></div> 실시간 자동 적용 중</div>
-            <div class="group-title" style="margin-top:24px;"><i class="fa-solid fa-object-group"></i> 위젯 정리</div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                <button onclick="tidy('left')" style="margin:0;"><i class="fa-solid fa-align-left"></i> 왼쪽 맞춤</button>
-                <button onclick="tidy('centerX')" style="margin:0;"><i class="fa-solid fa-align-center"></i> 가운데 맞춤</button>
-                <button onclick="tidy('inside')" style="margin:0;"><i class="fa-solid fa-compress"></i> 화면 안으로</button>
-                <button onclick="tidy('grid')" style="margin:0;"><i class="fa-solid fa-border-all"></i> 격자에 맞춤</button>
-            </div>
-            <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:#ccc; cursor:pointer;">
-                <input type="checkbox" id="snap-on" checked style="width:auto; margin:0;"> 격자·안내선에 붙이기
-            </label>
-            <div style="font-size:11px; color:#888; margin-top:6px; line-height:1.6;">
-                드래그 중 <b>Alt</b> 를 누르면 잠시 자유 이동.<br>
-                위젯을 고르고 <b>화살표 키</b>로 1px씩(Shift 10px) 미세 조정.
-            </div>
-            <button class="danger" onclick="resetLayout()" style="margin-top: 18px;"><i class="fa-solid fa-rotate-left"></i> 기본 위치로 리셋</button>
+            </div></div>
+            <div class="sec" data-sec="danger"><div class="sec-h" onclick="secToggle(this)"><i class="fa-solid fa-triangle-exclamation"></i> 되돌리기<span class="arrow">▾</span></div><div class="sec-b">
+                <button class="danger" onclick="resetLayout()" style="width:100%; margin:0;"><i class="fa-solid fa-rotate-left"></i> 모든 위젯을 기본 위치로</button>
+                <div style="font-size:11px; color:#7d828c; margin-top:8px; line-height:1.6;">지금 배치를 버리고 처음 상태로 되돌립니다. 되돌릴 수 없습니다.</div>
+            </div></div>
+            <div class="live-badge" style="margin-top:4px;"><div class="live-dot"></div> 실시간 자동 적용 중</div>
         </div>
     </div>
 
@@ -270,6 +324,23 @@
     </div>
 
     <script>
+        /* 🔑 주소에 ?token= 이 있으면 그걸로 인증한다 (조종실·폰과 같은 방식).
+              ⚠️ 편집기에만 이 처리가 없었다. 그래서 토큰 주소로 열면 화면은 뜨는데
+                 설정을 바꾸는 요청이 전부 401 로 조용히 튕겼다 — 슬라이더를 움직여도
+                 아무 일도 안 일어나고 오류도 안 보였다. EventSource 는 헤더를 못 붙이니
+                 실시간 연결은 주소에 실어야 한다. */
+        const TOKEN = (() => { try { return new URLSearchParams(location.search).get('token') || ''; }
+                               catch (e) { return ''; } })();
+        const _origFetch = window.fetch;
+        window.fetch = function (r, i) {
+            if (TOKEN && typeof r === 'string' && r.startsWith('/api/')) {
+                i = i || {}; i.headers = i.headers || {};
+                if (i.headers instanceof Headers) i.headers.set('Authorization', 'Bearer ' + TOKEN);
+                else i.headers['Authorization'] = 'Bearer ' + TOKEN;
+            }
+            return _origFetch(r, i);
+        };
+
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
             const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기' };
@@ -448,7 +519,7 @@
             let adminLastMsg = Date.now();
             function connectAdminSSE() {
                 if (adminEs) adminEs.close();
-                adminEs = new EventSource('/api/stream');
+                adminEs = new EventSource('/api/stream' + (TOKEN ? ('?token=' + encodeURIComponent(TOKEN)) : ''));
                 const onState = e => {
                     adminLastMsg = Date.now();
                     try { renderFromStateSafe(JSON.parse(e.data)); } catch (err) {}
@@ -756,6 +827,18 @@
             // 화면이 그려지지 않는 환경(자동 점검 등)에서는 requestAnimationFrame 이 멈춰 있어
             // 드래그 계산을 확인할 방법이 없다. 한 프레임을 손으로 돌릴 수 있게 열어둔다.
             window._dragFrame = dragFrame;
+
+            /* 📁 설정 덩어리 접기 — 접은 상태는 브라우저가 기억한다.
+               '위젯 정리'만 펼쳐 두고 나머지는 처음부터 접는다. */
+            window.secToggle = function (h) {
+                const sec = h.closest('.sec');
+                const folded = sec.classList.toggle('folded');
+                localStorage.setItem('edsec:' + sec.dataset.sec, folded ? '1' : '0');
+            };
+            document.querySelectorAll('.sec').forEach(sec => {
+                const saved = localStorage.getItem('edsec:' + sec.dataset.sec);
+                if (saved === '1' || (saved === null && sec.dataset.sec !== 'tidy')) sec.classList.add('folded');
+            });
 
             setTimeout(loadLayout, 100); fetchRealData(); connectAdminSSE();
         });
