@@ -3688,22 +3688,68 @@ def _recent_commits(limit=VERSION_LIST_MAX):
         parts = line.split('\x1f')
         if len(parts) == 4:
             rows.append({'sha': parts[0], 'short': parts[1],
-                         'date': parts[2], 'subject': parts[3],
-                         'has_ui': _has_version_ui(parts[0])})
+                         'date': parts[2], 'subject': parts[3]})
+    shas = [r['sha'] for r in rows]
+    ui = _commits_with_version_ui(shas)
+    nums = _version_nums(shas)
+    for r in rows:
+        r['num'] = nums.get(r['sha'], 0)
+        r['label'] = ('V%d' % r['num']) if r['num'] else r['short']
+        r['has_ui'] = (r['sha'] in ui) if ui is not None else None
     return rows
 
 
-def _has_version_ui(sha):
-    """그 버전에 이 '버전' 화면이 들어 있는가.
+def _version_nums(shas):
+    """여러 버전의 번호를 한꺼번에. {sha: 번호}
+
+       ⚠️ 커밋마다 세면 20번을 부른다. 맨 위와 맨 아래만 세보고 차이가 딱 맞으면
+          (= 그 구간이 한 줄로 이어져 있으면) 사이는 빼기로 채운다. 2번이면 끝난다.
+          갈라졌다 합쳐진 구간이면 딱 안 맞으므로, 그때만 하나씩 센다.
+    """
+    if not shas:
+        return {}
+    top = _version_num(shas[0])
+    bot = _version_num(shas[-1])
+    if top and bot and (top - bot) == (len(shas) - 1):
+        return {sha: top - i for i, sha in enumerate(shas)}
+    return {sha: _version_num(sha) for sha in shas}
+
+
+def _version_num(sha):
+    """그 커밋까지 쌓인 커밋 수 = V번호. 자동으로 매겨지고 다시 안 바뀐다."""
+    out, ok = _git('rev-list', '--count', sha, timeout=15)
+    try:
+        return int(out) if ok else 0
+    except ValueError:
+        return 0
+
+
+def _commits_with_version_ui(shas):
+    """준 버전들 중 이 '버전' 화면이 들어 있는 것들. 모르면 None.
 
        ⚠️ 없는 버전으로 되돌리면 조종실에서 돌아올 방법이 사라진다
           (서버에 직접 들어가 고정 파일을 지워야 한다). 미리 알려주려고 본다.
+
+       ⚠️ 찾을 글자는 반드시 쪼개서 만든다. 통째로 적으면 '이 함수 자신'이 걸려서
+          어떤 버전이든 '있음'으로 나온다(실제로 그렇게 틀렸다).
+
+       ⚠️ '처음 들어온 커밋 뒤는 전부 있다'로 보면 안 된다 — 뺐다가 다시 넣은
+          이력이 있으면 틀린다. git grep 은 여러 버전을 한 번에 받으므로
+          한 번 불러서 정확하게 가른다.
     """
-    # ⚠️ 찾을 글자를 반드시 쪼개서 만든다. 통째로 적으면 '이 함수 자신'이 걸려서
-    #    어떤 버전이든 '있음'으로 나온다(실제로 그렇게 틀렸다).
+    if not shas:
+        return set()
     marker = '/api/' + 'version/switch'
-    out, ok = _git('grep', '-l', marker, sha, '--', 'server.py', timeout=15)
-    return bool(ok and out)
+    out, ok = _git('grep', '-l', marker, *shas, '--', 'server.py', timeout=40)
+    if not ok and not out:
+        return None          # 못 봤으면 표시하지 않는다(틀린 표시보다 낫다)
+    got = set()
+    for line in (out or '').splitlines():
+        # 'e288b1e...:server.py' 모양으로 온다
+        head = line.split(':', 1)[0].strip()
+        if head:
+            got.add(head)
+    return got
 
 
 def _restart_services():
@@ -3741,11 +3787,15 @@ def api_version_list():
     _git('fetch', '--quiet', 'origin', 'main', timeout=20)
     subj, _ = _git('log', '-1', '--pretty=%s')
     date, _ = _git('log', '-1', '--date=format:%Y-%m-%d %H:%M', '--pretty=%ad')
+    num = _version_num(head)
+    run_num = _version_num(RUNNING_SHA) if RUNNING_SHA else 0
     # ⚠️ '파일이 이 버전' 과 '지금 돌고 있는 코드가 이 버전' 은 다르다.
     #    재시작이 안 됐으면 파일만 바뀌고 옛 코드가 계속 돈다.
     return jsonify({'status': 'success',
-                    'current': {'sha': head, 'short': head[:8], 'subject': subj, 'date': date},
+                    'current': {'sha': head, 'short': head[:8], 'subject': subj, 'date': date,
+                                'num': num, 'label': ('V%d' % num) if num else head[:8]},
                     'running_sha': RUNNING_SHA,
+                    'running_label': ('V%d' % run_num) if run_num else RUNNING_SHA[:8],
                     'needs_restart': bool(RUNNING_SHA and head and RUNNING_SHA != head),
                     'pinned': _pinned_sha(),
                     'commits': _recent_commits()})
@@ -3789,9 +3839,10 @@ def api_version_switch():
 
     # 응답을 먼저 보내고 재시작한다 — 재시작이 지금 이 프로세스를 죽이기 때문이다.
     threading.Timer(1.0, _restart_services).start()
+    lbl = 'V%d' % _version_num(want) if _version_num(want) else want[:8]
     return jsonify({'status': 'success', 'restarting': True,
-                    'sha': want, 'short': want[:8], 'subject': subj,
-                    'message': f'{want[:8]} 로 옮겼습니다. 곧 다시 시작합니다'})
+                    'sha': want, 'short': want[:8], 'subject': subj, 'label': lbl,
+                    'message': f'{lbl} 로 옮겼습니다. 곧 다시 시작합니다'})
 
 
 @app.route('/api/version/latest', methods=['POST'])

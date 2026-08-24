@@ -988,6 +988,53 @@
     </style>
 </head>
 <body>
+
+<!-- 🩹 패치 진행 중 — 서버가 재시작되는 동안 덮어씌운다 -->
+<div id="patch-screen">
+    <div class="ps-card">
+        <div class="ps-spin"></div>
+        <div class="ps-title">패치 진행 중</div>
+        <div class="ps-sub" id="ps-sub">서버가 새 버전으로 다시 켜지고 있습니다</div>
+        <div class="ps-note">
+            그동안 들어온 후원은 <b>사라지지 않습니다</b> — 서버가 켜지면 다시 들어옵니다.<br>
+            방송 화면(오버레이)도 저절로 다시 붙습니다.
+        </div>
+        <div class="ps-time" id="ps-time">0초</div>
+        <button class="ps-skip" id="ps-skip" onclick="patchScreenHide(true)">닫고 그냥 보기</button>
+    </div>
+</div>
+<style>
+    #patch-screen {
+        position: fixed; inset: 0; z-index: 2147483000; display: none;
+        background: rgba(8, 8, 12, 0.93); backdrop-filter: blur(6px);
+        align-items: center; justify-content: center;
+        font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    }
+    #patch-screen.on { display: flex; }
+    #patch-screen .ps-card {
+        text-align: center; padding: 40px 46px; border-radius: 20px;
+        background: linear-gradient(180deg, #1b1b24, #111118);
+        border: 1px solid rgba(255, 204, 0, 0.35);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7); max-width: 520px;
+    }
+    #patch-screen .ps-spin {
+        width: 46px; height: 46px; margin: 0 auto 22px;
+        border: 4px solid rgba(255, 204, 0, 0.2); border-top-color: #ffcc00;
+        border-radius: 50%; animation: psSpin 0.9s linear infinite;
+    }
+    @keyframes psSpin { to { transform: rotate(360deg); } }
+    #patch-screen .ps-title { font-size: 30px; font-weight: 900; color: #ffcc00; letter-spacing: -0.5px; }
+    #patch-screen .ps-sub { margin-top: 10px; font-size: 16px; font-weight: 700; color: #e6e6ea; }
+    #patch-screen .ps-note { margin-top: 18px; font-size: 13px; line-height: 1.75; color: #9a9aa6; }
+    #patch-screen .ps-time { margin-top: 20px; font-size: 13px; font-weight: 800; color: #6f7280;
+                             font-variant-numeric: tabular-nums; }
+    #patch-screen .ps-skip {
+        margin-top: 20px; height: 34px; padding: 0 18px; border-radius: 9px; cursor: pointer;
+        background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #9a9aa6;
+        font-size: 13px; font-weight: 700;
+    }
+    #patch-screen .ps-skip:hover { border-color: rgba(255,255,255,0.45); color: #e6e6ea; }
+</style>
     <div id="reaction-toast" class="reaction-toast">
         <div class="reaction-toast-dot"></div>
         <span>🟢 화면내에서 리액션 모드로 진입했습니다.</span>
@@ -2517,7 +2564,10 @@
                     '<div style="background:rgba(0,0,0,0.25); border:1px solid ' + (pinned ? 'rgba(255,204,0,0.6)' : 'var(--border-light)') + ';'
                   + ' border-radius:var(--r-2); padding:12px 14px;">'
                   + '<div style="font-size:var(--fs-1); color:var(--text-muted); font-weight:800; letter-spacing:.3px;">지금 돌고 있는 버전</div>'
-                  + '<div style="color:#fff; font-weight:900; font-size:var(--fs-3); margin-top:5px;">' + escapeHTML(c.subject || '(알 수 없음)') + '</div>'
+                  + '<div style="display:flex; align-items:baseline; gap:10px; margin-top:5px;">'
+                  + '<span style="font-size:26px; font-weight:900; color:var(--gold); letter-spacing:-0.5px;">' + escapeHTML(c.label || '') + '</span>'
+                  + '<span style="color:#fff; font-weight:900; font-size:var(--fs-3);">' + escapeHTML(c.subject || '(알 수 없음)') + '</span>'
+                  + '</div>'
                   + '<div style="color:var(--text-dim); font-size:var(--fs-2); margin-top:4px;">' + escapeHTML(c.short || '') + ' · ' + escapeHTML(c.date || '') + '</div>'
                   + (stale
                       ? '<div style="margin-top:9px; color:var(--danger); font-size:var(--fs-2); font-weight:800;">⚠️ 파일은 이 버전으로 바뀌었지만 서버가 아직 다시 시작되지 않았습니다 — 옛 코드가 돌고 있습니다.<br>서버에 재시작 권한이 없을 수 있습니다(README 의 sudoers 설정 확인). 자동 배포는 고정 중이라 손대지 않습니다.</div>'
@@ -2535,6 +2585,9 @@
                     return '<div style="display:flex; gap:10px; align-items:center; padding:9px 10px; border-radius:var(--r-2);'
                          + ' border:1px solid ' + (now ? 'rgba(46,204,113,.5)' : 'transparent') + ';'
                          + ' background:' + (now ? 'rgba(46,204,113,.10)' : 'transparent') + '; margin-bottom:4px;">'
+                         + '<div style="flex:none; min-width:52px; text-align:center; font-weight:900; font-size:var(--fs-2);'
+                         + ' color:' + (now ? '#8ff0b0' : 'var(--gold)') + '; opacity:' + (now ? '1' : '.8') + ';">'
+                         + escapeHTML(v.label || v.short) + '</div>'
                          + '<div style="flex:1; min-width:0;">'
                          + '<div style="color:#e6e6ea; font-size:var(--fs-2); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">'
                          + escapeHTML(v.subject) + '</div>'
@@ -2545,7 +2598,7 @@
                          + '</div>'
                          + (now
                              ? '<span style="flex:none; color:#2ecc71; font-size:var(--fs-1); font-weight:900;">지금 이것</span>'
-                             : '<button class="secondary" onclick="switchVersion(\'' + v.sha + '\',' + (v.has_ui === false ? 'false' : 'true') + ')" style="flex:none; height:30px; font-size:var(--fs-1); padding:0 12px; border-radius:var(--r-2);">이 버전으로</button>')
+                             : '<button class="secondary" onclick="switchVersion(\'' + v.sha + '\',' + (v.has_ui === false ? 'false' : 'true') + ',\'' + (v.label || v.short) + '\')" style="flex:none; height:30px; font-size:var(--fs-1); padding:0 12px; border-radius:var(--r-2);">이 버전으로</button>')
                          + '</div>';
                 }).join('');
                 _verLoaded = true;
@@ -2555,29 +2608,16 @@
             }
         }
 
-        // 재시작이 끝나 서버가 돌아올 때까지 기다렸다가 화면을 새로 그린다
+        // 버전을 바꾼 뒤에는 '패치 진행 중' 화면을 그대로 쓴다.
+        // 서버가 돌아오면 스스로 새로고침하므로, 여기서 따로 그릴 것이 없다.
         async function _waitServerBack(msg) {
-            const box = document.getElementById('ver-list');
-            if (box) box.innerHTML = '<div style="color:var(--gold); font-size:var(--fs-2); font-weight:800; padding:10px;">'
-                                   + escapeHTML(msg) + ' 서버가 다시 켜지길 기다리는 중…</div>';
-            for (let i = 0; i < 60; i++) {
-                await new Promise(r => setTimeout(r, 1000));
-                try {
-                    const r = await fetch('/api/ping', { cache: 'no-store' });
-                    if (r.ok) {
-                        await new Promise(r2 => setTimeout(r2, 1200));   // 뜨자마자 말고 조금 더
-                        _verBusy = false;
-                        await loadVersions(true);
-                        acctToast('✅ 서버가 다시 켜졌습니다. 화면을 새로고침하세요', 'ok');
-                        return;
-                    }
-                } catch (e) { /* 아직 안 켜졌다 */ }
-            }
-            _verBusy = false;
-            if (box) box.innerHTML = '<div style="color:var(--danger); font-size:var(--fs-2); padding:10px;">서버가 1분 안에 돌아오지 않았습니다. 서버 상태를 확인해주세요.</div>';
+            _psDismissed = false;               // 전에 닫았더라도 이번엔 보여준다
+            patchScreenShow(msg || '서버가 다시 켜지고 있습니다');
+            // 아직 안 죽었을 수 있으니(재시작까지 1초) 잠깐 기다렸다 확인을 건다
+            setTimeout(() => { try { patchScreenProbe(msg); } catch (e) {} }, 700);
         }
 
-        async function switchVersion(sha, hasUi) {
+        async function switchVersion(sha, hasUi, label) {
             if (_verBusy) return;
             // ⚠️ 이 화면이 없던 시절로 되돌리면 조종실에서 돌아올 방법이 사라진다.
             //    서버에 직접 들어가 고정 파일을 지워야 하므로 미리 세게 알린다.
@@ -2587,7 +2627,7 @@
                   + '    서버에 직접 들어가 DEPLOY_PIN 파일을 지워야 합니다.'
                 : '';
             if (!await premiumConfirm(
-                    '이 버전으로 되돌립니다.\n\n' +
+                    (label ? (label + ' 로 되돌립니다.\n\n') : '이 버전으로 되돌립니다.\n\n') +
                     '· 서버가 몇 초 동안 껐다 켜집니다 (방송 화면이 잠깐 끊길 수 있습니다)\n' +
                     '· 그 사이 들어온 후원은 사라지지 않고 다시 보내집니다\n' +
                     '· 되돌려두면 자동 배포가 멈춥니다 ([최신으로]를 눌러야 다시 따라갑니다)' + noWay,
@@ -5028,6 +5068,69 @@
             }
         }
 
+        // ══ 🩹 패치 진행 중 화면 ══
+        //
+        // 서버는 새 코드가 올라올 때마다 재시작된다(자동 배포 2분 주기, 버전 되돌리기).
+        // 예전에는 그동안 조그만 '연결 끊김' 표시만 떠서, 멈춘 건지 고장 난 건지 알 수 없었다.
+        // ⚠️ 잠깐 끊긴 것과 '재시작 중'을 구별해야 한다. 그냥 SSE 가 한 번 끊겼다고 바로
+        //    이 화면을 띄우면 방송 중에 시도 때도 없이 덮인다. /api/ping 이 실제로
+        //    안 되는 것을 확인하고, 그 상태가 잠깐 이어질 때만 띄운다.
+        let _psShown = false, _psT0 = 0, _psTick = null, _psDismissed = false, _psProbing = false;
+
+        function patchScreenShow(msg) {
+            if (_psDismissed) return;                 // 사용자가 닫았으면 다시 안 띄운다
+            const el = document.getElementById('patch-screen');
+            if (!el || _psShown) { if (msg) { const t = document.getElementById('ps-sub'); if (t) t.textContent = msg; } return; }
+            _psShown = true; _psT0 = Date.now();
+            if (msg) { const t = document.getElementById('ps-sub'); if (t) t.textContent = msg; }
+            el.classList.add('on');
+            const tm = document.getElementById('ps-time');
+            _psTick = setInterval(() => {
+                const sec = Math.floor((Date.now() - _psT0) / 1000);
+                if (tm) tm.textContent = sec + '초'
+                        + (sec > 90 ? ' · 오래 걸립니다. 서버 상태를 확인해주세요' : '');
+            }, 1000);
+        }
+
+        function patchScreenHide(byUser) {
+            const el = document.getElementById('patch-screen');
+            if (el) el.classList.remove('on');
+            if (_psTick) { clearInterval(_psTick); _psTick = null; }
+            _psShown = false;
+            if (byUser) _psDismissed = true;
+        }
+
+        // 서버가 정말 죽었는지 확인하고, 살아나면 화면을 새로 불러온다.
+        // ⚠️ 새로고침이 꼭 필요하다 — 코드가 바뀌었는데 옛 화면을 그대로 쓰면
+        //    새 기능이 없거나 서로 안 맞는 상태로 방송하게 된다.
+        async function patchScreenProbe(reason) {
+            if (_psProbing) return;
+            _psProbing = true;
+            let down = 0;
+            try {
+                for (let i = 0; i < 240; i++) {
+                    let alive = false;
+                    try {
+                        const r = await fetch('/api/ping', { cache: 'no-store' });
+                        alive = r.ok;
+                    } catch (e) { alive = false; }
+                    if (alive) {
+                        if (_psShown) {   // 재시작이 끝났다 → 새 코드로 다시 연다
+                            const t = document.getElementById('ps-sub');
+                            if (t) t.textContent = '끝났습니다. 화면을 새로 불러옵니다…';
+                            await new Promise(r2 => setTimeout(r2, 900));
+                            location.reload();
+                            return;
+                        }
+                        return;           // 잠깐 끊겼던 것뿐 — 조용히 넘어간다
+                    }
+                    down++;
+                    if (down >= 2) patchScreenShow(reason);   // 2초 넘게 안 되면 재시작으로 본다
+                    await new Promise(r2 => setTimeout(r2, 1000));
+                }
+            } finally { _psProbing = false; }
+        }
+
         // 마지막으로 브라우저 백업을 저장한 시각(위 handleStreamData 참고)
         let lastLocalBackupAt = 0;
         let sseSource = null;
@@ -5070,6 +5173,8 @@
                 console.error("SSE connection error. Retrying in 1.5 seconds...", err);
                 updateConnectionStatus('disconnected');
                 sseSource.close();
+                // 서버가 재시작 중인지 확인한다(끊겼다고 바로 화면을 덮지는 않는다)
+                try { patchScreenProbe('서버가 다시 켜지고 있습니다'); } catch (e) {}
                 setTimeout(initSSE, 1500); // 1.5초만에 더욱 신속하고 쫄깃한 재연결!
             };
         }
