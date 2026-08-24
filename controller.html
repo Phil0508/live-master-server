@@ -1106,6 +1106,32 @@
         .group-box.gb-folded > .group-title .fold-arrow { transform: rotate(-90deg); }
         .group-box.gb-folded > *:not(.group-title) { display: none !important; }
         .group-box.gb-folded > .group-title { margin-bottom: 0; }
+
+        /* ⚡ 상황 스트립 */
+        #context-strip { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .cx-chip { display:inline-flex; align-items:center; gap:8px; padding:7px 11px;
+                   background:var(--bg-panel); border:1px solid var(--border-light);
+                   border-radius:var(--r-2); font-size:var(--fs-2); font-weight:800; }
+        .cx-chip .cx-num { font-family:var(--font-num); color:var(--gold); }
+        .cx-chip button { padding:4px 10px; font-size:var(--fs-1); border-radius:var(--r-1); }
+
+        /* ⌨️ 명령 팔레트 (Ctrl+K) */
+        #cmdk { position:fixed; inset:0; z-index:2147482000; display:none;
+                background:rgba(8,8,12,0.6); backdrop-filter:blur(2px);
+                align-items:flex-start; justify-content:center; padding-top:12vh; }
+        #cmdk.on { display:flex; }
+        #cmdk .ck-box { width:min(560px, 92vw); background:#1b1e24; border:1px solid #3a4150;
+                        border-radius:12px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.8); }
+        #cmdk .ck-in { display:flex; align-items:center; gap:10px; padding:13px 15px;
+                       border-bottom:1px solid var(--border-light); }
+        #cmdk .ck-in input { flex:1; background:transparent; border:none; outline:none; color:#fff;
+                             font-size:var(--fs-4); font-weight:600; font-family:inherit; box-shadow:none; }
+        #cmdk .ck-it { display:flex; justify-content:space-between; align-items:center;
+                       padding:10px 15px; font-size:var(--fs-3); cursor:pointer; }
+        #cmdk .ck-it.sel { background:rgba(255,207,77,0.09); }
+        #cmdk .ck-it .h { font-size:var(--fs-1); color:var(--text-dim); font-family:var(--font-num); }
+        #cmdk .ck-hint { padding:8px 15px; font-size:var(--fs-1); color:var(--text-dim);
+                         border-top:1px solid var(--border-light); }
     </style>
 </head>
 <body>
@@ -1307,6 +1333,9 @@
              로그 탭으로 건너가야 하고 그동안 대기함이 안 보인다.
              "실수할 수 있다"보다 "실수를 알아챘는데 고칠 수 없다"가 더 나쁘다. -->
         <div id="undo-strip" style="display:none;"></div>
+        <!-- ⚡ 상황 스트립 — 지금 진행 중인 판(대결·시그뒤집기·재생 대기)의 핵심 버튼을
+             어느 탭에서든 보이게 한다. 아무것도 진행 중이 아니면 한 픽셀도 안 차지한다. -->
+        <div id="context-strip" style="display:none;"></div>
     </div>
 
 
@@ -3726,12 +3755,43 @@
             log.scrollTop = log.scrollHeight;
             return div;
         }
+        // 🗣️ 채팅으로 조작 — 명령 꼴이면 AI 를 부르지 않고 바로 실행한다.
+        //    '철수한테 3점' / '슬롯 돌려' / '대결 시작' / '건너뛰어' / '올클리어'.
+        //    명령이 아니면 지금처럼 AI 에게 넘어간다 — 물어보는 건 여전히 AI 몫이다.
+        function aiTryCommand(q) {
+            const done = (msg) => {
+                aiAppendMsg('user', q);
+                aiAppendMsg('sys', msg);
+                document.getElementById('ai-chat-log').scrollTop = 9e9;
+                return true;
+            };
+            let m = q.match(/^([가-힣A-Za-z0-9]+?)\s*(?:한테|에게)?\s*\+?(\d+)\s*점?\s*(?:줘|주기|추가)?$/);
+            if (m && typeof gd !== 'undefined' && gd) {
+                const list = (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+                const hit = list.filter(b => b.name && b.name.indexOf(m[1]) !== -1);
+                if (hit.length === 1) {
+                    const nm = hit[0].name, pts = parseInt(m[2]);
+                    addScoreAPI({ scope: 'rank', name: nm, delta: pts }).then(r =>
+                        aiAppendMsg('sys', r ? ('✔ ' + nm + ' 에게 +' + pts + '점 (되돌리기는 대기함 아래 줄)') : '⚠ 실패 — 서버 전송 오류'));
+                    return done('⏳ ' + nm + ' 에게 +' + pts + '점…');
+                }
+                if (hit.length > 1) return done('⚠ \'' + m[1] + '\' 이 여럿입니다: ' + hit.map(b => b.name).join(', ') + ' — 정확히 적어주세요');
+            }
+            if (/^슬롯\s*(돌려|시작|고)?!?$/.test(q)) { triggerSlotSpin(); return done('🎰 슬롯을 돌립니다'); }
+            if (/^룰렛\s*(돌려|시작|고)?!?$/.test(q)) { controlRoulette('spin'); return done('🎡 룰렛을 돌립니다'); }
+            if (/^(대결|타이머)\s*(시작|정지|스톱)?$/.test(q)) { toggleTimer(); return done('⚔ 대결 타이머를 켜고/끕니다'); }
+            if (/^(건너뛰|스킵|넘겨)/.test(q)) { skipCurrentReaction(); return done('⏭ 재생 중인 시그니처를 넘깁니다'); }
+            if (/^올\s*클리어|^올클/.test(q)) { sgAllClear(); return done('🎉 올클리어!'); }
+            return false;
+        }
+
         async function aiChatSend() {
             if (aiChatBusy) return;
             const inp = document.getElementById('ai-chat-input');
             const q = (inp.value || '').trim();
             if (!q) return;
             inp.value = '';
+            if (aiTryCommand(q)) return;   // 명령이면 여기서 끝 — AI 호출도, 한도 소모도 없다
             aiChatBusy = true;
             document.getElementById('ai-chat-send').disabled = true;
             aiAppendMsg('user', q);
@@ -7276,6 +7336,16 @@
             if (t.status === 'PLAYING') sgTimerView = setInterval(paint, 250);
         }
     </script>
+<!-- ⌨️ 명령 팔레트 — Ctrl+K 로 연다. 찾지 않고 타이핑으로 부른다. -->
+<div id="cmdk" onclick="if(event.target===this)cmdkClose()">
+    <div class="ck-box">
+        <div class="ck-in"><span style="color:var(--text-dim); font-size:var(--fs-2); font-family:var(--font-num);">⌘K</span>
+            <input id="ck-q" placeholder="명령 입력…  (밍밍 5 = 밍밍에게 +5점 · 슬롯 · 대결 · 올클리어)"
+                   oninput="cmdkRender()" onkeydown="cmdkKey(event)" autocomplete="off"></div>
+        <div id="ck-list"></div>
+        <div class="ck-hint">↑↓ 고르기 · Enter 실행 · Esc 닫기 · 점수는 [방금 준 점수 되돌리기]로 취소할 수 있습니다</div>
+    </div>
+</div>
 <script>
 // ══ 🗂️ 미니멀 개편 시동 코드 ══
 
@@ -7316,6 +7386,136 @@ function initFoldablePanels() {
     });
 }
 initFoldablePanels();
+
+// ══ ⚡ 상황 스트립 ══
+// 지금 진행 중인 판의 핵심 버튼을 어느 탭에서든 보이게 한다.
+// ⚠️ 매 갱신마다 innerHTML 을 갈지 않는다 — 내용이 바뀔 때만 다시 그린다
+//    (버튼을 누르려는 순간 다시 그려지면 클릭이 허공을 누른다).
+let _cxLast = "";
+function openTabById(tid) {
+    const btn = [...document.querySelectorAll('.tabs .tab-btn')]
+        .find(b => (b.getAttribute('onclick') || '').indexOf("'" + tid + "'") !== -1);
+    if (!btn) return;
+    // [그 밖에] 뒤에 접힌 탭이면 먼저 편다 — 안 그러면 눌린 탭이 어디 있는지 안 보인다
+    if (btn.classList.contains('tab-extra') && !document.body.classList.contains('tabs-more')) toggleTabsMore();
+    btn.click();
+}
+function cxTimerText(md) {
+    let ms = md.is_running ? Math.max(0, (md.end_time_ms || 0) - (Date.now() + ((typeof serverTimeOffset !== 'undefined' && serverTimeOffset) || 0)))
+                           : (md.time_left_ms || 0);
+    const t = Math.floor(ms / 1000);
+    return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0');
+}
+function renderContextStrip() {
+    const el = document.getElementById("context-strip");
+    if (!el || typeof gd === 'undefined' || !gd) return;
+    const parts = [];
+    const md = gd.match_data;
+    if (md && md.active) {
+        parts.push('<span class="cx-chip">⚔ 대결 <span class="cx-num" id="cx-mt">' + cxTimerText(md) + '</span>'
+            + '<button onclick="toggleTimer()">' + (md.is_running ? '⏸ 정지' : '▶ 시작') + '</button>'
+            + '<button onclick="modifyTimer(1, \'min\')">+1분</button>'
+            + '<button onclick="openTabById(\'tab-match\')">탭 열기</button></span>');
+    }
+    const g = gd.siggame;
+    if (g && g.enabled && (g.cards || []).length) {
+        const goals = (g.cards || []).filter(c => c.flippedAt);
+        const done = goals.filter(c => c.doneAt).length;
+        parts.push('<span class="cx-chip">🃏 시그뒤집기 <span class="cx-num">' + done + '/' + goals.length + '</span>'
+            + '<button onclick="sgAllClear()">🎉 올클리어</button>'
+            + '<button onclick="openTabById(\'tab-siggame\')">탭 열기</button></span>');
+    }
+    const q = (gd.reaction_queue || []).length;
+    if (q > 0) {
+        parts.push('<span class="cx-chip">🎵 재생 대기 <span class="cx-num">' + q + '</span>'
+            + '<button onclick="skipCurrentReaction()">건너뛰기</button></span>');
+    }
+    const html = parts.join('');
+    if (html !== _cxLast) { _cxLast = html; el.innerHTML = html; }
+    el.style.display = parts.length ? 'flex' : 'none';
+}
+// 대결 시간은 초마다 흐른다 — 숫자만 갱신 (통째로 다시 그리면 클릭이 끊긴다)
+setInterval(() => {
+    const t = document.getElementById("cx-mt");
+    if (t && typeof gd !== 'undefined' && gd && gd.match_data && gd.match_data.active) t.textContent = cxTimerText(gd.match_data);
+}, 1000);
+setInterval(renderContextStrip, 1500);
+
+// ══ ⌨️ 명령 팔레트 (Ctrl+K) ══
+let ckSel = 0;
+function cmdkCommands() {
+    const q = (document.getElementById("ck-q").value || "").trim();
+    const out = [];
+    // '이름 숫자' → 점수 주기. 이름은 지금 점수판에서 부분일치로 찾는다.
+    const m = q.match(/^([가-힣A-Za-z0-9]+?)\s*(?:한테|에게)?\s*[+]?\s*(\d+)\s*점?$/);
+    if (m && typeof gd !== 'undefined' && gd) {
+        const list = (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+        list.filter(b => b.name && b.name.indexOf(m[1]) !== -1).slice(0, 4).forEach(b => {
+            out.push({ t: '🎯 ' + b.name + ' 에게 +' + m[2] + '점', h: '점수',
+                       run: async () => { const r = await addScoreAPI({ scope: 'rank', name: b.name, delta: parseInt(m[2]) });
+                                          acctToast(r ? ('✔ ' + b.name + ' +' + m[2] + '점') : '실패', r ? 'ok' : 'err'); } });
+        });
+    }
+    const S = [
+        { k: '슬롯', t: '🎰 슬롯 돌리기', h: '연출', run: () => triggerSlotSpin() },
+        { k: '룰렛', t: '🎡 룰렛 회전 시작', h: '연출', run: () => controlRoulette('spin') },
+        { k: '룰렛 정지', t: '🎡 룰렛 정지', h: '연출', run: () => controlRoulette('stop') },
+        { k: '대결', t: '⚔ 대결 타이머 시작/정지', h: '대결', run: () => toggleTimer() },
+        { k: '대결 1분', t: '⚔ 대결 +1분', h: '대결', run: () => modifyTimer(1, 'min') },
+        { k: '올클리어', t: '🎉 시그뒤집기 올클리어', h: '게임', run: () => sgAllClear() },
+        { k: '건너뛰기 스킵', t: '⏭ 시그니처 재생 건너뛰기', h: '재생', run: () => skipCurrentReaction() },
+        { k: '라이브', t: '🔴 라이브 모드 켜기/끄기', h: '화면', run: () => toggleLiveMode() },
+        { k: '랭킹', t: '📑 랭킹 탭', h: '이동', run: () => openTabById('tab-ranking') },
+        { k: '로그', t: '📑 로그 탭', h: '이동', run: () => openTabById('tab-logs') },
+        { k: '대결 탭', t: '📑 대결 탭', h: '이동', run: () => openTabById('tab-match') },
+        { k: '시그뒤집기', t: '📑 시그뒤집기 탭', h: '이동', run: () => openTabById('tab-siggame') },
+        { k: '슬롯머신 탭', t: '📑 슬롯머신 탭', h: '이동', run: () => openTabById('tab-slot') },
+        { k: '진행판', t: '📑 진행판 탭', h: '이동', run: () => openTabById('tab-mode') },
+        { k: '시스템 버전', t: '📑 시스템 탭 (버전·백업)', h: '이동', run: () => openTabById('tab-system') },
+        { k: '이펙트 전광판', t: '📑 이펙트/전광판 탭', h: '이동', run: () => openTabById('tab-neon') },
+        { k: '유튜브 bgm 음악', t: '📑 BGM/유튜브 탭', h: '이동', run: () => openTabById('tab-youtube') },
+        { k: '특별 후원자', t: '📑 특별 후원자 탭', h: '이동', run: () => openTabById('tab-vip') },
+        { k: '룰렛 탭', t: '📑 룰렛 탭', h: '이동', run: () => openTabById('tab-roulette') },
+        { k: '후원 콘솔', t: '📤 후원 콘솔 열기', h: '창', run: () => window.open('/manual', '_blank') },
+    ];
+    const ql = q.toLowerCase();
+    S.forEach(c => { if (!ql || c.k.indexOf(ql) !== -1 || c.t.toLowerCase().indexOf(ql) !== -1) out.push(c); });
+    return out.slice(0, 9);
+}
+function cmdkRender() {
+    const list = cmdkCommands();
+    if (ckSel >= list.length) ckSel = Math.max(0, list.length - 1);
+    document.getElementById("ck-list").innerHTML = list.map((c, i) =>
+        '<div class="ck-it ' + (i === ckSel ? "sel" : "") + '" onclick="cmdkRun(' + i + ')">'
+        + '<span>' + c.t + '</span><span class="h">' + c.h + '</span></div>').join("")
+        || '<div class="ck-it"><span style="color:var(--text-dim);">일치하는 명령 없음</span></div>';
+}
+function cmdkRun(i) {
+    const c = cmdkCommands()[i];
+    if (!c) return;
+    cmdkClose();
+    try { c.run(); } catch (e) { console.warn("팔레트 실행 실패", e); }
+}
+function cmdkKey(e) {
+    const list = cmdkCommands();
+    if (e.key === "ArrowDown") { ckSel = Math.min(ckSel + 1, list.length - 1); cmdkRender(); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { ckSel = Math.max(ckSel - 1, 0); cmdkRender(); e.preventDefault(); }
+    else if (e.key === "Enter") { cmdkRun(ckSel); e.preventDefault(); }
+    else if (e.key === "Escape") { cmdkClose(); }
+}
+function cmdkOpen() {
+    ckSel = 0;
+    document.getElementById("cmdk").classList.add("on");
+    const q = document.getElementById("ck-q"); q.value = ""; cmdkRender();
+    setTimeout(() => q.focus(), 30);
+}
+function cmdkClose() { document.getElementById("cmdk").classList.remove("on"); }
+document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        document.getElementById("cmdk").classList.contains("on") ? cmdkClose() : cmdkOpen();
+    }
+});
 </script>
 </body>
 </html>
