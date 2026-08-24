@@ -647,6 +647,23 @@ LOG_MAX = 200
 PENDING_WARN_AT = 200
 
 
+def _as_int(v, default=None):
+    """숫자로 바꿔본다. 못 바꾸면 default(기본 None).
+
+       ⚠️ 밖에서 들어오는 값은 글자·None·목록·사전 무엇이든 올 수 있다.
+          int() 를 그냥 부르면 그 자리에서 예외가 나고, 바깥 except 가 그걸
+          500 + 파이썬 오류 문구로 돌려준다(내부 구조가 그대로 샌다).
+    """
+    if isinstance(v, bool) or v is None:
+        return default
+    if isinstance(v, (int, float)):
+        return int(v)
+    try:
+        return int(str(v).strip())
+    except (TypeError, ValueError):
+        return default
+
+
 def _norm_donor(name):
     """후원자 표기 정규화. 같은 사람이 '홍길동' / '홍길동님' / ' 홍길동 ' 으로 갈라져
        집계가 쪼개지는 것을 막는다."""
@@ -2402,8 +2419,10 @@ def api_signature_play():
     try:
         data = request.get_json(silent=True) or {}
         sig_id = data.get('sig_id')
-        amount = int(data.get('amount') or 0)
-        donator = (data.get('name') or '수동송출').strip() or '수동송출'
+        amount = _as_int(data.get('amount') or 0)
+        if amount is None:
+            return jsonify({'status': 'error', 'message': '금액이 숫자가 아닙니다'}), 400
+        donator = str(data.get('name') or '수동송출').strip() or '수동송출'
         message = (data.get('message') or '').strip()
 
         if sig_id:
@@ -2437,8 +2456,10 @@ def api_signature_play():
 @app.route('/api/bjs/import', methods=['POST'])
 def import_bjs():
     try:
-        req = request.json
+        req = request.get_json(silent=True) or {}
         names = req.get('names', [])
+        if not isinstance(names, list):
+            return jsonify({'status': 'error', 'message': '이름 목록이 필요합니다.'}), 400
         if not names:
             return jsonify({'status': 'error', 'message': '등록할 이름이 없습니다.'}), 400
             
@@ -2821,8 +2842,17 @@ def receive_donation():
                         "message": "이 서버에서만 후원을 접수합니다. 바깥에서 보내려면 "
                                    "DONATION_KEY 를 정하고 X-Donation-Key 헤더에 같은 값을 넣으세요."}), 401
     try:
-        new_don = request.json or {}
-        amount = int(new_don.get('amount', 0))
+        new_don = request.get_json(silent=True)
+        if not isinstance(new_don, dict):
+            return jsonify({"status": "error",
+                            "message": "후원 내용(JSON)이 필요합니다"}), 400
+        # ⚠️ 금액은 바깥(리스너·템퍼몽키)에서 온다. 숫자가 아니면 그 자리에서 예외가 나
+        #    500 이 되고, 보내는 쪽은 '서버가 고장났다'로 보고 계속 재시도한다.
+        #    무엇이 잘못됐는지 알려주고 곱게 거절한다.
+        amount = _as_int(new_don.get('amount', 0))
+        if amount is None:
+            return jsonify({"status": "error",
+                            "message": "금액(amount)이 숫자가 아닙니다"}), 400
         tx_id = new_don.get('tx_id')
         
         # 1. 음수(0원 미만) 후원 금액 차단 (0원 시그니처 후원 등 허용)
@@ -3219,7 +3249,7 @@ def api_audit_suggest():
        컨트롤러가 대기함 후원 1건당 1회 호출해 '추천 배지 / 오배정 경고'에만 쓴다.
        실패해도 항상 200 + target=None 으로 응답해 컨트롤러가 멈추지 않게 한다."""
     try:
-        body = request.json or {}
+        body = request.get_json(silent=True) or {}
         name = str(body.get('name', ''))
         amount = body.get('amount', 0)
         message = str(body.get('message', ''))
@@ -3241,7 +3271,7 @@ def api_ai_chat():
     """[AI 서포트 채팅] 운영자가 현재 상황을 물어보면, 실시간 상태 스냅샷을 근거로 답한다.
        조작은 하지 않고 정보/조언만. 실패해도 항상 200 + 안내 문구로 응답한다."""
     try:
-        body = request.json or {}
+        body = request.get_json(silent=True) or {}
         question = str(body.get('question', '')).strip()
         history = body.get('messages') or []
         if not question:
@@ -3282,7 +3312,7 @@ def api_ai_chat():
 def api_data():
     if request.method == 'POST':
         with file_lock:
-            incoming = request.json or {}
+            incoming = request.get_json(silent=True) or {}
             current_state = load_data()
 
             # 🛡️ [동시성 수정] 예전에는 클라이언트가 보낸 전체 상태로 서버를 통째로 덮어썼다(Last-Write-Wins).
@@ -3420,7 +3450,7 @@ def api_restore():
        그 사이 들어온 후원이 있으면 같이 지워진다. 그래서 되돌리기 전에 스냅샷을 남긴다.
     """
     try:
-        body = request.json or {}
+        body = request.get_json(silent=True) or {}
         if not isinstance(body, dict) or 'bjs' not in body:
             return jsonify({"status": "error",
                             "message": "복구할 상태가 아닙니다(백업 파일이 맞는지 확인해주세요)"}), 400
@@ -3457,7 +3487,7 @@ def api_offwork_pending():
        결과적으로 그 플레이어는 두 번 다시 퇴근 카드를 받지 못했다 = 퇴근 연출을 영영 못 보냄.
        카드 생성과 '알림 표시'를 서버 한 곳에서 같이 처리해 어긋날 수 없게 한다.
     """
-    name = ((request.json or {}).get('name') or '').strip()
+    name = ((request.get_json(silent=True) or {}).get('name') or '').strip()
     if not name:
         return jsonify({"status": "error", "message": "name required"}), 400
     with file_lock:
@@ -3527,7 +3557,7 @@ def api_account_play_video():
 
     상태를 바꾸지 않고 이벤트만 쏘므로 file_lock 을 잡지 않는다(후원 처리를 막지 않는다).
     """
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     tiers = load_data().get('account_video_tiers') or []
 
     try:
@@ -3557,7 +3587,7 @@ def api_effect_fire():
        끼어들면 서로를 끊는다(실제로 그런 사고가 있었다). 전용 이벤트로 따로 보낸다.
     상태를 바꾸지 않고 이벤트만 쏘므로 file_lock 을 잡지 않는다.
     """
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     kinds = data.get('kinds') or []
     if isinstance(kinds, str):
         kinds = [kinds]
@@ -3713,7 +3743,7 @@ def api_account_stop_video():
 @app.route('/api/roulette/winner', methods=['POST'])
 def api_roulette_winner():
     try:
-        req_data = request.json
+        req_data = request.get_json(silent=True) or {}
         winner_name = req_data.get('name', '익명')
         with file_lock:
             state = load_data()
@@ -3764,9 +3794,24 @@ def api_roulette_winner():
 @app.route('/api/layout', methods=['GET', 'POST'])
 def api_layout():
     if request.method == 'POST':
-        with open(LAYOUT_FILE, 'w', encoding='utf-8') as f:
-            json.dump(request.json, f, ensure_ascii=False, indent=4)
-        broadcast_event('layout', request.json)
+        # ⚠️ 여기 담기는 것은 '방송 화면의 모든 위젯 위치'다. 잘못 쓰면 오버레이가
+        #    통째로 흐트러지고, 되돌릴 방법이 없다.
+        #    ① 본문이 깨졌거나 사전이 아니면 아예 손대지 않는다
+        #      (예전에는 request.json 이 그 자리에서 터져 500 이 났고, null 을 보내면
+        #       파일에 'null' 이 적혀 배치가 날아갔다)
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({"status": "error",
+                            "message": "레이아웃 내용(JSON 사전)이 필요합니다"}), 400
+        # ② 임시 파일에 다 쓴 뒤 갈아끼운다. 쓰는 도중에 서버가 죽어도
+        #    예전 배치가 그대로 남는다(반쯤 쓰인 파일은 읽을 수 없다).
+        tmp = LAYOUT_FILE + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, LAYOUT_FILE)
+        broadcast_event('layout', data)
         return jsonify({"status": "success"})
     if os.path.exists(LAYOUT_FILE):
         with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
@@ -3855,7 +3900,7 @@ def get_snapshots():
 @app.route('/api/snapshots/manual', methods=['POST'])
 def create_manual_snapshot():
     try:
-        req_data = request.json
+        req_data = request.get_json(silent=True) or {}
         label = req_data.get("label", "수동 백업")
         state = load_data()
         timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -3873,9 +3918,12 @@ def create_manual_snapshot():
 @app.route('/api/snapshots/restore', methods=['POST'])
 def restore_snapshot():
     try:
-        req_data = request.json
-        snap_id = req_data.get("id")
-        
+        req_data = request.get_json(silent=True) or {}
+        # 목록·사전이 그대로 DB 로 내려가면 '파라미터를 못 묶는다'는 내부 오류가 샌다
+        snap_id = _as_int(req_data.get("id"))
+        if snap_id is None:
+            return jsonify({"status": "error", "message": "스냅샷 번호가 필요합니다"}), 400
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(db_query("SELECT state_json FROM snapshots WHERE id = ?"), (snap_id,))
@@ -3896,9 +3944,11 @@ def restore_snapshot():
 @app.route('/api/snapshots/delete', methods=['POST'])
 def delete_snapshot():
     try:
-        req_data = request.json
-        snap_id = req_data.get("id")
-        
+        req_data = request.get_json(silent=True) or {}
+        snap_id = _as_int(req_data.get("id"))
+        if snap_id is None:
+            return jsonify({"status": "error", "message": "스냅샷 번호가 필요합니다"}), 400
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(db_query("DELETE FROM snapshots WHERE id = ?"), (snap_id,))
@@ -4069,7 +4119,7 @@ def end_broadcast():
 def start_broadcast():
     try:
         global MEMORY_STATE
-        req = request.json or {}
+        req = request.get_json(silent=True) or {}
         names = req.get('names', [])
         if not names:
             return jsonify({"status": "error", "message": "최소 한 명 이상의 플레이어를 등록해야 합니다."}), 400
@@ -4255,7 +4305,7 @@ def get_manual_logs():
 @app.route('/api/time_machine/restore_by_time', methods=['POST'])
 def restore_by_time():
     try:
-        req_data = request.json
+        req_data = request.get_json(silent=True) or {}
         time_str = req_data.get('time', '').strip()
         if not time_str:
             return jsonify({'status': 'error', 'message': '이동할 시간을 입력해주세요.'}), 400
@@ -4792,7 +4842,7 @@ def stop_reaction():
 @app.route('/api/slot/spin', methods=['POST'])
 def api_slot_spin():
     try:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         winner = data.get('winner')
         candidates = data.get('candidates', [])
 
@@ -4906,7 +4956,7 @@ def api_settings_patch():
        바뀐 필드만 보내면 남이 바꾼 것을 건드릴 이유가 없다.
     """
     try:
-        body = request.json or {}
+        body = request.get_json(silent=True) or {}
         if not isinstance(body, dict) or not body:
             return jsonify({"status": "error", "message": "바꿀 필드가 없다"}), 400
         bad = [k for k in body if k in PATCH_DENY]
@@ -4988,8 +5038,9 @@ def api_score_add():
     items 로 여러 명을 한 번에 줄 수 있다(반반·N분할). 한 명이라도 못 찾으면 아무것도 반영하지 않는다.
     """
     try:
-        body = request.json or {}
-        scope = (body.get('scope') or 'rank').strip()
+        body = request.get_json(silent=True) or {}
+        # scope 가 숫자로 오면 .strip() 에서 터진다 — 무엇이 와도 글자로 본다
+        scope = str(body.get('scope') or 'rank').strip()
         if scope not in ('rank', 'bot', 'match'):
             return jsonify({"status": "error", "message": f"알 수 없는 scope: {scope}"}), 400
 
