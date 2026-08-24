@@ -59,6 +59,13 @@
 
         .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: 0 18px 50px rgba(0,0,0,0.55); } .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(246,196,83,0.5); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 0 34px var(--gold-glow); }
         .ticker-bar { width: 1080px; height: 70px; background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 1px solid rgba(246,196,83,0.45); border-bottom: 1px solid rgba(246,196,83,0.45); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; color: #fff; }
+        /* 📏 정렬 안내선 — 캔버스 위에 얇게 뜬다 */
+        .align-guide { position: absolute; background: #00E5B5; box-shadow: 0 0 6px rgba(0,229,181,.9);
+                       display: none; pointer-events: none; z-index: 99999; }
+        #guide-v { width: 1px; top: 0; height: 1920px; }
+        #guide-h { height: 1px; left: 0; width: 1080px; }
+        /* 드래그 중인 위젯은 그래픽카드가 맡는다 — 배치 계산을 건너뛴다 */
+        .widget.dragging { will-change: transform; cursor: grabbing; z-index: 9999; }
         .guide-text { position: absolute; top: 15px; left: 30px; color: #888; font-size: 14px; font-weight: bold; pointer-events: none; }
     </style>
 </head>
@@ -120,7 +127,21 @@
 
             <div class="group-title"><i class="fa-solid fa-bolt"></i> 오토 세이브 (OBS 모드)</div>
             <div class="live-badge"><div class="live-dot"></div> 실시간 자동 적용 중</div>
-            <button class="danger" onclick="resetLayout()" style="margin-top: 15px;"><i class="fa-solid fa-rotate-left"></i> 기본 위치로 리셋</button>
+            <div class="group-title" style="margin-top:24px;"><i class="fa-solid fa-object-group"></i> 위젯 정리</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <button onclick="tidy('left')" style="margin:0;"><i class="fa-solid fa-align-left"></i> 왼쪽 맞춤</button>
+                <button onclick="tidy('centerX')" style="margin:0;"><i class="fa-solid fa-align-center"></i> 가운데 맞춤</button>
+                <button onclick="tidy('inside')" style="margin:0;"><i class="fa-solid fa-compress"></i> 화면 안으로</button>
+                <button onclick="tidy('grid')" style="margin:0;"><i class="fa-solid fa-border-all"></i> 격자에 맞춤</button>
+            </div>
+            <label style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:13px; color:#ccc; cursor:pointer;">
+                <input type="checkbox" id="snap-on" checked style="width:auto; margin:0;"> 격자·안내선에 붙이기
+            </label>
+            <div style="font-size:11px; color:#888; margin-top:6px; line-height:1.6;">
+                드래그 중 <b>Alt</b> 를 누르면 잠시 자유 이동.<br>
+                위젯을 고르고 <b>화살표 키</b>로 1px씩(Shift 10px) 미세 조정.
+            </div>
+            <button class="danger" onclick="resetLayout()" style="margin-top: 18px;"><i class="fa-solid fa-rotate-left"></i> 기본 위치로 리셋</button>
         </div>
     </div>
 
@@ -130,6 +151,9 @@
             <div class="canvas-board" id="canvas-board">
                 
                 <div id="time-up-message-layer" class="time-up-message">시간 종료!</div>
+                <!-- 📏 정렬 안내선 — 다른 위젯과 줄이 맞으면 나타난다 -->
+                <div class="align-guide" id="guide-v"></div>
+                <div class="align-guide" id="guide-h"></div>
 
                 <div class="widget" id="ranking" data-id="ranking" style="left:50px; top:50px;">
                     <div class="excel-board">
@@ -527,27 +551,192 @@
             function closePropertyPanel() { if (activeWidget) activeWidget.classList.remove('selected'); activeWidget = null; document.getElementById('property-panel').classList.remove('active'); document.getElementById('prop-account-edit').style.display = 'none'; }
             document.getElementById('prop-scale').addEventListener('input', (e) => { if (!activeWidget) return; const val = parseFloat(e.target.value).toFixed(2); activeWidget.style.transform = `scale(${val})`; activeWidget.dataset.scale = val; document.getElementById('prop-scale-val').innerText = val; }); document.getElementById('prop-scale').addEventListener('change', autoSaveLayout); canvasBoard.addEventListener('mousedown', (e) => { if(e.target === canvasBoard) closePropertyPanel(); });
 
+            /* ══ 🖱️ 드래그 — 물 흐르듯 ══
+               ⚠️ 예전에는 움직일 때마다 left/top 을 바꿨다. 그러면 브라우저가 그때마다
+                  화면 배치를 통째로 다시 계산해서(reflow) 랭킹판처럼 무거운 위젯이 끊겼다.
+                  (계좌만 부드러웠던 건 그 위젯이 단순했기 때문이다)
+                  드래그 중에는 transform 만 건드린다 — 배치 계산 없이 바로 옮겨 그린다.
+                  손을 떼는 순간에만 left/top 으로 확정해서 저장 형식은 그대로 유지한다.
+               ⚠️ mousemove 는 초당 100번 넘게 오는데 화면은 초당 60번만 그린다.
+                  requestAnimationFrame 으로 묶어 화면 박자에 맞춘다. */
+            const GRID = 10;          // 격자 눈금
+            const SNAP_TOL = 6;       // 이 거리 안이면 다른 위젯 줄에 달라붙는다
+            let dragRAF = null, lastPt = null, freeMove = false, dragMoved = false;
+            let snapTargets = [];     // 드래그 시작 때 한 번만 계산 (매 프레임 재면 그게 또 reflow 다)
+
+            function widgetBox(el) {
+                const sc = parseFloat(el.dataset.scale) || 1;
+                return { el, x: parseInt(el.style.left) || 0, y: parseInt(el.style.top) || 0,
+                         w: el.offsetWidth * sc, h: el.offsetHeight * sc };
+            }
+            function collectSnapTargets(skip) {
+                snapTargets = [];
+                document.querySelectorAll('.widget').forEach(el => {
+                    if (el === skip || el.style.display === 'none') return;
+                    const b = widgetBox(el);
+                    snapTargets.push(b);
+                });
+            }
+            function snapAxis(v, size, cands) {
+                // v = 왼(위) 좌표. 왼/가운데/오른(위/가운데/아래) 세 지점을 각각 후보와 견준다.
+                let best = null;
+                [[v, 0], [v + size / 2, size / 2], [v + size, size]].forEach(([edge, off]) => {
+                    cands.forEach(c => {
+                        const d = Math.abs(edge - c);
+                        if (d <= SNAP_TOL && (!best || d < best.d)) best = { d, line: c, v: c - off };
+                    });
+                });
+                return best;
+            }
+
             function dragStart(e) {
                 if (e.target.classList.contains('resize-handle')) return;
                 const widgetEl = e.target.closest('.widget');
-                if (widgetEl) {
-                    selectWidget(widgetEl);
-                    isDragging = true;
-                    startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-                    startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-                    initialX = parseInt(activeWidget.style.left) || 0;
-                    initialY = parseInt(activeWidget.style.top) || 0;
-                    document.addEventListener('mousemove', dragging);
-                    document.addEventListener('touchmove', dragging, {passive: false});
-                    document.addEventListener('mouseup', dragEnd);
-                    document.addEventListener('touchend', dragEnd);
-                }
+                if (!widgetEl) return;
+                selectWidget(widgetEl);
+                isDragging = true; dragMoved = false;
+                startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+                startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                initialX = parseInt(activeWidget.style.left) || 0;
+                initialY = parseInt(activeWidget.style.top) || 0;
+                activeWidget.classList.add('dragging');
+                collectSnapTargets(activeWidget);
+                document.addEventListener('mousemove', dragging);
+                document.addEventListener('touchmove', dragging, {passive: false});
+                document.addEventListener('mouseup', dragEnd);
+                document.addEventListener('touchend', dragEnd);
             }
-            function dragging(e) { if (!isDragging || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY; const dx = (clientX - startX) / scaleRatio; const dy = (clientY - startY) / scaleRatio; activeWidget.style.left = `${initialX + dx}px`; activeWidget.style.top = `${initialY + dy}px`; }
-            function dragEnd() { if(isDragging) { isDragging = false; autoSaveLayout(); } document.removeEventListener('mousemove', dragging); document.removeEventListener('touchmove', dragging); document.removeEventListener('mouseup', dragEnd); document.removeEventListener('touchend', dragEnd); }
+
+            function dragging(e) {
+                if (!isDragging || !activeWidget) return;
+                e.preventDefault();
+                const t = e.type.includes('mouse') ? e : e.touches[0];
+                lastPt = { x: t.clientX, y: t.clientY, alt: !!e.altKey };
+                if (!dragRAF) dragRAF = requestAnimationFrame(dragFrame);
+            }
+
+            function dragFrame() {
+                dragRAF = null;
+                if (!isDragging || !activeWidget || !lastPt) return;
+                const snapOn = document.getElementById('snap-on').checked && !lastPt.alt;
+                let nx = initialX + (lastPt.x - startX) / scaleRatio;
+                let ny = initialY + (lastPt.y - startY) / scaleRatio;
+                if (Math.abs(nx - initialX) > 1 || Math.abs(ny - initialY) > 1) dragMoved = true;
+
+                const gv = document.getElementById('guide-v'), gh = document.getElementById('guide-h');
+                gv.style.display = gh.style.display = 'none';
+
+                if (snapOn) {
+                    const sc = parseFloat(activeWidget.dataset.scale) || 1;
+                    const w = activeWidget.offsetWidth * sc, h = activeWidget.offsetHeight * sc;
+                    // 다른 위젯 + 캔버스 가장자리·중앙에 맞춘다
+                    const xs = [0, 540, 1080], ys = [0, 960, 1920];
+                    snapTargets.forEach(b => { xs.push(b.x, b.x + b.w / 2, b.x + b.w);
+                                               ys.push(b.y, b.y + b.h / 2, b.y + b.h); });
+                    const sx = snapAxis(nx, w, xs), sy = snapAxis(ny, h, ys);
+                    if (sx) { nx = sx.v; gv.style.left = sx.line + 'px'; gv.style.display = 'block'; }
+                    else nx = Math.round(nx / GRID) * GRID;
+                    if (sy) { ny = sy.v; gh.style.top = sy.line + 'px'; gh.style.display = 'block'; }
+                    else ny = Math.round(ny / GRID) * GRID;
+                }
+                // 배치 계산 없이 옮겨 그린다. 확정은 손을 뗄 때.
+                activeWidget.dataset.dx = nx - initialX;
+                activeWidget.dataset.dy = ny - initialY;
+                activeWidget.style.transform =
+                    `translate3d(${nx - initialX}px, ${ny - initialY}px, 0) scale(${activeWidget.dataset.scale || 1})`;
+            }
+
+            function dragEnd() {
+                if (isDragging) {
+                    isDragging = false;
+                    if (dragRAF) { cancelAnimationFrame(dragRAF); dragRAF = null; }
+                    // 여기서 한 번만 left/top 으로 확정한다 (저장 형식은 예전 그대로)
+                    const dx = parseFloat(activeWidget.dataset.dx) || 0;
+                    const dy = parseFloat(activeWidget.dataset.dy) || 0;
+                    activeWidget.style.left = (initialX + dx) + 'px';
+                    activeWidget.style.top = (initialY + dy) + 'px';
+                    activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
+                    delete activeWidget.dataset.dx; delete activeWidget.dataset.dy;
+                    activeWidget.classList.remove('dragging');
+                    document.getElementById('guide-v').style.display = 'none';
+                    document.getElementById('guide-h').style.display = 'none';
+                    if (dragMoved) autoSaveLayout();
+                }
+                document.removeEventListener('mousemove', dragging);
+                document.removeEventListener('touchmove', dragging);
+                document.removeEventListener('mouseup', dragEnd);
+                document.removeEventListener('touchend', dragEnd);
+            }
+
+            /* ══ 📐 위젯 정리 ══
+               보이는 위젯만 건드린다 — 숨겨둔 것까지 옮기면 나중에 켤 때 엉뚱한 데 있다. */
+            function visibleWidgets() {
+                return [...document.querySelectorAll('.widget')].filter(el => el.style.display !== 'none');
+            }
+            window.tidy = function tidy(mode) {
+                const list = visibleWidgets();
+                if (!list.length) return;
+                if (mode === 'grid') {
+                    list.forEach(el => {
+                        el.style.left = Math.round((parseInt(el.style.left) || 0) / GRID) * GRID + 'px';
+                        el.style.top = Math.round((parseInt(el.style.top) || 0) / GRID) * GRID + 'px';
+                    });
+                } else if (mode === 'left') {
+                    const minX = Math.min(...list.map(el => parseInt(el.style.left) || 0));
+                    list.forEach(el => { el.style.left = minX + 'px'; });
+                } else if (mode === 'centerX') {
+                    list.forEach(el => {
+                        const sc = parseFloat(el.dataset.scale) || 1;
+                        el.style.left = Math.round(540 - (el.offsetWidth * sc) / 2) + 'px';
+                    });
+                } else if (mode === 'inside') {
+                    /* 화면 밖으로 나간 위젯을 안으로 들인다.
+                       ⚠️ '세로 균등 배치'를 두려다 뺐다. 이 위젯들은 높이 합이 3000px 이 넘는데
+                          화면은 1920px 이라 나란히 놓는 것이 애초에 불가능하고, 무엇보다
+                          팝업·탈환·룰렛처럼 '그때만 잠깐 뜨는' 것들이라 겹치는 게 정상이다.
+                          정작 자주 겪는 사고는 '끌다가 화면 밖으로 빠뜨려 안 보이는 것'이라
+                          그걸 되찾아주는 쪽이 훨씬 쓸모 있다. */
+                    let moved = 0;
+                    list.forEach(el => {
+                        const b = widgetBox(el);
+                        // 화면보다 큰 위젯은 그대로 둔다(넣을 자리가 없다)
+                        const nx = b.w >= 1080 ? b.x : Math.min(Math.max(b.x, 0), 1080 - b.w);
+                        const ny = b.h >= 1920 ? b.y : Math.min(Math.max(b.y, 0), 1920 - b.h);
+                        if (nx !== b.x || ny !== b.y) {
+                            el.style.left = Math.round(nx) + 'px';
+                            el.style.top = Math.round(ny) + 'px';
+                            moved++;
+                        }
+                    });
+                    alert(moved ? (moved + '개를 화면 안으로 들였습니다.') : '전부 화면 안에 있습니다.');
+                }
+                autoSaveLayout();
+            };
+
+            /* 화살표 키로 미세 조정 — 마우스로는 1px 을 못 맞춘다 */
+            document.addEventListener('keydown', (e) => {
+                if (!activeWidget || isDragging) return;
+                if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target.tagName || ''))) return;
+                const step = e.shiftKey ? 10 : 1;
+                let dx = 0, dy = 0;
+                if (e.key === 'ArrowLeft') dx = -step;
+                else if (e.key === 'ArrowRight') dx = step;
+                else if (e.key === 'ArrowUp') dy = -step;
+                else if (e.key === 'ArrowDown') dy = step;
+                else return;
+                e.preventDefault();
+                activeWidget.style.left = ((parseInt(activeWidget.style.left) || 0) + dx) + 'px';
+                activeWidget.style.top = ((parseInt(activeWidget.style.top) || 0) + dy) + 'px';
+                clearTimeout(window._nudgeT);
+                window._nudgeT = setTimeout(autoSaveLayout, 400);   // 연타할 때 저장을 몰아서 한 번만
+            });
             function resizeStart(e) { e.stopPropagation(); isResizing = true; startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; startScale = parseFloat(activeWidget.dataset.scale) || 1.0; baseWidth = activeWidget.offsetWidth; document.addEventListener('mousemove', resizing); document.addEventListener('touchmove', resizing, {passive: false}); document.addEventListener('mouseup', resizeEnd); document.addEventListener('touchend', resizeEnd); }
             function resizing(e) { if (!isResizing || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const dx = (clientX - startX) / scaleRatio; let newScale = startScale + (dx / baseWidth); newScale = Math.max(0.3, Math.min(newScale, 3.0)); activeWidget.style.transform = `scale(${newScale})`; activeWidget.dataset.scale = newScale; const scaleSlider = document.getElementById('prop-scale'); if(scaleSlider) { scaleSlider.value = newScale; document.getElementById('prop-scale-val').innerText = newScale.toFixed(2); } }
             function resizeEnd() { if(isResizing) { isResizing = false; autoSaveLayout(); } document.removeEventListener('mousemove', resizing); document.removeEventListener('touchmove', resizing); document.removeEventListener('mouseup', resizeEnd); document.removeEventListener('touchend', resizeEnd); }
+
+            // 화면이 그려지지 않는 환경(자동 점검 등)에서는 requestAnimationFrame 이 멈춰 있어
+            // 드래그 계산을 확인할 방법이 없다. 한 프레임을 손으로 돌릴 수 있게 열어둔다.
+            window._dragFrame = dragFrame;
 
             setTimeout(loadLayout, 100); fetchRealData(); connectAdminSSE();
         });
