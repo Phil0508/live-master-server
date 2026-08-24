@@ -3056,6 +3056,76 @@ def game_context(state):
     return out
 
 
+# 이름 뒤에 흔히 붙는 조사·호칭. '철수형' → '철수' 로 되돌리려고 쓴다.
+_NAME_TAILS = ('에게', '한테', '이랑', '님께', '님', '씨', '형', '누나', '오빠', '언니',
+               '쨩', '찡', '아', '야', '이', '가', '은', '는', '을', '를', '와', '과',
+               '랑', '도', '만', '께')
+
+
+def _name_forms(word):
+    """낱말 하나에서 '이름일 수 있는 모양'들을 만든다(조사·호칭을 두 번까지 뗀다)."""
+    out = {word}
+    cur = word
+    for _ in range(2):
+        for t in _NAME_TAILS:
+            if len(cur) > len(t) and cur.endswith(t):
+                cur = cur[:-len(t)]
+                out.add(cur)
+                break
+        else:
+            break
+    return out
+
+
+def names_in_message(msg, names):
+    """메시지가 지목하는 이름을 두 갈래로 나눠 돌려준다.
+
+       exact — 낱말이 딱 떨어진다('철수', '철수형', '철수에게'). 믿을 만하다.
+       loose — 글자만 겹친다('철수했다가', '밍밍화이팅'). 참고는 되지만 확실하지 않다.
+
+       ⚠️ 예전에는 이 둘을 구분하지 않고 '글자가 들어 있으면' 전부 확실한 것으로 봤다.
+          그래서 '철수했다가 다시 왔어요' 가 철수에게 자동 배정됐다.
+       """
+    txt = str(msg or '')
+    exact, loose = set(), set()
+    if not txt:
+        return exact, loose
+    for w in re.split(r'[\s,./!?~\-()\[\]"\'·:;]+', txt):
+        w = w.strip()
+        if not w:
+            continue
+        forms = _name_forms(w)
+        # 여러 이름이 걸리면 가장 긴 것을 쓴다('수아' 와 '수' 가 같이 있을 때)
+        best = None
+        for n in names:
+            if n in forms and (best is None or len(n) > len(best)):
+                best = n
+        if best:
+            exact.add(best)
+    for n in names:
+        if n and n not in exact and n in txt:
+            loose.add(n)
+    return exact, loose
+
+
+def _hold_if_message_points_elsewhere(res, loose):
+    """메시지가 다른 이름을 가리키고 있으면 자동 배정을 막는다.
+
+       ⚠️ 이력·별명은 '이 사람은 늘 밍밍에게 줬다' 는 통계일 뿐이다.
+          그런데 그 후원의 메시지에 '철수' 글자가 들어 있다면, 통계보다 지금 쓴 말이
+          우선이어야 한다. 낱말이 딱 떨어지면 ① 에서 이미 잡히고, 여기 걸리는 것은
+          '철수화이팅' 처럼 붙여 쓴 애매한 경우다 — 애매하면 사람이 봐야 한다.
+    """
+    tgt = res.get('target')
+    if not tgt or not loose or tgt in loose:
+        return res
+    if res.get('tier') != 'auto':
+        return res
+    other = ', '.join(sorted(loose))
+    return dict(res, tier='suggest', confidence=min(res.get('confidence') or 0, 0.85),
+                why=(res.get('why') or '') + f" — 다만 메시지에 '{other}' 글자가 있어 확인 필요")
+
+
 def suggest_target(donor, amount, message, players, state=None):
     """이 후원이 누구를 지목하는지 판단한다.
        반환: {target, confidence, tier, source, why, history}"""
@@ -3069,23 +3139,26 @@ def suggest_target(donor, amount, message, players, state=None):
     if not names:
         return base
 
-    # ① 메시지에 이름이 그대로 — 가장 확실하다
-    hit = [n for n in names if n and n in msg]
-    if len(hit) == 1:
-        return dict(base, target=hit[0], confidence=0.97, tier='auto',
-                    source='이름', why=f'메시지에 \'{hit[0]}\' 이 있음')
-    if len(hit) > 1:
+    # ① 메시지에 이름이 그대로 — 가장 확실하다.
+    #    단 '낱말이 딱 떨어질 때'만이다. 글자만 겹치는 것은 아래에서 추천으로 낮춘다.
+    exact, loose = names_in_message(msg, names)
+    if len(exact) == 1:
+        one = next(iter(exact))
+        return dict(base, target=one, confidence=0.97, tier='auto',
+                    source='이름', why=f'메시지에 \'{one}\' 이 있음')
+    if len(exact) > 1:
         # 두 사람 이상을 부른 후원은 반반일 수 있다. 사람이 봐야 한다.
         return dict(base, target=None, confidence=0.0, tier='unknown',
-                    source='이름', why='여러 사람을 부름: ' + ', '.join(hit))
+                    source='이름', why='여러 사람을 부름: ' + ', '.join(sorted(exact)))
 
     # ② 별명 기억
     al = alias_lookup(msg, names)
     if al:
         player, hits, tok = al
         conf = min(0.95, 0.62 + 0.09 * hits)
-        return dict(base, target=player, confidence=round(conf, 2), tier=_tier(conf),
-                    source='별명', why=f'\'{tok}\' 은 지금까지 {hits}번 모두 {player} 였음')
+        return _hold_if_message_points_elsewhere(
+            dict(base, target=player, confidence=round(conf, 2), tier=_tier(conf),
+                 source='별명', why=f'\'{tok}\' 은 지금까지 {hits}번 모두 {player} 였음'), loose)
 
     # ③ 후원자 이력 — 늘 같은 사람에게 갔는가
     known = [(p, c) for p, c in hist if p in names]
@@ -3094,12 +3167,25 @@ def suggest_target(donor, amount, message, players, state=None):
         others = sum(c for p, c in known[1:])
         if others == 0 and top_c >= 2:
             conf = min(0.93, 0.66 + 0.07 * top_c)
-            return dict(base, target=top_p, confidence=round(conf, 2), tier=_tier(conf),
-                        source='이력', why=f'이 후원자는 지금까지 {top_c}번 모두 {top_p} 였음')
+            return _hold_if_message_points_elsewhere(
+                dict(base, target=top_p, confidence=round(conf, 2), tier=_tier(conf),
+                     source='이력', why=f'이 후원자는 지금까지 {top_c}번 모두 {top_p} 였음'), loose)
         if top_c >= 3 * max(1, others):
             conf = 0.7
-            return dict(base, target=top_p, confidence=conf, tier=_tier(conf),
-                        source='이력', why=f'{top_c}번 {top_p} / 그 외 {others}번')
+            return _hold_if_message_points_elsewhere(
+                dict(base, target=top_p, confidence=conf, tier=_tier(conf),
+                     source='이력', why=f'{top_c}번 {top_p} / 그 외 {others}번'), loose)
+
+    # ③-b 글자만 겹치는 이름 — 버리지 않고 '추천'으로만 올린다.
+    #    '밍밍화이팅' 처럼 붙여 쓴 진짜 지목을 놓치지 않으면서,
+    #    '철수했다가' 같은 우연한 겹침으로 돈이 자동으로 가지는 않게 한다.
+    if len(loose) == 1:
+        one = next(iter(loose))
+        return dict(base, target=one, confidence=0.75, tier=_tier(0.75),
+                    source='이름', why=f'메시지에 \'{one}\' 글자가 있음 (낱말이 딱 떨어지진 않음)')
+    if len(loose) > 1:
+        return dict(base, target=None, confidence=0.0, tier='unknown',
+                    source='이름', why='여러 이름 글자가 섞임: ' + ', '.join(sorted(loose)))
 
     # ④ 여기까지 못 풀면 AI 에게. 위에서 모은 것을 근거로 같이 넘긴다.
     ctx = game_context(state) if state else []
@@ -3122,8 +3208,9 @@ def suggest_target(donor, amount, message, players, state=None):
         return dict(base, target=None, confidence=0.0, tier='unknown', source='AI', why=why)
     # AI 는 이력·별명만큼 믿지 않는다. 위쪽 단계에서 걸리지 않은 건은 애매한 것이다.
     conf = min(conf, 0.88)
-    return dict(base, target=ai['target'], confidence=round(conf, 2), tier=_tier(conf),
-                source='AI', why='메시지 내용으로 추정')
+    return _hold_if_message_points_elsewhere(
+        dict(base, target=ai['target'], confidence=round(conf, 2), tier=_tier(conf),
+             source='AI', why='메시지 내용으로 추정'), loose)
 
 
 @app.route('/api/audit/suggest', methods=['POST'])
@@ -3216,8 +3303,40 @@ def api_data():
             for _k in ('api_token', 'server_time'):
                 incoming.pop(_k, None)
 
+            # 🛡️ [점수 지키기] 명단(bjs·extra_bjs·bottom_fixed)이 통째로 들어오면,
+            #    이름이 그대로인 사람의 점수·기여도는 '서버 값'을 지킨다.
+            #
+            # ⚠️ 이 길로 명단을 보내는 조작은 플레이어 추가·삭제·이름변경뿐이고,
+            #    그 어느 것도 점수를 바꿀 뜻이 없다. 그런데 보내는 내용에는 브라우저가
+            #    들고 있던 '그 순간의 점수'가 같이 실린다. 그래서 이름 한 글자를 고치는
+            #    사이에 폰이나 오토파일럿이 준 점수가 통째로 되돌아갔다
+            #    (부하 테스트: 동시에 배정 25건 중 17건 소실 = 68%).
+            #    점수를 실제로 바꾸는 길은 /api/score/add 하나뿐이고, 그쪽은 '더할 값'만
+            #    받아 서버가 읽고-더하고-쓰므로 겹쳐도 둘 다 남는다.
+            #    새 이름(추가·개명)은 서버에 없으니 클라이언트 값을 그대로 쓴다.
+            for _key in ('bjs', 'extra_bjs'):
+                _inc = incoming.get(_key)
+                if not isinstance(_inc, list):
+                    continue
+                _have = {}
+                for _p in (current_state.get(_key) or []):
+                    if isinstance(_p, dict) and isinstance(_p.get('name'), str):
+                        _have[_p['name'].strip()] = _p
+                for _p in _inc:
+                    if not isinstance(_p, dict):
+                        continue
+                    _old = _have.get(str(_p.get('name') or '').strip())
+                    if _old is None:
+                        continue                      # 새로 생긴 사람 — 보낸 값 그대로
+                    _p['score'] = _old.get('score', 0)
+                    _p['contribution'] = _old.get('contribution', 0)
+            # 운영비 칸도 같은 이유로 점수를 지킨다(이름만 고치는 길이 열려 있다).
+            _bf, _bf_old = incoming.get('bottom_fixed'), current_state.get('bottom_fixed')
+            if isinstance(_bf, dict) and isinstance(_bf_old, dict):
+                _bf['score'] = _bf_old.get('score', 0)
+
             state = dict(current_state)
-            state.update(incoming)                      # 클라이언트 편집 필드는 그대로 반영(점수·설정·승인 등 기존 동작 유지)
+            state.update(incoming)                      # 클라이언트 편집 필드는 그대로 반영(설정·승인 등 기존 동작 유지)
             state.pop('api_token', None)                # 과거에 이미 오염됐다면 여기서 씻어낸다
             for k in SERVER_OWNED:
                 if k in current_state:

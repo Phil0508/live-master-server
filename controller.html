@@ -3981,25 +3981,43 @@
                         await premiumAlert(`'${editName}' 플레이어를 찾을 수 없어 기여도를 바꾸지 않았습니다.`, '수정 취소', 'warning');
                         return;
                     }
+                    // 바꾸려는 '차이'만 보낸다 (t2 는 방금 서버에서 온 최신값이다)
+                    const diff = parsed - (t2.contribution || 0);
                     t2.contribution = parsed;
                     // ⚠️ 반드시 팝오버를 먼저 닫는다. 입력칸에 포커스가 남아 있으면 renderUI 가
                     //    통째로 조기 반환해서, 정렬로 순서가 바뀐 뒤에도 화면은 옛 순서를 그대로 유지한다.
                     //    그 상태에서 지급 버튼을 누르면 엉뚱한 사람에게 점수가 들어간다.
                     cancelContribEdit();
-                    pushAPI({include:['bjs','extra_bjs']});
+                    await sendContribDelta(editName, diff);
                 } else {
                     cancelContribEdit();
                 }
             }
         }
 
-        function adjustContrib(idx, amount) {
+        async function adjustContrib(idx, amount) {
             let isExtra = gd.extra_game_active || false;
             let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-            let currentVal = targetList[idx].contribution || 0;
-            targetList[idx].contribution = currentVal + amount;
+            if (!targetList || !targetList[idx]) return;
+            // ⚠️ 사람은 번호가 아니라 이름으로 고정한다. 목록은 기여도순으로 계속 다시
+            //    정렬되므로, 보내는 사이에 번호가 가리키는 사람이 바뀔 수 있다.
+            const name = targetList[idx].name;
+            targetList[idx].contribution = (targetList[idx].contribution || 0) + amount;
+            renderUI();
+            await sendContribDelta(name, amount);
+        }
 
-            pushAPI({include:['bjs','extra_bjs']});
+        // 🎯 기여도도 '더할 값'으로 보낸다.
+        //    예전에는 점수판 전체를 보냈는데, 그러면 브라우저가 들고 있던 옛 점수가
+        //    같이 실려 나가서 그 사이에 들어온 배정을 통째로 되돌렸다
+        //    (부하 테스트: 동시에 배정 25건 중 17건 소실).
+        //    delta 0 · contribution 만 보내면 점수는 그대로 두고 기여도만 움직인다.
+        async function sendContribDelta(name, diff) {
+            if (!diff) { renderUI(); return true; }
+            const r = await addScoreAPI({ scope: 'rank', name: name, delta: 0,
+                                         contribution: diff, log: false });
+            if (!r) { await premiumAlert('기여도를 바꾸지 못했습니다. (서버 전송 실패)', '실패', 'error'); }
+            return !!r;
         }
 
         function cancelContribEdit() {
@@ -4009,16 +4027,17 @@
             }
         }
 
-        function saveContrib(idx, val) {
+        async function saveContrib(idx, val) {
             let parsed = parseInt(val);
-            if (!isNaN(parsed)) {
-                let isExtra = gd.extra_game_active || false;
-                let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-                targetList[idx].contribution = parsed;
-                pushAPI({include:['bjs','extra_bjs']});
-            } else {
-                renderUI();
-            }
+            if (isNaN(parsed)) { renderUI(); return; }
+            let isExtra = gd.extra_game_active || false;
+            let targetList = isExtra ? gd.extra_bjs : gd.bjs;
+            if (!targetList || !targetList[idx]) return;
+            const name = targetList[idx].name;
+            const diff = parsed - (targetList[idx].contribution || 0);
+            targetList[idx].contribution = parsed;
+            renderUI();
+            await sendContribDelta(name, diff);
         }
         async function triggerUpText() { let txt = document.getElementById('in-up-text').value; if (txt.trim() === "") { await premiumAlert("화면에 띄울 문구를 먼저 입력해주세요!", "입력 오류", "warning"); return; } gd.up_trigger = { time: Date.now(), text: txt }; pushAPI(); }
         

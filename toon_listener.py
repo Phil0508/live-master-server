@@ -19,7 +19,7 @@
 ⚠️ 투네이션의 비공개 규격이라 그쪽이 바꾸면 끊길 수 있다(공식 API 아님).
    기존 템퍼몽키+OBS 방식을 폴백으로 남겨두는 것을 권장.
 """
-import os, sys, re, json, time, asyncio, hashlib, urllib.request
+import os, sys, re, json, time, asyncio, hashlib, threading, urllib.request
 
 try:
     import websockets
@@ -162,11 +162,18 @@ def send_once(payload):
         return False
 
 
+# ⚠️ 대기줄 파일을 만지는 곳이 두 군데다 — 후원을 넘기는 쪽과 10초마다 도는 감시자.
+#    아래에서 이 둘을 각각 딴 갈래(스레드)로 돌리므로, 자물쇠 없이 두면
+#    한쪽이 파일을 다시 쓰는 사이 다른 쪽이 적은 줄이 통째로 날아갈 수 있다(= 후원 유실).
+_spool_lock = threading.Lock()
+
+
 def spool_add(payload):
     """보내지 못한 후원을 파일 끝에 적어둔다."""
     try:
-        with open(SPOOL_FILE, "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        with _spool_lock:
+            with open(SPOOL_FILE, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, ensure_ascii=False) + "\n")
         log("   📮 대기줄에 넣었습니다 —", os.path.basename(SPOOL_FILE),
             "(서버가 살아나면 자동으로 다시 보냅니다)")
     except Exception as e:
@@ -176,8 +183,24 @@ def spool_add(payload):
 
 
 def spool_drain():
-    """밀린 후원을 순서대로 다시 보낸다. 못 보낸 것만 파일에 남긴다."""
+    """밀린 후원을 순서대로 다시 보낸다. 못 보낸 것만 파일에 남긴다.
+
+    ⚠️ 통신이 들어 있어 오래 걸린다. 절대 async 루프 안에서 그냥 부르지 말 것
+       (아래 to_thread 주석 참고). 그리고 자물쇠 덕에 두 갈래가 겹쳐 돌지 않는다 —
+       겹치면 같은 줄을 두 번 보내거나, 더 나쁘게는 적힌 줄이 사라진다.
+    """
     if DRY or not os.path.exists(SPOOL_FILE):
+        return
+    if not _spool_lock.acquire(blocking=False):
+        return              # 이미 다른 갈래가 흘리는 중이다
+    try:
+        _spool_drain_locked()
+    finally:
+        _spool_lock.release()
+
+
+def _spool_drain_locked():
+    if not os.path.exists(SPOOL_FILE):
         return
     try:
         with open(SPOOL_FILE, "r", encoding="utf-8") as f:
@@ -266,14 +289,22 @@ async def listen(token):
             if DRY:
                 log("   → [dry] 보낼 내용:", json.dumps(payload, ensure_ascii=False))
                 continue
-            deliver(payload)
+            # ⚠️ 반드시 딴 갈래(스레드)에서 부른다.
+            #    deliver 는 통신(최대 10초) + 재시도가 들어 있어 오래 걸리는데,
+            #    여기서 그냥 부르면 그동안 이 async 루프가 통째로 멈춘다.
+            #    그러면 웹소켓이 ping 에 답하지 못해 연결이 끊긴다 — 하필
+            #    후원이 쏟아지는 바로 그 순간에.
+            #    (실측: 응답 없는 서버에 후원 1건이면 루프가 20.8초, 3건이면 62초 정지.
+            #     ping 간격이 20초라 첫 건에서 이미 끊긴다. to_thread 로는 0.2초)
+            await asyncio.to_thread(deliver, payload)
 
 async def spool_watcher():
     """후원이 한동안 없어도 밀린 것이 계속 묶여 있지 않게 주기적으로 다시 시도한다."""
     while True:
         await asyncio.sleep(10)
         try:
-            spool_drain()
+            # 여기도 같은 이유로 딴 갈래에서. 밀린 것이 많으면 한 건에 10초씩 걸린다.
+            await asyncio.to_thread(spool_drain)
         except Exception as e:
             log("⚠️ 대기줄 재시도 중 오류:", e)
 
