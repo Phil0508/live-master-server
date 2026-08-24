@@ -2682,17 +2682,38 @@ def serve_manual_send():
 def serve_streamdeck():
     return serve_html_file('streamdeck.html')
 
+# 📱↔💻 기기를 보고 알아서 갈라준다.
+#    폰으로 /controller 를 열면 폰 조종실로, PC 로 /mobile 을 열면 PC 조종실로 보낸다.
+#    즐겨찾기가 어느 쪽이든 그 기기에 맞는 화면이 뜬다 — 주소를 두 개 외울 필요가 없다.
+#    ?view=pc / ?view=mobile 을 붙이면 강제로 그 화면을 연다(태블릿에서 PC 판을 쓰고 싶을 때).
+#    ⚠️ 되돌릴 때 쿼리스트링(토큰!)을 반드시 그대로 실어야 한다 — 떨어뜨리면 로그인으로 튕긴다.
+def _wants_mobile():
+    forced = (request.args.get('view') or '').strip().lower()
+    if forced in ('pc', 'desktop'):
+        return False
+    if forced in ('mobile', 'phone'):
+        return True
+    # 'Mobi' 는 아이폰 사파리·안드로이드 크롬이 다 갖고 있는 표준 표식이다.
+    # 아이패드(데스크톱 UA)는 화면이 넓으니 PC 판을 준다 — 의도된 동작.
+    return 'Mobi' in (request.headers.get('User-Agent') or '')
+
+
+def _redirect_keep_query(path):
+    qs = request.query_string.decode('utf-8')
+    return redirect(path + ('?' + qs if qs else ''))
+
+
 @app.route('/controller')
 def serve_controller():
-    # 모바일/데스크톱 분기를 없애고 하나의 반응형 UI(controller.html)만 서빙한다.
-    # (예전엔 mode=mobile 이나 모바일 UA 이면 mobile.html 을 줬지만, 이제 한 UI로 통합)
+    if _wants_mobile():
+        return _redirect_keep_query('/mobile')
     return serve_html_file('controller.html')
 
 @app.route('/mobile')
 def serve_mobile():
-    # 📱 자리 비웠을 때 폰으로 쓰는 전용 화면.
-    #    한동안 컨트롤러를 그대로 보냈는데, 폰에서 12개 탭을 다 재현하니 결국 쓰기 불편했다.
-    #    지금은 '후원 배정'과 '점수 수정' 두 가지만 있는 별도 페이지를 보낸다.
+    # 📱 아이폰 방식 폰 조종실 (앱 12개 + 상단 알림 배너)
+    if not _wants_mobile():
+        return _redirect_keep_query('/controller')
     return serve_html_file('mobile.html')
 
 @app.route('/admin')
