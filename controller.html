@@ -10,31 +10,31 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
-            --bg-body: #121316; 
-            --bg-panel: #1c1e22; 
-            --bg-card: #202329; 
-            --bg-input: #0e0f12; 
-            --border-light: rgba(255, 255, 255, 0.06); 
-            --text-main: #eceef2; 
+            --bg-body: #141519; 
+            --bg-panel: #191b20; 
+            --bg-card: #1e2127; 
+            --bg-input: #101216; 
+            --border-light: #262a31; 
+            --text-main: #e8e8ec; 
             --text-muted: #8b909a; 
-            --accent: #4a9eff; 
-            --accent-glow: rgba(74, 158, 255, 0.25); 
+            --accent: #6db3ff; 
+            --accent-glow: rgba(109, 179, 255, 0.22); 
             --danger: #ff453a; 
             --danger-glow: rgba(255, 69, 58, 0.25);
-            --gold: #d9a441;
-            --gold-glow: rgba(217, 164, 65, 0.25);
-            --success: #34c759;
+            --gold: #ffcf4d;
+            --gold-glow: rgba(255, 207, 77, 0.22);
+            --success: #35d07f;
 
             /* ===== 회색 계단 =====
                예전엔 var(--text-dim) var(--text-dim) var(--text-muted) var(--text-muted) var(--line) var(--line) var(--surface-2) var(--line) 이 뒤섞여
                '조금씩 다른 회색'이 화면 곳곳에서 부딪혔다. 역할별로 하나씩만 둔다. */
             --text-dim: #6f7480;    /* 가장 흐린 보조 텍스트 */
-            --line: #3f434b;        /* 테두리·구분선 */
-            --surface-2: #232529;   /* 한 단계 떠 있는 표면 */
+            --line: #343943;        /* 테두리·구분선 */
+            --surface-2: #22252c;   /* 한 단계 떠 있는 표면 */
             /* ===== 모서리: 4종만 쓴다 (예전엔 25종이 섞여 있었다) ===== */
-            --r-1: 6px;      /* 배지·태그 */
-            --r-2: 10px;     /* 버튼·입력칸 */
-            --r-3: 16px;     /* 카드·패널 */
+            --r-1: 5px;      /* 배지·태그 */
+            --r-2: 7px;     /* 버튼·입력칸 */
+            --r-3: 10px;     /* 카드·패널 */
             --r-full: 999px; /* 알약형 */
             /* 기존 이름은 새 스케일을 가리키게 묶는다 — 값의 출처가 한 곳이어야 또 갈라지지 않는다 */
             --radius-lg: var(--r-3);
@@ -47,6 +47,9 @@
 
             /* ===== 간격: 4의 배수 ===== */
             --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+            /* 숫자 전용 고정폭 글꼴 — 점수·금액이 계기판처럼 자리가 안 흔들린다 */
+            --font-num: 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
 
             /* ===== 움직임 문법 =====
                이징 2종 · 지속시간 3등급만 쓴다. 화면 전체가 같은 리듬으로 움직여야
@@ -172,7 +175,7 @@
         .tab-btn.active { 
             background: rgba(255, 255, 255, 0.05); 
             color: var(--accent); 
-            border-color: rgba(74, 158, 255, 0.4);
+            border-color: rgba(109, 179, 255, 0.4);
             box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
         }
         body.theme-pink .tab-btn.active {
@@ -388,7 +391,7 @@
             transform: scale(1.05);
             box-shadow: 0 0 10px var(--danger-glow);
         }
-        .contrib-cell span { display: inline-block; padding: 4px 10px; border-radius: var(--r-1); transition: 0.2s; cursor: pointer; } .contrib-cell span:hover { background: rgba(217, 164, 65, 0.15); transform: scale(1.05); }
+        .contrib-cell span { display: inline-block; padding: 4px 10px; border-radius: var(--r-1); transition: 0.2s; cursor: pointer; } .contrib-cell span:hover { background: rgba(255, 207, 77, 0.15); transform: scale(1.05); }
 
         /* 🥇 순위별 배지 비주얼 스타일 추가 */
         .rank-badge {
@@ -402,7 +405,7 @@
             font-weight: 800;
             margin-right: 8px;
         }
-        .badge-1st { background: linear-gradient(135deg, var(--gold), #FFA500); color: #000; box-shadow: 0 0 10px rgba(217,164,65,0.4); }
+        .badge-1st { background: linear-gradient(135deg, var(--gold), #FFA500); color: #000; box-shadow: 0 0 10px rgba(255, 207, 77,0.4); }
         .badge-2nd { background: linear-gradient(135deg, #C0C0C0, #808080); color: #000; box-shadow: 0 0 10px rgba(192,192,192,0.3); }
         .badge-3rd { background: linear-gradient(135deg, #CD7F32, #8B4513); color: #fff; box-shadow: 0 0 10px rgba(205,127,50,0.3); }
         .badge-normal { background: rgba(255,255,255,0.08); color: var(--text-muted); }
@@ -419,7 +422,7 @@
             line-height: 1.7;
             box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.25);
         }
-        .ml-filter-btn { padding: 6px 14px; font-size: var(--fs-2); font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: var(--r-1); cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(74, 158, 255, 0.15) !important; color: var(--accent) !important; }
+        .ml-filter-btn { padding: 6px 14px; font-size: var(--fs-2); font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: var(--r-1); cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(109, 179, 255, 0.15) !important; color: var(--accent) !important; }
         .ml-row { transition: background 0.15s; } .ml-row:hover { background: rgba(255,255,255,0.04) !important; } .ml-row td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); } .ml-amount-plus { color: #4caf50; font-weight: 700; } .ml-amount-minus { color: #ff5252; font-weight: 700; } .ml-source-mobile { background: rgba(255, 152, 0, 0.12); color: #ff9800; padding: 3px 8px; border-radius: var(--r-1); font-size: var(--fs-1); font-weight: 600; } .ml-source-toonation { background: rgba(0, 191, 255, 0.12); color: #00bfff; padding: 3px 8px; border-radius: var(--r-1); font-size: var(--fs-1); font-weight: 600; }
         
         /* 보관함 전용 CSS */
@@ -541,7 +544,7 @@
         }
         .noti-item:hover {
             background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(74, 158, 255, 0.4);
+            border-color: rgba(109, 179, 255, 0.4);
             transform: translateY(-1px);
         }
         .noti-item-del {
@@ -605,8 +608,8 @@
             background: rgba(10, 10, 15, 0.88);
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border: 2px solid rgba(74, 158, 255, 0.5);
-            box-shadow: 0 0 25px rgba(74, 158, 255, 0.25), inset 0 10px 10px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(109, 179, 255, 0.5);
+            box-shadow: 0 0 25px rgba(109, 179, 255, 0.25), inset 0 10px 10px rgba(255, 255, 255, 0.1);
             border-radius: var(--r-3);
             padding: 12px 28px;
             display: flex;
@@ -812,10 +815,10 @@
             50% { opacity: 0.65; }
         }
         .roulette-winner-arcade {
-            background: rgba(74, 158, 255, 0.05) !important;
+            background: rgba(109, 179, 255, 0.05) !important;
             border: 1.5px solid var(--accent) !important;
             border-radius: var(--radius-md) !important;
-            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(74, 158, 255, 0.1) !important;
+            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(109, 179, 255, 0.1) !important;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: var(--fs-3);
             font-weight: 900 !important;
@@ -985,6 +988,124 @@
                 scroll-behavior: auto !important;
             }
         }
+
+        /* ═══════════════════════════════════════════════════════
+           🎛️ 방송 장비 콘솔 스킨 (2026-08-25 전면 개편)
+           OBS·스트림덱처럼: 진한 어둠 + 또렷한 격자 + 절제된 색.
+           색 규칙 — 노랑(--gold)=지금 활성/추천 · 파랑=정보성 조작 ·
+                     초록=정상 상태 · 빨강=위험. 그 외에는 회색 계단만 쓴다.
+           ⚠️ 이 층은 '겉모습만' 덮는다. 배치·기능·자바스크립트는 그대로다.
+              문제가 생기면 이 블록만 통째로 걷어내면 예전 모습으로 돌아간다.
+           ═══════════════════════════════════════════════════════ */
+
+        /* 탭 — 콘솔 상단 스위치 열. 활성 탭은 노란 밑줄(LED 느낌) */
+        .tabs {
+            background: rgba(22, 24, 29, 0.97);
+            backdrop-filter: none; -webkit-backdrop-filter: none;   /* 흐림 제거 — 성능도 든다 */
+            box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+            padding: 6px 8px;
+        }
+        .tab-btn { font-size: var(--fs-3); padding: 9px 16px; border-radius: var(--r-1); }
+        .tab-btn.active {
+            background: var(--surface-2);
+            color: var(--gold);
+            border-color: var(--border-light);
+            box-shadow: inset 0 -2px 0 var(--gold);
+        }
+
+        /* 패널 — 유리 효과를 걷어내고 장비 모듈처럼 평평하고 또렷하게 */
+        .group-box, .group-box:hover {
+            background: var(--bg-panel);
+            backdrop-filter: none; -webkit-backdrop-filter: none;
+            border: 1px solid var(--border-light);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+        }
+        /* 패널 제목 — 장비의 이름판처럼 */
+        .group-title {
+            background: var(--bg-card);
+            border: 1px solid var(--border-light);
+            border-radius: var(--r-1);
+            padding: 9px 13px;
+            margin-bottom: 16px;
+            font-size: var(--fs-3);
+            letter-spacing: 0.4px;
+            color: #c9cdd5;
+        }
+        .group-title i { color: var(--gold); filter: none; }
+
+        /* 버튼 — 눌리는 물건답게 테두리가 또렷한 키캡. 떠오르는 효과는 걷는다 */
+        button {
+            background: var(--surface-2);
+            color: var(--text-main);
+            border: 1px solid var(--line);
+            box-shadow: none;
+        }
+        button:hover {
+            background: #262b33;
+            border-color: #454b57;
+            transform: none;          /* 콘솔 장비는 들썩이지 않는다 */
+            box-shadow: none;
+        }
+        button:active { transform: translateY(1px); box-shadow: none; }
+        /* 주요 동작 = 노란 윤곽 (샘플의 '추천' 버튼과 같은 문법) */
+        button.primary {
+            background: rgba(255, 207, 77, 0.10);
+            color: var(--gold);
+            border-color: rgba(255, 207, 77, 0.55);
+        }
+        button.primary:hover {
+            background: rgba(255, 207, 77, 0.18);
+            border-color: var(--gold);
+            box-shadow: 0 0 12px var(--gold-glow);
+        }
+        /* 위험 동작 = 빨간 윤곽. 채운 빨강은 화면에서 늘 소리치고 있어서 뺐다 */
+        button.danger {
+            background: rgba(255, 69, 58, 0.10);
+            color: #ff6f66;
+            border-color: rgba(255, 69, 58, 0.50);
+        }
+        button.danger:hover {
+            background: rgba(255, 69, 58, 0.20);
+            border-color: var(--danger);
+            box-shadow: 0 0 12px var(--danger-glow);
+        }
+
+        /* 입력칸 — 조준선은 노랑 하나로 통일 */
+        input[type="text"], input[type="number"], select, textarea { border-color: var(--line); }
+        input:focus, select:focus, textarea:focus {
+            border-color: rgba(255, 207, 77, 0.6);
+            box-shadow: 0 0 0 2px rgba(255, 207, 77, 0.12);
+            background: #0b0d10;
+        }
+        td input:focus {
+            border-color: rgba(255, 207, 77, 0.6);
+            box-shadow: none;
+            background: #0b0d10;
+        }
+
+        /* 표 — 머리칸은 이름판과 같은 톤 */
+        th { background: var(--bg-card); }
+
+        /* 숫자는 전부 계기판 글꼴 — 점수·금액·기여도 자릿수가 안 흔들린다 */
+        .score-display, .pending-amount, .contrib-cell span { font-family: var(--font-num); }
+        /* 표 안의 +점수 버튼은 정보성 파랑 (샘플 ③의 +1/+5 버튼) */
+        td button { color: #8fd0ff; }
+
+
+        /* 🗂️ [그 밖에] 뒤로 접히는 탭들 */
+        .tab-extra { display: none !important; }
+        body.tabs-more .tab-extra { display: inline-flex !important; }
+        body.tabs-more #tabs-more-btn { color: var(--gold); border-color: rgba(255, 207, 77, 0.4); }
+
+        /* 📁 접는 패널 — 제목을 누르면 접힌다. '한 번 설정하고 마는' 패널은 기본 접힘. */
+        .group-box.foldable > .group-title { cursor: pointer; user-select: none; }
+        .group-box.foldable > .group-title .fold-arrow {
+            margin-left: auto; color: var(--text-dim); font-size: var(--fs-2);
+            transition: transform 0.15s ease; flex: none;
+        }
+        .group-box.gb-folded > .group-title .fold-arrow { transform: rotate(-90deg); }
+        .group-box.gb-folded > *:not(.group-title) { display: none !important; }
+        .group-box.gb-folded > .group-title { margin-bottom: 0; }
     </style>
 </head>
 <body>
@@ -1060,14 +1181,8 @@
         </h1>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <button id="live-toggle" onclick="toggleLiveMode()" title="방송 중에 쓰는 것만 남기고 나머지를 접습니다 (설정은 그대로 있습니다)"><span class="dot"></span><span id="live-toggle-label">라이브 모드</span></button>
-            <!-- ☕ 서버 깨워두기 — 헤더에 둔다.
-                 처음엔 시스템 탭에 넣었는데 그 탭이 '방송 중에만 보이는 영역' 안이라,
-                 정작 필요한 방송 전/후에 스위치가 보이지 않았다. 이건 방송 상태와 무관한 인프라 조작이다. -->
-            <button id="self-ping-toggle" onclick="toggleSelfPingBtn()"
-                title="켜두면 서버가 잠들지 않습니다. 대신 Render 무료 시간을 하루 24시간 씁니다(월 한도 750시간).&#10;방송 중에는 화면이 계속 붙어 있어 저절로 깨어 있으니 켤 필요가 없습니다.&#10;꺼두면 다음 접속이 50초쯤 걸립니다."
-                style="display: inline-flex; align-items: center; gap: 7px;">
-                <i class="fa-solid fa-mug-hot"></i><span id="self-ping-label">깨워두기 꺼짐</span>
-            </button>
+            <!-- ☕ 깨워두기 버튼은 없앴다 — Render 무료 서버를 안 재우려던 유물이다.
+                 지금은 Vultr 유료 서버라 잠들지 않는다. (서버 쪽 기능은 Render 폴백용으로 남아 있다) -->
             <!-- 📱 iOS 미니 미디어 제어센터 패널 -->
             <div id="ios-mini-media-panel" style="display: flex; align-items: center; gap: 12px; background: rgba(24, 24, 27, 0.7); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 1px solid rgba(255, 255, 255, 0.15); border-radius: var(--r-3); padding: 6px 15px; height: 42px; box-sizing: border-box; box-shadow: inset 0 8px 16px rgba(255,255,255,0.03), 0 4px 12px rgba(0,0,0,0.3); max-width: 480px;">
                 <i class="fa-solid fa-music" id="yt-card-icon" style="font-size: var(--fs-3); color: var(--accent); flex-shrink: 0; filter: drop-shadow(0 0 4px var(--accent-glow));"></i>
@@ -1107,8 +1222,8 @@
     <div id="active-broadcast-area" style="display: none;">
 
     <!-- 🎯 목표 100% 달성 알림 (승인해야 오버레이에 연출이 나감) -->
-    <div class="group-box" id="goal-alert-box" style="display: none; margin-bottom: 15px; border-color: rgba(217, 164, 65, 0.8); background: linear-gradient(135deg, rgba(217, 164, 65, 0.15), rgba(255, 152, 0, 0.1)); box-shadow: 0 0 25px rgba(217, 164, 65, 0.3);">
-        <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(217, 164, 65, 0.3); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+    <div class="group-box" id="goal-alert-box" style="display: none; margin-bottom: 15px; border-color: rgba(255, 207, 77, 0.8); background: linear-gradient(135deg, rgba(255, 207, 77, 0.15), rgba(255, 152, 0, 0.1)); box-shadow: 0 0 25px rgba(255, 207, 77, 0.3);">
+        <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 207, 77, 0.3); display: flex; justify-content: space-between; align-items: center; width: 100%;">
             <span><i class="fa-solid fa-trophy"></i> 🎯 목표치 100% 달성!</span>
             <span style="font-size: var(--fs-1); background: var(--gold); color: #000; padding: 2px 8px; border-radius: var(--r-2); font-weight: 900;">축하합니다! 🎉</span>
         </div>
@@ -1118,7 +1233,7 @@
                 <span style="font-size: var(--fs-2); font-weight: normal; color: var(--text-muted);">방송 화면에 <strong>게이지가 중앙으로 커지는 축하 연출</strong>을 띄울까요?</span>
             </p>
             <div style="display: flex; gap: 8px;">
-                <button onclick="approveGoalEvent()" style="background: linear-gradient(135deg, var(--gold), #ff9800); color: #000; font-weight: 900; border: none; padding: 10px 18px; border-radius: var(--r-1); cursor: pointer; box-shadow: 0 4px 12px rgba(217, 164, 65, 0.4);"><i class="fa-solid fa-play"></i> 승인 (송출)</button>
+                <button onclick="approveGoalEvent()" style="background: linear-gradient(135deg, var(--gold), #ff9800); color: #000; font-weight: 900; border: none; padding: 10px 18px; border-radius: var(--r-1); cursor: pointer; box-shadow: 0 4px 12px rgba(255, 207, 77, 0.4);"><i class="fa-solid fa-play"></i> 승인 (송출)</button>
                 <button onclick="dismissGoalEvent()" style="background: rgba(255, 255, 255, 0.1); color: #ccc; border: 1px solid var(--line); padding: 10px 14px; border-radius: var(--r-1); cursor: pointer;">닫기</button>
             </div>
         </div>
@@ -1147,31 +1262,27 @@
          ⚠️ 버튼 배치는 그대로 둔다 — 손에 익은 자리가 바뀌면 방송 중에 그게 더 위험하다.
             자리만 옮기고 항상 보이게 했다. -->
     <div id="sticky-top">
+        <!-- 🗂️ 탭 — 방송 중에 실제로 쓰는 8개만 보인다.
+             자주 안 쓰는 것(이펙트·BGM·특별후원자·룰렛·전광판 링크)은 [그 밖에]를 눌러 편다.
+             펼친 상태는 브라우저가 기억한다. '핵심/연출/게임/설정' 이름표는 걷었다 —
+             탭이 8개면 이름표가 오히려 자리만 차지한다. -->
         <div class="tabs">
-            <!-- 핵심(자주 쓰는 것) -->
-            <span class="tab-glabel accent">핵심</span>
             <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
             <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-key" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
             <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
             <button class="tab-btn tab-key" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
             <span class="tab-sep"></span>
-            <!-- 연출 -->
-            <span class="tab-glabel">연출</span>
-            <button class="tab-btn" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-            <span class="tab-sep"></span>
-            <!-- 게임 -->
-            <span class="tab-glabel">게임</span>
-            <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
-            <span class="tab-sep"></span>
-            <!-- 설정 -->
-            <span class="tab-glabel">설정</span>
             <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
-            <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn" style="color: var(--accent); border-color: rgba(74,158,255,0.4); background: rgba(74,158,255,0.1);"><i class="fa-solid fa-tv"></i> 📺 출연진 전광판</button></a>
+            <span class="tab-sep"></span>
+            <button class="tab-btn" id="tabs-more-btn" onclick="toggleTabsMore()" title="자주 안 쓰는 탭 펴기/접기"><i class="fa-solid fa-ellipsis"></i> 그 밖에</button>
+            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
+            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
+            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+            <a href="/signature-display" target="_blank" class="tab-extra" style="text-decoration: none;"><button class="tab-btn"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
         </div>
         <!-- 후원 결재 대기함 (탭과 무관하게 항상 보인다) -->
             <div class="group-box" id="pending-box" style="display: none; border-color: rgba(255, 204, 0, 0.5); background: rgba(255, 204, 0, 0.03);">
@@ -1275,7 +1386,7 @@
 
             <div class="control-group" style="margin-bottom: 15px;">
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-bullseye"></i> 목표치:</label><input type="number" id="in-goal" onchange="updateGoal()" style="width: 100px;">
-                <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(217, 164, 65, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(217, 164, 65, 0.3); margin-left: 10px;">
+                <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(255, 207, 77, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 207, 77, 0.3); margin-left: 10px;">
                     <i class="fa-solid fa-rocket" style="color: var(--gold);"></i>
                     <input type="text" id="in-up-text" placeholder="UP 자막 (엔터 발사)" style="flex: 1; border: none; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 5px;" onkeydown="if(event.key==='Enter') triggerUpText()">
                     <button style="background: var(--gold); color: #000; font-weight: 800; border: none;" onclick="triggerUpText()">발사</button>
@@ -1449,7 +1560,7 @@
                     <div class="group-title" style="justify-content: center;"><i class="fa-solid fa-music"></i> 오디오 플레이어 (BGM)</div>
                     
                     <!-- Modern dashed dropzone file input wrapper -->
-                    <div style="position: relative; border: 2px dashed rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); padding: 15px 10px; background: rgba(255, 255, 255, 0.01); transition: var(--transition-smooth); cursor: pointer;" onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(74, 158, 255, 0.02)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.background='rgba(255, 255, 255, 0.01)';" onclick="document.getElementById('bgm-file').click()">
+                    <div style="position: relative; border: 2px dashed rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); padding: 15px 10px; background: rgba(255, 255, 255, 0.01); transition: var(--transition-smooth); cursor: pointer;" onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(109, 179, 255, 0.02)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.background='rgba(255, 255, 255, 0.01)';" onclick="document.getElementById('bgm-file').click()">
                         <i class="fa-solid fa-cloud-arrow-up" style="font-size: var(--fs-7); color: var(--text-muted); margin-bottom: 6px; display: block;"></i>
                         <span style="font-size: var(--fs-3); font-weight: bold; color: #fff; display: block; margin-bottom: 2px;">클릭하여 음악 파일 업로드</span>
                         <span style="font-size: var(--fs-1); color: var(--text-muted); display: block;">MP3, WAV, M4A 등 오디오 파일 지원</span>
@@ -1537,13 +1648,13 @@
                     <button class="primary" id="btn-roulette-spin" onclick="controlRoulette('spin')" style="width: 100%; justify-content: center; height: 50px; font-size: var(--fs-4); font-weight: 800;"><i class="fa-solid fa-play"></i> 룰렛 회전 시작</button>
                     <button class="danger" id="btn-roulette-stop" onclick="controlRoulette('stop')" style="width: 100%; justify-content: center; height: 50px; font-size: var(--fs-4); font-weight: 800; display: none; animation: shake-y 0.2s linear infinite;"><i class="fa-solid fa-stop"></i> 정지!!</button>
                     <button onclick="controlRoulette('reset')" style="width: 100%; justify-content: center; background: var(--surface-2); border-color: var(--line);"><i class="fa-solid fa-rotate-right"></i> 회전판 초기화</button>
-                    <button onclick="toggleRouletteRemote(this)" style="width: 100%; justify-content: center; background: rgba(217, 164, 65, 0.08); border-color: rgba(217, 164, 65, 0.25); color: var(--gold); height: 40px; font-weight: bold;"><i class="fa-solid fa-square-check"></i> 선관위</button>
+                    <button onclick="toggleRouletteRemote(this)" style="width: 100%; justify-content: center; background: rgba(255, 207, 77, 0.08); border-color: rgba(255, 207, 77, 0.25); color: var(--gold); height: 40px; font-weight: bold;"><i class="fa-solid fa-square-check"></i> 선관위</button>
                 </div>
             </div>
 
             <!-- 당첨 조작 리모컨 카드 -->
             <div class="group-box" id="roulette-remote-card" style="display: none; flex-direction: column; gap: 15px; min-height: 380px;">
-                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(217, 164, 65, 0.2);"><i class="fa-solid fa-square-check"></i> 선거관리위원회 콘솔</div>
+                <div class="group-title" style="color: var(--gold); border-bottom-color: rgba(255, 207, 77, 0.2);"><i class="fa-solid fa-square-check"></i> 선거관리위원회 콘솔</div>
                 <p style="color: var(--text-muted); font-size: var(--fs-3); margin: 0; line-height: 1.5;">
                     * 룰렛을 회전시키고 정지하기 전에 아래에서 우승자를 미리 터치하여 지정할 수 있습니다.<br>
                     * 지정 시 룰렛판이 해당 슬롯의 각도 영역으로 <b>자연스럽고 부드럽게 감속되어</b> 멈춥니다.
@@ -1568,7 +1679,7 @@
                     <button onclick="exportManualLogs()" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(76, 175, 80, 0.12); border: 1px solid #4caf50; border-radius: var(--r-1); color: #4caf50; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(76,175,80,0.25)';" onmouseout="this.style.background='rgba(76,175,80,0.12)';">
                         <i class="fa-solid fa-file-csv"></i> CSV 다운로드
                     </button>
-                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(74, 158, 255, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(74,158,255,0.25)';" onmouseout="this.style.background='rgba(74,158,255,0.1)';">
+                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(109, 179, 255, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(109, 179, 255,0.25)';" onmouseout="this.style.background='rgba(109, 179, 255,0.1)';">
                         <i class="fa-solid fa-arrows-rotate"></i> 새로고침
                     </button>
                 </div>
@@ -1583,7 +1694,7 @@
                 </div>
                 <div style="flex: 1; display: flex; gap: 8px; align-items: center;">
                     <input type="text" id="ml-search-name" placeholder="🔍 이름 검색..." style="flex: 1; min-width: 120px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); padding: 8px 14px; border-radius: var(--r-1); color: #fff; font-size: var(--fs-3); outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--accent)';" onblur="this.style.borderColor='var(--border-light)';" onkeydown="if(event.key==='Enter') loadManualLogs(1)">
-                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-3); flex-shrink: 0;">
+                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-3); flex-shrink: 0;">
                         <i class="fa-solid fa-magnifying-glass"></i> 검색
                     </button>
                 </div>
@@ -1652,7 +1763,7 @@
                 아래 버튼을 누를 때 <b>설치 화면</b>이 뜨고, 이미 설치돼 있으면 <b>최신 버전으로 덮어쓰기</b>됩니다.
             </div>
             <a href="/toonation_tampermonkey.user.js" target="_blank" rel="noopener"
-               style="display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 18px; border-radius:var(--r-2); background: rgba(74,158,255,0.12); border:1px solid rgba(74,158,255,0.4); color: var(--accent); font-weight:bold; text-decoration:none;">
+               style="display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 18px; border-radius:var(--r-2); background: rgba(109, 179, 255,0.12); border:1px solid rgba(109, 179, 255,0.4); color: var(--accent); font-weight:bold; text-decoration:none;">
                 <i class="fa-solid fa-download"></i> 템퍼몽키 스크립트 설치 / 다운로드
             </a>
         </div>
@@ -1730,13 +1841,13 @@
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                     <div style="font-size: var(--fs-3); color: var(--text-muted); line-height: 1.5; background: rgba(255,255,255,0.03); padding: 10px 14px; border-radius: var(--r-1); border: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center;">
                         <span><i class="fa-solid fa-clock-rotate-left" style="color: var(--accent); margin-right: 6px;"></i> 백업 상태: <strong id="auto-backup-status-badge" style="color: #fff;">--:--:--</strong></span>
-                        <button onclick="performAutoPeriodicBackup(true)" style="padding: 4px 10px; font-size: var(--fs-2); font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer;">⚡ 지금 백업</button>
+                        <button onclick="performAutoPeriodicBackup(true)" style="padding: 4px 10px; font-size: var(--fs-2); font-weight: bold; background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer;">⚡ 지금 백업</button>
                     </div>
                     <div style="display: flex; gap: 8px; margin-top: auto;">
                         <button onclick="downloadLocalBackupFile()" style="flex: 1; justify-content: center; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; background: rgba(0, 191, 255, 0.15); border: 1px solid #00bfff; color: #00bfff; border-radius: var(--r-1); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(0,191,255,0.25)';" onmouseout="this.style.background='rgba(0,191,255,0.15)';">
                             <i class="fa-solid fa-download"></i> 파일 다운로드
                         </button>
-                        <button onclick="document.getElementById('sys-upload-file').click()" style="flex: 1; justify-content: center; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(74,158,255,0.25)';" onmouseout="this.style.background='rgba(74,158,255,0.15)';">
+                        <button onclick="document.getElementById('sys-upload-file').click()" style="flex: 1; justify-content: center; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: bold; background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(109, 179, 255,0.25)';" onmouseout="this.style.background='rgba(109, 179, 255,0.15)';">
                             <i class="fa-solid fa-upload"></i> 파일 복원
                         </button>
                     </div>
@@ -1752,7 +1863,7 @@
         <div class="group-box" style="margin-top: 20px; margin-bottom: 0;">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
                 <span><i class="fa-solid fa-gears"></i> 서버 백업 및 실시간 모니터링</span>
-                <button onclick="refreshSystemStatus()" style="padding: 6px 12px; font-size: var(--fs-3); font-weight: bold; background: rgba(74, 158, 255, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <button onclick="refreshSystemStatus()" style="padding: 6px 12px; font-size: var(--fs-3); font-weight: bold; background: rgba(109, 179, 255, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-arrows-rotate"></i> 상태 갱신
                 </button>
             </div>
@@ -1777,7 +1888,7 @@
                         
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="text" id="sys-manual-label" placeholder="백업 세이브포인트 설명 입력" style="flex: 1; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); padding: 10px 14px; border-radius: var(--r-1); color: #fff; font-size: var(--fs-3); outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--accent)';" onblur="this.style.borderColor='var(--border-light)';">
-                            <button onclick="createSystemBackup()" style="height: 38px; padding: 0 16px; font-weight: bold; background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-3); transition: all 0.2s;" onmouseover="this.style.background='rgba(74,158,255,0.25)';" onmouseout="this.style.background='rgba(74,158,255,0.15)';">
+                            <button onclick="createSystemBackup()" style="height: 38px; padding: 0 16px; font-weight: bold; background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-3); transition: all 0.2s;" onmouseover="this.style.background='rgba(109, 179, 255,0.25)';" onmouseout="this.style.background='rgba(109, 179, 255,0.15)';">
                                 <i class="fa-solid fa-floppy-disk"></i> 세이브
                             </button>
                         </div>
@@ -1912,7 +2023,7 @@
     <div id="tab-vip" class="tab-content">
         <div class="group-box">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span><i class="fa-solid fa-crown" style="color: var(--gold);"></i> 특별 후원자 관리 <span id="vip-count-badge" style="font-size: var(--fs-1); background: rgba(217,164,65,0.15); color: var(--gold); padding: 2px 8px; border-radius: var(--r-2); font-weight: bold; margin-left: 6px;">0명</span></span>
+                <span><i class="fa-solid fa-crown" style="color: var(--gold);"></i> 특별 후원자 관리 <span id="vip-count-badge" style="font-size: var(--fs-1); background: rgba(255, 207, 77,0.15); color: var(--gold); padding: 2px 8px; border-radius: var(--r-2); font-weight: bold; margin-left: 6px;">0명</span></span>
                 <div style="display: flex; gap: 6px;">
                     <button class="primary" onclick="openVipModal()" style="height: 30px; border-radius: var(--r-2); font-size: var(--fs-2); padding: 0 14px; font-weight: bold;"><i class="fa-solid fa-plus"></i> 등록</button>
                     <button class="secondary" onclick="loadVipList()" style="height: 30px; border-radius: var(--r-2); font-size: var(--fs-2); padding: 0 12px;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
@@ -1962,8 +2073,8 @@
                     <div>
                         <label style="font-size: var(--fs-2); color: var(--text-muted); display: block; margin-bottom: 5px;">강조 색상</label>
                         <div style="display: flex; gap: 10px;">
-                            <input type="color" id="vip-color" value="#d9a441" oninput="document.getElementById('vip-color-text').value = this.value" style="width: 48px; height: 40px; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--r-1); background: none; cursor: pointer; padding: 0;">
-                            <input type="text" id="vip-color-text" value="#d9a441" oninput="document.getElementById('vip-color').value = this.value" style="flex: 1; height: 40px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3); color: #fff; padding: 0 10px; font-size: var(--fs-3); font-weight: bold; text-align: center; box-sizing: border-box;">
+                            <input type="color" id="vip-color" value="#ffcf4d" oninput="document.getElementById('vip-color-text').value = this.value" style="width: 48px; height: 40px; border: 1px solid rgba(255,255,255,0.08); border-radius: var(--r-1); background: none; cursor: pointer; padding: 0;">
+                            <input type="text" id="vip-color-text" value="#ffcf4d" oninput="document.getElementById('vip-color').value = this.value" style="flex: 1; height: 40px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.3); color: #fff; padding: 0 10px; font-size: var(--fs-3); font-weight: bold; text-align: center; box-sizing: border-box;">
                         </div>
                     </div>
                     <div>
@@ -2026,7 +2137,7 @@
             </div>
 
             <!-- 메인 돌리기 버튼 -->
-            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, var(--accent), #00bfff); color: #000; font-size: var(--fs-7); font-weight: 900; padding: 22px 55px; border: none; border-radius: var(--r-3); cursor: pointer; box-shadow: 0 0 35px rgba(74, 158, 255, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
+            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, var(--accent), #00bfff); color: #000; font-size: var(--fs-7); font-weight: 900; padding: 22px 55px; border: none; border-radius: var(--r-3); cursor: pointer; box-shadow: 0 0 35px rgba(109, 179, 255, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
                 <i class="fa-solid fa-play"></i> 🎰 슬롯머신 돌리기!
             </button>
         </div>
@@ -2078,7 +2189,7 @@
                     ? `<div style="width:100%;height:64px;background:url('${s.image_url}') center/cover no-repeat;border-radius:var(--r-1);"></div>`
                     : `<div style="width:100%;height:64px;background:rgba(0,0,0,0.35);border-radius:var(--r-1);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-image" style="color:var(--line);"></i></div>`;
                 return `
-                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(74,158,255,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:var(--r-2);font-size:var(--fs-2);display:flex;flex-direction:column;gap:6px;transition:all .15s;">
+                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(109, 179, 255,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:var(--r-2);font-size:var(--fs-2);display:flex;flex-direction:column;gap:6px;transition:all .15s;">
                         ${thumb}
                         <div style="display:flex;align-items:center;gap:6px;">
                             <i class="fa-solid ${on ? 'fa-circle-check' : 'fa-circle'}" style="color:${on ? 'var(--accent)' : 'var(--line)'};font-size:var(--fs-3);flex-shrink:0;"></i>
@@ -2174,7 +2285,7 @@
                 <button type="button" onclick="addSetupPlayerField()" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); flex: 1; justify-content: center; height: 42px;">
                     <i class="fa-solid fa-plus"></i> 플레이어 추가
                 </button>
-                <button type="button" onclick="setupBulkImportBJs()" style="background: rgba(74, 158, 255, 0.15); border-color: var(--accent); color: var(--accent); flex: 1; justify-content: center; height: 42px;">
+                <button type="button" onclick="setupBulkImportBJs()" style="background: rgba(109, 179, 255, 0.15); border-color: var(--accent); color: var(--accent); flex: 1; justify-content: center; height: 42px;">
                     <i class="fa-solid fa-file-import"></i> 일괄 가져오기
                 </button>
             </div>
@@ -2925,7 +3036,7 @@
                     // 🏃 퇴근 성공 카드는 후원이 아니라 '송출' 버튼만 있는 별도 형태로 그린다
                     if (don.type === 'off_work') {
                         const nm = escapeHTML(don.name);
-                        pHtml += `<div class="pending-item" style="border-left-color:var(--gold); background:linear-gradient(90deg, rgba(217,164,65,0.08), rgba(26,26,29,1));">
+                        pHtml += `<div class="pending-item" style="border-left-color:var(--gold); background:linear-gradient(90deg, rgba(255, 207, 77,0.08), rgba(26,26,29,1));">
                             <div class="pending-info">
                                 <span style="display:inline-block; background:linear-gradient(90deg,var(--gold),#ff8c00); color:#000; font-size:var(--fs-1); font-weight:900; padding:2px 10px; border-radius:var(--r-2); margin-right:8px;">🏆 퇴근전쟁 승리</span>
                                 <span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">🎉 ${nm}님 퇴근 성공!</b><br>
@@ -2938,7 +3049,7 @@
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(217, 164, 65, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 207, 77, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -3043,7 +3154,7 @@
 
             if (!gd.saved_colors) gd.saved_colors = ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff']; 
             let colorHtml = ''; 
-            gd.saved_colors.forEach((col, i) => { let isAct = (currentNeon === col); let btnText = isAct ? "현재 ON" : "켜기"; let btnStyle = isAct ? `background:#222; color:${col}; border: 1px solid ${col};` : `background:${col}; color:#fff; border: none;`; colorHtml += `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; background:rgba(0,0,0,0.2); padding:10px; border-radius:var(--r-2); border:1px solid var(--line);"><input type="color" value="${col}" onchange="gd.saved_colors[${i}]=this.value; pushAPI();"><button style="${btnStyle} width:100%; justify-content:center; padding:8px 0; font-size:var(--fs-2);" onclick="triggerNeon('${col}')">${btnText}</button></div>`; }); 
+            gd.saved_colors.forEach((col, i) => { let isAct = (currentNeon === col); let btnText = isAct ? "현재 ON" : "켜기"; let btnStyle = isAct ? `background:#222; color:${col}; border: 1px solid ${col};` : `background:${col}; color:#fff; border: none; text-shadow:0 1px 3px rgba(0,0,0,0.85);`; colorHtml += `<div style="display:flex; flex-direction:column; align-items:center; gap:8px; background:rgba(0,0,0,0.2); padding:10px; border-radius:var(--r-2); border:1px solid var(--line);"><input type="color" value="${col}" onchange="gd.saved_colors[${i}]=this.value; pushAPI();"><button style="${btnStyle} width:100%; justify-content:center; padding:8px 0; font-size:var(--fs-2);" onclick="triggerNeon('${col}')">${btnText}</button></div>`; }); 
             if (lastColorHtml !== colorHtml) { document.getElementById('color-slots').innerHTML = colorHtml; lastColorHtml = colorHtml; }
 
             // 번외 게임 컨트롤러 타워 렌더링
@@ -3074,7 +3185,7 @@
                 statusBadge.style.boxShadow = "none";
                 desc.innerHTML = `메인 엑셀판 점수를 완벽하게 수호하며, 임시 0점부터 번외 매치 한 게임만 깔끔하게 정산하고 싶을 때 가동하는 안전한 샌드박스입니다.`;
                 btnArea.innerHTML = `
-                    <button class="primary" style="background:rgba(74, 158, 255, 0.15); border-color:var(--accent); color:var(--accent); font-weight:800;" onclick="startExtraGame()"><i class="fa-solid fa-play"></i> 🟢 새 번외 게임 개시</button>
+                    <button class="primary" style="background:rgba(109, 179, 255, 0.15); border-color:var(--accent); color:var(--accent); font-weight:800;" onclick="startExtraGame()"><i class="fa-solid fa-play"></i> 🟢 새 번외 게임 개시</button>
                 `;
             }
 
@@ -3099,7 +3210,7 @@
                     <th>현재 점수</th>
                     <th>🔥 기여도 (클릭 시 수정)</th>
                     <th>점수 추가 (Enter)</th>
-                    <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: var(--fs-2); background: rgba(74, 158, 255, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);"><i class="fa-solid fa-plus"></i></button></th>
+                    <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: var(--fs-2); background: rgba(109, 179, 255, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);"><i class="fa-solid fa-plus"></i></button></th>
                 </tr>`;
             }
             document.getElementById('ranking-thead').innerHTML = tHeadHtml;
@@ -3147,7 +3258,7 @@
                 rHtml += `<tr style="background:rgba(255,255,255,0.035);">
                     <td>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <span class="rank-badge badge-normal" style="background:rgba(74, 158, 255, 0.1); color:var(--accent); border: 1px dashed rgba(74, 158, 255, 0.3);"><i class="fa-solid fa-anchor" style="font-size:var(--fs-1);"></i></span>
+                            <span class="rank-badge badge-normal" style="background:rgba(109, 179, 255, 0.1); color:var(--accent); border: 1px dashed rgba(109, 179, 255, 0.3);"><i class="fa-solid fa-anchor" style="font-size:var(--fs-1);"></i></span>
                             <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI({include:['bottom_fixed']});" style="flex: 1; text-align: left; padding-left: 10px;">
                         </div>
                     </td>
@@ -3244,7 +3355,7 @@
             if (itemSource === 'custom') {
                 roster = (gd.roulette.custom_items || []).map(name => ({ name: name, contribution: 0 }));
                 statusText = "⚙️ 사용자 정의 벌칙/항목 연동 중 ⚙️";
-                statusColor = "#4a9eff";
+                statusColor = "#6db3ff";
             } else {
                 roster = isExtra ? gd.extra_bjs : gd.bjs;
                 statusText = isExtra ? "⚡ 번외 임시 게임판 연동 중 🔴" : "🟢 메인 랭킹 점수판 연동 중 🟢";
@@ -3293,7 +3404,7 @@
             let isRandomChecked = (gd.roulette.select_index === -1) ? 'checked' : '';
             let randomBorder = (gd.roulette.select_index === -1) ? 'var(--accent)' : 'rgba(255, 255, 255, 0.08)';
             let randomText = (gd.roulette.select_index === -1) ? 'var(--accent)' : '#aaa';
-            let randomBg = (gd.roulette.select_index === -1) ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+            let randomBg = (gd.roulette.select_index === -1) ? 'rgba(109, 179, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
             let randomShadow = (gd.roulette.select_index === -1) ? '0 0 10px var(--accent-glow)' : 'none';
             
             targetListHtml += `
@@ -3321,7 +3432,7 @@
                 
                 let borderCol = (gd.roulette.select_index === idx) ? 'var(--accent)' : 'rgba(255, 255, 255, 0.08)';
                 let textCol = (gd.roulette.select_index === idx) ? 'var(--accent)' : '#fff';
-                let itemBg = (gd.roulette.select_index === idx) ? 'rgba(74, 158, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+                let itemBg = (gd.roulette.select_index === idx) ? 'rgba(109, 179, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
                 let itemShadow = (gd.roulette.select_index === idx) ? '0 0 10px var(--accent-glow)' : 'none';
                 
                 targetListHtml += `
@@ -4048,8 +4159,8 @@
                 <input type="number" id="edit-contrib-popover-input" value="${currentVal}" style="width: 110px; text-align: center; color: var(--gold); border: 1px solid var(--border-light); padding: 6px; font-size: var(--fs-4); font-weight: 800; background: rgba(0,0,0,0.4); border-radius: var(--radius-sm); outline: none;" onkeydown="if(event.key==='Enter') confirmContribChange(${idx})">
                 <div style="display: flex; gap: 6px; justify-content: center; width: 100%;">
                     <button type="button" onclick="adjustContrib(${idx}, -50)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(255, 69, 58, 0.15); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(255, 69, 58, 0.3)'" onmouseout="this.style.background='rgba(255, 69, 58, 0.15)'">-50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(74, 158, 255, 0.15); border: 1px solid var(--accent-glow); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(74, 158, 255, 0.3)'" onmouseout="this.style.background='rgba(74, 158, 255, 0.15)'">+50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 100)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(217, 164, 65, 0.15); border: 1px solid rgba(217, 164, 65, 0.3); color: var(--gold); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(217, 164, 65, 0.3)'" onmouseout="this.style.background='rgba(217, 164, 65, 0.15)'">+100</button>
+                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent-glow); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(109, 179, 255, 0.3)'" onmouseout="this.style.background='rgba(109, 179, 255, 0.15)'">+50</button>
+                    <button type="button" onclick="adjustContrib(${idx}, 100)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(255, 207, 77, 0.15); border: 1px solid rgba(255, 207, 77, 0.3); color: var(--gold); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(255, 207, 77, 0.3)'" onmouseout="this.style.background='rgba(255, 207, 77, 0.15)'">+100</button>
                 </div>
                 <div style="display: flex; gap: 6px; width: 100%; justify-content: center; margin-top: 4px;">
                     <button type="button" onclick="confirmContribChange(${idx})" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: var(--accent); border: 1px solid var(--accent); color: #000; border-radius: var(--radius-sm); font-weight: 800; cursor: pointer; transition: all 0.2s; justify-content: center;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">확인</button>
@@ -4507,7 +4618,7 @@
                 tbody.innerHTML = `<tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--text-muted);">등록된 특별 후원자가 없습니다. [등록] 버튼으로 추가해 주세요.</td></tr>`;
                 return;
             }
-            const gradeColor = { VVIP: '#ff3b30', VIP: '#af52de', GOLD: '#d9a441' };
+            const gradeColor = { VVIP: '#ff3b30', VIP: '#af52de', GOLD: '#ffcf4d' };
             // 이름은 표시용으로만 이스케이프하고, 수정/삭제에는 인덱스로 원본을 찾는다
             tbody.innerHTML = vipCacheList.map((v, i) => {
                 const name = escapeHTML(v.name);
@@ -4546,8 +4657,8 @@
                 : '<i class="fa-solid fa-crown" style="color:var(--gold);"></i> 특별 후원자 등록';
             document.getElementById('vip-old-name').value = isEdit ? name : '';
             document.getElementById('vip-name').value = v ? v.name : '';
-            document.getElementById('vip-color').value = (v && v.custom_color) || '#d9a441';
-            document.getElementById('vip-color-text').value = (v && v.custom_color) || '#d9a441';
+            document.getElementById('vip-color').value = (v && v.custom_color) || '#ffcf4d';
+            document.getElementById('vip-color-text').value = (v && v.custom_color) || '#ffcf4d';
             document.getElementById('vip-badge').value = (v && v.badge) || '👑';
             const grade = (v && v.grade) || 'VVIP';
             document.querySelectorAll('input[name="vip-grade"]').forEach(r => { r.checked = (r.value === grade); });
@@ -4564,7 +4675,7 @@
             const oldName = document.getElementById('vip-old-name').value;
             const gradeEl = document.querySelector('input[name="vip-grade"]:checked');
             const grade = gradeEl ? gradeEl.value : 'VVIP';
-            const custom_color = document.getElementById('vip-color-text').value.trim() || '#d9a441';
+            const custom_color = document.getElementById('vip-color-text').value.trim() || '#ffcf4d';
             const badge = document.getElementById('vip-badge').value;
 
             if (!name) {
@@ -4853,7 +4964,7 @@
                     style="display:inline-block; margin:3px 4px 0 0; padding:3px 9px; border-radius:999px; cursor:pointer;
                            font-size:12px; font-weight:700; user-select:none;
                            border:1px solid ${on ? 'var(--accent)' : 'var(--border-light)'};
-                           background:${on ? 'rgba(74,158,255,0.16)' : 'transparent'};
+                           background:${on ? 'rgba(109, 179, 255,0.16)' : 'transparent'};
                            color:${on ? 'var(--accent)' : 'var(--text-muted)'};">${on ? '✓ ' : ''}${escapeHtml(nm)}</span>`;
             }).join('');
             // 점수판에서 이름이 바뀌었거나 빠진 팀원 — 그대로 두면 합산이 조용히 멈추므로 눈에 보이게 한다
@@ -5049,8 +5160,8 @@
             
             if (status === 'connected') {
                 badge.style.background = 'rgba(52, 199, 89, 0.15)';
-                badge.style.borderColor = '#34c759';
-                badge.style.color = '#34c759';
+                badge.style.borderColor = '#35d07f';
+                badge.style.color = '#35d07f';
                 badge.innerHTML = `<span style="width: 7px; height: 7px; background: var(--success); border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite;"></span> 연결됨 · <span id="latency-val">--ms</span>`;
                 startLatencyCheck();
             } else if (status === 'connecting') {
@@ -5352,13 +5463,13 @@
                 } else if (type === "success") {
                     iconEl.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
                     iconEl.style.background = 'rgba(52, 199, 89, 0.15)';
-                    iconEl.style.color = '#34c759';
-                    btnConfirm.style.background = '#34c759';
-                    btnConfirm.style.borderColor = '#34c759';
+                    iconEl.style.color = '#35d07f';
+                    btnConfirm.style.background = '#35d07f';
+                    btnConfirm.style.borderColor = '#35d07f';
                     btnConfirm.style.color = '#fff';
                 } else {
                     iconEl.innerHTML = `<i class="fa-solid fa-circle-info"></i>`;
-                    iconEl.style.background = 'rgba(74, 158, 255, 0.15)';
+                    iconEl.style.background = 'rgba(109, 179, 255, 0.15)';
                     iconEl.style.color = 'var(--accent)';
                     btnConfirm.style.background = 'var(--accent)';
                     btnConfirm.style.borderColor = 'var(--accent)';
@@ -6088,7 +6199,7 @@
                     const dbModeEl = document.getElementById('sys-db-mode');
                     if (dbModeEl) {
                         dbModeEl.innerText = data.is_postgres ? '클라우드 (PostgreSQL)' : '로컬 (SQLite)';
-                        dbModeEl.style.color = data.is_postgres ? 'var(--accent)' : '#4a9eff';
+                        dbModeEl.style.color = data.is_postgres ? 'var(--accent)' : '#6db3ff';
                     }
                     
                     // Update player count
@@ -6121,7 +6232,7 @@
                                 logText += `[${log.timestamp}] [${log.source.toUpperCase()}] ${log.name} -> 수취: ${log.amount.toLocaleString()}원 (누적: ${log.current_total.toLocaleString()}원) | 메시지: ${log.message}\n`;
                             });
                             consoleLogsEl.innerText = logText;
-                            consoleLogsEl.style.color = '#4a9eff';
+                            consoleLogsEl.style.color = '#6db3ff';
                         }
                     }
                 }
@@ -6563,7 +6674,7 @@
             
             container.innerHTML = queue.map((item, idx) => {
                 const isPlaying = (idx === 0);
-                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(74, 158, 255, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
+                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(109, 179, 255, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
                 const badge = isPlaying ? '<span style="font-size:var(--fs-1); background:var(--accent); color:#000; padding:1px 4px; border-radius:var(--r-1); font-weight:bold; margin-right:5px; vertical-align:middle;">재생중</span>' : `<span style="font-size:var(--fs-1); background:var(--line); color:#ccc; padding:1px 4px; border-radius:var(--r-1); font-weight:bold; margin-right:5px; vertical-align:middle;">대기 ${idx}</span>`;
                 
                 return `
@@ -6914,7 +7025,7 @@
                 const on = sgPicks.has(s.id);
                 return '<div onclick="sgTogglePick(' + s.id + ')" style="position:relative; border-radius:10px; overflow:hidden; cursor:pointer;' +
                     ' border:2px solid ' + (on ? 'var(--accent)' : 'transparent') + ';' +
-                    ' box-shadow:' + (on ? '0 0 14px rgba(74,158,255,.5)' : 'none') + ';">' +
+                    ' box-shadow:' + (on ? '0 0 14px rgba(109, 179, 255,.5)' : 'none') + ';">' +
                     '<img src="' + String(s.image_url).replace(/"/g, '&quot;') + '"' +
                         ' style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block; opacity:' + (on ? 1 : .38) + ';">' +
                     '<div style="padding:5px 6px; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
@@ -7091,7 +7202,7 @@
                 const open = c.state === 'REVEALED';
                 const done = !!c.doneAt;
                 const border = done ? '#2ecc71' : open ? 'var(--accent)' : 'rgba(255,255,255,0.35)';
-                const bg = done ? 'rgba(46,204,113,0.16)' : open ? 'rgba(74,158,255,0.14)' : 'rgba(255,255,255,0.07)';
+                const bg = done ? 'rgba(46,204,113,0.16)' : open ? 'rgba(109, 179, 255,0.14)' : 'rgba(255,255,255,0.07)';
                 return '<button onclick="sgFlip(' + c.id + ', ' + (open ? 'true' : 'false') + ')"' +
                     ' title="' + (open ? '이미 뒤집힘' : '뒤집기') + '"' +
                     ' style="aspect-ratio:16/9; border-radius: var(--r-2); cursor:' + (open ? 'default' : 'pointer') + '; font-weight:900; font-size: var(--fs-5);' +
@@ -7165,5 +7276,46 @@
             if (t.status === 'PLAYING') sgTimerView = setInterval(paint, 250);
         }
     </script>
+<script>
+// ══ 🗂️ 미니멀 개편 시동 코드 ══
+
+// [그 밖에] 탭 펴기/접기 — 상태는 브라우저가 기억한다
+function toggleTabsMore() {
+    const on = document.body.classList.toggle('tabs-more');
+    localStorage.setItem('tabsMore', on ? '1' : '0');
+}
+if (localStorage.getItem('tabsMore') === '1') document.body.classList.add('tabs-more');
+
+// 📁 패널 접기 — 모든 패널 제목을 누르면 접힌다.
+//    ⚠️ 제목 안의 버튼·체크박스를 눌렀을 때는 접히면 안 된다(버전 새로고침, 알림음 등).
+//    '한 번 설정하고 마는' 패널은 처음부터 접어둔다 — 방송 중에 매번 지나칠 필요가 없다.
+const FOLD_DEFAULT = ['기본 설정', '기본 대결 화면 설정', '투네이션 연동 스크립트',
+                      'OTP 보안 설정', '클라우드 영구 저장소', '오프라인 비상 백업'];
+function initFoldablePanels() {
+    document.querySelectorAll('.group-box').forEach(box => {
+        if (box.id === 'pending-box') return;              // 대기함은 자기 접기가 따로 있다
+        const t = box.querySelector('.group-title');
+        if (!t || t.parentElement !== box) return;         // 제목이 바로 아래 있을 때만
+        const name = (t.innerText || '').trim().split('\n')[0].slice(0, 30);
+        if (!name) return;
+        box.classList.add('foldable');
+        if (!t.querySelector('.fold-arrow')) {
+            const ar = document.createElement('span');
+            ar.className = 'fold-arrow'; ar.textContent = '▾';
+            t.appendChild(ar);
+        }
+        const key = 'fold:' + name;
+        const saved = localStorage.getItem(key);
+        const defFold = FOLD_DEFAULT.some(d => name.indexOf(d) !== -1);
+        if (saved === '1' || (saved === null && defFold)) box.classList.add('gb-folded');
+        t.addEventListener('click', (e) => {
+            if (e.target.closest('button, input, select, a, label')) return;
+            const folded = box.classList.toggle('gb-folded');
+            localStorage.setItem(key, folded ? '1' : '0');
+        });
+    });
+}
+initFoldablePanels();
+</script>
 </body>
 </html>
