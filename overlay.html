@@ -2215,7 +2215,11 @@
                 '</div>').join('');
         }
 
+        // 마지막으로 그린 시그게임 상태 — 연출이 끝난 뒤 서버 기준으로 되맞출 때 쓴다
+        let sgLastGame = null;
+
         function sgRenderGame(g) {
+            sgLastGame = g;
             const box = document.getElementById('siggame-container');
             const grid = document.getElementById('sg-grid');
             if (!box || !grid) return;
@@ -2325,7 +2329,14 @@
                 el.classList.toggle('done', done);
                 el.classList.toggle('todo', isGoal && !done);
                 // 목표로 뒤집은 카드만 도장이 찍힌다. 끝나고 구경용으로 공개한 건 아니다.
-                el.classList.toggle('cleared', isGoal && done);
+                // ⚠️ 올클리어 연출이 도는 동안 아직 차례가 안 온 카드는 건드리지 않는다.
+                //    화면 갱신은 후원이 들어올 때마다 도는데, 그때 서버 상태(doneAt)를 보고
+                //    도장을 다시 찍어버리면 '왼쪽부터 하나씩' 이 그 자리에서 무너진다.
+                if (sgHeldCards.has(el)) {
+                    el.classList.remove('cleared');
+                } else {
+                    el.classList.toggle('cleared', isGoal && done);
+                }
 
                 const img = el.querySelector('.sg-front img');
                 const want = revealed ? (c.image || '') : '';
@@ -2436,8 +2447,14 @@
         // ⚠️ 소리는 올클리어 때만 낸다(withSound). 한 장씩 받을 때마다 킬사운드가 나면
         //    30분에 걸쳐 하나씩 채우는 판에서는 그저 시끄럽기만 하다.
         //    한 번에 몰아서 보낸 사람에게만 주는 연출이라 그때 몰아서 들려준다.
+        // 연출이 붙잡고 있는 카드 — 아직 도장 찍을 차례가 안 왔다.
+        // 화면 갱신(sgRenderGame)이 이 카드들을 건드리지 않게 하는 표식이다.
+        const sgHeldCards = new Set();
+
         function sgStampOne(el, index, withSound) {
             if (!el) return;
+            sgHeldCards.delete(el);           // 이제 찍을 차례다 — 붙잡던 걸 놓는다
+            el.classList.add('cleared');      // 도장은 '지금' 나타난다
             el.classList.remove('stamping');
             void el.offsetWidth;              // 같은 애니메이션을 다시 재생하려면 리플로우가 필요하다
             el.classList.add('stamping');
@@ -2454,6 +2471,18 @@
             grid.classList.add('allclear');
             cards.forEach(c => c.classList.remove('stamping'));
 
+            // ⭐ 아무것도 안 찍힌 자리에서 시작한다.
+            //    전에는 서버가 한꺼번에 달성 처리한 상태가 먼저 도착해서 CLEAR 5장이
+            //    통째로 뜬 다음에야 왼쪽부터 강조가 돌았다 — 결과를 다 보여주고
+            //    연출하는 꼴이라 맥이 빠졌다. 이미 손으로 찍어둔 것까지 전부 걷어내고
+            //    처음부터 하나씩 찍어 나간다.
+            sgHeldCards.clear();
+            cards.forEach(el => {
+                if (!el.classList.contains('cleared') && !el.classList.contains('done')) return;
+                el.classList.remove('cleared');
+                sgHeldCards.add(el);          // 차례가 올 때까지 갱신이 못 건드리게
+            });
+
             // 0.35초는 소리가 서로 겹쳐 뭉개졌다. 한 소리가 자리를 잡을 만큼 띄운다.
             const STEP = 700;
             cards.forEach((el, i) => {
@@ -2469,6 +2498,10 @@
                 if (banner) banner.classList.remove('on');
                 board.classList.remove('allclear');
                 grid.classList.remove('allclear');
+                // 붙잡고 있던 것을 놓고 서버 상태대로 다시 맞춘다.
+                // (연출이 중간에 끊겼어도 여기서 제자리를 찾는다)
+                sgHeldCards.clear();
+                try { if (sgLastGame) sgRenderGame(sgLastGame); } catch (e) {}
             }, finale + 3200));
         }
 
