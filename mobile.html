@@ -247,6 +247,7 @@ const addScore = payload => api('/api/score/add', payload);
 /* ═══ 앱 목록 ═══ */
 const APPS = [
   { id:'pending',  nm:'대기함',    ic:'📥', bg:'linear-gradient(135deg,#b8860b,#8a6508)', badge:() => (gd?.pending_donations||[]).length },
+  { id:'screen',   nm:'방송 화면',  ic:'📺', bg:'linear-gradient(135deg,#ff2d55,#a3123a)' },
   { id:'rank',     nm:'점수판',    ic:'🏆', bg:'linear-gradient(135deg,#0a84ff,#0055cc)' },
   { id:'match',    nm:'대결',      ic:'⚔️', bg:'linear-gradient(135deg,#5e5ce6,#3634a3)', badge:() => gd?.match_data?.active ? '●' : 0 },
   { id:'siggame',  nm:'시그뒤집기', ic:'🃏', bg:'linear-gradient(135deg,#30d158,#1d7a35)', badge:() => gd?.siggame?.enabled ? '●' : 0 },
@@ -283,17 +284,62 @@ function openApp(id) {
     if (id === 'version') loadVersions();
     if (id === 'health') loadHealth();
 }
-function closeApp() { openedApp = null; $('sheet').classList.remove('on'); }
+function closeApp() {
+    // 📺 방송 화면을 띄워뒀다면 닫을 때 걷는다. 그냥 두면 안 보이는 채로 계속
+    //    서버에서 갱신을 받아 배터리와 데이터를 먹는다.
+    if (openedApp === 'screen') $('sheet-body').innerHTML = '';
+    openedApp = null; $('sheet').classList.remove('on');
+}
 
 /* SSE 갱신 때 열린 앱을 다시 그린다 — 입력 중이면 건드리지 않는다 */
 function renderApp() {
     if (!openedApp) return;
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
-    const R = { pending:rPending, rank:rRank, match:rMatch, siggame:rSiggame, slot:rSlot,
+    const R = { screen:rScreen, pending:rPending, rank:rRank, match:rMatch, siggame:rSiggame, slot:rSlot,
                 roulette:rRoulette, marquee:rMarquee, queue:rQueue, cmd:rCmd, logs:rLogs,
                 version:rVersion, health:rHealth };
     if (R[openedApp]) R[openedApp]($('sheet-body'));
+}
+
+/* ═══ 📺 방송 화면 들여다보기 ═══
+   지금 방송에 나가고 있는 화면 그대로를 폰에서 본다.
+   ⚠️ monitor=1 로 연다. 이 표시가 없으면 두 가지 사고가 난다:
+      ① 폰에서 시그니처 소리·영상 소리가 터져 나온다
+      ② 폰이 재생 대기줄을 같이 꺼내가서, 방송에 나갈 시그니처를 폰이 먹는다
+   ⚠️ SSE 가 올 때마다 다시 그리면 안 된다 — 그때마다 화면이 처음부터 다시 켜진다. */
+function rScreen(el) {
+    if (el.querySelector('#screen-frame')) return;   // 이미 띄웠으면 그대로 둔다
+    el.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <button onclick="screenReload()" style="flex:1;">↻ 새로고침</button>
+        <button onclick="window.open('/overlay?monitor=1','_blank')" style="flex:1;">↗ 크게 보기</button>
+      </div>
+      <div id="screen-wrap" style="position:relative; width:100%; overflow:hidden; border-radius:14px;
+                                  background:#000; border:1px solid rgba(255,255,255,.14);">
+        <iframe id="screen-frame" src="/overlay?monitor=1" title="방송 화면"
+                style="width:1080px; height:1920px; border:0; transform-origin:top left; display:block;"></iframe>
+      </div>
+      <div style="font-size:12px; color:#8e8e93; margin-top:10px; line-height:1.6;">
+        지금 방송에 나가는 화면 그대로입니다. 소리는 나지 않고,
+        재생 대기줄도 건드리지 않아 방송에 영향을 주지 않습니다.
+      </div>`;
+    screenFit();
+}
+
+// 방송 화면은 1080×1920 으로 만들어져 있다. 폰 너비에 맞춰 줄여서 보여준다.
+function screenFit() {
+    const wrap = $('screen-wrap'), f = $('screen-frame');
+    if (!wrap || !f) return;
+    const s = wrap.clientWidth / 1080;
+    f.style.transform = 'scale(' + s + ')';
+    wrap.style.height = Math.round(1920 * s) + 'px';
+}
+window.addEventListener('resize', () => { if (openedApp === 'screen') screenFit(); });
+
+function screenReload() {
+    const f = $('screen-frame');
+    if (f) f.src = '/overlay?monitor=1&t=' + Date.now();
 }
 
 /* ═══ 📥 대기함 ═══ */
