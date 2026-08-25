@@ -691,6 +691,9 @@
             let dragRAF = null, lastPt = null, freeMove = false, dragMoved = false;
             let dragW = 0, dragH = 0;   // 끄는 위젯의 크기 — 시작할 때 한 번만 잰다
             let snapTargets = [];     // 드래그 시작 때 한 번만 계산 (매 프레임 재면 그게 또 reflow 다)
+            // 마지막 프레임에서 안내선에 붙어 있었는가. 붙어 있었다면 손을 뗄 때
+            // 격자로 다시 반올림하면 안 된다 — 애써 맞춘 줄에서 도로 밀려난다.
+            let dragSnappedX = false, dragSnappedY = false;
 
             function widgetBox(el) {
                 const sc = parseFloat(el.dataset.scale) || 1;
@@ -764,14 +767,24 @@
                     const w = dragW, h = dragH;   // 시작할 때 잰 값을 쓴다 (다시 재면 그게 reflow 다)
                     // 다른 위젯 + 캔버스 가장자리·중앙에 맞춘다
                     const xs = [0, 540, 1080], ys = [0, 960, 1920];
-                    snapTargets.forEach(b => { xs.push(b.x, b.x + b.w / 2, b.x + b.w);
-                                               ys.push(b.y, b.y + b.h / 2, b.y + b.h); });
+                    // ⚠️ 나란히 놓인 위젯하고만 줄을 맞춘다.
+                    //    예전에는 화면 반대편 위젯의 선까지 전부 후보라, 33개나 되는 선이
+                    //    사방에서 끌어당겨 손을 따라오지 않았다. 눈으로 맞출 일이 없는
+                    //    위젯이 끌어당기는 건 도움이 아니라 방해다.
+                    snapTargets.forEach(b => {
+                        if (b.y < ny + h && b.y + b.h > ny) xs.push(b.x, b.x + b.w / 2, b.x + b.w);
+                        if (b.x < nx + w && b.x + b.w > nx) ys.push(b.y, b.y + b.h / 2, b.y + b.h);
+                    });
                     const sx = snapAxis(nx, w, xs), sy = snapAxis(ny, h, ys);
+                    // ⚠️ 끄는 동안에는 격자로 반올림하지 않는다.
+                    //    캔버스는 1/3 로 줄여 보여주므로 격자 10px 은 화면에서 3.3px 이다.
+                    //    매 프레임 반올림하면 마우스를 3px 움직여야 위젯이 한 번 따라와서,
+                    //    손을 따라오지 않고 툭툭 건너뛰는 것처럼 보인다(실측: 마우스 100번에 35번).
+                    //    격자는 손을 뗄 때 한 번만 맞춘다 — 결과는 같고 움직임만 부드러워진다.
+                    dragSnappedX = !!sx; dragSnappedY = !!sy;
                     if (sx) { nx = sx.v; gv.style.left = sx.line + 'px'; gv.style.display = 'block'; }
-                    else nx = Math.round(nx / GRID) * GRID;
                     if (sy) { ny = sy.v; gh.style.top = sy.line + 'px'; gh.style.display = 'block'; }
-                    else ny = Math.round(ny / GRID) * GRID;
-                }
+                } else { dragSnappedX = dragSnappedY = false; }
                 // 배치 계산 없이 옮겨 그린다. 확정은 손을 뗄 때.
                 activeWidget.dataset.dx = nx - initialX;
                 activeWidget.dataset.dy = ny - initialY;
@@ -786,8 +799,16 @@
                     // 여기서 한 번만 left/top 으로 확정한다 (저장 형식은 예전 그대로)
                     const dx = parseFloat(activeWidget.dataset.dx) || 0;
                     const dy = parseFloat(activeWidget.dataset.dy) || 0;
-                    activeWidget.style.left = (initialX + dx) + 'px';
-                    activeWidget.style.top = (initialY + dy) + 'px';
+                    let fx = initialX + dx, fy = initialY + dy;
+                    // 격자 맞춤은 여기서. 끄는 내내 반올림하면 움직임이 계단이 된다.
+                    //    안내선에 붙어 있던 자리는 그대로 둔다 — 그건 일부러 맞춘 자리다.
+                    //    ⚠️ 실제로 끈 경우에만 맞춘다. 고르려고 한 번 누르기만 해도 맞추면
+                    //       손대지도 않은 위젯이 몇 px 씩 밀려난다.
+                    const gridOn = document.getElementById('snap-on').checked && dragMoved;
+                    if (gridOn && !dragSnappedX) fx = Math.round(fx / GRID) * GRID;
+                    if (gridOn && !dragSnappedY) fy = Math.round(fy / GRID) * GRID;
+                    activeWidget.style.left = fx + 'px';
+                    activeWidget.style.top = fy + 'px';
                     activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
                     delete activeWidget.dataset.dx; delete activeWidget.dataset.dy;
                     activeWidget.classList.remove('dragging');
