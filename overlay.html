@@ -2350,7 +2350,10 @@
             // 배너를 띄운다. 새 판 신호가 오면 그 예약을 전부 걷는다.
             if (isNewAction && (act.type === 'PLACE' || act.type === 'SHUFFLE')) {
                 sgClearTimers();
-                sgPeekUntil = 0; clearTimeout(sgPeekTimer);   // 까보기도 끝낸다
+                clearTimeout(sgPeekTimer);   // 까보기 되돌리기 예약도 걷는다
+                //  까보기 자체는 따로 끌 필요가 없다. 펼칠지는 지금 판의 action 이
+                //  PEEK 인지로 그때그때 정하는데, 새 판이면 action 이 PLACE/SHUFFLE 로
+                //  바뀌어 있어 저절로 접힌다.
                 sgLayoutKey = null;
                 const bn = document.getElementById('sg-allclear');
                 if (bn) bn.classList.remove('on');
@@ -2510,7 +2513,7 @@
         const sgSeenDone = new Set();
         // 🔍 나머지 까보기 — 몇 초 동안만 펼친다
         const SG_PEEK_MS = 6000;
-        let sgPeekTs = 0, sgPeekUntil = 0, sgPeekTimer = null;
+        let sgPeekTs = 0, sgPeekTimer = null;
         let sgAllClearTs = 0;
         let sgAllClearTimers = [];
 

@@ -1410,6 +1410,7 @@
                 <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-bell"></i> 점수 팝업</span><div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-crown"></i> 1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-ranking-star"></i> 시그니처 순위판</span><div class="apple-switch"><input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-medal"></i> 후원 순위</span><div class="apple-switch"><input type="checkbox" id="chk-donor-rank" onchange="toggleOption('donor_rank_enabled')"><span class="apple-slider"></span></div></label>
 
             </div>
 
@@ -3146,6 +3147,7 @@
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
             setChk('chk-sig-tally', !!gd.sig_tally_enabled);
+            setChk('chk-donor-rank', !!gd.donor_rank_enabled);
             setChk('chk-home-race', gd.home_race_enabled || false);
             renderGoalAchievementNotice();   // 🎯 목표 달성 승인 알림 표시 여부 갱신
             checkHomeRaceGoals();            // 🏃 퇴근 목표 도달 확인
@@ -4086,6 +4088,16 @@
             const r = await addScoreAPI({ scope: 'rank', name: chosenName, delta: addPoint,
                                          pending_id: donId,
                                          donor: don0.name, donor_message: don0.message });
+            // 🛡️ 다른 기기(폰/PC)가 같은 후원을 먼저 처리했다면 서버는 점수를 더하지 않는다.
+            //    여기서는 화면에 미리 얹어둔 점수만 도로 내린다. 대기함에서 지운 것은 그대로 둔다
+            //    — 그 후원은 실제로 처리가 끝났기 때문이다.
+            if (r && r.already) {
+                target.score -= addPoint;
+                target.contribution -= addPoint;
+                renderUI();
+                acctToast('이미 다른 기기에서 처리된 후원입니다', 'warn');
+                return;
+            }
             if (r) {
                 // ⚠️ 배정도 되돌리기 기록에 남긴다. 예전에는 점수 칸 직접 입력만 남겨서,
                 //    가장 잦고 가장 위험한 조작인 배정이 정작 되돌릴 수 없었다.
@@ -4135,6 +4147,13 @@
             const r = await addScoreAPI({ scope: 'rank', pending_id: donId,
                                          items: found.map(t => ({ name: t.name, delta: addPoint })),
                                          donor: don0.name, donor_message: don0.message });
+            // 🛡️ 다른 기기가 먼저 처리했으면 서버는 점수를 더하지 않았다 — 화면만 되돌린다.
+            if (r && r.already) {
+                found.forEach(t => { t.score -= addPoint; t.contribution -= addPoint; });
+                renderUI();
+                acctToast('이미 다른 기기에서 처리된 후원입니다', 'warn');
+                return;
+            }
             if (r) {
                 // 반반·N분할도 마찬가지. 여러 명이면 한 줄로 묶어 기록한다.
                 recordScoreAction({ scope: 'rank', names: found.map(t => t.name), delta: addPoint,

@@ -344,6 +344,9 @@ async function assign(donId, name) {
                                    donor:don.name, donor_message:don.message });
         gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
         renderApp(); renderHome();
+        // 🛡️ PC 조종실이 같은 후원을 먼저 처리했으면 서버는 점수를 더하지 않았다.
+        //    그런데도 되돌리기 배너를 띄우면, 누르는 순간 주지도 않은 점수를 깎는다.
+        if (r && r.already) { toast('이미 다른 기기에서 처리된 후원입니다', false); return; }
         undoBanner(`${don.name}님 → ${name} +${pts}점`,
                    { name, pts, time: r.time });
     } catch (e) { toast('지급 실패 — 다시 눌러주세요', false); }
@@ -360,12 +363,13 @@ async function assignSplit(donId, mode) {
     if (pts <= 0) { toast('나누기엔 금액이 너무 작습니다', false); return; }
     busy = true;
     try {
-        await addScore({ scope:'rank', pending_id:donId,
+        const r = await addScore({ scope:'rank', pending_id:donId,
                          items: targets.map(t => ({ name:t.name, delta:pts })),
                          donor:don.name, donor_message:don.message });
         gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
         renderApp(); renderHome();
-        toast(`${targets.length}명에게 ${pts}점씩`);
+        toast(r && r.already ? '이미 다른 기기에서 처리된 후원입니다'
+                             : `${targets.length}명에게 ${pts}점씩`, !(r && r.already));
     } catch (e) { toast('지급 실패', false); }
     finally { busy = false; }
 }

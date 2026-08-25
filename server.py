@@ -114,6 +114,7 @@ def get_db_connection():
         _db_local.conn = None
         raise
 from flask import Flask, jsonify, request, send_from_directory, redirect, url_for, session
+from werkzeug.exceptions import HTTPException
 try:
     import tkinter as tk
     from tkinter import messagebox
@@ -3036,10 +3037,6 @@ def receive_donation():
             #         bj['contribution'] = bj.get('contribution', 0) + add_point
             #         current_total = bj['score']
             #         break
-            # ⚠️ 한 번 실패하면 그 후원은 정산 장부에서 통째로 사라진다(운영자는 대기함에서 보고
-            #    점수를 주지만 장부엔 없다). Supabase 는 유휴 커넥션을 끊기 때문에 조용한 구간 뒤
-            #    첫 후원에서 이게 실제로 발생한다. 다른 곳(save_data_sync)은 이미 1회 재시도로
-            #    대응하고 있는데 여기만 빠져 있었다. 실패는 상태창에도 남겨 운영자가 알 수 있게 한다.
             # 🏅 후원 순위 집계 — 이번 방송에 누가 얼마를 넣었나.
             #    ⚠️ 여기서 적어두면 SSE 를 타고 방송 화면까지 저절로 간다.
             #       DB 를 매번 뒤져 순위를 내면 화면이 몇 초마다 물어봐야 하고 반영도 늦다.
@@ -3060,6 +3057,10 @@ def receive_donation():
             except Exception as _e:
                 print(f"⚠️ [후원 순위 집계 실패] {_e}")
 
+            # ⚠️ 한 번 실패하면 그 후원은 정산 장부에서 통째로 사라진다(운영자는 대기함에서 보고
+            #    점수를 주지만 장부엔 없다). Supabase 는 유휴 커넥션을 끊기 때문에 조용한 구간 뒤
+            #    첫 후원에서 이게 실제로 발생한다. 다른 곳(save_data_sync)은 이미 1회 재시도로
+            #    대응하고 있는데 여기만 빠져 있었다. 실패는 상태창에도 남겨 운영자가 알 수 있게 한다.
             for _attempt in range(2):
                 try:
                     with get_db_connection() as conn:
@@ -3395,8 +3396,12 @@ def api_data():
             #   큐에서 사라졌다("시그니처가 씹힌다"). 그래서 '서버만 건드리는 필드'는 클라이언트가
             #   덮어쓰지 못하게 서버 값을 유지한다. (이 필드들은 후원 수신·큐 조작 엔드포인트에서만 바뀐다.
             #   조종실/모바일/에디터의 어떤 조작도 /api/data 로 이 필드를 직접 수정하지 않으므로 안전하다.)
+            #   집계 두 개도 같은 이유로 지킨다. 후원이 들어올 때 서버가 적는 값인데,
+            #   조종실이 스위치 하나를 누르면 상태 전체를 보내므로 그 사이 들어온 후원이
+            #   낡은 사본에 덮여 순위에서 사라진다. (편집기의 '집계 지우기'는 설정 패치라
+            #   이 경로를 안 타고 그대로 동작한다)
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
-                            'reaction_paused', 'siggame')
+                            'reaction_paused', 'siggame', 'sig_tally', 'donor_tally')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -4014,8 +4019,9 @@ ACCT_VIDEO_MAX_MB = 60
 def api_account_video_upload():
     """금액대 한 칸에 영상 파일을 올린다. form: tier(번호), file"""
     try:
-        if not _supabase_ready():
-            return jsonify({'status': 'error', 'message': 'Supabase 가 설정되지 않았습니다.'}), 500
+        # ⚠️ 파일 검사를 먼저 한다. exe 를 거부하는 일이 저장소 설정 여부에 달려 있으면,
+        #    저장소가 잠깐 어긋난 사이에는 무엇을 올려도 같은 오류만 돌아와
+        #    무엇이 잘못됐는지 알 수 없다. 저장소는 실제로 올리기 직전에 확인한다.
         try:
             idx = int(request.form.get('tier'))
         except (TypeError, ValueError):
@@ -4044,6 +4050,10 @@ def api_account_video_upload():
             tier = tiers[idx]
             old = (tier.get('video') or '').strip()
 
+        if not _supabase_ready():
+            return jsonify({'status': 'error',
+                            'message': '영상 보관소(Supabase)가 설정되지 않아 올릴 수 없습니다'}), 503
+
         # ⚠️ 올리기는 락 밖에서 한다. 60MB 를 서울까지 보내는 동안 락을 쥐고 있으면
         #    그동안 후원 접수·점수 지급이 통째로 멈춘다.
         ver = int(time.time())
@@ -4067,6 +4077,11 @@ def api_account_video_upload():
         print(f"  🎬 [고액후원 영상] {tier.get('label')} 구간에 {ext} {mb:.1f}MB 올림")
         return jsonify({'status': 'success', 'url': url, 'label': tier.get('label'),
                         'size_mb': round(mb, 1)})
+    except HTTPException:
+        # ⚠️ 본문이 상한(80MB)을 넘으면 파일을 읽는 순간 Flask 가 413 을 던진다.
+        #    아래 except 가 그걸 삼키면 운영자에게 "서버 오류" 로 보여서,
+        #    파일을 줄이면 된다는 걸 알 방법이 없다. 그대로 올려보낸다.
+        raise
     except Exception as e:
         print(f'[고액후원 영상 업로드 오류] {e}')
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -5439,6 +5454,8 @@ def api_score_add():
 
     pending_id 를 함께 주면 '점수 지급'과 '대기함에서 제거'가 같은 잠금 안에서 끝난다.
     예전에는 왕복 두 번이라 그 사이에 실패하면 후원이 어디에도 없는 상태가 될 수 있었다.
+    그 후원이 대기함에 이미 없으면 누군가 먼저 처리한 것이므로 점수를 더하지 않고
+    already=True 로 답한다 — 폰과 PC 에서 같은 후원을 동시에 눌러도 두 번 들어가지 않는다.
 
     items 로 여러 명을 한 번에 줄 수 있다(반반·N분할). 한 명이라도 못 찾으면 아무것도 반영하지 않는다.
     """
@@ -5476,6 +5493,16 @@ def api_score_add():
 
         with file_lock:
             state = load_data()
+            # 🛡️ 같은 후원을 두 곳에서 동시에 배정하면 점수가 두 번 들어간다.
+            #    조종실도 '이미 처리됐나' 를 보지만 그건 각자 화면의 사본이라, 폰과 PC 가
+            #    서로를 못 본다. 대기함에 그 후원이 남아 있는지는 서버만 확실히 안다.
+            #    이미 없으면 '누군가 먼저 처리했다' 는 뜻이므로 점수를 더하지 않는다.
+            if pending_id:
+                _pend = state.get('pending_donations') or []
+                if not any(d.get('id') == pending_id for d in _pend):
+                    print(f'  ↩️ [이중 배정 방지] 이미 처리된 후원입니다 ({pending_id})', flush=True)
+                    return jsonify({'status': 'success', 'already': True,
+                                    'message': '이미 다른 기기에서 처리된 후원입니다'})
             src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
             prev_first = None
             if scope == 'rank':
