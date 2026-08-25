@@ -4118,11 +4118,22 @@
             }
         }
 
+        // 후원 한 건을 n 명에게 나눌 때 각자 받을 점수.
+        // ⚠️ 합이 '혼자 받았을 때'와 반드시 같아야 한다. 예전에는 세 곳이 서로 다른 식을 써서
+        //    같은 후원이 어디서 나누느냐에 따라 총점이 달라졌다.
+        //    딱 안 떨어지는 몫은 앞사람부터 1점씩 준다 — 버리면 그만큼 점수가 증발한다.
+        //    ⚠️ mobile.html 에도 같은 함수가 있다. 한쪽만 고치면 또 갈라진다.
+        function splitPoints(amount, n) {
+            const total = Math.round((amount || 0) / 10000);
+            const base = Math.floor(total / n), rest = total % n;
+            return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
+        }
+
         // 반반·N분할 공통 처리.
         // ⚠️ 예전에는 두 함수가 각각 pushAPI() 를 기다리지 않고 곧바로 removePending() 을 불렀다.
         //    전송이 실패하면 점수는 안 들어갔는데 대기함에서는 사라져 그 후원이 증발했다.
         //    이제 서버가 '점수 지급'과 '대기함 제거'를 같은 잠금 안에서 함께 처리한다.
-        async function assignToNames(donId, names, addPoint, label) {
+        async function assignToNames(donId, names, label) {
             const isExtra = gd.extra_game_active || false;
             const targetList = (isExtra ? gd.extra_bjs : gd.bjs) || [];
             const found = names.map(n => targetList.find(b => b.name === n)).filter(Boolean);
@@ -4130,14 +4141,33 @@
                 await premiumAlert('적어주신 이름을 명단에서 찾을 수 없어 지급하지 않았습니다.', label, 'warning');
                 return;
             }
+            // ⚠️ 오타로 한 명이 빠지면 그 사람 몫이 조용히 나머지에게 간다.
+            //    '철수,영히' 처럼 한 글자만 틀려도 영희는 못 받고 철수가 다 가져간다.
+            //    말없이 넘어가면 방송이 끝나고 나서야 알게 된다.
+            const missing = names.filter(n => !targetList.some(b => b.name === n));
+            if (missing.length) {
+                const go = await premiumConfirm(
+                    `명단에 없는 이름이 있습니다: ${missing.join(', ')}
+
+`
+                    + `${found.map(t => t.name).join(', ')} 에게만 나눠줄까요?`,
+                    label, 'warning');
+                if (!go) return;
+            }
             const donIdx = gd.pending_donations.findIndex(d => d.id === donId);
             if (donIdx === -1) return;   // 그 사이 다른 곳에서 처리됨 → 이중 지급 방지
             const don0 = gd.pending_donations[donIdx];
+            // ⚠️ 이름을 못 찾은 사람은 빠졌으므로, 실제로 받을 사람 수로 나눈다.
+            const pts = splitPoints(don0.amount, found.length);
+            if (!pts.some(p => p > 0)) {
+                await premiumAlert('나누기엔 금액이 너무 작습니다.', label, 'warning');
+                return;
+            }
 
             // 화면만 먼저 움직인다
-            found.forEach(t => {
-                t.score += addPoint;
-                t.contribution = (t.contribution || 0) + addPoint;
+            found.forEach((t, i) => {
+                t.score += pts[i];
+                t.contribution = (t.contribution || 0) + pts[i];
             });
             targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
             if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
@@ -4145,23 +4175,25 @@
             renderUI();
 
             const r = await addScoreAPI({ scope: 'rank', pending_id: donId,
-                                         items: found.map(t => ({ name: t.name, delta: addPoint })),
+                                         items: found.map((t, i) => ({ name: t.name, delta: pts[i] })),
                                          donor: don0.name, donor_message: don0.message });
             // 🛡️ 다른 기기가 먼저 처리했으면 서버는 점수를 더하지 않았다 — 화면만 되돌린다.
             if (r && r.already) {
-                found.forEach(t => { t.score -= addPoint; t.contribution -= addPoint; });
+                found.forEach((t, i) => { t.score -= pts[i]; t.contribution -= pts[i]; });
                 renderUI();
                 acctToast('이미 다른 기기에서 처리된 후원입니다', 'warn');
                 return;
             }
             if (r) {
                 // 반반·N분할도 마찬가지. 여러 명이면 한 줄로 묶어 기록한다.
-                recordScoreAction({ scope: 'rank', names: found.map(t => t.name), delta: addPoint,
+                //  ⚠️ 사람마다 받은 점수가 다를 수 있다. 되돌릴 때 쓰도록 그대로 남긴다.
+                recordScoreAction({ scope: 'rank', names: found.map(t => t.name), deltas: pts.slice(),
+                                    delta: pts.reduce((a, b) => a + b, 0),
                                     isExtra, addedContrib: true, logTime: r.time,
                                     donor: don0.name, amount: don0.amount, split: true });
             }
             if (!r) {
-                found.forEach(t => { t.score -= addPoint; t.contribution -= addPoint; });
+                found.forEach((t, i) => { t.score -= pts[i]; t.contribution -= pts[i]; });
                 gd.pending_donations.splice(donIdx, 0, don0);
                 renderUI();
                 await premiumAlert('지급하지 못했습니다. 네트워크를 확인하고 다시 눌러주세요.', label, 'error');
@@ -4179,8 +4211,9 @@
             let names = namesStr.split(',').map(n => n.trim()).filter(n => n !== "");
             if (!names.length) return;
 
-            // '반반'은 이름 수와 무관하게 절반씩 (예전 동작 그대로)
-            await assignToNames(donId, names, Math.round((don.amount / 2) / 10000), '반반 지급');
+            // ⚠️ 예전에는 '이름 수와 무관하게 절반씩' 이었다. 세 명을 적으면 각자 절반씩 받아
+            //    후원 금액의 1.5 배가 나갔다. 이제 적은 사람들끼리 나눠 갖는다(합계는 그대로).
+            await assignToNames(donId, names, '반반 지급');
         }
 
         async function deletePending(donId) {
@@ -4989,17 +5022,20 @@
             // 반반·N분할은 여러 명이 한 건이다. 그 사람들 것을 한꺼번에 되돌린다.
             if (a.split && Array.isArray(a.names)) {
                 const list = a.isExtra ? gd.extra_bjs : gd.bjs;
-                a.names.forEach(nm => {
+                // ⚠️ 사람마다 받은 점수가 다를 수 있다(딱 안 떨어지는 몫은 앞사람이 1점 더 받는다).
+                //    한 값으로 일괄해서 빼면 누구는 덜, 누구는 더 깎인다.
+                const ds = Array.isArray(a.deltas) ? a.deltas : a.names.map(() => a.delta);
+                a.names.forEach((nm, i) => {
                     const t = (list || []).find(b => b.name === nm);
                     if (!t) return;
-                    t.score -= a.delta;
-                    if (a.addedContrib && t.contribution !== undefined) t.contribution -= a.delta;
+                    t.score -= ds[i];
+                    if (a.addedContrib && t.contribution !== undefined) t.contribution -= ds[i];
                 });
                 if (list) { list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0)); }
                 renderUI(); renderUndoStrip();
                 addScoreAPI({ scope: 'rank', log: false,
-                              items: a.names.map(nm => ({ name: nm, delta: -a.delta })),
-                              undo_log: a.names.map(nm => ({ time: a.logTime, name: nm, val: a.delta })) });
+                              items: a.names.map((nm, i) => ({ name: nm, delta: -ds[i] })),
+                              undo_log: a.names.map((nm, i) => ({ time: a.logTime, name: nm, val: ds[i] })) });
                 if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
                 else hideUndoToast();
                 return;
@@ -5165,7 +5201,7 @@
             let names = namesStr.split(',').map(n => n.trim()).filter(n => n !== "");
             if (names.length === 0) return;
 
-            await assignToNames(donId, names, Math.round((don.amount / names.length) / 10000), 'N등분 지급');
+            await assignToNames(donId, names, 'N등분 지급');
         }
 
         async function bulkImportBJs() {

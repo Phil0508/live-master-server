@@ -399,23 +399,34 @@ async function assign(donId, name) {
     finally { busy = false; }
 }
 
+// 후원 한 건을 n 명에게 나눌 때 각자 받을 점수.
+// ⚠️ 합이 '혼자 받았을 때'와 반드시 같아야 한다. 예전에는 폰과 조종실이 서로 다른 식을 써서,
+//    같은 5만원이 혼자 받으면 5점, 조종실 반반은 6점, 폰 반반은 4점이 됐다.
+//    조종실의 splitPoints() 와 같은 식이어야 한다 — 한쪽만 고치면 또 갈라진다.
+function splitPoints(amount, n) {
+    const total = Math.round((amount || 0) / 10000);
+    const base = Math.floor(total / n), rest = total % n;
+    return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
+}
+
 async function assignSplit(donId, mode) {
     if (busy) return;
     const don = (gd.pending_donations || []).find(d => d.id === donId);
     const list = players();
     if (!don || list.length < 2) return;
     const targets = mode === 'half' ? list.slice(0, 2) : list;
-    const pts = Math.floor(Math.round((don.amount || 0) / 10000) / targets.length);
-    if (pts <= 0) { toast('나누기엔 금액이 너무 작습니다', false); return; }
+    const pts = splitPoints(don.amount, targets.length);
+    if (!pts.some(p => p > 0)) { toast('나누기엔 금액이 너무 작습니다', false); return; }
     busy = true;
     try {
         const r = await addScore({ scope:'rank', pending_id:donId,
-                         items: targets.map(t => ({ name:t.name, delta:pts })),
+                         items: targets.map((t, i) => ({ name:t.name, delta:pts[i] })),
                          donor:don.name, donor_message:don.message });
         gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
         renderApp(); renderHome();
+        const 합 = pts.reduce((a, b) => a + b, 0);
         toast(r && r.already ? '이미 다른 기기에서 처리된 후원입니다'
-                             : `${targets.length}명에게 ${pts}점씩`, !(r && r.already));
+                             : `${targets.length}명에게 나눠 ${합}점`, !(r && r.already));
     } catch (e) { toast('지급 실패', false); }
     finally { busy = false; }
 }
