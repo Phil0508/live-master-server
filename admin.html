@@ -191,6 +191,23 @@
             </div>
 
             </div></div>
+            <div class="sec" data-sec="donor"><div class="sec-h" onclick="secToggle(this)"><i class="fa-solid fa-medal"></i> 후원 순위<span class="arrow">▾</span></div><div class="sec-b">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; cursor:pointer; color:#fff;">
+                    <input type="checkbox" id="dr-on" onchange="updateDonorRank('donor_rank_enabled', this.checked)" style="width:16px;height:16px;accent-color:#ffcf4d;cursor:pointer;">
+                    🏅 방송 화면에 표시
+                </label>
+                <div class="prop-row" style="margin-top:10px;"><i class="fa-solid fa-list-ol"></i> 표시 인원<input type="range" id="dr-limit" min="3" max="10" step="1" value="5" oninput="updateDonorRank('donor_rank_limit', parseInt(this.value)); document.getElementById('dr-limit-val').innerText=this.value+'명'"><span id="dr-limit-val">5명</span></div>
+                <label style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12.5px; cursor:pointer; color:#c9cdd5;">
+                    <input type="checkbox" id="dr-amount" checked onchange="updateDonorRank('donor_rank_amount', this.checked)" style="width:15px;height:15px;accent-color:#ffcf4d;cursor:pointer;">
+                    💰 금액도 보여주기
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; margin-top:6px; font-size:12.5px; cursor:pointer; color:#c9cdd5;">
+                    <input type="checkbox" id="dr-anon" onchange="updateDonorRank('donor_rank_anon', this.checked)" style="width:15px;height:15px;accent-color:#ffcf4d;cursor:pointer;">
+                    🕶️ 익명 후원도 순위에 넣기
+                </label>
+                <div style="font-size:11px;color:#7d828c;margin-top:9px;line-height:1.6;">이름과 순위는 항상 보입니다. 이번 방송에 들어온 후원만 세고, 방송 시작/종료 때 저절로 초기화됩니다.</div>
+            </div></div>
+
             <div class="sec" data-sec="danger"><div class="sec-h" onclick="secToggle(this)"><i class="fa-solid fa-triangle-exclamation"></i> 되돌리기<span class="arrow">▾</span></div><div class="sec-b">
                 <button class="danger" onclick="resetLayout()" style="width:100%; margin:0;"><i class="fa-solid fa-rotate-left"></i> 모든 위젯을 기본 위치로</button>
                 <div style="font-size:11px; color:#7d828c; margin-top:8px; line-height:1.6;">지금 배치를 버리고 처음 상태로 되돌립니다. 되돌릴 수 없습니다.</div>
@@ -268,6 +285,18 @@
                         </div>
                     </div>
                 </div>
+                <!-- 🏅 후원 순위 위젯 -->
+                <div class="widget" id="donor-rank" data-id="donor-rank" style="left:850px; top:700px; display: none;">
+                    <div style="width: 240px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px;">
+                        <div style="text-align:center; font-size:15px; font-weight:900; letter-spacing:-0.3px; color:#241a05; padding:6px 0; background: linear-gradient(120deg, var(--gold), var(--gold-deep)); border-radius:12px; box-shadow:0 4px 14px var(--gold-glow);">🏅 후원 순위</div>
+                        <div style="display:flex; flex-direction:column; gap:6px;">
+                            <div style="height:36px; background:#14141c; border-radius:11px; border:1px solid rgba(255,255,255,0.10);"></div>
+                            <div style="height:36px; background:#14141c; border-radius:11px; border:1px solid rgba(255,255,255,0.10);"></div>
+                            <div style="height:36px; background:#14141c; border-radius:11px; border:1px solid rgba(255,255,255,0.10);"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 📊 시그니처 신청 집계 패널 -->
                 <div class="widget" id="sig-tally" data-id="sig-tally" style="left:850px; top:300px; display: none;">
                     <div style="width: 206px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px;">
@@ -343,7 +372,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 시그니처 순위', 'donor-rank': '🏅 후원 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기' };
             // 이름에 부등호나 따옴표가 들어와도 칸이 깨지지 않게 다듬는다
         function escText(s) {
             return String(s == null ? '' : s)
@@ -439,6 +468,11 @@
                         if (d.reaction_title_suffix !== undefined) setIf('reac-title-suffix', d.reaction_title_suffix);
                         if (d.sig_tally_enabled !== undefined){ const c=document.getElementById('tally-on'); if(c) c.checked = !!d.sig_tally_enabled; }
                         if (d.sig_tally_limit !== undefined){ setIf('tally-limit', d.sig_tally_limit); const l=document.getElementById('tally-limit-val'); if(l) l.innerText=d.sig_tally_limit+'개'; }
+                        // 🏅 후원 순위 — 서버 값을 설정 칸에 되비춘다(다른 화면에서 바꿔도 따라온다)
+                        if (d.donor_rank_enabled !== undefined){ const c=document.getElementById('dr-on'); if(c) c.checked = !!d.donor_rank_enabled; }
+                        if (d.donor_rank_amount !== undefined){ const c=document.getElementById('dr-amount'); if(c) c.checked = d.donor_rank_amount !== false; }
+                        if (d.donor_rank_anon !== undefined){ const c=document.getElementById('dr-anon'); if(c) c.checked = !!d.donor_rank_anon; }
+                        if (d.donor_rank_limit !== undefined){ setIf('dr-limit', d.donor_rank_limit); const l=document.getElementById('dr-limit-val'); if(l) l.innerText=d.donor_rank_limit+'명'; }
                     }
 
                     let md = d.match_data || {active: false, players: []};
@@ -504,6 +538,10 @@
                     // 📊 시그니처 순위 패널: 켜져 있을 때만 편집 캔버스에 표시
                     const tallyW = document.getElementById('sig-tally');
                     if (tallyW) tallyW.style.display = d.sig_tally_enabled ? 'flex' : 'none';
+
+                    // 🏅 후원 순위 위젯: 켜져 있을 때만 편집 캔버스에 표시
+                    const drW = document.getElementById('donor-rank');
+                    if (drW) drW.style.display = d.donor_rank_enabled ? 'flex' : 'none';
                 } catch(e) {}
             }
 
@@ -568,6 +606,12 @@
                     if (Object.keys(fields).length) await patchSettings(fields);
                 }, 120);
             }
+            // 🏅 후원 순위 설정 — 바뀐 필드만 보낸다(다른 조작을 덮지 않게).
+            window.updateDonorRank = function(key, val) {
+                pendingReac[key] = val;
+                pushReac();
+            };
+
             window.updateReac = function(key, val, labelId) {
                 pendingReac[key] = parseFloat(val);
                 if(labelId){ const l = document.getElementById(labelId); if(l) l.innerText = parseFloat(val).toFixed(2); }

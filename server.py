@@ -1325,6 +1325,14 @@ DEFAULT_STATE = {
     "sig_tally_enabled": False,     # 기본 꺼짐 — 켜야 방송 화면에 뜬다
     "sig_tally_limit": 6,           # 화면에 표시할 개수
     "sig_tally": {},                # {item_id: {title, image_url, amount, count}} — 방송마다 초기화
+
+    # 🏅 후원 순위 위젯 — 누가 이번 방송에 얼마를 넣었나
+    #    이름·순위는 항상 보이고, 금액과 익명 포함 여부는 켜고 끌 수 있다.
+    "donor_rank_enabled": False,    # 기본 꺼짐 — 켜야 방송 화면에 뜬다
+    "donor_rank_limit": 5,          # 화면에 표시할 인원
+    "donor_rank_amount": True,      # 금액도 보여줄지 (끄면 이름·순위만)
+    "donor_rank_anon": False,       # 익명 후원을 순위에 넣을지
+    "donor_tally": {},              # {이름: {total, count}} — 방송마다 초기화
     "popup_enabled": True,
     "takeover_enabled": True,
     "ticker_enabled": True,
@@ -1841,6 +1849,7 @@ def reset_session_keys(state):
     state['goal_event_approved'] = False
     state['home_race_notified'] = []   # '누가 이미 퇴근 카드를 받았나'는 지난 방송의 기록이라 비운다
     state['sig_tally'] = {}            # 시그니처 신청 집계도 방송 1회분 기록이라 비운다
+    state['donor_tally'] = {}          # 후원 순위도 이번 방송분만 센다
     # ⚠️ home_goals(퇴근빵 개인별 목표)는 여기서 지우면 안 된다.
     #    이건 '지난 방송의 흔적'이 아니라 운영자가 방송 전에 세팅해두는 '설정'이다.
     #    그런데 이 함수는 방송 종료뿐 아니라 '방송 시작'에서도 불린다.
@@ -3031,6 +3040,26 @@ def receive_donation():
             #    점수를 주지만 장부엔 없다). Supabase 는 유휴 커넥션을 끊기 때문에 조용한 구간 뒤
             #    첫 후원에서 이게 실제로 발생한다. 다른 곳(save_data_sync)은 이미 1회 재시도로
             #    대응하고 있는데 여기만 빠져 있었다. 실패는 상태창에도 남겨 운영자가 알 수 있게 한다.
+            # 🏅 후원 순위 집계 — 이번 방송에 누가 얼마를 넣었나.
+            #    ⚠️ 여기서 적어두면 SSE 를 타고 방송 화면까지 저절로 간다.
+            #       DB 를 매번 뒤져 순위를 내면 화면이 몇 초마다 물어봐야 하고 반영도 늦다.
+            #    ⚠️ 익명도 일단 세어 둔다. 순위에 넣을지 말지는 보여줄 때 정한다 —
+            #       그래야 방송 중에 '익명 포함' 을 껐다 켜도 숫자가 안 틀어진다.
+            #    ⚠️ 묶는 이름과 보여줄 이름을 나눈다. _norm_donor 는 '홍길동님' 을 '홍길동' 으로
+            #       합치려고 끝의 '님' 을 떼는데, 닉네임이 '새손님' 인 사람은 '새손' 이 되어
+            #       방송 화면에 틀린 이름이 나간다. 합산은 정규화된 이름으로, 표시는 원래 이름으로.
+            try:
+                _who = _norm_donor(parsed_name)
+                _dt = state.setdefault('donor_tally', {})
+                _row = _dt.get(_who) or {'total': 0, 'count': 0}
+                _row['total'] = int(_row.get('total') or 0) + max(0, amount)
+                _row['count'] = int(_row.get('count') or 0) + 1
+                _shown = ' '.join(str(parsed_name or '').split())
+                _row['name'] = _shown or _who
+                _dt[_who] = _row
+            except Exception as _e:
+                print(f"⚠️ [후원 순위 집계 실패] {_e}")
+
             for _attempt in range(2):
                 try:
                     with get_db_connection() as conn:
@@ -5314,6 +5343,9 @@ PATCH_DENY = frozenset((
     'bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
     'reaction_queue', 'latest_donation', 'pending_donations',
     'api_token', 'server_time', 'version',
+    # 🏅 후원 순위 집계는 서버가 후원을 받을 때만 적는다. 밖에서 통째로 덮어쓰면
+    #    방금 들어온 후원이 사라진다(설정 3개는 자유롭게 바꿀 수 있다).
+    'donor_tally',
 ))
 
 

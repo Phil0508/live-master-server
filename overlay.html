@@ -565,6 +565,49 @@
             background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
             pointer-events:none;
         }
+        /* 🏅 후원 순위 — 시그니처 순위와 같은 유리 카드 */
+        .donor-rank-board {
+            position: relative; width: 240px; padding: 10px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .donor-rank-board::before {
+            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
+            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+            pointer-events:none;
+        }
+        .donor-rank-header {
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+            color: #241a05; font-weight: 900; font-size: 15px; text-align: center; letter-spacing: -0.3px;
+            padding: 6px 0; border-radius: 12px;
+            box-shadow: 0 4px 14px var(--gold-glow);
+        }
+        .dr-row {
+            display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+            border-radius: 11px; border: 1px solid rgba(255,255,255,0.10);
+            background: rgba(0,0,0,0.42);
+        }
+        .dr-row .dr-no {
+            flex: none; width: 22px; height: 22px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 900; color: #cfd3da;
+            background: rgba(255,255,255,0.10);
+        }
+        .dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; }
+        .dr-row.top2 .dr-no { background: linear-gradient(120deg, #d8dde6, #9aa2ae); color: #23262b; }
+        .dr-row.top3 .dr-no { background: linear-gradient(120deg, #d9a066, #a8703c); color: #2a1a0c; }
+        .dr-row .dr-name {
+            flex: 1; min-width: 0; font-size: 15px; font-weight: 800; color: #fff;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+        }
+        .dr-row .dr-amt {
+            flex: none; font-size: 14px; font-weight: 900; color: var(--gold);
+            font-variant-numeric: tabular-nums; text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+        }
+        .dr-empty { text-align:center; color: rgba(255,255,255,0.45); font-size: 13px; padding: 10px 0; }
+
         .sig-tally-header {
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
             color: #241a05; font-weight: 900; font-size: 15px; text-align: center; letter-spacing: -0.3px;
@@ -1682,6 +1725,13 @@
                 <div class="sg-allclear" id="sg-allclear"><span>ALL CLEAR</span></div>
             </div>
 
+            <div id="donor-rank-container" class="widget-container" style="position: absolute; left: 850px; top: 700px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+                <div class="donor-rank-board">
+                    <div class="donor-rank-header">🏅 후원 순위</div>
+                    <div id="donor-rank-rows" style="display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+            </div>
+
             <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 850px; top: 300px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="sig-tally-board">
                     <div class="sig-tally-header">🎵 시그니처 순위</div>
@@ -2540,7 +2590,7 @@
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'karaoke', 'acct_video', 'siggame'].forEach(id => {
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'donor-rank', 'karaoke', 'acct_video', 'siggame'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if(ly && el) {
                     let coord = ly[id];
@@ -3106,7 +3156,7 @@
             // ⚠️ home-race 도 반드시 포함해야 한다. 빠져 있으면 퇴근빵을 켠 채 방송을 종료했을 때
             //    아래 early return 때문에 renderHomeRace 까지 못 가서, 옛 진행바를 담은 카드가
             //    화면에 그대로 남고 방송을 다시 켜기 전에는 지울 방법이 없다.
-            ['ranking', 'gauge', 'account', 'match', 'roulette', 'extra-ranking', 'home-race', 'sig-tally'].forEach(id => {
+            ['ranking', 'gauge', 'account', 'match', 'roulette', 'extra-ranking', 'home-race', 'sig-tally', 'donor-rank'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if (el) el.style.display = isActive ? '' : 'none';
             });
@@ -3316,6 +3366,7 @@
 
                 renderHomeRace(d);   // 🏃 퇴근전쟁 진행바 (켜져 있으면 랭킹판 대신 표시)
                 renderSigTally(d);   // 📊 시그니처 신청 집계 패널
+            renderDonorRank(d);  // 🏅 후원 순위 패널
                 let md = d.match_data || {active: false, players: [], fire_effect: false}; if (md.active && md.fire_effect) document.body.classList.add('match-fire-on'); else document.body.classList.remove('match-fire-on');
 
                 const accBox = document.getElementById('account-box-ui');
@@ -5366,6 +5417,49 @@
                     <div style="position:absolute; left:0; right:0; top:16px; text-align:center; font-size:14px; font-weight:800; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px;">${esc(r.title || '')}</div>
                 </div>`).join('');
             if (html !== lastSigTallyHtml) { rowsEl.innerHTML = html; lastSigTallyHtml = html; }
+        }
+
+        // 🏅 후원 순위 — 이번 방송에 누가 얼마를 넣었나.
+        //    ⚠️ 서버가 후원을 받을 때 donor_tally 에 적어두고 SSE 로 실어 보낸다.
+        //       화면은 받은 것만 그린다 — 몇 초마다 물어보지 않으므로 서버 부담이 없고,
+        //       후원이 뜨는 그 순간 순위가 움직인다.
+        let lastDonorRankHtml = '';
+        function renderDonorRank(d) {
+            const box = document.getElementById('donor-rank-container');
+            if (!box) return;
+            const on = !!d.donor_rank_enabled;
+            box.style.opacity = on ? '1' : '0';
+            box.style.visibility = on ? 'visible' : 'hidden';
+            if (!on) return;
+
+            const tally = d.donor_tally || {};
+            // 인원은 1~20 으로 조인다. 음수가 들어오면 slice(0, -5) 가 되어 '꼴찌 5명을 뺀
+            // 나머지'가 뜨고, 큰 수가 들어오면 이름 수백 개가 화면을 덮는다.
+            const limit = Math.max(1, Math.min(20, parseInt(d.donor_rank_limit) || 5));
+            const showAmt = d.donor_rank_amount !== false;   // 예전 저장본에 이 키가 없으면 보여준다
+            const withAnon = !!d.donor_rank_anon;
+            const list = Object.keys(tally)
+                .filter(nm => withAnon || nm !== '익명')
+                //  이름표는 서버가 실어준 원래 이름을 쓴다. 묶음 열쇠(nm)는 '님' 이 떼인
+                //  형태라, 닉네임이 '새손님' 인 사람이 '새손' 으로 나가는 것을 막는다.
+                .map(nm => ({ name: (tally[nm] || {}).name || nm, total: (tally[nm] || {}).total || 0 }))
+                .filter(r => r.total > 0)
+                .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name))
+                .slice(0, limit);
+
+            const rowsEl = document.getElementById('donor-rank-rows');
+            if (!rowsEl) return;
+            const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+                ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+            const html = list.length
+                ? list.map((r, i) => `
+                    <div class="dr-row ${i < 3 ? 'top' + (i + 1) : ''}">
+                        <span class="dr-no">${i + 1}</span>
+                        <span class="dr-name">${esc(r.name)}</span>
+                        ${showAmt ? `<span class="dr-amt">${Number(r.total).toLocaleString()}</span>` : ''}
+                    </div>`).join('')
+                : '<div class="dr-empty">아직 후원이 없습니다</div>';
+            if (html !== lastDonorRankHtml) { rowsEl.innerHTML = html; lastDonorRankHtml = html; }
         }
 
         function renderHomeRace(d) {
