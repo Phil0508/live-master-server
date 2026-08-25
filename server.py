@@ -3204,8 +3204,11 @@ def suggest_target(donor, amount, message, players, state=None):
                     source='이름', why='여러 사람을 부름: ' + ', '.join(sorted(exact)))
 
     # ② 별명 기억
+    # ⚠️ 한 번만 본 말은 쓰지 않는다. '오늘도' 같은 흔한 말이 우연히 한 번
+    #    특정 플레이어로 이어진 것까지 추천으로 올리면 잡음만 된다.
+    #    두 번 이상 같은 사람으로 이어졌을 때부터가 '별명'이라 부를 만하다.
     al = alias_lookup(msg, names)
-    if al:
+    if al and al[1] >= 2:
         player, hits, tok = al
         conf = min(0.95, 0.62 + 0.09 * hits)
         return _hold_if_message_points_elsewhere(
@@ -3370,18 +3373,33 @@ def api_data():
                 _inc = incoming.get(_key)
                 if not isinstance(_inc, list):
                     continue
-                _have = {}
-                for _p in (current_state.get(_key) or []):
-                    if isinstance(_p, dict) and isinstance(_p.get('name'), str):
-                        _have[_p['name'].strip()] = _p
-                for _p in _inc:
-                    if not isinstance(_p, dict):
-                        continue
-                    _old = _have.get(str(_p.get('name') or '').strip())
+                _cur = [p for p in (current_state.get(_key) or []) if isinstance(p, dict)]
+                _have = {str(p.get('name') or '').strip(): p for p in _cur
+                         if isinstance(p.get('name'), str)}
+                _rows = [p for p in _inc if isinstance(p, dict)]
+                _matched, _newbies = set(), []
+                for _i, _p in enumerate(_rows):
+                    _nm = str(_p.get('name') or '').strip()
+                    _old = _have.get(_nm)
                     if _old is None:
-                        continue                      # 새로 생긴 사람 — 보낸 값 그대로
+                        _newbies.append((_i, _p))    # 새 이름 — 아래에서 개명인지 본다
+                        continue
+                    _matched.add(_nm)
                     _p['score'] = _old.get('score', 0)
                     _p['contribution'] = _old.get('contribution', 0)
+                # ⚠️ 개명 처리. 이름으로만 찾으면 이름을 바꾼 그 사람의 점수가
+                #    브라우저가 들고 있던 (조금 낡은) 값으로 저장돼 몇 점 어긋난다.
+                #    명단 조작은 점수를 바꿀 뜻이 없으므로, '사라진 이름'과 '새 이름'의
+                #    수가 같고 자리도 그대로면 개명으로 보고 옛 점수를 물려준다.
+                #    (한 번에 여럿을 고치거나 추가·삭제가 섞이면 확신할 수 없으니 손대지 않는다)
+                _gone = [p for p in _cur if str(p.get('name') or '').strip() not in _matched]
+                if len(_newbies) == 1 and len(_gone) == 1 and len(_rows) == len(_cur):
+                    _i, _p = _newbies[0]
+                    if _i < len(_cur) and _cur[_i] is _gone[0]:      # 자리까지 같을 때만
+                        _p['score'] = _gone[0].get('score', 0)
+                        _p['contribution'] = _gone[0].get('contribution', 0)
+                        print(f"  ✏️ [이름 변경] {_gone[0].get('name')} → {_p.get('name')}"
+                              f" (점수 {_p['score']} 그대로)", flush=True)
             # 운영비 칸도 같은 이유로 점수를 지킨다(이름만 고치는 길이 열려 있다).
             _bf, _bf_old = incoming.get('bottom_fixed'), current_state.get('bottom_fixed')
             if isinstance(_bf, dict) and isinstance(_bf_old, dict):
@@ -3872,14 +3890,19 @@ def api_version_latest():
     _git('fetch', '--quiet', 'origin', 'main', timeout=25)
     remote, ok = _git('rev-parse', 'origin/main')
     if not ok:
-        return jsonify({'status': 'error', 'message': '최신 버전을 확인하지 못했습니다'}), 500
+        # ⚠️ 500 이 아니라 400 이다. 서버가 고장난 게 아니라 '여기서는 이 기능을 쓸 수
+        #    없다'는 상황이다(git 으로 배포된 서버가 아님). 500 을 주면 조종실이
+        #    '서버 이상'으로 보고 재시도한다.
+        return jsonify({'status': 'error',
+                        'message': '이 서버는 git 으로 배포된 것이 아니라 버전을 바꿀 수 없습니다'}), 400
     _write_pin(None)
     head, _ = _git('rev-parse', 'HEAD')
     if head == remote:
         return jsonify({'status': 'success', 'message': '이미 최신입니다', 'restarting': False})
     out, ok = _git('checkout', '--quiet', '--force', '-B', 'main', 'origin/main', timeout=40)
     if not ok:
-        return jsonify({'status': 'error', 'message': '최신으로 되돌리지 못했습니다'}), 500
+        return jsonify({'status': 'error',
+                        'message': '최신으로 되돌리지 못했습니다. 서버 상태를 확인해주세요'}), 500
     print(f'🕹️ [버전 전환] 최신으로 복귀 → {remote[:8]}', flush=True)
     threading.Timer(1.0, _restart_services).start()
     return jsonify({'status': 'success', 'restarting': True,
