@@ -361,8 +361,7 @@ function rPending(el) {
         const btns = list.map(p =>
             `<button class="${s && s.target === p.name ? 'reco' : ''}"
                      onclick="assign('${d.id}','${esc(p.name)}')">${esc(p.name)}</button>`).join('')
-            + `<button class="half" onclick="assignSplit('${d.id}','half')">반반</button>`
-            + `<button class="half" onclick="assignSplit('${d.id}','all')">1/N</button>`
+            + `<button class="half" onclick="assignSplit('${d.id}')">나눠주기</button>`
             + `<button class="half" style="color:var(--red)" onclick="removeDon('${d.id}')">삭제</button>`;
         const sug = s && s.target
             ? `<span class="sug ${s.tier === 'auto' ? 'auto' : 'mid'}">${s.tier === 'auto' ? '✓' : '🤖'} ${esc(s.target)}${s.why ? ' · ' + esc(s.why) : ''}</span>`
@@ -409,12 +408,15 @@ function splitPoints(amount, n) {
     return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
 }
 
-async function assignSplit(donId, mode) {
+async function assignSplit(donId) {
     if (busy) return;
     const don = (gd.pending_donations || []).find(d => d.id === donId);
     const list = players();
     if (!don || list.length < 2) return;
-    const targets = mode === 'half' ? list.slice(0, 2) : list;
+    // 지금 방송에 올라와 있는 사람 전부에게 똑같이 나눈다.
+    //  ⚠️ 예전에는 '반반' 이 기여도 상위 2명을 알아서 골랐다. 누구에게 가는지
+    //     모른 채 눌리는 버튼이라, 순위가 바뀌면 엉뚱한 사람이 받았다.
+    const targets = list;
     const pts = splitPoints(don.amount, targets.length);
     if (!pts.some(p => p > 0)) { toast('나누기엔 금액이 너무 작습니다', false); return; }
     busy = true;

@@ -3081,7 +3081,7 @@
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(255, 207, 77, 0.15); color:var(--gold); border-color:var(--gold);" onclick="assignHalf('${don.id}')">🌓 반반</button><button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 N분할</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -4129,7 +4129,7 @@
             return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
         }
 
-        // 반반·N분할 공통 처리.
+        // 나눠주기 공통 처리.
         // ⚠️ 예전에는 두 함수가 각각 pushAPI() 를 기다리지 않고 곧바로 removePending() 을 불렀다.
         //    전송이 실패하면 점수는 안 들어갔는데 대기함에서는 사라져 그 후원이 증발했다.
         //    이제 서버가 '점수 지급'과 '대기함 제거'를 같은 잠금 안에서 함께 처리한다.
@@ -4183,7 +4183,7 @@
                 return;
             }
             if (r) {
-                // 반반·N분할도 마찬가지. 여러 명이면 한 줄로 묶어 기록한다.
+                // 나눠주기는 여러 명이 한 건이다. 한 줄로 묶어 기록한다.
                 //  ⚠️ 사람마다 받은 점수가 다를 수 있다. 되돌릴 때 쓰도록 그대로 남긴다.
                 recordScoreAction({ scope: 'rank', names: found.map(t => t.name), deltas: pts.slice(),
                                     delta: pts.reduce((a, b) => a + b, 0),
@@ -4198,21 +4198,6 @@
             }
         }
 
-        async function assignHalf(donId) {
-            let donIdx = gd.pending_donations.findIndex(d => d.id === donId);
-            if(donIdx === -1) return;
-            let don = gd.pending_donations[donIdx];
-
-            let namesStr = prompt(`[${don.name} - ${don.amount.toLocaleString()}원]\n반반 나눠줄 사람의 이름을 쉼표(,)로 구분해서 적어주세요.\n(예: 철수,영희)`);
-            if(!namesStr) return;
-
-            let names = namesStr.split(',').map(n => n.trim()).filter(n => n !== "");
-            if (!names.length) return;
-
-            // ⚠️ 예전에는 '이름 수와 무관하게 절반씩' 이었다. 세 명을 적으면 각자 절반씩 받아
-            //    후원 금액의 1.5 배가 나갔다. 이제 적은 사람들끼리 나눠 갖는다(합계는 그대로).
-            await assignToNames(donId, names, '반반 지급');
-        }
 
         async function deletePending(donId) {
             if(await premiumConfirm("점수를 올리지 않고 보관함에서 지우시겠습니까?", "보관함 후원 삭제", "warning")) {
@@ -5017,7 +5002,7 @@
             if (idx < 0 || idx >= lastScoreActions.length) { hideUndoToast(); return; }
             const a = lastScoreActions.splice(idx, 1)[0];
             if (!a) { hideUndoToast(); return; }
-            // 반반·N분할은 여러 명이 한 건이다. 그 사람들 것을 한꺼번에 되돌린다.
+            // 나눠주기는 여러 명이 한 건이다. 그 사람들 것을 한꺼번에 되돌린다.
             if (a.split && Array.isArray(a.names)) {
                 const list = a.isExtra ? gd.extra_bjs : gd.bjs;
                 // ⚠️ 사람마다 받은 점수가 다를 수 있다(딱 안 떨어지는 몫은 앞사람이 1점 더 받는다).
@@ -5193,7 +5178,7 @@
             if(donIdx === -1) return;
             let don = gd.pending_donations[donIdx];
 
-            let namesStr = prompt(`[${don.name} - ${don.amount.toLocaleString()}원]\nN등분해서 나눠줄 사람들의 이름을 쉼표(,)로 구분해서 적어주세요.\n(예: 철수,영희,길동)`);
+            let namesStr = prompt(`[${don.name} - ${don.amount.toLocaleString()}원]\n나눠줄 사람들의 이름을 쉼표(,)로 구분해서 적어주세요. 똑같이 나눠 갖습니다.\n(예: 철수,영희,길동)`);
             if(!namesStr) return;
 
             let names = namesStr.split(',').map(n => n.trim()).filter(n => n !== "");
