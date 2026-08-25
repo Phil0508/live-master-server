@@ -4147,9 +4147,7 @@
             const missing = names.filter(n => !targetList.some(b => b.name === n));
             if (missing.length) {
                 const go = await premiumConfirm(
-                    `명단에 없는 이름이 있습니다: ${missing.join(', ')}
-
-`
+                    `명단에 없는 이름이 있습니다: ${missing.join(', ')}\n\n`
                     + `${found.map(t => t.name).join(', ')} 에게만 나눠줄까요?`,
                     label, 'warning');
                 if (!go) return;
