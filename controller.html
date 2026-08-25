@@ -1990,7 +1990,9 @@
                     </div>
                     <button onclick="sgDeal()" class="primary" style="height:38px; padding:0 18px; border-radius: var(--r-2); cursor:pointer; font-weight:800;"><i class="fa-solid fa-layer-group"></i> 카드 깔기</button>
                     <button onclick="sgShuffle()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="자리를 다시 섞습니다(달성 초기화)"><i class="fa-solid fa-shuffle"></i></button>
-                    <button onclick="sgRevealAll()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="남은 카드를 전부 공개"><i class="fa-solid fa-eye"></i></button>
+                    <button onclick="sgLift()" id="sg-lift-btn" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="목표만 한 줄로 올립니다 (다시 누르면 판 전체로)"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> 목표만 올리기</button>
+                    <button onclick="sgPeek()" id="sg-peek-btn" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="안 뽑힌 카드가 뭐였는지 몇 초 보여줍니다"><i class="fa-solid fa-magnifying-glass"></i> 나머지 까보기</button>
+                    <button onclick="sgRevealAll()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="남은 카드를 전부 공개(게임 끝)"><i class="fa-solid fa-eye"></i></button>
                     <button onclick="sgClear()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="판 치우기"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>
@@ -7146,6 +7148,24 @@
             if (!confirm('다시 섞을까요? 달성 기록도 초기화됩니다.')) return;
             if (await sgCall('shuffle')) acctToast('자리를 다시 섞었습니다', 'ok');
         }
+        // 🃏 목표만 한 줄로 올리기 — 언제 올릴지는 진행자가 정한다.
+        //    ⚠️ 전에는 목표를 다 뒤집는 순간 방송 화면이 저 혼자 올렸다.
+        //       멘트 칠 새도 없이 판이 바뀌고 되돌릴 방법도 없었다.
+        async function sgLift() {
+            const g = sgState() || {};
+            const on = !g.compact;
+            const d = await sgCall('lift', { on });
+            if (d) acctToast(on ? '🃏 목표만 올렸습니다' : '🃏 판 전체로 되돌렸습니다', 'ok');
+        }
+
+        // 🔍 안 뽑힌 카드가 뭐였는지 몇 초만 보여준다(올려둔 상태에서도 된다).
+        //    전부 공개(reveal)와 다르다 — 그건 게임을 끝낼 때 쓰는 것이고,
+        //    이건 "나머지 궁금하죠?" 하고 잠깐 까보는 것이다.
+        async function sgPeek() {
+            const d = await sgCall('peek');
+            if (d) acctToast('🔍 나머지 ' + (d.count || 0) + '장을 잠깐 보여줍니다', 'ok');
+        }
+
         async function sgRevealAll() {
             if (!confirm('남은 카드를 전부 공개할까요? (게임이 끝난 뒤 쓰는 기능입니다)')) return;
             if (await sgCall('reveal')) acctToast('전부 공개했습니다', 'ok');
@@ -7241,7 +7261,10 @@
                 why.style.display = msg ? 'block' : 'none';
             }
 
-            const sig = JSON.stringify([cols, target, cards.map(c => [c.id, c.state, !!c.doneAt, !!c.flippedAt])]);
+            // ⚠️ compact(목표만 올림) 도 이 기준에 있어야 한다. 빠뜨리면 올리기/내리기를 해도
+            //    '바뀐 게 없다'고 보고 다시 그리지 않아, 버튼 글자가 옛 상태로 굳는다.
+            const sig = JSON.stringify([cols, target, !!(g && g.compact),
+                                        cards.map(c => [c.id, c.state, !!c.doneAt, !!c.flippedAt])]);
             if (sig !== _sgSig) {
                 _sgSig = sig;
                 sgRenderBoard(board, cards, cols, target);
@@ -7285,6 +7308,31 @@
             const cnt = document.getElementById('sg-goal-count');
             const done = goals.filter(c => c.doneAt).length;
             if (cnt) cnt.textContent = goals.length ? ('달성 ' + done + ' / ' + goals.length) : '';
+            // 🃏 목표만 올리기 — 지금 상태와 올릴 수 있는지를 버튼에 그대로 보여준다.
+            //    한 줄에 6칸부터는 카드가 너무 작아져서 올리는 의미가 없다(서버도 막는다).
+            const lb = document.getElementById('sg-lift-btn');
+            if (lb) {
+                const on = !!((sgState() || {}).compact);
+                const canLift = goals.length > 0 && goals.length <= 5;
+                lb.disabled = !on && !canLift;
+                lb.style.opacity = lb.disabled ? '.4' : '1';
+                lb.style.cursor = lb.disabled ? 'not-allowed' : 'pointer';
+                lb.innerHTML = on
+                    ? '<i class="fa-solid fa-down-left-and-up-right-to-center"></i> 판 전체로'
+                    : '<i class="fa-solid fa-up-right-and-down-left-from-center"></i> 목표만 올리기';
+                lb.title = on ? '판 전체로 되돌립니다'
+                    : (goals.length > 5 ? ('목표가 ' + goals.length + '장이라 올리지 않습니다 (한 줄에 5장까지)')
+                    : (goals.length ? '목표만 한 줄로 올립니다' : '먼저 카드를 뒤집어주세요'));
+            }
+            const pb = document.getElementById('sg-peek-btn');
+            if (pb) {
+                const rest = cards.filter(c => !c.flippedAt).length;
+                pb.disabled = rest === 0;
+                pb.style.opacity = rest ? '1' : '.4';
+                pb.style.cursor = rest ? 'pointer' : 'not-allowed';
+                pb.title = rest ? ('안 뽑힌 ' + rest + '장을 몇 초 보여줍니다') : '안 뽑힌 카드가 없습니다';
+            }
+
             // 올클리어 — 뒤집은 카드만 있으면 언제든. 남은 목표는 서버가 한꺼번에 달성
             // 처리하고 곧바로 연출을 터뜨린다('한 방에 몰아서 쏜' 후원용 버튼이다).
             const acb = document.getElementById('sg-allclear-btn');

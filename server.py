@@ -1083,6 +1083,11 @@ sse_lock = threading.Lock()
 # state 전체가 실리므로(수십 KB) 이 값이 곧 '밀린 클라 1대당 최대 메모리'다.
 SSE_QUEUE_MAX = 120
 
+# '나머지 까보기' 를 열어두는 시간. 오버레이의 SG_PEEK_MS 와 같아야 한다.
+#  ⚠️ mask_siggame 이 이 값을 쓰므로 그 함수보다 위에 있어야 한다.
+SIGGAME_PEEK_MS = 6000
+
+
 def mask_siggame(data):
     """밖으로 나가는 상태에서 '아직 안 뒤집힌 카드'의 속을 지운다.
 
@@ -1099,12 +1104,24 @@ def mask_siggame(data):
     if not isinstance(g, dict) or not isinstance(g.get('cards'), list):
         return data
     data = dict(data)
+    # 🔍 '나머지 까보기' 중에는 덮인 카드의 정체도 내보낸다.
+    #    이게 없으면 화면이 알 방법이 없다 — 마스킹이 사진·이름을 아예 지우기 때문이다.
+    #    창이 몇 초로 짧고 진행자가 직접 연 것이라, 그동안만 열어주는 게 맞다.
+    _peek = False
+    try:
+        _act = g.get('action') or {}
+        if _act.get('type') == 'PEEK':
+            _peek = (time.time() * 1000 - (_act.get('ts') or 0)) < SIGGAME_PEEK_MS
+    except Exception:
+        _peek = False
     safe = []
     for c in g['cards']:
         if not isinstance(c, dict):
             continue
-        if c.get('state') == 'REVEALED':
-            safe.append({"id": c.get('id'), "state": "REVEALED",
+        if c.get('state') == 'REVEALED' or _peek:
+            # ⚠️ state 는 원래 값을 그대로 보낸다. 까보기 중이라고 HIDDEN 을 REVEALED 로
+            #    바꿔 보내면, 까보기가 끝난 뒤 화면이 그 카드를 계속 열린 것으로 여긴다.
+            safe.append({"id": c.get('id'), "state": c.get('state'),
                          "image": c.get('image'), "title": c.get('title') or '',
                          "amount": c.get('amount'),
                          "flippedAt": c.get('flippedAt'), "doneAt": c.get('doneAt')})
@@ -1344,6 +1361,9 @@ DEFAULT_STATE = {
         "rows": 4,
         "opacity": 1.0,
         "target": 5,       # 뒤집을 장수. 이만큼 뒤집으면 그게 이번 판의 목표가 된다.
+        # 목표만 한 줄로 올려둔 상태인가. 진행자가 조종실 버튼으로 켜고 끈다.
+        # (예전에는 목표를 다 뒤집는 순간 화면이 저 혼자 올렸다)
+        "compact": False,
         # 조종실이 고른 시그니처들: [{sig_id, title, image}]
         "picks": [],
         # 판에 깔린 카드. id 는 화면에 보이는 번호(1..N)다.
@@ -4854,6 +4874,7 @@ def api_siggame_deal():
                        "state": "HIDDEN", "doneAt": None, "flippedAt": None}
                       for i, p in enumerate(picks)]
         g.update({"cols": cols, "rows": rows, "enabled": True, "target": target,
+                  "compact": False,     # 새 판이면 올린 상태를 푼다
                   "timer": {"status": "STOPPED", "timeLeft": minutes * 60, "expiresAt": None},
                   "action": {"type": "PLACE", "ts": int(time.time() * 1000)}})
         _siggame_save(state, g)
@@ -4877,6 +4898,7 @@ def api_siggame_shuffle():
                        "title": f["title"], "amount": f["amount"],
                        "state": "HIDDEN", "doneAt": None, "flippedAt": None}
                       for c, f in zip(cards, faces)]
+        g['compact'] = False        # 섞으면 목표가 사라지므로 올린 상태도 푼다
         g['action'] = {"type": "SHUFFLE", "ts": int(time.time() * 1000),
                        "animIndex": random.randint(1, 4)}
         n = len(cards)
@@ -4989,6 +5011,65 @@ def api_siggame_allclear():
         _siggame_save(state, g)
     print("🎉 [시그게임] 올클리어! (%d장, 이번에 채운 %d장)" % (n, filled), flush=True)
     return jsonify({"status": "success", "count": n, "filled": filled})
+
+
+# 한 줄에 나란히 세워도 카드가 알아볼 만한 최대 장수.
+# 6칸부터는 폭이 6등분이라 그림도 금액도 작아져서 올리는 의미가 없다.
+SIGGAME_LIFT_MAX = 5
+
+
+
+@app.route('/api/siggame/lift', methods=['POST'])
+def api_siggame_lift():
+    """목표만 한 줄로 올리거나(on) 판 전체로 되돌린다(off).
+
+       ⚠️ 예전에는 목표를 다 뒤집는 순간 화면이 저 혼자 올렸다. 진행자가
+          멘트를 칠 새도 없이 판이 바뀌고, 되돌릴 방법도 없었다.
+          이제 언제 올릴지는 진행자가 정한다.
+    """
+    data = request.get_json(silent=True) or {}
+    want = data.get('on')
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        goals = [c for c in (g.get('cards') or []) if c.get('flippedAt')]
+        on = (not g.get('compact')) if want is None else bool(want)
+        if on:
+            if not goals:
+                return jsonify({'status': 'error', 'message': '뒤집은 목표가 없습니다'}), 400
+            if len(goals) > SIGGAME_LIFT_MAX:
+                return jsonify({'status': 'error',
+                                'message': '목표가 %d장이라 올리지 않습니다. 한 줄에 %d장까지만 알아볼 만합니다'
+                                           % (len(goals), SIGGAME_LIFT_MAX)}), 400
+        g['compact'] = on
+        g['action'] = {'type': 'LIFT', 'ts': int(time.time() * 1000), 'on': on}
+        _siggame_save(state, g)
+    print('🃏 [시그게임] 목표만 올리기 %s (목표 %d장)' % ('켬' if on else '끔', len(goals)), flush=True)
+    return jsonify({'status': 'success', 'compact': on, 'goals': len(goals)})
+
+
+@app.route('/api/siggame/peek', methods=['POST'])
+def api_siggame_peek():
+    """안 뽑힌 카드가 뭐였는지 잠깐 까본다(목표만 올려둔 상태에서도).
+
+       ⚠️ reveal 과 다르다. reveal 은 판을 영영 열어두는 '게임 끝' 동작이고,
+          이건 '나머지 궁금하죠?' 하고 잠깐 보여주는 것이다. 목표 달성 판정과
+          무관하도록 flippedAt 은 건드리지 않는다.
+    """
+    now_ms = int(time.time() * 1000)
+    with file_lock:
+        state = load_data()
+        g = _siggame_state(state)
+        cards = g.get('cards') or []
+        if not cards:
+            return jsonify({'status': 'error', 'message': '깔린 카드가 없습니다'}), 400
+        rest = [c for c in cards if not c.get('flippedAt')]
+        if not rest:
+            return jsonify({'status': 'error', 'message': '안 뽑힌 카드가 없습니다'}), 400
+        g['action'] = {'type': 'PEEK', 'ts': now_ms, 'count': len(rest)}
+        _siggame_save(state, g)
+    print('🃏 [시그게임] 나머지 %d장 까보기' % len(rest), flush=True)
+    return jsonify({'status': 'success', 'count': len(rest)})
 
 
 @app.route('/api/siggame/reveal', methods=['POST'])

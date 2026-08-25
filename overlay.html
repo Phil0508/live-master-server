@@ -2243,11 +2243,20 @@
                 return;
             }
 
-            // ⚠️ 목표를 다 뒤집으면 나머지는 치우고 목표만 한 줄로 남긴다.
-            //    16장을 계속 깔아두면 화면을 크게 먹는데, 그때부터는 '받아야 할 5장'만 보면 된다.
+            // 🃏 목표만 한 줄로 올릴지는 '진행자'가 정한다(서버의 compact).
+            //    ⚠️ 전에는 목표를 다 뒤집는 순간 화면이 저 혼자 올렸다. 진행자가 멘트를
+            //       칠 새도 없이 판이 바뀌고, 나머지 카드가 뭐였는지도 영영 못 봤다.
+            //    ⚠️ '나머지 까보기'(PEEK) 중에는 잠깐 판 전체로 펼친다. 서버 상태는
+            //       그대로 두고 화면에서만 펼치는 것이라, 도중에 새로고침해도 제자리다.
             const goals = cards.filter(c => c.flippedAt);
             const target = Math.max(1, g.target || 5);
-            const compact = goals.length >= target;
+            // ⚠️ 여기서 그 자리에서 계산한다. 아래쪽 PEEK 블록이 변수를 채우게 했더니
+            //    그 블록이 화면 구성을 정한 '뒤'라, 신호가 온 판에는 반영이 안 돼
+            //    까보기가 아예 안 열렸다.
+            const _pk = g.action || {};
+            const peeking = _pk.type === 'PEEK'
+                         && ((Date.now() + serverTimeOffset) - (_pk.ts || 0)) < SG_PEEK_MS;
+            const compact = !!g.compact && goals.length > 0 && !peeking;
             // 목표만 남기고 보여줄 때는 싼 것부터 왼쪽에 세운다.
             // 받아내는 순서가 눈에 보이고, 소리도 왼쪽부터 한 단계씩 올라간다.
             const sortedGoals = goals.slice().sort(
@@ -2268,6 +2277,17 @@
             if (isNewAction) sgLastActionTs = act.ts;
             const shuffling = act.type === 'SHUFFLE' && (now - act.ts) < SG_SHUFFLE_MS;
 
+            // 🔍 '나머지 까보기' — 몇 초 동안만 판을 펼쳐 안 뽑힌 카드를 보여준다.
+            //    신호가 새로 왔을 때만 시계를 다시 맞춘다(같은 신호로 계속 연장되면 안 된다).
+            // 까보기가 끝나는 시각에 한 번 다시 그려 원래 모습으로 돌아가게 한다.
+            // (판단 자체는 위에서 서버 신호로 하므로, 여기서는 '되돌릴 시각'만 예약한다)
+            if (act.type === 'PEEK' && act.ts !== sgPeekTs) {
+                sgPeekTs = act.ts;
+                clearTimeout(sgPeekTimer);
+                sgPeekTimer = setTimeout(() => { sgLayoutKey = null; if (sgLastGame) sgUpdate(sgLastGame); },
+                                         Math.max(200, SG_PEEK_MS - (now - act.ts)) + 80);
+            }
+
             // 깔기·섞기 연출이 도는 동안만 판 밖을 잘라낸다(위 CSS 주석 참고).
             const boardEl = grid.closest('.sg-board');
             const motionMs = 2200;   // 가장 긴 섞기(1.2초) + 카드별 시차 + 여유
@@ -2280,6 +2300,8 @@
             // 배너를 띄운다. 새 판 신호가 오면 그 예약을 전부 걷는다.
             if (isNewAction && (act.type === 'PLACE' || act.type === 'SHUFFLE')) {
                 sgClearTimers();
+                sgPeekUntil = 0; clearTimeout(sgPeekTimer);   // 까보기도 끝낸다
+                sgLayoutKey = null;
                 const bn = document.getElementById('sg-allclear');
                 if (bn) bn.classList.remove('on');
                 if (boardEl) boardEl.classList.remove('allclear');
@@ -2289,7 +2311,8 @@
             const els = grid.children;
             for (let i = 0; i < els.length && i < shown.length; i++) {
                 const el = els[i], c = shown[i];
-                const revealed = c.state === 'REVEALED';
+                // 까보기 중에는 안 뽑힌 카드도 앞면을 보여준다(구경용 — 목표가 되진 않는다)
+                const revealed = c.state === 'REVEALED' || peeking;
                 // '목표'는 뒤집어서 연 카드(flippedAt)만이다. 끝나고 구경용으로 전부 공개한 건 목표가 아니다.
                 const isGoal = revealed && !!c.flippedAt;
                 const done = !!c.doneAt;
@@ -2435,6 +2458,9 @@
         // ⚠️ 이미 본 달성을 기억해 둔다. 안 그러면 후원이 하나 들어와 상태가 갱신될 때마다
         //    예전에 찍힌 도장이 처음부터 다시 터진다.
         const sgSeenDone = new Set();
+        // 🔍 나머지 까보기 — 몇 초 동안만 펼친다
+        const SG_PEEK_MS = 6000;
+        let sgPeekTs = 0, sgPeekUntil = 0, sgPeekTimer = null;
         let sgAllClearTs = 0;
         let sgAllClearTimers = [];
 
