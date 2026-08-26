@@ -465,6 +465,8 @@ AI_SYSTEM_PROMPT = (
     "대기 건수·남은 시간 등)를 구체적으로 제시하고, 도움이 되면 다음에 뭘 하면 좋을지 짧은 제안도 덧붙인다.\n"
     "- 그래도 데이터에 정말 없는 항목이면, 없다고 말한 뒤 어디서 확인하면 되는지(어떤 위젯·기능을 켜거나 봐야 하는지)"
     " 알려준다. 숫자를 지어내지는 않는다.\n"
+    "- 후원 건수·합계를 물으면 '오늘_후원' 을 그대로 쓴다. 점수 로그를 세어 짐작하지 않는다 — "
+    "그건 배정 기록이라 후원 건수와 다르다(하나를 나눠주면 여러 줄이 된다).\n"
     "- 한국어로. 핵심을 먼저, 세부는 뒤에. 방송 중이라 읽기 쉽게 정리한다."
 )
 
@@ -487,6 +489,31 @@ def _goal_waiting(state):
         return False
     total = sum(int(b.get('contribution') or 0) for b in (state.get('bjs') or []))
     return total >= tgt
+
+
+def _today_donations():
+    """이번 방송에 들어온 후원 건수·합계·상위 후원자.
+
+       ⚠️ AI 에게 세라고 시키면 틀린다. 점수 로그는 20건만 넘기는 데다 배정 기록이라
+          후원 건수와 다르다(반반으로 나누면 한 후원이 여러 줄이 된다).
+          장부에서 서버가 직접 센다.
+       ⚠️ donation_history 는 방송 시작/종료 때 비워지므로 자연히 '이번 방송' 이 된다.
+    """
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("SELECT COUNT(*), SUM(amount) FROM donation_history"))
+            row = cur.fetchone() or (0, 0)
+            cnt, total = int(row[0] or 0), int(row[1] or 0)
+            cur.execute(db_query(
+                "SELECT name, COUNT(*), SUM(amount) FROM donation_history"
+                " GROUP BY name ORDER BY SUM(amount) DESC LIMIT 5"))
+            top = [{"이름": r[0], "횟수": int(r[1] or 0), "금액합": int(r[2] or 0)}
+                   for r in cur.fetchall()]
+        return {"건수": cnt, "합계금액": total, "많이_쏜_사람": top}
+    except Exception as e:
+        print(f"⚠️ [AI 스냅샷] 오늘 후원 집계 실패 — 그 항목만 빠집니다: {e}", flush=True)
+        return None
 
 
 def build_ai_snapshot(state):
@@ -529,6 +556,8 @@ def build_ai_snapshot(state):
         "승인_대기_건수": len(pend),
         "리액션_대기열_수": len(state.get("reaction_queue", [])),
         "최근_점수_로그": recent_logs,
+        # ⚠️ 점수 로그는 '배정' 기록이라 후원 건수와 다르다. 후원 건수를 물으면 여기를 봐야 한다.
+        "오늘_후원": _today_donations(),
         "최근_후원": state.get("latest_donation"),
         "방송_목표금액": state.get("target_goal"),
         "대결": state.get("match_data"),
@@ -3547,7 +3576,11 @@ def api_ai_chat():
             if role in ('user', 'assistant') and content:
                 msgs.append({"role": role, "content": content})
         msgs.append({"role": "user", "content": question})
+        # ⚠️ 채팅도 추론을 끈다. 켜 뒀더니 700 토큰을 생각에 다 쓰고 답을 쓰기 전에
+        #    잘려서, 화면에 생각하는 과정이 그대로 나갔다
+        #    ("Okay, let's see. The user is asking… Let me count the entries…").
         req_body = {"messages": msgs, "temperature": 0.3, "max_tokens": 700}
+        req_body.update(NIM_NO_THINK)
         # 붐비면 예비 모델로 넘어간다 — 한쪽이 막혔다고 채팅이 통째로 죽지 않게.
         r, _code, _used = nim_post([NIM_CHAT_MODEL, NIM_CHAT_BACKUP], req_body, 30)
         if r is None:
@@ -3564,10 +3597,15 @@ def api_ai_chat():
             return jsonify({"status": "success", "reply": f"(AI 오류 {r.status_code}) 잠시 후 다시 시도해주세요."})
         msg = r.json()["choices"][0]["message"]
         reply = (msg.get("content") or "").strip()
-        if not reply:   # 추론모델이 content 대신 reasoning_content 로 줄 때 대비
-            reply = (msg.get("reasoning_content") or "").strip()
+        # ⚠️ reasoning_content 는 답이 아니라 '생각' 이다. 예전에는 답이 비면 그걸 대신
+        #    보여줬는데, 지금 모델은 거기에 혼잣말을 담는다. 그대로 내보내면 조종실에
+        #    "Okay, let's see. The user is asking…" 같은 게 뜬다. 답으로 쓰지 않는다.
         if not reply:
-            reply = "(응답이 비어서 왔어요. 다시 한 번 물어봐 주세요.)"
+            think = (msg.get("reasoning_content") or "").strip()
+            if think:
+                print(f"⚠️ [AI 채팅] 답이 비어 왔습니다(생각만 {len(think)}자). "
+                      f"모델: {_used}", flush=True)
+            reply = "생각만 하다 답을 못 만들었어요. 조금 더 짧게 물어봐 주세요."
         return jsonify({"status": "success", "reply": reply})
     except Exception as e:
         return jsonify({"status": "success", "reply": f"(오류) {str(e)[:100]}"})
