@@ -305,6 +305,47 @@ NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3-super-1
 NIM_NO_THINK = {"chat_template_kwargs": {"thinking": False}}
 NIM_CHAT_PREFIX = ""  # 채팅은 추론을 켜 둔다 — 설명이 필요한 자리라 그게 낫다.
 
+# 🔁 붐빌 때 넘어갈 예비 모델.
+#    503 은 고장이 아니라 "그 모델이 지금 몰렸다" 는 뜻이다. 몇 분 뒤면 풀리지만
+#    방송 중에 몇 분은 길다. 한쪽이 막히면 다른 쪽으로 넘어가 AI 가 통째로 멈추지 않게 한다.
+#    (실측: 같은 모델이 어떤 때는 6/6 되고 어떤 때는 overloaded 를 뱉는다. 큰 모델일수록 잦다)
+NIM_MODEL_BACKUP = (os.environ.get('NIM_MODEL_BACKUP')
+                    or "nvidia/nemotron-3-super-120b-a12b").strip()
+NIM_CHAT_BACKUP = (os.environ.get('NIM_CHAT_BACKUP')
+                   or "nvidia/nemotron-3-nano-30b-a3b").strip()
+
+# 다시 해보면 될 만한 응답. 410(모델이 없어짐)·401(키)은 다시 해도 같으므로 넣지 않는다.
+NIM_RETRYABLE = (429, 500, 502, 503, 504)
+
+
+def nim_post(models, body, timeout):
+    """모델을 차례로 시도한다. 붐비면(503 등) 다음 모델로 넘어간다.
+
+       돌려주는 값: (응답 or None, 마지막 상태코드, 실제로 답한 모델)
+    """
+    last = 0
+    tried = [m for m in models if m]
+    for i, m in enumerate(tried):
+        one = dict(body)
+        one["model"] = m
+        try:
+            r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
+                              json=one, timeout=timeout)
+        except Exception:
+            last = 0
+            continue
+        if r.status_code == 200:
+            if i > 0:
+                print("🔁 [AI 예비 모델] %s 이(가) 막혀 %s 로 넘어갔습니다."
+                      % (tried[0], m), flush=True)
+            return r, 200, m
+        last = r.status_code
+        if r.status_code not in NIM_RETRYABLE:
+            return r, r.status_code, m      # 다시 해도 같은 오류 — 그대로 알린다
+        more = " — 예비 모델로 넘어갑니다" if i + 1 < len(tried) else ""
+        print("⚠️ [AI 붐빔] %s 응답 %s%s" % (m, r.status_code, more), flush=True)
+    return None, last, (tried[-1] if tried else "")
+
 # 분당 호출 한도. 넘으면 검증을 조용히 건너뛴다.
 # 35 로 뒀을 때 부하 테스트에서 45건을 밀어넣으니 우리 리미터는 11건만 막았고
 # 1건은 NVIDIA 쪽에서 그대로 429 를 맞았다. 즉 35 는 실제 허용치에 붙어 있었다.
@@ -363,8 +404,10 @@ def nim_suggest_target(name, amount, message, players, history=None, context=Non
     }
     body.update(NIM_NO_THINK)
     try:
-        r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
-                          json=body, timeout=8)
+        # 붐비면 예비 모델로 넘어간다. 후원이 들어온 순간이라 기다릴 수 없다.
+        r, _code, _used = nim_post([NIM_MODEL, NIM_MODEL_BACKUP], body, 8)
+        if r is None:
+            return {"target": None, "confidence": 0.0, "error": _code or "no-response"}
         if r.status_code != 200:
             # ⚠️ 410/404 는 서버 고장이 아니라 "그 모델이 없어졌다" 는 뜻이다.
             #    NVIDIA 는 모델을 예고 후 내린다. 운영자가 무엇을 해야 하는지 알 수 있게
@@ -3434,9 +3477,14 @@ def suggest_target(donor, amount, message, players, state=None):
             why = 'AI 호출이 잠시 몰려 못 물어봄 (조금 뒤 다시 봄)'
         elif ai.get('skipped'):
             why = 'AI 가 꺼져 있음 — 이름·별명·이력으로는 못 찾음'
+        elif ai.get('error') in NIM_RETRYABLE:
+            # 붐빈 것뿐이라 저절로 풀린다. '오류' 라고 하면 고칠 게 있는 줄 알고
+            # 방송 중에 서버를 건드리게 된다.
+            why = 'AI 서버가 붐빕니다 — 잠시 뒤 저절로 됩니다'
+        elif ai.get('gone'):
+            why = 'AI 모델이 종료됐습니다 — 서버 설정에서 모델을 바꿔주세요'
         elif ai.get('error'):
-            why = ('AI 모델이 종료됐습니다 — 서버 설정에서 모델을 바꿔주세요'
-                   if ai.get('gone') else 'AI 오류로 못 물어봄')
+            why = 'AI 오류로 못 물어봄'
         elif hist:
             why = '메시지로도 이력으로도 특정이 안 됨'
         else:
@@ -3499,9 +3547,13 @@ def api_ai_chat():
             if role in ('user', 'assistant') and content:
                 msgs.append({"role": role, "content": content})
         msgs.append({"role": "user", "content": question})
-        req_body = {"model": NIM_CHAT_MODEL, "messages": msgs, "temperature": 0.3, "max_tokens": 700}
-        r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
-                          json=req_body, timeout=30)
+        req_body = {"messages": msgs, "temperature": 0.3, "max_tokens": 700}
+        # 붐비면 예비 모델로 넘어간다 — 한쪽이 막혔다고 채팅이 통째로 죽지 않게.
+        r, _code, _used = nim_post([NIM_CHAT_MODEL, NIM_CHAT_BACKUP], req_body, 30)
+        if r is None:
+            return jsonify({"status": "success",
+                            "reply": "지금 AI 서버가 붐벼서 답을 못 받았어요. "
+                                     "잠시 뒤 다시 물어봐 주세요. (후원·점수에는 영향 없습니다)"})
         if r.status_code != 200:
             if r.status_code in (404, 410):
                 print(f"❌ [AI 모델 없음] '{NIM_CHAT_MODEL}' 이(가) 응답 {r.status_code}.", flush=True)
