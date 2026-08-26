@@ -290,9 +290,20 @@ def load_nvidia_key():
 
 NVIDIA_API_KEY = load_nvidia_key()
 NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
-NIM_MODEL = "meta/llama-3.1-8b-instruct"   # 작고 빠름(≈0.7s). 단순 분류엔 충분.
-NIM_CHAT_MODEL = "nvidia/nvidia-nemotron-nano-9b-v2"  # AI 서포트 채팅용. 8b보다 서술·추론이 좋고 ~3-4s.
-NIM_CHAT_PREFIX = "/no_think "  # nemotron 계열: 추론 CoT를 끄는 지시(빠르고 빈 응답 방지). 다른 모델이면 그냥 텍스트로 무시됨.
+
+# ⚠️ 모델 이름은 환경변수로 바꿀 수 있게 둔다.
+#    2026-08-26 에 쓰던 모델 둘이 같은 날 서비스 종료(410)돼 AI 기능이 방송 중에 통째로
+#    멈췄다. 코드에 박혀 있으면 그때마다 고쳐서 배포해야 한다 — 방송 중에는 못 할 일이다.
+#    서버 설정(NIM_MODEL / NIM_CHAT_MODEL)만 바꾸고 재시작하면 넘어갈 수 있게 한다.
+NIM_MODEL = (os.environ.get('NIM_MODEL') or "nvidia/nemotron-3-nano-30b-a3b").strip()
+NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3-super-120b-a12b").strip()
+
+# nemotron 3 계열은 생각을 먼저 늘어놓고 답한다. 기입검증은 JSON 한 줄만 필요하고
+# 후원이 들어온 순간 바로 답해야 하므로 추론을 끈다.
+#   실측(정답 4/4 · JSON 4/4): 추론 켠 채 1.10초 → 끄면 0.26초.
+#   (예전 모델은 0.7초였으니 더 빨라졌다)
+NIM_NO_THINK = {"chat_template_kwargs": {"thinking": False}}
+NIM_CHAT_PREFIX = ""  # 채팅은 추론을 켜 둔다 — 설명이 필요한 자리라 그게 낫다.
 
 # 분당 호출 한도. 넘으면 검증을 조용히 건너뛴다.
 # 35 로 뒀을 때 부하 테스트에서 45건을 밀어넣으니 우리 리미터는 11건만 막았고
@@ -346,12 +357,23 @@ def nim_suggest_target(name, amount, message, players, history=None, context=Non
             {"role": "user", "content": f"닉:{name}/금액:{amount}/메시지:{message}"},
         ],
         "temperature": 0.1,
-        "max_tokens": 60,
+        # ⚠️ 추론을 켜 두면 생각을 먼저 쓰다가 길이 제한에 잘려 JSON 이 아예 안 나온다.
+        #    (실제로 그래서 답을 못 읽었다) 넉넉히 주되 추론은 끈다.
+        "max_tokens": 200,
     }
+    body.update(NIM_NO_THINK)
     try:
         r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
                           json=body, timeout=8)
         if r.status_code != 200:
+            # ⚠️ 410/404 는 서버 고장이 아니라 "그 모델이 없어졌다" 는 뜻이다.
+            #    NVIDIA 는 모델을 예고 후 내린다. 운영자가 무엇을 해야 하는지 알 수 있게
+            #    다른 오류와 구분해서 알려준다.
+            if r.status_code in (404, 410):
+                print(f"❌ [AI 모델 없음] '{NIM_MODEL}' 이(가) 응답 {r.status_code}. "
+                      f"NVIDIA 에서 내려간 모델일 수 있습니다. "
+                      f"서버 설정 NIM_MODEL 을 살아 있는 모델로 바꿔주세요.", flush=True)
+                return {"target": None, "confidence": 0.0, "error": r.status_code, "gone": True}
             return {"target": None, "confidence": 0.0, "error": r.status_code}
         content = r.json()["choices"][0]["message"]["content"].strip()
         i, j = content.find('{'), content.rfind('}')   # JSON 블록만 추출
@@ -3413,7 +3435,8 @@ def suggest_target(donor, amount, message, players, state=None):
         elif ai.get('skipped'):
             why = 'AI 가 꺼져 있음 — 이름·별명·이력으로는 못 찾음'
         elif ai.get('error'):
-            why = 'AI 오류로 못 물어봄'
+            why = ('AI 모델이 종료됐습니다 — 서버 설정에서 모델을 바꿔주세요'
+                   if ai.get('gone') else 'AI 오류로 못 물어봄')
         elif hist:
             why = '메시지로도 이력으로도 특정이 안 됨'
         else:
@@ -3480,6 +3503,12 @@ def api_ai_chat():
         r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
                           json=req_body, timeout=30)
         if r.status_code != 200:
+            if r.status_code in (404, 410):
+                print(f"❌ [AI 모델 없음] '{NIM_CHAT_MODEL}' 이(가) 응답 {r.status_code}.", flush=True)
+                return jsonify({"status": "success",
+                                "reply": f"이 AI 모델('{NIM_CHAT_MODEL}')이 종료됐습니다.\n"
+                                         "서버 설정의 NIM_CHAT_MODEL 을 살아 있는 모델로 "
+                                         "바꾸고 재시작해주세요. (후원·점수에는 영향 없습니다)"})
             return jsonify({"status": "success", "reply": f"(AI 오류 {r.status_code}) 잠시 후 다시 시도해주세요."})
         msg = r.json()["choices"][0]["message"]
         reply = (msg.get("content") or "").strip()
