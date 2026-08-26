@@ -2154,6 +2154,114 @@ def api_donation_ranking():
         print(f"[후원 순위 조회 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e), 'ranking': []}), 500
 
+
+# ==========================================
+# 📚 지난 방송 후원내역 (donation_archive) — 로그인 필요
+#   방송 종료 때마다 그 회차 장부가 여기로 옮겨진다(지우지 않는다).
+#   넣기만 하고 읽는 길이 없어서 그동안 꺼내 볼 수가 없었다.
+# ==========================================
+ARCHIVE_ROWS_MAX = 5000      # 한 회차가 이보다 많으면 잘라 보낸다(화면이 감당 못 한다)
+
+
+def _csv_cell(v):
+    """엑셀에서 열 때 안전한 한 칸으로 만든다.
+
+       ⚠️ = + - @ 로 시작하는 값은 엑셀이 '수식'으로 읽는다. 후원 메시지는
+          후원자가 적는 글이라 그런 글자로 시작할 수 있고, 그대로 두면 정산 파일을
+          여는 순간 엑셀이 계산을 시도한다(수식 주입). 앞에 따옴표를 붙여 글로 못박는다.
+    """
+    t = '' if v is None else str(v)
+    if t[:1] in ('=', '+', '-', '@'):
+        t = "'" + t
+    return '"' + t.replace('"', '""') + '"'
+
+
+@app.route('/api/archive/sessions')
+def api_archive_sessions():
+    """회차 목록. 언제 방송분이 몇 건이고 얼마인지."""
+    try:
+        out = []
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("""
+                SELECT session_label, COUNT(*), SUM(amount), MIN(timestamp), MAX(timestamp)
+                FROM donation_archive
+                GROUP BY session_label
+                ORDER BY MAX(archived_at) DESC, session_label DESC
+            """))
+            for r in cur.fetchall():
+                out.append({'label': r[0] or '(이름 없음)', 'count': int(r[1] or 0),
+                            'total': int(r[2] or 0), 'first': r[3], 'last': r[4]})
+        return jsonify({'status': 'success', 'sessions': out, 'count': len(out)})
+    except Exception as e:
+        print(f'[지난 방송 목록 조회 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e), 'sessions': []}), 500
+
+
+@app.route('/api/archive/rows')
+def api_archive_rows():
+    """한 회차의 후원내역. ?label=... 로 회차를 고른다."""
+    label = (request.args.get('label') or '').strip()
+    if not label:
+        return jsonify({'status': 'error', 'message': '회차를 골라주세요'}), 400
+    try:
+        rows = []
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("""
+                SELECT timestamp, name, amount, message, source
+                FROM donation_archive WHERE session_label = ?
+                ORDER BY id ASC
+            """), (label,))
+            for r in cur.fetchall():
+                rows.append({'time': r[0], 'name': r[1], 'amount': int(r[2] or 0),
+                             'message': r[3] or '', 'source': r[4] or ''})
+        total = sum(r['amount'] for r in rows)
+        cut = len(rows) > ARCHIVE_ROWS_MAX
+        if cut:
+            rows = rows[:ARCHIVE_ROWS_MAX]
+        # ⚠️ 잘랐으면 반드시 알려준다. 말없이 자르면 '이게 전부' 로 읽혀 정산이 틀어진다.
+        return jsonify({'status': 'success', 'label': label, 'rows': rows,
+                        'total': total, 'truncated': cut, 'max': ARCHIVE_ROWS_MAX})
+    except Exception as e:
+        print(f'[지난 방송 내역 조회 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e), 'rows': []}), 500
+
+
+@app.route('/api/archive/csv')
+def api_archive_csv():
+    """엑셀로 내려받기. ?label=... 없으면 전체."""
+    from flask import Response
+    label = (request.args.get('label') or '').strip()
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            if label:
+                cur.execute(db_query("""
+                    SELECT session_label, timestamp, name, amount, message, source
+                    FROM donation_archive WHERE session_label = ? ORDER BY id ASC
+                """), (label,))
+            else:
+                cur.execute(db_query("""
+                    SELECT session_label, timestamp, name, amount, message, source
+                    FROM donation_archive ORDER BY id ASC
+                """))
+            data = cur.fetchall()
+        lines = ['회차,시각,후원자,금액,메시지,경로']
+        for r in data:
+            lines.append(','.join(_csv_cell(x) for x in r))
+        # ⚠️ 앞에 BOM 을 붙인다. 없으면 엑셀이 UTF-8 을 못 알아채고 한글이 전부 깨진다.
+        body = '\ufeff' + '\r\n'.join(lines) + '\r\n'
+        stamp = time.strftime('%Y%m%d_%H%M%S')
+        fname = f'donations_{stamp}.csv'
+        # ⚠️ mimetype 에 charset 을 적으면 Flask 가 뒤에 또 붙여 두 번 들어간다.
+        #    content_type 으로 통째로 지정한다.
+        return Response(body.encode('utf-8'), content_type='text/csv; charset=utf-8',
+                        headers={'Content-Disposition': f'attachment; filename="{fname}"'})
+    except Exception as e:
+        print(f'[지난 방송 내려받기 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # ==========================================
 # 🎵 시그니처 관리 (등록 / 수정 / 삭제) — 로그인 필요 (exempt 목록에 없음)
 # ==========================================

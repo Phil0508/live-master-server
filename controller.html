@@ -1301,7 +1301,7 @@
             <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-system')"><i class="fa-solid fa-server"></i> 시스템</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-system'); loadArchiveSessions();"><i class="fa-solid fa-server"></i> 시스템</button>
             <span class="tab-sep"></span>
             <button class="tab-btn" id="tabs-more-btn" onclick="toggleTabsMore()" title="자주 안 쓰는 탭 펴기/접기"><i class="fa-solid fa-ellipsis"></i> 그 밖에</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
@@ -1766,6 +1766,24 @@
         <div class="group-box" style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
             <div style="font-weight:800; font-size:var(--fs-4); color:#fff; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket" style="color: var(--danger);"></i> 세션 관리</div>
             <button onclick="triggerServerLogout()" style="height: 40px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
+        </div>
+
+        <!-- 📚 지난 방송 후원내역 -->
+        <div class="group-box" style="margin-bottom: 20px;">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fa-solid fa-box-archive" style="color: var(--gold);"></i> 지난 방송 후원내역</span>
+                <button class="secondary" onclick="loadArchiveSessions(true)" style="height:30px; font-size:var(--fs-2); padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+            </div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 12px; line-height:1.6;">
+                방송을 종료할 때마다 그 회차 장부가 여기에 쌓입니다. 지우지 않으니 지난 회차도 그대로 남아 있어요.
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                <select id="arch-select" onchange="loadArchiveRows()" style="flex:1; min-width:240px; height:38px;"><option value="">불러오는 중…</option></select>
+                <button class="secondary" onclick="downloadArchiveCsv(false)" id="arch-csv-one" style="height:38px; padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-file-csv"></i> 이 회차 받기</button>
+                <button class="secondary" onclick="downloadArchiveCsv(true)" style="height:38px; padding:0 14px; border-radius:var(--r-2);" title="지금까지 모든 회차를 한 파일로"><i class="fa-solid fa-download"></i> 전체 받기</button>
+            </div>
+            <div id="arch-summary" style="font-size:var(--fs-3); color:var(--text-dim); margin-bottom:8px;"></div>
+            <div id="arch-rows" style="max-height:420px; overflow:auto; border:1px solid var(--border-light); border-radius:var(--r-2);"></div>
         </div>
 
         <!-- 🕹️ 버전 -->
@@ -7452,6 +7470,11 @@ function initFoldablePanels() {
         if (box.id === 'pending-box') return;              // 대기함은 자기 접기가 따로 있다
         const t = box.querySelector('.group-title');
         if (!t || t.parentElement !== box) return;         // 제목이 바로 아래 있을 때만
+        // ⚠️ 제목이 이미 자기 여닫기를 갖고 있으면 건드리지 않는다.
+        //    둘을 같이 걸면 한 번 누를 때 둘 다 반응하면서 서로 반대로 움직이고,
+        //    공통 접기의 display:none !important 가 항상 이겨서 영영 안 열린다.
+        //    (퇴근빵이 정확히 이래서 설정칸을 아예 못 열었다)
+        if (t.getAttribute('onclick')) return;
         const name = (t.innerText || '').trim().split('\n')[0].slice(0, 30);
         if (!name) return;
         box.classList.add('foldable');
@@ -7472,6 +7495,86 @@ function initFoldablePanels() {
     });
 }
 initFoldablePanels();
+
+        // ══ 📚 지난 방송 후원내역 ══
+        //    회차 목록 → 고른 회차의 내역 → 엑셀로 내려받기.
+        //    ⚠️ 값은 전부 서버에서 온다. 화면은 그리기만 한다.
+        let _archLoaded = false;
+
+        async function loadArchiveSessions(force) {
+            if (_archLoaded && !force) return;
+            const sel = document.getElementById('arch-select');
+            if (!sel) return;
+            try {
+                const r = await fetch('/api/archive/sessions');
+                const d = await r.json();
+                const list = (d && d.sessions) || [];
+                _archLoaded = true;
+                if (!list.length) {
+                    sel.innerHTML = '<option value="">보관된 회차가 없습니다</option>';
+                    document.getElementById('arch-rows').innerHTML =
+                        '<div style="padding:18px; color:var(--text-muted); font-size:var(--fs-2);">'
+                        + '아직 보관된 방송이 없습니다. 방송을 종료하면 그 회차가 여기에 쌓입니다.</div>';
+                    document.getElementById('arch-summary').innerText = '';
+                    return;
+                }
+                sel.innerHTML = list.map(x =>
+                    `<option value="${escapeHTML(x.label)}">${escapeHTML(x.label)}`
+                    + ` — ${x.count}건 · ${(x.total || 0).toLocaleString()}원</option>`).join('');
+                loadArchiveRows();
+            } catch (e) {
+                sel.innerHTML = '<option value="">불러오지 못했습니다</option>';
+            }
+        }
+
+        async function loadArchiveRows() {
+            const sel = document.getElementById('arch-select');
+            const box = document.getElementById('arch-rows');
+            const sum = document.getElementById('arch-summary');
+            if (!sel || !box) return;
+            const label = sel.value;
+            if (!label) return;
+            box.innerHTML = '<div style="padding:18px; color:var(--text-muted);">불러오는 중…</div>';
+            try {
+                const r = await fetch('/api/archive/rows?label=' + encodeURIComponent(label));
+                const d = await r.json();
+                const rows = (d && d.rows) || [];
+                sum.innerHTML = `<b style="color:var(--gold);">${rows.length}건</b> · 합계 `
+                    + `<b style="color:var(--gold);">${(d.total || 0).toLocaleString()}원</b>`
+                    + (d.truncated ? ` <span style="color:var(--danger);">(너무 많아 앞 ${d.max}건만 보여줍니다 — `
+                        + `전체는 내려받기로 보세요)</span>` : '');
+                if (!rows.length) {
+                    box.innerHTML = '<div style="padding:18px; color:var(--text-muted);">내역이 없습니다.</div>';
+                    return;
+                }
+                box.innerHTML = '<table style="width:100%; border-collapse:collapse; font-size:var(--fs-2);">'
+                    + '<thead><tr style="position:sticky; top:0; background:#1b1e24;">'
+                    + '<th style="text-align:left; padding:8px 10px; color:var(--text-dim);">시각</th>'
+                    + '<th style="text-align:left; padding:8px 10px; color:var(--text-dim);">후원자</th>'
+                    + '<th style="text-align:right; padding:8px 10px; color:var(--text-dim);">금액</th>'
+                    + '<th style="text-align:left; padding:8px 10px; color:var(--text-dim);">메시지</th>'
+                    + '</tr></thead><tbody>'
+                    + rows.map(x => `<tr style="border-top:1px solid rgba(255,255,255,0.06);">`
+                        + `<td style="padding:7px 10px; color:var(--text-dim); white-space:nowrap;">`
+                        + `${escapeHTML(String(x.time || '').slice(0, 19))}</td>`
+                        + `<td style="padding:7px 10px; color:#fff; font-weight:700;">${escapeHTML(x.name || '')}</td>`
+                        + `<td style="padding:7px 10px; text-align:right; color:var(--gold); font-weight:800;">`
+                        + `${(x.amount || 0).toLocaleString()}</td>`
+                        + `<td style="padding:7px 10px; color:var(--text-muted);">${escapeHTML(x.message || '')}</td>`
+                        + `</tr>`).join('')
+                    + '</tbody></table>';
+            } catch (e) {
+                box.innerHTML = '<div style="padding:18px; color:var(--danger);">불러오지 못했습니다.</div>';
+            }
+        }
+
+        function downloadArchiveCsv(all) {
+            const sel = document.getElementById('arch-select');
+            const label = (!all && sel) ? sel.value : '';
+            if (!all && !label) { acctToast('회차를 먼저 골라주세요', 'warn'); return; }
+            // 링크로 연다 — 서버가 파일 이름을 정해서 내려준다
+            window.location.href = '/api/archive/csv' + (label ? '?label=' + encodeURIComponent(label) : '');
+        }
 
 // ══ ⚡ 상황 스트립 ══
 // 지금 진행 중인 판의 핵심 버튼을 어느 탭에서든 보이게 한다.
