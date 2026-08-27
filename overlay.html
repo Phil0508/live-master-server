@@ -605,8 +605,23 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 6px; pointer-events: none;
         }
-        .dg-dice { font-size: 56px; line-height: 1; color: #fff;
-                   text-shadow: 0 4px 12px rgba(0,0,0,.8); letter-spacing: 6px; }
+        /* 실제 3D 주사위 — 정육면체가 구르다가 서버가 정한 눈이 앞면으로 선다 */
+        .dg-dice { display: flex; gap: 18px; perspective: 440px; min-height: 58px; }
+        .dg-die { width: 54px; height: 54px; position: relative;
+                  filter: drop-shadow(0 10px 10px rgba(0,0,0,.45)); }
+        .dg-cube { width: 100%; height: 100%; position: relative;
+                   transform-style: preserve-3d;
+                   transition: transform .9s cubic-bezier(.2, 1.1, .35, 1); }
+        .dg-face {
+            position: absolute; inset: 0; border-radius: 11px; box-sizing: border-box;
+            background: linear-gradient(145deg, #fffef7, #d8d8cd);
+            border: 1px solid #b6b6aa;
+            display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+            padding: 7px;
+        }
+        .dg-pip { width: 9px; height: 9px; border-radius: 50%; background: #23232a;
+                  align-self: center; justify-self: center;
+                  box-shadow: inset 0 2px 2px rgba(0,0,0,.55); }
         .dg-laps { font-size: 14px; font-weight: 900; color: var(--gold); }
         /* 도착 칸 카드 — 가운데에 크게 떴다가 저절로 사라진다 */
         .dg-card {
@@ -5510,7 +5525,6 @@
         //    서버의 action 신호를 연출로 옮긴다. 눈·경로·황금열쇠는 전부 서버가 정한 값 —
         //    화면이 스스로 정하면 오버레이 두 개가 서로 다른 결과를 보여준다.
         let dgLayoutKey = null, dgSeenTs = 0, dgTimers = [];
-        const DG_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
         const dgEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m =>
             ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
@@ -5578,9 +5592,74 @@
             piece.classList.add('dg-hopping');
         }
 
-        function dgShowDice(dice) {
+        // 3×3 자리에 놓는 점 배치 (행,열)
+        const DG_PIPS = { 1: [[2, 2]], 2: [[1, 3], [3, 1]], 3: [[1, 3], [2, 2], [3, 1]],
+                          4: [[1, 1], [1, 3], [3, 1], [3, 3]],
+                          5: [[1, 1], [1, 3], [2, 2], [3, 1], [3, 3]],
+                          6: [[1, 1], [2, 1], [3, 1], [1, 3], [2, 3], [3, 3]] };
+        // 눈 v 가 앞면으로 오는 회전각
+        const DG_ROT = { 1: [0, 0], 2: [0, -90], 3: [-90, 0], 4: [90, 0], 5: [0, 90], 6: [0, 180] };
+        // 면 배치: 1 앞 · 6 뒤 · 2 오른쪽 · 5 왼쪽 · 3 위 · 4 아래 (translateZ = 한 변의 절반)
+        const DG_FACE_TF = { 1: 'rotateY(0deg)', 6: 'rotateY(180deg)', 2: 'rotateY(90deg)',
+                             5: 'rotateY(-90deg)', 3: 'rotateX(90deg)', 4: 'rotateX(-90deg)' };
+
+        function dgEnsureDice(n) {
             const el = document.getElementById('dg-dice');
-            if (el) el.textContent = (dice || []).map(d => DG_FACES[(d - 1) % 6] || '').join(' ');
+            if (!el) return;
+            if (el.childElementCount === n) return;
+            let html = '';
+            for (let k = 0; k < n; k++) {
+                let faces = '';
+                for (let f = 1; f <= 6; f++) {
+                    const pips = (DG_PIPS[f] || []).map(p =>
+                        '<span class="dg-pip" style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';"></span>').join('');
+                    faces += '<div class="dg-face" style="transform:' + DG_FACE_TF[f] + ' translateZ(27px);">' + pips + '</div>';
+                }
+                html += '<div class="dg-die"><div class="dg-cube" id="dg-cube-' + k + '">' + faces + '</div></div>';
+            }
+            el.innerHTML = html;
+        }
+
+        // 즉시 세우기 — 늦게 합류한 창은 연출 없이 마지막 눈으로 선다
+        function dgShowDice(dice) {
+            dice = dice || [];
+            const el = document.getElementById('dg-dice');
+            if (!el) return;
+            if (!dice.length) { el.innerHTML = ''; return; }
+            dgEnsureDice(dice.length);
+            dice.forEach((v, k) => {
+                const cube = document.getElementById('dg-cube-' + k);
+                if (!cube) return;
+                const r = DG_ROT[v] || [0, 0];
+                cube.style.transition = 'none';
+                cube.style.transform = 'rotateX(' + r[0] + 'deg) rotateY(' + r[1] + 'deg) rotateZ(0deg)';
+                cube.dataset.val = v;
+                void cube.offsetWidth;
+                cube.style.transition = '';
+            });
+        }
+
+        // 굴리기 — 아무 방향에서 두세 바퀴 구르다가 서버가 정한 눈이 앞면으로 선다.
+        //   시작 방향과 바퀴 수만 화면마다 다르고, 멈추는 눈은 서버 값 그대로다.
+        function dgTumbleDice(dice) {
+            dice = dice || [];
+            dgEnsureDice(dice.length);
+            dice.forEach((v, k) => {
+                const cube = document.getElementById('dg-cube-' + k);
+                if (!cube) return;
+                const r = DG_ROT[v] || [0, 0];
+                cube.style.transition = 'none';
+                cube.style.transform = 'rotateX(' + (Math.random() * 360 - 180) + 'deg)'
+                    + ' rotateY(' + (Math.random() * 360 - 180) + 'deg)'
+                    + ' rotateZ(' + (Math.random() * 90 - 45) + 'deg)';
+                void cube.offsetWidth;
+                const turnsX = 360 * (2 + Math.floor(Math.random() * 2));
+                const turnsY = 360 * (2 + Math.floor(Math.random() * 2));
+                cube.style.transition = '';
+                cube.style.transform = 'rotateX(' + (r[0] + turnsX) + 'deg)'
+                    + ' rotateY(' + (r[1] + turnsY) + 'deg) rotateZ(0deg)';
+                cube.dataset.val = v;
+            });
         }
 
         function dgShowCard(act) {
@@ -5613,17 +5692,9 @@
             dgClearTimers();
             const card = document.getElementById('dg-card');
             if (card) card.classList.remove('show');
-            // ① 주사위가 구른다 — 아무 눈이나 빠르게 돌다가 서버가 정한 눈으로 멈춘다
-            const el = document.getElementById('dg-dice');
-            const n = (act.dice || []).length || 1;
-            let spin = 0;
-            const iv = setInterval(() => {
-                if (el) el.textContent = Array.from({ length: n },
-                    () => DG_FACES[Math.floor(Math.random() * 6)]).join(' ');
-                if (++spin > 11) clearInterval(iv);
-            }, 75);
-            dgTimers.push(iv);   // clearTimeout 이 interval 도 지운다 (같은 번호 공간)
-            dgAfter(900, () => { clearInterval(iv); dgShowDice(act.dice); dgBlip(880); });
+            // ① 주사위가 실제 3D 로 구른다 — 서버가 정한 눈이 앞면으로 서며 멈춘다
+            dgTumbleDice(act.dice);
+            dgAfter(900, () => dgBlip(880));
             // ② 말이 한 칸씩 총총
             const path = act.path || [];
             path.forEach((pos, k) => {
