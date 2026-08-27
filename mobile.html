@@ -251,6 +251,7 @@ const APPS = [
   { id:'rank',     nm:'점수판',    ic:'🏆', bg:'linear-gradient(135deg,#0a84ff,#0055cc)' },
   { id:'match',    nm:'대결',      ic:'⚔️', bg:'linear-gradient(135deg,#5e5ce6,#3634a3)', badge:() => gd?.match_data?.active ? '●' : 0 },
   { id:'siggame',  nm:'시그뒤집기', ic:'🃏', bg:'linear-gradient(135deg,#30d158,#1d7a35)', badge:() => gd?.siggame?.enabled ? '●' : 0 },
+  { id:'dice',     nm:'주사위',    ic:'🎲', bg:'linear-gradient(135deg,#2fbf71,#186a3b)', badge:() => gd?.dicegame?.enabled ? '●' : 0 },
   { id:'slot',     nm:'슬롯',      ic:'🎰', bg:'linear-gradient(135deg,#ff375f,#a31226)' },
   { id:'roulette', nm:'룰렛',      ic:'🎡', bg:'linear-gradient(135deg,#ff9f0a,#b36b00)' },
   { id:'marquee',  nm:'전광판',    ic:'📢', bg:'linear-gradient(135deg,#64d2ff,#2b8db3)' },
@@ -296,7 +297,7 @@ function renderApp() {
     if (!openedApp) return;
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) return;
-    const R = { screen:rScreen, pending:rPending, rank:rRank, match:rMatch, siggame:rSiggame, slot:rSlot,
+    const R = { screen:rScreen, pending:rPending, rank:rRank, match:rMatch, siggame:rSiggame, dice:rDice, slot:rSlot,
                 roulette:rRoulette, marquee:rMarquee, queue:rQueue, cmd:rCmd, logs:rLogs,
                 version:rVersion, health:rHealth };
     if (R[openedApp]) R[openedApp]($('sheet-body'));
@@ -340,6 +341,52 @@ window.addEventListener('resize', () => { if (openedApp === 'screen') screenFit(
 function screenReload() {
     const f = $('screen-frame');
     if (f) f.src = '/overlay?monitor=1&t=' + Date.now();
+}
+
+/* ═══ 🎲 주사위게임 ═══
+   굴리기·뽑기는 전부 서버가 한다. 폰은 부르고 결과를 보여줄 뿐이다. */
+async function dgMobRoll() {
+    if (busy) return;
+    busy = true;
+    try {
+        const sel = document.getElementById('dgm-player');
+        const d = await api('/api/dicegame/roll', { player: sel ? sel.value : '' });
+        let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
+        if (d.scored) m += ' · ' + d.scored.name + ' ' + (d.scored.points > 0 ? '+' : '') + d.scored.points + '점';
+        if (d.lap) m += ' · 한 바퀴!';
+        toast(m);
+        if (d.note) toast(d.note, false);
+    } catch (e) { toast(e.message, false); }
+    finally { busy = false; }
+}
+async function dgMobShow() {
+    const on = !(gd?.dicegame?.enabled);
+    try { await api('/api/dicegame/enable', { on }); toast(on ? '화면에 올렸습니다' : '화면에서 내렸습니다'); }
+    catch (e) { toast(e.message, false); }
+}
+function rDice(el) {
+    const g = (gd || {}).dicegame || {};
+    const tiles = (g.tiles || []);
+    const dice = ((g.action || {}).dice || []).join('+');
+    const names = players().map(p => p.name);
+    const keep = (document.getElementById('dgm-player') || {}).value || '';
+    el.innerHTML = `
+      <div class="stat" style="display:flex; gap:14px; flex-wrap:wrap; font-size:15px; font-weight:700; margin-bottom:14px;">
+        <span>${tiles.length ? ('말 ' + (g.pos || 0) + '번 칸') : '판 없음 — PC 조종실에서 판을 깔아주세요'}</span>
+        <span>${g.laps ? ((g.laps) + '바퀴째') : ''}</span>
+        <span>${dice ? ('마지막 눈 ' + dice) : ''}</span>
+      </div>
+      <select id="dgm-player" style="width:100%; height:44px; margin-bottom:10px;">
+        <option value="">(누구 차례?)</option>
+        ${names.map(n => `<option value="${n}" ${n === keep ? 'selected' : ''}>${n}</option>`).join('')}
+      </select>
+      <button onclick="dgMobRoll()" style="width:100%; height:54px; font-size:18px; font-weight:900;
+              background:linear-gradient(135deg,#30d158,#1d7a35); color:#fff; border:none; border-radius:14px;"
+              ${(g.enabled && tiles.length) ? '' : 'disabled style="width:100%;height:54px;opacity:.4;border-radius:14px;"'}>🎲 굴리기</button>
+      <button onclick="dgMobShow()" style="width:100%; height:44px; margin-top:10px;">
+        ${g.enabled ? '화면에서 내리기' : '화면에 보이기'}</button>
+      <div style="font-size:12px; color:#8e8e93; margin-top:12px; line-height:1.6;">
+        점수 칸은 누구 차례인지 골라뒀을 때만 자동으로 들어갑니다.<br>칸 내용 편집은 PC 조종실에서.</div>`;
 }
 
 /* ═══ 📥 대기함 ═══ */

@@ -1299,6 +1299,7 @@
             <button class="tab-btn tab-key" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
             <span class="tab-sep"></span>
             <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-system'); loadArchiveSessions();"><i class="fa-solid fa-server"></i> 시스템</button>
@@ -1971,6 +1972,46 @@
 
     <!-- 🎰 슬롯머신 탭 -->
     <!-- 👑 특별 후원자(VIP) 탭 -->
+    <!-- 🎲 주사위게임 (부루마블식) -->
+    <div id="tab-dicegame" class="tab-content">
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(48, 209, 88, 0.35); background: rgba(48, 209, 88, 0.03);">
+            <div class="group-title"><span style="color:#7ee2a0;"><i class="fa-solid fa-dice"></i> 🎲 주사위게임</span></div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 12px; line-height: 1.6;">
+                부루마블처럼 테두리를 도는 판입니다. 주사위 눈도 황금열쇠 뽑기도 <b>서버가 정해서</b> 화면 몇 개가 떠 있어도 같은 결과가 나갑니다.<br>
+                점수 칸은 <b>누구 차례인지 골라뒀을 때만</b> 자동으로 들어갑니다 — 안 골랐으면 표시만 하고 손으로 주세요.
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+                <select id="dgc-player" style="height:44px; min-width:140px;"><option value="">(누구 차례?)</option></select>
+                <button onclick="dgcRoll()" id="dgc-roll-btn" style="height:44px; padding:0 28px; font-size:var(--fs-4); font-weight:900; background:linear-gradient(120deg,#30d158,#1d7a35); color:#fff; border:none; border-radius:var(--r-2); cursor:pointer;">🎲 굴리기</button>
+                <span id="dgc-status" style="font-size:var(--fs-3); color:var(--text-dim); font-weight:700;"></span>
+                <button class="secondary" onclick="dgcToggleShow()" id="dgc-show-btn" style="height:38px; padding:0 14px; border-radius:var(--r-2); margin-left:auto;">화면에 보이기</button>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:var(--fs-2); color:var(--text-muted);">
+                가로 <select id="dgc-cols" style="height:34px;"><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select>
+                세로 <select id="dgc-rows" style="height:34px;"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select>
+                주사위 <select id="dgc-dice" style="height:34px;"><option>1</option><option selected>2</option></select>개
+                <button class="secondary" onclick="dgcSetup()" style="height:34px; padding:0 14px; border-radius:var(--r-2);">판 만들기</button>
+                <span style="width:14px;"></span>
+                말 위치 <input id="dgc-pos" type="number" min="0" value="0" style="width:70px; height:34px;">
+                <button class="secondary" onclick="dgcMove()" style="height:34px; padding:0 12px; border-radius:var(--r-2);">이동</button>
+                <button class="secondary" onclick="dgcReset()" style="height:34px; padding:0 12px; border-radius:var(--r-2); color:var(--danger); border-color:rgba(255,69,58,.4);">말 출발로(내리기)</button>
+            </div>
+        </div>
+
+        <div class="group-box" style="margin-bottom: 15px;">
+            <div class="group-title"><span><i class="fa-solid fa-table-cells"></i> 칸 편집</span></div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px;">종류를 고르고 내용을 적으면 바로 저장됩니다. 크기를 바꿔 판을 다시 만들어도 같은 번호 칸의 내용은 남아요.</div>
+            <div id="dgc-tiles" style="display:flex; flex-direction:column; gap:6px; max-height:420px; overflow:auto;"></div>
+        </div>
+
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(255, 214, 10, 0.35);">
+            <div class="group-title"><span style="color:var(--gold);"><i class="fa-solid fa-key"></i> 🔑 황금열쇠 덱</span></div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px;">줄마다 한 장. 열쇠 칸에 도착하면 서버가 이 중 하나를 무작위로 뽑아 화면에 띄웁니다. 뽑기 전에는 시청자에게 보이지 않아요.</div>
+            <textarea id="dgc-keys" rows="5" placeholder="물 한 컵 원샷&#10;애교 한 번&#10;다음 미션 면제" style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:var(--r-2); color:#fff; padding:10px; font-size:var(--fs-3);"></textarea>
+            <button class="secondary" onclick="dgcSaveKeys()" style="height:36px; padding:0 16px; border-radius:var(--r-2); margin-top:8px;">덱 저장</button>
+        </div>
+    </div>
+
     <div id="tab-siggame" class="tab-content">
         <div class="group-box">
             <div class="group-title" style="color: var(--accent); font-size: var(--fs-6); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
@@ -3117,6 +3158,7 @@
             //    깨워두기 표시가 실제 상태와 어긋난 채로 남으면 '켜둔 줄 알고' 자리를 비우게 된다.
             try { renderSelfPing(); } catch(e) {}
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
+            try { dgcSync(); } catch(e) {}       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
             // ⚠️ 아래 조기 반환은 "입력 중에 값이 튀는 것"을 막으려는 것이다. 그런데 예전에는
             //    승인 대기함까지 같이 멈췄다 — 어디든 칸을 눌러둔 채 자리를 뜨면 그 사이 들어온
             //    후원이 화면에 아예 안 나타났다(돈이 밀려 있는데 모른다).
@@ -7496,6 +7538,190 @@ function initFoldablePanels() {
 }
 initFoldablePanels();
 
+        // ══ 🎲 주사위게임 조종 ══
+        //    굴리기·뽑기는 전부 서버가 한다. 여기는 부르고 결과를 보여줄 뿐이다.
+        let dgcSigs = null, _dgcTileSig = '', _dgcKeysFilled = false;
+
+        function dgcState() { return (typeof gd !== 'undefined' && gd && gd.dicegame) || {}; }
+
+        async function dgcCall(path, body) {
+            try {
+                const r = await fetch('/api/dicegame/' + path, { method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); return null; }
+                return d;
+            } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); return null; }
+        }
+
+        async function dgcLoadSigs() {
+            if (dgcSigs) return dgcSigs;
+            try {
+                const r = await fetch('/api/signatures');
+                const d = await r.json();
+                dgcSigs = (d.signatures || []).filter(x => x && x.id);
+            } catch (e) { dgcSigs = []; }
+            return dgcSigs;
+        }
+
+        async function dgcSetup() {
+            const d = await dgcCall('setup', {
+                cols: parseInt(document.getElementById('dgc-cols').value),
+                rows: parseInt(document.getElementById('dgc-rows').value),
+                dice: parseInt(document.getElementById('dgc-dice').value) });
+            if (d) acctToast('🎲 테두리 ' + d.tiles + '칸 판을 깔았습니다', 'ok');
+        }
+
+        async function dgcRoll() {
+            const sel = document.getElementById('dgc-player');
+            const d = await dgcCall('roll', { player: sel ? sel.value : '' });
+            if (!d) return;
+            let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
+            if (d.scored) m += ' · ' + d.scored.name + ' ' + (d.scored.points > 0 ? '+' : '') + d.scored.points + '점';
+            if (d.lap) m += ' · 🎉 한 바퀴!';
+            acctToast(m, 'ok');
+            if (d.note) acctToast('⚠️ ' + d.note, 'warn');
+        }
+
+        async function dgcToggleShow() {
+            const on = !dgcState().enabled;
+            const d = await dgcCall('enable', { on });
+            if (d) acctToast(on ? '🎲 방송 화면에 올렸습니다' : '🎲 방송 화면에서 내렸습니다', 'ok');
+        }
+
+        async function dgcReset() {
+            if (!(await premiumConfirm('말을 출발 칸으로 되돌리고 방송 화면에서 내립니다.\n칸 구성과 황금열쇠 덱은 그대로 남아요.', '🎲 주사위게임 정리', 'warning'))) return;
+            const d = await dgcCall('reset');
+            if (d) acctToast('🎲 말을 출발로 되돌렸습니다', 'ok');
+        }
+
+        async function dgcMove() {
+            const pos = parseInt(document.getElementById('dgc-pos').value);
+            if (isNaN(pos)) { acctToast('칸 번호를 적어주세요', 'warn'); return; }
+            const d = await dgcCall('move', { pos });
+            if (d) acctToast('말을 ' + pos + '번 칸으로 옮겼습니다', 'ok');
+        }
+
+        async function dgcSaveKeys() {
+            const ta = document.getElementById('dgc-keys');
+            const keys = ta.value.split('\n').map(x => x.trim()).filter(Boolean);
+            const d = await dgcCall('keys', { keys });
+            if (d) acctToast('🔑 황금열쇠 ' + d.count + '장 저장', 'ok');
+        }
+
+        const DGC_TYPES = [['blank', '빈칸'], ['mission', '📜 미션'], ['sig', '🎵 시그니처'],
+                           ['score', '💯 점수'], ['key', '🔑 황금열쇠']];
+
+        function dgcContentCell(t, i) {
+            const type = (t && t.type) || 'blank';
+            if (type === 'mission' || type === 'key' || type === 'blank') {
+                return '<input type="text" placeholder="' + (type === 'mission' ? '미션 내용' : '표시할 글(비워도 됨)')
+                     + '" value="' + escapeHTML(t.label || '') + '" onchange="dgcSaveTile(' + i + ')"'
+                     + ' id="dgc-t-lbl-' + i + '" style="flex:1; height:32px;">';
+            }
+            if (type === 'score') {
+                return '<input type="number" value="' + (t.points || 0) + '" onchange="dgcSaveTile(' + i + ')"'
+                     + ' id="dgc-t-pts-' + i + '" style="width:90px; height:32px;" title="음수면 차감"> 점';
+            }
+            // sig — 시그니처 고르기
+            const cur = (t.sig && t.sig.id) || '';
+            const opts = ['<option value="">(시그니처 고르기)</option>'].concat(
+                (dgcSigs || []).map(x => '<option value="' + x.id + '"' + (x.id == cur ? ' selected' : '') + '>'
+                    + escapeHTML((x.title || ('#' + x.id)) + ' · ' + ((x.amount || 0).toLocaleString()) + '원') + '</option>'));
+            return '<select id="dgc-t-sig-' + i + '" onchange="dgcSaveTile(' + i + ')" style="flex:1; height:32px;">' + opts.join('') + '</select>';
+        }
+
+        async function dgcSaveTile(i) {
+            const type = document.getElementById('dgc-t-type-' + i).value;
+            const body = { id: i, type };
+            const lbl = document.getElementById('dgc-t-lbl-' + i);
+            if (lbl) body.label = lbl.value;
+            const pts = document.getElementById('dgc-t-pts-' + i);
+            if (pts) body.points = parseInt(pts.value) || 0;
+            const sig = document.getElementById('dgc-t-sig-' + i);
+            if (sig) {
+                body.sig_id = parseInt(sig.value);
+                if (!body.sig_id) return;   // 아직 안 골랐다 — 고르면 저장된다
+            }
+            const d = await dgcCall('tile', body);
+            if (d) acctToast(i + '번 칸 저장', 'ok');
+        }
+
+        function dgcTypeChanged(i) {
+            // 종류를 바꾸면 내용 칸을 그에 맞게 갈아끼운다. 내용이 필요 없는 종류(빈칸)는 바로 저장.
+            const type = document.getElementById('dgc-t-type-' + i).value;
+            const cell = document.getElementById('dgc-t-cell-' + i);
+            if (cell) cell.innerHTML = dgcContentCell({ type }, i);
+            if (type === 'blank' || type === 'key') dgcSaveTile(i);
+        }
+
+        async function dgcRenderTiles() {
+            const box = document.getElementById('dgc-tiles');
+            if (!box) return;
+            const tiles = dgcState().tiles || [];
+            if (!tiles.length) {
+                box.innerHTML = '<span style="color:var(--text-muted); font-size:var(--fs-2);">아직 판이 없습니다. 위의 [판 만들기]를 눌러주세요.</span>';
+                return;
+            }
+            await dgcLoadSigs();
+            box.innerHTML = tiles.map((t, i) => {
+                if (i === 0) return '<div style="display:flex; gap:8px; align-items:center; padding:4px 6px; opacity:.65;">'
+                    + '<b style="width:34px; text-align:right; color:var(--gold);">0</b> 🏁 출발 (고정)</div>';
+                const typeOpts = DGC_TYPES.map(x => '<option value="' + x[0] + '"'
+                    + (((t && t.type) || 'blank') === x[0] ? ' selected' : '') + '>' + x[1] + '</option>').join('');
+                return '<div style="display:flex; gap:8px; align-items:center; padding:2px 6px;">'
+                    + '<b style="width:34px; text-align:right; color:var(--text-dim);">' + i + '</b>'
+                    + '<select id="dgc-t-type-' + i + '" onchange="dgcTypeChanged(' + i + ')" style="height:32px; width:130px;">' + typeOpts + '</select>'
+                    + '<span id="dgc-t-cell-' + i + '" style="flex:1; display:flex; gap:6px; align-items:center;">' + dgcContentCell(t || {}, i) + '</span>'
+                    + '</div>';
+            }).join('');
+        }
+
+        function dgcSync(force) {
+            const panel = document.getElementById('tab-dicegame');
+            if (!panel) return;
+            // ⚠️ 입력 중에는 다시 그리지 않는다 — 적던 글이 날아간다
+            const ae = document.activeElement;
+            if (!force && ae && panel.contains(ae)
+                && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
+            const g = dgcState();
+            const st = document.getElementById('dgc-status');
+            if (st) {
+                const dice = ((g.action || {}).dice || []).join('+');
+                st.textContent = (g.tiles || []).length
+                    ? ('말 ' + (g.pos || 0) + '번 칸 · ' + (g.laps || 0) + '바퀴' + (dice ? ' · 마지막 눈 ' + dice : ''))
+                    : '판 없음';
+            }
+            const sb = document.getElementById('dgc-show-btn');
+            if (sb) sb.textContent = g.enabled ? '화면에서 내리기' : '화면에 보이기';
+            const rb = document.getElementById('dgc-roll-btn');
+            if (rb) {
+                const ok = !!g.enabled && (g.tiles || []).length > 0;
+                rb.disabled = !ok;
+                rb.style.opacity = ok ? '1' : '.45';
+                rb.title = ok ? '' : '판을 깔고 화면에 올리면 굴릴 수 있어요';
+            }
+            // 누구 차례 목록 — 점수판 이름이 바뀔 때만 다시 채운다
+            const ps = document.getElementById('dgc-player');
+            if (ps) {
+                const names = (typeof currentPlayerNames === 'function') ? currentPlayerNames() : [];
+                const sig = names.join('|');
+                if (ps.dataset.sig !== sig) {
+                    const keep = ps.value;
+                    ps.dataset.sig = sig;
+                    ps.innerHTML = '<option value="">(누구 차례?)</option>'
+                        + names.map(n => '<option value="' + escapeHTML(n) + '">' + escapeHTML(n) + '</option>').join('');
+                    ps.value = keep;
+                }
+            }
+            // 황금열쇠 — 처음 한 번만 채운다(적던 글을 SSE 가 덮으면 안 된다)
+            const ta = document.getElementById('dgc-keys');
+            if (ta && !_dgcKeysFilled && (g.keys || []).length) { ta.value = (g.keys || []).join('\n'); _dgcKeysFilled = true; }
+            // 칸 목록 — 구성이 바뀔 때만 다시 그린다
+            const tsig = JSON.stringify((g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points, t && t.sig && t.sig.id]));
+            if (force || tsig !== _dgcTileSig) { _dgcTileSig = tsig; dgcRenderTiles(); }
+        }
+
         // ══ 📚 지난 방송 후원내역 ══
         //    회차 목록 → 고른 회차의 내역 → 엑셀로 내려받기.
         //    ⚠️ 값은 전부 서버에서 온다. 화면은 그리기만 한다.
@@ -7614,6 +7840,12 @@ function renderContextStrip() {
             + '<button onclick="sgAllClear()">🎉 올클리어</button>'
             + '<button onclick="openTabById(\'tab-siggame\')">탭 열기</button></span>');
     }
+    const dg = gd.dicegame;
+    if (dg && dg.enabled && (dg.tiles || []).length) {
+        parts.push('<span class="cx-chip">🎲 주사위 <span class="cx-num">' + (dg.pos || 0) + '번</span>'
+            + '<button onclick="dgcRoll()">🎲 굴리기</button>'
+            + '<button onclick="openTabById(\'tab-dicegame\')">탭 열기</button></span>');
+    }
     const q = (gd.reaction_queue || []).length;
     if (q > 0) {
         parts.push('<span class="cx-chip">🎵 재생 대기 <span class="cx-num">' + q + '</span>'
@@ -7660,6 +7892,8 @@ function cmdkCommands() {
         { k: '시그뒤집기', t: '📑 시그뒤집기 탭', h: '이동', run: () => openTabById('tab-siggame') },
         { k: '슬롯머신 탭', t: '📑 슬롯머신 탭', h: '이동', run: () => openTabById('tab-slot') },
         { k: '진행판', t: '📑 진행판 탭', h: '이동', run: () => openTabById('tab-mode') },
+        { k: '주사위', t: '🎲 주사위게임 탭', h: '이동', run: () => { openTabById('tab-dicegame'); dgcSync(true); } },
+        { k: '굴려', t: '🎲 주사위 굴리기', h: '실행', run: () => dgcRoll() },
         { k: '시스템 버전', t: '📑 시스템 탭 (버전·백업)', h: '이동', run: () => openTabById('tab-system') },
         { k: '이펙트 전광판', t: '📑 이펙트/전광판 탭', h: '이동', run: () => openTabById('tab-neon') },
         { k: '유튜브 bgm 음악', t: '📑 BGM/유튜브 탭', h: '이동', run: () => openTabById('tab-youtube') },

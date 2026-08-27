@@ -285,6 +285,14 @@
                         </div>
                     </div>
                 </div>
+                <!-- 🎲 주사위게임 판 -->
+                <div class="widget" id="dicegame" data-id="dicegame" style="left:300px; top:420px; display: none;">
+                    <div style="width:640px; height:465px; border-radius:16px; background:rgba(48,209,88,0.08); border:3px dashed rgba(48,209,88,0.7); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#7ee2a0; text-shadow:0 2px 8px #000;">
+                        <div style="font-size:26px; font-weight:900; letter-spacing:2px;">🎲 주사위게임 판</div>
+                        <div style="font-size:14px; font-weight:700; opacity:.85;">7×5 테두리 20칸 기준 — 칸 수는 조종실에서 정합니다</div>
+                    </div>
+                </div>
+
                 <!-- 🏅 후원 순위 위젯 -->
                 <div class="widget" id="donor-rank" data-id="donor-rank" style="left:850px; top:700px; display: none;">
                     <div style="width: 240px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px;">
@@ -372,7 +380,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판' };
             // 이름에 부등호나 따옴표가 들어와도 칸이 깨지지 않게 다듬는다
         function escText(s) {
             return String(s == null ? '' : s)
@@ -542,6 +550,10 @@
                     // 🏅 후원 순위 위젯: 켜져 있을 때만 편집 캔버스에 표시
                     const drW = document.getElementById('donor-rank');
                     if (drW) drW.style.display = d.donor_rank_enabled ? 'flex' : 'none';
+
+                    // 🎲 주사위게임 판: 켜져 있을 때만 편집 캔버스에 표시
+                    const dgW = document.getElementById('dicegame');
+                    if (dgW) dgW.style.display = (d.dicegame && d.dicegame.enabled) ? 'flex' : 'none';
                 } catch(e) {}
             }
 

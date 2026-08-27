@@ -1168,6 +1168,14 @@ def strip_private_state(state):
     out = dict(state)
     for k in PRIVATE_STATE_FIELDS:
         out.pop(k, None)
+    # 🎲 황금열쇠 덱은 뽑기 전까지 비밀이다. 오버레이는 덱이 필요 없다 —
+    #    뽑힌 카드는 서버가 action 에 실어 보낸다. 장수만 남겨 화면 표시에 쓴다.
+    g = out.get('dicegame')
+    if isinstance(g, dict) and g.get('keys'):
+        g = dict(g)
+        g['keys_count'] = len(g.get('keys') or [])
+        g['keys'] = []
+        out['dicegame'] = g
     return out
 
 
@@ -1458,6 +1466,26 @@ DEFAULT_STATE = {
     #    제한 시간 안에 후원으로 받아내는 게임. 사진은 등록된 시그니처를 그대로 쓴다.
     #    ⚠️ 상태는 서버가 정본이다. 원본 프로그램은 localStorage 로 창끼리 맞췄는데,
     #       OBS 브라우저 소스는 조종실 크롬과 저장소를 공유하지 않아 아예 동기화가 안 됐다.
+    # 🎲 주사위게임 (부루마블식) — 테두리를 도는 고리 보드, 공용 말 1개.
+    #    주사위·황금열쇠 뽑기는 전부 서버가 정한다(화면은 연출만).
+    "dicegame": {
+        "enabled": False,
+        "cols": 7,          # 테두리 고리 — 칸 수는 2*(cols+rows)-4 (기본 20칸)
+        "rows": 5,
+        "dice": 2,          # 주사위 개수 (1 또는 2)
+        "pos": 0,           # 말 위치 (0 = 출발 칸)
+        "laps": 0,          # 몇 바퀴 돌았나
+        # 칸 목록. [{id, type, label, points, sig}]
+        #   type : start(출발) | blank(빈칸) | mission(미션 글) | sig(시그니처)
+        #          | score(점수 지급/차감) | key(황금열쇠)
+        #   sig  : type=sig 일 때 재생할 시그니처 전체(id·image_url·sound_url·duration…).
+        #          ⚠️ 칸을 편집할 때 미리 받아 둔다 — 굴리는 순간 Supabase 에 물으러 가면
+        #             잠금 안에서 네트워크를 기다리게 된다(그동안 후원 접수가 멈춘다).
+        "tiles": [],
+        "keys": [],         # 황금열쇠 덱(글 목록) — 무인증에는 장수만 나간다(뽑기 전까지 비밀)
+        "action": {},       # {type: PLACE|ROLL|MOVE, ts, dice, path, from, to, lap, tile, key}
+    },
+
     "siggame": {
         "enabled": False,
         "cols": 4,
@@ -3628,7 +3656,7 @@ def api_data():
             #   낡은 사본에 덮여 순위에서 사라진다. (편집기의 '집계 지우기'는 설정 패치라
             #   이 경로를 안 타고 그대로 동작한다)
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
-                            'reaction_paused', 'siggame', 'sig_tally', 'donor_tally')
+                            'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -5588,6 +5616,8 @@ PATCH_DENY = frozenset((
     # 🏅 후원 순위 집계는 서버가 후원을 받을 때만 적는다. 밖에서 통째로 덮어쓰면
     #    방금 들어온 후원이 사라진다(설정 3개는 자유롭게 바꿀 수 있다).
     'donor_tally',
+    # 🎲 주사위게임도 서버만 굴린다(전용 엔드포인트로만 바뀐다)
+    'dicegame',
 ))
 
 
@@ -5816,6 +5846,278 @@ def api_score_add():
     except Exception as e:
         print(f"Error in api_score_add: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# ==========================================
+# 🎲 주사위게임 (부루마블식) — 로그인 필요 (exempt 목록에 없음)
+#   시그뒤집기와 같은 원칙: 서버가 유일한 진실, 화면은 action 신호로 연출만.
+# ==========================================
+DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key')
+
+
+def _dicegame_state(state):
+    """항상 온전한 모양의 게임 상태를 돌려준다(예전 저장본에 없던 키 보정)."""
+    g = state.get('dicegame')
+    if not isinstance(g, dict):
+        g = copy.deepcopy(DEFAULT_STATE['dicegame'])
+        state['dicegame'] = g
+    for k, v in DEFAULT_STATE['dicegame'].items():
+        g.setdefault(k, copy.deepcopy(v))
+    for k in ('tiles', 'keys'):
+        if not isinstance(g.get(k), list):
+            g[k] = []
+    return g
+
+
+def _dicegame_save(state, g):
+    state['dicegame'] = g
+    save_data(state)
+    broadcast_event('update', state)
+
+
+def _dicegame_apply_score(state, player, points):
+    """점수 칸 자동 반영. 기존 점수 경로와 같은 규칙을 지킨다 —
+       기여도 함께, 로그 남기고, 기여도순 재정렬, 대결 팀이면 팀 점수도.
+       (규칙이 갈라지면 장부가 안 맞는다. api_score_add 가 하는 일의 축소판이다)"""
+    t = _find_score_target(state, 'rank', player)
+    if t is None:
+        return None
+    t['score'] = (t.get('score') or 0) + points
+    t['contribution'] = (t.get('contribution') or 0) + points
+    team = _match_team_of(state, t.get('name') or player)
+    if team is not None:
+        team['score'] = (team.get('score') or 0) + points
+    logs = state.get('logs')
+    if not isinstance(logs, list):
+        logs = []
+        state['logs'] = logs
+    logs.insert(0, {"time": time.strftime('%H:%M:%S'), "name": t.get('name') or player,
+                    "val": points})
+    del logs[LOG_MAX:]
+    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    lst = state.get(src) or []
+    lst.sort(key=lambda b: -(b.get('contribution') or 0))
+    state[src] = lst
+    return t.get('name') or player
+
+
+@app.route('/api/dicegame/setup', methods=['POST'])
+def api_dicegame_setup():
+    """판을 깐다. 같은 번호 칸의 내용은 남긴다 — 크기만 바꿔도 적어둔 게 안 날아가게."""
+    body = request.get_json(silent=True) or {}
+    # ⚠️ '안 보낸 것'(기본값으로 간다)과 '보냈는데 숫자가 아닌 것'(400)을 구분한다.
+    #    _as_int 에 기본값을 주면 쓰레기도 조용히 기본값이 되어, 잘못 보낸 쪽이
+    #    자기 실수를 영영 모른다.
+    def _opt(key, default):
+        return default if body.get(key) is None else _as_int(body.get(key))
+    cols = _opt('cols', 7)
+    rows = _opt('rows', 5)
+    dice = _opt('dice', 2)
+    if cols is None or rows is None or dice is None:
+        return jsonify({'status': 'error', 'message': '숫자가 아닙니다'}), 400
+    cols = max(4, min(10, cols))
+    rows = max(3, min(8, rows))
+    dice = max(1, min(2, dice))
+    n = 2 * (cols + rows) - 4
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        old = {t.get('id'): t for t in (g.get('tiles') or []) if isinstance(t, dict)}
+        tiles = []
+        for i in range(n):
+            prev = old.get(i)
+            if i == 0:
+                tiles.append({'id': 0, 'type': 'start', 'label': '출발'})
+            elif prev and prev.get('type') in DICE_TILE_TYPES and prev.get('type') != 'start':
+                tiles.append(prev)
+            else:
+                tiles.append({'id': i, 'type': 'blank', 'label': ''})
+        g.update({'cols': cols, 'rows': rows, 'dice': dice, 'tiles': tiles,
+                  'pos': 0, 'laps': 0, 'enabled': True,
+                  'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
+        _dicegame_save(state, g)
+    print(f"🎲 [주사위게임] 판 깔림 — {cols}×{rows} 테두리 {n}칸, 주사위 {dice}개")
+    return jsonify({'status': 'success', 'tiles': n})
+
+
+@app.route('/api/dicegame/tile', methods=['POST'])
+def api_dicegame_tile():
+    """칸 하나를 고친다. body: {id, type, label?, points?, sig_id?}"""
+    body = request.get_json(silent=True) or {}
+    tid = _as_int(body.get('id'))
+    ttype = str(body.get('type') or '').strip()
+    if tid is None:
+        return jsonify({'status': 'error', 'message': '칸 번호가 없습니다'}), 400
+    if ttype not in DICE_TILE_TYPES:
+        return jsonify({'status': 'error', 'message': f'모르는 칸 종류: {ttype}'}), 400
+    if tid == 0 or ttype == 'start':
+        return jsonify({'status': 'error', 'message': '출발 칸은 바꿀 수 없습니다'}), 400
+    label = str(body.get('label') or '').strip()[:60]
+    points = _as_int(body.get('points'), 0) or 0
+    points = max(-1000, min(1000, points))
+    # ⚠️ 시그니처 정보는 잠금 밖(여기)에서 미리 받아 칸에 붙여 둔다.
+    #    굴리는 순간 받으러 가면 잠금 안에서 네트워크를 기다린다.
+    sig = None
+    if ttype == 'sig':
+        sig_id = _as_int(body.get('sig_id'))
+        if sig_id is None:
+            return jsonify({'status': 'error', 'message': '시그니처를 골라주세요'}), 400
+        try:
+            sig = supabase_get_signature(sig_id)
+        except Exception as e:
+            print(f'[주사위게임] 시그니처 조회 실패: {e}')
+            sig = None
+        if not sig:
+            return jsonify({'status': 'error', 'message': '그 시그니처를 찾지 못했습니다'}), 404
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        tiles = g.get('tiles') or []
+        if not (0 <= tid < len(tiles)):
+            return jsonify({'status': 'error', 'message': '없는 칸입니다'}), 400
+        tile = {'id': tid, 'type': ttype, 'label': label}
+        if ttype == 'score':
+            tile['points'] = points
+        if ttype == 'sig' and sig:
+            tile['sig'] = sig
+            if not label:
+                tile['label'] = str(sig.get('title') or '')[:60]
+        tiles[tid] = tile
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success', 'tile': tile})
+
+
+@app.route('/api/dicegame/keys', methods=['POST'])
+def api_dicegame_keys():
+    """황금열쇠 덱을 통째로 저장한다. body: {keys: [글, ...]}"""
+    body = request.get_json(silent=True) or {}
+    raw = body.get('keys')
+    if not isinstance(raw, list):
+        return jsonify({'status': 'error', 'message': '목록이 아닙니다'}), 400
+    keys = [str(k).strip()[:200] for k in raw if str(k or '').strip()][:40]
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        g['keys'] = keys
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success', 'count': len(keys)})
+
+
+@app.route('/api/dicegame/roll', methods=['POST'])
+def api_dicegame_roll():
+    """주사위를 굴린다. body: {player?: 이 굴림이 누구 것인지(점수 칸 자동 반영용)}
+
+       ⚠️ 눈·경로·황금열쇠까지 전부 여기서 정해 action 에 싣는다.
+          화면마다 따로 정하면 오버레이 두 개가 서로 다른 결과를 보여준다.
+    """
+    body = request.get_json(silent=True) or {}
+    player = str(body.get('player') or '').strip()
+    now_ms = int(time.time() * 1000)
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        tiles = g.get('tiles') or []
+        if not g.get('enabled') or not tiles:
+            return jsonify({'status': 'error', 'message': '먼저 판을 깔아주세요'}), 400
+        # 연타 방지 — 앞 연출(칸당 300ms + 착지 2.5초)이 끝나기 전의 굴림은 겹쳐 보인다.
+        prev = g.get('action') or {}
+        if prev.get('type') == 'ROLL':
+            hold = len(prev.get('path') or []) * 300 + 2500
+            if now_ms - (prev.get('ts') or 0) < hold:
+                return jsonify({'status': 'error',
+                                'message': '앞 연출이 아직 끝나지 않았습니다. 잠깐만요.'}), 429
+        n = len(tiles)
+        dice = [random.randint(1, 6) for _ in range(max(1, min(2, _as_int(g.get('dice'), 2) or 2)))]
+        steps = sum(dice)
+        frm = _as_int(g.get('pos'), 0) or 0
+        frm = frm % n
+        to = (frm + steps) % n
+        lap = (frm + steps) >= n
+        path = [(frm + i) % n for i in range(1, steps + 1)]
+        tile = tiles[to] if isinstance(tiles[to], dict) else {'id': to, 'type': 'blank'}
+        action = {'type': 'ROLL', 'ts': now_ms, 'dice': dice, 'from': frm, 'to': to,
+                  'path': path, 'lap': bool(lap),
+                  'tile': {k: tile.get(k) for k in ('id', 'type', 'label', 'points')}}
+        if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
+            action['tile']['image'] = tile['sig'].get('image_url')
+        # 🔑 황금열쇠 — 뽑기도 서버가 한다. 화면마다 다른 카드가 나오면 안 된다.
+        if tile.get('type') == 'key':
+            keys = g.get('keys') or []
+            action['key'] = random.choice(keys) if keys else '(황금열쇠 덱이 비어 있습니다)'
+        # 💯 점수 칸 — 누구 차례인지 알려줬을 때만 자동 반영. 아니면 표시만.
+        if tile.get('type') == 'score' and tile.get('points'):
+            if player:
+                applied_to = _dicegame_apply_score(state, player, int(tile['points']))
+                if applied_to:
+                    action['scored'] = {'name': applied_to, 'points': int(tile['points'])}
+                else:
+                    action['score_note'] = f"'{player}' 을(를) 명단에서 못 찾아 점수는 넣지 않았습니다"
+            else:
+                action['score_note'] = '누구 차례인지 고르지 않아 점수는 손으로 주세요'
+        # 🎵 시그니처 칸 — 기존 재생 경로 그대로(재생 전용이라 집계에는 안 센다)
+        if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
+            try:
+                enqueue_signature(state, tile['sig'], tile['sig'].get('amount') or 0,
+                                  '주사위게임', '', count_tally=False)
+            except Exception as e:
+                print(f'⚠️ [주사위게임] 시그니처 재생 실패 — 게임은 계속됩니다: {e}')
+        g['pos'] = to
+        if lap:
+            g['laps'] = (_as_int(g.get('laps'), 0) or 0) + 1
+        g['action'] = action
+        _dicegame_save(state, g)
+    print(f"🎲 [주사위게임] {'+'.join(map(str, dice))} → {frm}→{to} 칸"
+          f" ({tile.get('type')}{' 한바퀴!' if lap else ''})", flush=True)
+    return jsonify({'status': 'success', 'dice': dice, 'to': to,
+                    'tile': action['tile'], 'lap': bool(lap),
+                    'scored': action.get('scored'), 'note': action.get('score_note'),
+                    'key': action.get('key')})
+
+
+@app.route('/api/dicegame/move', methods=['POST'])
+def api_dicegame_move():
+    """말 위치를 손으로 맞춘다(연출이 어긋났을 때의 비상 손잡이)."""
+    body = request.get_json(silent=True) or {}
+    pos = _as_int(body.get('pos'))
+    if pos is None:
+        return jsonify({'status': 'error', 'message': '칸 번호가 숫자가 아닙니다'}), 400
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        n = len(g.get('tiles') or [])
+        if not n:
+            return jsonify({'status': 'error', 'message': '먼저 판을 깔아주세요'}), 400
+        if not (0 <= pos < n):
+            return jsonify({'status': 'error', 'message': f'칸 번호는 0~{n - 1} 입니다'}), 400
+        g['pos'] = pos
+        g['action'] = {'type': 'MOVE', 'ts': int(time.time() * 1000), 'to': pos}
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success', 'pos': pos})
+
+
+@app.route('/api/dicegame/enable', methods=['POST'])
+def api_dicegame_enable():
+    """방송 화면에 보일지만 켜고 끈다(판 내용은 그대로)."""
+    body = request.get_json(silent=True) or {}
+    on = bool(body.get('on'))
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        g['enabled'] = on
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success', 'enabled': on})
+
+
+@app.route('/api/dicegame/reset', methods=['POST'])
+def api_dicegame_reset():
+    """말을 출발로 되돌린다. 칸 구성과 황금열쇠 덱은 남긴다 — 적는 데 든 손이 아깝다."""
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        g.update({'pos': 0, 'laps': 0, 'enabled': False,
+                  'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success'})
+
 
 # ==========================================
 # 🖥️ GUI 관리자 및 로그인 창

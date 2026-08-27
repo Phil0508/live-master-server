@@ -565,6 +565,74 @@
             background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
             pointer-events:none;
         }
+        /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
+        .dg-board {
+            position: relative; padding: 12px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
+        }
+        .dg-grid { display: grid; gap: 5px; }
+        .dg-tile {
+            position: relative; border-radius: 10px;
+            background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 2px; padding: 3px; overflow: hidden;
+            transition: box-shadow .25s ease, transform .25s ease, background .25s ease;
+        }
+        .dg-tile .dg-ico { font-size: 20px; line-height: 1; }
+        .dg-tile .dg-lbl {
+            font-size: 10px; font-weight: 800; color: #e8e8ec; text-align: center;
+            line-height: 1.15; max-height: 24px; overflow: hidden;
+            text-shadow: 0 1px 3px rgba(0,0,0,.8); word-break: keep-all;
+        }
+        .dg-t-start { background: linear-gradient(135deg, rgba(246,196,83,.30), rgba(246,196,83,.10)); border-color: rgba(246,196,83,.65); }
+        .dg-t-sig   { border-color: rgba(191,90,242,.55); }
+        .dg-t-score { border-color: rgba(48,209,88,.55); }
+        .dg-t-key   { border-color: rgba(255,214,10,.55); }
+        .dg-tile.dg-hop { background: rgba(255,255,255,.16); }
+        .dg-tile.dg-land {
+            box-shadow: 0 0 0 3px var(--gold), 0 0 26px var(--gold-glow);
+            transform: scale(1.08); z-index: 3;
+        }
+        .dg-piece {
+            position: absolute; top: -7px; right: -5px; z-index: 5;
+            font-size: 22px; filter: drop-shadow(0 3px 5px rgba(0,0,0,.7));
+            pointer-events: none;
+        }
+        @keyframes dgHopUp { 0%{transform:translateY(0)} 40%{transform:translateY(-9px)} 100%{transform:translateY(0)} }
+        .dg-piece.dg-hopping { animation: dgHopUp .28s ease; }
+        .dg-center {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 6px; pointer-events: none;
+        }
+        .dg-dice { font-size: 56px; line-height: 1; color: #fff;
+                   text-shadow: 0 4px 12px rgba(0,0,0,.8); letter-spacing: 6px; }
+        .dg-laps { font-size: 14px; font-weight: 900; color: var(--gold); }
+        /* 도착 칸 카드 — 가운데에 크게 떴다가 저절로 사라진다 */
+        .dg-card {
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%, -50%) scale(.6); opacity: 0;
+            min-width: 240px; max-width: 78%; padding: 18px 22px; z-index: 8;
+            background: rgba(10,10,14,.92); border: 2px solid var(--gold);
+            border-radius: 18px; box-shadow: 0 18px 60px rgba(0,0,0,.7), 0 0 30px var(--gold-glow);
+            text-align: center; transition: transform .3s cubic-bezier(.2,1.4,.4,1), opacity .3s ease;
+            pointer-events: none;
+        }
+        .dg-card.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        .dg-card .dg-card-ico { font-size: 44px; line-height: 1.2; }
+        .dg-card .dg-card-txt { font-size: 22px; font-weight: 900; color: #fff;
+                                margin-top: 6px; line-height: 1.35; word-break: keep-all; }
+        .dg-card .dg-card-sub { font-size: 14px; font-weight: 700; color: var(--gold); margin-top: 6px; }
+        .dg-card img { max-width: 170px; max-height: 120px; border-radius: 10px; margin-top: 8px; }
+        .dg-lap-banner {
+            position: absolute; left: 50%; top: -18px; transform: translateX(-50%) scale(.7);
+            opacity: 0; padding: 6px 18px; z-index: 9;
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+            color: #241a05; font-size: 17px; font-weight: 900; border-radius: 999px;
+            box-shadow: 0 6px 18px var(--gold-glow); transition: all .3s ease; white-space: nowrap;
+        }
+        .dg-lap-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
         /* 🏅 후원 순위 — 시그니처 순위와 같은 유리 카드 */
         .donor-rank-board {
             position: relative; width: 240px; padding: 10px;
@@ -894,6 +962,7 @@
               (아래 !important 가 sgRenderGame 이 넣는 인라인 opacity 도 이긴다) */
         body.reaction-mode #ui-layer,
         body.reaction-mode #siggame-container,
+        body.reaction-mode #dicegame-container,
         body.reaction-mode #match-container { opacity: 0 !important; visibility: hidden !important; }
 
         .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.6s ease-in-out; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
@@ -1723,6 +1792,14 @@
                 </div>
                 <!-- 🎉 올클리어 배너. 판 위에 겹쳐 뜬다(자리를 차지하지 않는다). -->
                 <div class="sg-allclear" id="sg-allclear"><span>ALL CLEAR</span></div>
+            </div>
+
+            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 300px; top: 420px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+                <div class="dg-board">
+                    <div class="dg-lap-banner" id="dg-lap-banner">🎉 한 바퀴!</div>
+                    <div class="dg-grid" id="dg-grid"></div>
+                    <div class="dg-card" id="dg-card"></div>
+                </div>
             </div>
 
             <div id="donor-rank-container" class="widget-container" style="position: absolute; left: 850px; top: 700px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
@@ -2593,7 +2670,7 @@
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'donor-rank', 'karaoke', 'acct_video', 'siggame'].forEach(id => {
+            ['ranking', 'gauge', 'account', 'match', 'popup', 'takeover', 'ticker_top', 'ticker_bottom', 'roulette', 'slot', 'sig-tally', 'donor-rank', 'karaoke', 'acct_video', 'siggame', 'dicegame'].forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if(ly && el) {
                     let coord = ly[id];
@@ -3151,6 +3228,7 @@
             //       뒤에 두면 방송 시작을 누르기 전에는 카드가 아예 안 그려진다
             //       (예전에 시그니처 재생이 같은 이유로 통째로 막혔던 자리다).
             sgUpdate(d.siggame);
+            dgUpdate(d.dicegame);   // 🎲 주사위판 — 시그게임과 같은 이유로 이 자리
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
@@ -5426,6 +5504,182 @@
                     <div style="position:absolute; left:0; right:0; top:16px; text-align:center; font-size:14px; font-weight:800; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px;">${esc(r.title || '')}</div>
                 </div>`).join('');
             if (html !== lastSigTallyHtml) { rowsEl.innerHTML = html; lastSigTallyHtml = html; }
+        }
+
+        // ═══ 🎲 주사위게임 ═══
+        //    서버의 action 신호를 연출로 옮긴다. 눈·경로·황금열쇠는 전부 서버가 정한 값 —
+        //    화면이 스스로 정하면 오버레이 두 개가 서로 다른 결과를 보여준다.
+        let dgLayoutKey = null, dgSeenTs = 0, dgTimers = [];
+        const DG_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+        const dgEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m =>
+            ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+        function dgClearTimers() { dgTimers.forEach(t => clearTimeout(t)); dgTimers = []; }
+        function dgAfter(ms, fn) { dgTimers.push(setTimeout(fn, ms)); }
+        function dgBlip(f) {
+            try { if (typeof isAudioLeader === 'function' && isAudioLeader()
+                      && typeof sgBlip === 'function') sgBlip(f, 0.05, 0.16); } catch (e) {}
+        }
+
+        function dgTileIcon(t) {
+            switch ((t && t.type) || 'blank') {
+                case 'start':   return '🏁';
+                case 'mission': return '📜';
+                case 'sig':     return '🎵';
+                case 'score':   return '💯';
+                case 'key':     return '🔑';
+                default:        return '·';
+            }
+        }
+
+        // 고리 번호 → 격자 칸. 0 = 왼쪽 위 모서리, 시계방향.
+        function dgRingCell(i, cols, rows) {
+            if (i < cols) return { c: i + 1, r: 1 };
+            if (i < cols + rows - 1) return { c: cols, r: i - cols + 2 };
+            if (i < 2 * cols + rows - 2) return { c: cols - (i - (cols + rows - 2)), r: rows };
+            return { c: 1, r: rows - (i - (2 * cols + rows - 3)) };
+        }
+
+        function dgBuild(g) {
+            const grid = document.getElementById('dg-grid');
+            if (!grid) return;
+            const cols = parseInt(g.cols) || 7, rows = parseInt(g.rows) || 5;
+            const cell = 86;   // 칸 한 변(px). 판 전체 크기는 편집기 배율로 조절한다.
+            grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cell + 'px)';
+            grid.style.gridTemplateRows = 'repeat(' + rows + ', ' + cell + 'px)';
+            const tiles = g.tiles || [];
+            let html = '';
+            for (let i = 0; i < tiles.length; i++) {
+                const p = dgRingCell(i, cols, rows), t = tiles[i] || {};
+                html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + '" id="dg-tile-' + i + '"'
+                      + ' style="grid-column:' + p.c + ';grid-row:' + p.r + ';">'
+                      + '<span class="dg-ico">' + dgTileIcon(t) + '</span>'
+                      + (t.type === 'score' && t.points ? '<span class="dg-lbl">' + (t.points > 0 ? '+' : '') + t.points + '점</span>'
+                         : (t.label ? '<span class="dg-lbl">' + dgEsc(t.label) + '</span>' : ''))
+                      + '</div>';
+            }
+            html += '<div class="dg-center" style="grid-column:2 / ' + cols + ';grid-row:2 / ' + rows + ';">'
+                  + '<div class="dg-dice" id="dg-dice"></div>'
+                  + '<div class="dg-laps" id="dg-laps"></div></div>';
+            grid.innerHTML = html;
+        }
+
+        function dgPlacePiece(pos) {
+            const tile = document.getElementById('dg-tile-' + pos);
+            if (!tile) return;
+            let piece = document.getElementById('dg-piece');
+            if (!piece) {
+                piece = document.createElement('span');
+                piece.id = 'dg-piece'; piece.className = 'dg-piece'; piece.textContent = '🐴';
+            }
+            tile.appendChild(piece);
+            piece.classList.remove('dg-hopping');
+            void piece.offsetWidth;
+            piece.classList.add('dg-hopping');
+        }
+
+        function dgShowDice(dice) {
+            const el = document.getElementById('dg-dice');
+            if (el) el.textContent = (dice || []).map(d => DG_FACES[(d - 1) % 6] || '').join(' ');
+        }
+
+        function dgShowCard(act) {
+            const card = document.getElementById('dg-card');
+            if (!card) return;
+            const t = act.tile || {};
+            let ico = dgTileIcon(t), txt = dgEsc(t.label || ''), sub = '', img = '', hold = 5000;
+            if (t.type === 'key') {
+                ico = '🔑'; txt = dgEsc(act.key || '');  sub = '황금열쇠';
+            } else if (t.type === 'score') {
+                txt = (t.points > 0 ? '+' : '') + (t.points || 0) + '점';
+                sub = act.scored ? dgEsc(act.scored.name) + ' 에게 반영됐어요'
+                                 : dgEsc(act.score_note || '');
+            } else if (t.type === 'sig') {
+                sub = '시그니처 재생!'; hold = 4000;
+                if (t.image) img = '<img src="' + dgEsc(t.image) + '" alt="">';
+            } else if (t.type === 'start') {
+                txt = txt || '출발!';
+            } else if (!txt) {
+                txt = '빈 칸'; hold = 2200;
+            }
+            card.innerHTML = '<div class="dg-card-ico">' + ico + '</div>'
+                + (txt ? '<div class="dg-card-txt">' + txt + '</div>' : '') + img
+                + (sub ? '<div class="dg-card-sub">' + sub + '</div>' : '');
+            card.classList.add('show');
+            dgAfter(hold, () => card.classList.remove('show'));
+        }
+
+        function dgAnimateRoll(g, act) {
+            dgClearTimers();
+            const card = document.getElementById('dg-card');
+            if (card) card.classList.remove('show');
+            // ① 주사위가 구른다 — 아무 눈이나 빠르게 돌다가 서버가 정한 눈으로 멈춘다
+            const el = document.getElementById('dg-dice');
+            const n = (act.dice || []).length || 1;
+            let spin = 0;
+            const iv = setInterval(() => {
+                if (el) el.textContent = Array.from({ length: n },
+                    () => DG_FACES[Math.floor(Math.random() * 6)]).join(' ');
+                if (++spin > 11) clearInterval(iv);
+            }, 75);
+            dgTimers.push(iv);   // clearTimeout 이 interval 도 지운다 (같은 번호 공간)
+            dgAfter(900, () => { clearInterval(iv); dgShowDice(act.dice); dgBlip(880); });
+            // ② 말이 한 칸씩 총총
+            const path = act.path || [];
+            path.forEach((pos, k) => {
+                dgAfter(1000 + k * 300, () => {
+                    dgPlacePiece(pos);
+                    dgBlip(500 + k * 30);
+                    const t = document.getElementById('dg-tile-' + pos);
+                    if (t) { t.classList.add('dg-hop'); dgAfter(260, () => t.classList.remove('dg-hop')); }
+                });
+            });
+            // ③ 도착 — 칸 강조 + 카드 공개 (+ 한 바퀴 배너)
+            const landAt = 1000 + path.length * 300 + 120;
+            dgAfter(landAt, () => {
+                const t = document.getElementById('dg-tile-' + act.to);
+                if (t) { t.classList.add('dg-land'); dgAfter(4200, () => t.classList.remove('dg-land')); }
+                dgBlip(1040);
+                dgShowCard(act);
+                if (act.lap) {
+                    const bn = document.getElementById('dg-lap-banner');
+                    if (bn) { bn.classList.add('show'); dgAfter(3200, () => bn.classList.remove('show')); }
+                }
+            });
+        }
+
+        function dgRender(g) {
+            g = g || {};
+            const box = document.getElementById('dicegame-container');
+            if (!box) return;
+            const on = !!g.enabled && (g.tiles || []).length > 0;
+            box.style.opacity = on ? '1' : '0';
+            box.style.visibility = on ? 'visible' : 'hidden';
+            if (!on) { dgClearTimers(); return; }
+            const key = JSON.stringify([g.cols, g.rows,
+                (g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points])]);
+            const rebuilt = key !== dgLayoutKey;
+            if (rebuilt) { dgLayoutKey = key; dgBuild(g); }
+            const act = g.action || {};
+            const now = Date.now() + serverTimeOffset;
+            const fresh = act.ts && (now - act.ts) < 20000;
+            if (act.type === 'ROLL' && act.ts !== dgSeenTs && fresh && !rebuilt) {
+                dgSeenTs = act.ts;
+                dgAnimateRoll(g, act);
+            } else if (act.ts !== dgSeenTs || rebuilt) {
+                // 새로 온 창(또는 판을 다시 그린 직후)은 연출 없이 마지막 상태로 선다
+                dgSeenTs = act.ts || 0;
+                dgClearTimers();
+                dgPlacePiece(parseInt(g.pos) || 0);
+                dgShowDice((act.dice || []));
+            }
+            const laps = document.getElementById('dg-laps');
+            if (laps) laps.textContent = g.laps ? (g.laps + '바퀴째') : '';
+        }
+
+        function dgUpdate(g) {
+            try { dgRender(g); }
+            catch (e) { console.error('[주사위게임] 화면 갱신 실패 — 방송은 계속됩니다:', e); }
         }
 
         // 🏅 후원 순위 — 이번 방송에 누가 얼마를 넣었나.
