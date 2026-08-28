@@ -1438,6 +1438,17 @@ DEFAULT_STATE = {
     "donor_tally": {},              # {이름: {total, count}} — 방송마다 초기화
     "popup_enabled": True,
     "takeover_enabled": True,
+    # 📣 안내 전광판 — 방송 중간중간 저절로 뜨는 안내 문구.
+    #    화면이 서버 시계로 "지금 몇 번째 문구를 띄울 차례인가" 를 계산한다
+    #    (서버가 주기마다 밀어주면 상태 전체가 접속 대수만큼 나간다).
+    "notice_enabled": False,
+    "notice_msgs": [
+        "계좌로 보내주실 때 닉네임+플레이어 를 적어주시면 자동으로 올라갑니다",
+    ],
+    "notice_period": 300,      # 몇 초마다 한 번 (기본 5분)
+    "notice_show": 15,         # 한 번 뜨면 몇 초 동안
+    "notice_now": {},          # 진행자가 지금 띄운 것 {ts, idx}
+
     "ticker_enabled": True,
     "ticker_speed": 70,
     "ticker_text": "📢 환영합니다! 후원은 방송에 큰 힘이 됩니다!",
@@ -5846,6 +5857,28 @@ def api_score_add():
     except Exception as e:
         print(f"Error in api_score_add: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# ==========================================
+# 📣 안내 전광판 — 로그인 필요
+#   평소에는 화면이 서버 시계로 알아서 띄운다. 여기는 "지금 띄워" 만 받는다.
+# ==========================================
+@app.route('/api/notice/now', methods=['POST'])
+def api_notice_now():
+    """진행자가 고른 문구를 지금 띄운다. body: {idx?: 몇 번째}"""
+    body = request.get_json(silent=True) or {}
+    idx = _as_int(body.get('idx'), 0) or 0
+    with file_lock:
+        state = load_data()
+        msgs = state.get('notice_msgs') or []
+        if not msgs:
+            return jsonify({'status': 'error', 'message': '띄울 문구가 없습니다'}), 400
+        idx = max(0, min(len(msgs) - 1, idx))
+        state['notice_now'] = {'ts': int(time.time() * 1000), 'idx': idx}
+        save_data(state)
+        broadcast_event('update', state)
+    print(f'📣 [안내 전광판] 지금 띄움 — "{msgs[idx][:30]}"', flush=True)
+    return jsonify({'status': 'success', 'idx': idx, 'text': msgs[idx]})
+
 
 # ==========================================
 # 🎲 주사위게임 (부루마블식) — 로그인 필요 (exempt 목록에 없음)

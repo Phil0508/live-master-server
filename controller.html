@@ -1380,6 +1380,39 @@
                 <div id="extra-game-btns" style="display: flex; gap: 10px;"></div>
             </div>
         </div>
+        <!-- 📣 안내 전광판 -->
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(246,196,83,0.35); background: rgba(246,196,83,0.03);">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--gold);"><i class="fa-solid fa-bullhorn"></i> 📣 안내 전광판</span>
+                <label class="apple-switch" title="켜면 정한 주기마다 저절로 뜹니다">
+                    <input type="checkbox" id="chk-notice" onchange="ntcToggle(this.checked)">
+                    <span class="apple-slider"></span>
+                </label>
+            </div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 10px; line-height:1.6;">
+                방송 중간중간 안내 문구가 저절로 떴다 사라집니다. 줄마다 한 문구씩 적으면 차례대로 돌아가요.<br>
+                강조하고 싶은 말은 <b style="color:var(--gold);">*별표*</b> 로 감싸면 금색으로 굵게 나옵니다.
+            </div>
+            <textarea id="ntc-msgs" rows="4" placeholder="계좌로 보내주실 때 *닉네임+플레이어* 를 적어주시면 자동으로 올라갑니다&#10;후원은 방송에 큰 힘이 됩니다!"
+                      style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:var(--r-2); color:#fff; padding:10px; font-size:var(--fs-3); line-height:1.7;"></textarea>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; font-size:var(--fs-2); color:var(--text-muted);">
+                <button class="secondary" onclick="ntcSave()" style="height:36px; padding:0 16px; border-radius:var(--r-2);"><i class="fa-solid fa-floppy-disk"></i> 문구 저장</button>
+                <span style="width:6px;"></span>
+                <select id="ntc-period" onchange="ntcSave()" style="height:34px;">
+                    <option value="120">2분마다</option><option value="180">3분마다</option>
+                    <option value="300" selected>5분마다</option><option value="600">10분마다</option>
+                    <option value="900">15분마다</option>
+                </select>
+                <select id="ntc-show" onchange="ntcSave()" style="height:34px;">
+                    <option value="10">10초 동안</option><option value="15" selected>15초 동안</option>
+                    <option value="20">20초 동안</option><option value="30">30초 동안</option>
+                </select>
+                <span style="width:6px;"></span>
+                <select id="ntc-pick" style="height:34px; min-width:150px;"></select>
+                <button class="secondary" onclick="ntcNow()" style="height:34px; padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-bolt"></i> 지금 띄우기</button>
+            </div>
+        </div>
+
         <!-- 🏃 퇴근전쟁(퇴근빵) 제어 -->
         <div class="group-box" id="home-race-box" style="margin-bottom: 15px; border-color: rgba(255, 111, 165, 0.4); background: rgba(255, 111, 165, 0.04);">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer;" onclick="toggleHomeRacePanel(event)">
@@ -3159,6 +3192,7 @@
             try { renderSelfPing(); } catch(e) {}
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
             try { dgcSync(); } catch(e) {}       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
+            try { ntcSync(); } catch(e) {}       // 📣 안내 전광판 설정 반영
             // ⚠️ 아래 조기 반환은 "입력 중에 값이 튀는 것"을 막으려는 것이다. 그런데 예전에는
             //    승인 대기함까지 같이 멈췄다 — 어디든 칸을 눌러둔 채 자리를 뜨면 그 사이 들어온
             //    후원이 화면에 아예 안 나타났다(돈이 밀려 있는데 모른다).
@@ -7537,6 +7571,61 @@ function initFoldablePanels() {
     });
 }
 initFoldablePanels();
+
+        // ══ 📣 안내 전광판 ══
+        //    평소에는 화면이 서버 시계로 알아서 띄운다. 여기서는 문구·주기만 정하고,
+        //    "지금 띄우기" 만 서버에 신호를 보낸다.
+        let _ntcFilled = false, _ntcPickSig = '';
+
+        function ntcToggle(on) { patchAPI({ notice_enabled: !!on }); }
+
+        function ntcSave() {
+            const ta = document.getElementById('ntc-msgs');
+            const msgs = ta.value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 20);
+            patchAPI({ notice_msgs: msgs,
+                       notice_period: parseInt(document.getElementById('ntc-period').value) || 300,
+                       notice_show: parseInt(document.getElementById('ntc-show').value) || 15 })
+                .then(ok => acctToast(ok ? ('📣 문구 ' + msgs.length + '개 저장') : '저장 실패', ok ? 'ok' : 'warn'));
+        }
+
+        async function ntcNow() {
+            const idx = parseInt((document.getElementById('ntc-pick') || {}).value) || 0;
+            try {
+                const r = await fetch('/api/notice/now', { method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idx }) });
+                const d = await r.json().catch(() => ({}));
+                acctToast(r.ok ? ('📣 ' + String(d.text || '').slice(0, 26)) : (d.message || '실패'),
+                          r.ok ? 'ok' : 'warn');
+            } catch (e) { acctToast('통신 실패', 'warn'); }
+        }
+
+        function ntcSync() {
+            const ta = document.getElementById('ntc-msgs');
+            if (!ta || typeof gd === 'undefined' || !gd) return;
+            // ⚠️ setChk 는 다른 함수 안의 지역 함수라 여기서 못 쓴다(부르면 그 줄에서 멈춰
+            //    아래가 통째로 안 돈다 — 실제로 스위치·주기·목록이 다 비어 있었다).
+            const sw = document.getElementById('chk-notice');
+            if (sw && sw.checked !== !!gd.notice_enabled) sw.checked = !!gd.notice_enabled;
+            const msgs = gd.notice_msgs || [];
+            // ⚠️ 적는 중에는 덮지 않는다. 처음 한 번만 채운다.
+            if (!_ntcFilled && msgs.length) { ta.value = msgs.join('\n'); _ntcFilled = true; }
+            if (document.activeElement !== ta) {
+                const setIf = (id, v) => { const e = document.getElementById(id);
+                    if (e && String(e.value) !== String(v)) e.value = v; };
+                setIf('ntc-period', gd.notice_period || 300);
+                setIf('ntc-show', gd.notice_show || 15);
+            }
+            const sig = msgs.join('|');
+            const pick = document.getElementById('ntc-pick');
+            if (pick && sig !== _ntcPickSig) {
+                _ntcPickSig = sig;
+                const keep = pick.value;
+                pick.innerHTML = msgs.length
+                    ? msgs.map((m, i) => '<option value="' + i + '">' + escapeHTML(String(m).slice(0, 30)) + '</option>').join('')
+                    : '<option value="0">(문구 없음)</option>';
+                pick.value = keep;
+            }
+        }
 
         // ══ 🎲 주사위게임 조종 ══
         //    굴리기·뽑기는 전부 서버가 한다. 여기는 부르고 결과를 보여줄 뿐이다.

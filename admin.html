@@ -313,6 +313,14 @@
                         </div>
                     </div>
                 </div>
+                <!-- 📣 안내 전광판 -->
+                <div class="widget" id="notice" data-id="notice" style="left:90px; top:1500px; display: none;">
+                    <div style="display:flex; align-items:center; gap:14px; max-width:900px; padding:16px 26px; background:linear-gradient(135deg, rgba(16,16,22,.93), rgba(10,10,14,.88)); border:2px solid var(--gold); border-radius:18px; box-shadow:0 14px 40px rgba(0,0,0,.65);">
+                        <span style="font-size:34px; line-height:1;">📣</span>
+                        <span style="font-size:27px; font-weight:800; color:#fff; line-height:1.35;">계좌로 보내주실 때 <b style="color:var(--gold);">닉네임+플레이어</b> 를 적어주시면 자동으로 올라갑니다</span>
+                    </div>
+                </div>
+
                 <!-- 🎲 주사위게임 판 -->
                 <div class="widget" id="dicegame" data-id="dicegame" style="left:300px; top:420px; display: none;">
                     <div style="width:640px; height:465px; border-radius:16px; background:rgba(255,255,255,0.04); border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#dfe3ea; text-shadow:0 2px 8px #000;">
@@ -408,7 +416,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
 
             // ══ 🎬 소스 목록 (OBS 방식) ══
             //    👁 = 편집 화면 전용 보이기/숨기기(방송과 무관), 🔒 = 캔버스에서 안 집히게.
@@ -640,6 +648,7 @@
                     edLive('sig-tally', !!d.sig_tally_enabled);
                     edLive('donor-rank', !!d.donor_rank_enabled);
                     edLive('dicegame', !!(d.dicegame && d.dicegame.enabled));
+                    edLive('notice', !!d.notice_enabled);
                 } catch(e) {}
             }
 
