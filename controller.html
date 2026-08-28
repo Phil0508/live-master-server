@@ -1390,7 +1390,8 @@
                 </label>
             </div>
             <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 10px; line-height:1.6;">
-                방송 중간중간 안내 문구가 저절로 떴다 사라집니다. 줄마다 한 문구씩 적으면 차례대로 돌아가요.<br>
+                TV 아래 자막처럼 화면 밑에서 <b style="color:var(--gold);">오른쪽 → 왼쪽</b>으로 한 번 흐르고 사라집니다.<br>
+                줄마다 한 문구씩 적으면 차례대로 돌아가요. 뜨는 시간은 문구 길이에 맞춰 저절로 정해집니다.<br>
                 강조하고 싶은 말은 <b style="color:var(--gold);">*별표*</b> 로 감싸면 금색으로 굵게 나옵니다.
             </div>
             <textarea id="ntc-msgs" rows="4" placeholder="계좌로 보내주실 때 *닉네임+플레이어* 를 적어주시면 자동으로 올라갑니다&#10;후원은 방송에 큰 힘이 됩니다!"
@@ -1403,9 +1404,9 @@
                     <option value="300" selected>5분마다</option><option value="600">10분마다</option>
                     <option value="900">15분마다</option>
                 </select>
-                <select id="ntc-show" onchange="ntcSave()" style="height:34px;">
-                    <option value="10">10초 동안</option><option value="15" selected>15초 동안</option>
-                    <option value="20">20초 동안</option><option value="30">30초 동안</option>
+                <select id="ntc-speed" onchange="ntcSave()" style="height:34px;">
+                    <option value="90">느리게 흐름</option><option value="130" selected>보통 속도</option>
+                    <option value="180">빠르게 흐름</option><option value="240">아주 빠르게</option>
                 </select>
                 <span style="width:6px;"></span>
                 <select id="ntc-pick" style="height:34px; min-width:150px;"></select>
@@ -7584,7 +7585,7 @@ initFoldablePanels();
             const msgs = ta.value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 20);
             patchAPI({ notice_msgs: msgs,
                        notice_period: parseInt(document.getElementById('ntc-period').value) || 300,
-                       notice_show: parseInt(document.getElementById('ntc-show').value) || 15 })
+                       notice_speed: parseInt(document.getElementById('ntc-speed').value) || 130 })
                 .then(ok => acctToast(ok ? ('📣 문구 ' + msgs.length + '개 저장') : '저장 실패', ok ? 'ok' : 'warn'));
         }
 
@@ -7613,7 +7614,7 @@ initFoldablePanels();
                 const setIf = (id, v) => { const e = document.getElementById(id);
                     if (e && String(e.value) !== String(v)) e.value = v; };
                 setIf('ntc-period', gd.notice_period || 300);
-                setIf('ntc-show', gd.notice_show || 15);
+                setIf('ntc-speed', gd.notice_speed || 130);
             }
             const sig = msgs.join('|');
             const pick = document.getElementById('ntc-pick');

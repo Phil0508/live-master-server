@@ -1446,7 +1446,7 @@ DEFAULT_STATE = {
         "계좌로 보내주실 때 닉네임+플레이어 를 적어주시면 자동으로 올라갑니다",
     ],
     "notice_period": 300,      # 몇 초마다 한 번 (기본 5분)
-    "notice_show": 15,         # 한 번 뜨면 몇 초 동안
+    "notice_speed": 130,       # 초당 몇 픽셀로 흐르는가 (뜨는 시간은 글자 길이가 정한다)
     "notice_now": {},          # 진행자가 지금 띄운 것 {ts, idx}
 
     "ticker_enabled": True,

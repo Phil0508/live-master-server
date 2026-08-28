@@ -571,25 +571,40 @@
             background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
             pointer-events:none;
         }
-        /* ── 📣 안내 전광판 — 중간중간 저절로 떴다 사라진다 ── */
+        /* ── 📣 안내 전광판 — TV 밑 광고 자막처럼 오른쪽에서 왼쪽으로 흐른다 ── */
+        /* 띠는 아래에서 올라와 자리를 잡고, 글자가 다 지나가면 다시 내려간다. */
         .notice-board {
-            display: flex; align-items: center; gap: 14px;
-            max-width: 900px; padding: 16px 26px;
-            background: linear-gradient(135deg, rgba(16,16,22,.93), rgba(10,10,14,.88));
-            border: 2px solid var(--gold); border-radius: 18px;
-            box-shadow: 0 14px 40px rgba(0,0,0,.65), 0 0 26px var(--gold-glow);
-            opacity: 0; transform: translateY(18px) scale(.96);
-            transition: opacity .45s ease, transform .45s cubic-bezier(.2,1.2,.4,1);
+            display: flex; align-items: stretch;
+            width: 1080px; height: 74px; overflow: hidden;
+            background: linear-gradient(180deg, rgba(14,14,20,.90), rgba(8,8,12,.94));
+            border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold);
+            box-shadow: 0 6px 22px rgba(0,0,0,.6), 0 0 20px var(--gold-glow);
+            opacity: 0; transform: translateY(115%);
+            transition: opacity .35s ease, transform .5s cubic-bezier(.16,1,.3,1);
             pointer-events: none;
         }
-        .notice-board.show { opacity: 1; transform: translateY(0) scale(1); }
-        .notice-ico { font-size: 34px; line-height: 1; flex: none;
-                      filter: drop-shadow(0 2px 5px rgba(0,0,0,.7)); }
+        .notice-board.show { opacity: 1; transform: translateY(0); }
+        .notice-ico {
+            flex: none; width: 78px; display: flex; align-items: center; justify-content: center;
+            font-size: 34px; line-height: 1;
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+        }
+        /* 글자가 지나가는 칸. 이 칸 밖(오른쪽)에서 들어와 밖(왼쪽)으로 나간다 */
+        .notice-view { position: relative; flex: 1; overflow: hidden; }
         .notice-txt {
-            font-size: 27px; font-weight: 800; color: #fff; line-height: 1.35;
-            word-break: keep-all; text-shadow: 0 2px 6px rgba(0,0,0,.9);
+            position: absolute; top: 50%; left: 100%;
+            transform: translate(0, -50%);
+            white-space: nowrap; will-change: transform;
+            font-size: 34px; font-weight: 800; color: #fff; line-height: 1;
+            text-shadow: 0 2px 6px rgba(0,0,0,.9);
         }
         .notice-txt b, .notice-txt strong { color: var(--gold); }
+        .notice-measure { visibility: hidden; animation: none !important; }
+        /* --nw 는 지나가는 칸의 폭(JS 가 재서 넣는다). 칸 폭 + 글자 폭 만큼 왼쪽으로 민다 */
+        @keyframes noticeFlow {
+            from { transform: translate(0, -50%); }
+            to   { transform: translate(calc(-100% - var(--nw, 1000px)), -50%); }
+        }
 
         /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
         /* 게임판 — 배경 없이 칸만 방송 화면 위에 뜬다.
@@ -1856,10 +1871,14 @@
                 <div class="sg-allclear" id="sg-allclear"><span>ALL CLEAR</span></div>
             </div>
 
-            <div id="notice-container" class="widget-container" style="position: absolute; left: 90px; top: 1500px; z-index: 100000; pointer-events: none;">
+            <div id="notice-container" class="widget-container" style="position: absolute; left: 0px; top: 1680px; z-index: 100000; pointer-events: none;">
                 <div class="notice-board" id="notice-board">
                     <span class="notice-ico">📣</span>
-                    <span class="notice-txt" id="notice-text"></span>
+                    <div class="notice-view" id="notice-view">
+                        <span class="notice-txt" id="notice-text"></span>
+                        <!-- 폭만 재는 칸. 안 보이지만 글자 크기·굵기가 같아야 재는 값이 맞다 -->
+                        <span class="notice-txt notice-measure" id="notice-measure" aria-hidden="true"></span>
+                    </div>
                 </div>
             </div>
 
@@ -5580,38 +5599,64 @@
         //    서버 시계로 '지금 띄울 차례인가' 를 계산한다. 서버가 주기마다 밀어주면
         //    상태 전체(수십 KB)가 접속 대수만큼 나가는데, 이 식은 시계만 있으면
         //    누구나 같은 답을 내므로 오버레이가 몇 개든 같은 문구가 같은 순간에 뜬다.
-        let noticeLastText = '';
+        let noticeLastText = '', noticeCycle = '';
+        const noticeWCache = {};   // 문구별 글자 폭. 잴 때마다 레이아웃을 다시 잡으면 무겁다
+
+        // 한 바퀴 = 오른쪽 밖에서 들어와 왼쪽 밖으로 나가는 거리(칸 폭 + 글자 폭) / 속도.
+        // 문구가 길수록 오래 떠 있는다 — 읽을 시간이 저절로 늘어난다.
+        function noticeDur(t, viewW, speed, period) {
+            if (noticeWCache[t] == null) {
+                const mel = document.getElementById('notice-measure');
+                if (!mel) return 8000;
+                mel.innerHTML = noticeMarkup(t);
+                noticeWCache[t] = mel.scrollWidth || 1;
+            }
+            const dur = (viewW + noticeWCache[t]) / speed * 1000;
+            return Math.max(3000, Math.min(dur, period - 1000));   // 다음 회차를 밀지 않게
+        }
+
         function renderNotice(d) {
-            const box = document.getElementById('notice-container');
             const bar = document.getElementById('notice-board');
+            const view = document.getElementById('notice-view');
             const txt = document.getElementById('notice-text');
-            if (!box || !bar || !txt) return;
+            if (!bar || !view || !txt) return;
             const msgs = (d.notice_msgs || []).filter(m => String(m || '').trim());
-            if (!d.notice_enabled || !msgs.length) { bar.classList.remove('show'); return; }
+            if (!d.notice_enabled || !msgs.length) { bar.classList.remove('show'); noticeCycle = ''; return; }
 
             const now = Date.now() + serverTimeOffset;
-            const period = Math.max(10, parseInt(d.notice_period) || 300) * 1000;
-            const show = Math.max(3, parseInt(d.notice_show) || 15) * 1000;
+            const period = Math.max(20, parseInt(d.notice_period) || 300) * 1000;
+            const speed = Math.max(40, Math.min(600, parseInt(d.notice_speed) || 130));  // 초당 픽셀
+            const viewW = view.clientWidth || 1000;
 
-            // 진행자가 '지금 띄워' 를 눌렀으면 그게 먼저다
+            // ⚠️ 수동으로 띄운 것도 '한 바퀴' 면 끝이다. 예전에는 눌러놓은 신호가 2분간 살아
+            //    그동안 자동 전광판이 한 번도 안 떴다.
+            let idx = -1, elapsed = 0, cycle = '';
             const nw = d.notice_now || {};
-            const manual = nw.ts && (now - nw.ts) < show;
-            let on, idx;
-            if (manual) {
-                on = true;
-                idx = Math.max(0, Math.min(msgs.length - 1, parseInt(nw.idx) || 0));
+            const mEl = nw.ts ? (now - nw.ts) : -1;
+            const mIdx = Math.max(0, Math.min(msgs.length - 1, parseInt(nw.idx) || 0));
+            if (mEl >= 0 && mEl < noticeDur(String(msgs[mIdx]), viewW, speed, period)) {
+                idx = mIdx; elapsed = mEl; cycle = 'M' + nw.ts;
             } else {
-                // 주기 구간마다 앞부분(show)에만 띄운다. 구간 번호가 곧 회차다.
-                on = (now % period) < show;
-                idx = Math.floor(now / period) % msgs.length;
+                // 주기 구간마다 한 번 흐른다. 구간 번호가 곧 회차다.
+                const pIdx = Math.floor(now / period) % msgs.length;
+                const pEl = now % period;
+                if (pEl < noticeDur(String(msgs[pIdx]), viewW, speed, period)) {
+                    idx = pIdx; elapsed = pEl; cycle = 'C' + Math.floor(now / period);
+                }
             }
-            if (!on) { bar.classList.remove('show'); return; }
+            if (idx < 0) { bar.classList.remove('show'); noticeCycle = ''; return; }
 
             const t = String(msgs[idx]);
-            // ⚠️ 내용이 그대로면 다시 그리지 않는다 — 매 갱신마다 갈아끼우면 등장 연출이 끊긴다
-            if (t !== noticeLastText) {
-                noticeLastText = t;
-                txt.innerHTML = noticeMarkup(t);
+            const dur = noticeDur(t, viewW, speed, period);
+            if (t !== noticeLastText) { noticeLastText = t; txt.innerHTML = noticeMarkup(t); }
+
+            if (cycle !== noticeCycle) {
+                noticeCycle = cycle;
+                // 서버 시계가 가리키는 지점부터 튼다(음수 지연) — 오버레이가 몇 개든 같은 자리를 흐른다
+                txt.style.setProperty('--nw', viewW + 'px');
+                txt.style.animation = 'none'; void txt.offsetWidth;
+                txt.style.animation = 'noticeFlow ' + Math.round(dur) + 'ms linear -'
+                                    + Math.round(elapsed) + 'ms 1 both';
             }
             bar.classList.add('show');
         }
@@ -5629,7 +5674,7 @@
             catch (e) { console.error('[안내 전광판] 갱신 실패 — 방송은 계속됩니다:', e); }
         }
         // 시계로 판단하므로 상태가 안 와도 스스로 때를 알아야 한다
-        setInterval(() => noticeUpdate(globalData), 1000);
+        setInterval(() => noticeUpdate(globalData), 250);
 
         // ═══ 🎲 주사위게임 ═══
         //    서버의 action 신호를 연출로 옮긴다. 눈·경로·황금열쇠는 전부 서버가 정한 값 —
