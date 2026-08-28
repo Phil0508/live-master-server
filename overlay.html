@@ -331,13 +331,19 @@
         /* ── 계좌판 ── 점수판과 같은 문법: 골드 헤더 배너(은행·예금주) + 큰 흰 계좌번호 */
         .acc-box-v2 { padding: 14px; width: 300px; text-align: center; display: flex; flex-direction: column; gap: 10px; }
         .acc-header {
-            display: flex; align-items: center; justify-content: center; gap: 9px; flex-wrap: wrap;
+            display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 15px;
-            padding: 7px 0; border-radius: 12px;
+            color: #241a05; font-weight: 900; font-size: 20px;
+            padding: 9px 10px; border-radius: 12px;
             box-shadow: 0 4px 14px var(--gold-glow);
         }
-        .acc-header .acc-holder { font-weight: 800; color: rgba(36,26,5,0.75); }
+        /* ⚠️ 예금주는 '돈이 누구에게 가는가' 다. 번호만큼 중요한데 15px 에 투명도 0.75 라
+           시청자가 못 읽는다는 말이 나왔다. 번호(38px) 다음으로 큰 글자로 올린다. */
+        .acc-header .acc-holder { font-weight: 900; color: #241a05; font-size: 26px;
+                                  letter-spacing: -0.3px; line-height: 1.15;
+                                  /* 상호가 길어도 카드 밖으로 밀려나지 않게. keep-all 로 한글 낱말은
+                                     안 쪼개고, 띄어쓰기 없는 긴 이름만 마지막 수단으로 접는다 */
+                                  max-width: 100%; word-break: keep-all; overflow-wrap: anywhere; }
         .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
 
         /* ── 시그니처 순위판 ── 각진 클립패스 대신 점수판과 같은 유리 카드 + 둥근 골드 헤더 */
