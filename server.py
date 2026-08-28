@@ -6018,10 +6018,11 @@ def api_dicegame_roll():
         tiles = g.get('tiles') or []
         if not g.get('enabled') or not tiles:
             return jsonify({'status': 'error', 'message': '먼저 판을 깔아주세요'}), 400
-        # 연타 방지 — 앞 연출(칸당 300ms + 착지 2.5초)이 끝나기 전의 굴림은 겹쳐 보인다.
+        # 연타 방지 — 앞 연출이 끝나기 전의 굴림은 겹쳐 보인다.
+        #   연출 길이 = 굴림 횟수 × 1.3초(주사위 하나가 이어 구른다) + 칸당 0.3초 + 착지 여유.
         prev = g.get('action') or {}
         if prev.get('type') == 'ROLL':
-            hold = len(prev.get('path') or []) * 300 + 2500
+            hold = len(prev.get('path') or []) * 300 + 1300 * len(prev.get('dice') or [1]) + 2200
             if now_ms - (prev.get('ts') or 0) < hold:
                 return jsonify({'status': 'error',
                                 'message': '앞 연출이 아직 끝나지 않았습니다. 잠깐만요.'}), 429

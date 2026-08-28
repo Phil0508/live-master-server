@@ -566,60 +566,81 @@
             pointer-events:none;
         }
         /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
+        /* 게임판 — 초록 펠트에 금테, 살짝 기울인 시점 */
         .dg-board {
-            position: relative; padding: 12px;
-            background: var(--glass-bg); border: 1px solid var(--glass-border);
-            border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
+            position: relative; padding: 16px;
+            background:
+                radial-gradient(ellipse at 50% 30%, rgba(255,255,255,.07), transparent 60%),
+                linear-gradient(155deg, #155040 0%, #0b2f24 70%, #08251c 100%);
+            border: 3px solid rgba(246, 196, 83, .85); border-radius: 22px;
+            box-shadow: inset 0 0 70px rgba(0,0,0,.55), 0 26px 60px rgba(0,0,0,.6);
+            perspective: 1300px;
         }
-        .dg-grid { display: grid; gap: 5px; }
+        .dg-grid { display: grid; gap: 6px; transform: rotateX(13deg); transform-style: preserve-3d; }
+        /* 칸 — 밝은 면 + 두꺼운 아랫단(입체 블록) */
         .dg-tile {
-            position: relative; border-radius: 10px;
-            background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.12);
+            position: relative; border-radius: 9px;
+            background: linear-gradient(180deg, #fffdf2, #e7e2cf);
+            box-shadow: 0 5px 0 #b6ad91, 0 9px 12px rgba(0,0,0,.45);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 2px; padding: 3px; overflow: hidden;
-            transition: box-shadow .25s ease, transform .25s ease, background .25s ease;
+            gap: 1px; padding: 4px 3px 6px;
+            transition: transform .22s ease, filter .22s ease;
         }
-        .dg-tile .dg-ico { font-size: 20px; line-height: 1; }
+        .dg-tile .dg-ico { font-size: 21px; line-height: 1.1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
         .dg-tile .dg-lbl {
-            font-size: 10px; font-weight: 800; color: #e8e8ec; text-align: center;
-            line-height: 1.15; max-height: 24px; overflow: hidden;
-            text-shadow: 0 1px 3px rgba(0,0,0,.8); word-break: keep-all;
+            font-size: 10px; font-weight: 800; color: #453c2b; text-align: center;
+            line-height: 1.15; max-height: 24px; overflow: hidden; word-break: keep-all;
         }
-        .dg-t-start { background: linear-gradient(135deg, rgba(246,196,83,.30), rgba(246,196,83,.10)); border-color: rgba(246,196,83,.65); }
-        .dg-t-sig   { border-color: rgba(191,90,242,.55); }
-        .dg-t-score { border-color: rgba(48,209,88,.55); }
-        .dg-t-key   { border-color: rgba(255,214,10,.55); }
-        .dg-tile.dg-hop { background: rgba(255,255,255,.16); }
+        .dg-t-start   { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-t-start .dg-lbl { color: #4a3608; }
+        .dg-t-mission { background: linear-gradient(180deg, #ecf7ff, #c8e3f8); box-shadow: 0 5px 0 #7c9fc0, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-t-sig     { background: linear-gradient(180deg, #f5edff, #ddc9f6); box-shadow: 0 5px 0 #967cc0, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-t-score   { background: linear-gradient(180deg, #eafcf0, #c3ecd2); box-shadow: 0 5px 0 #66a880, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-t-key     { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-corner .dg-ico { font-size: 27px; }
+        .dg-tile.dg-hop { transform: translateY(-4px); filter: brightness(1.14); }
         .dg-tile.dg-land {
-            box-shadow: 0 0 0 3px var(--gold), 0 0 26px var(--gold-glow);
-            transform: scale(1.08); z-index: 3;
+            transform: translateY(-4px) scale(1.1); z-index: 3;
+            filter: brightness(1.15) drop-shadow(0 0 16px var(--gold));
         }
-        .dg-piece {
-            position: absolute; top: -7px; right: -5px; z-index: 5;
-            font-size: 22px; filter: drop-shadow(0 3px 5px rgba(0,0,0,.7));
+        /* 도착 순간 금빛 파열 링 */
+        @keyframes dgBurst { from { opacity: .95; transform: scale(.55); } to { opacity: 0; transform: scale(1.8); } }
+        .dg-tile.dg-land::after {
+            content: ''; position: absolute; inset: -5px; border-radius: 14px;
+            border: 3px solid var(--gold); animation: dgBurst .7s ease-out forwards;
             pointer-events: none;
         }
-        @keyframes dgHopUp { 0%{transform:translateY(0)} 40%{transform:translateY(-9px)} 100%{transform:translateY(0)} }
+        /* 말 — 가만히 있어도 둥실거린다 */
+        .dg-piece {
+            position: absolute; top: -16px; right: -6px; z-index: 5;
+            font-size: 30px; filter: drop-shadow(0 5px 5px rgba(0,0,0,.65));
+            pointer-events: none; animation: dgIdle 1.7s ease-in-out infinite;
+        }
+        @keyframes dgIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @keyframes dgHopUp { 0%{transform:translateY(0)} 40%{transform:translateY(-11px)} 100%{transform:translateY(0)} }
         .dg-piece.dg-hopping { animation: dgHopUp .28s ease; }
         .dg-center {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 6px; pointer-events: none;
+            gap: 4px; pointer-events: none;
         }
-        /* 실제 3D 주사위 — 정육면체가 구르다가 서버가 정한 눈이 앞면으로 선다 */
-        .dg-dice { display: flex; gap: 18px; perspective: 440px; min-height: 58px; }
-        .dg-die { width: 54px; height: 54px; position: relative;
-                  filter: drop-shadow(0 10px 10px rgba(0,0,0,.45)); }
+        .dg-sum { font-size: 26px; font-weight: 900; color: #ffe9a8;
+                  text-shadow: 0 3px 8px rgba(0,0,0,.75); min-height: 32px;
+                  font-variant-numeric: tabular-nums; }
+        /* 실제 3D 주사위 — 하나가 두 번 구른다. 하나만 쓰니 큼직하게 */
+        .dg-dice { display: flex; justify-content: center; perspective: 560px; min-height: 82px; }
+        .dg-die { width: 76px; height: 76px; position: relative;
+                  filter: drop-shadow(0 14px 12px rgba(0,0,0,.5)); }
         .dg-cube { width: 100%; height: 100%; position: relative;
                    transform-style: preserve-3d;
                    transition: transform .9s cubic-bezier(.2, 1.1, .35, 1); }
         .dg-face {
-            position: absolute; inset: 0; border-radius: 11px; box-sizing: border-box;
+            position: absolute; inset: 0; border-radius: 15px; box-sizing: border-box;
             background: linear-gradient(145deg, #fffef7, #d8d8cd);
             border: 1px solid #b6b6aa;
             display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
-            padding: 7px;
+            padding: 10px;
         }
-        .dg-pip { width: 9px; height: 9px; border-radius: 50%; background: #23232a;
+        .dg-pip { width: 13px; height: 13px; border-radius: 50%; background: #23232a;
                   align-self: center; justify-self: center;
                   box-shadow: inset 0 2px 2px rgba(0,0,0,.55); }
         .dg-laps { font-size: 14px; font-weight: 900; color: var(--gold); }
@@ -5565,7 +5586,8 @@
             let html = '';
             for (let i = 0; i < tiles.length; i++) {
                 const p = dgRingCell(i, cols, rows), t = tiles[i] || {};
-                html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + '" id="dg-tile-' + i + '"'
+                const corner = (i === 0 || i === cols - 1 || i === cols + rows - 2 || i === 2 * cols + rows - 3);
+                html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + (corner ? ' dg-corner' : '') + '" id="dg-tile-' + i + '"'
                       + ' style="grid-column:' + p.c + ';grid-row:' + p.r + ';">'
                       + '<span class="dg-ico">' + dgTileIcon(t) + '</span>'
                       + (t.type === 'score' && t.points ? '<span class="dg-lbl">' + (t.points > 0 ? '+' : '') + t.points + '점</span>'
@@ -5574,6 +5596,7 @@
             }
             html += '<div class="dg-center" style="grid-column:2 / ' + cols + ';grid-row:2 / ' + rows + ';">'
                   + '<div class="dg-dice" id="dg-dice"></div>'
+                  + '<div class="dg-sum" id="dg-sum"></div>'
                   + '<div class="dg-laps" id="dg-laps"></div></div>';
             grid.innerHTML = html;
         }
@@ -5590,6 +5613,8 @@
             piece.classList.remove('dg-hopping');
             void piece.offsetWidth;
             piece.classList.add('dg-hopping');
+            // ⚠️ 클래스를 안 걷으면 마지막 총총이 대기 둥실거림을 영영 덮는다
+            dgAfter(320, () => piece.classList.remove('dg-hopping'));
         }
 
         // 3×3 자리에 놓는 점 배치 (행,열)
@@ -5613,11 +5638,21 @@
                 for (let f = 1; f <= 6; f++) {
                     const pips = (DG_PIPS[f] || []).map(p =>
                         '<span class="dg-pip" style="grid-row:' + p[0] + ';grid-column:' + p[1] + ';"></span>').join('');
-                    faces += '<div class="dg-face" style="transform:' + DG_FACE_TF[f] + ' translateZ(27px);">' + pips + '</div>';
+                    faces += '<div class="dg-face" style="transform:' + DG_FACE_TF[f] + ' translateZ(38px);">' + pips + '</div>';
                 }
                 html += '<div class="dg-die"><div class="dg-cube" id="dg-cube-' + k + '">' + faces + '</div></div>';
             }
             el.innerHTML = html;
+        }
+
+        function dgSetSum(dice, upto) {
+            const el = document.getElementById('dg-sum');
+            if (!el) return;
+            const part = (dice || []).slice(0, upto);
+            if (!part.length) { el.textContent = ''; return; }
+            el.textContent = part.length > 1
+                ? part.join(' + ') + ' = ' + part.reduce((a, c) => a + c, 0)
+                : String(part[0]);
         }
 
         // 즉시 세우기 — 늦게 합류한 창은 연출 없이 마지막 눈으로 선다
@@ -5625,40 +5660,52 @@
             dice = dice || [];
             const el = document.getElementById('dg-dice');
             if (!el) return;
-            if (!dice.length) { el.innerHTML = ''; return; }
-            dgEnsureDice(dice.length);
-            dice.forEach((v, k) => {
-                const cube = document.getElementById('dg-cube-' + k);
-                if (!cube) return;
+            // 아직 안 굴렸어도 주사위는 판 가운데 놓여 있다 — 빈자리보다 낫다.
+            // 그때는 합계 글자 없이 1이 보이는 채로만 둔다.
+            const idle = !dice.length;
+            if (idle) dice = [1];
+            dgEnsureDice(1);   // 주사위는 늘 하나 — 눈이 여러 개면 여러 번 구른 것이다
+            const cube = document.getElementById('dg-cube-0');
+            if (cube) {
+                const v = dice[dice.length - 1];
                 const r = DG_ROT[v] || [0, 0];
                 cube.style.transition = 'none';
                 cube.style.transform = 'rotateX(' + r[0] + 'deg) rotateY(' + r[1] + 'deg) rotateZ(0deg)';
                 cube.dataset.val = v;
                 void cube.offsetWidth;
                 cube.style.transition = '';
-            });
+            }
+            dgSetSum(idle ? [] : dice, dice.length);
         }
 
-        // 굴리기 — 아무 방향에서 두세 바퀴 구르다가 서버가 정한 눈이 앞면으로 선다.
+        // 한 번 구르기 — 아무 방향에서 두세 바퀴 돌다가 v 가 앞면으로 선다.
         //   시작 방향과 바퀴 수만 화면마다 다르고, 멈추는 눈은 서버 값 그대로다.
-        function dgTumbleDice(dice) {
+        function dgTumbleOnce(v) {
+            const cube = document.getElementById('dg-cube-0');
+            if (!cube) return;
+            const r = DG_ROT[v] || [0, 0];
+            cube.style.transition = 'none';
+            cube.style.transform = 'rotateX(' + (Math.random() * 360 - 180) + 'deg)'
+                + ' rotateY(' + (Math.random() * 360 - 180) + 'deg)'
+                + ' rotateZ(' + (Math.random() * 90 - 45) + 'deg)';
+            void cube.offsetWidth;
+            const turnsX = 360 * (2 + Math.floor(Math.random() * 2));
+            const turnsY = 360 * (2 + Math.floor(Math.random() * 2));
+            cube.style.transition = '';
+            cube.style.transform = 'rotateX(' + (r[0] + turnsX) + 'deg)'
+                + ' rotateY(' + (r[1] + turnsY) + 'deg) rotateZ(0deg)';
+            cube.dataset.val = v;
+        }
+
+        // 주사위 하나가 눈 수만큼 이어 구른다: 굴러서 첫 눈 → 잠깐 쉬고 → 다시 굴러 둘째 눈.
+        //   눈이 멈출 때마다 옆에 '4 + 2 = 6' 이 쌓인다.
+        function dgTumbleSeq(dice) {
             dice = dice || [];
-            dgEnsureDice(dice.length);
+            dgEnsureDice(1);
+            dgSetSum([], 0);
             dice.forEach((v, k) => {
-                const cube = document.getElementById('dg-cube-' + k);
-                if (!cube) return;
-                const r = DG_ROT[v] || [0, 0];
-                cube.style.transition = 'none';
-                cube.style.transform = 'rotateX(' + (Math.random() * 360 - 180) + 'deg)'
-                    + ' rotateY(' + (Math.random() * 360 - 180) + 'deg)'
-                    + ' rotateZ(' + (Math.random() * 90 - 45) + 'deg)';
-                void cube.offsetWidth;
-                const turnsX = 360 * (2 + Math.floor(Math.random() * 2));
-                const turnsY = 360 * (2 + Math.floor(Math.random() * 2));
-                cube.style.transition = '';
-                cube.style.transform = 'rotateX(' + (r[0] + turnsX) + 'deg)'
-                    + ' rotateY(' + (r[1] + turnsY) + 'deg) rotateZ(0deg)';
-                cube.dataset.val = v;
+                dgAfter(k * 1300, () => dgTumbleOnce(v));
+                dgAfter(k * 1300 + 930, () => { dgBlip(880 + k * 120); dgSetSum(dice, k + 1); });
             });
         }
 
@@ -5692,13 +5739,13 @@
             dgClearTimers();
             const card = document.getElementById('dg-card');
             if (card) card.classList.remove('show');
-            // ① 주사위가 실제 3D 로 구른다 — 서버가 정한 눈이 앞면으로 서며 멈춘다
-            dgTumbleDice(act.dice);
-            dgAfter(900, () => dgBlip(880));
-            // ② 말이 한 칸씩 총총
+            // ① 주사위 하나가 눈 수만큼 이어 구른다 (구르고 → 쉬고 → 또 구르고)
+            dgTumbleSeq(act.dice);
+            const rollT = 250 + (act.dice || []).length * 1300;
+            // ② 다 구른 뒤에 말이 한 칸씩 총총
             const path = act.path || [];
             path.forEach((pos, k) => {
-                dgAfter(1000 + k * 300, () => {
+                dgAfter(rollT + k * 300, () => {
                     dgPlacePiece(pos);
                     dgBlip(500 + k * 30);
                     const t = document.getElementById('dg-tile-' + pos);
@@ -5706,7 +5753,7 @@
                 });
             });
             // ③ 도착 — 칸 강조 + 카드 공개 (+ 한 바퀴 배너)
-            const landAt = 1000 + path.length * 300 + 120;
+            const landAt = rollT + path.length * 300 + 120;
             dgAfter(landAt, () => {
                 const t = document.getElementById('dg-tile-' + act.to);
                 if (t) { t.classList.add('dg-land'); dgAfter(4200, () => t.classList.remove('dg-land')); }
