@@ -566,14 +566,12 @@
             pointer-events:none;
         }
         /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
-        /* 게임판 — 초록 펠트에 금테, 살짝 기울인 시점 */
+        /* 게임판 — 배경 없이 칸만 방송 화면 위에 뜬다.
+           ⚠️ 판이 투명해지면 밝은 영상 위에서 칸이 묻힐 수 있다. 배경으로 가리는 대신
+              칸·주사위 각각의 그림자를 진하게 해서 윤곽이 살아 있게 한다. */
         .dg-board {
-            position: relative; padding: 16px;
-            background:
-                radial-gradient(ellipse at 50% 30%, rgba(255,255,255,.07), transparent 60%),
-                linear-gradient(155deg, #155040 0%, #0b2f24 70%, #08251c 100%);
-            border: 3px solid rgba(246, 196, 83, .85); border-radius: 22px;
-            box-shadow: inset 0 0 70px rgba(0,0,0,.55), 0 26px 60px rgba(0,0,0,.6);
+            position: relative; padding: 10px;
+            background: transparent; border: none; box-shadow: none;
             perspective: 1300px;
         }
         .dg-grid { display: grid; gap: 6px; transform: rotateX(13deg); transform-style: preserve-3d; }
@@ -581,7 +579,7 @@
         .dg-tile {
             position: relative; border-radius: 9px;
             background: linear-gradient(180deg, #fffdf2, #e7e2cf);
-            box-shadow: 0 5px 0 #b6ad91, 0 9px 12px rgba(0,0,0,.45);
+            box-shadow: 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 1px; padding: 4px 3px 6px;
             transition: transform .22s ease, filter .22s ease;
@@ -591,12 +589,12 @@
             font-size: 10px; font-weight: 800; color: #453c2b; text-align: center;
             line-height: 1.15; max-height: 24px; overflow: hidden; word-break: keep-all;
         }
-        .dg-t-start   { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-t-start   { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 10px 16px rgba(0,0,0,.75); }
         .dg-t-start .dg-lbl { color: #4a3608; }
-        .dg-t-mission { background: linear-gradient(180deg, #ecf7ff, #c8e3f8); box-shadow: 0 5px 0 #7c9fc0, 0 9px 12px rgba(0,0,0,.45); }
-        .dg-t-sig     { background: linear-gradient(180deg, #f5edff, #ddc9f6); box-shadow: 0 5px 0 #967cc0, 0 9px 12px rgba(0,0,0,.45); }
-        .dg-t-score   { background: linear-gradient(180deg, #eafcf0, #c3ecd2); box-shadow: 0 5px 0 #66a880, 0 9px 12px rgba(0,0,0,.45); }
-        .dg-t-key     { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 9px 12px rgba(0,0,0,.45); }
+        .dg-t-mission { background: linear-gradient(180deg, #ecf7ff, #c8e3f8); box-shadow: 0 5px 0 #7c9fc0, 0 10px 16px rgba(0,0,0,.75); }
+        .dg-t-sig     { background: linear-gradient(180deg, #f5edff, #ddc9f6); box-shadow: 0 5px 0 #967cc0, 0 10px 16px rgba(0,0,0,.75); }
+        .dg-t-score   { background: linear-gradient(180deg, #eafcf0, #c3ecd2); box-shadow: 0 5px 0 #66a880, 0 10px 16px rgba(0,0,0,.75); }
+        .dg-t-key     { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 10px 16px rgba(0,0,0,.75); }
         .dg-corner .dg-ico { font-size: 27px; }
         .dg-tile.dg-hop { transform: translateY(-4px); filter: brightness(1.14); }
         .dg-tile.dg-land {
@@ -624,12 +622,12 @@
             gap: 4px; pointer-events: none;
         }
         .dg-sum { font-size: 26px; font-weight: 900; color: #ffe9a8;
-                  text-shadow: 0 3px 8px rgba(0,0,0,.75); min-height: 32px;
+                  text-shadow: 0 2px 4px #000, 0 3px 10px rgba(0,0,0,.9); min-height: 32px;
                   font-variant-numeric: tabular-nums; }
         /* 실제 3D 주사위 — 하나가 두 번 구른다. 하나만 쓰니 큼직하게 */
         .dg-dice { display: flex; justify-content: center; perspective: 560px; min-height: 82px; }
         .dg-die { width: 76px; height: 76px; position: relative;
-                  filter: drop-shadow(0 14px 12px rgba(0,0,0,.5)); }
+                  filter: drop-shadow(0 14px 14px rgba(0,0,0,.8)); }
         .dg-cube { width: 100%; height: 100%; position: relative;
                    transform-style: preserve-3d;
                    transition: transform .9s cubic-bezier(.2, 1.1, .35, 1); }
@@ -643,7 +641,8 @@
         .dg-pip { width: 13px; height: 13px; border-radius: 50%; background: #23232a;
                   align-self: center; justify-self: center;
                   box-shadow: inset 0 2px 2px rgba(0,0,0,.55); }
-        .dg-laps { font-size: 14px; font-weight: 900; color: var(--gold); }
+        .dg-laps { font-size: 14px; font-weight: 900; color: var(--gold);
+                   text-shadow: 0 2px 4px #000, 0 0 10px rgba(0,0,0,.9); }
         /* 도착 칸 카드 — 가운데에 크게 떴다가 저절로 사라진다 */
         .dg-card {
             position: absolute; left: 50%; top: 50%;
