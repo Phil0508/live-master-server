@@ -290,9 +290,22 @@ class SigEngine {
   a(el, frames, dur, delay, ease) {
     return el.animate(this.mapFrames(frames), { duration: dur / this.S, delay: (delay || 0) / this.S, easing: ease || 'linear', fill: 'forwards' });
   }
+  /* 히트스톱 — 착탄 순간 모든 것이 멈추는 구간.
+     같은 transform 을 두 프레임에 넣어 '정지'를 만든다.
+     ⚠️ 인라인 style 로는 안 된다. 앞선 애니메이션이 fill:'forwards' 라 style 을 이긴다.
+        정지도 애니메이션이어야 걸린다.
+     충격의 무게는 '계속 흐르는 것' 이 아니라 '멈추는 것' 에서 나온다. */
+  hold(el, tf, ms, delay) {
+    return this.a(el, [{ transform: tf }, { transform: tf }], ms, delay, 'linear');
+  }
   txt(fx, content, css, top) {
     // ⚠️ 가로로 꽉 찬 줄이라 left/right 은 0 그대로 두고 top 만 옮긴다.
-    const w = this.mk(fx, 'left:0;right:0;top:' + this._n(top, this.KY) + 'px;display:flex;justify-content:center;');
+    // ⚠️ opacity:0 이 없으면 delay 동안 글자가 그대로 보인다. fill:'forwards' 는
+    //    active 가 끝난 뒤에만 걸리므로 delay 구간(before)을 못 막는다.
+    //    실측: 참격 1120ms · ANGEL VIP 1400ms · 방패 1040ms 동안 글자가 떠 있었다.
+    //    ⚠️ 래퍼를 켜주는 애니메이션이 없는 연출은 글자가 영영 안 뜬다 —
+    //       fx_martini · fx_angel 이 그랬고, 거기에 래퍼 켜기를 따로 넣어뒀다.
+    const w = this.mk(fx, 'left:0;right:0;top:' + this._n(top, this.KY) + 'px;display:flex;justify-content:center;opacity:0;');
     const d = document.createElement('div'); d.textContent = content;
     d.style.cssText = this.mapCss(css); w.appendChild(d);
     return { w: w, d: d };
@@ -324,40 +337,85 @@ class SigEngine {
   }
   rnd(a, b) { return a + Math.random() * (b - a); }
 
-  /* ══ 10만 가즈아 — 화염 분출 (1.8s) ══ */
+  /* ══ 10만 가즈아 — 화염 분출 (1.8s) ══
+     착탄 프레임 IMP=150. 재료는 원본과 같고 '언제 터지느냐'만 바꿨다.
+     ① 움츠림 0–95 → ② 돌진 95–150 → ③ 착탄 150–200(정지) → ④ 반동 → ⑤ 이차운동 */
   fx_gazua(fx, shake) {
     const FIRE = this.col(0, '#ff4d00'), EMBER = this.col(1, '#ffa02a'), SPARK = this.col(2, '#ffd24a');
+    const IMP = 150;
     this.cardGlow(FIRE);
-    // 흰 컷이 빠진 뒤에 사진이 드러난다 — 컷 위에 겹치면 둘 다 죽는다.
+    // ⚠️ 사진은 반드시 맨 먼저 깐다. photoBg 는 fx 에 덧붙이므로 부르는 순서가 곧
+    //    쌓이는 순서다 — 흰 종이 뒤에 부르면 사진이 종이 위에 얹혀 둘 다 죽는다.
     this.photoBg(fx, { delay: 600, dur: 1300, blur: 24, bright: .4, max: .8, from: 1.3, to: 1.1 });
-    const band = this.mk(fx, 'left:0;right:0;top:50%;height:6px;background:#fff;transform:translateY(-50%) scaleX(.15);');
-    this.a(band, [{ transform: 'translateY(-50%) scaleX(.15)', opacity: .6 }, { transform: 'translateY(-50%) scaleX(1)', opacity: 1 }], 70, 0, 'cubic-bezier(.2,.9,.3,1)');
-    this.a(band, [{ opacity: 1 }, { opacity: 0 }], 90, 70);
 
+    /* ① 움츠림 0–95 — 흰 띠가 한 점에서 가로로 찢어진다. 끝까지 가속. */
+    const band = this.mk(fx, 'left:0;right:0;top:50%;height:6px;background:#fff;transform:translateY(-50%) scaleX(.02);opacity:0;');
+    this.a(band, [{ transform: 'translateY(-50%) scaleX(.02)', opacity: .45 },
+                  { transform: 'translateY(-50%) scaleX(1)',   opacity: 1 }],
+           95, 0, 'cubic-bezier(.8,0,.95,.4)');
+
+    /* ② 돌진 95–150 — 흰 종이가 42ms 만에 덮는다 (원본 400ms) */
     const sheet = this.mk(fx, 'inset:0;background:#f7f4ec;opacity:0;');
-    this.a(sheet, [{ opacity: 0, offset: 0 }, { opacity: 1, offset: .02 }, { opacity: .95, offset: 1 }], 400, 65);
-    this.a(sheet, [{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)' }], 190, 430, 'cubic-bezier(.7,0,.2,1)');
+    this.a(sheet, [{ opacity: 0 }, { opacity: 1 }], 42, 95, 'cubic-bezier(.75,0,.9,.45)');
+    this.a(sheet, [{ opacity: 1 }, { opacity: .95 }], 260, 137);
+    this.a(sheet, [{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)' }],
+           175, 430, 'cubic-bezier(.75,0,.2,1)');
+
+    /* ③ 착탄 150–200 */
+    this.flash(fx, '#ffffff', 1, 30, IMP);                       // 원본 110ms → 30ms
+    this.a(band, [{ transform: 'translateY(-50%) scaleX(1) scaleY(1)',  opacity: 1 },
+                  { transform: 'translateY(-50%) scaleX(1) scaleY(11)', opacity: 0 }],
+           90, IMP, 'cubic-bezier(.1,.85,.25,1)');                // 띠가 세로로 터진다
 
     const lines = this.mk(fx, 'inset:-25%;opacity:0;background:repeating-conic-gradient(from 0deg at 50% 50%, #111 0deg .55deg, transparent .55deg 2.6deg);-webkit-mask-image:radial-gradient(circle at 50% 50%, transparent 24%, #000 62%);mask-image:radial-gradient(circle at 50% 50%, transparent 24%, #000 62%);');
-    this.a(lines, [{ opacity: 0, transform: 'scale(1.55)' }, { opacity: 1, transform: 'scale(1) rotate(2deg)', offset: .12 }, { opacity: .5, transform: 'scale(1.05) rotate(3deg)', offset: .5 }, { opacity: 0, transform: 'scale(1.3) rotate(5deg)' }], 1250, 70, 'cubic-bezier(.1,.9,.2,1)');
+    this.a(lines, [{ opacity: 0,  transform: 'scale(2.2)' },
+                   { opacity: 1,  transform: 'scale(1) rotate(2deg)',    offset: .05 },
+                   { opacity: .5, transform: 'scale(1.05) rotate(3deg)', offset: .45 },
+                   { opacity: 0,  transform: 'scale(1.3) rotate(5deg)' }],
+           1150, IMP, 'cubic-bezier(.06,.95,.2,1)');
+    this.shake(shake, 42, 300, IMP);
+    this.shake(shake, 9,  190, IMP + 320);
 
+    /* 불기둥 — 원본은 180~380 에 흩어져 있었다. 착탄 프레임에 모은다. */
     [-620, -330, 0, 350, 640].forEach((x, i) => {
       const w = 40 + (i % 2) * 30;
       const ch = this.mk(fx, 'left:50%;bottom:0;width:' + w + 'px;height:920px;background:linear-gradient(to top,' + FIRE + ',' + EMBER + ' 40%,rgba(255,180,60,0));clip-path:polygon(50% 0,100% 14%,100% 100%,0 100%,0 14%);opacity:0;');
-      this.a(ch, [{ transform: 'translateX(' + x + 'px) translateY(340px)', opacity: 0 }, { transform: 'translateX(' + x + 'px) translateY(-120px)', opacity: .95, offset: .34 }, { transform: 'translateX(' + x + 'px) translateY(-760px)', opacity: 0 }], 780, 180 + i * 50, 'cubic-bezier(.2,.85,.3,1)');
+      this.a(ch, [{ transform: 'translateX(' + x + 'px) translateY(340px)',  opacity: 0 },
+                  { transform: 'translateX(' + x + 'px) translateY(-120px)', opacity: .95, offset: .30 },
+                  { transform: 'translateX(' + x + 'px) translateY(-760px)', opacity: 0 }],
+             640, IMP + 20 + i * 26, 'cubic-bezier(.15,.9,.28,1)');
     });
+
     for (let i = 0; i < 20; i++) {
       const s = this.rnd(4, 9);
       const p = this.mk(fx, 'left:' + this.rnd(0, 1900).toFixed(0) + 'px;bottom:0;width:' + s.toFixed(1) + 'px;height:' + s.toFixed(1) + 'px;background:' + SPARK + ';');
-      this.a(p, [{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-' + this.rnd(500, 1000).toFixed(0) + 'px) translateX(' + this.rnd(-140, 140).toFixed(0) + 'px)', opacity: 0 }], this.rnd(700, 1300), this.rnd(120, 700), 'cubic-bezier(.3,0,.6,1)');
+      this.a(p, [{ transform: 'translateY(0)', opacity: 1 },
+                 { transform: 'translateY(-' + this.rnd(500, 1000).toFixed(0) + 'px) translateX(' + this.rnd(-140, 140).toFixed(0) + 'px)', opacity: 0 }],
+             this.rnd(650, 1200), IMP + this.rnd(0, 420), 'cubic-bezier(.3,0,.6,1)');
     }
 
+    /* 글자 — 늘어남 → 히트스톱 → 반동. 원본은 균일 scale 이라 안 눌렸다.
+       ⚠️ 아래 네 개는 만든 순서 = 시작 순서다. 나중에 만든 것이 앞의 fill 을 이긴다. */
     const t = this.txt(fx, '가즈아', "font-family:'Black Han Sans',sans-serif;font-size:214px;line-height:.9;color:#14110c;letter-spacing:-.02em;transform:skewX(-7deg);", 640);
-    this.a(t.w, [{ transform: 'translateY(90px) scale(1.35)', opacity: 0 }, { transform: 'translateY(-10px) scale(.97)', opacity: 1, offset: .1 }, { transform: 'translateY(0) scale(1)', opacity: 1, offset: .18 }, { transform: 'translateY(-14px) scale(1)', opacity: 1, offset: .72 }, { transform: 'translateY(-190px) scale(1.04)', opacity: 0 }], 1760, 85, 'cubic-bezier(.14,1,.3,1)');
+    // ② 돌진 (95–150) : 세로로 늘어난 채 아래에서 솟는다
+    this.a(t.w, [{ transform: 'translateY(150px) scale(.78,1.52)', opacity: 0 },
+                 { transform: 'translateY(14px)  scale(.93,1.24)', opacity: 1 }],
+           55, 95, 'cubic-bezier(.65,.02,.95,.5)');
+    // ③ 히트스톱 (150–200) : 납작하게 눌린 채 정지. opacity 도 잡아둬야 해서 hold() 대신 a()
+    this.a(t.w, [{ transform: 'translateY(0) scale(1.34,.70)', opacity: 1 },
+                 { transform: 'translateY(0) scale(1.34,.70)', opacity: 1 }], 50, IMP);
+    // ④ 반동 (200–540)
+    this.a(t.w, [{ transform: 'translateY(0) scale(1.34,.70)' },
+                 { transform: 'translateY(-6px) scale(.94,1.08)', offset: .42 },
+                 { transform: 'translateY(0) scale(1.03,.98)',    offset: .72 },
+                 { transform: 'translateY(0) scale(1,1)' }],
+           340, IMP + 50, 'cubic-bezier(.2,.85,.3,1)');
+    // ⑤ 떠 있다 퇴장
+    this.a(t.w, [{ transform: 'translateY(0) scale(1,1)',         opacity: 1 },
+                 { transform: 'translateY(-14px) scale(1,1)',     opacity: 1, offset: .62 },
+                 { transform: 'translateY(-190px) scale(1.04,1)', opacity: 0 }],
+           1220, IMP + 390, 'cubic-bezier(.4,0,.3,1)');
     this.a(t.d, [{ color: '#14110c' }, { color: '#fdfaf2' }], 1, 560);
-
-    this.shake(shake, 26, 320, 60);
-    this.shake(shake, 9, 200, 470);
   }
 
   /* ══ 13만 람바다 — 선셋 탱고 (2.2s) ══ */
@@ -572,6 +630,8 @@ class SigEngine {
     });
 
     const t = this.txt(fx, 'MARTINI', "font-family:'Cormorant Garamond',serif;font-weight:300;font-size:132px;line-height:1;color:#f2e6c8;", 480);
+    // 이 연출은 안쪽 글자만 움직인다. 래퍼는 글자가 시작하는 시각에 켜준다.
+    this.a(t.w, [{ opacity: 1 }, { opacity: 1 }], 1, 300);
     this.a(t.d, [{ letterSpacing: '.62em', opacity: 0 }, { letterSpacing: '.34em', opacity: 1, offset: .34 }, { letterSpacing: '.32em', opacity: 1, offset: .8 }, { letterSpacing: '.32em', opacity: 0 }], 2600, 300, 'cubic-bezier(.16,1,.3,1)');
     const t2 = this.txt(fx, '마티니', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:38px;color:rgba(242,230,200,.72);letter-spacing:.4em;", 660);
     this.a(t2.w, [{ opacity: 0 }, { opacity: 1, offset: .4 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 2200, 900);
@@ -710,7 +770,8 @@ class SigEngine {
     this.a(vb, [{ transform: 'translateX(-260px)' }, { transform: 'translateX(1920px)' }], 560, 900, 'cubic-bezier(.35,0,.4,1)');
 
     const mkT = (color, blend, z, off) => {
-      const w = this.mk(fx, 'left:0;right:0;top:700px;display:flex;justify-content:center;z-index:' + z + ';' + (blend ? 'mix-blend-mode:screen;' : ''));
+      // ⚠️ opacity:0 이 없으면 delay 120ms 동안 'EDM' 이 그대로 떠 있는다(txt() 와 같은 병).
+      const w = this.mk(fx, 'opacity:0;left:0;right:0;top:700px;display:flex;justify-content:center;z-index:' + z + ';' + (blend ? 'mix-blend-mode:screen;' : ''));
       const d = document.createElement('div'); d.textContent = 'EDM';
       d.style.cssText = "font-family:'Anton',sans-serif;font-size:196px;line-height:.9;letter-spacing:.06em;color:" + color + ';';
       w.appendChild(d);
@@ -817,36 +878,80 @@ class SigEngine {
   }
 
   
-  /* ══ 500,001 방패 강림 (3.2s) ══ */
+  /* ══ 500,001 50만 방패 — 방패 강림 (3.2s) ══
+     착탄 프레임 IMP=260. 원본은 820 이었고 낙하에만 620ms 를 썼다.
+     ① 움츠림 0–140 → ② 급강하 140–260 → ③ 착탄 260–320(정지) → ④ 반동 → ⑤ 이차운동 */
   fx_shield(fx, shake) {
     const BOLT = this.col(0, '#ff5fa2');
+    const IMP = 260;
     this.cardGlow(BOLT);
-    this.photoBg(fx, { delay: 820, dur: 2200, blur: 26, bright: .4, max: .82 });
-    const dim = this.mk(fx, 'inset:0;background:rgba(4,4,10,.6);opacity:0;');
-    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .16 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 3200);
+    this.photoBg(fx, { delay: 620, dur: 2400, blur: 26, bright: .4, max: .82 });
 
-    const sh = this.mk(fx, 'left:50%;top:470px;width:440px;height:540px;transform:translate(-50%,-50%) translateY(-1200px);clip-path:polygon(50% 0,100% 14%,100% 58%,50% 100%,0 58%,0 14%);background:linear-gradient(150deg,#eef3fa,#9fb0c6 38%,#5c6b80 62%,#c9d6e6);box-shadow:0 0 0 6px rgba(255,95,162,.5);');
-    this.a(sh, [{ transform: 'translate(-50%,-50%) translateY(-1200px) scale(1.3)' }, { transform: 'translate(-50%,-50%) translateY(0) scale(1)', offset: .2 }, { transform: 'translate(-50%,-50%) translateY(0) scale(1)', offset: .8 }, { transform: 'translate(-50%,-50%) translateY(-40px) scale(1.04)', opacity: 0 }], 3100, 200, 'cubic-bezier(.6,0,.2,1)');
+    /* ① 움츠림 0–140 — 화면이 급히 내려앉는다 (원본은 512ms 에 걸쳐 천천히) */
+    const dim = this.mk(fx, 'inset:0;background:rgba(4,4,10,.6);opacity:0;');
+    this.a(dim, [{ opacity: 0 }, { opacity: 1 }], 110, 0, 'cubic-bezier(.5,0,.9,.5)');
+    this.a(dim, [{ opacity: 1 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 3000, 110);
+
+    /* ② 급강하 140–260 — 120ms. 끝까지 가속(원본은 착지 전에 감속했다).
+       ⚠️ style 의 opacity:0 이 delay 동안 방패를 숨긴다. 첫 프레임에서 1 로 나타난다. */
+    const sh = this.mk(fx, 'left:50%;top:470px;width:440px;height:540px;transform:translate(-50%,-50%) translateY(-1200px);clip-path:polygon(50% 0,100% 14%,100% 58%,50% 100%,0 58%,0 14%);background:linear-gradient(150deg,#eef3fa,#9fb0c6 38%,#5c6b80 62%,#c9d6e6);box-shadow:0 0 0 6px rgba(255,95,162,.5);opacity:0;');
     const emb = document.createElement('div');
     emb.style.cssText = 'position:absolute;left:50%;top:44%;width:2px;height:250px;transform:translate(-50%,-50%);background:rgba(60,74,92,.55);';
     sh.appendChild(emb);
+    this.a(sh, [{ transform: 'translate(-50%,-50%) translateY(-1200px) scale(.82,1.45)', opacity: 1 },
+                { transform: 'translate(-50%,-50%) translateY(-40px) scale(.9,1.28)',    opacity: 1 }],
+           120, 140, 'cubic-bezier(.7,0,.95,.5)');
 
-    const IMP = 820;
-    this.flash(fx, '#ffffff', .9, 110, IMP);
-    [0, 90, 190].forEach((d, i) => {
+    /* ③ 착탄 260–320 — 히트스톱 60ms, 납작하게 눌린 채 정지 */
+    this.hold(sh, 'translate(-50%,-50%) translateY(0) scale(1.3,.72)', 60, IMP);
+
+    /* ④ 반동 320–700 */
+    this.a(sh, [{ transform: 'translate(-50%,-50%) translateY(0) scale(1.3,.72)' },
+                { transform: 'translate(-50%,-50%) translateY(-12px) scale(.94,1.08)', offset: .42 },
+                { transform: 'translate(-50%,-50%) translateY(0) scale(1.03,.97)',     offset: .72 },
+                { transform: 'translate(-50%,-50%) translateY(0) scale(1,1)' }],
+           380, IMP + 60, 'cubic-bezier(.2,.85,.3,1)');
+
+    /* ⑤ 서 있다 퇴장 */
+    this.a(sh, [{ transform: 'translate(-50%,-50%) translateY(0) scale(1,1)',        opacity: 1 },
+                { transform: 'translate(-50%,-50%) translateY(0) scale(1,1)',        opacity: 1, offset: .86 },
+                { transform: 'translate(-50%,-50%) translateY(-40px) scale(1.04,1)', opacity: 0 }],
+           2300, IMP + 440, 'cubic-bezier(.4,0,.3,1)');
+
+    this.flash(fx, '#ffffff', 1, 30, IMP);                       // 원본 110ms → 30ms
+
+    /* 충격파 링 — 같은 재료, 착탄에 모은다 (원본 간격 0/90/190 → 0/70/150) */
+    [0, 70, 150].forEach((d, i) => {
       const ring = this.mk(fx, 'left:50%;top:470px;width:360px;height:360px;border-radius:50%;border:' + (14 - i * 4) + 'px solid rgba(255,95,162,' + (.85 - i * .2) + ');transform:translate(-50%,-50%) scale(.15);');
-      this.a(ring, [{ transform: 'translate(-50%,-50%) scale(.15)', opacity: 1 }, { transform: 'translate(-50%,-50%) scale(' + (5.2 + i) + ')', opacity: 0 }], 900 + i * 120, IMP + d, 'cubic-bezier(.15,.9,.3,1)');
+      this.a(ring, [{ transform: 'translate(-50%,-50%) scale(.15)', opacity: 1 },
+                    { transform: 'translate(-50%,-50%) scale(' + (5.2 + i) + ')', opacity: 0 }],
+             780 + i * 110, IMP + d, 'cubic-bezier(.12,.92,.28,1)');
     });
+
+    /* 번개 7개 — 원본은 45ms 간격으로 흩어졌다. 22ms 로 좁혀 한 방으로 만든다. */
     for (let i = 0; i < 7; i++) {
       const rot = -100 + i * 33 + this.rnd(-8, 8);
       const b = this.mk(fx, 'left:50%;top:470px;width:26px;height:' + this.rnd(420, 780).toFixed(0) + 'px;background:linear-gradient(to bottom,' + BOLT + ',rgba(255,95,162,0));transform-origin:50% 0%;transform:rotate(' + rot.toFixed(0) + 'deg) scaleY(0);clip-path:polygon(50% 0,100% 22%,32% 42%,100% 62%,20% 100%,64% 52%,0 34%);mix-blend-mode:screen;');
-      this.a(b, [{ transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(0)', opacity: 1 }, { transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(1)', opacity: 1, offset: .3 }, { transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(1)', opacity: 0 }], 620, IMP + 40 + i * 45, 'cubic-bezier(.1,.9,.2,1)');
+      this.a(b, [{ transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(0)', opacity: 1 },
+                 { transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(1)', opacity: 1, offset: .28 },
+                 { transform: 'rotate(' + rot.toFixed(0) + 'deg) scaleY(1)', opacity: 0 }],
+             500, IMP + 20 + i * 22, 'cubic-bezier(.08,.92,.2,1)');
     }
-    const t = this.txt(fx, '방패', "font-family:'Black Han Sans',sans-serif;font-size:104px;color:#ffd9e8;letter-spacing:.3em;", 830);
-    this.a(t.w, [{ transform: 'translateY(30px)', opacity: 0 }, { transform: 'translateY(0)', opacity: 1, offset: .16 }, { transform: 'translateY(0)', opacity: 1, offset: .8 }, { transform: 'translateY(-20px)', opacity: 0 }], 2100, IMP + 220, 'cubic-bezier(.16,1,.3,1)');
 
-    this.shake(shake, 40, 420, IMP);
-    this.shake(shake, 12, 220, IMP + 420);
+    this.shake(shake, 58, 420, IMP);
+    this.shake(shake, 14, 220, IMP + 430);
+
+    /* 글자는 본체가 멈춘 뒤에 '찍힌다' (이차운동) */
+    const t = this.txt(fx, '방패', "font-family:'Black Han Sans',sans-serif;font-size:104px;color:#ffd9e8;letter-spacing:.3em;", 830);
+    this.a(t.w, [{ transform: 'translateY(26px) scale(.62,1.25)', opacity: 0 },
+                 { transform: 'translateY(-6px) scale(1.12,.92)', opacity: 1, offset: .5 },
+                 { transform: 'translateY(0) scale(.98,1.02)',    opacity: 1, offset: .78 },
+                 { transform: 'translateY(0) scale(1,1)',         opacity: 1 }],
+           330, IMP + 200, 'cubic-bezier(.2,.9,.3,1)');
+    this.a(t.w, [{ transform: 'translateY(0) scale(1,1)',     opacity: 1 },
+                 { transform: 'translateY(0) scale(1,1)',     opacity: 1, offset: .82 },
+                 { transform: 'translateY(-20px) scale(1,1)', opacity: 0 }],
+           1900, IMP + 530, 'cubic-bezier(.4,0,.3,1)');
   }
 
   /* ══ 600,001 74번 알림 — 참격 (2.6s) ══ */
@@ -1022,7 +1127,8 @@ class SigEngine {
     const w = this.mk(fx, 'left:0;right:0;top:440px;display:flex;justify-content:center;');
     const tx = document.createElement('div');
     tx.textContent = 'VIP';
-    tx.style.cssText = "font-family:'Cormorant Garamond',serif;font-weight:300;font-size:230px;line-height:1;background-image:linear-gradient(102deg,#7d6218 0%,#c9a227 28%,#f7ecc4 47%,#ffffff 50%,#f7ecc4 53%,#c9a227 72%,#7d6218 100%);background-size:320% 100%;background-position:-40% 0;-webkit-background-clip:text;background-clip:text;color:transparent;";
+    // ⚠️ opacity:0 이 없으면 delay 280ms 동안 'VIP' 가 그대로 떠 있는다(txt() 와 같은 병).
+    tx.style.cssText = "opacity:0;font-family:'Cormorant Garamond',serif;font-weight:300;font-size:230px;line-height:1;background-image:linear-gradient(102deg,#7d6218 0%,#c9a227 28%,#f7ecc4 47%,#ffffff 50%,#f7ecc4 53%,#c9a227 72%,#7d6218 100%);background-size:320% 100%;background-position:-40% 0;-webkit-background-clip:text;background-clip:text;color:transparent;";
     w.appendChild(tx);
     this.a(tx, [{ letterSpacing: '.62em', opacity: 0 }, { letterSpacing: '.34em', opacity: 1, offset: .34 }, { letterSpacing: '.3em', opacity: 1, offset: .82 }, { letterSpacing: '.3em', opacity: 0 }], 4300, 280, 'cubic-bezier(.16,1,.3,1)');
     this.a(tx, [{ backgroundPosition: '-60% 0' }, { backgroundPosition: '170% 0' }], 2100, 900, 'cubic-bezier(.5,0,.4,1)');
@@ -1069,6 +1175,8 @@ class SigEngine {
       this.a(f, [{ transform: 'translateY(0) rotate(0)', opacity: 0 }, { opacity: .85, offset: .12 }, { transform: 'translateY(1200px) translateX(' + this.rnd(-260, 260).toFixed(0) + 'px) rotate(' + this.rnd(-300, 300).toFixed(0) + 'deg)', opacity: 0 }], this.rnd(3200, 4600), this.rnd(300, 2000), 'cubic-bezier(.4,0,.6,1)');
     }
     const t = this.txt(fx, 'ANGEL VIP', "font-family:'Cormorant Garamond',serif;font-weight:300;font-size:132px;color:#fff8e4;", 820);
+    // 이 연출도 안쪽 글자만 움직인다. 래퍼는 글자가 시작하는 시각에 켜준다.
+    this.a(t.w, [{ opacity: 1 }, { opacity: 1 }], 1, 1400);
     this.a(t.d, [{ letterSpacing: '.6em', opacity: 0 }, { letterSpacing: '.32em', opacity: 1, offset: .32 }, { letterSpacing: '.3em', opacity: 1, offset: .82 }, { letterSpacing: '.3em', opacity: 0 }], 4600, 1400, 'cubic-bezier(.16,1,.3,1)');
   }
 

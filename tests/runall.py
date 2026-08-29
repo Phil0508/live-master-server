@@ -177,6 +177,7 @@ run('점수 정확성', [PY, 'score_test.py'], HERE, kind='pt')
 run('모니터 모드(폰 미리보기)', [PY, 'monitor_test.py'], HERE)
 run('지난 방송 후원내역', [PY, 'archive_test.py'], HERE, kind='pt')
 run('안내 전광판', [PY, 'notice_test.py'], HERE, kind='pt')
+run('시그니처 연출', ['node', 'sigfx_test.js'], HERE)
 run('나눠주기 계산', [PY, 'split_test.py'], HERE)
 run('AI 모델 설정', [PY, 'nim_test.py'], HERE)
 
