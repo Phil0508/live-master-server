@@ -142,7 +142,7 @@ class SigEngine {
   ITEMS = [
     { key: 'gazua',  tier: '10만',    name: '가즈아',        note: '화염 분출',   dur: 1.8, cardAt: 620,  detail: '흰 컷이 때리고 빠지며 불기둥이 치솟습니다' },
     { key: 'lambada',tier: '13만',    name: '람바다',        note: '선셋 탱고',   dur: 2.2, cardAt: 700,  detail: '레트로 선셋이 떠오르고 야자 실루엣이 펼쳐집니다' },
-    { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '간판 점등',   dur: 2.6, cardAt: 1050, detail: '화면이 툭 꺼졌다가 네온관이 지지직 살아납니다' },
+    { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '간판 점등',   dur: 2.6, cardAt: 1050, detail: '암전 뒤 호텔 간판이 지지직거리다 탁 켜지고 별 다섯이 박힙니다' },
     { key: 'crazy',  tier: '16만',    name: '크레이지 러브', note: '하트 초신성', dur: 2.4, cardAt: 1250, detail: '한 점으로 빨려들었다 하트 충격파가 터집니다' },
     { key: 'bounce', tier: '18만',    name: '바운스',        note: '네온 사인 조립', dur: 2.4, cardAt: 1500, detail: '네온관에 불이 차오르며 사인이 조립됩니다' },
     { key: 'martini',tier: '20만',    name: '마티니',        note: '마티니 타임', dur: 2.8, cardAt: 900,  detail: '화면이 흑백으로 내려앉고 금빛이 한 번 스칩니다' },
@@ -500,64 +500,123 @@ class SigEngine {
   }
 
   /* ══ 15만 부티호텔 — 간판 점등 (2.6s) ══
-     사진은 얼음이 아니라 '파란 전기 네온 + 밤의 도시' 다. 그래서 얼리지 않고 켠다.
-     ⚠️ 이 연출의 핵심은 첫 0.3초 암전이다. 화려한 걸 더 얹지 말고 한 번 꺼라. */
+     밤 골목에서 호텔 네온 간판이 지지직거리다 '탁' 켜지는 그림.
+     착탄 프레임 IMP=620 — 간판이 완전히 켜지는 그 순간에 전부 모은다.
+
+     ⚠️ 처음부터 다시 짠 연출이다. 예전 판은 방송에서 "전혀 안 보인다" 였다.
+        좌표가 잘려 45개 중 35개가 화면 밖에 그려진 탓도 있었지만, 그걸 고치고
+        봐도 약했다 — 간판이 테두리뿐이라 속이 비었고, 창문이 34px 라 잔글씨
+        같았고, 암전이 길어 '어두워졌다 밝아진다' 로만 보였다.
+
+     ⚠️ 좌표: 가로는 ×0.5625, 크기는 ×0.782, 세로는 안전지대로 접힌다.
+        배율이 다르므로 화면에서 원하는 자리를 먼저 정하고 거꾸로 계산했다. */
   fx_hotel(fx, shake) {
-    const NEON = this.col(0, '#4fc3ff'), WARM = this.col(2, '#ffd48a');
+    const NEON = this.col(0, '#4fc3ff'), WARM = this.col(2, '#ffd48a'), GOLD = this.col(1, '#ffc861');
+    const IMP = 620;
     this.cardGlow(NEON);
+    // 사진 바탕은 점등 뒤에 들어온다 — 암전이 먼저여야 점등이 세다.
+    this.photoBg(fx, { delay: 780, dur: 1700, blur: 30, bright: .34, max: .7 });
 
-    // 사진 바탕은 점등 '뒤' 에 들어온다 — 암전이 먼저여야 세다.
-    this.photoBg(fx, { delay: 700, dur: 1900, blur: 30, bright: .38, max: .8 });
-
-    // ① 암전. 완전히 꺼지고 0.3초 정적.
+    /* ① 암전 — 툭 꺼진다. 짧게. (예전엔 0.3초 정적이라 늘어졌다) */
     const black = this.mk(fx, 'inset:0;background:#04060a;opacity:0;');
-    this.a(black, [
-      { opacity: 0, offset: 0 }, { opacity: 1, offset: .02 },
-      { opacity: 1, offset: .13 },                    // 정적 구간
-      { opacity: .62, offset: .3 }, { opacity: .55, offset: .86 }, { opacity: 0, offset: 1 },
-    ], 2500, 0);
+    this.a(black, [{ opacity: 0 }, { opacity: 1, offset: .05 }, { opacity: 1, offset: .18 },
+                   { opacity: .74, offset: .28 }, { opacity: .58, offset: .84 }, { opacity: 0 }],
+           2500, 0);
 
-    // ② 뒤 빌딩 창문 — 아래에서 위로 한 줄씩 불이 들어온다
-    [[150, 1], [1560, -1]].forEach((col, ci) => {
-      for (let row = 0; row < 7; row++) {
-        for (let k = 0; k < 3; k++) {
-          const wx = col[0] + k * 72 + (ci ? 0 : 0);
-          const wy = 880 - row * 96;
-          const w = this.mk(fx, 'left:' + wx + 'px;top:' + wy + 'px;width:44px;height:58px;background:' + WARM + ';opacity:0;');
-          this.a(w, [{ opacity: 0 }, { opacity: .55, offset: .1 }, { opacity: .38, offset: .8 }, { opacity: 0 }],
-            1700, 380 + row * 78 + this.rnd(0, 60) + ci * 40, 'steps(1,end)');
-        }
-      }
+    /* ② 건물 창문 — 좌우 기둥에서 아래에서 위로 한 줄씩. 크게, 또렷하게.
+       (예전엔 42개를 34px 로 흩뿌려서 아무것도 안 읽혔다 → 20개를 60px 로) */
+    [[36, 200], [1600, 1764]].forEach((colx, ci) => {
+      [940, 780, 620, 460, 300].forEach((wy, row) => {
+        colx.forEach((wx, k) => {
+          const w = this.mk(fx, 'left:' + wx + 'px;top:' + wy + 'px;width:77px;height:97px;background:' + WARM +
+            ';box-shadow:0 0 34px ' + WARM + ';opacity:0;');
+          this.a(w, [{ opacity: 0 }, { opacity: .9, offset: .05 }, { opacity: .5, offset: .72 }, { opacity: 0 }],
+                 1900, 170 + row * 64 + k * 26 + ci * 34, 'steps(1,end)');
+        });
+      });
     });
 
-    // ③ 네온관 — 지지직, 지직, 탁
-    const tube = this.mk(fx, 'left:960px;top:470px;width:900px;height:260px;transform:translate(-50%,-50%);' +
-      'border:7px solid ' + NEON + ';box-shadow:0 0 42px ' + NEON + ', inset 0 0 34px ' + NEON + ';opacity:0;');
-    const label = document.createElement('div');
-    label.textContent = 'HOTEL';
-    label.style.cssText = this.mapCss("position:absolute;inset:0;display:flex;align-items:center;justify-content:center;" +
-      "font-family:'Anton',sans-serif;font-size:150px;letter-spacing:16px;color:#eaf7ff;");
-    tube.appendChild(label);
-    // 점등 실패 → 성공 순서. steps(1,end) 로 딱딱 끊어야 형광등처럼 보인다.
-    this.a(tube, [
-      { opacity: 0, offset: 0 },   { opacity: .9, offset: .12 }, { opacity: 0, offset: .14 },
-      { opacity: 1, offset: .19 }, { opacity: 0, offset: .21 },  { opacity: .5, offset: .25 },
-      { opacity: 1, offset: .3 },  { opacity: 1, offset: .86 },  { opacity: 0, offset: 1 },
-    ], 2200, 320, 'steps(1,end)');
-    // 안정된 형광 웅웅거림
-    try {
-      tube.animate([{ filter: 'brightness(1)' }, { filter: 'brightness(1.16)' }, { filter: 'brightness(.97)' }],
-        { duration: 260 / this.S, delay: 1000 / this.S, iterations: 5, easing: 'ease-in-out', composite: 'add' });
-    } catch (e) {}
+    /* ③ 간판 몸통 — 꺼진 채로 아래에서 올라와 자리를 잡는다.
+       속이 빈 테두리가 아니라 '판' 이다. 안에 꺼진 네온관(흐린 글자)이 비쳐 있다. */
+    const sign = this.mk(fx, 'left:50%;top:428px;width:895px;height:300px;' +
+      'transform:translate(-50%,-50%) translateY(80px) scale(.96);opacity:0;' +
+      'background:linear-gradient(160deg,rgba(9,14,24,.95),rgba(5,8,15,.98));' +
+      'border:9px solid rgba(86,116,146,.5);border-radius:20px;');
+    const off = document.createElement('div');
+    off.textContent = 'HOTEL';
+    off.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+      this.mapCss("font-family:'Anton',sans-serif;font-size:153px;letter-spacing:22px;color:rgba(124,154,180,.32);", true);
+    sign.appendChild(off);
+    this.a(sign, [{ transform: 'translate(-50%,-50%) translateY(80px) scale(.96)', opacity: 0 },
+                  { transform: 'translate(-50%,-50%) translateY(0) scale(1)', opacity: 1 }],
+           300, 260, 'cubic-bezier(.16,1,.3,1)');
 
-    const cap = this.txt(fx, '부티호텔', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:42px;letter-spacing:18px;color:rgba(214,236,255,.8);", 700);
-    this.a(cap.w, [{ opacity: 0 }, { opacity: 1, offset: .3 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 1600, 900);
+    /* ④ 점등된 네온 — 지지직 두 번 실패하고, 착탄에서 완전히 붙는다.
+       ⚠️ 만든 순서 = 시작 순서다. 나중에 만든 것이 앞의 fill 을 이긴다. */
+    const neon = this.mk(fx, 'left:50%;top:428px;width:895px;height:300px;transform:translate(-50%,-50%);' +
+      'border:9px solid ' + NEON + ';border-radius:20px;opacity:0;' +
+      'box-shadow:0 0 64px ' + NEON + ', inset 0 0 52px ' + NEON + ';');
+    const lit = document.createElement('div');
+    lit.textContent = 'HOTEL';
+    lit.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;' +
+      this.mapCss("font-family:'Anton',sans-serif;font-size:153px;letter-spacing:22px;color:#f4fcff;", true) +
+      'text-shadow:0 0 16px ' + NEON + ',0 0 44px ' + NEON + ',0 0 92px ' + NEON + ';';
+    neon.appendChild(lit);
+    this.a(neon, [{ opacity: .85 }, { opacity: 0 }], 70, IMP - 250, 'steps(1,end)');   // 지직
+    this.a(neon, [{ opacity: 1 },   { opacity: 0 }], 50, IMP - 120, 'steps(1,end)');   // 지직
+    this.a(neon, [{ opacity: 1 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 1560, IMP);   // 탁
 
-    this.shake(shake, 7, 160, 320);   // 점등 순간의 툭
+    /* ⑤ 착탄 620 — 플래시 · 히트스톱 · 흔들림 */
+    this.flash(fx, '#eaf7ff', .85, 30, IMP);
+    this.hold(sign, 'translate(-50%,-50%) scale(1.07,.91)', 50, IMP);
+    this.hold(neon, 'translate(-50%,-50%) scale(1.07,.91)', 50, IMP);
+    [sign, neon].forEach(el => {
+      this.a(el, [{ transform: 'translate(-50%,-50%) scale(1.07,.91)' },
+                  { transform: 'translate(-50%,-50%) scale(.98,1.04)', offset: .45 },
+                  { transform: 'translate(-50%,-50%) scale(1,1)' }],
+             320, IMP + 50, 'cubic-bezier(.2,.85,.3,1)');
+    });
+    this.shake(shake, 30, 300, IMP);
+    this.shake(shake, 8, 180, IMP + 320);
+
+    /* 간판에서 빛이 아래로 쏟아진다 */
+    const spill = this.mk(fx, 'left:50%;top:579px;width:1150px;height:501px;transform:translate(-50%,0);' +
+      'background:linear-gradient(to bottom,' + NEON + ',rgba(79,195,255,0) 78%);opacity:0;' +
+      'clip-path:polygon(28% 0,72% 0,100% 100%,0 100%);mix-blend-mode:screen;');
+    this.a(spill, [{ opacity: 0 }, { opacity: .5, offset: .1 }, { opacity: .2, offset: .6 }, { opacity: 0 }],
+           1500, IMP, 'cubic-bezier(.2,.9,.3,1)');
+
+    /* 별 다섯 — 호텔 등급. 착탄 뒤에 하나씩 톡톡 (이차운동) */
+    [676, 800, 924, 1049, 1173].forEach((sx, i) => {
+      const star = this.mk(fx, 'left:' + sx + 'px;top:172px;width:51px;height:51px;background:' + GOLD +
+        ';clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);' +
+        'box-shadow:0 0 30px ' + GOLD + ';opacity:0;transform:scale(0) rotate(-40deg);');
+      this.a(star, [{ transform: 'scale(0) rotate(-40deg)', opacity: 0 },
+                    { transform: 'scale(1.35) rotate(7deg)', opacity: 1, offset: .5 },
+                    { transform: 'scale(1) rotate(0deg)', opacity: 1 }],
+             300, IMP + 60 + i * 80, 'cubic-bezier(.2,1.5,.4,1)');
+      this.a(star, [{ opacity: 1 }, { opacity: 1, offset: .78 }, { opacity: 0 }],
+             1180, IMP + 460 + i * 80);
+    });
+
+    /* 간판이 물러난다 */
+    [sign, neon].forEach(el => {
+      this.a(el, [{ transform: 'translate(-50%,-50%) scale(1,1)', opacity: 1 },
+                  { transform: 'translate(-50%,-50%) scale(1,1)', opacity: 1, offset: .84 },
+                  { transform: 'translate(-50%,-50%) translateY(-40px) scale(1.02)', opacity: 0 }],
+             1540, IMP + 400, 'cubic-bezier(.4,0,.3,1)');
+    });
+
+    const cap = this.txt(fx, '부티호텔', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:76px;letter-spacing:20px;color:rgba(222,242,255,.92);", 671);
+    this.a(cap.w, [{ transform: 'translateY(24px)', opacity: 0 },
+                   { transform: 'translateY(0)', opacity: 1, offset: .32 },
+                   { transform: 'translateY(0)', opacity: 1, offset: .82 },
+                   { transform: 'translateY(-16px)', opacity: 0 }],
+           1480, IMP + 240, 'cubic-bezier(.16,1,.3,1)');
+
     this.cardIn(1050, { from: 'scale(.9)', dur: 480 });
   }
 
-  
   /* ══ 16만 크레이지 러브 — 하트 초신성 (2.4s) ══
      사진은 분홍 글자 + 무지개 성운. 빨려들었다 '하트 모양' 으로 터진다. */
   fx_crazy(fx, shake) {
