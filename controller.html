@@ -3632,7 +3632,11 @@
                 gd.roulette.select_index = -1;
                 gd.roulette.select_name = '';
             } else if (cmd === 'stop') {
-                gd.roulette.is_spinning = false;
+                // ⚠️ 여기서 is_spinning 을 끄면 안 된다. [정지]는 '멈춰라' 는 신호일 뿐,
+                //    원판은 몇 초 더 돌다 선다. 실제로 멈추면 오버레이가 당첨자를 보고하는데
+                //    그때 이미 꺼져 있으면 서버가 409 로 거부하고(오버레이는 OBS 라 세션이 없다),
+                //    그러면 roulette_enabled 가 안 꺼져서 룰렛이 영영 안 닫혔다.
+                //    실제로 멈춘 것을 아는 곳은 당첨 보고를 받는 서버뿐이라 거기서 내린다.
             }
             pushAPI();
         }

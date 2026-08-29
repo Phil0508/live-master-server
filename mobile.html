@@ -657,7 +657,9 @@ async function roulette(cmd) {
     r.command = cmd; r.command_time = Date.now() + serverOffset;
     if (cmd === 'spin') { r.is_spinning = true; r.winner_name = null; }
     else if (cmd === 'reset') { r.is_spinning = false; r.winner_name = null; r.select_index = -1; r.select_name = ''; }
-    else if (cmd === 'stop') { r.is_spinning = false; }
+    // ⚠️ 조종실과 같은 이유로 여기서도 끄지 않는다 — 원판은 몇 초 더 돌다 선다.
+    //    끄면 당첨 보고가 409 로 거부돼 룰렛이 안 닫힌다.
+    else if (cmd === 'stop') { /* is_spinning 은 서버가 당첨 보고를 받을 때 내린다 */ }
     try { await patch({ roulette: r }); toast('룰렛: ' + cmd); }
     catch (e) { toast('실패: ' + e.message, false); }
 }
