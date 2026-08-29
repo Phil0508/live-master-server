@@ -144,7 +144,7 @@ class SigEngine {
     { key: 'lambada',tier: '13만',    name: '람바다',        note: '선셋 탱고',   dur: 2.2, cardAt: 700,  detail: '레트로 선셋이 떠오르고 야자 실루엣이 펼쳐집니다' },
     { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '간판 점등',   dur: 2.6, cardAt: 1050, detail: '암전 뒤 호텔 간판이 지지직거리다 탁 켜지고 별 다섯이 박힙니다' },
     { key: 'crazy',  tier: '16만',    name: '크레이지 러브', note: '하트 초신성', dur: 2.4, cardAt: 1250, detail: '한 점으로 빨려들었다 하트 충격파가 터집니다' },
-    { key: 'bounce', tier: '18만',    name: '바운스',        note: '네온 사인 조립', dur: 2.4, cardAt: 1500, detail: '네온관에 불이 차오르며 사인이 조립됩니다' },
+    { key: 'bounce', tier: '18만',    name: '바운스',        note: '네온 낙하',   dur: 2.4, cardAt: 1500, detail: '네온 글자가 하나씩 떨어져 튕기고 마지막에 쿵 하고 붙습니다' },
     { key: 'martini',tier: '20만',    name: '마티니',        note: '마티니 타임', dur: 2.8, cardAt: 900,  detail: '화면이 흑백으로 내려앉고 금빛이 한 번 스칩니다' },
     { key: 'pocha',  tier: '200,001', name: '뽀카치포',      note: '스트립 질주', dur: 2.4, cardAt: 1900, detail: '네온 간판이 빛줄기로 흐르고 급브레이크로 멈춥니다' },
     { key: 'pucha',  tier: '30만',    name: '푸차',          note: '명패 각인',   dur: 3.0, cardAt: 1950, detail: '파란 대리석에 글자가 파이고 금물이 흘러 찹니다' },
@@ -660,56 +660,123 @@ class SigEngine {
   }
 
   
-  /* ══ 18만 바운스 — 네온 사인 조립 (2.4s) ══
-     사진은 '빨간 네온 간판' 이다. 그래서 튀기지 않고 조립한다.
-     ⚠️ club(80만)·edm(35만) 과 겹치지 않게: 간판은 만들고, 크리스탈은 부수고, 무대는 터뜨린다. */
+  /* ══ 18만 바운스 — 네온 낙하 (2.4s) ══
+     네온 글자 여섯 자가 위에서 차례로 떨어져 바닥에 부딪히고 튕긴다.
+     마지막 글자가 닿는 순간이 착탄이다. IMP=560.
+
+     ⚠️ 처음부터 다시 짠 연출이다. 예전 판은 세 가지가 문제였다.
+        · 부티호텔과 똑같이 생겼다 — 둘 다 화면 정중앙 700×235 네온 사각형
+        · 착탄이 없다 (흔들림 6, 마무리 깜빡임 opacity .2) — 2.4초 내내
+          천천히 차오르기만 하고 터지는 데가 없었다
+        · 점 12개가 뜻 없이 흩뿌려져 지저분하기만 했다
+        부티호텔은 '가만히 서 있는 간판', 이쪽은 '떨어져 튀는 글자' 로 갈랐다. */
   fx_bounce(fx, shake) {
     const RED = this.col(0, '#ff2d4d'), WARM = this.col(2, '#ffcf9a');
+    const IMP = 560;
     this.cardGlow(RED);
-    this.photoBg(fx, { delay: 180, dur: 2100, blur: 28, bright: .34, max: .78 });
+    this.photoBg(fx, { delay: 180, dur: 2000, blur: 28, bright: .34, max: .76 });
 
     const dim = this.mk(fx, 'inset:0;background:rgba(6,2,6,.62);opacity:0;');
-    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 2400);
+    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .07 }, { opacity: 1, offset: .84 }, { opacity: 0 }], 2300);
 
-    // ① 네온관 테두리에 불이 차오른다 (왼→오)
-    const frame = this.mk(fx, 'left:960px;top:470px;width:900px;height:300px;transform:translate(-50%,-50%);' +
-      'border:8px solid ' + RED + ';border-radius:22px;box-shadow:0 0 40px ' + RED + ', inset 0 0 26px ' + RED + ';');
-    this.a(frame, [{ clipPath: 'inset(0 100% 0 0)', opacity: 1 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: .34 }, { clipPath: 'inset(0 0 0 0)', opacity: 1, offset: .86 }, { clipPath: 'inset(0 0 0 0)', opacity: 0 }], 2300, 60, 'cubic-bezier(.4,0,.4,1)');
+    /* ① 바닥 네온 줄 — 글자가 여기에 부딪힌다. 가운데에서 좌우로 그어진다 */
+    const floor = this.mk(fx, 'left:213px;top:645px;width:1074px;height:15px;background:' + RED +
+      ';border-radius:15px;box-shadow:0 0 34px ' + RED + ', 0 0 70px ' + RED + ';transform:scaleX(0);');
+    this.a(floor, [{ transform: 'scaleX(0)', opacity: 1 }, { transform: 'scaleX(1)', opacity: 1 }],
+           260, 120, 'cubic-bezier(.16,1,.3,1)');
 
-    // ② 글자를 획순처럼 한 자씩 점등
-    const row = this.mk(fx, 'left:0;right:0;top:400px;display:flex;justify-content:center;gap:6px;');
+    /* ② 글자 여섯 자가 왼쪽부터 하나씩 낙하 → 닿는 자리에서 납작해졌다 튄다.
+       ⚠️ 글자는 row 의 자식이라 좌표가 '부모 기준' 이다 — 옮기는 배율이 다르다. */
+    const row = this.mk(fx, 'left:0;right:0;top:364px;display:flex;justify-content:center;gap:14px;');
     'BOUNCE'.split('').forEach((ch, i) => {
       const d = document.createElement('div');
       d.textContent = ch;
-      d.style.cssText = this.mapCss("font-family:'Anton',sans-serif;font-size:168px;line-height:1;color:#fff3f4;") +
-        ';text-shadow:0 0 26px ' + RED + ',0 0 60px ' + RED + ';opacity:0;';
+      d.style.cssText = this.mapCss("font-family:'Anton',sans-serif;font-size:215px;line-height:1;color:#fff3f4;", true) +
+        'text-shadow:0 0 22px ' + RED + ',0 0 54px ' + RED + ',0 0 110px ' + RED + ';opacity:0;';
       row.appendChild(d);
-      // 지지직 두 번 하고 붙는다
-      this.a(d, [{ opacity: 0, offset: 0 }, { opacity: 1, offset: .04 }, { opacity: .1, offset: .07 }, { opacity: 1, offset: .12 }, { opacity: 1, offset: .86 }, { opacity: 0, offset: 1 }],
-        2200, 200 + i * 120, 'steps(1,end)');
+
+      const land = IMP - 150 + i * 30;                    // 이 글자가 닿는 시각
+      // 낙하 — 끝까지 가속해야 부딪히는 것으로 보인다
+      this.a(d, [{ transform: 'translateY(-620px) scale(.86,1.3)', opacity: 0 },
+                 { transform: 'translateY(-620px) scale(.86,1.3)', opacity: 1, offset: .06 },
+                 { transform: 'translateY(0) scale(.92,1.16)', opacity: 1 }],
+             300, land - 300, 'cubic-bezier(.7,0,.95,.45)');
+      // 착지 — 납작하게 눌린 채 멈춘다
+      this.a(d, [{ transform: 'translateY(0) scale(1.2,.76)', opacity: 1 },
+                 { transform: 'translateY(0) scale(1.2,.76)', opacity: 1 }], 50, land);
+      // 튄다
+      this.a(d, [{ transform: 'translateY(0) scale(1.2,.76)' },
+                 { transform: 'translateY(-58px) scale(.94,1.1)', offset: .42 },
+                 { transform: 'translateY(0) scale(1.04,.97)', offset: .74 },
+                 { transform: 'translateY(0) scale(1,1)' }],
+             340, land + 50, 'cubic-bezier(.2,.85,.3,1)');
+      // 여운 — 한 번 더 작게
+      this.a(d, [{ transform: 'translateY(0) scale(1,1)' },
+                 { transform: 'translateY(-16px) scale(.99,1.02)', offset: .45 },
+                 { transform: 'translateY(0) scale(1,1)' }],
+             300, land + 420, 'cubic-bezier(.3,.7,.4,1)');
+      // 퇴장
+      this.a(d, [{ transform: 'translateY(0) scale(1,1)', opacity: 1 },
+                 { transform: 'translateY(0) scale(1,1)', opacity: 1, offset: .82 },
+                 { transform: 'translateY(-40px) scale(1.02,1)', opacity: 0 }],
+             900, IMP + 900, 'cubic-bezier(.4,0,.3,1)');
     });
 
-    // ③ 별·음표 대신 네온 점·마름모가 톡톡
-    for (let i = 0; i < 12; i++) {
-      const sz = this.rnd(16, 34), dia = i % 2 === 0;
-      const p = this.mk(fx, 'left:' + this.rnd(330, 1590).toFixed(0) + 'px;top:' + this.rnd(200, 880).toFixed(0) + 'px;' +
+    /* ③ 착탄 560 — 마지막 글자가 쿵 */
+    this.flash(fx, '#ffe9ec', .8, 30, IMP);
+    this.shake(shake, 34, 300, IMP);
+    this.shake(shake, 9, 190, IMP + 320);
+    // 바닥 줄이 한 번 굵어졌다 돌아온다
+    this.a(floor, [{ transform: 'scaleX(1) scaleY(2.6)' },
+                   { transform: 'scaleX(1) scaleY(1)' }], 260, IMP, 'cubic-bezier(.1,.9,.25,1)');
+    // 윗 네온 줄이 탁 붙는다 (아래와 짝을 이뤄 사인이 완성된다)
+    const top = this.mk(fx, 'left:213px;top:287px;width:1074px;height:15px;background:' + RED +
+      ';border-radius:15px;box-shadow:0 0 34px ' + RED + ', 0 0 70px ' + RED + ';opacity:0;transform:scaleX(.2);');
+    this.a(top, [{ transform: 'scaleX(.2)', opacity: 0 }, { transform: 'scaleX(1)', opacity: 1 }],
+           220, IMP, 'cubic-bezier(.1,.9,.25,1)');
+
+    /* 바닥에서 충격 링 두 겹 */
+    [0, 90].forEach((d2, i) => {
+      const ring = this.mk(fx, 'left:960px;top:645px;width:420px;height:120px;border-radius:50%;' +
+        // ⚠️ opacity:0 으로 시작해야 한다 — 애니메이션이 560ms 부터라,
+        //    그 앞 구간에는 fill 이 안 걸려 링이 처음부터 떠 있게 된다.
+        'border:' + (10 - i * 3) + 'px solid ' + RED + ';transform:translate(-50%,-50%) scale(.2);opacity:0;');
+      this.a(ring, [{ transform: 'translate(-50%,-50%) scale(.2)', opacity: .9 },
+                    { transform: 'translate(-50%,-50%) scale(' + (3.4 + i) + ')', opacity: 0 }],
+             720 + i * 120, IMP + d2, 'cubic-bezier(.12,.92,.28,1)');
+    });
+
+    /* ④ 네온 점 — 흩뿌리지 않는다. 바닥 줄에서 튀어오른다 */
+    for (let i = 0; i < 10; i++) {
+      const sz = this.rnd(20, 40), dia = i % 2 === 0;
+      const p = this.mk(fx, 'left:' + (300 + i * 148).toFixed(0) + 'px;top:645px;' +
         'width:' + sz.toFixed(0) + 'px;height:' + sz.toFixed(0) + 'px;background:' + (i % 3 ? RED : WARM) + ';' +
-        (dia ? 'transform:rotate(45deg);' : 'border-radius:50%;') + 'opacity:0;box-shadow:0 0 24px ' + (i % 3 ? RED : WARM) + ';');
-      this.a(p, [{ opacity: 0 }, { opacity: .95, offset: .06 }, { opacity: .7, offset: .8 }, { opacity: 0 }], 1900, 700 + i * 70, 'steps(1,end)');
+        (dia ? 'transform:rotate(45deg);' : 'border-radius:50%;') +
+        'opacity:0;box-shadow:0 0 26px ' + (i % 3 ? RED : WARM) + ';');
+      this.a(p, [{ transform: 'translateY(0) rotate(0deg)', opacity: 0 },
+                 { transform: 'translateY(-' + this.rnd(210, 430).toFixed(0) + 'px) translateX(' +
+                   this.rnd(-90, 90).toFixed(0) + 'px) rotate(' + this.rnd(-200, 200).toFixed(0) + 'deg)',
+                   opacity: .95, offset: .34 },
+                 { transform: 'translateY(0) translateX(' + this.rnd(-140, 140).toFixed(0) + 'px) rotate(' +
+                   this.rnd(-360, 360).toFixed(0) + 'deg)', opacity: 0 }],
+             this.rnd(900, 1400), IMP + 20 + i * 34, 'cubic-bezier(.3,0,.6,1)');
     }
 
-    // ④ 완성 — 사인 전체가 두 번 깜빡
-    const all = this.mk(fx, 'inset:0;background:' + RED + ';mix-blend-mode:screen;opacity:0;');
-    this.a(all, [{ opacity: 0, offset: 0 }, { opacity: .2, offset: .1 }, { opacity: 0, offset: .2 }, { opacity: .16, offset: .34 }, { opacity: 0, offset: 1 }], 700, 1480, 'steps(1,end)');
+    /* 네온 줄 퇴장 */
+    [floor, top].forEach(el => {
+      this.a(el, [{ opacity: 1 }, { opacity: 1, offset: .8 }, { opacity: 0 }], 900, IMP + 900);
+    });
 
-    const cap = this.txt(fx, '바운스', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:44px;letter-spacing:20px;color:rgba(255,225,228,.82);", 720);
-    this.a(cap.w, [{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'translateY(0)', offset: .3 }, { opacity: 1, transform: 'translateY(0)', offset: .84 }, { opacity: 0, transform: 'translateY(0)' }], 1500, 1000, 'cubic-bezier(.16,1,.3,1)');
+    const cap = this.txt(fx, '바운스', "font-family:'IBM Plex Sans KR',sans-serif;font-weight:400;font-size:76px;letter-spacing:20px;color:rgba(255,228,231,.9);", 720);
+    this.a(cap.w, [{ transform: 'translateY(22px)', opacity: 0 },
+                   { transform: 'translateY(0)', opacity: 1, offset: .3 },
+                   { transform: 'translateY(0)', opacity: 1, offset: .82 },
+                   { transform: 'translateY(-16px)', opacity: 0 }],
+           1420, IMP + 300, 'cubic-bezier(.16,1,.3,1)');
 
-    this.shake(shake, 6, 140, 1480);
     this.cardIn(1500, { from: 'scale(.92)', dur: 440 });
   }
 
-  
   /* ══ 20만 마티니 — 마티니 타임 (2.8s) ══ */
   fx_martini(fx) {
     const GOLD = this.col(2, '#c9a227');
