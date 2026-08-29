@@ -288,6 +288,154 @@ hr('⑩ 중복 재생 — 후원이 연달아 와도 흔적이 안 남는가');
   SigFX.stop(st);
 })();
 
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑪ 좌표 — 화면 밖에 그리고 있지 않은가');
+/* 방송은 1080×1920 세로. 연출은 1920×1080 가로 좌표로 짜여 있고 _fit 이 접는다.
+   접는 규칙이 틀리면 화면 밖에 그려도 아무도 오류를 안 낸다 — 그래서 잰다. */
+const CW = 1080, CH = 1920;
+const num = function (v) {
+  const m = /^(-?[\d.]+)px$/.exec(String(v || ''));
+  return m ? parseFloat(m[1]) : null;
+};
+/* 요소가 가로로 화면에 걸치는가.
+   ⚠️ scaleX(-1) 로 뒤집은 것은 left 에서 왼쪽으로 뻗는다 — 안 그러면 멀쩡한 것을 잡는다. */
+function spanX(e) {
+  const l = num(e.style.get('left')), w = num(e.style.get('width')) || 0;
+  if (l === null) return null;
+  const flip = /scaleX\(-1\)/.test(e.style.get('transform') || '');
+  let a = flip ? l - w : l, b = flip ? l : l + w;
+  let t = 0;
+  e.anims.forEach(function (an) {
+    an.frames.forEach(function (f) {
+      const m = /translateX\((-?[\d.]+)px\)/.exec(f.transform || '');
+      if (m) t = Math.max(t, Math.abs(parseFloat(m[1])));
+    });
+  });
+  return [a - t, b + t];
+}
+const outX = [], outY = [], budget = [];
+ITEMS.forEach(function (it) {
+  const r = run(it.key);
+  const direct = r.all.filter(function (e) { return e.parentNode === r.fx; });
+  if (r.all.length > 200) budget.push(it.key + ' ' + r.all.length);
+  direct.forEach(function (e) {
+    if (e.style.get('inset') === '0') return;         // 전면 배경은 셈에서 뺀다
+    const sx = spanX(e);
+    if (sx && (sx[1] < 0 || sx[0] > CW)) {
+      // 폭이 아주 좁은 것은 화면 끝에 세워 둔 장식이다 (람바다 야자 기둥)
+      if (sx[1] - sx[0] > 40) outX.push(it.key + ' x=' + sx[0].toFixed(0) + '~' + sx[1].toFixed(0));
+    }
+    const t = num(e.style.get('top'));
+    if (t !== null && t >= CH) outY.push(it.key + ' top=' + t);
+  });
+  done(r);
+});
+chk('가로로 화면 밖에 나간 것이 없다', outX.length === 0, outX.slice(0, 4).join(' | '));
+chk('세로로 화면 밖에 나간 것이 없다', outY.length === 0, outY.slice(0, 4).join(' | '));
+chk('한 연출이 DOM 200개를 안 넘는다', budget.length === 0, budget.join(' '));
+
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑫ 좌표를 두 번 접지 않는가 — 이번 버그의 회귀 검사');
+/* txt() 가 KY 를 곱해 넘긴 값을 mk→mapCss 가 또 곱해 KY² 가 됐다.
+   소스에서 설계값을 읽어 와 '한 번만 접혔는가' 를 자로 잰다. */
+(function () {
+  const src = fs.readFileSync(SRC, 'utf8');
+  const want = [];
+  const re = /this\.txt\(fx, '([^']+)'[\s\S]*?, (\d+)\);/g;
+  let m;
+  while ((m = re.exec(src))) want.push({ word: m[1], design: parseInt(m[2]) });
+  chk('소스에서 글자 설계값을 읽어냈다', want.length >= 8, want.length + '개');
+
+  const YT = CH * 0.06, KY = CH * (0.50 - 0.06) / 1080;
+  const bad = [];
+  ITEMS.forEach(function (it) {
+    const r = run(it.key);
+    textNodes(r.all).forEach(function (n) {
+      const w = want.filter(function (x) { return x.word === n.txt.textContent; })[0];
+      const top = num(n.wrap.style.get('top'));
+      if (!w || top === null) return;
+      const once = YT + w.design * KY;
+      if (Math.abs(top - once) > 1.5) {
+        bad.push(n.txt.textContent + ' 설계' + w.design + ' → ' + top.toFixed(0) +
+                 ' (한 번 접으면 ' + once.toFixed(0) + ')');
+      }
+    });
+    done(r);
+  });
+  chk('글자가 정확히 한 번만 접힌다', bad.length === 0, bad.slice(0, 3).join(' | '));
+})();
+
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑬ 안전지대 — 유튜브 채팅에 안 가리는가');
+/* 실측(2026-08-30): 위 0~4% 채널줄, 50~72% 채팅, 72%↓ 고정 UI.
+   읽어야 하는 것은 6~50% 안에만. 그림은 72% 까지 봐준다. */
+(function () {
+  const TOP = CH * 0.06, BOT = CH * 0.50, HARD = CH * 0.72;
+  const outTxt = [], outArt = [];
+  ITEMS.forEach(function (it) {
+    const r = run(it.key);
+    textNodes(r.all).forEach(function (n) {
+      const top = num(n.wrap.style.get('top'));
+      if (top === null) return;                        // % 로 잡은 것은 따로
+      const fs2 = num(n.txt.style.get('font-size')) || 40;
+      if (top < TOP - 1 || top > BOT + 1) {
+        outTxt.push(it.key + ' "' + n.txt.textContent + '" ' + (top / CH * 100).toFixed(0) + '%');
+      } else if (top + fs2 * 1.4 > HARD) {
+        outTxt.push(it.key + ' "' + n.txt.textContent + '" 아래가 ' +
+                    ((top + fs2 * 1.4) / CH * 100).toFixed(0) + '%');
+      }
+    });
+    r.all.filter(function (e) { return e.parentNode === r.fx; }).forEach(function (e) {
+      if (e.style.get('inset') === '0') return;
+      const t = num(e.style.get('top'));
+      // bottom:0 으로 바닥에 세운 것(불기둥 등)은 채팅 뒤로 가도 된다
+      if (t !== null && t > HARD) outArt.push(it.key + ' ' + (t / CH * 100).toFixed(0) + '%');
+    });
+    done(r);
+  });
+  chk('글자가 전부 6~50% 안에 있다', outTxt.length === 0, outTxt.slice(0, 4).join(' | '));
+  chk('그림이 72% 아래로 안 내려간다', outArt.length === 0, outArt.slice(0, 4).join(' | '));
+})();
+
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑭ 배경은 그대로 화면 전체를 쓰는가');
+(function () {
+  const r = run('gazua');
+  const full = r.all.filter(function (e) { return e.style.get('inset') === '0'; });
+  const floor = r.all.filter(function (e) { return e.style.get('bottom') === '0'; });
+  done(r);
+  chk('전면 배경(inset:0)은 안 건드린다', full.length >= 2, full.length + '개');
+  chk('바닥에 세운 것(bottom:0)은 화면 끝까지 간다', floor.length >= 5, floor.length + '개');
+})();
+
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑮ 부모 기준 좌표를 화면 좌표로 접지 않는가');
+/* 하트·명패처럼 부모 안에 든 조각은 '부모 기준' 이다. 안전지대로 접으면 모양이 깨진다.
+   (크레이지의 하트가 실제로 그랬다 — left:-150 이 -459 가 돼 있었다) */
+(function () {
+  const r = run('crazy');
+  const KS = (CW / 1920) * 1.39;
+  const kids = r.all.filter(function (e) {
+    return e.parentNode !== r.fx && num(e.style.get('left')) !== null;
+  });
+  const bad = kids.filter(function (e) {
+    const l = num(e.style.get('left')), t = num(e.style.get('top'));
+    // -150 처럼 음수로 밀어둔 조각이 KS 로만 줄었는가
+    if (l !== null && l !== 0 && Math.abs(l - (-150 * KS)) > 1 && Math.abs(l) > 1) return true;
+    if (t !== null && t !== 0 && Math.abs(t - (-150 * KS)) > 1 && Math.abs(t) > 1) return true;
+    return false;
+  });
+  done(r);
+  chk('부모 안 조각을 실제로 찾았다', kids.length >= 3, kids.length + '개');
+  chk('부모 기준 조각은 크기 배율로만 줄인다', bad.length === 0,
+      bad.map(function (e) { return e.style.get('left') + '/' + e.style.get('top'); }).join(' '));
+})();
+
 console.log();
 hr('통과 ' + OK.length + ' · 실패 ' + BAD.length);
 BAD.forEach(function (n) { console.log('   [실패] ' + n); });

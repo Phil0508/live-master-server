@@ -56,42 +56,83 @@ class SigEngine {
     const W = stageEl.clientWidth || 1920, H = stageEl.clientHeight || 1080;
     this.W = W; this.H = H;
     const portrait = H > W;
-    // 세로 판에서는 폭이 좁아 그대로 줄이면 글자가 너무 작다. 화면을 채우게 키운다.
-    this.KS = (W / 1920) * (portrait ? 1.6 : 1);
-    this.KY = H / 1080;
+
+    /* ⚠️ 유튜브 세로 라이브는 위에 채널줄(0~4%), 아래 절반에 채팅이 깔린다.
+       읽어야 하는 것은 그 사이에만 둔다. 실측 근거는 docs/이펙트개편.md.
+       기기·앱이 바뀌면 이 두 숫자만 고치면 된다. */
+    this.SAFE_TOP = portrait ? 0.06 : 0;
+    this.SAFE_BOT = portrait ? 0.50 : 1;
+
+    /* ⚠️ '위치 배율' 과 '크기 배율' 을 갈라놓는다.
+       예전에는 하나(KS)로 둘 다 했다. 세로판에서 글자가 작아지지 않게 1.6배를
+       올렸는데 그게 가로 위치까지 벌려서, 설계 폭 1920 이 1728 로 펴져 1080 판
+       가운데 놓였다(-324~1404). 설계의 가운데 62% 만 화면에 남고 양옆은 잘렸다
+       — 부티호텔은 43개 중 35개가 화면 밖이었다. */
+    this.KX = W / 1920;                                      // 가로 위치·거리
+    this.YT = H * this.SAFE_TOP;                             // 안전지대가 시작하는 곳
+    this.KY = H * (this.SAFE_BOT - this.SAFE_TOP) / 1080;    // 세로 위치·거리
+    this.KS = this.KX * (portrait ? 1.39 : 1);               // 크기·글자만
   }
   _n(v, k) { return +(parseFloat(v) * k).toFixed(1); }
-  // 가로 위치: 가운데 기준으로 접는다
-  _x(v) { return +(this.W / 2 + (parseFloat(v) - 960) * this.KS).toFixed(1); }
-  _r(v) { return +(this.W / 2 - (960 - parseFloat(v)) * this.KS).toFixed(1); }
+  // 가로 위치: 설계 폭 1920 을 화면 폭에 그대로 넣는다 (가운데 기준 접기를 없앴다)
+  _x(v) { return +(parseFloat(v) * this.KX).toFixed(1); }
+  _r(v) { return +(parseFloat(v) * this.KX).toFixed(1); }
+  // 세로 위치: 설계 0~1080 을 안전지대 안으로
+  _y(v) { return +(this.YT + parseFloat(v) * this.KY).toFixed(1); }
+  // 아래에서 잰 위치도 같은 자로 — 안전지대 바닥에서부터 센다
+  _b(v) { return +(this.H - this.YT - (1080 - parseFloat(v)) * this.KY).toFixed(1); }
+  // 화면(연출 레이어)에 바로 붙은 것인가. 아니면 좌표가 '부모 기준' 이다.
+  _stage(p) {
+    try { return !!(p && p.getAttribute && p.getAttribute('data-sigfx') !== null); }
+    catch (e) { return false; }
+  }
 
-  mapCss(css) {
-    if (!css || (this.KS === 1 && this.KY === 1)) return css;
+  /* rel = 좌표가 '부모 기준' 인가. 화면에 바로 붙은 게 아니면 안전지대로 접으면 안 된다
+     — 부모 안에서의 어긋남이라 부모와 같은 배율(크기 배율)로만 줄여야 모양이 산다.
+     (크레이지의 하트가 실제로 이것 때문에 찌그러져 있었다) */
+  mapCss(css, rel) {
+    if (!css || (this.KX === 1 && this.KY === 1 && this.KS === 1 && !this.YT)) return css;
+    const X = rel ? (v => this._n(v, this.KS)) : (v => this._x(v));
+    const R = rel ? (v => this._n(v, this.KS)) : (v => this._r(v));
+    const Y = rel ? (v => this._n(v, this.KS)) : (v => this._y(v));
+    const B = rel ? (v => this._n(v, this.KS)) : (v => this._b(v));
     return css
       // 위치 — 0 은 화면 끝이므로 그대로 둔다
-      .replace(/(^|[;{\s])left:\s*(-?\d*\.?\d+)px/g,   (m,p,v) => +v === 0 ? m : p + 'left:'   + this._x(v) + 'px')
-      .replace(/(^|[;{\s])right:\s*(-?\d*\.?\d+)px/g,  (m,p,v) => +v === 0 ? m : p + 'right:'  + this._r(v) + 'px')
-      .replace(/(^|[;{\s])top:\s*(-?\d*\.?\d+)px/g,    (m,p,v) => +v === 0 ? m : p + 'top:'    + this._n(v, this.KY) + 'px')
-      .replace(/(^|[;{\s])bottom:\s*(-?\d*\.?\d+)px/g, (m,p,v) => +v === 0 ? m : p + 'bottom:' + this._n(v, this.KY) + 'px')
+      .replace(/(^|[;{\s])left:\s*(-?\d*\.?\d+)px/g,   (m,p,v) => +v === 0 ? m : p + 'left:'   + X(v) + 'px')
+      .replace(/(^|[;{\s])right:\s*(-?\d*\.?\d+)px/g,  (m,p,v) => +v === 0 ? m : p + 'right:'  + R(v) + 'px')
+      .replace(/(^|[;{\s])top:\s*(-?\d*\.?\d+)px/g,    (m,p,v) => +v === 0 ? m : p + 'top:'    + Y(v) + 'px')
+      .replace(/(^|[;{\s])bottom:\s*(-?\d*\.?\d+)px/g, (m,p,v) => +v === 0 ? m : p + 'bottom:' + B(v) + 'px')
+      /* % 로 잡은 세로 위치도 같이 접는다.
+         ⚠️ 예전에는 % 를 안 건드렸다 — 그때는 설계 0~1080 이 화면 0~100% 로 그대로
+            펴져서 50% 가 곧 50% 였기 때문이다. 안전지대로 접으면 더는 같지 않다.
+         ⚠️ 0%·100% 밖(음수·초과)은 '일부러 화면을 넘긴 것' 이라 그대로 둔다. */
+      .replace(/(^|[;{\s])top:\s*(\d*\.?\d+)%/g, (m,p,v) =>
+        (rel || +v <= 0 || +v >= 100) ? m
+          : p + 'top:' + (((this.YT + (+v) / 100 * 1080 * this.KY) / this.H) * 100).toFixed(2) + '%')
+      .replace(/(^|[;{\s])bottom:\s*(\d*\.?\d+)%/g, (m,p,v) =>
+        (rel || +v <= 0 || +v >= 100) ? m
+          : p + 'bottom:' + (((this.H - this.YT - (100 - +v) / 100 * 1080 * this.KY) / this.H) * 100).toFixed(2) + '%')
       // 길이·글자 — 한 배율로만
       .replace(/(width|height|font-size|letter-spacing|border-radius|border-width|padding|margin|blur|gap):\s*(-?\d*\.?\d+)px/g,
                (m,p,v) => +v === 0 ? m : p + ':' + this._n(v, this.KS) + 'px')
       .replace(/border:\s*(-?\d*\.?\d+)px/g, (m,v) => 'border:' + this._n(v, this.KS) + 'px')
       .replace(/blur\((-?\d*\.?\d+)px\)/g,  (m,v) => 'blur('   + this._n(v, this.KS) + 'px)')
-      .replace(/translateX\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateX(' + this._n(v, this.KS) + 'px)')
-      .replace(/translateY\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateY(' + this._n(v, this.KY) + 'px)');
+      // 움직이는 거리는 '위치' 와 같은 자로 재야 한다 (부모 기준이면 부모 배율로)
+      .replace(/translateX\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateX(' + this._n(v, rel ? this.KS : this.KX) + 'px)')
+      .replace(/translateY\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateY(' + this._n(v, rel ? this.KS : this.KY) + 'px)');
   }
 
   // 애니메이션 프레임 안의 transform 문자열도 같은 규칙으로 옮긴다
-  mapFrames(frames) {
-    if (this.KS === 1 && this.KY === 1) return frames;
+  mapFrames(frames, rel) {
+    if (this.KX === 1 && this.KY === 1 && this.KS === 1) return frames;
+    const KX = rel ? this.KS : this.KX, KY = rel ? this.KS : this.KY;
     return frames.map(f => {
       if (!f || typeof f.transform !== 'string') return f;
       const t = f.transform
-        .replace(/translateX\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateX(' + this._n(v, this.KS) + 'px)')
-        .replace(/translateY\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateY(' + this._n(v, this.KY) + 'px)')
+        .replace(/translateX\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateX(' + this._n(v, KX) + 'px)')
+        .replace(/translateY\((-?\d*\.?\d+)px\)/g, (m,v) => 'translateY(' + this._n(v, KY) + 'px)')
         .replace(/translate\((-?\d*\.?\d+)px\s*,\s*(-?\d*\.?\d+)px\)/g,
-                 (m,a,b) => 'translate(' + this._n(a, this.KS) + 'px,' + this._n(b, this.KY) + 'px)');
+                 (m,a,b) => 'translate(' + this._n(a, KX) + 'px,' + this._n(b, KY) + 'px)');
       return Object.assign({}, f, { transform: t });
     });
   }
@@ -286,9 +327,15 @@ class SigEngine {
     } catch (e) {}
   }
 
-  mk(p, css) { const d = document.createElement('div'); d.style.cssText = 'position:absolute;' + this.mapCss(css); p.appendChild(d); return d; }
+  mk(p, css) {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:absolute;' + this.mapCss(css, !this._stage(p));
+    p.appendChild(d);
+    return d;
+  }
   a(el, frames, dur, delay, ease) {
-    return el.animate(this.mapFrames(frames), { duration: dur / this.S, delay: (delay || 0) / this.S, easing: ease || 'linear', fill: 'forwards' });
+    return el.animate(this.mapFrames(frames, !this._stage(el.parentNode)),
+                      { duration: dur / this.S, delay: (delay || 0) / this.S, easing: ease || 'linear', fill: 'forwards' });
   }
   /* 히트스톱 — 착탄 순간 모든 것이 멈추는 구간.
      같은 transform 을 두 프레임에 넣어 '정지'를 만든다.
@@ -305,9 +352,12 @@ class SigEngine {
     //    실측: 참격 1120ms · ANGEL VIP 1400ms · 방패 1040ms 동안 글자가 떠 있었다.
     //    ⚠️ 래퍼를 켜주는 애니메이션이 없는 연출은 글자가 영영 안 뜬다 —
     //       fx_martini · fx_angel 이 그랬고, 거기에 래퍼 켜기를 따로 넣어뒀다.
-    const w = this.mk(fx, 'left:0;right:0;top:' + this._n(top, this.KY) + 'px;display:flex;justify-content:center;opacity:0;');
+    // ⚠️ 여기서 KY 를 곱하면 안 된다 — mk→mapCss 가 top 을 또 접는다(KY² = 3.16배).
+    //    그것 때문에 '가즈아'(설계 640)가 1138 이 아니라 2023 에 앉아 화면(1920) 밖으로
+    //    나갔고, 퇴장 애니메이션이 밀어올리는 마지막 0.5초만 화면 맨 아래를 스쳤다.
+    const w = this.mk(fx, 'left:0;right:0;top:' + top + 'px;display:flex;justify-content:center;opacity:0;');
     const d = document.createElement('div'); d.textContent = content;
-    d.style.cssText = this.mapCss(css); w.appendChild(d);
+    d.style.cssText = this.mapCss(css, true); w.appendChild(d);
     return { w: w, d: d };
   }
   flash(fx, color, op, dur, delay) {
