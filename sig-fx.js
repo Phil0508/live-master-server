@@ -189,6 +189,9 @@ class SigEngine {
     fx.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:60;';
     stageEl.appendChild(fx);
 
+    // a() 가 애니메이션 길이를 여기에 맞춘다 (연출보다 늦게 끝나면 툭 끊긴다)
+    this._limit = item.dur * 1000 + 160;
+
     // ⚠️ 연출이 터져도 시그니처 재생은 그대로 가야 한다. 예외를 밖으로 내보내지 않는다.
     try { this['fx_' + key](fx, shake); }
     catch (e) { console.warn('SigFX: 연출 실패 —', key, e); }
@@ -197,6 +200,16 @@ class SigEngine {
     try { this.cardIn(item.cardAt != null ? item.cardAt : 300); } catch (e) {}
 
     const ms = (item.dur * 1000 + 160) / this.opts.speed;
+
+    /* ⚠️ 레이어를 그냥 지우면 아직 진한 요소가 툭 없어진다 —
+       람바다 야자잎 10장은 마지막 프레임이 opacity 1 이라 끝까지 선명했다.
+       연출마다 꼬리를 손보는 대신 마지막 0.24초에 레이어째 내린다.
+       이미 사라진 것에는 아무 일도 안 일어난다. */
+    try {
+      fx.animate([{ opacity: 1 }, { opacity: 1, offset: Math.max(0, 1 - 240 / ms) }, { opacity: 0 }],
+                 { duration: ms, fill: 'forwards' });
+    } catch (e) {}
+
     this._timer = setTimeout(() => {
       if (fx.parentNode) fx.remove();
       this._cleanup();
@@ -334,8 +347,43 @@ class SigEngine {
     return d;
   }
   a(el, frames, dur, delay, ease) {
+    delay = delay || 0;
+
+    /* ⚠️ delay 가 있으면 그 앞 구간에는 fill:'forwards' 가 안 걸린다. 요소는 기본
+       스타일 그대로 화면에 있다 — 애니메이션이 뭐라고 말하든 상관없이.
+       그래서 delay 앞에는 '애니메이션의 첫 프레임 상태' 를 대신 적어준다.
+         · 첫 프레임이 opacity 를 정하면 → 안 보이게 둔다
+           (입자·꽃잎·불빛 190개가 처음부터 떠 있었다. 첫 프레임이 opacity 1 인
+            것도 마찬가지 — 가즈아 불티 21개가 화면 아래에 점처럼 붙어 있었다)
+         · 아니고 transform 만 정하면 → 그 자세로 둔다
+           (마티니·EDM·VIP 의 광택 띠는 화면 왼쪽 밖에서 대기해야 하는데 그 자리가
+            첫 프레임에만 있어서, 띠가 화면 왼쪽에 그대로 걸려 있었다.
+            ⚠️ 이건 opacity:0 으로 숨기면 안 된다 — 저 애니메이션은 opacity 를
+               아예 안 건드려서 한번 0 이 되면 영영 안 나타난다)
+       ⚠️ 스타일에 이미 적어둔 값은 건드리지 않는다. 적어둔 것은 뜻이 있다. */
+    if (delay > 0 && frames && frames[0] && !el._sigPre) {
+      el._sigPre = 1;
+      const f0 = frames[0];
+      if (f0.opacity !== undefined) {
+        if (!el.style.opacity) el.style.opacity = '0';
+      } else if (typeof f0.transform === 'string' && !el.style.transform) {
+        try {
+          el.style.transform = this.mapFrames([f0], !this._stage(el.parentNode))[0].transform;
+        } catch (e) {}
+      }
+    }
+
+    /* ⚠️ play() 는 dur 이 지나면 레이어를 통째로 지운다. 그보다 늦게 끝나는
+       애니메이션은 다 타오르지 못하고 진한 채로 사라진다 — 지워지는 순간
+       누나누나 37개, VIP·천사 21개가 그랬다.
+       꼬리를 자르는 대신 정리 시점 안에 들어오게 줄인다. */
+    if (this._limit) {
+      const room = this._limit - 40 - delay;
+      if (room > 0 && dur > room) dur = Math.max(60, room);
+    }
+
     return el.animate(this.mapFrames(frames, !this._stage(el.parentNode)),
-                      { duration: dur / this.S, delay: (delay || 0) / this.S, easing: ease || 'linear', fill: 'forwards' });
+                      { duration: dur / this.S, delay: delay / this.S, easing: ease || 'linear', fill: 'forwards' });
   }
   /* 히트스톱 — 착탄 순간 모든 것이 멈추는 구간.
      같은 transform 을 두 프레임에 넣어 '정지'를 만든다.
@@ -642,7 +690,10 @@ class SigEngine {
     const IMP = 1150;
     this.flash(fx, '#ffffff', .95, 110, IMP);
     [[P1, 0, 1], [P2, 70, .8], [P3, 150, .55]].forEach(v => {
-      const h = this.mk(fx, 'left:960px;top:540px;width:420px;height:420px;transform:translate(-50%,-50%) rotate(-45deg) scale(.06);mix-blend-mode:screen;opacity:' + v[2] + ';');
+      // ⚠️ style 의 opacity 는 0 이어야 한다. 첫 프레임과 같은 값을 적어두면
+      //    delay(1.15~1.3초) 앞 구간에 fill 이 안 걸려, scale(.06) 짜리 하트가
+      //    화면 한가운데 점처럼 그동안 떠 있는다. 진한 값은 첫 프레임이 정한다.
+      const h = this.mk(fx, 'left:960px;top:540px;width:420px;height:420px;transform:translate(-50%,-50%) rotate(-45deg) scale(.06);mix-blend-mode:screen;opacity:0;');
       this.mk(h, 'left:0;top:0;width:300px;height:300px;background:' + v[0] + ';');
       this.mk(h, 'left:-150px;top:0;width:300px;height:300px;border-radius:50%;background:' + v[0] + ';');
       this.mk(h, 'left:0;top:-150px;width:300px;height:300px;border-radius:50%;background:' + v[0] + ';');
@@ -796,8 +847,8 @@ class SigEngine {
       this.a(v, [{ transform: 'scaleY(0)' }, { transform: 'scaleY(' + c[3] + ')' }], 700, 260 + i * 70, 'cubic-bezier(.16,1,.3,1)');
     });
 
-    const sweep = this.mk(fx, 'top:-20%;bottom:-20%;left:0;width:340px;background:linear-gradient(90deg,rgba(255,240,200,0),rgba(255,238,190,.16),rgba(255,240,200,0));mix-blend-mode:screen;transform:skewX(-13deg) translateX(-460px);');
-    this.a(sweep, [{ transform: 'skewX(-13deg) translateX(-460px)' }, { transform: 'skewX(-13deg) translateX(2100px)' }], 1500, 700, 'cubic-bezier(.42,0,.5,1)');
+    const sweep = this.mk(fx, 'top:-20%;bottom:-20%;left:0;width:340px;background:linear-gradient(90deg,rgba(255,240,200,0),rgba(255,238,190,.16),rgba(255,240,200,0));mix-blend-mode:screen;transform:skewX(-13deg) translateX(-110%);');
+    this.a(sweep, [{ transform: 'skewX(-13deg) translateX(-110%)' }, { transform: 'skewX(-13deg) translateX(2100px)' }], 1500, 700, 'cubic-bezier(.42,0,.5,1)');
 
     [[430, 300], [1490, 250], [960, 790], [1660, 690], [330, 740]].forEach((p, i) => {
       const g = this.mk(fx, 'left:' + p[0] + 'px;top:' + p[1] + 'px;width:2px;height:56px;background:#f6e7b4;transform:translate(-50%,-50%);');
@@ -898,8 +949,8 @@ class SigEngine {
     this.a(gold, [{ clipPath: 'inset(100% 0 0 0)' }, { clipPath: 'inset(0 0 0 0)' }], 760, 1120, 'cubic-bezier(.3,0,.4,1)');
 
     // ④ 금속 광택이 글자 위를 스윽
-    const sweep = this.mk(slab, 'top:-20%;bottom:-20%;left:0;width:260px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,248,220,.5),rgba(255,255,255,0));mix-blend-mode:screen;transform:skewX(-14deg) translateX(-400px);');
-    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-400px)' }, { transform: 'skewX(-14deg) translateX(1400px)' }], 900, 1780, 'cubic-bezier(.42,0,.5,1)');
+    const sweep = this.mk(slab, 'top:-20%;bottom:-20%;left:0;width:260px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,248,220,.5),rgba(255,255,255,0));mix-blend-mode:screen;transform:skewX(-14deg) translateX(-110%);');
+    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-110%)' }, { transform: 'skewX(-14deg) translateX(1400px)' }], 900, 1780, 'cubic-bezier(.42,0,.5,1)');
 
     // ⑤ 은빛 액자 모서리 네 개가 딱딱 물린다
     [[300, 290, 1, 1], [1620, 290, -1, 1], [300, 750, 1, -1], [1620, 750, -1, -1]].forEach((c, i) => {
@@ -943,7 +994,7 @@ class SigEngine {
       fx.animate([{ transform: 'scale(1.014)' }, { transform: 'scale(1)' }], { duration: 130 / this.S, delay: (170 + ms) / this.S, easing: 'cubic-bezier(.2,.9,.3,1)' });
     });
     const vb = this.mk(fx, 'top:0;bottom:0;left:0;width:220px;background:linear-gradient(90deg,rgba(89,255,106,0),rgba(255,255,255,.5),rgba(89,255,106,0));mix-blend-mode:screen;');
-    this.a(vb, [{ transform: 'translateX(-260px)' }, { transform: 'translateX(1920px)' }], 560, 900, 'cubic-bezier(.35,0,.4,1)');
+    this.a(vb, [{ transform: 'translateX(-110%)' }, { transform: 'translateX(1920px)' }], 560, 900, 'cubic-bezier(.35,0,.4,1)');
 
     const mkT = (color, blend, z, off) => {
       // ⚠️ opacity:0 이 없으면 delay 120ms 동안 'EDM' 이 그대로 떠 있는다(txt() 와 같은 병).
@@ -1315,7 +1366,7 @@ class SigEngine {
       this.a(p, [{ transform: 'translateY(0)', opacity: 0 }, { opacity: .55, offset: .18 }, { transform: 'translateY(-' + this.rnd(700, 1200).toFixed(0) + 'px) translateX(' + this.rnd(-120, 120).toFixed(0) + 'px)', opacity: 0 }], this.rnd(3200, 5000), this.rnd(0, 2200), 'cubic-bezier(.4,0,.6,1)');
     }
     const sweep = this.mk(fx, 'top:-20%;bottom:-20%;left:0;width:300px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.09),rgba(255,255,255,0));mix-blend-mode:screen;');
-    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-420px)' }, { transform: 'skewX(-14deg) translateX(2100px)' }], 1700, 1500, 'cubic-bezier(.42,0,.5,1)');
+    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-110%)' }, { transform: 'skewX(-14deg) translateX(2100px)' }], 1700, 1500, 'cubic-bezier(.42,0,.5,1)');
   }
 
   /* ══ 200만 엔젤 VIP — 천상 강림 (5.2s) ══ */
@@ -1389,7 +1440,7 @@ class SigEngine {
     this.shake(shake, 30, 380, STAMP + 30);
 
     const sweep = this.mk(fx, 'top:-20%;bottom:-20%;left:0;width:340px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,244,210,.14),rgba(255,255,255,0));mix-blend-mode:screen;');
-    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-460px)' }, { transform: 'skewX(-14deg) translateX(2100px)' }], 1800, STAMP + 500, 'cubic-bezier(.42,0,.5,1)');
+    this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-110%)' }, { transform: 'skewX(-14deg) translateX(2100px)' }], 1800, STAMP + 500, 'cubic-bezier(.42,0,.5,1)');
   }
 
   fireworks(cv, totalMs) {

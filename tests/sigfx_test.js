@@ -436,6 +436,101 @@ hr('⑮ 부모 기준 좌표를 화면 좌표로 접지 않는가');
       bad.map(function (e) { return e.style.get('left') + '/' + e.style.get('top'); }).join(' '));
 })();
 
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑯ 제 시각에만 나타나는가 — 글자만이 아니라 전부');
+/* ②는 글자만 봤다. 입자·꽃잎·불빛에도 같은 병이 있었다 —
+   17개를 훑으니 150개가 delay 전부터 화면에 떠 있었다.
+   (람바다 12 · 출항 26 · 클럽음악 46 · VIP 26 · 천사 18 …) */
+/* 시각 t 에 이 요소가 눈에 보이는 정도.
+   ⚠️ CSS 에서 안 적힌 opacity 는 1 이다. undefined 를 Number() 에 넣으면 NaN 이 되고
+      NaN > 0.05 는 거짓이라, 아무 데도 opacity 를 안 적은 요소가 통째로 검사를
+      빠져나간다. 실제로 그것 때문에 150개 중 3개만 잡혔다. */
+/* 시각 t 에 이 요소가 화면 안에 있는가.
+   광택 쓸기 띠처럼 opacity 가 아니라 '화면 밖에 세워두는' 방식으로 숨기는 것이 있다. */
+function onScreen(el, t) {
+  // ⚠️ mapCss 는 0 을 'left:0' 으로 그냥 둔다 ('0px' 이 아니다). 그것도 읽어야 한다.
+  const z = v => (String(v).trim() === '0' ? 0 : num(v));
+  const l = z(el.style.get('left')), w = z(el.style.get('width')) || 0;
+  if (l === null) return true;
+  const tf = String(dom.sampleProp(el, t, 'transform') || '');
+  // px 로도, 제 폭 기준 % 로도 물러난다 (광택 띠는 % 를 쓴다 — 배율과 무관하려고)
+  const mp = /translateX\((-?[\d.]+)px\)/.exec(tf);
+  const mc = /translateX\((-?[\d.]+)%\)/.exec(tf);
+  const dx = mp ? parseFloat(mp[1]) : (mc ? parseFloat(mc[1]) / 100 * w : 0);
+  return (l + dx + w) > 8 && (l + dx) < CW - 8;
+}
+
+function op(el, t) {
+  let v = 1;
+  for (let n = el; n && n.style; n = n.parentNode) {
+    const o = dom.sampleProp(n, t, 'opacity');
+    v *= (o === undefined || o === '' || o === null) ? 1 : Number(o);
+    // opacity 말고 크기 0 으로 숨긴 것도 있다 (람바다 야자 기둥, 마티니 금선)
+    const tf = String(dom.sampleProp(n, t, 'transform') || '');
+    if (/scale[XY]?\(\s*-?0(\.0+)?\s*[,)]/.test(tf)) return 0;
+    if (n.getAttribute && n.getAttribute('data-sigfx') !== null) break;
+  }
+  return v;
+}
+
+(function () {
+  const early = [];
+  ITEMS.forEach(function (it) {
+    const r = run(it.key);
+    r.all.forEach(function (e) {
+      const an = e.anims.filter(function (a) { return !a.cancelled; });
+      if (!an.length) return;
+      const d0 = Math.min.apply(null, an.map(function (a) { return a.timing.delay || 0; }));
+      if (d0 <= 30) return;                       // 처음부터 도는 것은 보여도 된다
+      if (op(e, 0) > 0.05 && onScreen(e, 0)) {
+        early.push(it.key + ' delay=' + Math.round(d0));
+      }
+    });
+    done(r);
+  });
+  chk('0ms 에 미리 보이는 요소가 하나도 없다', early.length === 0,
+      early.length + '건 ' + early.slice(0, 3).join(' | '));
+})();
+
+/* ══════════════════════════════════════════════════════════════════ */
+console.log();
+hr('⑰ 끝이 잘리지 않는가');
+/* play() 는 dur 이 지나면 레이어를 통째로 지운다. 그때까지 진한 요소가 남아 있으면
+   화면에서 툭 없어진다 — 고치기 전엔 누나누나 37개, VIP·천사 21개가 그랬다. */
+(function () {
+  const late = [], hot = [];
+  ITEMS.forEach(function (it) {
+    const r = run(it.key);
+    const limit = it.dur * 1000 + 160;
+    r.all.forEach(function (e) {
+      e.anims.forEach(function (a) {
+        if ((a.timing.delay || 0) + a.timing.duration > limit) late.push(it.key);
+      });
+    });
+    // 레이어째 내려가는 마무리까지 셈에 넣어 '실제로 보이는가' 를 본다
+    const lay = op(r.fx, limit - 1);
+    let n = 0;
+    r.all.forEach(function (e) {
+      if (!e.anims.length) return;
+      if (op(e, limit - 1) * lay > 0.15) n++;
+    });
+    if (n) hot.push(it.key + ' ' + n + '개');
+    done(r);
+  });
+  chk('정리 시점을 넘겨 도는 애니메이션이 없다', late.length === 0,
+      late.length + '건 ' + Array.from(new Set(late)).slice(0, 4).join(' '));
+  chk('지워지는 순간 진하게 남은 요소가 없다', hot.length === 0, hot.slice(0, 4).join(' | '));
+  chk('연출 레이어가 마지막에 부드럽게 내려간다', (function () {
+    const r = run('lambada');
+    const a = r.fx.anims.filter(function (x) {
+      return x.frames.length && x.frames[x.frames.length - 1].opacity === 0;
+    });
+    done(r);
+    return a.length === 1;
+  })());
+})();
+
 console.log();
 hr('통과 ' + OK.length + ' · 실패 ' + BAD.length);
 BAD.forEach(function (n) { console.log('   [실패] ' + n); });

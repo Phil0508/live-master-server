@@ -32,6 +32,14 @@ class Style {
   getPropertyValue(k) { return this._m[k] || ''; }
   get(k) { return this._m[k]; }
 }
+/* 엔진이 el.style.opacity 로 직접 읽고 쓴다 (delay 앞 구간을 숨길 때).
+   cssText 로만 다루면 그 코드가 헛돌아 검사가 거짓 통과한다. */
+['opacity', 'transform'].forEach(function (p) {
+  Object.defineProperty(Style.prototype, p, {
+    get() { return this._m[p] || ''; },
+    set(v) { this._m[p] = String(v); },
+  });
+});
 
 class Anim {
   constructor(el, frames, timing) {
@@ -130,6 +138,14 @@ function sampleProp(el, t, prop, speed) {
       v = j >= 0 ? a.frames[j][prop] : frames[0][prop];
       // 구간 끝에 정확히 닿았으면 그 프레임 값
       if (a.frames[k][prop] !== undefined && Math.abs(off[k] - p) < 1e-9) v = a.frames[k][prop];
+      // 숫자면 다음 프레임까지 선형으로 이어 읽는다 (이징 곡선은 흉내 안 낸다)
+      let n2 = j + 1;
+      while (n2 < a.frames.length && a.frames[n2][prop] === undefined) n2++;
+      if (j >= 0 && n2 < a.frames.length && typeof v === 'number' &&
+          typeof a.frames[n2][prop] === 'number' && off[n2] > off[j]) {
+        const r = Math.min(1, Math.max(0, (p - off[j]) / (off[n2] - off[j])));
+        v = v + (a.frames[n2][prop] - v) * r;
+      }
     }
     if (!best || a.seq > best.seq) best = { seq: a.seq, v: v };
   });
