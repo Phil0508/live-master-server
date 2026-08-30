@@ -451,6 +451,12 @@ class SigEngine {
      착탄 프레임 IMP=150. 재료는 원본과 같고 '언제 터지느냐'만 바꿨다.
      ① 움츠림 0–95 → ② 돌진 95–150 → ③ 착탄 150–200(정지) → ④ 반동 → ⑤ 이차운동 */
   fx_gazua(fx, shake) {
+    /* 🎬 매질 — 착탄 하나로 끝나는 연출이라, 치기 전 긴장과 친 뒤 여운을 만든다 */
+    this.gAmbient(1800, { color: '#ffb648', density: 0.10 });
+    this.gGlow(960, 470, { r: 300, life: 0.4, power: 0.7, color: '#ff9a2e', delay: 40 });
+    this.gImpact(960, 540, { scale: 1.15, color: '#ffb43c', hot: '#fff2cf' });
+    this.gPlume(960, 700, { scale: 1.2, life: 2.0, density: 0.34, rise: 250,
+                            color: '#ff9a2e', delay: 260 });
     const FIRE = this.col(0, '#ff4d00'), EMBER = this.col(1, '#ffa02a'), SPARK = this.col(2, '#ffd24a');
     const IMP = 150;
     this.cardGlow(FIRE);
@@ -468,8 +474,10 @@ class SigEngine {
     const sheet = this.mk(fx, 'inset:0;background:#f7f4ec;opacity:0;');
     this.a(sheet, [{ opacity: 0 }, { opacity: 1 }], 42, 95, 'cubic-bezier(.75,0,.9,.45)');
     this.a(sheet, [{ opacity: 1 }, { opacity: .95 }], 260, 137);
+    /* ⚠️ 흰 종이가 걷히기 전에는 글자가 안 보인다. GL 글자는 착탄 직후부터
+       빛나야 하므로 조금 더 일찍 걷는다. */
     this.a(sheet, [{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)' }],
-           175, 430, 'cubic-bezier(.75,0,.2,1)');
+           175, this.gl ? 300 : 430, 'cubic-bezier(.75,0,.2,1)');
 
     /* ③ 착탄 150–200 */
     this.flash(fx, '#ffffff', 1, 30, IMP);                       // 원본 110ms → 30ms
@@ -504,32 +512,63 @@ class SigEngine {
              this.rnd(650, 1200), IMP + this.rnd(0, 420), 'cubic-bezier(.3,0,.6,1)');
     }
 
-    /* 글자 — 늘어남 → 히트스톱 → 반동. 원본은 균일 scale 이라 안 눌렸다.
-       ⚠️ 아래 네 개는 만든 순서 = 시작 순서다. 나중에 만든 것이 앞의 fill 을 이긴다. */
-    const t = this.txt(fx, '가즈아', "font-family:'Black Han Sans',sans-serif;font-size:214px;line-height:.9;color:#14110c;letter-spacing:-.02em;transform:skewX(-7deg);", 640);
-    // ② 돌진 (95–150) : 세로로 늘어난 채 아래에서 솟는다
-    this.a(t.w, [{ transform: 'translateY(150px) scale(.78,1.52)', opacity: 0 },
-                 { transform: 'translateY(14px)  scale(.93,1.24)', opacity: 1 }],
-           55, 95, 'cubic-bezier(.65,.02,.95,.5)');
-    // ③ 히트스톱 (150–200) : 납작하게 눌린 채 정지. opacity 도 잡아둬야 해서 hold() 대신 a()
-    this.a(t.w, [{ transform: 'translateY(0) scale(1.34,.70)', opacity: 1 },
-                 { transform: 'translateY(0) scale(1.34,.70)', opacity: 1 }], 50, IMP);
-    // ④ 반동 (200–540)
-    this.a(t.w, [{ transform: 'translateY(0) scale(1.34,.70)' },
-                 { transform: 'translateY(-6px) scale(.94,1.08)', offset: .42 },
-                 { transform: 'translateY(0) scale(1.03,.98)',    offset: .72 },
-                 { transform: 'translateY(0) scale(1,1)' }],
-           340, IMP + 50, 'cubic-bezier(.2,.85,.3,1)');
-    // ⑤ 떠 있다 퇴장
-    this.a(t.w, [{ transform: 'translateY(0) scale(1,1)',         opacity: 1 },
-                 { transform: 'translateY(-14px) scale(1,1)',     opacity: 1, offset: .62 },
-                 { transform: 'translateY(-190px) scale(1.04,1)', opacity: 0 }],
-           1220, IMP + 390, 'cubic-bezier(.4,0,.3,1)');
-    this.a(t.d, [{ color: '#14110c' }, { color: '#fdfaf2' }], 1, 560);
+    /* ══ 글자 ══
+       ⚠️ 여기가 이 연출의 주인공이다. 예전에는 검은 CSS 글자가 늘어났다 눌렸다
+          하는 것뿐이었다 — 분위기를 아무리 깔아도 그게 'PPT' 로 보이는 이유였다.
+          이제 금속 재질로 그려 GL 안에 넣는다. 같은 빛 번짐·그레인·충격파 왜곡을
+          먹고, 타들어오며 나타나고, 끝에 가루로 부서진다.
+       ⚠️ 레이어가 없으면(하드웨어 가속 꺼짐 등) 예전 CSS 글자로 그대로 간다. */
+    const GZ = this.gl && this.gText('가즈아', { size: 214, skew: -0.12 });
+    if (GZ) {
+      const LIFE = 1.62, SHATTER = 1420;
+      this.gSprite(GZ, {
+        x: 960, y: 540, w: 1180, life: LIFE, delay: 60,
+        // 지나쳤다 돌아오는 결 — 이게 있어야 '툭 놓였다' 가 아니라 '내리꽂혔다' 다
+        from: { y: 240, scale: 1.36, alpha: 0 }, to: { y: 0, scale: 1, alpha: 1 },
+        ease: 'back', moveK: 0.056,
+        in_: 0.10,          // 타올라 나타난다
+        out_: 0.001,        // 사라지지 않는다 — 부서진다
+        rim: 1.25, rimColor: '#ffdf94',
+        burn: 0.20, burnColor: '#ff9a2e',
+        sheen: 0.42,        // 금속 결이 흐른다
+        warp: 0.0035        // 열에 아주 살짝 일렁인다
+      });
+      // 글자가 내리꽂히는 순간 그 뒤에서 빛이 터진다 (글자가 장면 안에서 빛난다)
+      this.gGlow(960, 540, { r: 620, life: 0.45, power: 1.3, color: '#ffcf6a', delay: IMP - 20 });
+      // 끝 — 금가루가 되어 흩어진다
+      this.gShatter(GZ, { x: 960, y: 540, w: 1180, step: 4, delay: SHATTER,
+                          life: 1.5, up: 300, spread: 320, gravity: 470, size: 2.8 });
+      this.gSparkle(960, 540, { n: 2600, r: 520, speed: 210, life: 1.6,
+                                gravity: 260, color: '#ffe9ac', delay: SHATTER + 40 });
+    } else {
+      /* 예전 길 — 늘어남 → 히트스톱 → 반동.
+         ⚠️ 아래 네 개는 만든 순서 = 시작 순서다. 나중에 만든 것이 앞의 fill 을 이긴다. */
+      const t = this.txt(fx, '가즈아', "font-family:'Black Han Sans',sans-serif;font-size:214px;line-height:.9;color:#14110c;letter-spacing:-.02em;transform:skewX(-7deg);", 640);
+      this.a(t.w, [{ transform: 'translateY(150px) scale(.78,1.52)', opacity: 0 },
+                   { transform: 'translateY(14px)  scale(.93,1.24)', opacity: 1 }],
+             55, 95, 'cubic-bezier(.65,.02,.95,.5)');
+      this.a(t.w, [{ transform: 'translateY(0) scale(1.34,.70)', opacity: 1 },
+                   { transform: 'translateY(0) scale(1.34,.70)', opacity: 1 }], 50, IMP);
+      this.a(t.w, [{ transform: 'translateY(0) scale(1.34,.70)' },
+                   { transform: 'translateY(-6px) scale(.94,1.08)', offset: .42 },
+                   { transform: 'translateY(0) scale(1.03,.98)',    offset: .72 },
+                   { transform: 'translateY(0) scale(1,1)' }],
+             340, IMP + 50, 'cubic-bezier(.2,.85,.3,1)');
+      this.a(t.w, [{ transform: 'translateY(0) scale(1,1)',         opacity: 1 },
+                   { transform: 'translateY(-14px) scale(1,1)',     opacity: 1, offset: .62 },
+                   { transform: 'translateY(-190px) scale(1.04,1)', opacity: 0 }],
+             1220, IMP + 390, 'cubic-bezier(.4,0,.3,1)');
+      this.a(t.d, [{ color: '#14110c' }, { color: '#fdfaf2' }], 1, 560);
+    }
   }
 
   /* ══ 13만 람바다 — 선셋 탱고 (2.2s) ══ */
   fx_lambada(fx) {
+    /* 🎬 매질 — 열대의 습한 공기. 야자잎이 그 안에서 흔들리게 한다 */
+    this.gAmbient(2200, { color: '#3fd0a8', density: 0.13 });
+    this.gGlow(960, 420, { r: 620, life: 2.0, power: 0.55, color: '#ffd06a', falloff: 3.0 });
+    this.gSparkle(960, 520, { n: 3200, r: 900, speed: 190, life: 2.0,
+                              gravity: -30, color: '#ffe9b0' });
     const SUN = this.col(0, '#ff7a2e'), GLOW = this.col(2, '#ffd98a');
     this.cardGlow(SUN);
     this.photoBg(fx, { delay: 120, dur: 2000, blur: 28, bright: .4, max: .78 });
@@ -571,6 +610,13 @@ class SigEngine {
      ⚠️ 좌표: 가로는 ×0.5625, 크기는 ×0.782, 세로는 안전지대로 접힌다.
         배율이 다르므로 화면에서 원하는 자리를 먼저 정하고 거꾸로 계산했다. */
   fx_hotel(fx, shake) {
+    /* 🎬 매질 — 밤 도시의 뿌연 공기. 창문 불빛이 그 안에서 번져야 호텔로 보인다 */
+    this.gAmbient(2600, { color: '#7d92c8', density: 0.12 });
+    this.gGlow(960, 560, { r: 720, life: 2.2, power: 0.6, color: '#ffcf7a', falloff: 3.2 });
+    this.gSparkle(960, 560, { n: 2600, r: 780, speed: 90, life: 2.4,
+                              gravity: -12, color: '#ffe0a0', delay: 300 });
+    this.gPlume(960, 900, { scale: 1.5, life: 2.4, density: 0.2, rise: 120,
+                            color: '#6b7fb0', delay: 200 });
     const NEON = this.col(0, '#4fc3ff'), WARM = this.col(2, '#ffd48a'), GOLD = this.col(1, '#ffc861');
     const IMP = 620;
     this.cardGlow(NEON);
@@ -680,6 +726,12 @@ class SigEngine {
   /* ══ 16만 크레이지 러브 — 하트 초신성 (2.4s) ══
      사진은 분홍 글자 + 무지개 성운. 빨려들었다 '하트 모양' 으로 터진다. */
   fx_crazy(fx, shake) {
+    /* 🎬 매질 — 분홍 열기. 하트가 공기 속에 잠기게 한다 */
+    this.gAmbient(2400, { color: '#ff5f8f', density: 0.14 });
+    this.gGlow(960, 520, { r: 560, life: 1.5, power: 1.0, color: '#ff3d78' });
+    this.gImpact(960, 540, { scale: 0.85, color: '#ff4f86', hot: '#ffd9e6' });
+    this.gSparkle(960, 560, { n: 2600, r: 700, speed: 240, life: 1.9,
+                              gravity: -70, color: '#ffb3cc', delay: 320 });
     const P1 = this.col(0, '#ff5fa2'), P2 = this.col(1, '#b06cff'), P3 = this.col(2, '#22e6ff');
     this.cardGlow(P1);
     this.photoBg(fx, { delay: 1150, dur: 1250, blur: 22, bright: .44, max: .85, from: 1.3, to: 1.08 });
@@ -734,6 +786,15 @@ class SigEngine {
         · 점 12개가 뜻 없이 흩뿌려져 지저분하기만 했다
         부티호텔은 '가만히 서 있는 간판', 이쪽은 '떨어져 튀는 글자' 로 갈랐다. */
   fx_bounce(fx, shake) {
+    /* 🎬 매질 — 튈 때마다 바닥에서 먼지가 인다. 세 번 튀니 세 번 인다.
+       ⚠️ 박자를 연출의 튐과 맞춰야 한다. 어긋나면 따로 노는 게 더 티가 난다. */
+    this.gAmbient(2400, { color: '#9fd8ff', density: 0.11 });
+    [0, 620, 1120].forEach((d, i) => {
+      const sc = 1 - i * 0.22;
+      this.gImpact(960, 830, { scale: 0.62 * sc, color: '#57c4ff', hot: '#e8f7ff' });
+      this.gPlume(960, 860, { n: 2, scale: 0.9 * sc, life: 1.4, density: 0.3,
+                              rise: 150, color: '#7fd0ff', delay: d + 60 });
+    });
     const RED = this.col(0, '#ff2d4d'), WARM = this.col(2, '#ffcf9a');
     const IMP = 560;
     this.cardGlow(RED);
@@ -842,6 +903,11 @@ class SigEngine {
 
   /* ══ 20만 마티니 — 마티니 타임 (2.8s) ══ */
   fx_martini(fx) {
+    /* 🎬 매질 — 차가운 유리의 공기. 아주 옅게. 이 연출은 조용한 것이 맛이다 */
+    this.gAmbient(2800, { color: '#a8c4e8', density: 0.09, dust: 1800 });
+    this.gGlow(960, 500, { r: 520, life: 2.2, power: 0.5, color: '#cfe4ff', falloff: 3.4 });
+    this.gSparkle(960, 520, { n: 1800, r: 420, speed: 120, life: 2.2,
+                              gravity: 30, color: '#ffffff', delay: 500 });
     const GOLD = this.col(2, '#c9a227');
     this.cardGlow(GOLD);
     // 흑백 배경 위라 사진은 아주 옅게만 — 여기서 진하게 깔면 흑백이 무너진다.
@@ -880,6 +946,11 @@ class SigEngine {
      사진은 밤에 오픈카로 네온 스트립을 달리는 장면.
      간판이 소실점에서 튀어나와 양옆으로 흘러 지나간다 → 마지막에 급브레이크. */
   fx_pocha(fx, shake) {
+    /* 🎬 매질 — 포장마차 김. 따뜻하고 낮게 깔린다 */
+    this.gAmbient(2400, { color: '#ffb066', density: 0.13 });
+    this.gPlume(960, 820, { n: 4, scale: 1.3, life: 2.2, density: 0.42, rise: 260,
+                            color: '#ffc98a' });
+    this.gGlow(960, 620, { r: 480, life: 1.8, power: 0.8, color: '#ff9b3d' });
     const N1 = this.col(0, '#ff2bd0'), N2 = this.col(1, '#22e6ff'), G = this.col(2, '#ffd24a');
     this.cardGlow(G);
     this.photoBg(fx, { delay: 0, dur: 2300, blur: 30, bright: .3, max: .72, from: 1.5, to: 1.15 });
@@ -924,6 +995,11 @@ class SigEngine {
      사진은 '파란 대리석 명패 + 금색 글자 + 은빛 액자' 다. 바다가 아니다.
      ⚠️ nuna(70만) 와 같은 액자 계열이라 일부러 반대 성격 — 여기는 차갑게 '파는' 쪽. */
   fx_pucha(fx, shake) {
+    /* 🎬 매질 — 붉은 열기 + 튀는 불티 */
+    this.gAmbient(3000, { color: '#ff7a4a', density: 0.13 });
+    this.gImpact(960, 560, { scale: 0.95, color: '#ff6a2e', hot: '#ffe3c0' });
+    this.gStream(960, 900, -Math.PI / 2, { n: 4200, speed: 780, life: 1.8,
+                                          spread: 1.0, color: '#ff8a3c', delay: 400 });
     const MARB = this.col(0, '#2a9df4'), DEEP = this.col(1, '#0b3a6b'), GOLD = '#e8c46a';
     this.cardGlow(MARB);
     this.photoBg(fx, { delay: 300, dur: 2600, blur: 32, bright: .32, max: .7 });
@@ -979,6 +1055,17 @@ class SigEngine {
   
   /* ══ 35만 EDM — 산성 파열 (2.6s) ══ */
   fx_edm(fx, shake) {
+    /* 🎬 매질 — 비트마다 빛이 터진다. 네 박자.
+       ⚠️ 클럽 연출의 핵심은 '빛이 음악에 맞아 들어간다' 는 느낌이다.
+          박자가 어긋나면 오히려 산만해진다. */
+    this.gAmbient(2600, { color: '#6a5bff', density: 0.14 });
+    [0, 420, 840, 1260].forEach((d, i) => {
+      const c = ['#6a5bff', '#ff3df0', '#22e0ff', '#ffe14a'][i];
+      this.gGlow(960, 520, { r: 620, life: 0.42, power: 1.5, color: c, delay: d });
+      this.gSparkle(960, 540, { n: 1500, r: 640, speed: 420, life: 1.0,
+                                gravity: -40, color: c, delay: d + 30 });
+    });
+    this.gImpact(960, 540, { scale: 0.9, color: '#7a6bff', hot: '#e6e0ff' });
     const AC = this.col(0, '#59ff6a'), CY = this.col(1, '#22e6ff');
     this.cardGlow(AC);
     this.photoBg(fx, { delay: 100, dur: 2200, blur: 24, bright: .38, max: .8 });
@@ -1042,6 +1129,13 @@ class SigEngine {
         · 종이는 살 사이에서 접혀 있어 골과 마루가 번갈아 진다
         · 축에는 리벳이 있고 종이는 축 근처까지 내려오지 않는다 */
   fx_sail(fx, shake) {
+    /* 🎬 매질 — 바다 물안개. 뱃머리 쪽에서 옆으로 흐른다 */
+    this.gAmbient(3400, { color: '#5aa8d8', density: 0.13 });
+    this.gPlume(700, 880, { n: 4, scale: 1.5, life: 2.8, density: 0.34, rise: 120,
+                            color: '#9fd0e8' });
+    this.gStream(420, 820, -0.35, { n: 3600, kind: 'glint', speed: 520, life: 2.2,
+                                   spread: 0.5, gravity: -40, color: '#dff2ff', delay: 300 });
+    this.gGlow(1180, 420, { r: 640, life: 2.6, power: 0.6, color: '#ffd89a', falloff: 3.0 });
     const GOLD = this.col(0, '#d9b45a'), SILK = this.col(2, '#f2e4c4');
     this.cardGlow(GOLD);
     this.photoBg(fx, { delay: 400, dur: 2800, blur: 30, bright: .36, max: .76 });
@@ -1121,6 +1215,16 @@ class SigEngine {
      착탄 프레임 IMP=260. 원본은 820 이었고 낙하에만 620ms 를 썼다.
      ① 움츠림 0–140 → ② 급강하 140–260 → ③ 착탄 260–320(정지) → ④ 반동 → ⑤ 이차운동 */
   fx_shield(fx, shake) {
+    /* 🎬 매질 — 방패가 막고, 깨지고, 파편이 튄다. 세 박자.
+       ⚠️ '막았다' 를 읽히게 하려면 충격이 방패 앞에서 멈춰야 한다.
+          그래서 착탄을 방패보다 조금 앞(위)에 둔다. */
+    this.gAmbient(3200, { color: '#5ad0ff', density: 0.12 });
+    this.gGlow(960, 520, { r: 560, life: 0.9, power: 1.2, color: '#3ec8ff', delay: 120 });
+    this.gImpact(960, 470, { scale: 1.2, color: '#3ec8ff', hot: '#eaf9ff' });
+    this.gStream(960, 540, -Math.PI / 2, { n: 5200, speed: 900, life: 1.6, spread: 2.2,
+                                          gravity: 640, color: '#9fe6ff', delay: 320 });
+    this.gPlume(960, 700, { scale: 1.2, life: 2.2, density: 0.3, rise: 200,
+                            color: '#4a9fd8', delay: 380 });
     const BOLT = this.col(0, '#ff5fa2');
     const IMP = 260;
     this.cardGlow(BOLT);
@@ -1195,6 +1299,12 @@ class SigEngine {
 
   /* ══ 600,001 74번 알림 — 참격 (2.6s) ══ */
   fx_slash(fx, shake) {
+    /* 🎬 매질 — 베고 지나간 자리. 칼선을 따라 불티가 흩어진다 */
+    this.gAmbient(2600, { color: '#ffd24a', density: 0.11 });
+    this.gGlow(960, 540, { r: 460, life: 0.5, power: 1.4, color: '#fff0b0', delay: 120 });
+    this.gStream(560, 760, -0.62, { n: 6000, speed: 1250, life: 1.2, spread: 0.28,
+                                   gravity: 260, color: '#ffd24a', delay: 150 });
+    this.gImpact(1300, 380, { scale: 0.75, color: '#ffcf3c', hot: '#fff6d8' });
     const BLADE = this.col(0, '#e63946');
     this.cardGlow(BLADE);
     this.photoBg(fx, { delay: 220, dur: 2200, blur: 24, bright: .36, max: .8 });
@@ -1224,6 +1334,11 @@ class SigEngine {
      사진은 '분홍 대리석 + 로즈골드 액자 + 분홍 보석' 이다.
      ⚠️ pucha(30만) 와 같은 액자 계열이라 반대 성격 — 여기는 따뜻하게 '피는' 쪽. */
   fx_nuna(fx, shake) {
+    /* 🎬 매질 — 분홍빛 공기와 흩날리는 꽃가루 */
+    this.gAmbient(3200, { color: '#ff86b8', density: 0.13 });
+    this.gGlow(960, 480, { r: 600, life: 2.4, power: 0.7, color: '#ff6aa8', falloff: 3.0 });
+    this.gSparkle(960, 400, { n: 3400, r: 860, speed: 200, life: 2.6,
+                              gravity: 90, color: '#ffd0e4', jitter: 1.2 });
     const ROSE = this.col(0, '#ff7fa8'), GOLD = this.col(2, '#e8b978');
     this.cardGlow(ROSE);
     this.photoBg(fx, { delay: 200, dur: 2900, blur: 28, bright: .42, max: .82 });
@@ -1273,6 +1388,15 @@ class SigEngine {
      ⚠️ 이 연출의 전부는 1.2~1.4초의 '멈춤' 이다. 계속 화려하게 채우면 밋밋해진다.
         빌드업(0~1.2) → 정적(1.2~1.4) → 드롭(1.4~). 이 구조를 흐리지 마라. */
   fx_club(fx, shake) {
+    /* 🎬 매질 — 클럽 스모크. 조명이 그 안을 갈라야 조명으로 보인다.
+       연기가 없으면 빛줄기는 그냥 색칠한 삼각형이다. */
+    this.gAmbient(3400, { color: '#8a5bff', density: 0.16 });
+    this.gPlume(960, 900, { n: 4, scale: 1.6, life: 3.0, density: 0.34, rise: 150,
+                            color: '#7a4fd8' });
+    [0, 520, 1040, 1560, 2080].forEach((d, i) => {
+      const c = ['#ff3df0', '#22e0ff', '#ffe14a', '#6a5bff', '#3dff9a'][i];
+      this.gGlow(960, 500, { r: 560, life: 0.5, power: 1.3, color: c, delay: d });
+    });
     const PINK = this.col(0, '#ff2bd0'), CYAN = this.col(1, '#22e6ff'), GOLD = this.col(2, '#ffd24a');
     this.cardGlow(PINK);
     this.photoBg(fx, { delay: 1400, dur: 1900, blur: 26, bright: .42, max: .85, from: 1.3, to: 1.1 });
@@ -1345,6 +1469,11 @@ class SigEngine {
   
   /* ══ 100만 VIP (4.6s) ══ */
   fx_vip(fx) {
+    /* 🎬 매질 — 금가루가 떠 있는 공기. 값어치 있어 보이는 건 거의 반짝임이 만든다 */
+    this.gAmbient(4600, { color: '#d9b45a', density: 0.11 });
+    this.gGlow(960, 500, { r: 680, life: 3.4, power: 0.7, color: '#ffd76a', falloff: 3.2 });
+    this.gSparkle(960, 520, { n: 4200, r: 880, speed: 150, life: 3.2,
+                              gravity: -20, color: '#ffe9b0', jitter: 1.8 });
     const GOLD = this.col(2, '#c9a227');
     this.cardGlow(GOLD);
     this.photoBg(fx, { delay: 260, dur: 4100, blur: 32, bright: .34, max: .68, hold: .84 });
@@ -1383,6 +1512,13 @@ class SigEngine {
 
   /* ══ 200만 엔젤 VIP — 천상 강림 (5.2s) ══ */
   fx_angel(fx) {
+    /* 🎬 매질 — 흰 빛과 깃털 같은 안개. 위에서 내려오는 느낌 */
+    this.gAmbient(5200, { color: '#cfe0ff', density: 0.12 });
+    this.gGlow(960, 320, { r: 760, life: 4.0, power: 0.85, color: '#ffffff', falloff: 3.6 });
+    this.gPlume(960, 260, { n: 3, scale: 1.6, life: 3.6, density: 0.26, rise: -110,
+                            color: '#e8f0ff', delay: 200 });
+    this.gSparkle(960, 420, { n: 4000, r: 820, speed: 130, life: 3.6,
+                              gravity: 70, color: '#ffffff', jitter: 2.2, delay: 400 });
     this.cardGlow(this.col(2, '#ffecb4'));
     this.photoBg(fx, { delay: 300, dur: 4700, blur: 34, bright: .38, max: .72, hold: .84 });
     const holy = this.mk(fx, 'inset:0;background:radial-gradient(70% 90% at 50% 0%,rgba(255,240,200,.5),rgba(20,16,8,.62) 66%);opacity:0;');
@@ -1421,6 +1557,14 @@ class SigEngine {
 
   /* ══ 300만 MVP — 대관식 (7.5s) ══ */
   fx_mvp(fx, shake) {
+    /* 🎬 매질 — 대관식. 금빛 공기 + 왕관 뒤 후광 + 인장 찍힐 때 충격.
+       불꽃놀이는 아래 fireworks() 가 따로 맡는다. */
+    this.gAmbient(7500, { color: '#d9b45a', density: 0.12 });
+    this.gGlow(960, 430, { r: 820, life: 5.2, power: 0.8, color: '#ffd76a', falloff: 3.4 });
+    this.gPlume(960, 940, { n: 3, scale: 1.7, life: 4.0, density: 0.24, rise: 130,
+                            color: '#8a7440', delay: 400 });
+    this.gSparkle(960, 480, { n: 4400, r: 900, speed: 160, life: 4.0,
+                              gravity: 40, color: '#ffe9b0', jitter: 2.6, delay: 900 });
     this.cardGlow(this.col(2, '#d9b45a'));
     this.photoBg(fx, { delay: 400, dur: 6800, blur: 34, bright: .34, max: .66, hold: .86 });
     const vig = this.mk(fx, 'inset:0;background:radial-gradient(100% 80% at 50% 46%,rgba(40,26,4,.2),rgba(2,2,4,.86));opacity:0;');
@@ -1451,6 +1595,248 @@ class SigEngine {
     this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-110%)' }, { transform: 'skewX(-14deg) translateX(2100px)' }], 1800, STAMP + 500, 'cubic-bezier(.42,0,.5,1)');
   }
 
+
+  /* ════════════════════════════════════════════════════════════════
+     연출 문법 — 조각 대신 '매질' 을 부르는 말
+
+     'PPT 같다' 의 원인은 연출의 구성(왕관·방패·야자잎)이 아니라 그것들이
+     **빈 화면 위에 홀로 떠 있다는 것** 이었다. 구성은 그대로 두고 사이사이에
+     매질을 깔면 조각들이 그 안에 잠겨 더는 조각으로 안 보인다.
+
+     ⚠️ 좌표는 전부 설계 좌표(1920×1080)다. 안에서 화면 좌표로 옮긴다 —
+        연출이 좌표계를 신경 쓰지 않게 한다. 예전에 이것 때문에 17개가
+        전부 어긋났다.
+     ⚠️ 빛·입자 레이어가 없으면(this.gl 이 null) 전부 조용히 아무것도 안 한다.
+        하드웨어 가속이 꺼진 자리에서도 연출은 예전 모습으로 그대로 간다.
+     ════════════════════════════════════════════════════════════════ */
+
+
+  /* ══ 글자를 재질로 ══
+     게임 연출에서 글자는 '색' 이 아니라 '재질' 이다. 금색 글자가 금처럼 보이는 건
+       · 위아래 색이 다르고 (빛이 위에서 온다)
+       · 가장자리에 어두운 테가 있고 (형태가 배경에서 분리된다)
+       · 안쪽에 그림자가 지고 (두께가 있다)
+     한 가지 색으로 칠하면 그건 종이다. 지금까지의 글자가 딱 그랬다.
+
+     돌려주는 것은 캔버스다. gSprite() 로 GL 에 올리면 타들어오고 빛나고 부서진다.
+     ⚠️ 글꼴이 아직 안 읽혔으면 폭이 틀리게 잡힌다. 연출은 후원이 들어온 뒤에
+        도는 것이라 그때쯤엔 이미 읽혀 있다 — 그래도 최소 폭을 보장해 둔다. */
+  gText(txt, o) {
+    if (typeof document === 'undefined') return null;
+    o = o || {};
+    const size = o.size || 214;
+    const font = o.font || "'Black Han Sans', 'Malgun Gothic', sans-serif";
+    const stroke = Math.max(2, Math.round(size * (o.stroke != null ? o.stroke : 0.055)));
+    const pad = Math.round(size * 0.55) + stroke * 2;
+    const m = document.createElement('canvas').getContext('2d');
+    m.font = size + 'px ' + font;
+    const tw = Math.max(size, Math.ceil(m.measureText(txt).width));
+    const cv = document.createElement('canvas');
+    cv.width = tw + pad * 2;
+    cv.height = Math.ceil(size * 1.42) + pad * 2;
+    const c = cv.getContext('2d');
+    const cx = cv.width / 2, cy = cv.height / 2;
+    c.font = size + 'px ' + font;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (o.skew) { c.translate(cx, cy); c.transform(1, 0, o.skew, 1, 0, 0); c.translate(-cx, -cy); }
+
+    // ① 바깥 테 — 어떤 배경에서도 형태가 읽히게. 두 겹으로 준다.
+    c.lineJoin = 'round'; c.miterLimit = 2;
+    c.strokeStyle = o.edge || 'rgba(28,18,4,.92)';
+    c.lineWidth = stroke * 2.6; c.strokeText(txt, cx, cy);
+    c.strokeStyle = o.edge2 || 'rgba(120,78,14,.85)';
+    c.lineWidth = stroke * 1.3; c.strokeText(txt, cx, cy);
+
+    // ② 몸통 — 위에서 빛이 오는 금속 결
+    const g = c.createLinearGradient(0, cy - size * 0.66, 0, cy + size * 0.62);
+    const C = o.colors || ['#fff6d6', '#ffdd8a', '#e0a83c', '#a9741c', '#ffe9ac'];
+    g.addColorStop(0.00, C[0]);
+    g.addColorStop(0.30, C[1]);
+    g.addColorStop(0.52, C[2]);
+    g.addColorStop(0.74, C[3]);
+    g.addColorStop(1.00, C[4]);
+    c.fillStyle = g;
+    c.fillText(txt, cx, cy);
+
+    // ③ 안쪽 그림자 — 두께를 만든다. 글자 모양으로 자른 뒤 위에서 어둡게 깐다.
+    c.save();
+    c.globalCompositeOperation = 'source-atop';
+    const sh = c.createLinearGradient(0, cy - size * 0.7, 0, cy - size * 0.12);
+    sh.addColorStop(0, 'rgba(255,255,255,.55)');
+    sh.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = sh; c.fillRect(0, 0, cv.width, cv.height);
+    const sh2 = c.createLinearGradient(0, cy + size * 0.16, 0, cy + size * 0.72);
+    sh2.addColorStop(0, 'rgba(60,32,0,0)');
+    sh2.addColorStop(1, 'rgba(60,32,0,.45)');
+    c.fillStyle = sh2; c.fillRect(0, 0, cv.width, cv.height);
+    c.restore();
+    return cv;
+  }
+
+  /* 캔버스를 GL 안에 올린다. 설계 좌표로 자리를 준다.
+     ⚠️ 여기 올려야 같은 빛 번짐·그레인·충격파 왜곡을 먹는다. CSS 로 두면
+        아무리 잘 그려도 '위에 얹힌 종이' 로 보인다. */
+  gSprite(cv, o) {
+    if (!this.gl || !cv) return null;
+    o = o || {};
+    const w = this._r(o.w != null ? o.w : cv.width);
+    const h = w * (cv.height / cv.width);
+    return this.gl.sprite(cv, {
+      x: this._x(o.x != null ? o.x : 960) - w / 2,
+      y: this._y(o.y != null ? o.y : 540) - h / 2,
+      w: w, h: h,
+      life: (o.life != null ? o.life : 1.2) / this.S,
+      delay: (o.delay || 0) / 1000 / this.S,
+      in_: (o.in_ != null ? o.in_ : 0.30) / this.S,
+      out_: (o.out_ != null ? o.out_ : 0.26) / this.S,
+      rim: o.rim, rimColor: o.rimColor, burn: o.burn, burnColor: o.burnColor,
+      sheen: o.sheen, warp: o.warp, alpha: o.alpha,
+      from: o.from, to: o.to, ease: o.ease, moveK: o.moveK
+    });
+  }
+
+  /* 글자를 가루로 부순다 — '사라진다' 가 아니라 '부서진다'.
+     이 한 수가 값어치를 만든다. 그냥 흐려지면 아무 일도 안 일어난 것 같다. */
+  gShatter(cv, o) {
+    if (!this.gl || !cv) return 0;
+    o = o || {};
+    const w = this._r(o.w != null ? o.w : cv.width);
+    const h = w * (cv.height / cv.width);
+    return this.gl.shatter(cv,
+      this._x(o.x != null ? o.x : 960) - w / 2,
+      this._y(o.y != null ? o.y : 540) - h / 2, w, h, {
+        step: o.step || 4, color: o.color,
+        delay: (o.delay || 0) / 1000 / this.S,
+        life: [(o.life || 1.6) * 0.45 / this.S, (o.life || 1.6) / this.S],
+        up: (o.up != null ? o.up : 260) * this.KY,
+        spread: (o.spread != null ? o.spread : 240) * this.KX,
+        gravity: (o.gravity != null ? o.gravity : 520) * this.KY,
+        size: o.size || 2.6, jitter: o.jitter != null ? o.jitter : 0.14
+      });
+  }
+  /* 화면을 늘 흐르게 — 옅은 안개 + 떠다니는 먼지.
+     연출 시간 대부분 화면이 비어 있던 것이 'PPT 같다' 의 큰 몫이었다.
+     아주 옅어야 한다. 진해지면 방송 화면을 가린다. */
+  gAmbient(durMs, o) {
+    if (!this.gl) return;
+    o = o || {};
+    const dur = (durMs || 2000) / 1000 / this.S;
+    const col = o.color || (this.C ? this.C[0] : '#8fa6d8');
+    const n = Math.max(2, Math.round(dur / 1.1));
+    for (let i = 0; i < n; i++) {
+      this.gl.smoke(this._x(this.rnd(240, 1680)), this._y(this.rnd(180, 900)), {
+        r: this._r(this.rnd(900, 1500)), life: 1.9 / this.S, delay: i * 0.9 / this.S,
+        density: (o.density != null ? o.density : 0.22), rise: 40, swirl: 1.5, color: col
+      });
+    }
+    // 떠다니는 먼지 — 공기가 있다는 신호. 이게 있으면 화면이 '살아 있다'.
+    this.gl.burst(this._x(960), this._y(540), {
+      n: (o.dust != null ? o.dust : 2600), kind: 'glint', color: col,
+      speed: [10 * this.KX, 130 * this.KX], life: [dur * 0.5, dur],
+      size: [0.9, 2.2], gravity: -16 * this.KY, drag: 0.2,
+      radius: this._r(980), turb: 30 * this.KX, jitter: dur * 0.5
+    });
+  }
+
+  /* 착탄 — 빛 → 충격파 → 불티 → 연기. 한 박자에 겹쳐서 터진다.
+     ⚠️ 순서가 중요하다. 빛이 먼저 터지고(0ms), 충격파가 밀고(+20ms),
+        불티가 흩어지고(+30ms), 연기가 뒤늦게 피어오른다(+90ms).
+        동시에 터뜨리면 그냥 '펑' 이고, 어긋나게 하면 '맞았다' 가 된다. */
+  gImpact(x, y, o) {
+    if (!this.gl) return;
+    o = o || {};
+    const P = this.P, sc = o.scale != null ? o.scale : 1;
+    const col = o.color || (this.C ? this.C[0] : '#ffc94a');
+    const hot = o.hot || '#fff3cf';
+    const X = this._x(x), Y = this._y(y);
+    /* ⚠️ 잔상이 있어야 연기가 '흐르는 것' 으로 보인다. 없으면 한 장의 무늬다. */
+    this.gl.trail = Math.max(this.gl.trail, 0.62);
+    this.gl.glow(X, Y, { r: this._r(760 * sc), life: 0.5 / this.S, power: 1.7 * P,
+                        color: hot, falloff: 2.0 });
+    this.gl.shock(X, Y, { r0: this._r(24), r1: this._r(1150 * sc), life: 0.68 / this.S,
+                         power: 32 * P * this.KX, width: this._r(110), delay: 0.02 });
+    this.gl.burst(X, Y, {
+      n: Math.round(9000 * sc), kind: 'ember', color: col,
+      speed: [520 * this.KX * sc, 1000 * this.KX * sc], life: [0.6 / this.S, 1.8 / this.S],
+      size: [1.5, 4.6], gravity: 700 * this.KY, drag: 1.1,
+      jitter: 0.06, radius: this._r(11), turb: 34 * this.KX, delay: 0.03
+    });
+    this.gl.burst(X, Y, {
+      n: Math.round(2600 * sc), kind: 'glint', color: hot,
+      speed: [110 * this.KX, 780 * this.KX * sc], life: [1.0 / this.S, 2.4 / this.S],
+      size: [1.2, 2.8], gravity: 240 * this.KY, drag: 1.3,
+      jitter: 0.1, radius: this._r(15), turb: 52 * this.KX, delay: 0.03
+    });
+    this.gl.smoke(X, Y, { r: this._r(1020 * sc), life: 2.3 / this.S, density: 0.78,
+                         rise: 210, swirl: 1.25, color: col, delay: 0.09 });
+    this.gl.smoke(X - this._r(280 * sc), Y + this._r(130), {
+      r: this._r(790 * sc), life: 2.6 / this.S, density: 0.60, rise: 170,
+      swirl: 1.5, color: col, delay: 0.17 });
+  }
+
+  /* 연기 기둥 — 피어오르는 것. 배경을 채운다. */
+  gPlume(x, y, o) {
+    if (!this.gl) return;
+    o = o || {};
+    const col = o.color || (this.C ? this.C[0] : '#c8d4ff');
+    const sc = o.scale != null ? o.scale : 1;
+    const n = o.n != null ? o.n : 3;
+    for (let i = 0; i < n; i++) {
+      this.gl.smoke(this._x(x + this.rnd(-90, 90)), this._y(y + this.rnd(-40, 40)), {
+        r: this._r(this.rnd(640, 980) * sc), life: (o.life != null ? o.life : 2.4) / this.S,
+        density: (o.density != null ? o.density : 0.55), rise: (o.rise != null ? o.rise : 230),
+        swirl: 1.35, color: col, delay: (o.delay || 0) / 1000 + i * 0.13 / this.S
+      });
+    }
+  }
+
+  /* 빛 덩어리 — 경계 없는 빛. 조각 뒤에 깔면 조각이 빛 속에 잠긴다. */
+  gGlow(x, y, o) {
+    if (!this.gl) return;
+    o = o || {};
+    this.gl.glow(this._x(x), this._y(y), {
+      r: this._r((o.r != null ? o.r : 420) * 1.55), life: (o.life != null ? o.life : 1.1) / this.S,
+      power: (o.power != null ? o.power : 1.0) * this.P,
+      falloff: o.falloff != null ? o.falloff : 2.4,
+      color: o.color || (this.C ? this.C[0] : '#ffd76a'),
+      delay: (o.delay || 0) / 1000 / this.S
+    });
+  }
+
+  /* 반짝임 뿌리기 — 금가루가 빛을 되쏘는 것. 값어치 있어 보이게 한다. */
+  gSparkle(x, y, o) {
+    if (!this.gl) return;
+    o = o || {};
+    this.gl.burst(this._x(x), this._y(y), {
+      n: o.n != null ? o.n : 2200, kind: 'glint',
+      color: o.color || (this.C ? this.C[1] || this.C[0] : '#ffe9b0'),
+      speed: [20 * this.KX, (o.speed != null ? o.speed : 260) * this.KX],
+      life: [(o.life != null ? o.life : 1.6) * 0.5 / this.S, (o.life != null ? o.life : 1.6) / this.S],
+      size: [1.0, 2.6], gravity: (o.gravity != null ? o.gravity : 40) * this.KY, drag: 0.9,
+      radius: this._r(o.r != null ? o.r : 240), turb: 44 * this.KX,
+      jitter: (o.jitter != null ? o.jitter : 0.35) / this.S,
+      delay: (o.delay || 0) / 1000 / this.S
+    });
+  }
+
+  /* 뿜어져 나오는 흐름 — 분수·바람·기운. dir 은 라디안(0 = 오른쪽). */
+  gStream(x, y, dir, o) {
+    if (!this.gl) return;
+    o = o || {};
+    const col = o.color || (this.C ? this.C[0] : '#ffc94a');
+    this.gl.burst(this._x(x), this._y(y), {
+      n: o.n != null ? o.n : 5200, kind: o.kind || 'ember', color: col,
+      speed: [(o.speed != null ? o.speed : 700) * 0.45 * this.KX,
+              (o.speed != null ? o.speed : 700) * this.KX],
+      life: [(o.life != null ? o.life : 1.5) * 0.55 / this.S, (o.life != null ? o.life : 1.5) / this.S],
+      size: [1.3, 3.8], gravity: (o.gravity != null ? o.gravity : 420) * this.KY,
+      drag: o.drag != null ? o.drag : 0.9,
+      dir: dir, spread: o.spread != null ? o.spread : 0.7,
+      jitter: (o.jitter != null ? o.jitter : 0.25) / this.S,
+      radius: this._r(o.r != null ? o.r : 20), turb: 40 * this.KX,
+      delay: (o.delay || 0) / 1000 / this.S
+    });
+  }
   /* GPU 판 불꽃.
      예전에는 한 번에 74개였다. 조각 하나가 DOM/캔버스 비용이라 그게 한계였다.
      지금은 한 번에 9,000개를 쓴다 — 20만 개까지 한 프레임 0.8ms 다.
@@ -1474,21 +1860,21 @@ class SigEngine {
         n: 5000, kind: 'ember', color: c,
         speed: [620 * this.KX, 980 * this.KX], life: [0.7, 1.9],
         size: [1.5, 4.6], gravity: 760 * this.KY, drag: 1.15,
-        jitter: 0.06, radius: 9 * this.KX
+        jitter: 0.06, radius: 9 * this.KX, turb: 26 * this.KX
       });
       // 안쪽에 느린 것 조금 — 껍질만 있으면 속이 비어 보인다
       this.gl.burst(x, y, {
         n: 900, kind: 'ember', color: c,
         speed: [60 * this.KX, 420 * this.KX], life: [0.9, 2.2],
         size: [1.4, 3.4], gravity: 620 * this.KY, drag: 0.9,
-        jitter: 0.08, radius: 14 * this.KX
+        jitter: 0.08, radius: 14 * this.KX, turb: 40 * this.KX
       });
       // 금가루가 빛을 되쏘는 반짝임
       this.gl.burst(x, y, {
         n: 1600, kind: 'glint', color: '#fff3cf',
         speed: [140 * this.KX, 820 * this.KX], life: [1.3, 2.9],
         size: [1.3, 2.8], gravity: 260 * this.KY, drag: 1.3,
-        jitter: 0.10, radius: 12 * this.KX
+        jitter: 0.10, radius: 12 * this.KX, turb: 55 * this.KX
       });
       this._glTimer = setTimeout(shoot, this.rnd(320, 620) / this.S);
     };

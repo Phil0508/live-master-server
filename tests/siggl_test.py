@@ -123,9 +123,90 @@ if mcap:
     cap = int(mcap.group(1))
     chk('상한이 실측 범위 안이다 (20만까지 0.8ms 로 확인)', 20000 <= cap <= 200000, cap)
 chk('한 번에 상한을 넘겨 쏠 수 없다', 'Math.min(opt.n || 3000, this.cap)' in gl)
-chk('입자 종류가 여럿이다 (불티·반짝임·연기)',
-    "{ ember: 0, glint: 1, smoke: 2 }" in gl)
+# ⚠️ 'smoke' 가 두 뜻이다 — 화면을 채우는 연기 구름(SigGL.smoke)과
+#    입자 종류로서의 먼지. 입자 쪽은 dust 로 부르고 smoke 는 옛 이름으로 남겼다.
+chk('입자 종류가 여럿이다 (불티·반짝임·먼지)',
+    "{ ember: 0, glint: 1, dust: 2, smoke: 2 }" in gl)
+
+print()
+print('=' * 74)
+print('⑨ 매질 — PPT 느낌을 없애는 핵심')
+print('=' * 74)
+'''조각이 빈 화면 위에 홀로 뜨면 그게 PPT 다. 경계 없는 것이 흐르면 잠긴다.'''
+for f in ('smoke', 'glow', 'shock'):
+    chk('%s() 가 있다' % f, ('  ' + f + '(x, y, opt)') in gl)
+chk('연기가 옥타브를 겹친다 (한 크기만 있으면 가짜로 보인다)', 'float fbm(' in gl)
+chk('좌표 자체를 밀어 뭉게뭉게하게 한다 (도메인 왜곡)',
+    'q += swirl * (vec2(fbm(q + 3.1), fbm(q + 7.7)) - 0.5)' in gl)
+chk('매질을 1/4 크기로 그린다 (전체 크기면 이것만으로 예산을 다 쓴다)',
+    'FIELD_DIV = 4' in gl and 'FIELD_DIV' in gl)
+# ⚠️ 실제로 났던 사고: 매질의 y 가 입자와 반대라 착탄점 빛이 화면 아래에 가 있었다
+chk('매질 y 를 입자와 같은 방향으로 뒤집는다',
+    'vec2 px = vec2(uv.x, 1.0 - uv.y) * u_res;' in gl)
+chk('충격파도 같은 좌표계를 쓴다',
+    'vec2  d = vec2(uv.x, 1.0 - uv.y) * u_res - u_k0[i].xy;' in gl)
+chk('충격파가 방송 화면은 못 건드린다고 적어뒀다', '방송 화면은 못 건드린다' in gl)
+chk('자리가 꽉 차면 오래된 것을 밀어낸다', 'this.smokes.shift()' in gl)
+chk('매질·빛·충격파도 루프 멈춤 계산에 들어간다', gl.count('this._mark(') >= 4)
+
+print()
+print('=' * 74)
+print('⑩ 연출 문법 — 17개가 부르는 말')
+print('=' * 74)
+for f in ('gAmbient', 'gImpact', 'gPlume', 'gGlow', 'gSparkle', 'gStream'):
+    chk('%s() 가 있다' % f, ('  ' + f + '(') in fx)
+chk('레이어가 없으면 조용히 아무것도 안 한다 (예전 모습으로 그대로 간다)',
+    fx.count('if (!this.gl) return;') >= 6)
+chk('설계 좌표를 안에서 옮긴다 (연출이 좌표계를 신경 안 쓰게)',
+    'this._x(x)' in fx and 'this._y(y)' in fx and 'this._r(' in fx)
+# ⚠️ 착탄은 순서가 생명이다. 동시에 터뜨리면 그냥 '펑' 이고, 어긋나야 '맞았다' 가 된다
+chk('착탄이 빛→충격파→불티→연기 순으로 어긋난다',
+    "delay: 0.02" in fx and "delay: 0.03" in fx and "delay: 0.09" in fx)
+import re as _re
+cnt = len(_re.findall(r'this\.gAmbient\(', fx))
+chk('연출 17개가 전부 화면을 채우고 시작한다 (빈 화면이 PPT 느낌의 큰 몫)',
+    cnt >= 17, '%d개' % cnt)
 chk('빛 번짐을 끌 수 있다', 'this.bloom > 0' in gl)
+
+print()
+print('=' * 74)
+print('⑪ 요소 — 주인공도 GL 안으로')
+print('=' * 74)
+"""매질만 깔아서는 'PPT 같다' 가 안 없어진다. 주인공인 글자·형상이 CSS div 로
+   화면 위에 따로 떠 있으면 아무리 분위기를 깔아도 '위에 얹힌 종이' 로 보인다."""
+chk('스프라이트를 GL 에 올릴 수 있다', 'sprite(src, o)' in gl and 'SPR_VS' in gl and 'SPR_FS' in gl)
+chk('입자 위·빛 번짐 앞에서 그린다 (같은 빛·그레인·왜곡을 먹게)',
+    '_drawSprites(t, target)' in gl)
+# ⚠️ 'half' 는 GLSL 예약어다. 이걸로 셰이더가 안 만들어져 레이어가 통째로 꺼진 적이 있다
+chk("GLSL 예약어를 변수로 쓰지 않는다 ('half' 로 레이어가 꺼진 적이 있다)",
+    'vec2 half' not in gl)
+chk('타들어오며 나타난다 (켜졌다/꺼졌다가 아니라)', 'u_dis' in gl and '문턱' in gl)
+chk('타는 경계에 뜨거운 테가 생긴다 (없으면 그냥 지워지는 것처럼 보인다)', 'u_burn' in gl)
+chk('테두리가 빛난다 (장면 안에서 빛을 받는다)', 'u_rim' in gl)
+chk('금속 결이 흐른다 (광택 쓸기)', 'u_sheen' in gl)
+chk('열에 일렁인다', 'u_warp' in gl)
+chk('부서져 가루가 된다', 'shatter(src, x, y, w, h, o)' in gl)
+chk('부술 때 픽셀을 건너뛰며 훑는다 (촘촘히 보면 CPU 가 죽는다)',
+    "step = Math.max(2, o.step || 4)" in gl)
+chk('지나쳤다 돌아오는 결이 있다 (툭 놓였다가 아니라 내리꽂혔다)',
+    "kind === 'back'" in gl)
+chk('같은 그림을 두 번 올리지 않는다', '_texCache' in gl)
+
+print()
+print('=' * 74)
+print('⑫ 글자가 재질인가')
+print('=' * 74)
+"""게임 연출에서 글자는 색이 아니라 재질이다. 한 색으로 칠하면 그건 종이다."""
+chk('글자를 재질로 그리는 도구가 있다', 'gText(txt, o)' in fx)
+chk('위에서 빛이 오는 결 (세로 그라데이션)', 'createLinearGradient(0, cy - size' in fx)
+chk('가장자리에 테를 두 겹 두른다 (어떤 배경에서도 읽히게)', fx.count('strokeText(txt, cx, cy)') >= 2)
+chk('안쪽에 그림자가 진다 (두께가 생긴다)', "globalCompositeOperation = 'source-atop'" in fx)
+chk('설계 좌표로 GL 에 올린다', 'gSprite(cv, o)' in fx and 'this._x(o.x' in fx)
+chk('부수는 말도 있다', 'gShatter(cv, o)' in fx)
+# ⚠️ 레이어가 없으면 예전 CSS 글자로 그대로 가야 한다. 방송이 멈추면 안 된다.
+chk('가즈아가 GL 글자를 쓴다', "this.gText('가즈아'" in fx)
+chk('레이어가 없으면 예전 CSS 글자로 간다', "} else {" in fx and "this.txt(fx, '가즈아'" in fx)
+chk('부서짐이 예약돼 있다', 'this.gShatter(GZ' in fx)
 
 print()
 print('=' * 74)
