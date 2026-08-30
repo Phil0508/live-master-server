@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>시그니처 연출 미리보기</title>
+<!--
+  연출 17개를 눌러서 보는 판. 방송판과 같은 1080×1920 무대에 그린다.
+
+  ⚠️ 오버레이(overlay.html)는 스크립트를 '/sig-fx.js' 로 부른다. 서버가 붙어야
+     열리는 주소라, 파일을 그냥 열면 연출이 하나도 안 뜬다. 그래서 이 판은
+     './sig-fx.js' 로 부른다 — 더블클릭만으로 열린다.
+
+  ⚠️ 방송에 쓰는 물건이 아니다. 보고 고치기 위한 판이다.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Anton&family=Cormorant+Garamond:wght@300&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --gold:#f6c453; --ink:#eef1f7; --ink-2:#9aa4b5; --line:#2a3240;
+         --ok:#43bd9d; --bad:#e3729f; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#0a0c11;color:var(--ink);overflow:hidden;
+    font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif}
+  #wrap{display:flex;height:100%}
+
+  /* ── 왼쪽 조작판 ── */
+  #side{width:300px;flex:none;padding:16px;overflow:auto;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;gap:14px}
+  h1{font-size:17px;font-weight:900;margin:0}
+  .sub{font-size:12px;color:var(--ink-2);line-height:1.6;margin:0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .grid button{font:inherit;font-size:13px;font-weight:700;padding:9px 6px;border-radius:8px;
+    border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink);cursor:pointer}
+  .grid button:hover{background:rgba(255,255,255,.11);border-color:var(--gold)}
+  .grid button.on{background:var(--gold);border-color:var(--gold);color:#241a05}
+  .row{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--ink-2)}
+  .row label{white-space:nowrap;font-weight:600}
+  input[type=range]{flex:1;accent-color:var(--gold)}
+  .val{font-variant-numeric:tabular-nums;color:var(--gold);font-weight:800;min-width:38px;text-align:right}
+  .box{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;
+    line-height:1.7;color:var(--ink-2)}
+  .box b{color:var(--ink)}
+  .k-ok{color:var(--ok);font-weight:800}
+  .k-bad{color:var(--bad);font-weight:800}
+  #fps{font-size:26px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+
+  /* ── 오른쪽 무대 (방송판과 같은 1080×1920) ── */
+  #view{flex:1;position:relative;display:flex;align-items:center;justify-content:center;
+    background:repeating-conic-gradient(#15171d 0% 25%, #0e1015 0% 50%) 50%/28px 28px}
+  #scale{position:relative;transform-origin:center}
+  #stage{position:relative;width:1080px;height:1920px;overflow:hidden;background:#05060a;
+    border:1px solid var(--line)}
+  #shot{position:absolute;inset:0;background:
+    radial-gradient(70% 50% at 50% 30%, #1d2740, #0a0d16 70%);
+    display:flex;align-items:center;justify-content:center;
+    font-size:44px;font-weight:800;color:rgba(255,255,255,.16);letter-spacing:.2em}
+  #sigfx-inner{position:absolute;inset:0}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="side">
+    <div>
+      <h1>🎆 시그니처 연출 미리보기</h1>
+      <p class="sub">눌러서 보세요. 방송판과 같은 1080×1920 무대입니다.</p>
+    </div>
+
+    <div class="box">
+      <div>빛·입자 레이어</div>
+      <div id="glstate">확인 중…</div>
+    </div>
+
+    <div class="grid" id="btns"></div>
+
+    <div class="row"><label>속도</label>
+      <input type="range" id="spd" min="0.5" max="2" step="0.1" value="1">
+      <span class="val" id="spd-v">1.0</span></div>
+    <div class="row"><label>충격</label>
+      <input type="range" id="imp" min="0" max="2" step="0.1" value="1">
+      <span class="val" id="imp-v">1.0</span></div>
+    <div class="row"><label>빛 번짐</label>
+      <input type="range" id="blm" min="0" max="2.5" step="0.05" value="1.15">
+      <span class="val" id="blm-v">1.15</span></div>
+
+    <div class="box">
+      <div id="fps">—<span style="font-size:13px;color:var(--ink-2)"> fps</span></div>
+      <div id="stat">—</div>
+    </div>
+
+    <p class="sub">⚠️ 방송에 쓰는 판이 아닙니다. 보고 고치기 위한 판입니다.</p>
+  </div>
+
+  <div id="view">
+    <div id="scale">
+      <div id="stage">
+        <div id="shot" data-shake>방 송 화 면</div>
+        <div id="sigfx-inner"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./sig-fx-gl.js"></script>
+<script src="./sig-fx.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* 무대를 창에 맞춰 줄인다 (방송판은 1080×1920 그대로 둔다) */
+function fit(){
+  const v = $('view').getBoundingClientRect();
+  const k = Math.min((v.width - 40) / 1080, (v.height - 40) / 1920);
+  $('scale').style.transform = 'scale(' + k + ')';
+  $('scale').style.width = (1080 * k) + 'px';
+  $('scale').style.height = (1920 * k) + 'px';
+  $('stage').style.transformOrigin = 'top left';
+  $('stage').style.position = 'absolute';
+  $('stage').style.left = '0'; $('stage').style.top = '0';
+  $('scale').style.transform = '';
+  $('stage').style.transform = 'scale(' + k + ')';
+}
+addEventListener('resize', fit);
+fit();
+
+/* 버튼 */
+const inner = $('sigfx-inner');
+let cur = null;
+(SigFX.ITEMS || []).forEach(it => {
+  const b = document.createElement('button');
+  b.textContent = it.name || it.key;
+  b.onclick = () => play(it.key, b);
+  $('btns').appendChild(b);
+});
+
+function play(key, btn){
+  [...$('btns').children].forEach(x => x.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  try { SigFX.stop(inner); } catch(e){}
+  if (global_bloom != null && window.SigGL) SigGL.bloom = global_bloom;
+  const ms = SigFX.play(key, inner, {
+    speed: +$('spd').value, impact: +$('imp').value,
+    shakeEl: $('shot')
+  });
+  cur = key;
+  $('stat').innerHTML = key + ' · ' + Math.round(ms) + 'ms';
+  // 빛 번짐 세기는 attach 가 기본값으로 되돌리므로 붙은 뒤에 다시 넣는다
+  if (window.SigGL && SigGL.on && global_bloom != null) SigGL.bloom = global_bloom;
+}
+
+let global_bloom = 1.15;
+$('spd').oninput = e => $('spd-v').textContent = (+e.target.value).toFixed(1);
+$('imp').oninput = e => $('imp-v').textContent = (+e.target.value).toFixed(1);
+$('blm').oninput = e => {
+  global_bloom = +e.target.value;
+  $('blm-v').textContent = global_bloom.toFixed(2);
+  if (window.SigGL) SigGL.bloom = global_bloom;
+};
+
+/* 빛·입자 레이어가 살아 있나 */
+function glState(){
+  const el = $('glstate');
+  if (!window.SigGL){ el.innerHTML = '<span class="k-bad">sig-fx-gl.js 를 못 읽었습니다</span>'; return; }
+  // attach 를 해봐야 알 수 있어서, 연출을 한 번 튼 뒤에 제대로 나온다
+  if (SigGL.ok) el.innerHTML = '<span class="k-ok">✅ WebGL 로 그립니다</span>';
+  else if (SigGL.why) el.innerHTML = '<span class="k-bad">❌ ' + SigGL.why + '</span>';
+  else el.innerHTML = '연출을 한 번 눌러보세요';
+}
+glState();
+
+/* fps */
+let frames = 0, last = performance.now();
+(function tick(now){
+  frames++;
+  if (now - last >= 500){
+    $('fps').innerHTML = Math.round(frames * 1000 / (now - last)) +
+      '<span style="font-size:13px;color:var(--ink-2)"> fps</span>';
+    frames = 0; last = now;
+    glState();
+  }
+  requestAnimationFrame(tick);
+})(performance.now());
+</script>
+</body>
+</html>

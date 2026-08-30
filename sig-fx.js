@@ -189,6 +189,13 @@ class SigEngine {
     fx.style.cssText = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:60;';
     stageEl.appendChild(fx);
 
+    /* 🎆 빛·입자 레이어. 못 쓰는 자리(하드웨어 가속 꺼진 OBS 등)에서는 null 로 남고
+       연출은 예전 길로 간다 — 방송이 멈추면 안 된다. */
+    this.gl = null;
+    try {
+      if (global.SigGL && global.SigGL.attach(fx, this.W, this.H)) this.gl = global.SigGL;
+    } catch (e) { this.gl = null; }
+
     // a() 가 애니메이션 길이를 여기에 맞춘다 (연출보다 늦게 끝나면 툭 끊긴다)
     this._limit = item.dur * 1000 + 160;
 
@@ -233,6 +240,11 @@ class SigEngine {
 
   _cleanup() {
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
+    /* ⚠️ 빛·입자 레이어를 반드시 뗀다. 안 떼면 캔버스는 사라져도 rAF 루프가
+       남아 방송 내내 돈다 — 룰렛에서 실제로 그랬다.
+       다음 발 예약도 같이 치운다. 안 치우면 다음 연출에 한 발이 끼어든다. */
+    if (this._glTimer) { clearTimeout(this._glTimer); this._glTimer = null; }
+    if (this.gl) { try { this.gl.detach(); } catch (e) {} this.gl = null; }
     (this._cardAnims || []).forEach(a => { try { a.cancel(); } catch (e) {} });
     this._cardAnims = [];
     if (this._glowEl && this._glowPrev !== null) {
@@ -1414,11 +1426,7 @@ class SigEngine {
     const vig = this.mk(fx, 'inset:0;background:radial-gradient(100% 80% at 50% 46%,rgba(40,26,4,.2),rgba(2,2,4,.86));opacity:0;');
     this.a(vig, [{ opacity: 0 }, { opacity: 1, offset: .1 }, { opacity: 1, offset: .9 }, { opacity: 0 }], 7500);
 
-    const cv = document.createElement('canvas');
-    cv.width = this.W; cv.height = this.H;
-    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;';
-    fx.appendChild(cv);
-    this.fireworks(cv, 5200 / this.S);
+    this.fireworks(fx, 5200 / this.S);
 
     // 왕관
     const crown = this.mk(fx, 'left:50%;top:420px;width:520px;height:300px;transform:translate(-50%,-50%) translateY(-900px);opacity:0;clip-path:polygon(0 100%,100% 100%,100% 26%,84% 52%,68% 8%,50% 46%,32% 8%,16% 52%,0 26%);background:linear-gradient(160deg,#fff3cf,#e0bb5a 34%,#9a7420 62%,#f5e3ac);');
@@ -1443,7 +1451,59 @@ class SigEngine {
     this.a(sweep, [{ transform: 'skewX(-14deg) translateX(-110%)' }, { transform: 'skewX(-14deg) translateX(2100px)' }], 1800, STAMP + 500, 'cubic-bezier(.42,0,.5,1)');
   }
 
-  fireworks(cv, totalMs) {
+  /* GPU 판 불꽃.
+     예전에는 한 번에 74개였다. 조각 하나가 DOM/캔버스 비용이라 그게 한계였다.
+     지금은 한 번에 9,000개를 쓴다 — 20만 개까지 한 프레임 0.8ms 다.
+     불티(ember) 로 크게 터뜨리고, 그 위에 반짝임(glint) 을 얹어 금가루가
+     빛을 되쏘게 한다. 색은 시그니처 대표색을 따르고 없으면 금색이다. */
+  _fireworksGL(totalMs) {
+    const end = Date.now() + totalMs;
+    // 자국을 남긴다 — 없으면 점들이 멈춰 있는 것처럼 보인다
+    this.gl.trail = 0.80;
+    const shoot = () => {
+      // ⚠️ 레이어가 떨어졌으면 여기서 끝낸다. 안 그러면 연출을 끊어도
+      //    터뜨리기 예약이 원래 길이만큼 계속 살아 있다.
+      if (!this.gl || !this.gl.on || Date.now() > end) return;
+      const x = this._x(this.rnd(260, 1660));
+      const y = this._y(this.rnd(140, 520));
+      const c = this.C ? this.C[Math.floor(Math.random() * this.C.length)] : '#ffc94a';
+      /* ⚠️ 속도 폭을 좁게 준다. 넓게 흩뿌리면 가운데가 꽉 찬 원반이 되어
+         '먼지 뭉치' 로 보인다. 진짜 불꽃은 껍질이다 — 대부분이 비슷한
+         속도로 나가 퍼지는 고리를 만들고, 저항에 걸려 멈춰 서면서 흩어진다. */
+      this.gl.burst(x, y, {
+        n: 5000, kind: 'ember', color: c,
+        speed: [620 * this.KX, 980 * this.KX], life: [0.7, 1.9],
+        size: [1.5, 4.6], gravity: 760 * this.KY, drag: 1.15,
+        jitter: 0.06, radius: 9 * this.KX
+      });
+      // 안쪽에 느린 것 조금 — 껍질만 있으면 속이 비어 보인다
+      this.gl.burst(x, y, {
+        n: 900, kind: 'ember', color: c,
+        speed: [60 * this.KX, 420 * this.KX], life: [0.9, 2.2],
+        size: [1.4, 3.4], gravity: 620 * this.KY, drag: 0.9,
+        jitter: 0.08, radius: 14 * this.KX
+      });
+      // 금가루가 빛을 되쏘는 반짝임
+      this.gl.burst(x, y, {
+        n: 1600, kind: 'glint', color: '#fff3cf',
+        speed: [140 * this.KX, 820 * this.KX], life: [1.3, 2.9],
+        size: [1.3, 2.8], gravity: 260 * this.KY, drag: 1.3,
+        jitter: 0.10, radius: 12 * this.KX
+      });
+      this._glTimer = setTimeout(shoot, this.rnd(320, 620) / this.S);
+    };
+    shoot();
+    setTimeout(shoot, 240 / this.S);
+  }
+
+  /* 불꽃놀이. 빛·입자 레이어를 쓸 수 있으면 GPU 로, 아니면 예전 캔버스2D 로.
+     ⚠️ 넘어오는 것은 연출 레이어(fx)다. 예전 방식일 때만 캔버스를 만든다. */
+  fireworks(fx, totalMs) {
+    if (this.gl) return this._fireworksGL(totalMs);
+    const cv = document.createElement('canvas');
+    cv.width = this.W; cv.height = this.H;
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;mix-blend-mode:screen;';
+    fx.appendChild(cv);
     const ctx = cv.getContext('2d');
     const parts = [];
     let alive = true;

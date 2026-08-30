@@ -2012,6 +2012,9 @@
     </div>
 
     <!-- 🎆 시그니처 전용 연출 17종. 외부 라이브러리·이미지 없이 CSS/JS 로만 그린다. -->
+    <!-- 🎆 빛·입자 레이어(WebGL). sig-fx.js 보다 먼저 읽혀야 한다 —
+         못 쓰는 자리에서는 SigGL.attach() 가 false 를 주고 예전 길로 간다. -->
+    <script src="/sig-fx-gl.js"></script>
     <script src="/sig-fx.js"></script>
     <script>
         // ⚠️ 오버레이는 관리자 토큰을 쓰지 않는다.
