@@ -138,6 +138,48 @@ console.log(JSON.stringify({
 
 print()
 print('=' * 74)
+print('⑥ 글씨가 폰에서 읽히는 크기인가')
+print('=' * 74)
+"""방송판은 1080 폭이고 아이폰에서는 402px 로 줄어든다 — 2.7배 작아진다.
+   예전에는 칸 글씨 10px(폰 3.7px) · 도착 카드 22px(폰 8px) 이라 못 읽었다."""
+ov = io.open(os.path.join(ROOT, 'overlay.html'), encoding='utf-8', errors='replace').read()
+P_PHONE = 1080 / 402
+
+m = re.search(r'const GAP = (\d+), MAXW = (\d+), MAXH = (\d+), CELL_CAP = (\d+)', ov)
+chk('칸 크기를 화면에 맞춰 키운다', m is not None, m.group(0) if m else '못 찾음')
+if m:
+    gap, maxw, maxh, cap = (int(x) for x in m.groups())
+    cell = max(40, min(cap, (maxw - gap * 6) // 7, (maxh - gap * 5) // 6))
+    chk('22칸(7×6) 판의 칸이 120px 이상', cell >= 120, '%dpx' % cell)
+    chk('판이 세로 안전지대(840)를 안 넘는다', 6 * cell + gap * 5 <= maxh,
+        '%dpx' % (6 * cell + gap * 5))
+
+    r = re.search(r'\.dg-tile \.dg-lbl \{[\s\S]*?font-size: calc\(var\(--dg-cell[^)]*\) \* ([\d.]+)\)', ov)
+    chk('칸 글씨가 칸 크기에 비례한다 (px 로 못박지 않았다)', r is not None,
+        r.group(1) if r else '못 찾음')
+    if r:
+        px = cell * float(r.group(1))
+        chk('칸 글씨가 폰에서 10px 이상', px / P_PHONE >= 10,
+            '%.0fpx → 폰 %.1fpx (예전 10px → 3.7px)' % (px, px / P_PHONE))
+
+for name, pat, want in [
+    ('도착 카드 글씨', r'\.dg-card-txt \{ font-size: (\d+)px', 50),
+    ('도착 카드 아이콘', r'\.dg-card-ico \{ font-size: (\d+)px', 80),
+    ('주사위 눈 합계', r'\.dg-sum \{ font-size: (\d+)px', 55),
+]:
+    mm = re.search(pat, ov)
+    v = int(mm.group(1)) if mm else 0
+    chk('%s가 폰에서 읽힌다' % name, v >= want,
+        '%dpx → 폰 %.1fpx' % (v, v / P_PHONE) if mm else '못 찾음')
+
+chk('점수 칸도 라벨이 있으면 라벨을 앞세운다 (꽝을 알 수 있게)',
+    "t.label ? '<span class=\"dg-lbl\">' + dgEsc(t.label)" in ov)
+
+long_lbl = [r['label'] for r in rows if len(r['label']) > 6]
+chk('칸 라벨이 짧다 (긴 설명은 도착 카드에)', not long_lbl, long_lbl)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 for n in BAD:
     print('   [실패] ' + n)

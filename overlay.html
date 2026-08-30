@@ -618,17 +618,27 @@
         .dg-grid { display: grid; gap: 6px; transform: rotateX(13deg); transform-style: preserve-3d; }
         /* 칸 — 밝은 면 + 두꺼운 아랫단(입체 블록) */
         .dg-tile {
-            position: relative; border-radius: 9px;
+            position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1);
             background: linear-gradient(180deg, #fffdf2, #e7e2cf);
             box-shadow: 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 1px; padding: 4px 3px 6px;
+            gap: calc(var(--dg-cell, 86px) * 0.015);
+            padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035)
+                     calc(var(--dg-cell, 86px) * 0.07);
             transition: transform .22s ease, filter .22s ease;
         }
-        .dg-tile .dg-ico { font-size: 21px; line-height: 1.1; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); }
+        /* ⚠️ 글씨 크기를 px 로 못박으면 칸을 키워도 글씨는 그대로라 또 작아진다.
+           칸 한 변(--dg-cell)에 비례시킨다. 예전에는 86px 칸에 10px 글씨였는데,
+           폰에서 1080 이 400px 로 줄면 3.7px 이 되어 못 읽었다. */
+        .dg-tile .dg-ico {
+            font-size: calc(var(--dg-cell, 86px) * 0.32); line-height: 1.05;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+        }
         .dg-tile .dg-lbl {
-            font-size: 10px; font-weight: 800; color: #453c2b; text-align: center;
-            line-height: 1.15; max-height: 24px; overflow: hidden; word-break: keep-all;
+            font-size: calc(var(--dg-cell, 86px) * 0.21);
+            font-weight: 900; color: #3b3324; text-align: center;
+            line-height: 1.1; max-height: calc(var(--dg-cell, 86px) * 0.46);
+            overflow: hidden; word-break: keep-all;
         }
         .dg-t-start   { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 10px 16px rgba(0,0,0,.75); }
         .dg-t-start .dg-lbl { color: #4a3608; }
@@ -636,7 +646,7 @@
         .dg-t-sig     { background: linear-gradient(180deg, #f5edff, #ddc9f6); box-shadow: 0 5px 0 #967cc0, 0 10px 16px rgba(0,0,0,.75); }
         .dg-t-score   { background: linear-gradient(180deg, #eafcf0, #c3ecd2); box-shadow: 0 5px 0 #66a880, 0 10px 16px rgba(0,0,0,.75); }
         .dg-t-key     { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 10px 16px rgba(0,0,0,.75); }
-        .dg-corner .dg-ico { font-size: 27px; }
+        .dg-corner .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.38); }
         .dg-tile.dg-hop { transform: translateY(-4px); filter: brightness(1.14); }
         .dg-tile.dg-land {
             transform: translateY(-4px) scale(1.1); z-index: 3;
@@ -652,7 +662,7 @@
         /* 말 — 가만히 있어도 둥실거린다 */
         .dg-piece {
             position: absolute; top: -16px; right: -6px; z-index: 5;
-            font-size: 30px; filter: drop-shadow(0 5px 5px rgba(0,0,0,.65));
+            font-size: calc(var(--dg-cell, 86px) * 0.34); filter: drop-shadow(0 5px 5px rgba(0,0,0,.65));
             pointer-events: none; animation: dgIdle 1.7s ease-in-out infinite;
         }
         @keyframes dgIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
@@ -662,49 +672,53 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 4px; pointer-events: none;
         }
-        .dg-sum { font-size: 26px; font-weight: 900; color: #ffe9a8;
-                  text-shadow: 0 2px 4px #000, 0 3px 10px rgba(0,0,0,.9); min-height: 32px;
-                  font-variant-numeric: tabular-nums; }
+        /* ⚠️ 방송판은 1080 폭이라 폰에서 2.7배 작아진다. 26px 은 폰에서 10px —
+           '몇 칸 가는가' 를 못 읽는다. 판에서 제일 커야 하는 숫자다. */
+        .dg-sum { font-size: 62px; font-weight: 900; color: #ffe9a8;
+                  text-shadow: 0 3px 6px #000, 0 4px 16px rgba(0,0,0,.9); min-height: 72px;
+                  font-variant-numeric: tabular-nums; letter-spacing: -1px; }
         /* 실제 3D 주사위 — 하나가 두 번 구른다. 하나만 쓰니 큼직하게 */
-        .dg-dice { display: flex; justify-content: center; perspective: 560px; min-height: 82px; }
-        .dg-die { width: 76px; height: 76px; position: relative;
-                  filter: drop-shadow(0 14px 14px rgba(0,0,0,.8)); }
+        .dg-dice { display: flex; justify-content: center; perspective: 900px; min-height: 145px; }
+        .dg-die { width: 132px; height: 132px; position: relative;
+                  filter: drop-shadow(0 18px 18px rgba(0,0,0,.8)); }
         .dg-cube { width: 100%; height: 100%; position: relative;
                    transform-style: preserve-3d;
                    transition: transform .9s cubic-bezier(.2, 1.1, .35, 1); }
         .dg-face {
-            position: absolute; inset: 0; border-radius: 15px; box-sizing: border-box;
+            position: absolute; inset: 0; border-radius: 26px; box-sizing: border-box;
             background: linear-gradient(145deg, #fffef7, #d8d8cd);
             border: 1px solid #b6b6aa;
             display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
-            padding: 10px;
+            padding: 17px;
         }
-        .dg-pip { width: 13px; height: 13px; border-radius: 50%; background: #23232a;
+        .dg-pip { width: 23px; height: 23px; border-radius: 50%; background: #23232a;
                   align-self: center; justify-self: center;
                   box-shadow: inset 0 2px 2px rgba(0,0,0,.55); }
-        .dg-laps { font-size: 14px; font-weight: 900; color: var(--gold);
-                   text-shadow: 0 2px 4px #000, 0 0 10px rgba(0,0,0,.9); }
+        .dg-laps { font-size: 30px; font-weight: 900; color: var(--gold);
+                   text-shadow: 0 2px 6px #000, 0 0 12px rgba(0,0,0,.9); }
         /* 도착 칸 카드 — 가운데에 크게 떴다가 저절로 사라진다 */
         .dg-card {
             position: absolute; left: 50%; top: 50%;
             transform: translate(-50%, -50%) scale(.6); opacity: 0;
-            min-width: 240px; max-width: 78%; padding: 18px 22px; z-index: 8;
-            background: rgba(10,10,14,.92); border: 2px solid var(--gold);
-            border-radius: 18px; box-shadow: 0 18px 60px rgba(0,0,0,.7), 0 0 30px var(--gold-glow);
+            min-width: 560px; max-width: 86%; padding: 34px 44px; z-index: 8;
+            background: rgba(10,10,14,.94); border: 4px solid var(--gold);
+            border-radius: 30px; box-shadow: 0 22px 70px rgba(0,0,0,.75), 0 0 44px var(--gold-glow);
             text-align: center; transition: transform .3s cubic-bezier(.2,1.4,.4,1), opacity .3s ease;
             pointer-events: none;
         }
         .dg-card.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        .dg-card .dg-card-ico { font-size: 44px; line-height: 1.2; }
-        .dg-card .dg-card-txt { font-size: 22px; font-weight: 900; color: #fff;
-                                margin-top: 6px; line-height: 1.35; word-break: keep-all; }
-        .dg-card .dg-card-sub { font-size: 14px; font-weight: 700; color: var(--gold); margin-top: 6px; }
-        .dg-card img { max-width: 170px; max-height: 120px; border-radius: 10px; margin-top: 8px; }
+        /* ⚠️ 말이 멈추면 뜨는 '무슨 칸인가' — 시청자가 실제로 읽는 글이다.
+           22px 은 폰에서 8px 이라 못 읽었다. */
+        .dg-card .dg-card-ico { font-size: 96px; line-height: 1.1; }
+        .dg-card .dg-card-txt { font-size: 54px; font-weight: 900; color: #fff;
+                                margin-top: 12px; line-height: 1.3; word-break: keep-all; }
+        .dg-card .dg-card-sub { font-size: 32px; font-weight: 700; color: var(--gold); margin-top: 12px; }
+        .dg-card img { max-width: 380px; max-height: 260px; border-radius: 18px; margin-top: 16px; }
         .dg-lap-banner {
             position: absolute; left: 50%; top: -18px; transform: translateX(-50%) scale(.7);
-            opacity: 0; padding: 6px 18px; z-index: 9;
+            opacity: 0; padding: 12px 32px; z-index: 9;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-size: 17px; font-weight: 900; border-radius: 999px;
+            color: #241a05; font-size: 36px; font-weight: 900; border-radius: 999px;
             box-shadow: 0 6px 18px var(--gold-glow); transition: all .3s ease; white-space: nowrap;
         }
         .dg-lap-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
@@ -5748,7 +5762,15 @@
             const grid = document.getElementById('dg-grid');
             if (!grid) return;
             const cols = parseInt(g.cols) || 7, rows = parseInt(g.rows) || 5;
-            const cell = 86;   // 칸 한 변(px). 판 전체 크기는 편집기 배율로 조절한다.
+            /* ⚠️ 예전에는 칸을 86px 로 못박아서, 7칸이면 판이 638px — 1080 폭 화면의
+               절반밖에 안 썼다. 남는 자리를 두고 작게 그리니 글씨가 안 읽혔다.
+               가로 1000 · 세로 840 안에 꽉 차게 칸을 키운다.
+               (840 은 유튜브 채팅에 안 가리는 구역 — 위 6%~아래 50% — 의 높이다) */
+            const GAP = 6, MAXW = 1000, MAXH = 840, CELL_CAP = 160;
+            const cell = Math.max(40, Math.min(CELL_CAP,
+                Math.floor((MAXW - GAP * (cols - 1)) / cols),
+                Math.floor((MAXH - GAP * (rows - 1)) / rows)));
+            grid.style.setProperty('--dg-cell', cell + 'px');   // 글씨·아이콘·말이 이걸 따라간다
             grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cell + 'px)';
             grid.style.gridTemplateRows = 'repeat(' + rows + ', ' + cell + 'px)';
             const tiles = g.tiles || [];
@@ -5759,8 +5781,10 @@
                 html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + (corner ? ' dg-corner' : '') + '" id="dg-tile-' + i + '"'
                       + ' style="grid-column:' + p.c + ';grid-row:' + p.r + ';">'
                       + '<span class="dg-ico">' + dgTileIcon(t) + '</span>'
-                      + (t.type === 'score' && t.points ? '<span class="dg-lbl">' + (t.points > 0 ? '+' : '') + t.points + '점</span>'
-                         : (t.label ? '<span class="dg-lbl">' + dgEsc(t.label) + '</span>' : ''))
+                      // ⚠️ 라벨이 있으면 라벨이 먼저다. 예전에는 점수 칸이 라벨을 무시하고
+                      //    '+2점' 만 그려서, 꽝 칸이 그냥 점수 칸으로 보였다.
+                      + (t.label ? '<span class="dg-lbl">' + dgEsc(t.label) + '</span>'
+                         : (t.type === 'score' && t.points ? '<span class="dg-lbl">' + (t.points > 0 ? '+' : '') + t.points + '점</span>' : ''))
                       + '</div>';
             }
             html += '<div class="dg-center" style="grid-column:2 / ' + cols + ';grid-row:2 / ' + rows + ';">'
@@ -5886,9 +5910,12 @@
             if (t.type === 'key') {
                 ico = '🔑'; txt = dgEsc(act.key || '');  sub = '황금열쇠';
             } else if (t.type === 'score') {
-                txt = (t.points > 0 ? '+' : '') + (t.points || 0) + '점';
-                sub = act.scored ? dgEsc(act.scored.name) + ' 에게 반영됐어요'
-                                 : dgEsc(act.score_note || '');
+                // 라벨이 있으면 그게 제목이고 점수는 아래줄로 (꽝! / +2점)
+                const pts = (t.points > 0 ? '+' : '') + (t.points || 0) + '점';
+                txt = t.label ? dgEsc(t.label) : pts;
+                const who = act.scored ? dgEsc(act.scored.name) + ' 에게 ' + pts
+                                       : dgEsc(act.score_note || '');
+                sub = t.label ? (who || pts) : who;
             } else if (t.type === 'sig') {
                 sub = '시그니처 재생!'; hold = 4000;
                 if (t.image) img = '<img src="' + dgEsc(t.image) + '" alt="">';
