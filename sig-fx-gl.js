@@ -940,8 +940,12 @@ class SigGLEngine {
       if (e.from && e.to) {
         const p = this._ease(Math.min(1, k / Math.max(0.001, e.moveK || 0.42)), e.ease);
         const F = e.from, T = e.to;
-        x = (F.x != null ? F.x : e.x) + ((T.x != null ? T.x : e.x) - (F.x != null ? F.x : e.x)) * p;
-        y = (F.y != null ? F.y : e.y) + ((T.y != null ? T.y : e.y) - (F.y != null ? F.y : e.y)) * p;
+        /* ⚠️ x·y 는 놓인 자리에서의 '어긋남' 이다. 절대 좌표로 읽으면 to:{y:0} 이
+              '화면 꼭대기' 가 되어 글자가 맨 위에 붙는다 — 실제로 그랬다. */
+        const fx0 = F.x || 0, tx0 = T.x != null ? T.x : 0;
+        const fy0 = F.y || 0, ty0 = T.y != null ? T.y : 0;
+        x = e.x + fx0 + (tx0 - fx0) * p;
+        y = e.y + fy0 + (ty0 - fy0) * p;
         sc = (F.scale != null ? F.scale : 1) + ((T.scale != null ? T.scale : 1) - (F.scale != null ? F.scale : 1)) * p;
         rot = (F.rot != null ? F.rot : 0) + ((T.rot != null ? T.rot : 0) - (F.rot != null ? F.rot : 0)) * p;
         al *= (F.alpha != null ? F.alpha : 1) + ((T.alpha != null ? T.alpha : 1) - (F.alpha != null ? F.alpha : 1)) * p;

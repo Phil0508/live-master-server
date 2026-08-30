@@ -455,7 +455,7 @@ class SigEngine {
        ⚠️ 자리를 670 으로 잡는다. 설계 540 은 안전지대(화면 115~960) 한가운데인
           537 로 가는데, 보는 사람은 화면 전체(1920)를 보니까 위에서 28% —
           위쪽에 치우쳐 보인다. 670 이면 화면 33% 로 눈이 편하다. */
-    const CY = 670;
+    const CY = 700;
     this.gAmbient(1800, { color: '#ffb648', density: 0.10 });
     this.gGlow(960, CY - 70, { r: 300, life: 0.4, power: 0.7, color: '#ff9a2e', delay: 40 });
     this.gImpact(960, CY, { scale: 1.15, color: '#ffb43c', hot: '#fff2cf' });
