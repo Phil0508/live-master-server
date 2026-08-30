@@ -28,6 +28,21 @@
         .widget { position: absolute; display: flex; align-items: flex-start; justify-content: flex-start; outline: 2px solid transparent; outline-offset: 2px; border-radius: 6px; cursor: grab; user-select: none; width: max-content; height: max-content; transform-origin: top left; transition: outline-color 0.1s; } 
         .widget:active { cursor: grabbing; } .widget:hover { outline-color: rgba(255, 255, 255, 0.3); } .widget.selected { outline-color: var(--accent); z-index: 1000 !important; }
         .widget > div { pointer-events: none; }
+        /* 🔒 오버레이가 자리를 못 박은 위젯 — 끌어도 방송에 반영되지 않으므로 못 끌게 한다 */
+        .widget[data-pinned] { cursor: default; opacity: .96; }
+        .widget[data-pinned]:hover { outline-color: rgba(246,196,83,.55); }
+        .widget[data-pinned]::after {
+            content: '🔒 고정'; position: absolute; left: 0; top: -20px;
+            font-size: 11px; font-weight: 800; color: #f6c453; letter-spacing: .5px;
+            text-shadow: 0 1px 3px #000; pointer-events: none; white-space: nowrap;
+        }
+        /* 편집기용 세로 게이지 미리보기 */
+        .goal-rail-mini { position: relative; width: 28px; height: 837px;
+            background: rgba(0,0,0,.5); border: 1px solid rgba(246,196,83,.45);
+            border-radius: 999px; box-shadow: inset 0 0 12px rgba(0,0,0,.7); }
+        .goal-rail-mini > i { position: absolute; left: 3px; right: 3px; bottom: 3px;
+            height: 0; border-radius: 999px; transition: height .5s ease;
+            background: linear-gradient(180deg, #ffe9b0, var(--gold) 40%, var(--gold-deep)); }
         .resize-handle { position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; background: #fff; border: 4px solid var(--accent); border-radius: 50%; cursor: nwse-resize; display: none; z-index: 100; pointer-events: auto !important; box-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
         .widget.selected .resize-handle { display: block; }
 
@@ -40,9 +55,20 @@
         
         .row-bottom { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: rgba(246, 196, 83, 0.06); border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 5px; } .row-bottom .b-name { color: rgba(235,235,245,0.62); font-weight: 800; font-size: 18px; } .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 24px; position: relative; }
 
-        .excel-gauge-box { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 14px; min-width: 380px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 10px; } .gauge-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 15px; text-align: center; padding: 7px 0; border-radius: 12px; box-shadow: 0 4px 14px var(--gold-glow); } .gauge-total { text-align: center; font-size: 38px; font-weight: 900; color: var(--gold); line-height: 1.1; } .goal-bar-bg { background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.10); border-radius: 12px; height: 22px; padding: 3px; } .goal-bar-fill { background: linear-gradient(90deg, var(--gold-deep), var(--gold) 60%, #ffe9b0); height: 100%; border-radius: 9px; width: 50%; box-shadow: 0 0 14px var(--gold-glow); } .goal-text { display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; color: rgba(235,235,245,0.62); padding: 0 4px; }
+        /* (옛 가로 게이지 CSS 는 지웠다 — 세로 막대 .goal-rail-mini 로 바뀌었다) */
 
-        .acc-box-v2 { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; padding: 14px; width: 300px; text-align: center; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 10px; } .acc-header { display: flex; align-items: center; justify-content: center; gap: 9px; background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; font-weight: 900; font-size: 20px; padding: 9px 10px; border-radius: 12px; box-shadow: 0 4px 14px var(--gold-glow); flex-wrap: wrap; } .acc-header .acc-holder { font-weight: 900; color: #241a05; font-size: 26px; letter-spacing: -0.3px; max-width: 100%; word-break: keep-all; overflow-wrap: anywhere; } .acc-num-v2 { font-size: 38px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; }
+        /* 🏦 계좌 — 머리 줄 왼쪽 한 칸 (방송판과 같은 모양). 예전 181px 두 단 카드에서 48px 한 줄로 */
+        .acc-box-v2 { background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 10px; box-sizing: border-box; height: 48px; padding: 0 18px 0 0;
+            width: max-content; max-width: 640px; white-space: nowrap; overflow: hidden;
+            display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .acc-ico { flex: none; align-self: stretch; width: 50px; display: flex; align-items: center;
+            justify-content: center; font-size: 25px; line-height: 1;
+            background: linear-gradient(120deg, var(--gold), var(--gold-deep)); }
+        .acc-who { display: flex; align-items: baseline; gap: 7px; }
+        .acc-who #ui-bank { font-weight: 900; color: var(--gold); font-size: 22px; }
+        .acc-who .acc-holder { font-weight: 900; color: #fff; font-size: 22px; }
+        .acc-num-v2 { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 0.5px; }
 
         .match-wrapper { display: flex; flex-direction: column; align-items: center; gap: 20px; }
         .m-timer-pill { background: linear-gradient(180deg, #23232e, #14141c); border: 1px solid rgba(255,255,255,0.14); clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%); padding: 8px 42px; color: #fff; font-size: 40px; font-weight: 900; font-style: italic; }
@@ -131,6 +157,23 @@
                border-radius: 8px !important; }
         .live-dot { width: 7px !important; height: 7px !important; }
         .guide-text { position: absolute; top: 15px; left: 30px; color: #888; font-size: 14px; font-weight: bold; pointer-events: none; }
+        /* ══ 📱 유튜브 세로 라이브 안전지대 ══
+           ⚠️ 편집기에 이 표시가 없어서, 목표 게이지가 y 1598 · 안내 전광판이 y 1680 —
+              폰에서 아예 안 보이는 자리에 놓인 채로 방송이 나갔다. 눈으로 보고 놓게 한다. */
+        .zone { position: absolute; left: 0; width: 1080px; pointer-events: none; z-index: 0; }
+        .zone > span { position: absolute; right: 10px; top: 6px; font-size: 15px; font-weight: 900;
+            letter-spacing: 1px; padding: 3px 10px; border-radius: 5px; background: rgba(8,10,14,.8); }
+        .zone-dead { background: rgba(120,130,148,.14); }  .zone-dead > span { color: #9aa3b2; }
+        .zone-safe { background: rgba(60,190,155,.07);  }  .zone-safe > span { color: #4fd6b2; }
+        .zone-chat { background: rgba(230,110,160,.15); }  .zone-chat > span { color: #f090b6; }
+        .zone-line { position: absolute; left: 0; width: 1080px; height: 2px;
+            background: rgba(255,255,255,.28); pointer-events: none; z-index: 1; }
+        /* 게임·연출이 들어가는 자리 */
+        .zone-game { position: absolute; left: 6px; top: 307px; width: 1030px; height: 649px;
+            border: 2px dashed rgba(246,196,83,.40); border-radius: 10px;
+            pointer-events: none; z-index: 1; }
+        .zone-game > span { position: absolute; left: 10px; top: 8px; font-size: 15px; font-weight: 900;
+            color: #f6c453; background: rgba(8,10,14,.8); padding: 3px 10px; border-radius: 5px; }
     </style>
 </head>
 <body>
@@ -248,13 +291,21 @@
         <div class="guide-text"><i class="fa-solid fa-mobile"></i> 세로형 모니터 영역 (1080 x 1920)</div>
         <div class="canvas-wrapper" id="canvas-wrapper">
             <div class="canvas-board" id="canvas-board">
+                <!-- 📱 유튜브 세로 라이브에서 가려지는 구역 (실측 1080×1920 기준) -->
+                <div class="zone zone-dead" style="top:0; height:115px;"><span>채널줄 · 가려짐</span></div>
+                <div class="zone zone-safe" style="top:115px; height:845px;"><span>안전지대 — 여기 안에 놓으세요</span></div>
+                <div class="zone zone-chat" style="top:960px; height:422px;"><span>댓글창 · 가려짐</span></div>
+                <div class="zone zone-dead" style="top:1382px; height:538px;"><span>고정 버튼 · 가려짐</span></div>
+                <div class="zone-line" style="top:115px;"></div>
+                <div class="zone-line" style="top:960px;"></div>
+                <div class="zone-game"><span>게임 자리</span></div>
                 
                 <div id="time-up-message-layer" class="time-up-message">시간 종료!</div>
                 <!-- 📏 정렬 안내선 — 다른 위젯과 줄이 맞으면 나타난다 -->
                 <div class="align-guide" id="guide-v"></div>
                 <div class="align-guide" id="guide-h"></div>
 
-                <div class="widget" id="ranking" data-id="ranking" style="left:50px; top:50px;">
+                <div class="widget" id="ranking" data-id="ranking" data-pinned="1" style="left:336px; top:167px;">
                     <div class="excel-board">
                         <div class="excel-grid-container">
                             <div class="excel-col"><div class="excel-header"><div></div><div>플레이어</div><div>후원</div><div>기여도</div></div><div id="rank-left"></div></div>
@@ -266,23 +317,20 @@
                     </div>
                 </div>
 
-                <div class="widget" id="gauge" data-id="gauge" style="left:50px; top:420px;">
-                    <div class="excel-gauge-box">
-                        <div class="gauge-header">💰 방송 총 후원</div>
-                        <div class="gauge-total" id="ui-total-score">0</div>
-                        <div class="goal-bar-bg"><div class="goal-bar-fill" id="goal-chunk"></div></div>
-                        <div class="goal-text"><span id="goal-percent">🔥 달성률: 0%</span><span id="goal-target">목표: 0</span></div>
-                    </div>
+                <div class="widget" id="gauge" data-id="gauge" data-pinned="1" style="left:1046px; top:115px;">
+                    <div class="goal-rail-mini"><i id="goal-chunk"></i></div>
+                    <div id="ui-total-score" style="display:none">0</div>
                 </div>
 
-                <div class="widget" id="account" data-id="account" style="left:50px; top:580px; display: none;">
+                <div class="widget" id="account" data-id="account" data-pinned="1" style="left:6px; top:115px; display: none;">
                     <div class="acc-box-v2">
-                        <div class="acc-header"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></div>
-                        <div class="acc-num-v2" id="ui-num">464-068673-04-016</div>
+                        <span class="acc-ico">🏦</span>
+                        <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
+                        <span class="acc-num-v2" id="ui-num">464-068673-04-016</span>
                     </div>
                 </div>
 
-                <div class="widget" id="match" data-id="match" style="left:50px; top:780px; display: none;">
+                <div class="widget" id="match" data-id="match" data-pinned="1" style="left:288px; top:795px; display: none;">
                     <div class="match-wrapper">
                         <div class="m-timer-pill" id="m-timer">00:00</div>
                         <div class="m-team-container" id="m-players-area"></div>
@@ -294,16 +342,16 @@
 
                 <div class="widget" id="popup" data-id="popup" style="left:50px; top:1150px;"><div class="center-popup-content" id="popup-preview">알림 팝업 <span style="color:#00E5B5; margin-left:15px;">+100점</span></div></div>
                 <div class="widget" id="takeover" data-id="takeover" style="left:450px; top:1150px;"><div class="takeover-popup-content"><span style="color:var(--theme-neon);">홍길동 1등 탈환! 👑</span></div></div>
-                <div class="widget" id="ticker_top" data-id="ticker_top" style="left:0px; top:1400px;"><div class="ticker-bar" id="ticker_top-text">📢 상단 전광판</div></div>
-                <div class="widget" id="ticker_bottom" data-id="ticker_bottom" style="left:0px; top:1500px;"><div class="ticker-bar" id="ticker_bottom-text">📢 하단 전광판</div></div>
-                <div class="widget" id="roulette" data-id="roulette" style="left:240px; top:600px; display: none;">
+                <div class="widget" id="ticker_top" data-id="ticker_top" data-pinned="1" style="left:0px; top:115px;"><div class="ticker-bar" id="ticker_top-text">📢 상단 전광판</div></div>
+                <div class="widget" id="ticker_bottom" data-id="ticker_bottom" data-pinned="1" style="left:0px; top:882px;"><div class="ticker-bar" id="ticker_bottom-text">📢 하단 전광판</div></div>
+                <div class="widget" id="roulette" data-id="roulette" data-pinned="1" style="left:234px; top:311px; display: none;">
                     <div style="width: 250px; height: 250px; border-radius: 50%; border: 3px solid var(--gold); background: var(--game-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--gold-glow);">
                         <span style="font-size: 40px;">🎡</span>
                         <span style="font-size: 16px; font-weight: 900; font-style: italic; color: var(--gold); margin-top: 10px;">행운의 룰렛</span>
                     </div>
                 </div>
                 <!-- 🎰 슬롯: 실제 크기(660×360)에 가깝게 — 타이틀 칩 + 릴 3칸 -->
-                <div class="widget" id="slot" data-id="slot" style="left:210px; top:680px; display: none;">
+                <div class="widget" id="slot" data-id="slot" data-pinned="1" style="left:191px; top:452px; display: none;">
                     <div style="width: 640px; height: 340px; background: var(--game-bg); clip-path: polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;">
                         <span style="display:inline-block; font-size: 22px; font-weight: 900; font-style: italic; color: #0e0e14; padding: 5px 24px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);">🎰 시그니처 슬롯머신</span>
                         <div style="display:flex; gap:14px;">
@@ -314,24 +362,24 @@
                     </div>
                 </div>
                 <!-- 📣 안내 전광판 -->
-                <div class="widget" id="notice" data-id="notice" style="left:0px; top:1680px; display: none;">
+                <div class="widget" id="notice" data-id="notice" data-pinned="1" style="left:620px; top:115px; display: none;">
                     <!-- 방송에서는 글자가 오른쪽에서 왼쪽으로 흐른다. 여기서는 자리를 잡아야 하므로 멈춰서 보여준다 -->
-                    <div style="display:flex; align-items:stretch; width:1080px; height:74px; overflow:hidden; background:linear-gradient(180deg, rgba(14,14,20,.90), rgba(8,8,12,.94)); border-top:2px solid var(--gold); border-bottom:2px solid var(--gold); box-shadow:0 6px 22px rgba(0,0,0,.6);">
-                        <span style="flex:none; width:78px; display:flex; align-items:center; justify-content:center; font-size:34px; line-height:1; background:linear-gradient(120deg, var(--gold), var(--gold-deep));">📣</span>
-                        <span style="flex:1; display:flex; align-items:center; padding-left:22px; white-space:nowrap; overflow:hidden; font-size:34px; font-weight:800; color:#fff; line-height:1;">계좌로 보내주실 때 <b style="color:var(--gold); margin:0 6px;">닉네임+플레이어</b> 를 적어주시면 자동으로&nbsp;…</span>
+                    <div style="display:flex; align-items:stretch; box-sizing:border-box; width:422px; height:48px; overflow:hidden; background:linear-gradient(180deg, rgba(14,14,20,.90), rgba(8,8,12,.94)); border-top:2px solid var(--gold); border-bottom:2px solid var(--gold); box-shadow:0 6px 22px rgba(0,0,0,.6);">
+                        <span style="flex:none; width:50px; display:flex; align-items:center; justify-content:center; font-size:25px; line-height:1; background:linear-gradient(120deg, var(--gold), var(--gold-deep));">📣</span>
+                        <span style="flex:1; display:flex; align-items:center; padding-left:16px; white-space:nowrap; overflow:hidden; font-size:27px; font-weight:800; color:#fff; line-height:1;">계좌로 보내주실 때 <b style="color:var(--gold); margin:0 6px;">닉네임+플레이어</b> 를 적어주시면 자동으로&nbsp;…</span>
                     </div>
                 </div>
 
                 <!-- 🎲 주사위게임 판 -->
-                <div class="widget" id="dicegame" data-id="dicegame" style="left:21px; top:306px; display: none;">
-                    <div style="width:1038px; height:654px; border-radius:16px; background:rgba(255,255,255,0.04); border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#dfe3ea; text-shadow:0 2px 8px #000;">
+                <div class="widget" id="dicegame" data-id="dicegame" style="left:6px; top:307px; display: none;">
+                    <div style="width:1030px; height:649px; border-radius:16px; background:rgba(255,255,255,0.04); border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#dfe3ea; text-shadow:0 2px 8px #000;">
                         <div style="font-size:26px; font-weight:900; letter-spacing:2px;">🎲 주사위게임 판</div>
                         <div style="font-size:14px; font-weight:700; opacity:.85;">방송에서는 배경 없이 칸만 뜹니다 — 이 점선은 자리 잡기용 안내입니다</div>
                     </div>
                 </div>
 
                 <!-- 🏅 후원 순위 위젯 -->
-                <div class="widget" id="donor-rank" data-id="donor-rank" style="left:850px; top:700px; display: none;">
+                <div class="widget" id="donor-rank" data-id="donor-rank" data-pinned="1" style="left:766px; top:387px; display: none;">
                     <div style="width: 240px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px;">
                         <div style="text-align:center; font-size:15px; font-weight:900; letter-spacing:-0.3px; color:#241a05; padding:6px 0; background: linear-gradient(120deg, var(--gold), var(--gold-deep)); border-radius:12px; box-shadow:0 4px 14px var(--gold-glow);">🏅 후원 순위</div>
                         <div style="display:flex; flex-direction:column; gap:6px;">
@@ -343,7 +391,7 @@
                 </div>
 
                 <!-- 📊 시그니처 신청 집계 패널 -->
-                <div class="widget" id="sig-tally" data-id="sig-tally" style="left:850px; top:300px; display: none;">
+                <div class="widget" id="sig-tally" data-id="sig-tally" data-pinned="1" style="left:800px; top:315px; display: none;">
                     <div style="width: 206px; padding: 10px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 22px; box-shadow: 0 18px 50px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 8px;">
                         <div style="text-align:center; font-size:15px; font-weight:900; letter-spacing:-0.3px; color:#241a05; padding:6px 0; background: linear-gradient(120deg, var(--gold), var(--gold-deep)); border-radius:12px; box-shadow:0 4px 14px var(--gold-glow);">🎵 오늘의 시그니처</div>
                         <div style="display:flex; flex-direction:column; gap:6px;">
@@ -365,7 +413,7 @@
 
                 <!-- 🃏 시그 뒤집기 게임: 조종실에서 카드를 깔면 여기 자리에 나온다.
                      미리보기는 기본값(5x6, 폭 1080px) 기준 크기다. -->
-                <div class="widget" id="siggame" data-id="siggame" style="left:362px; top:520px;">
+                <div class="widget" id="siggame" data-id="siggame" data-pinned="1" style="left:171px; top:340px;">
                     <div style="width:700px; display:flex; flex-direction:column; align-items:center; gap:8px;">
                         <div style="display:flex; align-items:center; gap:14px;">
                             <span style="font-size:34px; font-weight:900; color:var(--gold, #f6c453); text-shadow:0 0 12px rgba(246,196,83,.5); letter-spacing:1px;">10:00</span>
@@ -565,8 +613,10 @@
 
                     document.getElementById('bot-name').innerText = '⚙️ ' + (bot.name || '운영비'); document.getElementById('bot-score').innerText = formatNum(bot.score);
                     document.getElementById('ui-total-score').innerText = formatNum(tot);
-                    let pct = tgt > 0 ? (tot/tgt)*100 : 0; document.getElementById('goal-chunk').style.width = Math.min(100, pct) + '%';
-                    document.getElementById('goal-percent').innerText = `🔥 달성률: ${pct.toFixed(1)}%`; document.getElementById('goal-target').innerText = `목표: ${formatNum(tgt)}`;
+                    // 세로 막대다 — 폭이 아니라 높이가 찬다 (안쪽 위아래 3px 씩 여백)
+                    let pct = tgt > 0 ? (tot/tgt)*100 : 0;
+                    const gc = document.getElementById('goal-chunk');
+                    if (gc) gc.style.height = 'calc((100% - 6px) * ' + (Math.min(100, Math.max(0, pct)) / 100) + ')';
 
                     if(document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
                         if(d.account && (d.account.bank || d.account.acc_num)) { 
@@ -753,6 +803,9 @@
                 try { let res = await fetch('/api/layout'); if (res.ok) layout = await res.json(); } catch (e) { }
                 document.querySelectorAll('.widget').forEach(el => {
                     let id = el.id;
+                    // 🔒 오버레이가 자리를 못 박은 것은 배치 파일을 읽지도 쓰지도 않는다.
+                    //    HTML 에 적힌 자리 그대로 두고, 끌기 손잡이도 안 단다.
+                    if (el.dataset.pinned) return;
                     if (!layout[id] || typeof layout[id].x_px === 'undefined') {
                         // 🏃 퇴근빵은 랭킹판 자리를 대신 차지하는 위젯이라, 아직 배치된 적이 없으면
                         //    랭킹판 위치에서 시작해야 한다. (기본값 50,50 으로 저장돼 버리면
@@ -769,13 +822,15 @@
             }
 
             window.autoSaveLayout = async function() {
-                document.querySelectorAll('.widget').forEach(el => { let id = el.id; layout[id] = { x_px: parseInt(el.style.left) || 0, y_px: parseInt(el.style.top) || 0, scale: parseFloat(el.dataset.scale) || 1.0 }; });
+                document.querySelectorAll('.widget').forEach(el => { if (el.dataset.pinned) return;   // 🔒 못 박은 것은 저장하지 않는다
+                    let id = el.id; layout[id] = { x_px: parseInt(el.style.left) || 0, y_px: parseInt(el.style.top) || 0, scale: parseFloat(el.dataset.scale) || 1.0 }; });
                 try { await fetch('/api/layout', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(layout) }); } catch (e) {} 
             }
 
             window.resetLayout = function() {
                 if(!confirm("모든 위젯을 기본 위치로 돌릴까요?")) return;
-                document.querySelectorAll('.widget').forEach((el, index) => { el.style.left = '50px'; el.style.top = `${index * 120 + 50}px`; el.style.transform = `scale(1.0)`; el.dataset.scale = 1.0; });
+                document.querySelectorAll('.widget').forEach((el, index) => { if (el.dataset.pinned) return;   // 🔒 못 박은 것은 안 움직인다
+                    el.style.left = '50px'; el.style.top = `${index * 120 + 50}px`; el.style.transform = `scale(1.0)`; el.dataset.scale = 1.0; });
                 closePropertyPanel(); autoSaveLayout(); 
             }
 
@@ -839,6 +894,8 @@
                 if (e.target.classList.contains('resize-handle')) return;
                 const widgetEl = e.target.closest('.widget');
                 if (!widgetEl) return;
+                // 🔒 못 박은 위젯은 끌어도 방송에 반영되지 않는다. 헛수고를 막는다.
+                if (widgetEl.dataset.pinned) return;
                 selectWidget(widgetEl);
                 isDragging = true; dragMoved = false;
                 startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
@@ -941,7 +998,8 @@
             /* ══ 📐 위젯 정리 ══
                보이는 위젯만 건드린다 — 숨겨둔 것까지 옮기면 나중에 켤 때 엉뚱한 데 있다. */
             function visibleWidgets() {
-                return [...document.querySelectorAll('.widget')].filter(el => el.style.display !== 'none');
+                return [...document.querySelectorAll('.widget')]
+                    .filter(el => el.style.display !== 'none' && !el.dataset.pinned);
             }
             window.tidy = function tidy(mode) {
                 const list = visibleWidgets();

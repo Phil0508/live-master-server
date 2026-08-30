@@ -176,8 +176,15 @@ print()
 print('=' * 74)
 print('⑥ 시그니처 재생 중에는 비켜준다')
 print('=' * 74)
+# ⚠️ 안내 전광판은 계좌와 함께 머리 줄(#headrow) 안으로 들어갔다.
+#    그래서 숨기는 대상도 #notice-container 가 아니라 #headrow 다.
 chk('리액션 모드에 안내 전광판도 숨는다',
-    'body.reaction-mode #notice-container' in ov)
+    'body.reaction-mode #headrow' in ov)
+i = ov.find('id="headrow"')
+chk('안내 전광판이 그 머리 줄 안에 있다',
+    i > 0 and 'id="notice-container"' in ov[i:i + 2200])
+chk('계좌도 같은 줄에 있다',
+    i > 0 and 'id="account-container"' in ov[i:i + 2200])
 
 print()
 print('=' * 74)

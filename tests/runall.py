@@ -186,6 +186,7 @@ run('시그니처 연출', ['node', 'sigfx_test.js'], HERE)
 run('룰렛 상시부담', ['node', 'roulette_test.js'], HERE)
 run('룰렛 닫힘', [PY, 'roulette_close_test.py'], HERE, kind='pt')
 run('주사위 기본판', [PY, 'dice_preset_test.py'], HERE)
+run('안전지대 HUD', [PY, 'hud_test.py'], HERE)
 run('나눠주기 계산', [PY, 'split_test.py'], HERE)
 run('AI 모델 설정', [PY, 'nim_test.py'], HERE)
 
