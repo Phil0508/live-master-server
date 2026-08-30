@@ -2025,6 +2025,8 @@
                 세로 <select id="dgc-rows" style="height:34px;"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select>
                 굴림 <select id="dgc-dice" style="height:34px;"><option value="1">1회 (1~6칸)</option><option value="2" selected>2회 (2~12칸)</option></select>
                 <button class="secondary" onclick="dgcSetup()" style="height:34px; padding:0 14px; border-radius:var(--r-2);">판 만들기</button>
+                <button class="secondary" onclick="dgcPreset22()" title="출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
+                        style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 기본판</button>
                 <span style="width:14px;"></span>
                 말 위치 <input id="dgc-pos" type="number" min="0" value="0" style="width:70px; height:34px;">
                 <button class="secondary" onclick="dgcMove()" style="height:34px; padding:0 12px; border-radius:var(--r-2);">이동</button>
@@ -7705,6 +7707,88 @@ initFoldablePanels();
 
         const DGC_TYPES = [['blank', '빈칸'], ['mission', '📜 미션'], ['sig', '🎵 시그니처'],
                            ['score', '💯 점수'], ['key', '🔑 황금열쇠']];
+
+        /* ══ 22칸 기본판 ══
+           칸 22개를 손으로 고르면 오래 걸리고 빠뜨린다. 한 번에 깐다.
+           같은 종류가 붙어 있지 않게, 시그니처는 네 칸쯤 띄워 흩어 놓았다.
+
+           score  = 밟으면 서버가 알아서 점수를 준다
+           mission= 사람이 해봐야 아는 것. 성공하면 진행자가 점수를 준다
+                    (자동으로 주면 안 하고도 받는다)
+
+           ⚠️ 이 시스템의 점수는 '점수' 와 '기여도' 를 같이 올린다. */
+        const DGC_PRESET_22 = [
+            { id:  1, type: 'score',   label: '5점',                  points: 5 },
+            { id:  2, type: 'sig',     sigName: '이꾸욧' },
+            { id:  3, type: 'mission', label: '완력기' },
+            { id:  4, type: 'score',   label: '10점',                 points: 10 },
+            { id:  5, type: 'mission', label: '코끼리코 — 성공하면 10점' },
+            { id:  6, type: 'sig',     sigName: '멈춘시간' },
+            { id:  7, type: 'score',   label: '꽝! 그래도 2점',        points: 2 },
+            { id:  8, type: 'mission', label: '고수' },
+            { id:  9, type: 'score',   label: '5점',                  points: 5 },
+            { id: 10, type: 'sig',     sigName: '포카치노' },
+            { id: 11, type: 'mission', label: '완력기' },
+            { id: 12, type: 'score',   label: '20점!',                points: 20 },
+            { id: 13, type: 'mission', label: '코끼리코 — 성공하면 10점' },
+            { id: 14, type: 'sig',     sigName: '이꾸욧' },
+            { id: 15, type: 'score',   label: '꽝! 그래도 2점',        points: 2 },
+            { id: 16, type: 'mission', label: '완력기' },
+            { id: 17, type: 'score',   label: '5점',                  points: 5 },
+            { id: 18, type: 'mission', label: '고수' },
+            { id: 19, type: 'sig',     sigName: '멈춘시간' },
+            { id: 20, type: 'mission', label: '코끼리코 — 성공하면 10점' },
+            { id: 21, type: 'score',   label: '10점',                 points: 10 },
+        ];
+
+        /* 시그니처를 이름으로 찾는다. 띄어쓰기·따옴표·대소문자는 무시한다 —
+           '이꾸욧' 과 '이꾸욧!' 이 다른 것으로 보이면 사람이 헷갈린다. */
+        function dgcFindSig(sigs, name) {
+            const norm = v => String(v || '').replace(/[\s"'`\u2018\u2019\u201c\u201d!?.,~]/g, '').toLowerCase();
+            const want = norm(name);
+            return sigs.find(x => norm(x.title) === want)
+                || sigs.find(x => norm(x.title).includes(want) && want.length >= 2)
+                || null;
+        }
+
+        async function dgcPreset22() {
+            if (!await premiumConfirm(
+                    '22칸 기본판을 깝니다.\n\n지금 판에 적어둔 칸 내용은 모두 새로 덮어씁니다.\n계속할까요?',
+                    '주사위 22칸 기본판', 'warning')) return;
+
+            // 7×6 테두리 = 2*(7+6)-4 = 22칸
+            const su = await dgcCall('setup', { cols: 7, rows: 6, dice: 2 });
+            if (!su) return;
+            document.getElementById('dgc-cols').value = '7';
+            document.getElementById('dgc-rows').value = '6';
+
+            const sigs = await dgcLoadSigs();
+            const missing = [], failed = [];
+            for (const t of DGC_PRESET_22) {
+                const body = { id: t.id, type: t.type, label: t.label || '' };
+                if (t.type === 'score') body.points = t.points;
+                if (t.type === 'sig') {
+                    const found = dgcFindSig(sigs, t.sigName);
+                    if (!found) { missing.push(t.id + '번 \u201c' + t.sigName + '\u201d'); continue; }
+                    body.sig_id = found.id;
+                    body.label = t.sigName;
+                }
+                const r = await dgcCall('tile', body);
+                if (!r) failed.push(t.id + '번');
+            }
+            dgcSync(true);
+
+            let msg = '🎲 22칸을 깔았습니다';
+            if (missing.length) msg += ' · 시그니처 못 찾음: ' + missing.join(', ');
+            if (failed.length) msg += ' · 저장 실패: ' + failed.join(', ');
+            acctToast(msg, (missing.length || failed.length) ? 'warn' : 'ok');
+            if (missing.length) {
+                await premiumAlert(
+                    '시그니처를 못 찾은 칸이 있습니다:\n\n' + missing.join('\n') +
+                    '\n\n그 칸은 빈칸으로 뒀습니다. 아래 칸 목록에서 직접 골라주세요.',
+                    '시그니처 못 찾음', 'warning');
+            }
+        }
 
         function dgcContentCell(t, i) {
             const type = (t && t.type) || 'blank';
