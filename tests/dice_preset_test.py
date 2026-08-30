@@ -77,7 +77,8 @@ print('② 판 크기 — 7×6 테두리가 정확히 22칸인가')
 print('=' * 74)
 m = re.search(r"dgcCall\('setup',\s*\{\s*cols:\s*(\d+),\s*rows:\s*(\d+)", src[i:] if i > 0 else '')
 cols, rows_n = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
-chk('7×6 으로 깐다', (cols, rows_n) == (7, 6), (cols, rows_n))
+chk('8×5 로 깐다 (같은 22칸이지만 세로를 176px 덜 쓴다)',
+    (cols, rows_n) == (8, 5), (cols, rows_n))
 chk('테두리 칸 수가 22 다 (2×(가로+세로)-4)', 2 * (cols + rows_n) - 4 == 22, 2 * (cols + rows_n) - 4)
 
 print()
@@ -149,10 +150,13 @@ m = re.search(r'const GAP = (\d+), MAXW = (\d+), MAXH = (\d+), CELL_CAP = (\d+)'
 chk('칸 크기를 화면에 맞춰 키운다', m is not None, m.group(0) if m else '못 찾음')
 if m:
     gap, maxw, maxh, cap = (int(x) for x in m.groups())
-    cell = max(40, min(cap, (maxw - gap * 6) // 7, (maxh - gap * 5) // 6))
-    chk('22칸(7×6) 판의 칸이 120px 이상', cell >= 120, '%dpx' % cell)
-    chk('판이 세로 안전지대(840)를 안 넘는다', 6 * cell + gap * 5 <= maxh,
-        '%dpx' % (6 * cell + gap * 5))
+    # ⚠️ 판 모양을 못박지 않는다. 프리셋에서 읽은 가로/세로를 그대로 쓴다 —
+    #    7×6 을 박아뒀더니 8×5 로 눕히자 엉뚱한 값을 쟀다.
+    cell = max(40, min(cap, (maxw - gap * (cols - 1)) // cols,
+                            (maxh - gap * (rows_n - 1)) // rows_n))
+    chk('22칸(%d×%d) 판의 칸이 120px 이상' % (cols, rows_n), cell >= 120, '%dpx' % cell)
+    chk('판이 세로 한계 안에 있다', rows_n * cell + gap * (rows_n - 1) <= maxh,
+        '%dpx / %dpx' % (rows_n * cell + gap * (rows_n - 1), maxh))
 
     r = re.search(r'\.dg-tile \.dg-lbl \{[\s\S]*?font-size: calc\(var\(--dg-cell[^)]*\) \* ([\d.]+)\)', ov)
     chk('칸 글씨가 칸 크기에 비례한다 (px 로 못박지 않았다)', r is not None,
@@ -199,8 +203,8 @@ mc = re.search(r'id="dicegame-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px',
 chk('판 자리를 찾을 수 있다', mc is not None)
 if mc and m:
     bx, by = int(mc.group(1)), int(mc.group(2))
-    bw = 7 * cell + gap * 6 + pad * 2      # 22칸(7×6) 판의 실제 폭
-    bh = 6 * cell + gap * 5 + pad * 2      # 실제 높이
+    bw = cols * cell + gap * (cols - 1) + pad * 2     # 22칸 판의 실제 폭
+    bh = rows_n * cell + gap * (rows_n - 1) + pad * 2  # 실제 높이
     chk('22칸 판이 1080 폭 안에 들어간다', bx >= 0 and bx + bw <= 1080,
         '가로 %d~%d (판 %dpx)' % (bx, bx + bw, bw))
     # 유튜브 세로 라이브: 0~4% 채널줄 · 4~50% 안전 · 50%부터 채팅
@@ -210,6 +214,13 @@ if mc and m:
         '말 꼭대기 %d' % (by + pad - 16))
     chk('판이 가로 가운데에 있다 (좌우 치우침 40px 이내)',
         abs((bx + bw / 2) - 540) <= 40, '가운데 %d (화면 가운데 540)' % (bx + bw / 2))
+    # ⚠️ 7×6 판(830px 높이)은 안전지대를 거의 다 먹어 계좌 박스(y 181까지)와
+    #    목표 게이지(y 186까지) 아랫부분을 63px 가렸다. 그래서 8×5 로 눕혔다.
+    chk('판이 계좌 박스·목표 게이지(y 186까지)를 안 가린다', by >= 190,
+        '판 위끝 %d' % by)
+    chk('판이 안전지대에 여유를 남긴다 (다른 위젯이 들어갈 자리)',
+        (960 - (by + bh)) + (by - 190) >= 40,
+        '위 %dpx · 아래 %dpx 남음' % (by - 190, 960 - (by + bh)))
 
     ad = io.open(os.path.join(ROOT, 'admin.html'), encoding='utf-8', errors='replace').read()
     ma = re.search(r'id="dicegame" data-id="dicegame" style="left:(\d+)px; top:(\d+)px', ad)

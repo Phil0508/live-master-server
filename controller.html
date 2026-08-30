@@ -2025,7 +2025,7 @@
                 세로 <select id="dgc-rows" style="height:34px;"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select>
                 굴림 <select id="dgc-dice" style="height:34px;"><option value="1">1회 (1~6칸)</option><option value="2" selected>2회 (2~12칸)</option></select>
                 <button class="secondary" onclick="dgcSetup()" style="height:34px; padding:0 14px; border-radius:var(--r-2);">판 만들기</button>
-                <button class="secondary" onclick="dgcPreset22()" title="출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
+                <button class="secondary" onclick="dgcPreset22()" title="8×5 테두리 22칸 — 출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
                         style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 기본판</button>
                 <span style="width:14px;"></span>
                 말 위치 <input id="dgc-pos" type="number" min="0" value="0" style="width:70px; height:34px;">
@@ -7756,11 +7756,13 @@ initFoldablePanels();
                     '22칸 기본판을 깝니다.\n\n지금 판에 적어둔 칸 내용은 모두 새로 덮어씁니다.\n계속할까요?',
                     '주사위 22칸 기본판', 'warning')) return;
 
-            // 7×6 테두리 = 2*(7+6)-4 = 22칸
-            const su = await dgcCall('setup', { cols: 7, rows: 6, dice: 2 });
+            // 8×5 테두리 = 2*(8+5)-4 = 22칸.
+            // ⚠️ 7×6 도 22칸이지만 판이 세로로 830px 이라 계좌 박스와 게이지를 가렸다.
+            //    옆으로 눕힌 8×5 는 판이 1038×654 — 칸은 더 크고 세로는 덜 쓴다.
+            const su = await dgcCall('setup', { cols: 8, rows: 5, dice: 2 });
             if (!su) return;
-            document.getElementById('dgc-cols').value = '7';
-            document.getElementById('dgc-rows').value = '6';
+            document.getElementById('dgc-cols').value = '8';
+            document.getElementById('dgc-rows').value = '5';
 
             const sigs = await dgcLoadSigs();
             const missing = [], failed = [];

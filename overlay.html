@@ -638,8 +638,11 @@
             font-size: calc(var(--dg-cell, 86px) * 0.32); line-height: 1.05;
             filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
         }
+        /* ⚠️ 0.225 는 한계선이다. 한글 4자(코끼리코·멈춘시간·포카치노)가 칸 안쪽
+           너비에 딱 들어가는 크기 — word-break: keep-all 이라 더 키우면 줄바꿈이
+           아니라 글자가 잘려 나간다. 칸이 122px 이어도 폰에서 10.2px 을 지킨다. */
         .dg-tile .dg-lbl {
-            font-size: calc(var(--dg-cell, 86px) * 0.21);
+            font-size: calc(var(--dg-cell, 86px) * 0.225);
             font-weight: 900; color: #3b3324; text-align: center;
             line-height: 1.1; max-height: calc(var(--dg-cell, 86px) * 0.46);
             overflow: hidden; word-break: keep-all;
@@ -1900,7 +1903,7 @@
                 </div>
             </div>
 
-            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 57px; top: 123px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 21px; top: 248px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="dg-board">
                     <div class="dg-lap-banner" id="dg-lap-banner">🎉 한 바퀴!</div>
                     <div class="dg-grid" id="dg-grid"></div>
@@ -5770,9 +5773,14 @@
                절반밖에 안 썼다. 남는 자리를 두고 작게 그리니 글씨가 안 읽혔다.
                그렇다고 무작정 키우면 판이 화면 밖으로 나간다. 1000×840 으로 키웠더니
                22칸 판이 1001×860 이 되어 오른쪽 열이 화면 밖으로 잘렸다.
-               판 = 칸들 + 좌우 여백 10px 씩. 980×810 이면 22칸 판이 966×830 이라
-               1080 폭 안에, 그리고 채팅에 안 가리는 구역(y 115~960) 안에 들어간다. */
-            const GAP = 6, MAXW = 980, MAXH = 810, CELL_CAP = 160;
+               판 = 칸들 + 좌우 여백 10px 씩.
+               ⚠️ 22칸 링은 2×(가로+세로)-4 = 22, 곧 가로+세로 = 13 이면 뭐든 된다.
+                  7×6 은 세로로 높아 판이 830px — 안전지대(845px)를 거의 다 먹어
+                  계좌 박스와 목표 게이지를 가렸다. 옆으로 눕힌 8×5 는 같은 22칸에
+                  판이 1038×654 로, 칸은 오히려 더 크고 세로는 176px 덜 쓴다.
+                  MAXW 1020 은 8칸일 때 칸 122px 이 나오는 값이다
+                  (7칸이면 여전히 130px — 예전 판을 쓰던 사람은 그대로다). */
+            const GAP = 6, MAXW = 1020, MAXH = 810, CELL_CAP = 160;
             const cell = Math.max(40, Math.min(CELL_CAP,
                 Math.floor((MAXW - GAP * (cols - 1)) / cols),
                 Math.floor((MAXH - GAP * (rows - 1)) / rows)));
