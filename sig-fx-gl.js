@@ -223,7 +223,8 @@ precision highp float; in vec2 uv; out vec4 o; uniform sampler2D u_src;
 void main(){
   vec3 c = texture(u_src, uv).rgb;
   float b = max(c.r, max(c.g, c.b));
-  o = vec4(c * smoothstep(0.38, 0.95, b), 1.0);
+  // ⚠️ 문턱이 낮으면 연기까지 '밝은 데' 로 보고 번진다. 뜨거운 심지만 뽑는다.
+  o = vec4(c * smoothstep(0.66, 1.0, b), 1.0);
 }`;
 
 /* 가로·세로를 따로 흐린다(분리 가능 가우시안) — 한 번에 하면 비용이 제곱으로 뛴다 */
@@ -416,10 +417,13 @@ class SigGLEngine {
     this.ok = false;        // 이 브라우저에서 쓸 수 있나
     this.on = false;        // 지금 붙어 있나
     this.why = '';
-    this.bloom = 1.15;      // 빛 번짐 세기 (0 이면 끔)
+    /* ⚠️ 빛 번짐은 기본으로 끈다. 많다고 좋은 게 아니다 — 1.15 로 뒀더니 연기까지
+          통째로 번져 화면이 뿌옜다. 좋은 연출은 뜨거운 심지만 번지고 나머지는 또렷하다.
+          필요한 연출이 부르는 쪽에서 올린다(0.2~0.5 면 충분하다). */
+    this.bloom = 0;         // 빛 번짐 세기
     this.trail = 0;         // 잔상 (0 없음 ~ 0.9 길게)
-    this.grain = 0.22;      // 필름 그레인 — 조각들을 한 그림으로 묶는다
-    this.chrom = 0.0035;    // 색수차 — 렌즈 흉내. 많으면 고장나 보인다
+    this.grain = 0.10;      // 필름 그레인 — 조각들을 한 그림으로 묶는다
+    this.chrom = 0.0022;    // 색수차 — 렌즈 흉내. 많으면 고장나 보인다
     this._raf = null;
     this._until = -1;       // 마지막 것이 죽는 시각(초). 그때 루프를 끊는다
     this.smokes = []; this.glows = []; this.shocks = []; this.sprites = [];
@@ -430,10 +434,10 @@ class SigGLEngine {
   attach(parentEl, w, h, opt) {
     if (!parentEl || !w || !h) return false;
     opt = opt || {};
-    this.bloom = opt.bloom != null ? opt.bloom : 1.15;
+    this.bloom = opt.bloom != null ? opt.bloom : 0;
     this.trail = opt.trail != null ? opt.trail : 0;
-    this.grain = opt.grain != null ? opt.grain : 0.22;
-    this.chrom = opt.chrom != null ? opt.chrom : 0.0035;
+    this.grain = opt.grain != null ? opt.grain : 0.10;
+    this.chrom = opt.chrom != null ? opt.chrom : 0.0022;
     try {
       if (!this._init()) return false;
       this.W = Math.round(w); this.H = Math.round(h);
@@ -983,6 +987,9 @@ class SigGLEngine {
 
   _draw(t) {
     const gl = this.gl, rt = this.rt, U = (p, n) => gl.getUniformLocation(p, n);
+    /* ⚠️ 예전에는 빛 번짐이 0 이면 합치는 단계를 통째로 건너뛰었다. 그래서
+          그레인·색수차·충격파 왜곡까지 같이 꺼졌다 — 번짐과 아무 상관 없는 것들이다.
+          이제 무대는 늘 따로 그리고 합치는 단계도 늘 돈다. 번짐만 0 이 된다. */
     const useBloom = this.bloom > 0;
     gl.disable(gl.DEPTH_TEST);
 
@@ -1003,7 +1010,7 @@ class SigGLEngine {
     }
 
     // ── 2. 무대: 지우기(또는 잔상) → 매질 올리기 → 입자 ──
-    const target = useBloom ? rt.scene : null;
+    const target = rt.scene;      // 늘 무대에 그린다 (합치는 단계를 거쳐야 렌즈가 먹는다)
     if (this.trail > 0) {
       // 지우는 대신 곱해서 옅게 — 빠른 것이 흐르는 자국을 남긴다
       gl.enable(gl.BLEND);
@@ -1038,18 +1045,25 @@ class SigGLEngine {
     //   여기서 그려야 같은 빛·그레인·왜곡을 먹는다. 이게 '한 장의 그림' 을 만든다.
     this._drawSprites(t, target);
 
-    if (!useBloom) { gl.disable(gl.BLEND); return; }
-
-    // ── 3. 빛 번짐 ──
+    // ── 3. 빛 번짐 (끄면 이 단계만 건너뛴다) ──
     gl.disable(gl.BLEND);
-    this._blit(this.pBright, rt.b[0], [['u_src', rt.scene]]);
-    for (let i = 0; i < 3; i++) {
-      if (i) this._blit(this.pBlur, rt.b[i], [['u_src', rt.b[i - 1]]],
-                        p => gl.uniform2f(U(p, 'u_dir'), 0, 0));
-      this._blit(this.pBlur, rt.tmp[i], [['u_src', rt.b[i]]],
-                 p => gl.uniform2f(U(p, 'u_dir'), 1, 0));
-      this._blit(this.pBlur, rt.b[i], [['u_src', rt.tmp[i]]],
-                 p => gl.uniform2f(U(p, 'u_dir'), 0, 1));
+    if (useBloom) {
+      this._blit(this.pBright, rt.b[0], [['u_src', rt.scene]]);
+      for (let i = 0; i < 3; i++) {
+        if (i) this._blit(this.pBlur, rt.b[i], [['u_src', rt.b[i - 1]]],
+                          p => gl.uniform2f(U(p, 'u_dir'), 0, 0));
+        this._blit(this.pBlur, rt.tmp[i], [['u_src', rt.b[i]]],
+                   p => gl.uniform2f(U(p, 'u_dir'), 1, 0));
+        this._blit(this.pBlur, rt.b[i], [['u_src', rt.tmp[i]]],
+                   p => gl.uniform2f(U(p, 'u_dir'), 0, 1));
+      }
+    } else {
+      // 번짐이 없으면 더할 것도 없다 — 번짐 그림을 비워둔다
+      [rt.b[0], rt.b[1], rt.b[2]].forEach(r => {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, r.f);
+        gl.viewport(0, 0, r.w, r.h);
+        gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+      });
     }
 
     // ── 4. 렌즈 ──

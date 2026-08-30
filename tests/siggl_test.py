@@ -167,6 +167,14 @@ cnt = len(_re.findall(r'this\.gAmbient\(', fx))
 chk('연출 17개가 전부 화면을 채우고 시작한다 (빈 화면이 PPT 느낌의 큰 몫)',
     cnt >= 17, '%d개' % cnt)
 chk('빛 번짐을 끌 수 있다', 'this.bloom > 0' in gl)
+# ⚠️ 번짐이 많다고 좋은 게 아니다. 1.15 로 뒀더니 연기까지 통째로 번져 화면이 뿌옜다.
+chk('빛 번짐이 기본으로 꺼져 있다', re.search(r'this\.bloom = 0;', gl) is not None)
+chk('뜨거운 심지만 뽑는다 (문턱이 높다)',
+    re.search(r'smoothstep\(0\.6[0-9], 1\.0, b\)', gl) is not None)
+# ⚠️ 예전에는 번짐을 끄면 합치는 단계를 통째로 건너뛰어 그레인·색수차·충격파까지 꺼졌다
+chk('번짐을 꺼도 렌즈는 돈다 (그레인·색수차·충격파는 번짐과 무관하다)',
+    'const target = rt.scene;' in gl and 'if (useBloom) {' in gl
+    and 'if (!useBloom) { gl.disable(gl.BLEND); return; }' not in gl)
 
 print()
 print('=' * 74)

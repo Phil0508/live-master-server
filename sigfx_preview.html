@@ -53,6 +53,15 @@
     display:flex;align-items:center;justify-content:center;
     font-size:44px;font-weight:800;color:rgba(255,255,255,.16);letter-spacing:.2em}
   #sigfx-inner{position:absolute;inset:0}
+  /* 📱 유튜브 세로 라이브에서 가려지는 구역 — 이걸 보고 자리를 잡아야 안 어긋난다 */
+  .zone{position:absolute;left:0;right:0;pointer-events:none;z-index:900}
+  .zone > span{position:absolute;right:10px;top:8px;font-size:15px;font-weight:900;
+    letter-spacing:1px;padding:3px 10px;border-radius:5px;background:rgba(8,10,14,.72)}
+  .z-dead{background:rgba(120,130,148,.20)} .z-dead > span{color:#9aa3b2}
+  .z-chat{background:rgba(230,110,160,.20)} .z-chat > span{color:#f090b6}
+  .zline{position:absolute;left:0;right:0;height:2px;background:rgba(255,255,255,.35);
+    pointer-events:none;z-index:901}
+  body.noguide .zone, body.noguide .zline{display:none}
 </style>
 </head>
 <body>
@@ -77,8 +86,11 @@
       <input type="range" id="imp" min="0" max="2" step="0.1" value="1">
       <span class="val" id="imp-v">1.0</span></div>
     <div class="row"><label>빛 번짐</label>
-      <input type="range" id="blm" min="0" max="2.5" step="0.05" value="1.15">
-      <span class="val" id="blm-v">1.15</span></div>
+      <input type="range" id="blm" min="0" max="2.5" step="0.05" value="0">
+      <span class="val" id="blm-v">0.00</span></div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);
+      font-weight:600;cursor:pointer"><input type="checkbox" id="guide" checked>
+      가려지는 구역 보기</label>
 
     <div class="box">
       <div id="fps">—<span style="font-size:13px;color:var(--ink-2)"> fps</span></div>
@@ -93,6 +105,12 @@
       <div id="stage">
         <div id="shot" data-shake>방 송 화 면</div>
         <div id="sigfx-inner"></div>
+        <!-- 실측 (1080×1920): 0~115 채널줄 · 115~960 안전지대 · 960~1382 댓글 · 1382~ 고정 버튼 -->
+        <div class="zone z-dead" style="top:0;height:115px"><span>채널줄 · 가려짐</span></div>
+        <div class="zone z-chat" style="top:960px;height:422px"><span>댓글창 · 가려짐</span></div>
+        <div class="zone z-dead" style="top:1382px;height:538px"><span>고정 버튼 · 가려짐</span></div>
+        <div class="zline" style="top:115px"></div>
+        <div class="zline" style="top:960px"></div>
       </div>
     </div>
   </div>
@@ -120,6 +138,17 @@ function fit(){
 addEventListener('resize', fit);
 fit();
 
+/* ⚠️ 스크립트를 못 읽으면 빈 화면만 남아 뭐가 잘못됐는지 알 수가 없다.
+      무엇이 안 됐는지 크게 알려준다. */
+if (typeof SigFX === 'undefined') {
+  document.getElementById('side').innerHTML =
+    '<h1 style="color:#e3729f">연출 파일을 못 읽었습니다</h1>' +
+    '<p class="sub">이 판은 같은 폴더의 <b>sig-fx.js</b> 와 <b>sig-fx-gl.js</b> 를 씁니다.<br><br>' +
+    '· 세 파일이 <b>같은 폴더</b>에 있는지 봐주세요<br>' +
+    '· 그래도 안 되면 클로드에게 <b>"미리보기 서버로 열어줘"</b> 라고 하시면 됩니다</p>';
+  throw new Error('sig-fx.js 를 못 읽음');
+}
+
 /* 버튼 */
 const inner = $('sigfx-inner');
 let cur = null;
@@ -145,9 +174,10 @@ function play(key, btn){
   if (window.SigGL && SigGL.on && global_bloom != null) SigGL.bloom = global_bloom;
 }
 
-let global_bloom = 1.15;
+let global_bloom = 0;
 $('spd').oninput = e => $('spd-v').textContent = (+e.target.value).toFixed(1);
 $('imp').oninput = e => $('imp-v').textContent = (+e.target.value).toFixed(1);
+$('guide').onchange = e => document.body.classList.toggle('noguide', !e.target.checked);
 $('blm').oninput = e => {
   global_bloom = +e.target.value;
   $('blm-v').textContent = global_bloom.toFixed(2);

@@ -451,11 +451,15 @@ class SigEngine {
      착탄 프레임 IMP=150. 재료는 원본과 같고 '언제 터지느냐'만 바꿨다.
      ① 움츠림 0–95 → ② 돌진 95–150 → ③ 착탄 150–200(정지) → ④ 반동 → ⑤ 이차운동 */
   fx_gazua(fx, shake) {
-    /* 🎬 매질 — 착탄 하나로 끝나는 연출이라, 치기 전 긴장과 친 뒤 여운을 만든다 */
+    /* 🎬 매질 — 착탄 하나로 끝나는 연출이라, 치기 전 긴장과 친 뒤 여운을 만든다.
+       ⚠️ 자리를 670 으로 잡는다. 설계 540 은 안전지대(화면 115~960) 한가운데인
+          537 로 가는데, 보는 사람은 화면 전체(1920)를 보니까 위에서 28% —
+          위쪽에 치우쳐 보인다. 670 이면 화면 33% 로 눈이 편하다. */
+    const CY = 670;
     this.gAmbient(1800, { color: '#ffb648', density: 0.10 });
-    this.gGlow(960, 470, { r: 300, life: 0.4, power: 0.7, color: '#ff9a2e', delay: 40 });
-    this.gImpact(960, 540, { scale: 1.15, color: '#ffb43c', hot: '#fff2cf' });
-    this.gPlume(960, 700, { scale: 1.2, life: 2.0, density: 0.34, rise: 250,
+    this.gGlow(960, CY - 70, { r: 300, life: 0.4, power: 0.7, color: '#ff9a2e', delay: 40 });
+    this.gImpact(960, CY, { scale: 1.15, color: '#ffb43c', hot: '#fff2cf' });
+    this.gPlume(960, CY + 160, { scale: 1.2, life: 2.0, density: 0.34, rise: 250,
                             color: '#ff9a2e', delay: 260 });
     const FIRE = this.col(0, '#ff4d00'), EMBER = this.col(1, '#ffa02a'), SPARK = this.col(2, '#ffd24a');
     const IMP = 150;
@@ -522,7 +526,7 @@ class SigEngine {
     if (GZ) {
       const LIFE = 1.62, SHATTER = 1420;
       this.gSprite(GZ, {
-        x: 960, y: 540, w: 1180, life: LIFE, delay: 60,
+        x: 960, y: CY, w: 1180, life: LIFE, delay: 60,
         // 지나쳤다 돌아오는 결 — 이게 있어야 '툭 놓였다' 가 아니라 '내리꽂혔다' 다
         from: { y: 240, scale: 1.36, alpha: 0 }, to: { y: 0, scale: 1, alpha: 1 },
         ease: 'back', moveK: 0.056,
@@ -534,11 +538,11 @@ class SigEngine {
         warp: 0.0035        // 열에 아주 살짝 일렁인다
       });
       // 글자가 내리꽂히는 순간 그 뒤에서 빛이 터진다 (글자가 장면 안에서 빛난다)
-      this.gGlow(960, 540, { r: 620, life: 0.45, power: 1.3, color: '#ffcf6a', delay: IMP - 20 });
+      this.gGlow(960, CY, { r: 620, life: 0.45, power: 1.3, color: '#ffcf6a', delay: IMP - 20 });
       // 끝 — 금가루가 되어 흩어진다
-      this.gShatter(GZ, { x: 960, y: 540, w: 1180, step: 4, delay: SHATTER,
+      this.gShatter(GZ, { x: 960, y: CY, w: 1180, step: 4, delay: SHATTER,
                           life: 1.5, up: 300, spread: 320, gravity: 470, size: 2.8 });
-      this.gSparkle(960, 540, { n: 2600, r: 520, speed: 210, life: 1.6,
+      this.gSparkle(960, CY, { n: 2600, r: 520, speed: 210, life: 1.6,
                                 gravity: 260, color: '#ffe9ac', delay: SHATTER + 40 });
     } else {
       /* 예전 길 — 늘어남 → 히트스톱 → 반동.
