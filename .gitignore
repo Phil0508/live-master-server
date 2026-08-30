@@ -39,3 +39,9 @@ donation_spool.jsonl
 
 # 🕹️ 조종실에서 고정해둔 버전 — 서버마다 다르므로 저장소에 두지 않는다
 DEPLOY_PIN
+
+# 🧪 검사 러너가 만드는 샌드박스 — 저장소 밖(스크래치패드)에서 돌리는 게 원칙이지만
+#    저장소에서 실수로 돌려도 서버 사본이 커밋되지 않게 막는다 (실제로 두 번 그랬다)
+tests/lt2/server.py
+tests/lt2/*.html
+tests/pausetest/

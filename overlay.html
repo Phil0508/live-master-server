@@ -613,9 +613,13 @@
         .dg-board {
             position: relative; padding: 10px;
             background: transparent; border: none; box-shadow: none;
-            perspective: 1300px;
         }
-        .dg-grid { display: grid; gap: 6px; transform: rotateX(13deg); transform-style: preserve-3d; }
+        /* ⚠️ 예전에는 판을 rotateX(13deg) 로 눕혀 3D 로 보이게 했다. 칸이 86px 일 때는
+           티가 안 났지만 칸을 130px 로 키우자 판이 커진 만큼 원근 왜곡도 커져서
+           위칸은 작고 아래칸은 크고 세로줄이 계단처럼 어긋났다 — 삐뚤어 보인다.
+           입체감은 칸마다 붙은 아랫단 그림자(0 5px 0)로 충분하다. 판은 반듯하게 둔다.
+           (주사위 굴리기는 .dg-dice 가 제 perspective 를 따로 갖고 있어 그대로 돈다) */
+        .dg-grid { display: grid; gap: 6px; }
         /* 칸 — 밝은 면 + 두꺼운 아랫단(입체 블록) */
         .dg-tile {
             position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1);
@@ -1896,7 +1900,7 @@
                 </div>
             </div>
 
-            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 300px; top: 420px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 57px; top: 123px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="dg-board">
                     <div class="dg-lap-banner" id="dg-lap-banner">🎉 한 바퀴!</div>
                     <div class="dg-grid" id="dg-grid"></div>
@@ -5764,9 +5768,11 @@
             const cols = parseInt(g.cols) || 7, rows = parseInt(g.rows) || 5;
             /* ⚠️ 예전에는 칸을 86px 로 못박아서, 7칸이면 판이 638px — 1080 폭 화면의
                절반밖에 안 썼다. 남는 자리를 두고 작게 그리니 글씨가 안 읽혔다.
-               가로 1000 · 세로 840 안에 꽉 차게 칸을 키운다.
-               (840 은 유튜브 채팅에 안 가리는 구역 — 위 6%~아래 50% — 의 높이다) */
-            const GAP = 6, MAXW = 1000, MAXH = 840, CELL_CAP = 160;
+               그렇다고 무작정 키우면 판이 화면 밖으로 나간다. 1000×840 으로 키웠더니
+               22칸 판이 1001×860 이 되어 오른쪽 열이 화면 밖으로 잘렸다.
+               판 = 칸들 + 좌우 여백 10px 씩. 980×810 이면 22칸 판이 966×830 이라
+               1080 폭 안에, 그리고 채팅에 안 가리는 구역(y 115~960) 안에 들어간다. */
+            const GAP = 6, MAXW = 980, MAXH = 810, CELL_CAP = 160;
             const cell = Math.max(40, Math.min(CELL_CAP,
                 Math.floor((MAXW - GAP * (cols - 1)) / cols),
                 Math.floor((MAXH - GAP * (rows - 1)) / rows)));

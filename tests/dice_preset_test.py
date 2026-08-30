@@ -180,6 +180,49 @@ chk('칸 라벨이 짧다 (긴 설명은 도착 카드에)', not long_lbl, long_
 
 print()
 print('=' * 74)
+print('⑦ 판이 반듯한가 · 화면 안에 들어오는가')
+print('=' * 74)
+'''판을 rotateX 로 눕혀 놓으면 칸이 커질수록 원근 왜곡이 커져 세로줄이 계단처럼
+   어긋난다. 실제로 칸을 86 -> 130 으로 키우자 판이 삐뚤어 보였다.
+   그리고 판만 키우고 자리를 그대로 두면 화면 밖으로 나간다 (1001 폭 판을
+   left 300 에 두어 오른쪽 열이 잘렸다).'''
+
+chk('판을 3D 로 눕히지 않는다 (rotateX 없음)',
+    not re.search(r'\.dg-grid \{[^}]*rotate', ov),
+    re.search(r'\.dg-grid \{[^}]*\}', ov).group(0) if re.search(r'\.dg-grid \{[^}]*\}', ov) else '못 찾음')
+chk('판에 원근(perspective)을 걸지 않는다',
+    not re.search(r'\.dg-board \{[^}]*perspective', ov))
+
+mp = re.search(r'\.dg-board \{[^}]*padding:\s*(\d+)px', ov)
+pad = int(mp.group(1)) if mp else 0
+mc = re.search(r'id="dicegame-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px', ov)
+chk('판 자리를 찾을 수 있다', mc is not None)
+if mc and m:
+    bx, by = int(mc.group(1)), int(mc.group(2))
+    bw = 7 * cell + gap * 6 + pad * 2      # 22칸(7×6) 판의 실제 폭
+    bh = 6 * cell + gap * 5 + pad * 2      # 실제 높이
+    chk('22칸 판이 1080 폭 안에 들어간다', bx >= 0 and bx + bw <= 1080,
+        '가로 %d~%d (판 %dpx)' % (bx, bx + bw, bw))
+    # 유튜브 세로 라이브: 0~4% 채널줄 · 4~50% 안전 · 50%부터 채팅
+    chk('판이 채팅에 안 가리는 구역(115~960) 안에 있다', by >= 115 and by + bh <= 960,
+        '세로 %d~%d (판 %dpx)' % (by, by + bh, bh))
+    chk('말(칸 위로 16px 튀어나온다)도 구역 안에 있다', by + pad - 16 >= 115,
+        '말 꼭대기 %d' % (by + pad - 16))
+    chk('판이 가로 가운데에 있다 (좌우 치우침 40px 이내)',
+        abs((bx + bw / 2) - 540) <= 40, '가운데 %d (화면 가운데 540)' % (bx + bw / 2))
+
+    ad = io.open(os.path.join(ROOT, 'admin.html'), encoding='utf-8', errors='replace').read()
+    ma = re.search(r'id="dicegame" data-id="dicegame" style="left:(\d+)px; top:(\d+)px', ad)
+    mw = re.search(r'id="dicegame"[\s\S]{0,200}?width:(\d+)px; height:(\d+)px', ad)
+    chk('편집기 점선 상자 자리가 방송판과 같다',
+        ma and (int(ma.group(1)), int(ma.group(2))) == (bx, by),
+        (ma.groups() if ma else '못 찾음', (bx, by)))
+    chk('편집기 점선 상자 크기가 실제 판과 같다 (±12px)',
+        mw and abs(int(mw.group(1)) - bw) <= 12 and abs(int(mw.group(2)) - bh) <= 12,
+        (mw.groups() if mw else '못 찾음', (bw, bh)))
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 for n in BAD:
     print('   [실패] ' + n)

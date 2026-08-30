@@ -108,6 +108,11 @@ def run(name, cmd, cwd, kind=None, timeout=900):
 
 
 # ── 최신 코드를 두 샌드박스에 복사 ──
+# ⚠️ 원칙은 저장소 밖(스크래치패드) 사본으로 돌리는 것이다. 저장소에서 그냥 돌리면
+#    tests/lt2/ · tests/pausetest/ 안에 서버 사본이 생겨 저장소가 더러워진다.
+#    그래도 터지지는 않게 폴더는 만들어 둔다 (.gitignore 가 커밋은 막는다).
+for _d in (LT2, PT):
+    os.makedirs(_d, exist_ok=True)
 for f in ('server.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.html'):
     src = os.path.join(PROJ, f)
     if os.path.exists(src):
