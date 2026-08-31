@@ -2928,6 +2928,23 @@
         let serverTimeOffset = 0;
         
         let currentExtraActiveState = false;
+
+        /* 🏆 엑셀판을 가리는 것들 — 한 곳에서만 정한다.
+           ⚠️ 엑셀판 자리(오른쪽 위)를 나눠 쓰는 판이 여럿이다: 퇴근빵·번외판·주사위판.
+              각자 숨겼다 보였다 하면 서로 싸운다 — 퇴근빵이 꺼지며 '보이게' 해버리면
+              주사위게임 중인데도 엑셀판이 튀어나온다.
+           ⚠️ 주사위판은 y 307~936 이고 엑셀판은 y 167 에서 최소 261px(줄이 최소 3줄)이라
+              아래끝이 427 이다 — 안 숨기면 반드시 겹친다. 예전에는 안 숨겼다. */
+        const rankHiddenBy = { race: false, dice: false };
+        function syncRankVisible() {
+            const el = document.getElementById('ranking-container');
+            if (!el) return;
+            // 번외판이 켜져 있으면 엑셀판은 이미 화면 밖(left:-800px)으로 비켜 있다 — 안 건드린다
+            if (currentExtraActiveState) return;
+            const hide = rankHiddenBy.race || rankHiddenBy.dice;
+            el.style.opacity = hide ? '0' : '1';
+            el.style.visibility = hide ? 'hidden' : 'visible';
+        }
         // 현재 재생 중인 시그니처의 '@@업' 문구 ("홍길동님"→"홍길동업", 슬롯 당첨은 시그니처 제목)
         function reactionUpText(item, gd) {
             if (!item) return '';
@@ -3495,6 +3512,8 @@
                 if (currentExtraActiveState !== extraActive) {
                     currentExtraActiveState = extraActive;
                     if (lastLayoutData) applyLayout(lastLayoutData);
+                    // 번외판이 꺼졌으면 퇴근빵·주사위 상태를 보고 엑셀판을 다시 정한다
+                    syncRankVisible();
                 }
 
                 // ==========================================
@@ -6089,6 +6108,9 @@
             const on = !!g.enabled && (g.tiles || []).length > 0;
             box.style.opacity = on ? '1' : '0';
             box.style.visibility = on ? 'visible' : 'hidden';
+            // 주사위판(307~936)은 엑셀판(167~427+) 자리를 먹는다 — 켜져 있는 동안 엑셀판을 내린다
+            rankHiddenBy.dice = on;
+            syncRankVisible();
             if (!on) { dgClearTimers(); return; }
             const key = JSON.stringify([g.cols, g.rows,
                 (g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points])]);
@@ -6161,7 +6183,6 @@
 
         function renderHomeRace(d) {
             const raceEl = document.getElementById('home-race-container');
-            const rankEl = document.getElementById('ranking-container');
             if (!raceEl) return;
 
             const bjs = d.bjs || [];
@@ -6169,11 +6190,9 @@
 
             raceEl.style.opacity = on ? '1' : '0';
             raceEl.style.visibility = on ? 'visible' : 'hidden';
-            // 랭킹판과 자리를 나눠 쓰므로 켜져 있는 동안에는 랭킹판을 숨긴다
-            if (rankEl && !currentExtraActiveState) {
-                rankEl.style.opacity = on ? '0' : '1';
-                rankEl.style.visibility = on ? 'hidden' : 'visible';
-            }
+            // 랭킹판과 자리를 나눠 쓴다 — 직접 숨기지 말고 '가린다' 고만 알린다
+            rankHiddenBy.race = on;
+            syncRankVisible();
             if (!on) { stopHomeRaceCycle(); return; }
 
             const goals = d.home_goals || {};

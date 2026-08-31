@@ -32,7 +32,12 @@ OK, BAD = [], []
 
 # 유튜브 세로 라이브 실측 (1080×1920)
 SAFE_TOP, SAFE_BOT, W = 115, 960, 1080
-RANK_W, RANK_H = 702, 132       # 화면에서 직접 잰 엑셀판 크기 (소스에 숫자로 없다)
+# 엑셀판 크기 — 소스에 숫자로 없어 화면에서 직접 잰다.
+# ⚠️ 예전에 132 로 적어뒀다가 겹침 검사를 통째로 헛돌렸다. 그건 어느 상태에서도
+#    나오지 않는 값이다 — 줄 수가 max(3, ceil(인원/2)) 라 **최소가 3줄**이고,
+#    3줄이 이미 260 이다. 인원별 실측(2026-08-31):
+#      2~6명 3줄 260 · 8명 4줄 303 · 10명 5줄 346 · 12명 6줄 389
+RANK_W, RANK_H, RANK_H_MAX = 702, 260, 389
 TICKER_H = 74                   # .ticker-bar 70px + 위아래 테두리 2px 씩
 
 
@@ -121,17 +126,42 @@ if g and rmm and d and mm and mh:
         chk('%s 이 안전지대 안이다' % k,
             l >= 0 and r <= W and t >= SAFE_TOP and b <= SAFE_BOT,
             '가로 %d~%d · 세로 %d~%d' % (l, r, t, b))
+    # 엑셀판이 가장 클 때(12명·389)도 안전지대를 안 넘는가
+    chk('엑셀판이 가장 클 때도 안전지대 안이다',
+        int(rmm.group(2)) + RANK_H_MAX <= SAFE_BOT,
+        '아래끝 %d / 한계 %d' % (int(rmm.group(2)) + RANK_H_MAX, SAFE_BOT))
+
+    # ⚠️ 엑셀판과 주사위판은 자리가 겹친다 — 자리로 푸는 게 아니라 '같이 안 띄워서' 푼다.
+    #    (엑셀판 167~427↑ · 주사위판 307~936 — 최소 120px, 12명이면 249px 겹친다)
+    #    그래서 이 둘만 기하 검사에서 빼고, 바로 아래에서 코드로 확인한다.
+    SHARE = {('엑셀판', '주사위판')}
     names = list(box)
     for i in range(len(names)):
         for j in range(i + 1, len(names)):
+            pair = (names[i], names[j])
+            if pair in SHARE or pair[::-1] in SHARE:
+                continue
             (l1, t1, r1, b1), (l2, t2, r2, b2) = box[names[i]], box[names[j]]
             hit = not (r1 <= l2 or l1 >= r2 or b1 <= t2 or t1 >= b2)
             chk('%s 과 %s 이 안 겹친다' % (names[i], names[j]), not hit,
                 '세로 %d~%d / %d~%d' % (t1, b1, t2, b2) if hit else '')
-    # 말은 칸 위로 16px 튀어나온다 (판 여백 10px 이 그 중 10 을 먹는다)
-    chk('주사위 말이 엑셀판 아래로 내려온다',
-        d[1] + 10 - 16 >= box['엑셀판'][3],
-        '말 꼭대기 %d / 엑셀판 아래끝 %d' % (d[1] + 10 - 16, box['엑셀판'][3]))
+
+print()
+print('=' * 74)
+print('③-2 엑셀판 자리를 나눠 쓰는 판들 — 한 곳에서 정하는가')
+print('=' * 74)
+# 엑셀판 자리(오른쪽 위)를 퇴근빵·번외판·주사위판이 나눠 쓴다. 각자 숨겼다 보였다 하면
+# 서로 싸운다 — 퇴근빵이 꺼지며 '보이게' 해버리면 주사위게임 중인데도 엑셀판이 튀어나온다.
+chk('가리는 주체를 모아 둔다', 'const rankHiddenBy = { race: false, dice: false }' in ov)
+chk('한 곳에서만 보임/숨김을 정한다', 'function syncRankVisible()' in ov)
+# ⚠️ 이게 없어서 주사위판과 엑셀판이 실제 방송에서 겹쳤다
+chk('주사위게임이 켜지면 엑셀판을 내린다', 'rankHiddenBy.dice = on' in ov)
+chk('퇴근빵도 같은 길을 쓴다', 'rankHiddenBy.race = on' in ov)
+chk('번외판이 꺼질 때 다시 정한다',
+    re.search(r'currentExtraActiveState = extraActive;[\s\S]{0,260}syncRankVisible\(\)', ov) is not None)
+# ⚠️ 각자 직접 숨기던 옛 코드가 남아 있으면 다시 싸운다
+chk('엑셀판을 직접 숨기는 옛 코드가 없다',
+    "rankEl.style.visibility = on ? 'hidden' : 'visible'" not in ov)
 
 print()
 print('=' * 74)
