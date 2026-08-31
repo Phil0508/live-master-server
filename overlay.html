@@ -1994,15 +1994,21 @@
                  ⚠️ 계좌가 #ui-layer 밖으로 나왔으므로, 리액션 모드 숨김 규칙에
                     #headrow 가 들어가 있어야 한다(아래 body.reaction-mode 참조).
                     안 그러면 시그니처 재생 중에 계좌만 남아 떠 있다. -->
-            <div id="headrow" style="position: absolute; left: 6px; top: 115px; width: 1036px; height: 48px; display: flex; align-items: stretch; gap: 8px; z-index: 100000; pointer-events: none;">
-                <div id="account-container" class="widget-container" style="position: relative; left: auto; top: auto; flex: none;">
+            <!-- ⚠️ 예전엔 이 줄이 flex 라 계좌와 안내가 붙어 다녔다. 따로 옮길 수 있게
+                 풀었지만 틀은 남긴다 — body.reaction-mode 가 이 하나로 둘을 같이
+                 숨기기 때문이다(연출 중 계좌·안내가 남아 있으면 안 된다).
+                 자리는 안의 둘이 각자 갖는다. 여기는 자리를 안 차지하는 껍데기다. -->
+            <div id="headrow" style="position: absolute; left: 0; top: 0; width: 1080px; height: 0; z-index: 100000; pointer-events: none;">
+                <div id="account-container" class="widget-container" style="position: absolute; left: 6px; top: 115px;">
                     <div class="acc-box-v2" id="account-box-ui" style="opacity: 0; visibility: hidden;">
                         <span class="acc-ico">🏦</span>
                         <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
                         <span class="acc-num-v2" id="ui-num">464-068673-04-016</span>
                     </div>
                 </div>
-                <div id="notice-container" class="widget-container" style="position: relative; left: auto; top: auto; flex: 1; min-width: 0;">
+                <!-- ⚠️ .notice-board 는 width:100% 라 칸을 따라간다. 묶음을 풀면 기댈 데가
+                     없어 50px 로 쪼그라든다 — 칸에 폭을 준다 (1036 - 계좌 640 - 사이 8). -->
+                <div id="notice-container" class="widget-container" style="position: absolute; left: 654px; top: 115px; width: 388px;">
                     <div class="notice-board" id="notice-board">
                         <span class="notice-ico">📣</span>
                         <div class="notice-view" id="notice-view">
@@ -2895,26 +2901,54 @@
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
             
-            // ⚠️ 여기 없는 것들은 자리를 HTML 에 못 박았다 — 편집기로 못 옮긴다.
-            //      gauge · ranking · account : 안전지대 845px 를 서로 맞물려 나눠 쓴다.
-            //        하나만 움직여도 나머지가 깨진다. (게이지는 y 1598 — 폰에서 안 보이는
-            //        구역 — 에 있었고, 엑셀판은 오른쪽 끝이 1064 라 막대 자리가 없었다)
-            //      ticker_top · ticker_bottom : 폭이 화면과 같은 1080 이라 좌우로 움직일
-            //        이유가 없고, 안전지대 위·아래 끝에 딱 붙어야 갈라지는 연출이 산다.
-            //      notice : 계좌와 함께 머리 줄(#headrow) 안에 들어갔다. 혼자 못 움직인다.
-            //      게임·연출 위젯 : 게임 자리(6~1036 / 307~956) 안에 못 박았다. 저장된
-            //        자리는 룰렛 168~999(채팅 39px 침범) · 슬롯 680~1040(80px 침범) 이었다.
-            //    여기 남은 넷은 잠깐 떴다 사라지는 것들이라 편집기에서 그대로 옮길 수 있다.
-            ['popup', 'takeover', 'karaoke', 'acct_video'].forEach(id => {
+            /* 📐 편집기에서 잡은 자리·크기를 그대로 쓴다.
+               ⚠️ 예전에는 넷(popup·takeover·karaoke·acct_video)만 읽고 나머지는 자리를
+                  HTML 에 못 박아 뒀다. 편집기에서 끌어도 방송이 안 들었다 — 편집기가
+                  거짓말을 하는 셈이었다. 이제 전부 읽는다.
+               ⚠️ 못 박았던 이유는 저장된 자리가 화면 밖으로 나가서다 (룰렛 168~999 는
+                  채팅창을 39px, 슬롯 680~1040 은 80px 침범해 폰에서 잘렸다).
+                  그래서 잠그는 대신 안전지대 안에 붙잡는다 — 아래 fit().
+               ⚠️ 배치 파일에 그 위젯이 없으면 HTML 에 적힌 기본 자리를 그대로 둔다.
+                  그래서 사장님이 손대기 전까지는 지금 화면과 한 픽셀도 안 달라진다. */
+            const LAY_IDS = ['ranking', 'gauge', 'account', 'notice', 'match',
+                             'ticker_top', 'ticker_bottom', 'roulette', 'slot',
+                             'dicegame', 'donor-rank', 'sig-tally', 'siggame',
+                             'home-race', 'popup', 'takeover', 'karaoke', 'acct_video'];
+            /* ⚠️ 옛 배치 파일을 그대로 읽으면 방송이 옛 자리로 되돌아간다. 지금 저장소에
+                  남아 있던 것만 봐도 게이지 y=1598(폰에서 안 보이는 구역), 엑셀판
+                  362,178(옛 크기 기준) 이었다. 판 번호가 2 이상일 때만 읽는다. */
+            const layOK = !!(ly && (ly.__v || 0) >= 2);
+            const layFree = !!(ly && ly.__free);   // '안전지대 무시' 를 켠 배치
+            if (ly && !layOK && Object.keys(ly).length) {
+                console.warn('[배치] 옛 배치 파일이라 무시합니다 (편집기에서 한 번 저장하면 살아납니다)');
+            }
+
+            /* 자리가 터무니없이 벗어나지 않게만 지킨다.
+               ⚠️ 크기까지 셈해서 붙잡지 않는다. 방송판은 데이터가 없을 때 위젯이
+                  쪼그라들어 있어(후원 순위판 380×89) 편집기에서 본 것과 다른 자리에
+                  선다 — 실제로 룰렛을 (400,600) 에 뒀더니 (354,189) 로 끌어올렸다.
+                  크기를 아는 쪽은 편집기다. 거기서 내용이 채워진 채로 보고, 가려지는
+                  구역도 색으로 그려져 있다. 정밀한 붙잡기는 그쪽(holdInSafe) 이 한다.
+               ⚠️ 옛 배치 파일의 못된 값(게이지 y=1598)은 여기가 아니라 판 번호(__v)
+                  로 막는다. 그쪽이 확실하다. */
+            const fit = (el, x, y, sc) => {
+                if (layFree) return [x, y];
+                const SAFE_TOP = 115, SAFE_BOT = 954, W = 1080;
+                return [Math.min(Math.max(x, 0), W), Math.min(Math.max(y, SAFE_TOP), SAFE_BOT)];
+            };
+
+            LAY_IDS.forEach(id => {
                 const el = document.getElementById(id + '-container');
-                if(ly && el) {
-                    let coord = ly[id];
-                    if (coord) {
-                        el.style.top = (coord.y_px || 0) + 'px'; 
-                        el.style.left = (coord.x_px || 0) + 'px';
-                        el.style.transform = `scale(${coord.scale || 1})`;
-                    }
-                } 
+                const coord = layOK ? ly[id] : null;
+                if (!el || !coord) return;
+                const sc = coord.scale || 1;
+                const [x, y] = fit(el, coord.x_px || 0, coord.y_px || 0, sc);
+                /* ⚠️ 엑셀판·퇴근빵은 기본이 오른쪽 기준(right)이다. 왼쪽 값을 주면서
+                      right 를 안 풀면 둘 다 걸려 폭이 억지로 늘어난다. */
+                el.style.right = 'auto';
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                el.style.transform = `scale(${sc})`;
             }); 
             
             /* 🏆 랭킹판 자리 — 셋이 같은 칸을 돌아가며 쓴다.
@@ -2926,25 +2960,41 @@
                   오른쪽 세로 막대를 안 덮는다. 그래서 비킬 때도 left 가 아니라
                   right 를 auto 로 풀고 left 로 밀어야 한다. */
             const RANK_RIGHT = '42px', RANK_TOP = '167px';
+            /* ⚠️ 아래 셋은 배치 파일보다 '뒤' 에 있다. 조건 없이 밀면 위에서 잡은
+                  자리를 도로 덮어써서, 편집기에서 옮겨도 방송이 안 듣는다.
+                  배치 파일에 있으면 손대지 않는다. */
+            const laid = id => layOK && !!ly[id];
+
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
-                rankEl.style.top = RANK_TOP;
-                if (isExtra) { rankEl.style.right = 'auto'; rankEl.style.left = '-800px'; }
-                else { rankEl.style.left = 'auto'; rankEl.style.right = RANK_RIGHT; }
+                if (isExtra) {
+                    // 번외판이 이 칸을 쓰는 동안에는 어디에 뒀든 화면 밖으로 비킨다
+                    rankEl.style.right = 'auto'; rankEl.style.left = '-800px';
+                } else if (!laid('ranking')) {
+                    rankEl.style.top = RANK_TOP;
+                    rankEl.style.left = 'auto'; rankEl.style.right = RANK_RIGHT;
+                }
             }
 
-            // 번외 점수판 — 랭킹판이 빠지면 그 자리로 들어온다
+            /* 번외 점수판 — 엑셀판이 비킨 자리에 들어온다. 편집기에 없는 위젯이라
+               엑셀판을 따라간다 (엑셀판을 옮기면 여기도 같이 간다). */
             const extraEl = document.getElementById('extra-ranking-container');
             if (extraEl) {
-                extraEl.style.top = RANK_TOP;
                 extraEl.style.transform = 'scale(1)';
-                if (isExtra) { extraEl.style.left = 'auto'; extraEl.style.right = RANK_RIGHT; }
-                else { extraEl.style.right = 'auto'; extraEl.style.left = '1500px'; }
+                if (!isExtra) { extraEl.style.right = 'auto'; extraEl.style.left = '1500px'; }
+                else if (rankEl && laid('ranking')) {
+                    extraEl.style.right = 'auto';
+                    extraEl.style.left = ly['ranking'].x_px + 'px';
+                    extraEl.style.top = ly['ranking'].y_px + 'px';
+                } else {
+                    extraEl.style.top = RANK_TOP;
+                    extraEl.style.left = 'auto'; extraEl.style.right = RANK_RIGHT;
+                }
             }
 
-            // 🏃 퇴근빵도 랭킹판 자리를 대신 차지한다
+            // 🏃 퇴근빵 — 이제 제 자리를 따로 갖는다 (예전엔 엑셀판 자리를 빌려 썼다)
             const raceEl = document.getElementById('home-race-container');
-            if (raceEl) {
+            if (raceEl && !laid('home-race')) {
                 raceEl.style.left = 'auto';
                 raceEl.style.right = RANK_RIGHT;
                 raceEl.style.top = RANK_TOP;

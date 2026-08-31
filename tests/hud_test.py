@@ -74,19 +74,30 @@ print()
 print('=' * 74)
 print('② 머리 줄 — 계좌 한 줄 + 흐르는 안내 자막')
 print('=' * 74)
-mh = re.search(r'id="headrow"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px;\s*'
-               r'width:\s*(\d+)px;\s*height:\s*(\d+)px', ov)
-chk('머리 줄이 있다', mh is not None, mh.group(0)[:80] if mh else '못 찾음')
-hx, hy, hw, hh = (int(x) for x in mh.groups()) if mh else (0, 0, 0, 0)
-chk('머리 줄이 낮다 (60px 이하)', 0 < hh <= 60,
-    '%dpx (예전 계좌 181 + 안내 78 = 259)' % hh)
-chk('계좌와 안내 자막이 같은 줄에 있다',
-    'id="account-container"' in ov[ov.find('id="headrow"'):ov.find('id="headrow"') + 2200]
-    and 'id="notice-container"' in ov[ov.find('id="headrow"'):ov.find('id="headrow"') + 2200])
-chk('계좌는 제 폭만큼만 쓴다 (flex:none)', 'id="account-container"' in ov
-    and 'flex: none' in ov[ov.find('id="account-container"'):ov.find('id="account-container"') + 160])
-chk('자막이 남는 자리를 다 쓴다 (flex:1)', 'id="notice-container"' in ov
-    and 'flex: 1' in ov[ov.find('id="notice-container"'):ov.find('id="notice-container"') + 160])
+# ⚠️ 머리 줄은 이제 '자리 안 차지하는 껍데기' 다. 계좌와 안내를 따로 옮길 수 있게
+#    flex 묶음을 풀었다. 그래도 틀은 남겼다 — body.reaction-mode 가 이 하나로 둘을
+#    같이 숨기기 때문이다(연출 중 계좌·안내가 남아 있으면 안 된다).
+mh = re.search(r'id="headrow"[^>]*height:\s*(\d+)', ov)
+chk('머리 줄 틀이 남아 있다 (연출 중 둘을 같이 숨긴다)', mh is not None,
+    mh.group(0)[:70] if mh else '못 찾음')
+chk('머리 줄이 자리를 안 차지한다 (묶음을 풀었다)', mh and int(mh.group(1)) == 0,
+    (mh.group(1) + 'px') if mh else '')
+chk('계좌와 안내가 그 안에 있다',
+    'id="account-container"' in ov[ov.find('id="headrow"'):ov.find('id="headrow"') + 2600]
+    and 'id="notice-container"' in ov[ov.find('id="headrow"'):ov.find('id="headrow"') + 2600])
+# 각자 제 자리를 갖는다 — 이래야 편집기에서 따로 옮길 수 있다
+ma_ = re.search(r'id="account-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px', ov)
+mn_ = re.search(r'id="notice-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px', ov)
+chk('계좌가 제 자리를 갖는다', ma_ and ma_.groups() == ('6', '115'),
+    ma_.groups() if ma_ else '못 찾음')
+chk('안내가 제 자리를 갖는다', mn_ and mn_.groups() == ('654', '115'),
+    mn_.groups() if mn_ else '못 찾음')
+# ⚠️ .notice-board 는 width:100% 라 칸을 따라간다. 묶음을 풀었으니 칸에 폭이 있어야
+#    한다 — 없으면 50px 로 쪼그라든다 (실제로 그랬다).
+chk('안내 칸에 폭이 있다 (없으면 50px 로 쪼그라든다)',
+    mn_ is not None and 'width: 388px' in
+    ov[ov.find('id="notice-container"'):ov.find('id="notice-container"') + 220])
+hx, hy, hw, hh = 6, 115, 1036, 48   # 아래 겹침 검사는 예전 머리 줄 칸을 그대로 쓴다
 ma = re.search(r'\.acc-box-v2 \{[^}]*height:\s*(\d+)px', ov)
 chk('계좌가 한 줄이다', ma and int(ma.group(1)) <= 60,
     (ma.group(1) + 'px') if ma else '못 찾음')
@@ -191,23 +202,34 @@ print('=' * 74)
 #    다른 목록(['ranking','gauge','account',...])도 같은 모양이라 그걸 잡으면 안 된다.
 _al = ov[ov.find('function applyLayout'):]
 _al = _al[:_al.find('function ', 30)]
-mm = re.search(r"\[('[^\]]*)\]\.forEach\(id => \{", _al)
+# ⚠️ 예전엔 넷짜리 배열을 찾았다. 지금 목록은 LAY_IDS 하나다.
+mm = re.search(r'const LAY_IDS = \[([\s\S]*?)\];', _al)
 lst = mm.group(1) if mm else ''
-chk('applyLayout 목록을 찾았다', bool(lst), lst[:70])
+chk('applyLayout 목록을 찾았다 (이제 LAY_IDS 다)', bool(lst), lst[:70])
+# ⚠️ 예전엔 이 여섯이 목록에서 '빠져 있어야' 통과였다. 자리를 코드에 못 박고
+#    편집기로 못 옮기게 했기 때문이다. 사장님이 "화면에 나온 그대로 보이고,
+#    줄이거나 옮기면 움직이게" 해 달라고 해서 반대로 뒤집혔다 — 이제 다 들어 있어야 한다.
 for w in ('gauge', 'ranking', 'account', 'ticker_top', 'ticker_bottom', 'notice'):
-    chk("'%s' 가 목록에서 빠졌다" % w, ("'" + w + "'") not in lst)
+    chk("'%s' 도 목록에 있다 (편집기에서 옮기면 방송이 따라온다)" % w,
+        ("'" + w + "'") in lst)
 chk('번외 모드에서 엑셀판이 비켜준다 (오른쪽 기준이라 left 로는 안 밀린다)',
     "rankEl.style.right = 'auto'" in ov and "rankEl.style.left = '-800px'" in ov)
 # ⚠️ 번외 점수판(702×68)과 퇴근빵(586×64)은 엑셀판 자리를 대신 쓴다. 예전에는 그
 #    자리를 배치 파일의 ly['ranking'] 에서 읽었는데, 엑셀판 자리를 못 박은 뒤로
 #    그 값은 옛 자리(362,178)라 서로 어긋난다.
 chk('엑셀판 자리를 상수 하나로 쓴다', "const RANK_RIGHT = '42px', RANK_TOP = '167px'" in ov)
-for nm, var in (('번외 점수판', 'extraEl'), ('퇴근빵', 'raceEl')):
-    chk('%s 도 같은 자리 상수를 쓴다' % nm,
-        (var + ".style.top = RANK_TOP") in ov and (var + ".style.right = RANK_RIGHT") in ov)
-# 주석에 남은 설명까지 잡으면 안 된다 — 실제로 값을 꺼내 쓰는 모양만 본다.
-chk('배치 파일의 옛 엑셀판 자리를 더는 안 읽는다',
-    re.search(r"ly\['ranking'\]\s*[.|)]", ov) is None)
+# ⚠️ 퇴근빵은 이제 제 자리를 따로 갖는다 (편집기에서 옮길 수 있다). 번외 점수판은
+#    편집기에 없는 위젯이라 엑셀판을 따라간다.
+chk('번외 점수판이 엑셀판을 따라간다',
+    "extraEl.style.left = ly['ranking'].x_px" in ov)
+chk('퇴근빵은 배치에 없을 때만 기본 자리로 간다', "!laid('home-race')" in ov)
+# ⚠️ 이제는 읽는 게 맞다. 다만 '옛 파일' 을 읽으면 안 된다 — 저장소에 있던
+#    layout.json 에는 게이지 y=1598(폰에서 안 보이는 구역) 이 남아 있었다.
+#    판 번호(__v)가 2 이상일 때만 읽는다.
+chk('배치 파일을 읽되 판 번호를 먼저 본다',
+    "(ly.__v || 0) >= 2" in ov and 'const layOK' in ov)
+chk('배치에 있으면 기본 자리로 덮어쓰지 않는다',
+    "const laid = id => layOK && !!ly[id];" in ov and "!laid('ranking')" in ov)
 
 print()
 print('=' * 74)
@@ -253,12 +275,15 @@ if me and rmm:
     chk('편집기 엑셀판 자리가 방송판과 같다',
         (int(me.group(1)), int(me.group(2))) == (rank_right - RANK_W, int(rmm.group(2))),
         (me.groups(), (rank_right - RANK_W, rmm.group(2))))
-for wid in ('gauge', 'account', 'ranking', 'ticker_top', 'ticker_bottom', 'notice'):
-    chk('편집기 %s 이 고정 표시다' % wid,
-        re.search(r'id="%s" data-id="%s" data-pinned' % (wid, wid), ad) is not None)
-chk('고정된 것은 못 끈다', 'if (widgetEl.dataset.pinned) return;' in ad)
-chk('고정된 것은 배치 파일에 저장하지 않는다', 'if (el.dataset.pinned) return;' in ad)
-chk('고정된 것은 기본값 되돌리기에도 안 움직인다', ad.count('el.dataset.pinned') >= 3)
+# ⚠️ 예전엔 여섯을 '고정 표시' 로 잠가 두는 게 통과 조건이었다. 사장님이
+#    "화면에 나온 그대로 보이고, 줄이거나 옮기면 움직이게" 해 달라고 해서 전부 풀었다.
+#    잠금이 되살아나면 편집기가 다시 거짓말을 하게 되므로 여기서 잡는다.
+chk('편집기에 잠근 위젯이 하나도 없다', 'data-pinned' not in ad,
+    '남아 있음' if 'data-pinned' in ad else '')
+chk('끌기에서 잠금 검사를 안 한다', 'if (widgetEl.dataset.pinned) return;' not in ad)
+chk('저장에서도 잠금 검사를 안 한다', 'if (el.dataset.pinned) return;' not in ad)
+# 대신 안전지대 밖으로는 못 나간다 (잠그는 대신 붙잡는 것이 이번 방식이다)
+chk('안전지대 붙잡기가 그 자리를 대신한다', 'function holdInSafe(' in ad)
 chk('편집기 게이지도 세로 막대다', '.goal-rail-mini' in ad)
 chk('편집기 계좌도 한 줄이다', '.acc-ico' in ad and '.acc-who' in ad)
 
@@ -289,9 +314,11 @@ for wid, (w, h) in SIZE.items():
     r, bm = x + round(w * sc), y + round(h * sc)
     chk('%s 이 게임 자리 안이다' % wid, x >= GX and r <= GR and y >= GY and bm <= GB,
         '%d~%d / %d~%d' % (x, r, y, bm))
-mm = re.search(r"\[('popup'[^\]]*)\]\.forEach\(id => \{", ov)
-chk('편집기로 옮길 수 있는 건 잠깐 뜨는 것들만 남았다', mm is not None,
-    mm.group(1) if mm else '못 찾음')
+# ⚠️ 예전엔 '넷만 옮길 수 있다' 가 통과 조건이었다. 이제는 전부 옮길 수 있고,
+#    대신 안전지대 밖으로 못 나가게 붙잡는다.
+mm = re.search(r'const LAY_IDS = \[([\s\S]*?)\];', ov)
+_n = len(re.findall(r"'[\w-]+'", mm.group(1))) if mm else 0
+chk('편집기로 옮길 수 있는 위젯이 열여덟이다', _n == 18, '%d개' % _n)
 
 print()
 print('=' * 74)

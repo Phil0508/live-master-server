@@ -45,3 +45,8 @@ DEPLOY_PIN
 tests/lt2/server.py
 tests/lt2/*.html
 tests/pausetest/
+
+# 🧩 위젯 배치 — 서버가 쓰는 것이지 저장소가 들고 있을 것이 아니다.
+#    ⚠️ git 에 넣어 두면 자동배포(git reset --hard)가 사장님이 방금 잡은 자리를
+#       통째로 되돌린다. 서버에만 두고, 없으면 방송판의 기본 자리를 쓴다.
+layout.json

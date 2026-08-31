@@ -35,12 +35,14 @@
         .widget { position: absolute; display: flex; align-items: flex-start; justify-content: flex-start; outline: 2px solid transparent; outline-offset: 2px; border-radius: 6px; cursor: grab; user-select: none; width: max-content; height: max-content; transform-origin: top left; transition: outline-color 0.1s; } 
         .widget:active { cursor: grabbing; } .widget:hover { outline-color: rgba(255, 255, 255, 0.3); } .widget.selected { outline-color: var(--accent); z-index: 1000 !important; }
         .widget > div { pointer-events: none; }
-        /* 🔒 오버레이가 자리를 못 박은 위젯 — 끌어도 방송에 반영되지 않으므로 못 끌게 한다 */
-        .widget[data-pinned] { cursor: default; opacity: .96; }
-        .widget[data-pinned]:hover { outline-color: rgba(246,196,83,.55); }
-        .widget[data-pinned]::after {
-            content: '🔒 고정'; position: absolute; left: 0; top: -20px;
-            font-size: 11px; font-weight: 800; color: #f6c453; letter-spacing: .5px;
+        /* ⚠️ 예전에는 여기에 '🔒 고정' 표시가 있었다. 오버레이가 자리를 못 박아
+           끌어도 방송이 안 듣는 위젯들이었다 — 편집기가 거짓말을 하는 셈이었다.
+           이제 전부 끌 수 있으므로 표시를 없앴다. 되살리지 말 것.
+           대신 안전지대 밖으로 나간 것을 빨갛게 알린다. */
+        .widget.out-of-safe { outline: 2px dashed #ff6b6b !important; }
+        .widget.out-of-safe::after {
+            content: '⚠ 폰에서 잘림'; position: absolute; left: 0; top: -22px;
+            font-size: 12px; font-weight: 800; color: #ff6b6b; letter-spacing: .3px;
             text-shadow: 0 1px 3px #000; pointer-events: none; white-space: nowrap;
         }
         .resize-handle { position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; background: #fff; border: 4px solid var(--accent); border-radius: 50%; cursor: nwse-resize; display: none; z-index: 100; pointer-events: auto !important; box-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
@@ -391,6 +393,12 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
                     <input type="checkbox" id="snap-on" checked style="width:auto; margin:0; accent-color:#ffcf4d;"> 격자·안내선에 붙이기
                 </label>
+                <!-- ⚠️ 안전지대(세로 115~954) 밖은 시청자 폰에서 잘린다. 예전에 룰렛이
+                     채팅창을 39px, 슬롯이 80px 침범해 잘려 나간 적이 있다. 기본은
+                     경계에서 붙잡고, 일부러 빼야 할 때만 이걸 켠다. -->
+                <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
+                    <input type="checkbox" id="free-on" onchange="reholdAll()" style="width:auto; margin:0; accent-color:#ff6b6b;"> 안전지대 무시 (폰에서 잘릴 수 있음)
+                </label>
                 <div style="font-size:11px; color:#7d828c; margin-top:7px; line-height:1.65;">
                     끄는 중 <b style="color:#a8adb6;">Alt</b> = 잠시 자유 이동<br>
                     고른 뒤 <b style="color:#a8adb6;">화살표 키</b> = 1px씩 (Shift 10px)
@@ -493,7 +501,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 <div class="align-guide" id="guide-v"></div>
                 <div class="align-guide" id="guide-h"></div>
 
-                <div class="widget" id="ranking" data-id="ranking" data-pinned="1" style="left:48px; top:167px;">
+                <div class="widget" id="ranking" data-id="ranking" style="left:48px; top:167px;">
                     <div class="excel-board">
                         <div class="excel-grid-container">
                             <div class="excel-col"><div class="excel-header"><div></div><div>플레이어</div><div>후원</div><div>기여도</div></div><div id="rank-left"></div></div>
@@ -505,7 +513,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                     </div>
                 </div>
 
-                <div class="widget" id="gauge" data-id="gauge" data-pinned="1" style="left:1046px; top:115px;">
+                <div class="widget" id="gauge" data-id="gauge" style="left:1046px; top:115px;">
                     <!-- ⚠️ 방송판과 같은 클래스를 써야 hud.css 가 걸린다. 예전엔 여기만
                          .goal-rail-mini 라는 딴 이름이었다. -->
                     <div class="goal-rail">
@@ -514,7 +522,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                     <div id="ui-total-score" style="display:none">0</div>
                 </div>
 
-                <div class="widget" id="account" data-id="account" data-pinned="1" style="left:6px; top:115px; display: none;">
+                <div class="widget" id="account" data-id="account" style="left:6px; top:115px; display: none;">
                     <div class="acc-box-v2">
                         <span class="acc-ico">🏦</span>
                         <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
@@ -522,7 +530,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                     </div>
                 </div>
 
-                <div class="widget" id="match" data-id="match" data-pinned="1" style="left:288px; top:795px; display: none;">
+                <div class="widget" id="match" data-id="match" style="left:288px; top:795px; display: none;">
                     <div class="match-wrapper">
                         <div class="m-timer-pill" id="m-timer">00:00</div>
                         <div class="m-team-container" id="m-players-area"></div>
@@ -534,27 +542,38 @@ body.game-on .goal-rail-tip { opacity: 0; }
 
                 <div class="widget" id="popup" data-id="popup" style="left:50px; top:1150px;"><div class="center-popup-content" id="popup-preview">알림 팝업 <span style="color:#00E5B5; margin-left:15px;">+100점</span></div></div>
                 <div class="widget" id="takeover" data-id="takeover" style="left:450px; top:1150px;"><div class="takeover-popup-content"><span style="color:var(--theme-neon);">홍길동 1등 탈환! 👑</span></div></div>
-                <div class="widget" id="ticker_top" data-id="ticker_top" data-pinned="1" style="left:0px; top:115px;"><div class="ticker-bar" id="ticker_top-text">📢 상단 전광판</div></div>
-                <div class="widget" id="ticker_bottom" data-id="ticker_bottom" data-pinned="1" style="left:0px; top:882px;"><div class="ticker-bar" id="ticker_bottom-text">📢 하단 전광판</div></div>
-                <div class="widget" id="roulette" data-id="roulette" data-pinned="1" style="left:234px; top:311px; display: none;">
-                    <div style="width: 250px; height: 250px; border-radius: 50%; border: 3px solid var(--gold); background: var(--game-bg); display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 0 20px var(--gold-glow);">
-                        <span style="font-size: 40px;">🎡</span>
-                        <span style="font-size: 16px; font-weight: 900; font-style: italic; color: var(--gold); margin-top: 10px;">행운의 룰렛</span>
+                <div class="widget" id="ticker_top" data-id="ticker_top" style="left:0px; top:115px;"><div class="ticker-bar" id="ticker_top-text">📢 상단 전광판</div></div>
+                <div class="widget" id="ticker_bottom" data-id="ticker_bottom" style="left:0px; top:882px;"><div class="ticker-bar" id="ticker_bottom-text">📢 하단 전광판</div></div>
+                <div class="widget" id="roulette" data-id="roulette" style="left:234px; top:311px; display: none;">
+                    <!-- ⚠️ 크기는 방송판에서 직접 잰 값이다 (2026-08-31). 방송판이 이 위젯을
+                         JS 로 그려 클래스가 없어, 여기서는 같은 크기의 안내 상자로만 흉내낸다.
+                         숫자가 어긋나면 자리를 잡아도 실제로는 다른 데 선다 —
+                         룰렛이 256×256 이라 실제(660×740)의 3분의 1로 보이고 있었다. -->
+                    <div style="width:660px; height:740px; border-radius:20px; background:rgba(255,255,255,0.04);
+                         border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column;
+                         align-items:center; justify-content:center; gap:10px; color:#c9cdd5;">
+                        <div style="font-size:34px; font-weight:900; letter-spacing:2px;">🎡 룰렛</div>
+                        <div style="font-size:20px; font-weight:700; opacity:.85;">660 × 740</div>
+                    </div>
                     </div>
                 </div>
                 <!-- 🎰 슬롯: 실제 크기(660×360)에 가깝게 — 타이틀 칩 + 릴 3칸 -->
-                <div class="widget" id="slot" data-id="slot" data-pinned="1" style="left:191px; top:452px; display: none;">
-                    <div style="width: 640px; height: 340px; background: var(--game-bg); clip-path: polygon(18px 0,100% 0,100% calc(100% - 18px),calc(100% - 18px) 100%,0 100%,0 18px); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;">
-                        <span style="display:inline-block; font-size: 22px; font-weight: 900; font-style: italic; color: #0e0e14; padding: 5px 24px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);">🎰 시그니처 슬롯머신</span>
-                        <div style="display:flex; gap:14px;">
-                            <div style="width:150px; height:105px; background:#0a0a10; clip-path: polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%); box-shadow:0 10px 26px rgba(0,0,0,0.7);"></div>
-                            <div style="width:150px; height:105px; background:#0a0a10; clip-path: polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%); box-shadow:0 10px 26px rgba(0,0,0,0.7);"></div>
-                            <div style="width:150px; height:105px; background:#0a0a10; clip-path: polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%); box-shadow:0 10px 26px rgba(0,0,0,0.7);"></div>
+                <div class="widget" id="slot" data-id="slot" style="left:191px; top:452px; display: none;">
+                    <!-- ⚠️ 크기는 방송판에서 직접 잰 값이다 (2026-08-31). 방송판이 이 위젯을
+                         JS 로 그려 클래스가 없어, 여기서는 같은 크기의 안내 상자로만 흉내낸다.
+                         숫자가 어긋나면 자리를 잡아도 실제로는 다른 데 선다 —
+                         룰렛이 256×256 이라 실제(660×740)의 3분의 1로 보이고 있었다. -->
+                    <div style="width:660px; height:360px; border-radius:20px; background:rgba(255,255,255,0.04);
+                         border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column;
+                         align-items:center; justify-content:center; gap:10px; color:#c9cdd5;">
+                        <div style="font-size:34px; font-weight:900; letter-spacing:2px;">🎰 슬롯</div>
+                        <div style="font-size:20px; font-weight:700; opacity:.85;">660 × 360</div>
+                    </div>
                         </div>
                     </div>
                 </div>
                 <!-- 📣 안내 전광판 -->
-                <div class="widget" id="notice" data-id="notice" data-pinned="1" style="left:654px; top:115px; display: none;">
+                <div class="widget" id="notice" data-id="notice" style="left:654px; top:115px; display: none;">
                     <!-- ⚠️ 방송판과 같은 클래스를 쓴다. 예전엔 여기만 인라인으로 크기를 박아 둬서,
                          방송판 글씨를 키워도 편집기는 옛 크기 그대로였다. -->
                     <!-- ⚠️ 방송에서는 머리 줄 안에서 계좌가 쓰고 남은 만큼을 차지한다
@@ -567,8 +586,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 </div>
 
                 <!-- 🎲 주사위게임 판 -->
-                <!-- 🔒 게임 자리(6~1036 / 307~956)에 못 박았다 — 끌어도 방송이 안 읽는다 -->
-                <div class="widget" id="dicegame" data-id="dicegame" data-pinned="1" style="left:6px; top:307px; display: none;">
+                <div class="widget" id="dicegame" data-id="dicegame" style="left:6px; top:307px; display: none;">
                     <div style="width:1030px; height:649px; border-radius:16px; background:rgba(255,255,255,0.04); border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#dfe3ea; text-shadow:0 2px 8px #000;">
                         <div style="font-size:26px; font-weight:900; letter-spacing:2px;">🎲 주사위게임 판</div>
                         <div style="font-size:14px; font-weight:700; opacity:.85;">방송에서는 배경 없이 칸만 뜹니다 — 이 점선은 자리 잡기용 안내입니다</div>
@@ -576,7 +594,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 </div>
 
                 <!-- 🏅 후원 순위 위젯 -->
-                <div class="widget" id="donor-rank" data-id="donor-rank" data-pinned="1" style="left:658px; top:387px; display: none;">
+                <div class="widget" id="donor-rank" data-id="donor-rank" style="left:658px; top:387px; display: none;">
                     <div class="donor-rank-board">
                         <div class="donor-rank-header">🏅 후원 순위</div>
                         <div style="display:flex; flex-direction:column; gap:6px;">
@@ -590,7 +608,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 </div>
 
                 <!-- 📊 시그니처 신청 집계 패널 -->
-                <div class="widget" id="sig-tally" data-id="sig-tally" data-pinned="1" style="left:800px; top:315px; display: none;">
+                <div class="widget" id="sig-tally" data-id="sig-tally" style="left:800px; top:315px; display: none;">
                     <!-- ⚠️ 줄 안쪽은 방송판도 JS 가 인라인으로 그린다(클래스가 없다).
                          그래서 여기서는 칸과 머리만 같은 클래스를 쓰고 줄은 높이만 흉내낸다. -->
                     <div class="sig-tally-board">
@@ -616,7 +634,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
 
                 <!-- 🃏 시그 뒤집기 게임: 조종실에서 카드를 깔면 여기 자리에 나온다.
                      미리보기는 기본값(5x6, 폭 1080px) 기준 크기다. -->
-                <div class="widget" id="siggame" data-id="siggame" data-pinned="1" style="left:171px; top:340px;">
+                <div class="widget" id="siggame" data-id="siggame" style="left:171px; top:340px;">
                     <div style="width:700px; display:flex; flex-direction:column; align-items:center; gap:8px;">
                         <div style="display:flex; align-items:center; gap:14px;">
                             <span style="font-size:34px; font-weight:900; color:var(--gold, #f6c453); text-shadow:0 0 12px rgba(246,196,83,.5); letter-spacing:1px;">10:00</span>
@@ -637,8 +655,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 </div>
 
                 <!-- 🏃 퇴근빵: 랭킹판 자리를 대신 차지 (계좌 위젯과 같은 유리 카드, 제목은 안쪽 헤더) -->
-                <!-- 🔒 엑셀판 자리를 그대로 쓴다 (RANK_RIGHT / RANK_TOP) — 끌어도 방송이 안 읽는다 -->
-                <div class="widget" id="home-race" data-id="home-race" data-pinned="1" style="left:452px; top:167px; display: none;">
+                <div class="widget" id="home-race" data-id="home-race" style="left:452px; top:167px; display: none;">
                     <!-- ⚠️ 방송판과 같은 클래스. 예전엔 인라인으로 22곳을 손으로 박아 뒀다. -->
                     <div class="home-race-box">
                         <div class="home-race-title">🏃 퇴근빵</div>
@@ -1017,8 +1034,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                     let id = el.id;
                     // 🔒 오버레이가 자리를 못 박은 것은 배치 파일을 읽지도 쓰지도 않는다.
                     //    HTML 에 적힌 자리 그대로 두고, 끌기 손잡이도 안 단다.
-                    if (el.dataset.pinned) return;
-                    if (!layout[id] || typeof layout[id].x_px === 'undefined') {
+                                        if (!layout[id] || typeof layout[id].x_px === 'undefined') {
                         // 🏃 퇴근빵은 랭킹판 자리를 대신 차지하는 위젯이라, 아직 배치된 적이 없으면
                         //    랭킹판 위치에서 시작해야 한다. (기본값 50,50 으로 저장돼 버리면
                         //    오버레이의 '랭킹판 위치 따라가기'가 영영 무력화된다)
@@ -1034,14 +1050,21 @@ body.game-on .goal-rail-tip { opacity: 0; }
             }
 
             window.autoSaveLayout = async function() {
-                document.querySelectorAll('.widget').forEach(el => { if (el.dataset.pinned) return;   // 🔒 못 박은 것은 저장하지 않는다
+                document.querySelectorAll('.widget').forEach(el => {
                     let id = el.id; layout[id] = { x_px: parseInt(el.style.left) || 0, y_px: parseInt(el.style.top) || 0, scale: parseFloat(el.dataset.scale) || 1.0 }; });
+                /* ⚠️ 판 번호를 같이 적는다. 방송판은 2 미만이면 배치를 통째로 무시한다 —
+                      옛 파일에 게이지 y=1598(폰에서 안 보이는 구역) 같은 값이 남아 있어서,
+                      그걸 그대로 읽으면 방송이 옛 자리로 되돌아간다. */
+                layout.__v = 2;
+                try { markOutOfSafe(); } catch (e) {}
+                const free = document.getElementById('free-on');
+                layout.__free = !!(free && free.checked);
                 try { await fetch('/api/layout', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(layout) }); } catch (e) {} 
             }
 
             window.resetLayout = function() {
                 if(!confirm("모든 위젯을 기본 위치로 돌릴까요?")) return;
-                document.querySelectorAll('.widget').forEach((el, index) => { if (el.dataset.pinned) return;   // 🔒 못 박은 것은 안 움직인다
+                document.querySelectorAll('.widget').forEach((el, index) => {
                     el.style.left = '50px'; el.style.top = `${index * 120 + 50}px`; el.style.transform = `scale(1.0)`; el.dataset.scale = 1.0; });
                 closePropertyPanel(); autoSaveLayout(); 
             }
@@ -1102,12 +1125,59 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 return best;
             }
 
+            /* 🛟 안전지대 안으로 붙잡는다.
+               ⚠️ 방송판(applyLayout 의 fit)과 같은 셈이어야 한다. 한쪽만 고치면
+                  편집기에서는 멀쩡한데 방송에서 다른 자리에 서는 일이 생긴다.
+               ⚠️ transform-origin 이 가운데라, 배율을 줄이면 보이는 상자가 안쪽으로
+                  당겨진다. 그 어긋남(dx·dy)까지 셈해야 경계가 맞는다. */
+            function holdInSafe(el, x, y) {
+                const free = document.getElementById('free-on');
+                if (free && free.checked) return [x, y];
+                const SAFE_TOP = 115, SAFE_BOT = 954, W = 1080;
+                const sc = parseFloat(el.dataset.scale) || 1;
+                const w0 = el.offsetWidth, h0 = el.offsetHeight;
+                if (!w0 || !h0) {
+                    return [Math.min(Math.max(x, 0), W), Math.min(Math.max(y, SAFE_TOP), SAFE_BOT)];
+                }
+                const vw = w0 * sc, vh = h0 * sc;
+                const dx = (w0 - vw) / 2, dy = (h0 - vh) / 2;
+                const loX = -dx, hiX = Math.max(loX, W - vw - dx);
+                const loY = SAFE_TOP - dy, hiY = Math.max(loY, SAFE_BOT - vh - dy);
+                return [Math.min(Math.max(x, loX), hiX), Math.min(Math.max(y, loY), hiY)];
+            }
+
+            /* '안전지대 무시' 를 껐을 때, 밖에 나가 있던 것들을 도로 불러들인다.
+               ⚠️ 안 그러면 스위치를 꺼도 이미 삐져나간 것은 그대로 남아, 껐는데도
+                  폰에서 잘리는 상태가 유지된다. */
+            window.reholdAll = function() {
+                document.querySelectorAll('.widget').forEach(el => {
+                    const [x, y] = holdInSafe(el, parseInt(el.style.left) || 0, parseInt(el.style.top) || 0);
+                    el.style.left = x + 'px'; el.style.top = y + 'px';
+                });
+                autoSaveLayout();
+            };
+
+            /* 안전지대 밖으로 나간 것을 빨갛게 알린다 ('안전지대 무시' 를 켰을 때만
+               나갈 수 있으니, 켜 두고 잊는 것을 막는 표시다). */
+            window.markOutOfSafe = function() {
+                const SAFE_TOP = 115, SAFE_BOT = 954, W = 1080;
+                document.querySelectorAll('.widget').forEach(el => {
+                    const sc = parseFloat(el.dataset.scale) || 1;
+                    const x = parseInt(el.style.left) || 0, y = parseInt(el.style.top) || 0;
+                    const w0 = el.offsetWidth, h0 = el.offsetHeight;
+                    const vw = w0 * sc, vh = h0 * sc;
+                    const l = x + (w0 - vw) / 2, t = y + (h0 - vh) / 2;
+                    const out = l < 0 || l + vw > W || t < SAFE_TOP || t + vh > SAFE_BOT;
+                    el.classList.toggle('out-of-safe', !!out);
+                });
+            };
+
             function dragStart(e) {
                 if (e.target.classList.contains('resize-handle')) return;
                 const widgetEl = e.target.closest('.widget');
                 if (!widgetEl) return;
-                // 🔒 못 박은 위젯은 끌어도 방송에 반영되지 않는다. 헛수고를 막는다.
-                if (widgetEl.dataset.pinned) return;
+                // (예전엔 여기서 못 박은 위젯을 걸렀다. 이제 전부 끌 수 있다 —
+                //  대신 안전지대 밖으로 못 나가게 dragEnd 에서 붙잡는다.)
                 selectWidget(widgetEl);
                 isDragging = true; dragMoved = false;
                 startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
@@ -1191,6 +1261,8 @@ body.game-on .goal-rail-tip { opacity: 0; }
                     const gridOn = document.getElementById('snap-on').checked && dragMoved;
                     if (gridOn && !dragSnappedX) fx = Math.round(fx / GRID) * GRID;
                     if (gridOn && !dragSnappedY) fy = Math.round(fy / GRID) * GRID;
+                    // 🛟 안전지대 밖으로는 안 나가게 여기서 붙잡는다 ('안전지대 무시' 면 통과)
+                    [fx, fy] = holdInSafe(activeWidget, fx, fy);
                     activeWidget.style.left = fx + 'px';
                     activeWidget.style.top = fy + 'px';
                     activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
@@ -1211,7 +1283,7 @@ body.game-on .goal-rail-tip { opacity: 0; }
                보이는 위젯만 건드린다 — 숨겨둔 것까지 옮기면 나중에 켤 때 엉뚱한 데 있다. */
             function visibleWidgets() {
                 return [...document.querySelectorAll('.widget')]
-                    .filter(el => el.style.display !== 'none' && !el.dataset.pinned);
+                    .filter(el => el.style.display !== 'none' );
             }
             window.tidy = function tidy(mode) {
                 const list = visibleWidgets();
@@ -1272,7 +1344,13 @@ body.game-on .goal-rail-tip { opacity: 0; }
             });
             function resizeStart(e) { e.stopPropagation(); isResizing = true; startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; startScale = parseFloat(activeWidget.dataset.scale) || 1.0; baseWidth = activeWidget.offsetWidth; document.addEventListener('mousemove', resizing); document.addEventListener('touchmove', resizing, {passive: false}); document.addEventListener('mouseup', resizeEnd); document.addEventListener('touchend', resizeEnd); }
             function resizing(e) { if (!isResizing || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const dx = (clientX - startX) / scaleRatio; let newScale = startScale + (dx / baseWidth); newScale = Math.max(0.3, Math.min(newScale, 3.0)); activeWidget.style.transform = `scale(${newScale})`; activeWidget.dataset.scale = newScale; const scaleSlider = document.getElementById('prop-scale'); if(scaleSlider) { scaleSlider.value = newScale; document.getElementById('prop-scale-val').innerText = newScale.toFixed(2); } }
-            function resizeEnd() { if(isResizing) { isResizing = false; autoSaveLayout(); flushPendingState(); } document.removeEventListener('mousemove', resizing); document.removeEventListener('touchmove', resizing); document.removeEventListener('mouseup', resizeEnd); document.removeEventListener('touchend', resizeEnd); }
+            function resizeEnd() { if(isResizing) { isResizing = false;
+                /* ⚠️ 배율을 키우면 상자가 커져 안전지대를 삐져나갈 수 있다.
+                      끌 때만 붙잡으면 '크게만 하면 빠져나가는' 구멍이 남는다. */
+                const [rx, ry] = holdInSafe(activeWidget, parseInt(activeWidget.style.left) || 0,
+                                                          parseInt(activeWidget.style.top) || 0);
+                activeWidget.style.left = rx + 'px'; activeWidget.style.top = ry + 'px';
+                autoSaveLayout(); flushPendingState(); } document.removeEventListener('mousemove', resizing); document.removeEventListener('touchmove', resizing); document.removeEventListener('mouseup', resizeEnd); document.removeEventListener('touchend', resizeEnd); }
 
             // 화면이 그려지지 않는 환경(자동 점검 등)에서는 requestAnimationFrame 이 멈춰 있어
             // 드래그 계산을 확인할 방법이 없다. 한 프레임을 손으로 돌릴 수 있게 열어둔다.
