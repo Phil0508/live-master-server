@@ -205,6 +205,47 @@ chk('layout.json 을 저장소가 안 들고 있다 (배포가 자리를 안 지
 
 print()
 print('=' * 74)
+print('⑦ 위젯이 무대(canvas-board) 안에서 제 깊이로 닫히는가')
+print('=' * 74)
+# ⚠️ 2026-08-31 에 내가 이걸 깨뜨려 방송에 올렸다. 그림자 마크업을 바꿀 때
+#   '여는 태그 + 아무거나(게으르게) + 첫 </div>' 로 잡는 정규식을 썼는데, 위젯 속이
+#   여러 겹이면 그 첫 </div> 는 안쪽 것이다. 바깥 닫는 태그가 그대로 남아 위젯이
+#   제 깊이보다 일찍 닫혔고, 뒤 일곱 개가 무대 밖 <body> 직속이 됐다.
+#
+#   무대는 0.43배로 줄여 보여주는데 튀어나간 것들은 안 줄어들어 화면을 덮었다.
+#   그 밑의 위젯이 안 잡혔고, 창 크기에 따라 덮이는 자리가 달라져 '작게 하면 잡히고
+#   크게 하면 안 잡히는' 것처럼 보였다. 시그뒤집기는 아예 못 잡았다.
+_board = ad.index('<div class="canvas-board" id="canvas-board">')
+_last = ad.rindex('<div class="widget" id="')
+_after = ad.find('</div>\r\n' + ' ' * 12 + '</div>', _last)
+_end = _after if _after > 0 else len(ad)
+_starts = [m.start() for m in re.finditer(r'<div class="widget" id="', ad)
+           if _board < m.start() < _end]
+chk('무대 안에서 위젯을 찾았다', len(_starts) == 18, '%d개' % len(_starts))
+
+
+def _depth(seg):
+    d = 0
+    # ⚠️ 닫는 태그를 먼저 본다 — 그래야 '<div[^>]*>' 가 여는 것만 잡는다.
+    for m in re.finditer(r'<!--[\s\S]*?-->|</div>|<div[^>]*>', seg):
+        t = m.group(0)
+        if t.startswith('<!--'):
+            continue
+        d += -1 if t.startswith('</') else 1
+    return d
+
+
+_bad = []
+for _i, _st in enumerate(_starts):
+    _en = _starts[_i + 1] if _i + 1 < len(_starts) else _end
+    _d = _depth(ad[_st:_en])
+    if _d != 0:
+        _bad.append('%s(%+d)' % (re.match(r'<div class="widget" id="([\w-]+)"', ad[_st:_st + 80]).group(1), _d))
+chk('위젯마다 열고 닫은 수가 맞는다 (안 맞으면 뒤 위젯이 무대 밖으로 나간다)',
+    not _bad, ' · '.join(_bad))
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (ok, bad))
 print('=' * 74)
 sys.exit(1 if bad else 0)
