@@ -253,57 +253,79 @@
             pointer-events:none;
         }
 
-        /* ── 랭킹판: 원래처럼 선으로 칸을 나눈 표 + 유리 질감 ── */
-        .excel-board { padding: 14px; width: max-content; display: flex; flex-direction: column; gap: 8px; }
-        .excel-grid-container { display: flex; gap: 12px; }
-        .excel-col { display: flex; flex-direction: column; width: 330px; }
-        .excel-header {
-            background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 15px;
-            display: grid; grid-template-columns: 40px 110px 80px 100px; text-align: center;
-            padding: 7px 0; border-radius: 12px; margin-bottom: 6px;
-            box-shadow: 0 4px 14px var(--gold-glow);
-        }
-        .excel-header div { display: flex; align-items: center; justify-content: center; letter-spacing: -0.5px; }
-        .excel-row {
-            display: grid; grid-template-columns: 40px 110px 80px 100px; text-align: center; height: 42px;
-            border-bottom: 1px solid rgba(255,255,255,0.10);
-            font-size: 22px; font-weight: 800; align-items: center; padding: 0;
-        }
-        /* 열 구분선 — 표의 칸 나눔 (마지막 열 제외) */
-        .excel-row > div:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.07); height: 60%; display:flex; align-items:center; justify-content:center; }
-        .excel-row > div:last-child { display:flex; align-items:center; justify-content:center; }
-        .excel-col .excel-row:last-child { border-bottom: none; }
-        .r-rank { color: var(--tx-2); font-size: 20px; }
-        .r-name { color: #fff; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .r-score { color: #fff; position: relative; font-size: 20px; font-variant-numeric: tabular-nums; }
-        .r-contrib { color: var(--gold); font-weight: 900; position: relative; text-shadow: 0 0 12px var(--gold-glow); font-size: 20px; font-variant-numeric: tabular-nums; }
-        .rank-1 .r-rank { color: var(--gold); text-shadow: 0 0 12px var(--gold-glow); }
-        .rank-2 .r-rank { color: #dfe3ea; text-shadow: 0 0 8px rgba(224,224,224,0.5); }
-        .rank-3 .r-rank { color: #d29a6b; text-shadow: 0 0 8px rgba(205,127,50,0.5); }
-        .rank-1 .r-name { color: var(--gold); }
+        /* ── 랭킹판 ──────────────────────────────────────────────────────────
+           ⚠️ 여기 숫자를 줄이기 전에 읽을 것. 전부 화면에서 재 보고 정한 값이다.
 
-        /* 🔆 가시성 개선: 1등 행 골드 하이라이트 + 지브라 솔리드 + 2·3등 액센트 + 숫자/이름 강화 */
-        .excel-row:nth-child(even) { background: rgba(255,255,255,0.035); }
-        .excel-row.rank-1 {
-            background: linear-gradient(90deg, rgba(246,196,83,0.26), rgba(246,196,83,0.07));
-            box-shadow: inset 3px 0 0 var(--gold);
+           예전 판의 문제 (2026-08-31 실측)
+             ① 폰에서 안 읽혔다. 방송 1080 이 폰에서 402 로 줄어 2.687배 작아지는데
+                이름 22px·점수 23px·머리 15px 이었다 → 폰에서 8.2 / 8.6 / 5.6px.
+                바닥선은 27px(폰 10px)이다.
+             ② 점수와 기여도가 붙어 '823,00025.6%' 로 읽혔다. 칸 나눔 선이
+                rgba(255,255,255,.07) 이라 사실상 안 보였다.
+             ③ 위계가 뒤집혀 있었다 — 한 번 읽고 마는 머리줄이 가장 밝은 금색
+                알약이고, 점수보다 기여도가 더 강조(금색+글로우)돼 있었다.
+             ④ 순위 표시가 제각각이었다. 1등만 배경, 2·3등은 왼쪽 3px 선.
+
+           그래서 표는 그대로 두고 읽히게만 했다.
+             · 이름·점수 31px · 줄 높이 58 · 기여도는 한 단계 낮춰 27px
+             · 점수를 오른쪽 정렬 — 자릿수가 맞아 위아래로 비교된다
+             · 머리줄은 얇은 금색 밑줄만 (알약 제거)
+             · 순위는 1·2·3 모두 색 배지로 통일
+             · 칸은 선이 아니라 여백으로 나눈다 — 옅은 선보다 확실하다
+
+           ⚠️ 칸 개수·순서를 바꾸지 말 것. 번외 점수판이 같은 .excel-row 를 쓰면서
+              인라인 style 로 색만 덮는다.
+           ⚠️ 판 폭 988 = 칸 466×2 + 사이 20 + 여백 36. 오른쪽 기준(right:42px)이라
+              왼쪽으로 자란다 — 왼쪽 끝 50, 오른쪽 끝 1038 (목표 막대 1046 바로 앞).
+           ─────────────────────────────────────────────────────────────────── */
+        .excel-board { padding: 18px; width: max-content; display: flex; flex-direction: column; gap: 8px; }
+        .excel-grid-container { display: flex; gap: 20px; }
+        .excel-col { display: flex; flex-direction: column; width: 466px; }
+        /* 머리줄 — 한 번 읽고 마는 것이라 조용히 둔다. 금색은 밑줄로만 남긴다. */
+        .excel-header {
+            color: var(--tx-3); font-weight: 700; font-size: 27px; letter-spacing: 0.04em;
+            display: grid; grid-template-columns: 60px 1fr 148px 92px;
+            padding: 0 6px 9px; margin-bottom: 4px;
+            border-bottom: 2px solid rgba(246,196,83,0.5);
         }
-        .excel-row.rank-2 { box-shadow: inset 3px 0 0 #dfe3ea; }
-        .excel-row.rank-3 { box-shadow: inset 3px 0 0 #d29a6b; }
-        .rank-1 .r-name { color: #fff; text-shadow: 0 0 10px var(--gold-glow), 0 1px 3px #000; }
+        .excel-header div { display: flex; align-items: center; }
+        .excel-header div:nth-child(3), .excel-header div:nth-child(4) { justify-content: flex-end; }
+        .excel-row {
+            display: grid; grid-template-columns: 60px 1fr 148px 92px; height: 58px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            font-weight: 800; align-items: center; padding: 0 6px;
+        }
+        .excel-row > div { display: flex; align-items: center; min-width: 0; }
+        .excel-row > div:nth-child(3), .excel-row > div:nth-child(4) { justify-content: flex-end; }
+        .excel-col .excel-row:last-child { border-bottom: none; }
+        /* 순위 — 1·2·3 을 같은 규칙(색 배지)으로. 예전엔 1등만 배경이라 규칙이 없었다. */
+        .r-rank {
+            width: 38px; height: 38px; border-radius: 10px; flex: none;
+            justify-content: center; background: rgba(255,255,255,0.07);
+            color: var(--tx-2); font-size: 27px; font-weight: 800;
+        }
+        .r-name { color: #fff; font-weight: 800; font-size: 31px; letter-spacing: -0.02em;
+                  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                  padding-left: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.85); }
+        .r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums;
+                   text-shadow: 0 2px 4px rgba(0,0,0,0.85); }
+        /* 기여도는 점수의 조연이다 — 금색은 남기되 글로우를 빼고 한 단계 작게. */
+        .r-contrib { color: var(--gold); font-weight: 700; font-size: 27px;
+                     font-variant-numeric: tabular-nums; padding-left: 14px; }
+        .excel-row:nth-child(even) { background: rgba(255,255,255,0.03); }
+        .excel-row.rank-1 { background: linear-gradient(90deg, rgba(246,196,83,0.20), transparent 70%); }
+        .rank-1 .r-rank { background: var(--gold);   color: #241a05; }
+        .rank-2 .r-rank { background: #dfe3ea;       color: #1a1c20; }
+        .rank-3 .r-rank { background: #d29a6b;       color: #1a1206; }
         .rank-1 .r-score { color: var(--gold); }
-        .r-name { text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
-        .r-score { font-size: 23px; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-        .r-contrib { font-size: 23px; }
 
         .row-bottom {
-            display: flex; align-items: center; justify-content: space-between; padding: 10px 20px;
+            display: flex; align-items: center; justify-content: space-between; padding: 12px 22px;
             background: rgba(246, 196, 83, 0.06);
-            border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 5px;
+            border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 8px;
         }
-        .row-bottom .b-name { color: var(--tx-2); font-weight: 800; font-size: 18px; }
-        .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 24px; position: relative; font-variant-numeric: tabular-nums; }
+        .row-bottom .b-name { color: var(--tx-2); font-weight: 700; font-size: 27px; }
+        .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 30px; position: relative; font-variant-numeric: tabular-nums; }
 
         /* ── 총후원 게이지 — 화면 오른쪽 끝 세로 막대 ──
            ⚠️ 예전에는 410×186 짜리 가로 박스였다. 유튜브 세로 라이브에서 안 가려지는

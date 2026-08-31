@@ -10,7 +10,7 @@
 
 여기서 지키는 것
   · 고친 판들이 다시 작아지지 않는가        (바닥선 27px)
-  · 아직 안 고친 것을 '통과' 로 숨기지 않는가 (빚 목록으로 드러낸다)
+  · 엑셀판이 '왜 그렇게 했는지' 가 살아 있는가 (숫자만 키우고 되돌리면 소용없다)
   · 글씨를 키우느라 칸이 자리를 넘지 않는가   (후원 순위판)
 
 ⚠️ CSS 를 읽어서 재는 것이라 '그 규칙이 실제로 걸리는가' 까지는 모른다.
@@ -22,8 +22,23 @@ import re
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
+# ⚠️ runall 은 검사를 스크래치패드로 복사해서 돌린다. 거기서는 부모 폴더에
+#    overlay.html 이 없다 — 처음에 그것 때문에 이 검사만 통째로 터졌다.
+#    위로 올라가며 찾고, 못 찾으면 저장소 자리를 쓴다.
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJ = os.path.dirname(HERE)
+REPO = r'C:\Users\Administrator\Desktop\새로다시시작'
+
+
+def _find_proj():
+    d = HERE
+    for _ in range(4):
+        d = os.path.dirname(d)
+        if os.path.exists(os.path.join(d, 'overlay.html')):
+            return d
+    return REPO
+
+
+PROJ = _find_proj()
 
 ov = io.open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
 css = '\n'.join(re.findall(r'<style[^>]*>(.*?)</style>', ov, re.S))
@@ -55,12 +70,10 @@ FIXED = {
     '안내': (r'\.notice-ico',),
     '기타': (r'\.vip-badge-tag', r'\.donation-message', r'\.reaction-text-message',
              r'\.score-pop', r'\.op-card-label'),
+    # 2026-08-31 안 A 적용 — 이름·점수 31px, 순위·기여도·머리 27px
+    '엑셀판': (r'\.excel-', r'\.r-rank', r'\.r-name', r'\.r-score', r'\.r-contrib',
+             r'\.row-bottom', r'\.b-name', r'\.b-score'),
 }
-
-# ⚠️ 아직 안 고친 것 — 엑셀판은 어떤 모양으로 갈지 안 정했다. 정하면 여기서 뺀다.
-#    통과시키려고 예외를 두는 게 아니라, 남은 빚을 눈에 보이게 두는 것이다.
-DEBT = (r'\.excel-', r'\.r-rank', r'\.r-name', r'\.r-score', r'\.r-contrib',
-        r'\.row-bottom', r'\.b-name', r'\.b-score')
 
 
 def rules():
@@ -86,15 +99,25 @@ for name, pats in FIXED.items():
 
 print()
 print('=' * 74)
-print('② 아직 안 고친 빚 — 엑셀판')
+print('② 엑셀판 — 안 A 가 들어갔는가')
 print('=' * 74)
-"""⚠️ 이건 '통과' 가 아니라 '아직 남았다' 는 표시다. 엑셀판 모양을 정하고 나서
-   글씨를 키우면, 아래 개수가 0 이 되고 그때 이 구간을 지운다."""
-debt = [(s, px) for s, px in ALL if any(re.search(p, s) for p in DEBT) and px < FLOOR]
-print('  ※ 엑셀판에 아직 %d개 남아 있다 (모양을 정하고 한꺼번에 고친다)' % len(debt))
-for s, px in sorted(debt, key=lambda r: r[1])[:12]:
-    print('       %5.0fpx → 폰 %4.1fpx   %s' % (px, px / SHRINK, s))
-chk('엑셀판 빚이 늘지는 않았다 (9개 이하)', len(debt) <= 9, '%d개' % len(debt))
+"""⚠️ 글씨 크기는 ① 이 이미 지킨다. 여기서는 '왜 그렇게 했는지' 가 살아 있는지 본다.
+   숫자만 키우고 아래 넷을 되돌리면 읽히기는 해도 예전 문제가 그대로 남는다."""
+# ⚠️ 점수와 기여도가 '823,00025.6%' 로 붙어 읽히던 것 — 오른쪽 정렬로 자릿수를 맞춘다
+chk('점수·기여도를 오른쪽으로 붙인다 (자릿수가 맞아야 비교된다)',
+    '.excel-row > div:nth-child(3), .excel-row > div:nth-child(4) { justify-content: flex-end; }' in css)
+# ⚠️ 한 번 읽고 마는 머리줄이 가장 밝은 금색 알약이라 위계가 뒤집혀 있었다
+chk('머리줄의 금색 알약을 걷어냈다 (밑줄만 남긴다)',
+    re.search(r'\.excel-header\s*\{[^}]*background:\s*linear-gradient', css) is None)
+# ⚠️ 1등만 배경, 2·3등은 왼쪽 선 — 규칙이 제각각이었다
+chk('순위를 1·2·3 같은 규칙(색 배지)으로 통일했다',
+    all(('.rank-%d .r-rank { background:' % k) in css for k in (1, 2, 3)))
+# ⚠️ 기여도가 점수보다 강조(금색+글로우)돼 있었다
+chk('기여도에서 글로우를 뺐다 (점수가 주인공)',
+    re.search(r'\.r-contrib\s*\{[^}]*text-shadow', css) is None)
+# ⚠️ 번외 점수판이 같은 .excel-row 를 쓰면서 인라인 style 로 색만 덮는다
+chk('칸 개수·순서가 그대로다 (번외 점수판이 같은 줄을 쓴다)',
+    css.count('grid-template-columns: 60px 1fr 148px 92px') == 2)
 
 print()
 print('=' * 74)
