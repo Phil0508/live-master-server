@@ -382,14 +382,15 @@
         .acc-ico {
             flex: none; align-self: stretch; width: 50px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 25px; line-height: 1;
+            font-size: 28px; line-height: 1;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
         }
         .acc-who { display: flex; align-items: baseline; gap: 7px; }
-        /* ⚠️ 예금주는 '돈이 누구에게 가는가' 다. 번호만큼 중요한데 15px 에 투명도 0.75 라
-           시청자가 못 읽는다는 말이 나왔다. 번호(38px) 다음으로 큰 글자로 올린다. */
-        .acc-who #ui-bank { font-weight: 900; color: var(--gold); font-size: 22px; }
-        .acc-who .acc-holder { font-weight: 900; color: #fff; font-size: 22px;
+        /* ⚠️ 예금주는 '돈이 누구에게 가는가' 다. 15px → 22px 로 한 번 올렸는데도
+           폰에서 8.2px 라 여전히 못 읽는다 (바닥선은 27px = 폰 10px).
+           ⚠️ 머리줄 높이가 48px 로 고정이라 줄높이 1.15 기준 28px 이 한계다. */
+        .acc-who #ui-bank { font-weight: 900; color: var(--gold); font-size: 27px; }
+        .acc-who .acc-holder { font-weight: 900; color: #fff; font-size: 28px;
                                   letter-spacing: -0.3px; line-height: 1.15;
                                   /* 상호가 길어도 카드 밖으로 밀려나지 않게. keep-all 로 한글 낱말은
                                      안 쪼개고, 띄어쓰기 없는 긴 이름만 마지막 수단으로 접는다 */
@@ -408,7 +409,7 @@
         }
         #siggame-container.on { opacity: 1; visibility: visible; }
         .sg-timer {
-            font-size: 26px; font-weight: 900; letter-spacing: 0.5px;
+            font-size: 32px; font-weight: 900; letter-spacing: 0.5px;
             color: #241a05; font-variant-numeric: tabular-nums; line-height: 1;
         }
         /* 30초 아래로 떨어지면 헤더째 붉게 물들여 확실히 눈에 띄게 한다 */
@@ -419,7 +420,7 @@
         /* 시간이 다 되면 깜빡임을 멈추고 '끝났다'는 것만 또렷하게 보여준다 */
         .sg-header.timeup { background: linear-gradient(120deg, #6b7280, #374151); box-shadow: none; animation: none; }
         .sg-header.timeup .sg-header-title, .sg-header.timeup .sg-timer { color: #e5e7eb; }
-        .sg-header.timeup .sg-timer { font-size: 22px; letter-spacing: 0; }
+        .sg-header.timeup .sg-timer { font-size: 30px; letter-spacing: 0; }
         .sg-timer.urgent { color: #ff4d6d; text-shadow: 0 0 18px rgba(255,77,109,.8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
         @keyframes sg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
         /* --sg-cw : 카드 한 장의 폭. 글자 크기를 여기에 비례시켜, 칸이 줄어도 균형이 유지된다. */
@@ -483,7 +484,7 @@
             color: #241a05; padding: 6px 14px; border-radius: 12px;
             box-shadow: 0 4px 14px var(--gold-glow);
         }
-        .sg-header-title { font-weight: 900; font-size: 15px; letter-spacing: -0.3px; white-space: nowrap; }
+        .sg-header-title { font-weight: 900; font-size: 28px; letter-spacing: -0.3px; white-space: nowrap; }
         .sg-progress { display: flex; gap: 5px; align-items: center; }
         /* 헤더가 금색이라 점도 어두운 색으로 뒤집는다(금색 위 금색은 안 보인다) */
         .sg-dot {
@@ -640,7 +641,7 @@
         .notice-board.show { opacity: 1; transform: translateY(0); }
         .notice-ico {
             flex: none; width: 50px; display: flex; align-items: center; justify-content: center;
-            font-size: 25px; line-height: 1;
+            font-size: 28px; line-height: 1;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
         }
         /* 글자가 지나가는 칸. 이 칸 밖(오른쪽)에서 들어와 밖(왼쪽)으로 나간다 */
@@ -785,8 +786,13 @@
         .dg-lap-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
 
         /* 🏅 후원 순위 — 시그니처 순위와 같은 유리 카드 */
+        /* ⚠️ 폭 240px 에 글씨 12~15px 이라 폰에서 4.5~5.6px 이었다 — 그냥 흐릿한 띠였다.
+           글씨를 키우면서 칸도 같이 넓힌다. 오른쪽 끝은 1038 을 넘으면 안 된다
+           (그 뒤 1046~1076 이 목표 막대 자리다). */
         .donor-rank-board {
-            position: relative; width: 240px; padding: 10px;
+            /* ⚠️ box-sizing 을 안 주면 380 은 '안쪽 폭' 이라 여백 26 + 테두리 2 가 붙어
+               겉이 408 이 된다. 그러면 오른쪽 끝이 1066 — 목표 막대(1046) 를 파고든다. */
+            position: relative; box-sizing: border-box; width: 380px; padding: 13px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
             display: flex; flex-direction: column; gap: 8px;
@@ -798,8 +804,8 @@
         }
         .donor-rank-header {
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 15px; text-align: center; letter-spacing: -0.3px;
-            padding: 6px 0; border-radius: 12px;
+            color: #241a05; font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px;
+            padding: 8px 0; border-radius: 12px;
             box-shadow: 0 4px 14px var(--gold-glow);
         }
         .dr-row {
@@ -808,29 +814,29 @@
             background: rgba(0,0,0,0.42);
         }
         .dr-row .dr-no {
-            flex: none; width: 22px; height: 22px; border-radius: 50%;
+            flex: none; width: 44px; height: 44px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 12px; font-weight: 900; color: #cfd3da;
+            font-size: 27px; font-weight: 900; color: #cfd3da;
             background: rgba(255,255,255,0.10);
         }
         .dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; }
         .dr-row.top2 .dr-no { background: linear-gradient(120deg, #d8dde6, #9aa2ae); color: #23262b; }
         .dr-row.top3 .dr-no { background: linear-gradient(120deg, #d9a066, #a8703c); color: #2a1a0c; }
         .dr-row .dr-name {
-            flex: 1; min-width: 0; font-size: 15px; font-weight: 800; color: #fff;
+            flex: 1; min-width: 0; font-size: 32px; font-weight: 800; color: #fff;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
             text-shadow: 0 2px 6px rgba(0,0,0,0.8);
         }
         .dr-row .dr-amt {
-            flex: none; font-size: 14px; font-weight: 900; color: var(--gold);
+            flex: none; font-size: 30px; font-weight: 900; color: var(--gold);
             font-variant-numeric: tabular-nums; text-shadow: 0 2px 6px rgba(0,0,0,0.8);
         }
-        .dr-empty { text-align:center; color: rgba(255,255,255,0.45); font-size: 13px; padding: 10px 0; }
+        .dr-empty { text-align:center; color: rgba(255,255,255,0.45); font-size: 27px; padding: 14px 0; }
 
         .sig-tally-header {
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 15px; text-align: center; letter-spacing: -0.3px;
-            padding: 6px 0; border-radius: 12px;
+            color: #241a05; font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px;
+            padding: 8px 0; border-radius: 12px;
             box-shadow: 0 4px 14px var(--gold-glow);
         }
 
@@ -849,7 +855,7 @@
         .match-game-tag { display: none; } /* 프레임이 사라지며 탭도 제거 */
         .m-vs {
             align-self: center;
-            font-size: 26px; font-weight: 900; font-style: italic;
+            font-size: 32px; font-weight: 900; font-style: italic;
             color: rgba(255,255,255,0.75);
             text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7);
             position: relative; padding: 0 8px;
@@ -909,16 +915,16 @@
             box-shadow: 0 8px 22px rgba(0,0,0,0.5), inset 0 0 24px rgba(var(--rgb, 136,136,136), 0.15);
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
         }
-        .m-crown { font-size: 19px; filter: drop-shadow(0 0 6px rgba(var(--rgb, 136,136,136), 0.9)); }
+        .m-crown { font-size: 27px; filter: drop-shadow(0 0 6px rgba(var(--rgb, 136,136,136), 0.9)); }
         .m-card-name {
-            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 900; font-size: 26px; color: #fff;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 900; font-size: 32px; color: #fff;
             letter-spacing: -0.3px; text-shadow: 0 2px 4px #000, 0 0 10px rgba(var(--rgb, 136,136,136), 0.5); white-space: nowrap;
         }
         /* ⚔️ 팀전일 때 이름 밑에 팀원 이름을 작게 적는다.
            이름과 세로로 묶어야 하므로 카드(가로 배치) 안에 세로 묶음을 하나 둔다. */
         .m-card-id { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; }
         .m-card-members {
-            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 15px;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 27px;
             color: rgba(255,255,255,0.62); letter-spacing: -0.2px; white-space: nowrap;
             text-shadow: 0 1px 3px #000;
         }
@@ -960,12 +966,12 @@
             background: linear-gradient(180deg, #23232e, #101018);
             border: 1px solid rgba(255,255,255,0.22); border-radius: 10px;
             padding: 3px 14px; color: #fff;
-            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 24px; font-weight: 900;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 32px; font-weight: 900;
             font-variant-numeric: tabular-nums; white-space: nowrap;
             text-shadow: 0 2px 4px #000; box-shadow: 0 6px 16px rgba(0,0,0,0.6);
             transition: border-color 0.3s ease, color 0.3s ease;
         }
-        .m-front-num .unit { font-size: 14px; opacity: 0.6; margin-left: 4px; font-weight: 700; }
+        .m-front-num .unit { font-size: 27px; opacity: 0.75; margin-left: 5px; font-weight: 700; }
         /* 몇 점을 받으면 뒤집히는지 — 추격하는 쪽 기준, 격차보다 1점 더 받아야 단독 1등이다 */
         .m-front-hint {
             margin-top: 4px; padding: 1px 10px; border-radius: 8px;
@@ -1065,7 +1071,7 @@
             border: none;
             color: var(--team-color, #ffffff);
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-            font-size: 21px;
+            font-size: 30px;
             font-weight: 900;
             font-style: italic;
             padding: 0;
@@ -1078,7 +1084,7 @@
 
         @keyframes explodeTimer { 0% { transform: scale(1.3); opacity: 1; filter: drop-shadow(0 0 20px #ff0000); color: #ff0000; background: rgba(255,0,0,0.5); } 20% { transform: scale(1.6); opacity: 1; filter: drop-shadow(0 0 50px #ff5500); color: #fff; background: #ff0000; border-color: #fff; } 100% { transform: scale(0); opacity: 0; filter: drop-shadow(0 0 100px #ffff00); } }
         .timer-explode { animation: explodeTimer 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important; }
-        .score-pop { position: absolute; right: -20px; top: -15px; color: var(--theme-neon); font-weight: 900; font-size: 22px; text-shadow: 0 0 10px var(--theme-neon); animation: fu 1s ease-out forwards; z-index:100; pointer-events:none; } @keyframes fu { 0%{opacity:1; transform:translateY(0) scale(1)} 50%{transform:translateY(-15px) scale(1.2)} 100%{opacity:0; transform:translateY(-30px) scale(1)} }
+        .score-pop { position: absolute; right: -20px; top: -15px; color: var(--theme-neon); font-weight: 900; font-size: 30px; text-shadow: 0 0 10px var(--theme-neon); animation: fu 1s ease-out forwards; z-index:100; pointer-events:none; } @keyframes fu { 0%{opacity:1; transform:translateY(0) scale(1)} 50%{transform:translateY(-15px) scale(1.2)} 100%{opacity:0; transform:translateY(-30px) scale(1)} }
         
         .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: var(--glass-shadow); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.4s; transform: translateY(30px) scale(0.8); }
         .center-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
@@ -1133,7 +1139,7 @@
         }
         .home-race-title {
             width: max-content; margin: -34px auto 18px;
-            text-align: center; font-size: 19px; font-weight: 900; letter-spacing: 1px; color: #fff;
+            text-align: center; font-size: 30px; font-weight: 900; letter-spacing: 1px; color: #fff;
             background: linear-gradient(100deg, #6b7bff, #9a6bff);
             border-radius: 14px; padding: 7px 30px;
             box-shadow: 0 4px 16px rgba(107,123,255,0.55);
@@ -1164,7 +1170,7 @@
         .home-race-goal-tag {
             flex: 0 0 auto; min-width: 50px; text-align: center;
             background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55);
-            color: #cfd6ff; font-weight: 900; font-size: 15px; padding: 4px 12px; border-radius: 10px;
+            color: #cfd6ff; font-weight: 900; font-size: 27px; padding: 5px 14px; border-radius: 10px;
             font-variant-numeric: tabular-nums;
         }
         /* 하단 순환 GOAL 바 */
@@ -1175,12 +1181,12 @@
             border: 1.5px solid rgba(120,135,255,0.5); border-radius: 16px;
             box-shadow: 0 0 18px rgba(90,108,255,0.30);
         }
-        .home-race-goal-badge { background: linear-gradient(120deg, #6b7bff, #9a6bff); color: #fff; font-weight: 900; font-size: 14px; padding: 5px 13px; border-radius: 9px; letter-spacing: 0.5px; }
-        .hr-goal-name   { color: #9fb0ff; font-weight: 900; font-size: 26px; text-shadow: 0 0 10px rgba(107,123,255,0.5); }
-        .hr-goal-label  { color: var(--tx-3); font-size: 15px; font-weight: 700; }
-        .hr-goal-remain { color: #fff; font-weight: 900; font-size: 26px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
-        .hr-goal-target { background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55); color: #cfd6ff; font-weight: 900; font-size: 14px; padding: 4px 11px; border-radius: 9px; }
-        .hr-goal-count  { margin-left: auto; color: #96a0c8; font-weight: 900; font-size: 16px; font-variant-numeric: tabular-nums; }
+        .home-race-goal-badge { background: linear-gradient(120deg, #6b7bff, #9a6bff); color: #fff; font-weight: 900; font-size: 27px; padding: 6px 15px; border-radius: 9px; letter-spacing: 0.5px; }
+        .hr-goal-name   { color: #9fb0ff; font-weight: 900; font-size: 32px; text-shadow: 0 0 10px rgba(107,123,255,0.5); }
+        .hr-goal-label  { color: var(--tx-3); font-size: 27px; font-weight: 700; }
+        .hr-goal-remain { color: #fff; font-weight: 900; font-size: 32px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        .hr-goal-target { background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55); color: #cfd6ff; font-weight: 900; font-size: 27px; padding: 5px 13px; border-radius: 9px; }
+        .hr-goal-count  { margin-left: auto; color: #96a0c8; font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
         /* GOAL 바 순환 전환: 빠르고 부드럽게(서서히) 슬라이드-페이드 */
         @keyframes hrGoalSwap { 0% { opacity: 0; transform: translateY(9px); } 100% { opacity: 1; transform: translateY(0); } }
         .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -1209,7 +1215,7 @@
             background: var(--vip-glow-color-bg, rgba(255, 215, 0, 0.15));
             color: #ffd700;
             border: 1px solid var(--vip-glow-color-border, rgba(255, 215, 0, 0.3));
-            padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 800; margin-right: 6px;
+            padding: 3px 10px; border-radius: 7px; font-size: 27px; font-weight: 800; margin-right: 8px;
             vertical-align: middle;
         }
 
@@ -1244,7 +1250,7 @@
         .donator-text { font-size: 30px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; }
         .donator-name { color: #fff; }
         .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: 0 0 28px var(--gold-glow); margin: 12px 0 14px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
-        .donation-message { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px; padding: 13px 32px; font-size: 24px; font-weight: 600; color: var(--tx-2); max-width: 700px; word-break: break-all; line-height: 1.45; }
+        .donation-message { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px; padding: 14px 32px; font-size: 30px; font-weight: 600; color: var(--tx-2); max-width: 700px; word-break: break-all; line-height: 1.45; }
 
         /* 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
            크기/노출시간은 admin 에디터 값(--reac-title-size)으로 조절한다. */
@@ -1355,7 +1361,7 @@
         }
         .reaction-text-message {
             margin-top: 15px;
-            font-size: 26px;
+            font-size: 32px;
             font-weight: 700;
             color: #ffffff;
             background: rgba(10, 10, 15, 0.85);
@@ -1475,7 +1481,7 @@
             70%  { opacity: 1; transform: perspective(900px) rotateX(-6deg) scale(1.04); }
             100% { opacity: 1; transform: perspective(900px) rotateX(0) scale(1); }
         }
-        .op-card-label { font-size: 26px; font-weight: 900; letter-spacing: 10px; color: var(--gold-deep); margin-bottom: 10px; }
+        .op-card-label { font-size: 30px; font-weight: 900; letter-spacing: 10px; color: var(--gold-deep); margin-bottom: 10px; }
         .op-card-name { font-size: 92px; font-weight: 900; color: #fff; line-height: 1.1;
             text-shadow: 0 0 40px var(--gold-glow), 0 6px 0 rgba(0,0,0,.55); }
         .op-card-amount { font-size: 68px; font-weight: 900; color: var(--gold); margin-top: 6px;
@@ -1994,10 +2000,14 @@
                 </div>
             </div>
 
-            <div id="donor-rank-container" class="widget-container" style="position: absolute; left: 766px; top: 387px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+            <!-- ⚠️ 왼쪽 자리를 658 로 옮겼다. 칸이 380px 이라 766 이면 오른쪽 끝이 1146 —
+                 화면(1080) 밖으로 나간다. 658+380=1038 이 목표 막대(1046) 바로 앞이다. -->
+            <div id="donor-rank-container" class="widget-container" style="position: absolute; left: 658px; top: 387px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="donor-rank-board">
                     <div class="donor-rank-header">🏅 후원 순위</div>
-                    <div id="donor-rank-rows" style="display:flex; flex-direction:column; gap:6px;"></div>
+                    <!-- ⚠️ 줄 높이가 63px 이라 8줄이면 아래끝이 966 — 안전지대(954) 를 넘어
+                         폰에서 잘린다. 넘을 수 없게 여기서 못을 박는다 (아래 limit 도 같이 조인다). -->
+                    <div id="donor-rank-rows" style="display:flex; flex-direction:column; gap:6px; max-height:466px; overflow:hidden;"></div>
                 </div>
             </div>
 
@@ -6154,7 +6164,10 @@
             const tally = d.donor_tally || {};
             // 인원은 1~20 으로 조인다. 음수가 들어오면 slice(0, -5) 가 되어 '꼴찌 5명을 뺀
             // 나머지'가 뜨고, 큰 수가 들어오면 이름 수백 개가 화면을 덮는다.
-            const limit = Math.max(1, Math.min(20, parseInt(d.donor_rank_limit) || 5));
+            /* ⚠️ 예전 상한은 20 이었다. 글씨를 폰에서 읽히게 키우면서(15→32px) 줄 높이가
+               63px 이 되어, 387 에서 시작하는 판은 7줄이면 안전지대(954) 를 꽉 채운다.
+               20 을 그대로 두면 아래가 말없이 잘린다 — 안 보일 바에는 안 만드는 게 낫다. */
+            const limit = Math.max(1, Math.min(7, parseInt(d.donor_rank_limit) || 5));
             const showAmt = d.donor_rank_amount !== false;   // 예전 저장본에 이 키가 없으면 보여준다
             const withAnon = !!d.donor_rank_anon;
             const list = Object.keys(tally)

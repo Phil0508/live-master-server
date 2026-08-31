@@ -188,6 +188,7 @@ run('룰렛 닫힘', [PY, 'roulette_close_test.py'], HERE, kind='pt')
 run('주사위 기본판', [PY, 'dice_preset_test.py'], HERE)
 run('안전지대 HUD', [PY, 'hud_test.py'], HERE)
 run('빛·입자 레이어', [PY, 'siggl_test.py'], HERE)
+run('폰 가독성', [PY, 'readable_test.py'], HERE)
 run('나눠주기 계산', [PY, 'split_test.py'], HERE)
 run('AI 모델 설정', [PY, 'nim_test.py'], HERE)
 
