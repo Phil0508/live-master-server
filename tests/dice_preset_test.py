@@ -228,7 +228,9 @@ if mc and m:
         '판 아래끝 %d' % (by + bh))
 
     ad = io.open(os.path.join(ROOT, 'admin.html'), encoding='utf-8', errors='replace').read()
-    ma = re.search(r'id="dicegame" data-id="dicegame" style="left:(\d+)px; top:(\d+)px', ad)
+    # ⚠️ data-id 와 style 사이에 data-pinned 가 낄 수 있다 (주사위판은 못 박은 것이다 —
+    #    편집기에서 끌 수 있었지만 방송은 그 자리를 안 읽었다). 사이를 열어 둔다.
+    ma = re.search(r'id="dicegame" data-id="dicegame"[^>]*style="left:(\d+)px; top:(\d+)px', ad)
     mw = re.search(r'id="dicegame"[\s\S]{0,200}?width:(\d+)px; height:(\d+)px', ad)
     chk('편집기 점선 상자 자리가 방송판과 같다',
         ma and (int(ma.group(1)), int(ma.group(2))) == (bx, by),
