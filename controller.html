@@ -1302,7 +1302,7 @@
             <button class="tab-btn" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-system'); loadArchiveSessions();"><i class="fa-solid fa-server"></i> 시스템</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
             <span class="tab-sep"></span>
             <button class="tab-btn" id="tabs-more-btn" onclick="toggleTabsMore()" title="자주 안 쓰는 탭 펴기/접기"><i class="fa-solid fa-ellipsis"></i> 그 밖에</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
@@ -1801,6 +1801,27 @@
         <div class="group-box" style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
             <div style="font-weight:800; font-size:var(--fs-4); color:#fff; display:flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket" style="color: var(--danger);"></i> 세션 관리</div>
             <button onclick="triggerServerLogout()" style="height: 40px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><i class="fa-solid fa-right-from-bracket"></i> 로그아웃</button>
+        </div>
+
+        <!-- 🗓️ 월별 후원 순위 — 수요일 방송 시간만 -->
+        <div class="group-box" style="margin-bottom: 20px;">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fa-solid fa-calendar-days" style="color: var(--gold);"></i> 월별 후원 순위</span>
+                <button class="secondary" onclick="loadMonthly(true)" style="height:30px; font-size:var(--fs-2); padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-rotate"></i> 새로고침</button>
+            </div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 12px; line-height:1.6;">
+                <b style="color:var(--gold);">수요일 17:00 ~ 목요일 03:00</b> 에 들어온 후원만 셉니다.
+                다른 날 들어온 것은 순위에 안 들어갑니다.<br>
+                자정을 넘겨도 <b>시작한 날(수요일)</b> 기준이라, 월말 방송이 두 달로 쪼개지지 않습니다.
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+                <select id="mon-select" onchange="loadMonthly()" style="flex:1; min-width:200px; height:38px;"><option value="">불러오는 중…</option></select>
+                <button class="secondary" onclick="downloadMonthlyCsv()" style="height:38px; padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-file-csv"></i> CSV</button>
+            </div>
+            <div id="mon-summary" style="font-size:var(--fs-3); color:var(--text-dim); margin-bottom:8px;"></div>
+            <div id="mon-rows" style="max-height:420px; overflow:auto; border:1px solid var(--border-light); border-radius:var(--r-2);"></div>
+            <!-- ⚠️ 시간대가 어긋나면 한 건도 안 잡힌다. 원인을 바로 보게 서버 시계를 띄운다. -->
+            <div id="mon-clock" style="font-size:var(--fs-1); color:var(--text-muted); margin-top:10px; line-height:1.6;"></div>
         </div>
 
         <!-- 📚 지난 방송 후원내역 -->
@@ -7920,6 +7941,68 @@ initFoldablePanels();
             // 칸 목록 — 구성이 바뀔 때만 다시 그린다
             const tsig = JSON.stringify((g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points, t && t.sig && t.sig.id]));
             if (force || tsig !== _dgcTileSig) { _dgcTileSig = tsig; dgcRenderTiles(); }
+        }
+
+        // ══ 🗓️ 월별 후원 순위 (수요일 방송 시간만) ══
+        // ⚠️ 이 표는 '방송 중에 들어온 후원' 만 센다. 계좌로 딴 날 들어온 것은 빠진다.
+        //    그게 사장님이 원한 셈이다 — 순위는 방송에 온 사람들 것이다.
+        let _monData = null;
+        async function loadMonthly(force) {
+            const sel = document.getElementById('mon-select');
+            const box = document.getElementById('mon-rows');
+            if (!sel || !box) return;
+            const want = force ? '' : (sel.value || '');
+            box.innerHTML = '<div style="padding:16px; color:var(--text-muted);">불러오는 중…</div>';
+            try {
+                const r = await fetch('/api/ranking/monthly' + (want ? ('?month=' + encodeURIComponent(want)) : ''));
+                const d = await r.json();
+                if (d.status !== 'success') throw new Error(d.message || '실패');
+                _monData = d;
+                // 달 목록은 자료가 있는 달만 — 없는 달을 고르게 두면 늘 빈 표가 나온다
+                const months = d.months || [];
+                sel.innerHTML = months.length
+                    ? months.map(m => `<option value="${m}" ${m === d.month ? 'selected' : ''}>${m.replace('-', '년 ')}월</option>`).join('')
+                    : '<option value="">(아직 방송 자료가 없습니다)</option>';
+                const rows = d.rows || [];
+                document.getElementById('mon-summary').innerHTML = rows.length
+                    ? `${d.month.replace('-', '년 ')}월 · <b style="color:var(--gold);">${d.total.toLocaleString()}원</b> · ${rows.length}명`
+                    : '이 달에는 방송 중 후원이 없습니다.';
+                box.innerHTML = rows.length ? rows.map((x, i) => `
+                    <div style="display:grid; grid-template-columns:52px 1fr 140px 96px; align-items:center;
+                                padding:10px 14px; border-bottom:1px solid var(--border-light);
+                                ${i < 3 ? 'background:rgba(246,196,83,0.06);' : ''}">
+                        <span style="font-weight:900; color:${i === 0 ? 'var(--gold)' : i < 3 ? '#dfe3ea' : 'var(--text-dim)'};">${i + 1}</span>
+                        <span style="font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(x.name)}</span>
+                        <span style="text-align:right; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums;">${x.total.toLocaleString()}원</span>
+                        <span style="text-align:right; color:var(--text-muted); font-size:var(--fs-2);">${x.count}건 · ${x.days}회</span>
+                    </div>`).join('')
+                    : '<div style="padding:16px; color:var(--text-muted);">기록이 없습니다.</div>';
+                // ⚠️ 서버 시계가 지금과 다르면 창(수 17시~목 3시)이 어긋나 한 건도 안 잡힌다
+                const c = d.clock || {};
+                const mine = new Date().toLocaleString('sv-SE').slice(0, 19).replace('T', ' ');
+                const gap = c.shifted && c.shifted !== mine;
+                document.getElementById('mon-clock').innerHTML =
+                    `창: ${escapeHTML(d.window || '')}<br>`
+                    + `서버 시계 ${escapeHTML(c.server || '?')}`
+                    + (c.shift ? ` (＋${c.shift}시간 보정 → ${escapeHTML(c.shifted || '')})` : '')
+                    + ` · 지금 이 PC ${mine}`
+                    + (gap ? `<br><b style="color:#ffcf8a;">⚠ 서버 시계가 다릅니다. 창이 어긋나 순위가 비어 보일 수 있어요 — BROADCAST_TZ_SHIFT 로 맞춥니다.</b>` : '');
+            } catch (e) {
+                box.innerHTML = `<div style="padding:16px; color:var(--danger);">불러오지 못했습니다: ${escapeHTML(String(e.message || e))}</div>`;
+            }
+        }
+        function downloadMonthlyCsv() {
+            if (!_monData || !(_monData.rows || []).length) { acctToast('내려받을 기록이 없습니다', 'warn'); return; }
+            const head = '순위,이름,합계,건수,방송횟수';
+            const body = _monData.rows.map((x, i) =>
+                [i + 1, '"' + String(x.name).replace(/"/g, '""') + '"', x.total, x.count, x.days].join(',')).join('\n');
+            // ⚠️ 엑셀이 한글을 깨뜨리지 않게 BOM 을 붙인다
+            const blob = new Blob(['\uFEFF' + head + '\n' + body], { type: 'text/csv;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `월별후원순위_${_monData.month}.csv`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         }
 
         // ══ 📚 지난 방송 후원내역 ══

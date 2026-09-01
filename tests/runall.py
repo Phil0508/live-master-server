@@ -194,6 +194,7 @@ run('폰 가독성', [PY, 'readable_test.py'], HERE)
 run('편집기 동기화', [PY, 'editor_sync_test.py'], HERE)
 run('나눠주기 계산', [PY, 'split_test.py'], HERE)
 run('AI 모델 설정', [PY, 'nim_test.py'], HERE)
+run('월별 후원 순위', [PY, 'monthly_test.py'], HERE, kind='pt')
 
 kill_port(5177); kill_port(5199)
 

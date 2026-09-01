@@ -33,6 +33,7 @@ import pyotp
 import secrets
 
 import time
+import datetime   # 월별 후원 순위 — 수요일 방송 창(수 17시~목 3시)을 셈한다
 import csv
 import queue
 import shutil
@@ -2356,6 +2357,127 @@ def _csv_cell(v):
     if t[:1] in ('=', '+', '-', '@'):
         t = "'" + t
     return '"' + t.replace('"', '""') + '"'
+
+
+# ==========================================
+# 🗓️ 월별 후원 순위 — 수요일 방송 시간만
+# ==========================================
+# 방송은 수요일 17:00 에 시작해 목요일 03:00 에 끝난다. 그 창 안에 들어온 후원만
+# 센다. 다른 날 들어온 것(계좌 이체 등)은 순위에 안 넣는다.
+BC_START_H = 17      # 수요일 17:00 시작 (정각은 창 안)
+BC_END_H = 3         # 목요일 03:00 끝  (정각은 창 밖 — 끝난 시각이다)
+
+
+def _bc_shift_hours():
+    """DB 에 적힌 시각을 KST 로 옮기는 데 필요한 시간.
+
+    ⚠️ 후원 시각은 time.strftime 으로 **서버 지역시** 로 적힌다. 배포 설정에
+       시간대 지정이 없어 우분투 기본대로면 UTC 이고, 그러면 KST 수요일 17시가
+       DB 에는 08시로 적혀 있다. 그대로 걸러내면 한 건도 안 잡힌다.
+       서버가 이미 KST 면 0, UTC 면 9 를 준다. 환경변수로 바꿀 수 있게 둔다.
+    """
+    try:
+        return int(os.environ.get('BROADCAST_TZ_SHIFT', '0'))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _bc_window(ts_text, shift):
+    """이 후원이 수요일 방송 창 안인가. 창 안이면 그 방송이 시작한 날짜를 돌려준다.
+
+    돌려주는 날짜는 **수요일** 이다 — 목요일 새벽 2시에 들어온 후원도 그 방송이
+    시작한 수요일에 붙는다. 안 그러면 월말에 걸친 한 방송이 두 달로 쪼개진다.
+    """
+    if not ts_text:
+        return None
+    try:
+        t = datetime.datetime.strptime(str(ts_text)[:19], '%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError):
+        return None
+    t = t + datetime.timedelta(hours=shift)
+    wd = t.weekday()          # 월0 화1 수2 목3
+    if wd == 2 and t.hour >= BC_START_H:
+        return t.date()                                  # 수요일 저녁
+    if wd == 3 and t.hour < BC_END_H:
+        return (t - datetime.timedelta(days=1)).date()   # 목요일 새벽 → 어제(수)
+    return None
+
+
+@app.route('/api/ranking/monthly')
+def api_ranking_monthly():
+    """월별 후원 순위. ?month=YYYY-MM (없으면 이번 달).
+
+       ⚠️ 수요일 17:00~목요일 03:00 에 들어온 것만 센다. 그 밖의 후원은 뺀다.
+    """
+    if not request_is_authed():
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    shift = _bc_shift_hours()
+    want = (request.args.get('month') or '').strip()
+    try:
+        rows = []
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            # 지난 방송분과 이번 방송분을 같이 본다 — 이번 주 것도 순위에 들어가야 한다
+            for tbl in ('donation_archive', 'donation_history'):
+                try:
+                    cur.execute(db_query(
+                        "SELECT timestamp, name, amount FROM %s" % tbl))
+                    rows.extend(cur.fetchall())
+                except Exception as e:
+                    print(f'[월별 순위] {tbl} 조회 실패(건너뜀): {e}')
+
+        months, tally = {}, {}
+        for ts, name, amount in rows:
+            day = _bc_window(ts, shift)
+            if not day:
+                continue                      # 방송 시간 밖 — 안 센다
+            mon = '%04d-%02d' % (day.year, day.month)
+            months[mon] = months.get(mon, 0) + 1
+            if want and mon != want:
+                continue
+            who = _norm_donor(name)
+            row = tally.setdefault(who, {'name': name or who, 'total': 0,
+                                         'count': 0, 'days': set()})
+            row['total'] += int(amount or 0)
+            row['count'] += 1
+            row['days'].add(str(day))
+
+        # 달을 안 골랐으면 자료가 있는 가장 최근 달
+        if not want:
+            want = max(months) if months else time.strftime('%Y-%m')
+            tally = {}
+            for ts, name, amount in rows:
+                day = _bc_window(ts, shift)
+                if not day or '%04d-%02d' % (day.year, day.month) != want:
+                    continue
+                who = _norm_donor(name)
+                row = tally.setdefault(who, {'name': name or who, 'total': 0,
+                                             'count': 0, 'days': set()})
+                row['total'] += int(amount or 0)
+                row['count'] += 1
+                row['days'].add(str(day))
+
+        out = sorted(tally.values(), key=lambda r: -r['total'])
+        for r in out:
+            r['days'] = len(r['days'])        # 몇 번의 방송에 왔나
+        now = datetime.datetime.now()
+        return jsonify({
+            'status': 'success',
+            'month': want,
+            'rows': out,
+            'total': sum(r['total'] for r in out),
+            'months': sorted(months, reverse=True),
+            # ⚠️ 시간대가 어긋나면 한 건도 안 잡힌다. 눈으로 바로 확인되게 같이 보낸다.
+            'clock': {
+                'server': now.strftime('%Y-%m-%d %H:%M:%S'),
+                'shifted': (now + datetime.timedelta(hours=shift)).strftime('%Y-%m-%d %H:%M:%S'),
+                'shift': shift,
+            },
+            'window': '수요일 %02d:00 ~ 목요일 %02d:00' % (BC_START_H, BC_END_H),
+        })
+    except Exception as e:
+        print(f'[월별 순위 조회 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e), 'rows': []}), 500
 
 
 @app.route('/api/archive/sessions')
