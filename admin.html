@@ -176,6 +176,12 @@
 .row-bottom { display: flex; align-items: center; justify-content: space-between; padding: 12px 22px; background: rgba(246, 196, 83, 0.06); border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 8px; }
 .row-bottom .b-name { color: var(--tx-2); font-weight: 700; font-size: 27px; }
 .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 30px; position: relative; font-variant-numeric: tabular-nums; }
+.slot-card { position: relative; padding: 22px 24px 20px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; align-items: center; }
+.slot-card::before { content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit; background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events:none; }
+.slot-ttl { width: 100%; margin: 0 0 18px; padding-bottom: 10px; font-size: 27px; font-weight: 700; color: var(--tx-3); letter-spacing: 0.06em; text-align: center; border-bottom: 2px solid rgba(246,196,83,0.5); }
+.slot-reels { display: flex; gap: 16px; margin-bottom: 18px; }
+.slot-reel { width: 170px; height: 120px; background: #0a0a10; border-radius: 16px; overflow: hidden; position: relative; box-shadow: 0 10px 26px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(246,196,83,0.28); }
+.slot-win { font-size: 32px; font-weight: 800; color: var(--gold); letter-spacing: -0.01em; height: 40px; text-align: center; text-shadow: 0 2px 6px rgba(0,0,0,0.9); }
 .goal-rail { position: relative; width: 28px; height: 837px; background: rgba(0,0,0,.5); border: 1px solid rgba(246,196,83,.45); border-radius: 999px; box-shadow: 0 6px 22px rgba(0,0,0,.6), inset 0 0 12px rgba(0,0,0,.7); }
 .goal-rail-fill { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 0; border-radius: 999px; background: linear-gradient(180deg, #ffe9b0, var(--gold) 40%, var(--gold-deep)); box-shadow: 0 0 16px var(--gold-glow); transition: height .8s cubic-bezier(.2,.9,.3,1); }
 .goal-rail-tip { position: absolute; right: calc(100% + 10px); bottom: 3px; transform: translateY(50%); white-space: nowrap; text-align: right; transition: bottom .8s cubic-bezier(.2,.9,.3,1); background: rgba(10,10,14,.9); border: 2px solid var(--gold); border-radius: 14px; padding: 7px 16px; box-shadow: 0 6px 20px rgba(0,0,0,.65), 0 0 20px var(--gold-glow); }
@@ -559,15 +565,20 @@ body.game-on .goal-rail-tip { opacity: 0; }
                 <!-- 🎰 슬롯: 실제 크기(660×360)에 가깝게 — 타이틀 칩 + 릴 3칸 -->
                 
 <div class="widget" id="slot" data-id="slot" style="left:191px; top:452px; display: none;">
-                    <!-- ⚠️ 크기는 방송판에서 직접 잰 값이다 (2026-08-31). 방송판이 이 위젯을
-                         JS 로 그려 클래스가 없어, 여기서는 같은 크기의 안내 상자로만 흉내낸다.
-                         숫자가 어긋나면 자리를 잡아도 실제로는 다른 데 선다 —
-                         룰렛이 256×256 이라 실제(660×740)의 3분의 1로 보이고 있었다. -->
-                    <div style="width:660px; height:360px; border-radius:20px; background:rgba(255,255,255,0.04);
-                         border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column;
-                         align-items:center; justify-content:center; gap:10px; color:#c9cdd5;">
-                        <div style="font-size:34px; font-weight:900; letter-spacing:2px;">🎰 슬롯</div>
-                        <div style="font-size:20px; font-weight:700; opacity:.85;">660 × 360</div>
+                    <!-- 방송판과 똑같은 클래스를 쓴다 — 생김새는 hud.css 가 준다.
+                         예전에는 클래스가 없어 '660 × 360' 이라 적힌 점선 상자로만 흉내냈다.
+                         ⚠️ 겉 상자 660×360 은 그대로. 자리·크기 계산이 이 숫자에 묶여 있다. -->
+                    <div style="position:relative; width:660px; height:360px; display:flex;
+                         flex-direction:column; align-items:center; justify-content:center; box-sizing:border-box;">
+                        <div class="slot-card">
+                            <div class="slot-ttl">🎰 시그니처 슬롯머신</div>
+                            <div class="slot-reels">
+                                <div class="slot-reel"></div>
+                                <div class="slot-reel"></div>
+                                <div class="slot-reel"></div>
+                            </div>
+                            <div class="slot-win">대기 중...</div>
+                        </div>
                     </div>
                         </div>
                 <!-- 📣 안내 전광판 -->

@@ -51,6 +51,7 @@ PREFIX = (
     'dr-', 'donor-rank', 'sig-tally',
     'dg-', 'm-', 'hr-', 'home-race', 'sg-',
     'center-popup', 'takeover-popup', 'vip-badge',
+    'slot-',
 )
 
 

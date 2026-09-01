@@ -73,6 +73,8 @@ FIXED = {
     # 2026-08-31 안 A 적용 — 이름·점수 31px, 순위·기여도·머리 27px
     '엑셀판': (r'\.excel-', r'\.r-rank', r'\.r-name', r'\.r-score', r'\.r-contrib',
              r'\.row-bottom', r'\.b-name', r'\.b-score'),
+    # 2026-08-31 유리 카드로 — 당첨 글씨가 23px(폰 8.6px)이라 못 읽었다
+    '슬롯': (r'\.slot-ttl', r'\.slot-win'),
 }
 
 
@@ -158,6 +160,33 @@ chk("숫자칸이 196px 이다 ('1,234,000' 이 161px 다)", _nu and int(_nu.gro
     (_nu.group(1) + 'px') if _nu else '못 찾음')
 chk('숫자를 오른쪽으로 맞춘다 (자릿수가 맞아야 비교된다)',
     re.search(r'\.home-race-nums \{[^}]*text-align:\s*right', css, re.S) is not None)
+
+print()
+print('=' * 74)
+print('⑤ 슬롯머신 — 우리 테마(둥근 유리 카드)인가')
+print('=' * 74)
+# ⚠️ 슬롯만 비스듬히 잘린 각진 상자였다. 엑셀판·계좌·후원순위는 전부 둥근 유리
+#    카드라 슬롯 혼자 다른 물건처럼 보였다. 사장님이 안 A(유리 카드)를 골랐다.
+chk('유리 카드를 두른다 (엑셀판과 같은 언어)',
+    re.search(r'\.slot-card \{[^}]*background: var\(--glass-bg\)', css, re.S) is not None)
+chk('모서리를 같은 값으로 둥글린다',
+    re.search(r'\.slot-card \{[^}]*border-radius: var\(--glass-radius\)', css, re.S) is not None)
+chk('위쪽 하이라이트 한 줄이 있다', '.slot-card::before' in css)
+# 머리글은 한 번 읽고 마는 것 — 금색 알약을 걷어내고 밑줄만 (엑셀판과 같은 규칙)
+chk('머리글의 금색 알약을 걷어냈다',
+    re.search(r'\.slot-ttl \{[^}]*background:', css, re.S) is None)
+chk('금색은 밑줄로만 남긴다',
+    re.search(r'\.slot-ttl \{[^}]*border-bottom: 2px solid rgba\(246,196,83', css, re.S) is not None)
+# ⚠️ 비스듬히 자르던 clip-path 가 남아 있으면 되돌아간 것이다
+chk('릴을 비스듬히 자르지 않는다', 'clip-path: polygon(7px 0' not in ov)
+chk('릴을 둥글린다', re.search(r'\.slot-reel \{[^}]*border-radius: 16px', css, re.S) is not None)
+# ⚠️ 릴 창 170×120 은 릴이 멈추는 좌표(cardHeight = 120)와 묶여 있다.
+#    바꾸면 당첨 칸이 어긋난다 — 모양을 바꾸면서도 이 숫자는 지켜야 한다.
+chk('릴 창이 170×120 그대로다 (멈추는 좌표와 묶여 있다)',
+    re.search(r'\.slot-reel \{[^}]*width: 170px; height: 120px', css, re.S) is not None)
+chk('멈추는 좌표도 그대로다', 'const cardHeight = 120;' in ov)
+# 겉 상자는 편집기 그림자·검사가 아는 크기다
+chk('겉 상자 660×360 은 안 건드렸다', 'width: 660px; height: 360px' in ov)
 
 print()
 print('=' * 74)

@@ -327,6 +327,40 @@
         .row-bottom .b-name { color: var(--tx-2); font-weight: 700; font-size: 27px; }
         .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 30px; position: relative; font-variant-numeric: tabular-nums; }
 
+        /* ── 🎰 슬롯머신 ── 엑셀판·계좌와 같은 유리 카드 언어.
+           ⚠️ 릴 창 170×120 은 여기서도 손대지 않는다. 둥글리기와 테두리만 준다. */
+        .slot-card {
+            position: relative; padding: 22px 24px 20px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius);
+            box-shadow: var(--glass-shadow);
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .slot-card::before {
+            content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
+            background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+            pointer-events:none;
+        }
+        .slot-ttl {
+            width: 100%; margin: 0 0 18px; padding-bottom: 10px;
+            font-size: 27px; font-weight: 700; color: var(--tx-3);
+            letter-spacing: 0.06em; text-align: center;
+            border-bottom: 2px solid rgba(246,196,83,0.5);
+        }
+        .slot-reels { display: flex; gap: 16px; margin-bottom: 18px; }
+        /* ⚠️ 170×120 고정. 릴이 멈추는 좌표(cardHeight = 120)와 묶여 있다. */
+        .slot-reel {
+            width: 170px; height: 120px; background: #0a0a10;
+            border-radius: 16px; overflow: hidden; position: relative;
+            box-shadow: 0 10px 26px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(246,196,83,0.28);
+        }
+        .slot-win {
+            font-size: 32px; font-weight: 800; color: var(--gold);
+            letter-spacing: -0.01em; height: 40px; text-align: center;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.9);
+        }
+
         /* ── 총후원 게이지 — 화면 오른쪽 끝 세로 막대 ──
            ⚠️ 예전에는 410×186 짜리 가로 박스였다. 유튜브 세로 라이브에서 안 가려지는
               구역은 y 115~960, 845px 뿐인데 그 중 186px(22%)을 이것 하나가 먹었다.
@@ -1959,24 +1993,34 @@
 
             <!-- 🎰 슬롯머신 위젯 레이어 -->
             <div id="slot-container" class="widget-container" style="position: absolute; left: 191px; top: 452px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s, left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto;">
-                <!-- 🎰 배경 판 없이 릴만 방송 화면 위에 뜨는 형태.
-                     릴 크기 170×120은 애니메이션 정지 좌표와 묶여 있어 반드시 유지 -->
+                <!-- 🎰 우리 테마(둥근 유리 카드 + 금색)로. 예전에는 배경 없이 비스듬히 잘린
+                     각진 릴만 떠 있어, 엑셀판·계좌와 언어가 달라 혼자 다른 물건처럼 보였다.
+                     ⚠️ 릴 창 170×120 은 절대 건드리지 말 것 — 릴이 멈추는 좌표가 그 숫자에
+                        묶여 있다(아래 cardHeight = 120). 바꾸면 당첨 칸이 어긋난다.
+                     ⚠️ 겉 상자 660×360 도 그대로 둔다. 편집기 그림자와 검사가 이 크기를 안다.
+                        유리 카드는 그 안에 가운데로 놓는다. -->
                 <div class="slot-wrap" style="position: relative; width: 660px; height: 360px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <h1 id="slot-title" style="font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 26px; font-weight: 900; font-style: italic; color: #0e0e14; margin: 0 0 15px 0; text-align: center; display: inline-block; padding: 5px 26px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: 0 6px 18px var(--gold-glow), 0 4px 14px rgba(0,0,0,0.7);">
+                  <div class="slot-card">
+                    <!-- 머리글은 한 번 읽고 마는 것이라 조용히 둔다. 금색은 밑줄로만 남긴다
+                         (엑셀판 머리줄과 같은 규칙 — 거기서도 금색 알약을 걷어냈다). -->
+                    <h1 id="slot-title" class="slot-ttl">
                         🎰 시그니처 슬롯머신
                     </h1>
 
-                    <!-- 3개 릴 (뒤 받침 없이 릴 자체만 떠 있음) -->
-                    <div style="display: flex; gap: 14px; margin-bottom: 15px;">
-                        <div style="width: 170px; height: 120px; background: #0a0a10; clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%); overflow: hidden; position: relative; box-shadow: 0 10px 26px rgba(0,0,0,0.75);"><div id="ov-reel-1" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
-                        <div style="width: 170px; height: 120px; background: #0a0a10; clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%); overflow: hidden; position: relative; box-shadow: 0 10px 26px rgba(0,0,0,0.75);"><div id="ov-reel-2" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
-                        <div style="width: 170px; height: 120px; background: #0a0a10; clip-path: polygon(7px 0, 100% 0, calc(100% - 7px) 100%, 0 100%); overflow: hidden; position: relative; box-shadow: 0 10px 26px rgba(0,0,0,0.75);"><div id="ov-reel-3" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
+                    <!-- 3개 릴 -->
+                    <div class="slot-reels">
+                        <div class="slot-reel"><div id="ov-reel-1" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
+                        <div class="slot-reel"><div id="ov-reel-2" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
+                        <div class="slot-reel"><div id="ov-reel-3" style="position: absolute; width: 100%; top: 0; transition: transform 0.1s linear;"></div></div>
                     </div>
 
                     <!-- 받침이 없으므로 밝은 화면 위에서도 읽히도록 어두운 그림자를 겹쳐 넣는다 -->
-                    <div id="slot-winner-text" style="font-size: 23px; font-weight: 900; font-style: italic; color: var(--gold); text-shadow: 0 0 22px var(--gold-glow), 0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.85), 2px 2px 0 rgba(0,0,0,0.6); height: 35px; text-align: center; letter-spacing: 0.5px;">
+                    <!-- ⚠️ 23px 이라 시청자 폰에서 8.6px 였다 — 제일 중요한 줄인데 못 읽었다.
+                         32px = 폰 11.9px. (바닥선 27px = 폰 10px) -->
+                    <div id="slot-winner-text" class="slot-win">
                         대기 중...
                     </div>
+                  </div>
                 </div>
             </div>
 
