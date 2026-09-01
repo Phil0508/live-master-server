@@ -142,6 +142,25 @@ chk('상한을 우회해도 안 넘게 못을 박았다', 'max-height:466px; ove
 
 print()
 print('=' * 74)
+print('④ 퇴근빵 — 글씨를 키운 만큼 칸도 넓어졌는가')
+print('=' * 74)
+# ⚠️ 글씨만 27~32px 로 키우고 칸은 540px 그대로 뒀더니, 숫자칸 96px 에
+#    '1,234,000'(161px) 이 안 들어가 65px 잘렸다. 엑셀판이 698→990 으로
+#    넓어져야 했던 것과 같은 병이다. 화면에서 직접 잰 값으로 못 박는다.
+_hr = re.search(r'\.home-race-box \{[^}]*width:\s*(\d+)px', css, re.S)
+chk('판이 900px 이다 (540 이면 숫자가 잘린다)', _hr and int(_hr.group(1)) >= 900,
+    (_hr.group(1) + 'px') if _hr else '못 찾음')
+_nm = re.search(r'\.home-race-name \{[^}]*width:\s*(\d+)px', css, re.S)
+chk('이름칸이 200px 이다 (120 이면 네 글자에서 꽉 찬다)', _nm and int(_nm.group(1)) >= 200,
+    (_nm.group(1) + 'px') if _nm else '못 찾음')
+_nu = re.search(r'\.home-race-nums \{[^}]*width:\s*(\d+)px', css, re.S)
+chk("숫자칸이 196px 이다 ('1,234,000' 이 161px 다)", _nu and int(_nu.group(1)) >= 176,
+    (_nu.group(1) + 'px') if _nu else '못 찾음')
+chk('숫자를 오른쪽으로 맞춘다 (자릿수가 맞아야 비교된다)',
+    re.search(r'\.home-race-nums \{[^}]*text-align:\s*right', css, re.S) is not None)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (ok, bad))
 print('=' * 74)
 sys.exit(1 if bad else 0)

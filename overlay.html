@@ -1157,7 +1157,12 @@
             border: 1.5px solid rgba(120,135,255,0.55);
             border-radius: 22px;
             box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 0 22px rgba(90,108,255,0.35), inset 0 0 26px rgba(90,108,255,0.10);
-            padding: 22px 22px 16px; width: 540px;
+            /* ⚠️ 폭을 540 에서 900 으로 넓혔다. 글씨를 폰에서 읽히게 27~32px 로
+               키우면서 칸 폭은 그대로 뒀더니, 숫자칸 96px 에 '1,234,000'(161px)이
+               안 들어가 잘렸다. 엑셀판이 698→990 으로 넓어져야 했던 것과 같다.
+               ⚠️ 오른쪽 기준(right:42)이라 폭을 바꾸면 왼쪽 끝이 따라 움직인다 —
+                  편집기 그림자 자리도 같이 고쳐야 한다 (1038 - 947 = 91). */
+            padding: 22px 22px 16px; width: 900px;
         }
         .home-race-title {
             width: max-content; margin: -34px auto 18px;
@@ -1169,7 +1174,8 @@
         .home-race-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .home-race-row:last-child { border-bottom: none; }
         .home-race-name {
-            width: 120px; font-size: 27px; font-weight: 900; color: #fff;
+            /* 120px 이면 네 글자에서 이미 꽉 찼다 */
+            width: 200px; font-size: 27px; font-weight: 900; color: #fff;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
         }
         .home-race-bar-bg {
@@ -1186,7 +1192,8 @@
             background: linear-gradient(90deg, var(--gold-deep), #ffe9b0);
             box-shadow: 0 0 14px var(--gold-glow);
         }
-        .home-race-nums { width: 96px; text-align: left; font-size: 30px; font-weight: 900; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        /* ⚠️ 96px 에 '1,234,000'(161px) 이 안 들어가 잘렸다. 오른쪽 정렬로 자릿수도 맞춘다. */
+        .home-race-nums { width: 196px; text-align: right; font-size: 30px; font-weight: 900; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
         .home-race-nums .cur { color: #fff; }
         /* 각 플레이어 행 오른쪽 '목표' 배지 (예: 26만) */
         .home-race-goal-tag {
