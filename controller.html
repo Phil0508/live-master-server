@@ -3700,7 +3700,10 @@
         }
         function queueAudits(list) {
             (list || []).forEach(don => {
-                if (!don || don.type === 'off_work') return;
+                // ⚠️ 기여도 알림(주사위 시그니처 등)은 후원이 아니다. '누구를 응원하는가'
+                //    라는 질문 자체가 성립하지 않아 늘 '모르겠음' 이 뜨고, 답 없는 질문에
+                //    NVIDIA 쿼터(분당 35회)만 태운다. 퇴근빵과 같은 이유로 뺀다.
+                if (!don || don.type === 'off_work' || don.kind === 'contrib') return;
                 // ⚠️ 예전에는 메시지가 없으면 물어보지도 않았다. 그런데 이제는 메시지가 없어도
                 //    '이 후원자는 늘 밍밍에게 갔다' 는 이력만으로 풀린다. 그러니 다 물어본다.
                 if (auditRequested.has(don.id)) return;

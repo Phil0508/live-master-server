@@ -35,11 +35,17 @@ print()
 print('=' * 74)
 print('② 이미 종료된 모델이 기본값으로 남아 있지 않은가')
 print('=' * 74)
-DEAD = ['meta/llama-3.1-8b-instruct', 'nvidia/nvidia-nemotron-nano-9b-v2']
+# ⚠️ 실제로 NVIDIA 에 물어봐서 죽은 것을 확인한 목록이다 (2026-08-31).
+#    nemotron-3-nano-30b-a3b 는 채팅 '예비' 에 남아 있었고, 주 모델이 몰려
+#    거기로 넘어갔다가 410 을 맞아 "모델이 종료됐다" 가 화면에 떴다.
+#    예비에 죽은 모델이 있으면 평소엔 멀쩡해 보이다가 붐빌 때만 터진다.
+DEAD = ['meta/llama-3.1-8b-instruct', 'nvidia/nvidia-nemotron-nano-9b-v2',
+        'nvidia/nemotron-3-nano-30b-a3b']
 for d in DEAD:
     # 주석에 사연으로 적는 것은 괜찮다. 실제 기본값으로 쓰이면 안 된다.
-    used = re.search(r'NIM_(CHAT_)?MODEL\s*=\s*\([^)]*"' + re.escape(d) + '"', src)
-    chk("종료된 '%s' 를 기본값으로 쓰지 않는다" % d.split('/')[-1], not used)
+    # ⚠️ 주 모델뿐 아니라 예비(BACKUP)도 본다 — 예비에 죽은 게 있으면 붐빌 때만 터진다
+    used = re.search(r'NIM_(?:CHAT_)?MODEL(?:_BACKUP)?\s*=\s*\([^)]*"' + re.escape(d) + '"', src)         or re.search(r'NIM_CHAT_BACKUP\s*=\s*\([^)]*"' + re.escape(d) + '"', src)
+    chk("종료된 '%s' 를 주·예비 어디에도 안 쓴다" % d.split('/')[-1], not used)
 
 print()
 print('=' * 74)
@@ -60,7 +66,14 @@ chk("'gone' 으로 표시한다", '"gone": True' in src)
 chk('화면 문구가 모델 종료라고 말한다', 'AI 모델이 종료됐습니다' in src)
 chk('채팅도 종료를 따로 알려준다', "이(가) 응답 {r.status_code}." in src)
 chk('무엇을 바꿔야 하는지 이름을 알려준다',
-    'NIM_MODEL 을 살아 있는 모델로' in src and 'NIM_CHAT_MODEL 을 살아 있는 모델로' in src)
+    'NIM_MODEL 을 살아 있는 모델로' in src and '을(를) 살아 있는 모델로' in src)
+# ⚠️ 예전에는 주 모델이 503 이라 예비로 넘어가 410 을 맞아도, 메시지는 늘 주 모델
+#    이름을 찍었다. 그래서 멀쩡한 모델을 가리키며 "종료됐다" 고 말했고 사장님이
+#    엉뚱한 설정을 고치러 갈 뻔했다. 실제로 답한 모델(_used)을 대야 한다.
+chk('실제로 죽은 모델 이름을 댄다 (주 모델 이름을 찍지 않는다)',
+    "f\"이 AI 모델('{_used}')이 종료됐습니다" in src)
+chk('어느 설정을 고쳐야 하는지 가려서 알려준다',
+    "_which = 'NIM_CHAT_BACKUP' if _used == NIM_CHAT_BACKUP else 'NIM_CHAT_MODEL'" in src)
 
 print()
 print('=' * 74)

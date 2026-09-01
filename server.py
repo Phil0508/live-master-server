@@ -295,8 +295,16 @@ NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 #    2026-08-26 에 쓰던 모델 둘이 같은 날 서비스 종료(410)돼 AI 기능이 방송 중에 통째로
 #    멈췄다. 코드에 박혀 있으면 그때마다 고쳐서 배포해야 한다 — 방송 중에는 못 할 일이다.
 #    서버 설정(NIM_MODEL / NIM_CHAT_MODEL)만 바꾸고 재시작하면 넘어갈 수 있게 한다.
-NIM_MODEL = (os.environ.get('NIM_MODEL') or "nvidia/nemotron-3-nano-30b-a3b").strip()
-NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3-super-120b-a12b").strip()
+# 2026-08-31 실측 (NVIDIA API 에 직접 물어본 값):
+#     nvidia/nemotron-3-nano-30b-a3b        410 GONE  ← 여기 있던 모델. 죽었다
+#     nvidia/nemotron-3-super-120b-a12b     503 잦음. 가끔 200
+#     nvidia/nemotron-3.5-lightning-30b-a3b 200. 기입검증 0.61s · 채팅 1.26s
+#     nvidia/nemotron-nano-3-30b-a3b        404 (목록에는 있는데 안 열림)
+#     nvidia/nemotron-3-ultra-550b-a55b     60초 넘게 무응답
+# 주 모델은 '지금 확실히 열려 있는 것' 으로 둔다. 품질 좋은 super 는 예비로 내렸다 —
+# 자주 막히는 것을 주 모델로 두면 매번 예비로 넘어가느라 늦어진다.
+NIM_MODEL = (os.environ.get('NIM_MODEL') or "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
+NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
 
 # nemotron 3 계열은 생각을 먼저 늘어놓고 답한다. 기입검증은 JSON 한 줄만 필요하고
 # 후원이 들어온 순간 바로 답해야 하므로 추론을 끈다.
@@ -311,8 +319,11 @@ NIM_CHAT_PREFIX = ""  # 채팅은 추론을 켜 둔다 — 설명이 필요한 �
 #    (실측: 같은 모델이 어떤 때는 6/6 되고 어떤 때는 overloaded 를 뱉는다. 큰 모델일수록 잦다)
 NIM_MODEL_BACKUP = (os.environ.get('NIM_MODEL_BACKUP')
                     or "nvidia/nemotron-3-super-120b-a12b").strip()
+# ⚠️ 여기에 죽은 모델(nano-30b, 410)이 들어 있었다. 주 모델이 503 으로 막히면
+#    예비로 넘어갔다가 410 을 맞고, 그게 "모델이 종료됐다" 로 화면에 떴다.
+#    예비도 반드시 살아 있는 것으로 둬야 한다.
 NIM_CHAT_BACKUP = (os.environ.get('NIM_CHAT_BACKUP')
-                   or "nvidia/nemotron-3-nano-30b-a3b").strip()
+                   or "nvidia/nemotron-3-super-120b-a12b").strip()
 
 # 다시 해보면 될 만한 응답. 410(모델이 없어짐)·401(키)은 다시 해도 같으므로 넣지 않는다.
 NIM_RETRYABLE = (429, 500, 502, 503, 504)
@@ -3628,10 +3639,16 @@ def api_ai_chat():
                                      "잠시 뒤 다시 물어봐 주세요. (후원·점수에는 영향 없습니다)"})
         if r.status_code != 200:
             if r.status_code in (404, 410):
-                print(f"❌ [AI 모델 없음] '{NIM_CHAT_MODEL}' 이(가) 응답 {r.status_code}.", flush=True)
+                # ⚠️ 주 모델이 아니라 '실제로 답한 모델'(_used) 을 대야 한다.
+                #    예전에는 늘 NIM_CHAT_MODEL 을 찍었다. 주 모델이 503 이라 예비로
+                #    넘어가 410 을 맞은 경우, 멀쩡한 주 모델을 가리키며 "종료됐다" 고
+                #    말했다 — 사장님이 엉뚱한 설정을 고치러 갔다.
+                _which = 'NIM_CHAT_BACKUP' if _used == NIM_CHAT_BACKUP else 'NIM_CHAT_MODEL'
+                print(f"❌ [AI 모델 없음] '{_used}' 이(가) 응답 {r.status_code}. "
+                      f"({_which} 를 바꿔야 합니다)", flush=True)
                 return jsonify({"status": "success",
-                                "reply": f"이 AI 모델('{NIM_CHAT_MODEL}')이 종료됐습니다.\n"
-                                         "서버 설정의 NIM_CHAT_MODEL 을 살아 있는 모델로 "
+                                "reply": f"이 AI 모델('{_used}')이 종료됐습니다.\n"
+                                         f"서버 설정의 {_which} 을(를) 살아 있는 모델로 "
                                          "바꾸고 재시작해주세요. (후원·점수에는 영향 없습니다)"})
             return jsonify({"status": "success", "reply": f"(AI 오류 {r.status_code}) 잠시 후 다시 시도해주세요."})
         msg = r.json()["choices"][0]["message"]
