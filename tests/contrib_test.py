@@ -80,17 +80,17 @@ post('/api/data', {'bjs': [{'name': NAME, 'score': 0, 'contribution': 0}],
                    'pending_donations': []})
 
 print('=' * 74)
-print('① 주사위 시그니처 칸을 밟으면 기여도 알림이 생기는가')
+print('① 시그니처 칸을 밟으면 기여도가 저절로 들어가는가')
 print('=' * 74)
 # ⚠️ 한 판 값을 0 으로 둔다. 가짜 시그니처가 전부 14,000원 이하라, 기본값(2만원)
-#    이면 뺄 게 더 커서 기여도가 0 이 되고 알림 자체가 안 생긴다.
+#    이면 뺄 게 더 커서 기여도가 0 이 되고 아무 일도 안 일어난다.
 #    '빼는 규칙' 자체는 ⑤ 에서 따로 본다.
 post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 0})
 d = get().get('dicegame') or {}
 n = len(d.get('tiles') or [])
 chk('판이 만들어졌다', n > 0, '%d칸' % n)
 
-# ⚠️ 굴림은 무작위다. 어디에 서든 시그니처 칸이 되게 출발칸 빼고 전부 시그로 채운다.
+# 굴림은 무작위다. 어디에 서든 시그니처 칸이 되게 출발칸 빼고 전부 시그로 채운다.
 made = 0
 for i in range(1, n):
     c, _ = post('/api/dicegame/tile', {'id': i, 'type': 'sig', 'sig_id': 10003})
@@ -98,48 +98,52 @@ for i in range(1, n):
         made += 1
 chk('시그니처 칸을 깔았다', made >= n - 1, '%d칸' % made)
 
-before = len(get().get('pending_donations') or [])
-c, r = post('/api/dicegame/roll', {})
-chk('굴렸다', c == 200, r.get('tile'))
-pend = get().get('pending_donations') or []
-contrib_items = [p for p in pend if p.get('kind') == 'contrib']
-chk('기여도 전용 알림이 대기함에 생겼다', len(contrib_items) == 1,
-    '대기함 %d건 중 기여도 %d건' % (len(pend), len(contrib_items)))
-
-print()
-print('=' * 74)
-print('② 얼마를 줄지가 들어 있는가 ((시그 값 − 한 판 값) ÷ 10,000)')
-print('=' * 74)
-item = contrib_items[0] if contrib_items else {}
-# 가짜 시그니처 10003 은 amount 10300 (boot_sig.py) → 반올림하면 1
-chk('기여도 값이 들어 있다', isinstance(item.get('contrib'), int) and item['contrib'] >= 1,
-    item.get('contrib'))
-# ⚠️ 알림에는 금액이 아니라 '어떻게 셈했는지' 가 들어간다. 운영자가 카드만 보고
-#    "왜 8점이지?" 를 알 수 있어야 한다 — 안 그러면 셈이 틀려도 아무도 모른다.
-_msg = str(item.get('message') or '')
-chk('셈한 근거가 적혀 있다 (시그 값 − 한 판 값)',
-    '원' in _msg and '한 판' in _msg, _msg)
-# 한 판 값을 0 으로 뒀으므로 시그니처 값(10,300원)이 그대로 환산돼 1 이다
-chk('그 셈이 맞는다', item.get('contrib') == 1, item.get('contrib'))
-chk('무엇인지 알아볼 수 있다', '주사위' in str(item.get('name')), item.get('name'))
-
-print()
-print('=' * 74)
-print('③ 지급하면 점수는 그대로, 기여도만 오르는가')
-print('=' * 74)
-"""⚠️ 조종실은 delta 0 · contribution N 으로 부른다. contribution 을 빼먹으면
-   서버가 delta 를 기여도에도 넣어(=0) 아무것도 안 오른다 — 그것도 사고다."""
 s0, c0 = who(NAME)
-add = int(item.get('contrib') or 0)
-code, _ = post('/api/score/add', {'scope': 'rank', 'name': NAME,
-                                  'delta': 0, 'contribution': add,
-                                  'pending_id': item.get('id')})
-chk('지급이 받아들여졌다', code == 200, code)
+code, r = post('/api/dicegame/roll', {'player': NAME})
+chk('굴렸다', code == 200, r.get('tile'))
+got = r.get('contrib') or {}
+chk('누구에게 얼마가 갔는지 응답에 실린다', got.get('name') == NAME and got.get('points'), got)
 s1, c1 = who(NAME)
+chk('기여도가 저절로 올랐다 (누를 것 없이)', c1 > c0, '%d → %d' % (c0, c1))
 chk('점수는 한 점도 안 올랐다 (그날 일당이다)', s1 == s0, '%d → %d' % (s0, s1))
-chk('기여도만 올랐다', c1 == c0 + add, '%d → %d (+%d)' % (c0, c1, add))
-left = [p for p in (get().get('pending_donations') or []) if p.get('id') == item.get('id')]
-chk('대기함에서 빠졌다', not left)
+chk('대기함에 누를 것이 안 남는다',
+    not [p for p in (get().get('pending_donations') or []) if p.get('kind') == 'contrib'])
+
+print()
+print('=' * 74)
+print('② 얼마가 들어갔나 ((시그 값 − 한 판 값) ÷ 10,000)')
+print('=' * 74)
+# 가짜 시그니처 10003 은 amount 10,300원. 한 판 값 0 이므로 반올림하면 1
+chk('그 셈이 맞는다', got.get('points') == 1, got.get('points'))
+# ⚠️ '어떻게 셈했는지' 가 같이 와야 한다. 운영자가 "왜 8점이지?" 를 알 수 있어야
+#    셈이 틀려도 알아챈다.
+_why = str(got.get('why') or '')
+chk('셈한 근거가 붙어 있다', '원' in _why and '한 판' in _why, _why)
+
+print()
+print('=' * 74)
+print('③ 한 번도 안 골랐으면 대기함에 남기는가 (아무에게나 주지 않는다)')
+print('=' * 74)
+# ⚠️ 기억이 없는데도 자동으로 넣으면 아무에게나 주는 것이 된다. 그때만 대기함으로.
+d = get().get('dicegame') or {}
+d['last_player'] = ''
+post('/api/data', {'dicegame': d})
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 0})
+_n = len((get().get('dicegame') or {}).get('tiles') or [])
+for i in range(1, _n):
+    post('/api/dicegame/tile', {'id': i, 'type': 'sig', 'sig_id': 10003})
+post('/api/data', {'pending_donations': []})
+code, r = post('/api/dicegame/roll', {})
+_items = [p for p in (get().get('pending_donations') or []) if p.get('kind') == 'contrib']
+if (get().get('dicegame') or {}).get('last_player'):
+    # 기억을 못 지웠다면 자동으로 들어간 것이 맞다 — 그것도 통과다
+    chk('기억이 있으면 자동으로 들어간다 (대기함을 안 거친다)', not _items and r.get('contrib'),
+        r.get('contrib'))
+else:
+    chk('기억이 없으면 대기함에 남긴다', len(_items) == 1, '%d건' % len(_items))
+    if _items:
+        chk('무엇인지 알아볼 수 있다', '주사위' in str(_items[0].get('name')), _items[0].get('name'))
+        chk('얼마를 줄지가 들어 있다', _items[0].get('contrib') == 1, _items[0].get('contrib'))
 
 print()
 print('=' * 74)
@@ -199,6 +203,46 @@ chk('그 도우미는 점수를 안 건드린다',
     and "t['score']" not in src.split('def _dicegame_apply_contrib(')[1].split('def ')[0])
 # ⚠️ 누구 차례인지 안 골랐으면 잃어버리지 말고 조종실에 남긴다
 chk('누구 차례인지 모르면 대기함에 남긴다', 'def _dicegame_contrib_alert(' in src)
+
+print()
+print('=' * 74)
+print('⑥ 누르지 않아도 기여도가 올라가는가')
+print('=' * 74)
+# 사장님 말: "누르지말고 기여도가 자동으로 올라가게 해줘. 이미 플레이어를 고르고 게임하니까"
+# ⚠️ 예전에는 굴릴 때 사람을 안 고르면 대기함에 알림으로 남아 한 번 더 눌러야 했다.
+#    주사위를 굴리는 것도 폰, 누르는 것도 폰이라 같은 일을 두 번 하는 셈이었다.
+#    이제 마지막으로 굴린 사람을 기억해 그 사람에게 넣는다.
+src2 = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+chk('마지막으로 굴린 사람을 기억한다', '"last_player": ""' in src2)
+chk('고르면 기억해 둔다', "g['last_player'] = player" in src2)
+chk('안 고르면 기억한 사람에게 간다',
+    "contrib_player = player or str(g.get('last_player') or '').strip()" in src2)
+# ⚠️ 그 기억은 기여도에만 쓴다. 점수 칸에 쓰면 안 고른 판의 '그날 일당' 이
+#    앞사람에게 들어가 정산이 틀어진다. 실제로 한 번 그렇게 만들었다가
+#    dice_test 의 '차례를 안 고르면 점수는 안 움직인다' 가 잡았다.
+chk('점수 칸은 기억을 안 쓴다 (그날 일당이라 위험하다)',
+    "_dicegame_apply_score(state, player, int(tile['points']))" in src2)
+chk('기여도만 기억을 쓴다',
+    src2.count('_dicegame_apply_contrib(state, contrib_player') == 2)
+# ⚠️ 자동으로 들어가는 값은 '누구에게 갔는지' 가 보여야 한다. 안 보이면 차례가
+#    넘어갔는데 안 바꿔서 앞사람에게 들어가도 아무도 모른다.
+mob = io.open(os.path.join(PROJ, 'mobile.html'), encoding='utf-8', errors='replace').read()
+chk('폰 화면이 받은 사람을 보여준다',
+    "d.contrib.name + ' 기여도 +'" in mob and "d.lap_contrib.name + ' 기여도 +'" in mob)
+
+# 실제로 한 번 고르고, 그 뒤 안 고르고 굴려 본다
+post('/api/data', {'bjs': [{'name': NAME, 'score': 0, 'contribution': 0}],
+                   'pending_donations': []})
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 0})
+_n = len((get().get('dicegame') or {}).get('tiles') or [])
+for i in range(1, _n):
+    post('/api/dicegame/tile', {'id': i, 'type': 'sig', 'sig_id': 10040})
+code, r = post('/api/dicegame/roll', {'player': NAME})
+chk('고르고 굴리면 바로 들어간다', (r.get('contrib') or {}).get('name') == NAME, r.get('contrib'))
+chk('대기함에 누를 것이 안 남는다',
+    not [p for p in (get().get('pending_donations') or []) if p.get('kind') == 'contrib'])
+d2 = get().get('dicegame') or {}
+chk('그 사람을 기억했다', d2.get('last_player') == NAME, d2.get('last_player'))
 
 print()
 print('=' * 74)

@@ -354,6 +354,10 @@ async function dgMobRoll() {
         let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
         if (d.scored) m += ' · ' + d.scored.name + ' ' + (d.scored.points > 0 ? '+' : '') + d.scored.points + '점';
         if (d.lap) m += ' · 한 바퀴!';
+        // ⚠️ 기여도는 저절로 들어간다. 누구에게 갔는지 안 보이면, 차례가 넘어갔는데
+        //    안 바꿔서 앞사람에게 들어가도 아무도 모른다. 반드시 보여준다.
+        if (d.contrib) m += ' · ' + d.contrib.name + ' 기여도 +' + d.contrib.points;
+        if (d.lap_contrib) m += ' · ' + d.lap_contrib.name + ' 기여도 +' + d.lap_contrib.points;
         toast(m);
         if (d.note) toast(d.note, false);
     } catch (e) { toast(e.message, false); }
@@ -386,7 +390,8 @@ function rDice(el) {
       <button onclick="dgMobShow()" style="width:100%; height:44px; margin-top:10px;">
         ${g.enabled ? '화면에서 내리기' : '화면에 보이기'}</button>
       <div style="font-size:12px; color:#8e8e93; margin-top:12px; line-height:1.6;">
-        점수 칸은 누구 차례인지 골라뒀을 때만 자동으로 들어갑니다.<br>칸 내용 편집은 PC 조종실에서.</div>`;
+        점수 칸과 기여도(시그니처·한 바퀴)는 골라둔 사람에게 자동으로 들어갑니다.<br>
+        안 고르면 마지막으로 굴린 사람에게 갑니다 — 차례가 바뀌면 바꿔주세요.<br>칸 내용 편집은 PC 조종실에서.</div>`;
 }
 
 /* ═══ 📥 대기함 ═══ */

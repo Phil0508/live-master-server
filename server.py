@@ -1502,6 +1502,10 @@ DEFAULT_STATE = {
         "roll_price": 20000,
         # 🏁 출발 칸을 넘어갈 때 주는 기여도
         "lap_contrib": 5,
+        # 🙋 마지막으로 굴린 사람. 다음 굴림에 아무도 안 고르면 이 사람에게 간다.
+        #    ⚠️ 차례가 넘어갔는데 안 바꾸면 앞사람에게 들어간다 — 그래서 굴림 응답에
+        #       '누구에게 갔는지' 를 반드시 실어 보낸다.
+        "last_player": "",
         "pos": 0,           # 말 위치 (0 = 출발 칸)
         "laps": 0,          # 몇 바퀴 돌았나
         # 칸 목록. [{id, type, label, points, sig}]
@@ -6127,6 +6131,15 @@ def api_dicegame_roll():
     with file_lock:
         state = load_data()
         g = _dicegame_state(state)
+        # 🙋 이번에 안 골랐으면 마지막으로 굴린 사람을 쓴다 — 한 판마다 다시 고르지
+        #    않아도 기여도가 저절로 쌓이게. 골랐으면 그 사람을 기억해 둔다.
+        #    ⚠️ 이 기억은 **기여도에만** 쓴다. 점수 칸에는 절대 안 쓴다 —
+        #       점수는 그날 일당이라, 안 고른 판이 앞사람에게 들어가면 정산이 틀어진다.
+        #       기여도는 게임 점수라 오르내려도 된다고 사장님이 정했다.
+        #       (한 번 여기서 player 를 통째로 덮었다가 점수 칸까지 딸려갔다)
+        if player:
+            g['last_player'] = player
+        contrib_player = player or str(g.get('last_player') or '').strip()
         tiles = g.get('tiles') or []
         if not g.get('enabled') or not tiles:
             return jsonify({'status': 'error', 'message': '먼저 판을 깔아주세요'}), 400
@@ -6190,8 +6203,8 @@ def api_dicegame_roll():
                 if _contrib <= 0:
                     print(f"🎯 [주사위게임] 시그니처 '{tile['sig'].get('title')}' 는 한 판 값"
                           f"({_price:,}원) 이하라 더 줄 기여도가 없습니다")
-                elif player:
-                    _to = _dicegame_apply_contrib(state, player, _contrib, _why)
+                elif contrib_player:
+                    _to = _dicegame_apply_contrib(state, contrib_player, _contrib, _why)
                     if _to:
                         action['contrib'] = {'name': _to, 'points': _contrib, 'why': _why}
                         print(f"🎯 [주사위게임] {_to} 에게 기여도 {_contrib} (시그니처)")
@@ -6211,8 +6224,8 @@ def api_dicegame_roll():
                 _lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)
                 if _lap_c:
                     _why = '출발 칸을 넘었습니다 (%d바퀴째)' % ((_as_int(g.get('laps'), 0) or 0) + 1)
-                    if player:
-                        _to = _dicegame_apply_contrib(state, player, _lap_c, _why)
+                    if contrib_player:
+                        _to = _dicegame_apply_contrib(state, contrib_player, _lap_c, _why)
                         if _to:
                             action['lap_contrib'] = {'name': _to, 'points': _lap_c}
                             print(f"🏁 [주사위게임] {_to} 에게 기여도 {_lap_c} (한 바퀴)")
