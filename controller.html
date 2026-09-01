@@ -2044,7 +2044,7 @@
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:var(--fs-2); color:var(--text-muted);">
                 가로 <select id="dgc-cols" style="height:34px;"><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select>
                 세로 <select id="dgc-rows" style="height:34px;"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select>
-                굴림 <select id="dgc-dice" style="height:34px;"><option value="1">1회 (1~6칸)</option><option value="2" selected>2회 (2~12칸)</option></select>
+                주사위 <select id="dgc-dice" style="height:34px;"><option value="1" selected>1개 (1~6칸)</option><option value="2">2개 (2~12칸)</option></select>
                 <button class="secondary" onclick="dgcSetup()" style="height:34px; padding:0 14px; border-radius:var(--r-2);">판 만들기</button>
                 <button class="secondary" onclick="dgcPreset22()" title="8×5 테두리 22칸 — 출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
                         style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 기본판</button>
@@ -7928,10 +7928,12 @@ initFoldablePanels();
             // 8×5 테두리 = 2*(8+5)-4 = 22칸.
             // ⚠️ 7×6 도 22칸이지만 판이 세로로 830px 이라 계좌 박스와 게이지를 가렸다.
             //    옆으로 눕힌 8×5 는 판이 1038×654 — 칸은 더 크고 세로는 덜 쓴다.
-            const su = await dgcCall('setup', { cols: 8, rows: 5, dice: 2 });
+            // 🎲 주사위는 한 개, 한 번, 최대 6 — 사장님이 정한 규칙이다.
+            const su = await dgcCall('setup', { cols: 8, rows: 5, dice: 1 });
             if (!su) return;
             document.getElementById('dgc-cols').value = '8';
             document.getElementById('dgc-rows').value = '5';
+            document.getElementById('dgc-dice').value = '1';
 
             const sigs = await dgcLoadSigs();
             const missing = [], failed = [];
@@ -8038,9 +8040,21 @@ initFoldablePanels();
             if (st) {
                 const dice = ((g.action || {}).dice || []).join('+');
                 st.textContent = (g.tiles || []).length
-                    ? ('말 ' + (g.pos || 0) + '번 칸 · ' + (g.laps || 0) + '바퀴' + (dice ? ' · 마지막 눈 ' + dice : ''))
+                    ? ('말 ' + (g.pos || 0) + '번 칸 · ' + (g.laps || 0) + '바퀴'
+                       + ' · 주사위 ' + (g.dice || 1) + '개'
+                       + (dice ? ' · 마지막 눈 ' + dice : ''))
                     : '판 없음';
             }
+
+            /* ⚠️ 판 만들기 칸을 서버가 쓰는 실제 값으로 맞춘다.
+               예전에는 안 맞췄다. 그래서 실제 판이 무엇이든 화면에는 늘 '7×5 · 2회' 로
+               보였고, 다른 것 하나 고치려고 [판 만들기] 를 누르면 그 순간 주사위가
+               조용히 두 개가 됐다. 화면이 거짓말을 하면 사장님은 바뀐 줄도 모른다.
+               ⚠️ 지금 만지고 있는 칸은 건드리지 않는다 — 고르는 중에 되돌아간다. */
+            [['dgc-cols', g.cols], ['dgc-rows', g.rows], ['dgc-dice', g.dice]].forEach(([id, v]) => {
+                const el = document.getElementById(id);
+                if (el && el !== ae && v != null) el.value = String(v);
+            });
             const sb = document.getElementById('dgc-show-btn');
             if (sb) sb.textContent = g.enabled ? '화면에서 내리기' : '화면에 보이기';
             const rb = document.getElementById('dgc-roll-btn');

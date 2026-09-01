@@ -4,6 +4,7 @@
 굴림 사이에 move 를 끼우면 연타 방지(직전 action 이 ROLL 일 때만)를 지나갈 수 있어
 검사가 몇십 초씩 기다리지 않아도 된다.
 """
+import io
 import json
 import sys
 import time
@@ -225,6 +226,69 @@ post('/api/dicegame/reset')
 g = dg()
 chk('초기화 — 말은 출발로, 화면에서 내려감', g.get('pos') == 0 and g.get('enabled') is False)
 chk('칸 구성과 덱은 남는다', len(g.get('tiles') or []) == 10 and len(g.get('keys') or []) == 3)
+
+print()
+print('=' * 74)
+print('⑪ 주사위는 한 개, 한 번, 최대 6')
+print('=' * 74)
+"""사장님 말: "주사위를 1개로 1번만 돌려서 최대 6만 나오게 한다는거였어"
+
+⚠️ 서버는 원래 맞았다. 조종실이 되돌리고 있었다 —
+   판 만들기 칸이 <option value="2" selected> 였고, 22칸 기본판이 dice: 2 를 박아
+   보냈다. 무엇보다 그 칸들이 서버 상태를 안 읽어와서, 실제 판이 무엇이든 화면에는
+   늘 '2회' 로 보였다. 그래서 다른 것 하나 고치려고 [판 만들기] 를 누르면 그 순간
+   주사위가 조용히 두 개가 됐다. 화면이 거짓말을 하면 사장님은 바뀐 줄도 모른다.
+   그래서 여기서는 '서버가 한 개인가' 만 보지 않고 '조종실이 사실을 보여주는가' 도 본다.
+"""
+import os as _os
+
+_HERE = _os.path.dirname(_os.path.abspath(__file__))
+_FALLBACK = r'C:\Users\Administrator\Desktop\새로다시시작'
+
+
+def _proj():
+    d = _HERE
+    for _ in range(4):
+        d = _os.path.dirname(d)
+        if _os.path.exists(_os.path.join(d, 'server.py')):
+            return d
+    return _FALLBACK
+
+
+post('/api/dicegame/setup', {'cols': 8, 'rows': 5})       # 개수를 일부러 안 보낸다
+chk('개수를 안 보내면 한 개로 깔린다', dg().get('dice') == 1, dg().get('dice'))
+
+# 실제로 굴려 본다. ⚠️ 굴림 사이에는 연출을 지키는 쿨다운(429)이 있어 기다려야 한다.
+_vals, _counts, _tries = [], set(), 0
+while len(_vals) < 12 and _tries < 120:
+    _tries += 1
+    _c, _d = post('/api/dicegame/roll', {})
+    if _c == 429:
+        time.sleep(0.6)
+        continue
+    _counts.add(len(_d.get('dice') or []))
+    _vals += (_d.get('dice') or [])
+    time.sleep(0.4)
+chk('굴릴 때마다 주사위는 딱 한 개', _counts == {1}, sorted(_counts))
+chk('눈은 1~6 을 벗어나지 않는다',
+    bool(_vals) and min(_vals) >= 1 and max(_vals) <= 6,
+    '최소 %s 최대 %s' % (min(_vals) if _vals else '-', max(_vals) if _vals else '-'))
+chk('한 번에 7 이상은 안 나온다', all(v <= 6 for v in _vals))
+
+# 기능 자체는 남긴다 — 사장님이 나중에 두 개로 바꾸고 싶을 수 있다
+post('/api/dicegame/setup', {'cols': 8, 'rows': 5, 'dice': 2})
+chk('두 개로도 깔 수 있다(기능은 남긴다)', dg().get('dice') == 2, dg().get('dice'))
+post('/api/dicegame/setup', {'cols': 8, 'rows': 5, 'dice': 9})
+chk('아홉 개를 보내도 두 개로 막힌다', dg().get('dice') == 2, dg().get('dice'))
+post('/api/dicegame/setup', {'cols': 8, 'rows': 5, 'dice': 1})
+chk('다시 한 개로 돌아온다', dg().get('dice') == 1, dg().get('dice'))
+
+_ctl = io.open(_os.path.join(_proj(), 'controller.html'),
+               encoding='utf-8', errors='replace').read()
+chk('조종실 고르는 칸의 기본이 한 개', 'value="1" selected>1개' in _ctl)
+chk('22칸 기본판도 한 개로 깐다', 'cols: 8, rows: 5, dice: 1' in _ctl)
+chk('⚠️ 판 만들기 칸이 서버 상태를 따라간다 (진짜 원인)', "['dgc-dice', g.dice]" in _ctl)
+chk('지금 주사위가 몇 개인지 화면에 뜬다', "' · 주사위 ' + (g.dice || 1) + '개'" in _ctl)
 
 print()
 print('=' * 74)
