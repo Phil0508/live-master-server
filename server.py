@@ -965,7 +965,10 @@ def is_duplicate_donation(key):
 SLOT_RESULT_DELAY_SEC = 4.0
 
 def _slot_finish(winner):
-    """슬롯 당첨 확정 처리: 슬롯 위젯을 끄고 당첨 시그니처를 리액션 큐에 넣는다."""
+    """슬롯 당첨 확정 처리: 슬롯 위젯을 끄고 당첨 시그니처를 리액션 큐에 넣는다.
+
+       🎯 기여도도 같이 올린다 — 주사위와 같은 셈으로 한 판 값을 뺀 만큼.
+    """
     try:
         title = winner.get('title') or '시그니처'
         with file_lock:
@@ -973,6 +976,26 @@ def _slot_finish(winner):
             state['slot_enabled'] = False
             enqueue_signature(state, winner, winner.get('amount') or 0,
                               '🎰 슬롯머신', f'[슬롯 당첨] {title}', skip_popup=True, count_tally=False)
+            # 🎯 기여도만 — 점수(그날 일당)는 안 건드린다.
+            #    ⚠️ 당첨 값에서 한 판 값을 뺀다. 슬롯 한 판은 2만원 후원으로 사는데,
+            #       그 후원이 들어올 때 이미 2점이 올라갔다. 통째로 또 주면 두 번 셈된다.
+            #    ⚠️ 주사위와 달리 '굴린 사람' 이 없다. 차례가 없으니 서버가 누구 것인지
+            #       알 길이 없어, 조종실이 고르도록 대기함에 카드로 올린다.
+            #       아무에게나 자동으로 넣으면 그건 틀린 사람에게 주는 것이다.
+            try:
+                _amt = int(winner.get('amount') or 0)
+                _price = max(0, _as_int(state.get('slot_price'), 20000) or 0)
+                _c = max(0, round((_amt - _price) / 10000))
+                if _c:
+                    _contrib_alert(
+                        state, '🎰 슬롯 당첨', _c,
+                        '%s (%s원 − 한 판 %s원)' % (title[:40], format(_amt, ','), format(_price, ',')))
+                    print(f"  🎯 [슬롯] 기여도 {_c} 알림을 대기함에 올렸습니다 "
+                          f"({_amt:,}원 − 한 판 {_price:,}원)")
+                else:
+                    print(f"  🎯 [슬롯] '{title}' 는 한 판 값({_price:,}원) 이하라 더 줄 기여도가 없습니다")
+            except Exception as e:
+                print(f'⚠️ [슬롯] 기여도 알림 실패 — 당첨 재생은 계속됩니다: {e}')
             save_data(state)
             broadcast_event('update', state)
         print(f"  🎰 [슬롯 당첨 처리] '{title}' → 슬롯 위젯 OFF, 리액션 큐 투입")
@@ -1565,6 +1588,10 @@ DEFAULT_STATE = {
     # load_data()는 DEFAULT_STATE에 있는 키만 복원하므로, 여기 없으면 재시작 때 조용히 사라진다.
     "slot_enabled": True,
     "slot_pool": [],   # 이번 방송에 쓸 시그니처 id 목록. 비어 있으면 전체를 후보로 사용.
+    # 💰 슬롯 한 판 값. 이 금액의 후원으로 한 판을 산다.
+    #    그 후원이 들어올 때 이미 점수·기여도가 (금액/10000)만큼 올라갔으므로,
+    #    당첨 시그니처 값에서 이만큼을 빼고 기여도를 준다 (주사위와 같은 셈).
+    "slot_price": 20000,
     # 🎯 목표 100% 달성 연출 (달성하면 pending, 운영자가 승인해야 송출)
     "goal_event_pending": False,
     "goal_event_approved": False,
@@ -5987,8 +6014,10 @@ def _dicegame_apply_contrib(state, player, contrib, why):
     return t.get('name') or player
 
 
-def _dicegame_contrib_alert(state, title, contrib, why):
-    """누구 차례인지 모를 때, 조종실이 고르라고 대기함에 남긴다."""
+def _contrib_alert(state, title, contrib, why):
+    """기여도만 주는 알림을 대기함에 남긴다 — 조종실이 누구에게 줄지 고른다."""
+    # ⚠️ 주사위(차례를 모를 때)와 슬롯(굴린 사람이 아예 없다)이 같이 쓴다.
+    #    이름에 dicegame 이 붙어 있었는데, 슬롯도 쓰게 되면서 거짓말이 됐다.
     state.setdefault('pending_donations', []).append({
         'id': f"dg_{uuid.uuid4().hex[:12]}",
         'name': title,
@@ -6209,9 +6238,9 @@ def api_dicegame_roll():
                         action['contrib'] = {'name': _to, 'points': _contrib, 'why': _why}
                         print(f"🎯 [주사위게임] {_to} 에게 기여도 {_contrib} (시그니처)")
                     else:
-                        _dicegame_contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
+                        _contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
                 else:
-                    _dicegame_contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
+                    _contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
                     print(f"🎯 [주사위게임] 시그니처 → 기여도 {_contrib} 알림을 대기함에 올렸습니다")
             except Exception as e:
                 print(f'⚠️ [주사위게임] 기여도 실패 — 게임은 계속됩니다: {e}')
@@ -6230,9 +6259,9 @@ def api_dicegame_roll():
                             action['lap_contrib'] = {'name': _to, 'points': _lap_c}
                             print(f"🏁 [주사위게임] {_to} 에게 기여도 {_lap_c} (한 바퀴)")
                         else:
-                            _dicegame_contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
+                            _contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
                     else:
-                        _dicegame_contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
+                        _contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
                         print(f"🏁 [주사위게임] 한 바퀴 → 기여도 {_lap_c} 알림을 대기함에 올렸습니다")
             except Exception as e:
                 print(f'⚠️ [주사위게임] 한 바퀴 기여도 실패 — 게임은 계속됩니다: {e}')

@@ -22,6 +22,7 @@ import io
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -106,8 +107,11 @@ chk('누구에게 얼마가 갔는지 응답에 실린다', got.get('name') == N
 s1, c1 = who(NAME)
 chk('기여도가 저절로 올랐다 (누를 것 없이)', c1 > c0, '%d → %d' % (c0, c1))
 chk('점수는 한 점도 안 올랐다 (그날 일당이다)', s1 == s0, '%d → %d' % (s0, s1))
+# ⚠️ 슬롯은 3.3초 뒤 타이머가 카드를 올린다. 앞 구간의 슬롯이 끼어들 수 있으니
+#    여기서는 '주사위 것' 만 센다.
 chk('대기함에 누를 것이 안 남는다',
-    not [p for p in (get().get('pending_donations') or []) if p.get('kind') == 'contrib'])
+    not [p for p in (get().get('pending_donations') or [])
+         if p.get('kind') == 'contrib' and '주사위' in str(p.get('name'))])
 
 print()
 print('=' * 74)
@@ -137,7 +141,8 @@ code, r = post('/api/dicegame/roll', {})
 _items = [p for p in (get().get('pending_donations') or []) if p.get('kind') == 'contrib']
 if (get().get('dicegame') or {}).get('last_player'):
     # 기억을 못 지웠다면 자동으로 들어간 것이 맞다 — 그것도 통과다
-    chk('기억이 있으면 자동으로 들어간다 (대기함을 안 거친다)', not _items and r.get('contrib'),
+    chk('기억이 있으면 자동으로 들어간다 (대기함을 안 거친다)',
+        r.get('contrib') and not [p for p in _items if '주사위' in str(p.get('name'))],
         r.get('contrib'))
 else:
     chk('기억이 없으면 대기함에 남긴다', len(_items) == 1, '%d건' % len(_items))
@@ -202,7 +207,8 @@ chk('그 도우미는 점수를 안 건드린다',
     "def _dicegame_apply_contrib(" in src
     and "t['score']" not in src.split('def _dicegame_apply_contrib(')[1].split('def ')[0])
 # ⚠️ 누구 차례인지 안 골랐으면 잃어버리지 말고 조종실에 남긴다
-chk('누구 차례인지 모르면 대기함에 남긴다', 'def _dicegame_contrib_alert(' in src)
+chk('누구에게 줄지 모르면 대기함에 남긴다 (주사위·슬롯이 같이 쓴다)',
+    'def _contrib_alert(' in src)
 
 print()
 print('=' * 74)
@@ -239,10 +245,47 @@ for i in range(1, _n):
     post('/api/dicegame/tile', {'id': i, 'type': 'sig', 'sig_id': 10040})
 code, r = post('/api/dicegame/roll', {'player': NAME})
 chk('고르고 굴리면 바로 들어간다', (r.get('contrib') or {}).get('name') == NAME, r.get('contrib'))
+# ⚠️ 슬롯은 3.3초 뒤 타이머가 카드를 올린다. 앞 구간의 슬롯이 끼어들 수 있으니
+#    여기서는 '주사위 것' 만 센다.
 chk('대기함에 누를 것이 안 남는다',
-    not [p for p in (get().get('pending_donations') or []) if p.get('kind') == 'contrib'])
+    not [p for p in (get().get('pending_donations') or [])
+         if p.get('kind') == 'contrib' and '주사위' in str(p.get('name'))])
 d2 = get().get('dicegame') or {}
 chk('그 사람을 기억했다', d2.get('last_player') == NAME, d2.get('last_player'))
+
+print()
+print('=' * 74)
+print('⑦ 슬롯머신도 같은 셈인가')
+print('=' * 74)
+# 사장님 말: "슬롯머신도 아까 방식으로 2점 빼고 기여도만 올릴 수 있게"
+# ⚠️ 주사위와 다른 점: 슬롯은 '굴린 사람' 이 없다. 차례가 없으니 서버가 누구 것인지
+#    알 길이 없어 대기함 카드로 올린다 — 아무에게나 자동으로 넣으면 틀린 사람에게 준다.
+src3 = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+# ⚠️ 지금 값이 아니라 '코드 기본값' 을 본다. 방송마다 바꾸는 값이라 지금 값은
+#    무엇이든 될 수 있다 — 검사가 볼 것은 '안 정하면 2만원인가' 다.
+chk('슬롯 한 판 값 기본이 2만원이다', '"slot_price": 20000,' in src3)
+chk('당첨 값에서 한 판 값을 뺀다', 'round((_amt - _price) / 10000)' in src3)
+chk('한 판 값 이하면 0 으로 둔다', 'max(0, round((_amt - _price) / 10000))' in src3)
+chk('슬롯은 대기함 카드로 올린다 (굴린 사람이 없다)',
+    "_contrib_alert(" in src3.split('def _slot_finish(')[1].split('def ')[0])
+chk('점수는 안 건드린다 (슬롯 처리에 score 가 없다)',
+    "'score'" not in src3.split('def _slot_finish(')[1].split('def ')[0])
+
+# 실제로 돌려 본다 — 한 판 값을 낮춰 기여도가 나오게
+post('/api/settings/patch', {'slot_price': 4000, 'slot_pool': [10040]})   # 40번 = 14,000원
+time.sleep(4.5)   # 앞 구간에서 돌린 슬롯이 남아 있으면 먼저 흘려보낸다
+post('/api/data', {'pending_donations': []})
+code, _ = post('/api/slot/spin', {})
+chk('슬롯이 돌았다', code == 200, code)
+time.sleep(4.5)   # SLOT_RESULT_DELAY_SEC 뒤에 처리된다
+_it = [p for p in (get().get('pending_donations') or [])
+       if p.get('kind') == 'contrib' and '슬롯' in str(p.get('name'))]
+chk('기여도 카드가 올라왔다', len(_it) >= 1, '%d건' % len(_it))
+if _it:
+    chk('셈이 맞는다 (14,000 − 4,000 = 1점)', _it[0].get('contrib') == 1, _it[0].get('contrib'))
+    chk('슬롯 것이라고 알아볼 수 있다', '슬롯' in str(_it[0].get('name')), _it[0].get('name'))
+    chk('셈한 근거가 적혀 있다', '한 판' in str(_it[0].get('message')), _it[0].get('message'))
+post('/api/settings/patch', {'slot_price': 20000, 'slot_pool': []})
 
 print()
 print('=' * 74)
