@@ -1307,7 +1307,7 @@
             <button class="tab-btn" id="tabs-more-btn" onclick="toggleTabsMore()" title="자주 안 쓰는 탭 펴기/접기"><i class="fa-solid fa-ellipsis"></i> 그 밖에</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
-            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-vip'); loadVipList();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
             <a href="/signature-display" target="_blank" class="tab-extra" style="text-decoration: none;"><button class="tab-btn"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
         </div>
@@ -2197,6 +2197,30 @@
             </div>
         </div>
 
+        <!-- 👑 등급 후보 — 후원 기록으로 자격을 보여준다 -->
+        <div class="group-box" style="margin-top: 20px;">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fa-solid fa-ranking-star" style="color: var(--gold);"></i> 등급 후보</span>
+                <button class="secondary" onclick="loadVipCandidates()" style="height:30px; font-size:var(--fs-2); padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-rotate"></i> 다시 계산</button>
+            </div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 12px; line-height:1.6;">
+                지금까지 들어온 후원을 사람별로 모두 더해, <b style="color:var(--gold);">누가 어느 등급 자격이 있는지</b> 보여줍니다.
+                <b>등급을 저절로 바꾸지는 않습니다</b> — 보고 누르셔야 반영됩니다.
+            </div>
+            <div id="vip-tiers" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;"></div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:var(--fs-2); color:var(--text-dim); cursor:pointer;">
+                    <input type="checkbox" id="vip-only-todo" checked onchange="renderVipCandidates()"> 손볼 것만 보기
+                </label>
+                <span id="vip-cand-sum" style="font-size:var(--fs-2); color:var(--text-muted);"></span>
+            </div>
+            <div id="vip-cand-rows" style="max-height:460px; overflow:auto; border:1px solid var(--border-light); border-radius:var(--r-2);"></div>
+            <div style="font-size: var(--fs-1); color: var(--text-muted); margin-top:10px; line-height:1.6;">
+                ⚠️ 평생 누적이라 방송을 이어갈수록 사람이 늘기만 합니다(아무도 금액이 줄지 않습니다).
+                골드가 너무 흔해지면 기준선을 올리시면 됩니다 — 위 인원수를 보고 판단하세요.
+            </div>
+        </div>
+
         <!-- VIP 등록/수정 모달 -->
         <div id="vip-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 99999; align-items: center; justify-content: center; padding: 20px;">
             <div class="group-box" style="max-width: 420px; width: 100%; background: var(--bg-card); border-radius: var(--r-3); padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
@@ -2212,10 +2236,13 @@
                     </div>
                     <div>
                         <label style="font-size: var(--fs-2); color: var(--text-muted); display: block; margin-bottom: 6px;">등급</label>
-                        <div style="display: flex; gap: 10px;">
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VVIP" checked style="accent-color:var(--danger);"><span style="color:var(--danger); font-weight:800;">VVIP</span></label>
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VIP" style="accent-color:#af52de;"><span style="color:#af52de; font-weight:800;">VIP</span></label>
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="GOLD" style="accent-color:var(--gold);"><span style="color:var(--gold); font-weight:800;">GOLD</span></label>
+                        <!-- 낮은 등급부터 차례로. ⚠️ value 는 영문 그대로 둔다 —
+                             DB 에 이미 VVIP/VIP/GOLD 로 쌓여 있어 한글로 바꾸면 기존 등록이 깨진다. -->
+                        <div style="display: flex; gap: 6px;">
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="GOLD" checked style="accent-color:#ffcf4d;"><span style="color:#ffcf4d; font-weight:800; font-size:var(--fs-2);">🥇 골드</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="DIAMOND" style="accent-color:#5ac8fa;"><span style="color:#5ac8fa; font-weight:800; font-size:var(--fs-2);">💎 다이아</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VIP" style="accent-color:#af52de;"><span style="color:#af52de; font-weight:800; font-size:var(--fs-2);">👑 VIP</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VVIP" style="accent-color:#ff3b30;"><span style="color:#ff3b30; font-weight:800; font-size:var(--fs-2);">🏆 VVIP</span></label>
                         </div>
                     </div>
                     <div>
@@ -4831,6 +4858,107 @@
             }
         }
 
+        // ══ 👑 등급 후보 ══
+        // ⚠️ 여기서 등급을 자동으로 바꾸지 않는다. 사장님이 일부러 올려준 사람을
+        //    서버가 멋대로 내리면 사고다. 보여주고, 누를 때만 반영한다.
+        const VIP_GRADE_COLOR = { VVIP: '#ff3b30', VIP: '#af52de', DIAMOND: '#5ac8fa', GOLD: '#ffcf4d' };
+        const VIP_GRADE_KO = { VVIP: '🏆 VVIP', VIP: '👑 VIP', DIAMOND: '💎 다이아', GOLD: '🥇 골드' };
+        const VIP_GRADE_BADGE = { VVIP: '🏆', VIP: '👑', DIAMOND: '💎', GOLD: '🥇' };
+        let vipCandData = null;
+
+        const vipWon = n => Number(n || 0).toLocaleString() + '원';
+        const vipGradeTag = g => g
+            ? `<span style="color:${VIP_GRADE_COLOR[g] || 'var(--gold)'}; font-weight:900;">${VIP_GRADE_KO[g] || escapeHTML(g)}</span>`
+            : '<span style="color:var(--text-muted);">없음</span>';
+
+        async function loadVipCandidates() {
+            const box = document.getElementById('vip-cand-rows');
+            if (!box) return;
+            box.innerHTML = '<div style="padding:16px; color:var(--text-muted);">후원 기록을 더하는 중…</div>';
+            try {
+                const r = await fetch('/api/vips/candidates');
+                const d = await r.json();
+                if (d.status !== 'success') throw new Error(d.message || '실패');
+                vipCandData = d;
+                renderVipCandidates();
+            } catch (e) {
+                box.innerHTML = `<div style="padding:16px; color:var(--danger);">불러오지 못했습니다: ${escapeHTML(String(e.message || e))}</div>`;
+            }
+        }
+
+        function renderVipCandidates() {
+            const d = vipCandData;
+            const box = document.getElementById('vip-cand-rows');
+            if (!d || !box) return;
+
+            // 이 기준이면 지금 몇 명인지 — 기준선이 흔해지고 있는지 여기서 보인다
+            document.getElementById('vip-tiers').innerHTML = (d.tiers || []).map(t => `
+                <div style="flex:1; min-width:120px; padding:10px 12px; border-radius:var(--r-2);
+                            background:rgba(0,0,0,0.28); border:1px solid var(--border-light);
+                            border-left:4px solid ${t.color};">
+                    <div style="font-size:var(--fs-2); color:${t.color}; font-weight:800;">${VIP_GRADE_KO[t.grade] || escapeHTML(t.grade)}</div>
+                    <div style="font-size:var(--fs-1); color:var(--text-muted); margin-top:2px;">${(t.floor / 10000).toLocaleString()}만원 이상</div>
+                    <div style="font-size:var(--fs-4); font-weight:900; color:#fff; margin-top:4px;">${(d.counts || {})[t.grade] || 0}<span style="font-size:var(--fs-2); font-weight:600; color:var(--text-muted);">명</span></div>
+                </div>`).join('');
+
+            const todoOnly = document.getElementById('vip-only-todo').checked;
+            const all = d.rows || [];
+            // '유지'(자격보다 높은 등급)는 사장님이 일부러 준 것일 수 있어 할 일로 안 센다
+            const todo = all.filter(x => x.status === 'new' || x.status === 'up');
+            const rows = todoOnly ? todo : all;
+            document.getElementById('vip-cand-sum').innerText =
+                `후원자 ${d.donors}명 · 손볼 것 ${todo.length}명 · 최근은 ${d.recent_days}일 기준`;
+
+            const LABEL = {
+                new:  ['새로 줄 수 있음', 'var(--gold)'],
+                up:   ['올릴 수 있음', '#5ac8fa'],
+                down: ['유지', 'var(--text-muted)'],
+                same: ['맞음', 'var(--success, #34c759)'],
+            };
+            box.innerHTML = rows.length ? rows.map(x => {
+                const [txt, col] = LABEL[x.status] || ['', 'var(--text-muted)'];
+                // ⚠️ 이름은 화면에 그릴 때만 이스케이프하고, 등록에는 원본을 넘긴다
+                const arg = encodeURIComponent(JSON.stringify([x.name, x.suggest]));
+                const act = (x.status === 'new' || x.status === 'up')
+                    ? `<button class="primary" onclick="applyVipSuggest('${arg}')" style="height:28px; font-size:var(--fs-1); padding:0 10px; border-radius:var(--r-1); white-space:nowrap;">${VIP_GRADE_KO[x.suggest] || ''}로</button>`
+                    : '';
+                return `
+                <div style="display:grid; grid-template-columns:1fr 120px 110px 96px 96px 110px; gap:8px; align-items:center;
+                            padding:9px 12px; border-bottom:1px solid var(--border-light);">
+                    <span style="font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(x.name)}</span>
+                    <span style="text-align:right; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums;">${vipWon(x.lifetime)}</span>
+                    <span style="text-align:right; color:var(--text-muted); font-size:var(--fs-2); font-variant-numeric:tabular-nums;" title="최근 ${d.recent_days}일">${x.recent ? vipWon(x.recent) : '—'}</span>
+                    <span style="text-align:center; font-size:var(--fs-2);">${vipGradeTag(x.current)}</span>
+                    <span style="text-align:center; font-size:var(--fs-2);">${vipGradeTag(x.suggest)}</span>
+                    <span style="text-align:right; font-size:var(--fs-1); color:${col};">${act || txt}</span>
+                </div>`;
+            }).join('') : `<div style="padding:16px; color:var(--text-muted);">${todoOnly ? '손볼 것이 없습니다. 등급이 모두 맞습니다.' : '기록이 없습니다.'}</div>`;
+        }
+
+        async function applyVipSuggest(arg) {
+            let name, grade;
+            try { [name, grade] = JSON.parse(decodeURIComponent(arg)); } catch (e) { return; }
+            if (!name || !grade) return;
+            try {
+                const r = await fetch('/api/vips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name, grade: grade,
+                        custom_color: VIP_GRADE_COLOR[grade] || '#ffcf4d',
+                        badge: VIP_GRADE_BADGE[grade] || '👑',
+                    }),
+                });
+                const d = await r.json();
+                if (d.status !== 'success') throw new Error(d.message || '실패');
+                premiumAlert(`${name} 님을 ${VIP_GRADE_KO[grade] || grade} 로 등록했습니다.`, '등급 반영', 'success');
+                await loadVipList();
+                await loadVipCandidates();
+            } catch (e) {
+                premiumAlert('등록 실패: ' + (e.message || e), '통신 오류', 'warning');
+            }
+        }
+
         // ==========================================
         // 👑 특별 후원자(VIP) 관리
         // ==========================================
@@ -4857,7 +4985,7 @@
                 tbody.innerHTML = `<tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--text-muted);">등록된 특별 후원자가 없습니다. [등록] 버튼으로 추가해 주세요.</td></tr>`;
                 return;
             }
-            const gradeColor = { VVIP: '#ff3b30', VIP: '#af52de', GOLD: '#ffcf4d' };
+            const gradeColor = VIP_GRADE_COLOR;
             // 이름은 표시용으로만 이스케이프하고, 수정/삭제에는 인덱스로 원본을 찾는다
             tbody.innerHTML = vipCacheList.map((v, i) => {
                 const name = escapeHTML(v.name);
@@ -4899,7 +5027,7 @@
             document.getElementById('vip-color').value = (v && v.custom_color) || '#ffcf4d';
             document.getElementById('vip-color-text').value = (v && v.custom_color) || '#ffcf4d';
             document.getElementById('vip-badge').value = (v && v.badge) || '👑';
-            const grade = (v && v.grade) || 'VVIP';
+            const grade = (v && v.grade) || 'GOLD';
             document.querySelectorAll('input[name="vip-grade"]').forEach(r => { r.checked = (r.value === grade); });
 
             modal.style.display = 'flex';
@@ -4913,7 +5041,7 @@
             const name = document.getElementById('vip-name').value.trim();
             const oldName = document.getElementById('vip-old-name').value;
             const gradeEl = document.querySelector('input[name="vip-grade"]:checked');
-            const grade = gradeEl ? gradeEl.value : 'VVIP';
+            const grade = gradeEl ? gradeEl.value : 'GOLD';
             const custom_color = document.getElementById('vip-color-text').value.trim() || '#ffcf4d';
             const badge = document.getElementById('vip-badge').value;
 

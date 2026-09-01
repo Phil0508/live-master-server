@@ -2758,6 +2758,110 @@ def recalculate_bank_balances():
 # 👑 특별 후원자(VIP) 관리
 #    조회는 오버레이가 써야 하므로 공개, 등록/삭제는 로그인 필요(exempt 목록에 없음)
 # ==========================================
+
+# ── 등급 기준선 ──
+# 2026-09-01 에 운영 DB 를 실제로 재서 정했다. 후원자 111명 · 총 4,740만원.
+# 이 선이면 네 등급이 각각 전체 후원액의 5분의 1씩(19~20%)을 맡는다:
+#   VVIP 300만+ 2명 · VIP 200만+ 4명 · DIAMOND 100만+ 7명 · GOLD 50만+ 13명
+#   → 26명(전체의 23%)이 후원금의 78% 를 냈다.
+# 금액 경계에 실제로 빈틈이 있어 억지로 자른 선이 아니다 (2등 431만 ↔ 3등 290만,
+# 13등이 정확히 100만, 26등이 정확히 50만).
+#
+# ⚠️ 평생 누적이라 방송을 이어갈수록 사람이 늘기만 한다(아무도 금액이 줄지 않는다).
+#    조종실이 이 선으로 걸리는 인원을 늘 보여주니, 골드가 흔해지면 선을 올린다.
+VIP_TIERS = [
+    ('VVIP',    3000000, '#ff3b30', '🏆'),
+    ('VIP',     2000000, '#af52de', '👑'),
+    ('DIAMOND', 1000000, '#5ac8fa', '💎'),
+    ('GOLD',     500000, '#ffcf4d', '🥇'),
+]
+VIP_RECENT_DAYS = 90          # '요즘도 오시는가' 를 같이 보여준다
+VIP_ORDER = {g: i for i, (g, _, _, _) in enumerate(VIP_TIERS)}   # 0 이 제일 높다
+
+
+def vip_tier_for(total):
+    """이 누적 금액이면 어느 등급인가. 어디에도 못 미치면 None."""
+    for g, floor, _, _ in VIP_TIERS:
+        if total >= floor:
+            return g
+    return None
+
+
+@app.route('/api/vips/candidates')
+def api_vip_candidates():
+    """등급 후보 — 누가 어느 등급 자격이 있는지, 지금 등급과 무엇이 다른지.
+
+    ⚠️ 여기서 등급을 자동으로 바꾸지 않는다. 사장님이 일부러 올려준 사람을 서버가
+       멋대로 내리면 사고다. 보여주기만 하고, 반영은 조종실에서 눌러야 한다.
+    """
+    if not request_is_authed():
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    try:
+        # 최근 90일 경계. ⚠️ 후원 시각과 같은 서버 지역시로 재므로 시간대 보정이
+        #    필요 없다 (양쪽이 같이 밀리면 차이는 그대로다).
+        cut = (datetime.datetime.now()
+               - datetime.timedelta(days=VIP_RECENT_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
+        life, recent, shown = {}, {}, {}
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            # 지난 방송분과 이번 방송분을 같이 본다
+            for tbl in ('donation_archive', 'donation_history'):
+                try:
+                    cur.execute(db_query('SELECT timestamp, name, amount FROM %s' % tbl))
+                    for ts, nm, amt in cur.fetchall():
+                        who = _norm_donor(nm)
+                        if not who or who == '익명':
+                            continue
+                        a = int(amt or 0)
+                        if a <= 0:
+                            continue
+                        life[who] = life.get(who, 0) + a
+                        shown.setdefault(who, nm or who)
+                        if str(ts or '')[:19] >= cut:
+                            recent[who] = recent.get(who, 0) + a
+                except Exception as e:
+                    print(f'[등급 후보] {tbl} 조회 실패(건너뜀): {e}')
+            cur.execute(db_query('SELECT name, grade FROM vip_donators'))
+            now_grade = {_norm_donor(r[0]): (r[1] or '') for r in cur.fetchall()}
+
+        rows, counts = [], {g: 0 for g, _, _, _ in VIP_TIERS}
+        for who, total in life.items():
+            sug = vip_tier_for(total)
+            cur_g = now_grade.get(who)
+            if sug:
+                counts[sug] += 1
+            if not sug and not cur_g:
+                continue                       # 자격도 없고 등록도 안 됐다 — 볼 것 없다
+            if not cur_g:
+                st = 'new'                     # 자격은 있는데 아직 등록 안 됨
+            elif sug and VIP_ORDER.get(sug, 9) < VIP_ORDER.get(cur_g, 9):
+                st = 'up'                      # 지금 등급보다 자격이 더 높다
+            elif sug and VIP_ORDER.get(sug, 9) > VIP_ORDER.get(cur_g, 9):
+                st = 'down'                    # 자격보다 높은 등급을 받고 있다(일부러일 수 있다)
+            elif not sug:
+                st = 'down'
+            else:
+                st = 'same'
+            rows.append({'name': shown.get(who, who), 'key': who,
+                         'lifetime': total, 'recent': recent.get(who, 0),
+                         'suggest': sug or '', 'current': cur_g or '', 'status': st})
+        rows.sort(key=lambda r: -r['lifetime'])
+
+        return jsonify({
+            'status': 'success',
+            'rows': rows,
+            'counts': counts,
+            'donors': len(life),
+            'total': sum(life.values()),
+            'recent_days': VIP_RECENT_DAYS,
+            'tiers': [{'grade': g, 'floor': f, 'color': c, 'badge': b}
+                      for g, f, c, b in VIP_TIERS],
+        })
+    except Exception as e:
+        print(f'[등급 후보 조회 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e), 'rows': []}), 500
+
+
 @app.route('/api/vips', methods=['GET'])
 def get_vips():
     try:
