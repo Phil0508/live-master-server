@@ -12,13 +12,15 @@
 
 여기서 지키는 것
   ① 주사위 시그니처 칸을 밟으면 '기여도만' 알림이 대기함에 생긴다
-  ② 그 알림에는 얼마를 줄지(기여도)가 들어 있다 — 시그니처 값 ÷ 10,000
+  ② 그 알림에는 얼마를 줄지가 들어 있다 — (시그니처 값 − 한 판 값) ÷ 10,000
   ③ 그걸 지급하면 점수는 한 점도 안 오르고 기여도만 오른다
   ④ 기존 후원은 예전 그대로 — 점수와 기여도가 같이 오른다 (한 줄도 안 바뀌어야 한다)
 
 ⚠️ 돈이 움직이는 길이다. ④ 가 깨지면 그날 정산이 통째로 틀어진다.
 """
+import io
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -26,6 +28,20 @@ import urllib.request
 sys.stdout.reconfigure(encoding='utf-8')
 B = 'http://127.0.0.1:5199'
 H = {'Content-Type': 'application/json', 'Authorization': 'Bearer sandboxsecret123456'}
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = r'C:\Users\Administrator\Desktop\새로다시시작'
+
+
+def _find_proj():
+    d = HERE
+    for _ in range(4):
+        d = os.path.dirname(d)
+        if os.path.exists(os.path.join(d, 'server.py')):
+            return d
+    return REPO
+
+
+PROJ = _find_proj()
 OK, BAD = [], []
 
 
@@ -66,7 +82,10 @@ post('/api/data', {'bjs': [{'name': NAME, 'score': 0, 'contribution': 0}],
 print('=' * 74)
 print('① 주사위 시그니처 칸을 밟으면 기여도 알림이 생기는가')
 print('=' * 74)
-post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'dice': 2})
+# ⚠️ 한 판 값을 0 으로 둔다. 가짜 시그니처가 전부 14,000원 이하라, 기본값(2만원)
+#    이면 뺄 게 더 커서 기여도가 0 이 되고 알림 자체가 안 생긴다.
+#    '빼는 규칙' 자체는 ⑤ 에서 따로 본다.
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 0})
 d = get().get('dicegame') or {}
 n = len(d.get('tiles') or [])
 chk('판이 만들어졌다', n > 0, '%d칸' % n)
@@ -89,15 +108,19 @@ chk('기여도 전용 알림이 대기함에 생겼다', len(contrib_items) == 1
 
 print()
 print('=' * 74)
-print('② 얼마를 줄지가 들어 있는가 (시그니처 값 ÷ 10,000)')
+print('② 얼마를 줄지가 들어 있는가 ((시그 값 − 한 판 값) ÷ 10,000)')
 print('=' * 74)
 item = contrib_items[0] if contrib_items else {}
 # 가짜 시그니처 10003 은 amount 10300 (boot_sig.py) → 반올림하면 1
 chk('기여도 값이 들어 있다', isinstance(item.get('contrib'), int) and item['contrib'] >= 1,
     item.get('contrib'))
-chk('시그니처 값과 자가 맞는다 (금액÷10000 반올림)',
-    item.get('contrib') == max(1, round(int(item.get('amount') or 0) / 10000)),
-    '금액 %s → 기여도 %s' % (item.get('amount'), item.get('contrib')))
+# ⚠️ 알림에는 금액이 아니라 '어떻게 셈했는지' 가 들어간다. 운영자가 카드만 보고
+#    "왜 8점이지?" 를 알 수 있어야 한다 — 안 그러면 셈이 틀려도 아무도 모른다.
+_msg = str(item.get('message') or '')
+chk('셈한 근거가 적혀 있다 (시그 값 − 한 판 값)',
+    '원' in _msg and '한 판' in _msg, _msg)
+# 한 판 값을 0 으로 뒀으므로 시그니처 값(10,300원)이 그대로 환산돼 1 이다
+chk('그 셈이 맞는다', item.get('contrib') == 1, item.get('contrib'))
 chk('무엇인지 알아볼 수 있다', '주사위' in str(item.get('name')), item.get('name'))
 
 print()
@@ -131,6 +154,51 @@ s1, c1 = who(NAME)
 chk('점수가 올랐다', s1 == s0 + 5, '%d → %d' % (s0, s1))
 chk('기여도도 같이 올랐다 (contribution 을 안 보내면 delta 를 따라간다)',
     c1 == c0 + 5, '%d → %d' % (c0, c1))
+
+print()
+print('=' * 74)
+print('⑤ 주사위 규칙 — 사장님이 정한 셈')
+print('=' * 74)
+# ① 주사위는 하나로 굴린다
+# ② 시그니처 기여도 = (시그 값 − 한 판 값) ÷ 10,000
+#    한 판이 2만원이면 그 후원으로 이미 2점이 올라갔다. 10만원짜리 시그가 걸리면
+#    10 − 2 = 8점만 더 준다. 통째로 또 주면 2점이 두 번 셈된다.
+# ③ 출발 칸을 넘어가면 기여도 5점
+#
+# ⚠️ 굴림은 앞 연출이 끝나야 받아준다(429). 여기서는 그 사이를 기다리지 않고
+#    '셈이 맞는가' 만 본다 — 기다리며 굴리는 것은 2026-08-31 에 손으로 확인했다.
+#      한 판 20,000원 · 시그 14,000원 → 기여도 0
+#      한 판  4,000원 · 시그 14,000원 → 기여도 1
+#      한 바퀴 → 기여도 +5, 점수 0 그대로
+c, g0 = post('/api/dicegame/setup', {'cols': 7, 'rows': 5})
+d = get().get('dicegame') or {}
+chk('주사위가 한 개다', d.get('dice') == 1, d.get('dice'))
+chk('한 판 값이 있다 (기본 2만원)', d.get('roll_price') == 20000, d.get('roll_price'))
+chk('한 바퀴 기여도가 있다 (기본 5)', d.get('lap_contrib') == 5, d.get('lap_contrib'))
+
+# ⚠️ 한 판 값을 바꿀 길이 없으면 방송마다 단가가 달라질 때 손을 못 댄다
+c, r = post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 30000, 'lap_contrib': 7})
+chk('설정으로 바꿀 수 있다', r.get('roll_price') == 30000 and r.get('lap_contrib') == 7, r)
+# 크기만 바꿨다고 단가가 기본값으로 되돌아가면 그게 사고다
+c, r = post('/api/dicegame/setup', {'cols': 8, 'rows': 5})
+chk('크기만 바꾸면 단가는 그대로 이어받는다',
+    r.get('roll_price') == 30000 and r.get('lap_contrib') == 7, r)
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 20000, 'lap_contrib': 5})
+
+src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+chk('시그니처에서 한 판 값을 뺀다',
+    'round((_sig_amt - _price) / 10000)' in src)
+chk('한 판 값보다 싼 시그는 0 으로 둔다 (빼앗지 않는다)',
+    'max(0, round((_sig_amt - _price) / 10000))' in src)
+chk('한 바퀴에 기여도를 준다', "_lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)" in src)
+# ⚠️ 점수(그날 일당)에 섞이면 안 된다 — 기여도만 넣는 도우미를 쓴다
+chk('기여도만 넣는 길로 간다 (점수 도우미가 아니다)',
+    'def _dicegame_apply_contrib(' in src and "t['contribution'] = (t.get('contribution') or 0) + contrib" in src)
+chk('그 도우미는 점수를 안 건드린다',
+    "def _dicegame_apply_contrib(" in src
+    and "t['score']" not in src.split('def _dicegame_apply_contrib(')[1].split('def ')[0])
+# ⚠️ 누구 차례인지 안 골랐으면 잃어버리지 말고 조종실에 남긴다
+chk('누구 차례인지 모르면 대기함에 남긴다', 'def _dicegame_contrib_alert(' in src)
 
 print()
 print('=' * 74)

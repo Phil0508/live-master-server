@@ -1494,7 +1494,14 @@ DEFAULT_STATE = {
         "enabled": False,
         "cols": 7,          # 테두리 고리 — 칸 수는 2*(cols+rows)-4 (기본 20칸)
         "rows": 5,
-        "dice": 2,          # 주사위 개수 (1 또는 2)
+        "dice": 1,          # 주사위 개수 (1 또는 2). 한 개로 굴린다 — 사장님이 정함
+        # 💰 한 판 값. 주사위 한 판은 이 금액의 후원으로 산다.
+        #    그 후원이 들어올 때 이미 점수·기여도가 (금액/10000)만큼 올라간다.
+        #    그래서 시그니처가 걸렸을 때 시그니처 값에서 이만큼을 빼고 준다
+        #    (10만원짜리 시그 = 10점, 한 판 2만원 = 2점 → 기여도 8점).
+        "roll_price": 20000,
+        # 🏁 출발 칸을 넘어갈 때 주는 기여도
+        "lap_contrib": 5,
         "pos": 0,           # 말 위치 (0 = 출발 칸)
         "laps": 0,          # 몇 바퀴 돌았나
         # 칸 목록. [{id, type, label, points, sig}]
@@ -5950,6 +5957,46 @@ def _dicegame_apply_score(state, player, points):
     return t.get('name') or player
 
 
+def _dicegame_apply_contrib(state, player, contrib, why):
+    """기여도만 넣는다 — 점수(그날 일당)는 건드리지 않는다.
+
+    ⚠️ _dicegame_apply_score 와 나란히 두되 규칙이 다르다. 저쪽은 점수·기여도·팀점수를
+       같이 올리지만, 여기는 기여도 하나만이다. 게임에서 나온 것이 일당에 섞이면
+       그날 정산이 틀어진다.
+    """
+    t = _find_score_target(state, 'rank', player)
+    if t is None:
+        return None
+    t['contribution'] = (t.get('contribution') or 0) + contrib
+    logs = state.get('logs')
+    if not isinstance(logs, list):
+        logs = []
+        state['logs'] = logs
+    # ⚠️ 로그에 '기여도' 라고 남겨야 나중에 장부를 볼 때 점수와 헷갈리지 않는다
+    logs.insert(0, {"time": time.strftime('%H:%M:%S'), "name": t.get('name') or player,
+                    "val": contrib, "kind": "contrib", "why": why})
+    del logs[LOG_MAX:]
+    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    lst = state.get(src) or []
+    lst.sort(key=lambda b: -(b.get('contribution') or 0))
+    state[src] = lst
+    return t.get('name') or player
+
+
+def _dicegame_contrib_alert(state, title, contrib, why):
+    """누구 차례인지 모를 때, 조종실이 고르라고 대기함에 남긴다."""
+    state.setdefault('pending_donations', []).append({
+        'id': f"dg_{uuid.uuid4().hex[:12]}",
+        'name': title,
+        'orig_name': '주사위게임',
+        'amount': 0,
+        'message': why,
+        'time': time.strftime('%H:%M:%S'),
+        'kind': 'contrib',
+        'contrib': contrib,
+    })
+
+
 @app.route('/api/dicegame/setup', methods=['POST'])
 def api_dicegame_setup():
     """판을 깐다. 같은 번호 칸의 내용은 남긴다 — 크기만 바꿔도 적어둔 게 안 날아가게."""
@@ -5961,12 +6008,24 @@ def api_dicegame_setup():
         return default if body.get(key) is None else _as_int(body.get(key))
     cols = _opt('cols', 7)
     rows = _opt('rows', 5)
-    dice = _opt('dice', 2)
-    if cols is None or rows is None or dice is None:
+    dice = _opt('dice', 1)
+    # 💰 한 판 값 · 🏁 한 바퀴 보너스. 안 보내면 지금 쓰던 값을 그대로 이어받는다
+    #    — 크기만 바꿨다고 단가가 기본값으로 되돌아가면 그게 사고다.
+    with file_lock:
+        _cur = _dicegame_state(load_data())
+        _cur_price = _as_int(_cur.get('roll_price'), 20000) or 20000
+        _cur_lapc = _as_int(_cur.get('lap_contrib'), 5)
+        if _cur_lapc is None:
+            _cur_lapc = 5
+    roll_price = _opt('roll_price', _cur_price)
+    lap_contrib = _opt('lap_contrib', _cur_lapc)
+    if cols is None or rows is None or dice is None or roll_price is None or lap_contrib is None:
         return jsonify({'status': 'error', 'message': '숫자가 아닙니다'}), 400
     cols = max(4, min(10, cols))
     rows = max(3, min(8, rows))
     dice = max(1, min(2, dice))
+    roll_price = max(0, min(10000000, roll_price))
+    lap_contrib = max(0, min(1000, lap_contrib))
     n = 2 * (cols + rows) - 4
     with file_lock:
         state = load_data()
@@ -5982,11 +6041,14 @@ def api_dicegame_setup():
             else:
                 tiles.append({'id': i, 'type': 'blank', 'label': ''})
         g.update({'cols': cols, 'rows': rows, 'dice': dice, 'tiles': tiles,
+                  'roll_price': roll_price, 'lap_contrib': lap_contrib,
                   'pos': 0, 'laps': 0, 'enabled': True,
                   'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
         _dicegame_save(state, g)
-    print(f"🎲 [주사위게임] 판 깔림 — {cols}×{rows} 테두리 {n}칸, 주사위 {dice}개")
-    return jsonify({'status': 'success', 'tiles': n})
+    print(f"🎲 [주사위게임] 판 깔림 — {cols}×{rows} 테두리 {n}칸, 주사위 {dice}개, "
+          f"한 판 {roll_price:,}원, 한 바퀴 기여도 {lap_contrib}")
+    return jsonify({'status': 'success', 'tiles': n,
+                    'roll_price': roll_price, 'lap_contrib': lap_contrib})
 
 
 @app.route('/api/dicegame/tile', methods=['POST'])
@@ -6077,7 +6139,7 @@ def api_dicegame_roll():
                 return jsonify({'status': 'error',
                                 'message': '앞 연출이 아직 끝나지 않았습니다. 잠깐만요.'}), 429
         n = len(tiles)
-        dice = [random.randint(1, 6) for _ in range(max(1, min(2, _as_int(g.get('dice'), 2) or 2)))]
+        dice = [random.randint(1, 6) for _ in range(max(1, min(2, _as_int(g.get('dice'), 1) or 1)))]
         steps = sum(dice)
         frm = _as_int(g.get('pos'), 0) or 0
         frm = frm % n
@@ -6111,28 +6173,56 @@ def api_dicegame_roll():
                                   '주사위게임', '', count_tally=False)
             except Exception as e:
                 print(f'⚠️ [주사위게임] 시그니처 재생 실패 — 게임은 계속됩니다: {e}')
-            # 🎯 기여도만 주는 알림을 대기함에 남긴다.
-            #    점수는 그날 일당이라 게임으로 오르면 안 되고, 기여도는 게임 점수라 올라도 된다.
-            #    ⚠️ 여기서 자동으로 누구에게 주지 않는다 — 주사위는 여러 명이 돌아가며 굴리고,
-            #       누구 차례인지는 조종실이 고를 때만 안다. 점수 칸도 같은 이유로 그렇게 한다.
+            # 🎯 기여도만 준다. 점수는 그날 일당이라 게임으로 오르면 안 된다.
+            #    ⚠️ 시그니처 값에서 '한 판 값' 을 뺀다. 주사위 한 판은 2만원 후원으로
+            #       사는데, 그 후원이 들어올 때 이미 2점이 올라갔다. 시그니처 값을
+            #       통째로 또 주면 그 2점이 두 번 셈된다.
+            #         10만원짜리 시그 = 10점, 한 판 2만원 = 2점 → 기여도 8점
+            #    ⚠️ 한 판 값보다 싼 시그니처면 0 으로 둔다. 이미 받은 것이 더 크므로
+            #       더 줄 것이 없다 — 빼앗지는 않는다.
             try:
                 _sig_amt = int(tile['sig'].get('amount') or 0)
-                _contrib = max(1, round(_sig_amt / 10000))   # 후원과 같은 자
-                state.setdefault('pending_donations', []).append({
-                    'id': f"dg_{uuid.uuid4().hex[:12]}",
-                    'name': '🎲 주사위 시그니처',
-                    'orig_name': '주사위게임',
-                    'amount': _sig_amt,
-                    'message': str(tile['sig'].get('title') or '')[:60],
-                    'time': time.strftime('%H:%M:%S'),
-                    # ⚠️ 이 두 줄이 '점수 말고 기여도만' 을 뜻한다. 조종실이 이걸 보고
-                    #    delta 0 · contribution 만 보낸다. kind 가 없는 항목은 예전 그대로다.
-                    'kind': 'contrib',
-                    'contrib': _contrib,
-                })
-                print(f"🎯 [주사위게임] 시그니처 '{tile['sig'].get('title')}' → 기여도 {_contrib} 알림을 대기함에 올렸습니다")
+                _price = max(0, _as_int(g.get('roll_price'), 20000) or 0)
+                _contrib = max(0, round((_sig_amt - _price) / 10000))
+                _why = '%s (%s원 − 한 판 %s원)' % (
+                    str(tile['sig'].get('title') or '')[:40],
+                    format(_sig_amt, ','), format(_price, ','))
+                if _contrib <= 0:
+                    print(f"🎯 [주사위게임] 시그니처 '{tile['sig'].get('title')}' 는 한 판 값"
+                          f"({_price:,}원) 이하라 더 줄 기여도가 없습니다")
+                elif player:
+                    _to = _dicegame_apply_contrib(state, player, _contrib, _why)
+                    if _to:
+                        action['contrib'] = {'name': _to, 'points': _contrib, 'why': _why}
+                        print(f"🎯 [주사위게임] {_to} 에게 기여도 {_contrib} (시그니처)")
+                    else:
+                        _dicegame_contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
+                else:
+                    _dicegame_contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
+                    print(f"🎯 [주사위게임] 시그니처 → 기여도 {_contrib} 알림을 대기함에 올렸습니다")
             except Exception as e:
-                print(f'⚠️ [주사위게임] 기여도 알림 실패 — 게임은 계속됩니다: {e}')
+                print(f'⚠️ [주사위게임] 기여도 실패 — 게임은 계속됩니다: {e}')
+
+        # 🏁 출발 칸을 넘어갔다 — 한 바퀴 돈 사람에게 기여도를 준다.
+        #    ⚠️ 시그니처와 같은 판에서 둘 다 일어날 수 있다(시그 칸을 밟으며 한 바퀴).
+        #       그때는 둘 다 준다 — 각각 다른 이유로 받는 것이다.
+        if lap:
+            try:
+                _lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)
+                if _lap_c:
+                    _why = '출발 칸을 넘었습니다 (%d바퀴째)' % ((_as_int(g.get('laps'), 0) or 0) + 1)
+                    if player:
+                        _to = _dicegame_apply_contrib(state, player, _lap_c, _why)
+                        if _to:
+                            action['lap_contrib'] = {'name': _to, 'points': _lap_c}
+                            print(f"🏁 [주사위게임] {_to} 에게 기여도 {_lap_c} (한 바퀴)")
+                        else:
+                            _dicegame_contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
+                    else:
+                        _dicegame_contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
+                        print(f"🏁 [주사위게임] 한 바퀴 → 기여도 {_lap_c} 알림을 대기함에 올렸습니다")
+            except Exception as e:
+                print(f'⚠️ [주사위게임] 한 바퀴 기여도 실패 — 게임은 계속됩니다: {e}')
         g['pos'] = to
         if lap:
             g['laps'] = (_as_int(g.get('laps'), 0) or 0) + 1
@@ -6143,6 +6233,8 @@ def api_dicegame_roll():
     return jsonify({'status': 'success', 'dice': dice, 'to': to,
                     'tile': action['tile'], 'lap': bool(lap),
                     'scored': action.get('scored'), 'note': action.get('score_note'),
+                    'contrib': action.get('contrib'),
+                    'lap_contrib': action.get('lap_contrib'),
                     'key': action.get('key')})
 
 
