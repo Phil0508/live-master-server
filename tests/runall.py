@@ -174,6 +174,7 @@ run('t12 마지막 셋', [PY, 't12_final3.py'], LT2, kind='lt2')
 # ── ⑤ pausetest 서버(5199) 가 필요한 검사 ──
 run('시그뒤집기', [PY, 'sg_test.py'], HERE, kind='pt')
 run('주사위게임', [PY, 'dice_test.py'], HERE, kind='pt')
+run('기여도만 지급', [PY, 'contrib_test.py'], HERE, kind='pt')
 run('시그니처 재생', [PY, 'sig_test.py'], HERE, kind='pt')
 run('대결 팀전', [PY, 'team_test.py'], HERE, kind='pt')
 run('500 터지는 길 전수', [PY, 'crash_sweep.py'], HERE, kind='pt')

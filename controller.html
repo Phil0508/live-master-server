@@ -3176,7 +3176,13 @@
                         return;
                     }
                     let bjBtns = activeBjs.map((bj, idx) => `<button class="bj-btn" onclick="assignPending('${don.id}', ${idx})">${escapeHTML(bj.name)}</button>`).join('');
-                    pHtml += `<div class="pending-item"><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>님 - <span class="pending-amount">${don.amount.toLocaleString()}원</span><br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);"><i class="fa-solid fa-hand-holding-dollar"></i> 지급:</span>${bjBtns}<button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    /* 🎯 기여도 전용 알림 (주사위 시그니처 등) — 돈이 아니라 게임 점수다.
+                       점수는 그날 일당이라 게임으로 오르면 안 되고, 기여도는 올라도 된다.
+                       ⚠️ 색과 문구를 다르게 해야 운영자가 헷갈리지 않는다. 같은 자리에
+                          같은 모양으로 뜨면 '후원이 들어왔다' 로 읽는다. */
+                    const _isC = don.kind === 'contrib';
+                    const _cN  = Number(don.contrib || 0);
+                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}<button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -4166,11 +4172,18 @@
             }
             if (donIdx === -1) return;   // 그 사이 다른 곳에서 이미 처리됨 → 이중 지급 방지
 
-            const addPoint = Math.round(gd.pending_donations[donIdx].amount / 10000);
+            /* 🎯 기여도 전용(주사위 시그니처 등)은 점수를 한 점도 안 올린다.
+               점수는 그날 일당이고 기여도는 게임 점수다 — 게임에서 나온 것이 일당에
+               섞이면 정산이 틀어진다. */
+            const _don0 = gd.pending_donations[donIdx];
+            const _contribOnly = _don0.kind === 'contrib';
+            const addPoint = _contribOnly ? 0 : Math.round(_don0.amount / 10000);
+            const addContrib = _contribOnly ? Number(_don0.contrib || 0)
+                                            : Math.round(_don0.amount / 10000);
             // 화면만 먼저 움직인다. 점수를 실제로 더하는 건 서버다.
             target.score += addPoint;
             if (target.contribution === undefined) target.contribution = 0;
-            target.contribution += addPoint;
+            target.contribution += addContrib;
 
             targetList.sort((a, b) => (b.contribution || 0) - (a.contribution || 0));
             if (isExtra) gd.extra_bjs = targetList; else gd.bjs = targetList;
@@ -4186,7 +4199,11 @@
             //    폰에서 같은 순간에 준 점수를 덮어썼다. 이제 서버가 둘을 같은 잠금 안에서 처리한다.
             // 🧠 누가 준 후원인지 함께 보낸다 — 서버가 "이 후원자는 누구에게 갔다" 를 기억한다.
             //    다음에 같은 사람이 'ㄱㅇㅈ' 처럼 알아볼 수 없는 메시지를 보내도 이걸로 푼다.
-            const r = await addScoreAPI({ scope: 'rank', name: chosenName, delta: addPoint,
+            /* ⚠️ contribution 을 안 보내면 서버가 delta 를 기여도에도 그대로 넣는다
+                  (server.py 의 `contrib = delta if ... is None`). 기여도 전용은 반드시
+                  둘 다 보내야 점수가 안 오른다. */
+            const r = await addScoreAPI({ scope: 'rank', name: chosenName,
+                                         delta: addPoint, contribution: addContrib,
                                          pending_id: donId,
                                          donor: don0.name, donor_message: don0.message });
             // 🛡️ 다른 기기(폰/PC)가 같은 후원을 먼저 처리했다면 서버는 점수를 더하지 않는다.
@@ -4194,7 +4211,7 @@
             //    — 그 후원은 실제로 처리가 끝났기 때문이다.
             if (r && r.already) {
                 target.score -= addPoint;
-                target.contribution -= addPoint;
+                target.contribution -= addContrib;
                 renderUI();
                 acctToast('이미 다른 기기에서 처리된 후원입니다', 'warn');
                 return;

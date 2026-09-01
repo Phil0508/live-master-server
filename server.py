@@ -6094,6 +6094,28 @@ def api_dicegame_roll():
                                   '주사위게임', '', count_tally=False)
             except Exception as e:
                 print(f'⚠️ [주사위게임] 시그니처 재생 실패 — 게임은 계속됩니다: {e}')
+            # 🎯 기여도만 주는 알림을 대기함에 남긴다.
+            #    점수는 그날 일당이라 게임으로 오르면 안 되고, 기여도는 게임 점수라 올라도 된다.
+            #    ⚠️ 여기서 자동으로 누구에게 주지 않는다 — 주사위는 여러 명이 돌아가며 굴리고,
+            #       누구 차례인지는 조종실이 고를 때만 안다. 점수 칸도 같은 이유로 그렇게 한다.
+            try:
+                _sig_amt = int(tile['sig'].get('amount') or 0)
+                _contrib = max(1, round(_sig_amt / 10000))   # 후원과 같은 자
+                state.setdefault('pending_donations', []).append({
+                    'id': f"dg_{uuid.uuid4().hex[:12]}",
+                    'name': '🎲 주사위 시그니처',
+                    'orig_name': '주사위게임',
+                    'amount': _sig_amt,
+                    'message': str(tile['sig'].get('title') or '')[:60],
+                    'time': time.strftime('%H:%M:%S'),
+                    # ⚠️ 이 두 줄이 '점수 말고 기여도만' 을 뜻한다. 조종실이 이걸 보고
+                    #    delta 0 · contribution 만 보낸다. kind 가 없는 항목은 예전 그대로다.
+                    'kind': 'contrib',
+                    'contrib': _contrib,
+                })
+                print(f"🎯 [주사위게임] 시그니처 '{tile['sig'].get('title')}' → 기여도 {_contrib} 알림을 대기함에 올렸습니다")
+            except Exception as e:
+                print(f'⚠️ [주사위게임] 기여도 알림 실패 — 게임은 계속됩니다: {e}')
         g['pos'] = to
         if lap:
             g['laps'] = (_as_int(g.get('laps'), 0) or 0) + 1
