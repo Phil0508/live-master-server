@@ -1753,6 +1753,18 @@ def init_db():
             )
         """)
 
+        # 🚫 [순위에서 뺄 이름] 익명·테스트처럼 명단에 넣으면 안 되는 이름.
+        # ⚠️ 후원 기록 자체는 절대 지우지 않는다(바로 아래 영구 보관 장부 참고).
+        #    여기 적힌 이름은 순위·후보에서만 안 보이고, 돈은 장부에 그대로 남는다.
+        #    이름은 _norm_donor 로 다듬어 넣는다 — '홍길동님' 과 '홍길동' 이 갈리면 안 된다.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS donor_excluded (
+                name TEXT PRIMARY KEY,
+                memo TEXT DEFAULT '',
+                added_at TEXT
+            )
+        """)
+
         # 📚 [영구 보관 장부] 방송 종료 시 donation_history는 초기화되지만,
         # 여기로 먼저 복사해 두므로 지난 방송 기록이 영구히 남는다. (append-only, 절대 삭제하지 않음)
         cursor.execute(f"""
@@ -2436,6 +2448,10 @@ def api_ranking_monthly():
             if want and mon != want:
                 continue
             who = _norm_donor(name)
+            # ⚠️ 익명은 사람이 아니다. 그런데 여기만 안 빼고 있어서, 익명 후원 여러
+            #    건이 한 덩어리로 묶여 순위 위쪽에 사람처럼 앉아 있었다.
+            if is_excluded(name):
+                continue
             row = tally.setdefault(who, {'name': name or who, 'total': 0,
                                          'count': 0, 'days': set()})
             row['total'] += int(amount or 0)
@@ -2451,6 +2467,8 @@ def api_ranking_monthly():
                 if not day or '%04d-%02d' % (day.year, day.month) != want:
                     continue
                 who = _norm_donor(name)
+                if is_excluded(name):
+                    continue
                 row = tally.setdefault(who, {'name': name or who, 'total': 0,
                                              'count': 0, 'days': set()})
                 row['total'] += int(amount or 0)
@@ -2755,6 +2773,118 @@ def recalculate_bank_balances():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ==========================================
+# 🚫 순위에서 뺄 이름
+#    익명·테스트처럼 명단에 넣으면 안 되는 이름을 사장님이 직접 고른다.
+#    ⚠️ 후원 기록은 안 지운다. 돈은 장부에 그대로 있고 순위에서만 안 보인다.
+# ==========================================
+# ⚠️ 후원이 들어올 때마다 이 표를 뒤지면 안 된다. 후원 경로는 제일 바쁜 길이고
+#    Postgres 왕복이 40ms 다. 한 번 읽어 기억해 두고, 바뀔 때만 버린다.
+_excluded_cache = {'set': None}
+
+
+def _excluded_invalidate():
+    _excluded_cache['set'] = None
+
+
+def excluded_names():
+    """순위에서 뺄 이름들(다듬은 형태).
+
+    ⚠️ 못 읽으면 빈 집합으로 넘어간다. 명단이 조금 지저분해질 뿐이지, 여기서
+       터져서 후원 받는 길이 막히면 그게 훨씬 큰 사고다.
+    """
+    if _excluded_cache['set'] is not None:
+        return _excluded_cache['set']
+    out = set()
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("SELECT name FROM donor_excluded"))
+            out = {str(r[0] or '') for r in cur.fetchall() if r and r[0]}
+    except Exception as e:
+        print(f'[제외 명단 조회 실패 — 빈 목록으로 진행] {e}')
+    _excluded_cache['set'] = out
+    return out
+
+
+def is_excluded(name):
+    """이 이름은 명단에서 빼야 하는가. '익명' 은 언제나 뺀다 — 사람이 아니다."""
+    who = _norm_donor(name)
+    return (not who) or who == '익명' or who in excluded_names()
+
+
+@app.route('/api/donors/excluded', methods=['GET'])
+def api_excluded_list():
+    if not request_is_authed():
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query(
+                "SELECT name, memo, added_at FROM donor_excluded ORDER BY added_at DESC"))
+            rows = [{'name': r[0], 'memo': r[1] or '', 'added_at': r[2] or ''}
+                    for r in cur.fetchall()]
+        return jsonify({'status': 'success', 'rows': rows})
+    except Exception as e:
+        print(f'[제외 명단 조회 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e), 'rows': []}), 500
+
+
+@app.route('/api/donors/excluded', methods=['POST'])
+def api_excluded_add():
+    if not request_is_authed():
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    data = request.get_json(silent=True) or {}
+    who = _norm_donor(data.get('name'))
+    if not who or who == '익명':
+        return jsonify({'status': 'error', 'message': '이름이 없습니다.'}), 400
+    memo = str(data.get('memo') or '')[:200]
+    try:
+        stamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            if IS_POSTGRES:
+                cur.execute("""
+                    INSERT INTO donor_excluded (name, memo, added_at) VALUES (%s, %s, %s)
+                    ON CONFLICT (name) DO UPDATE SET memo = EXCLUDED.memo
+                """, (who, memo, stamp))
+            else:
+                cur.execute("INSERT OR REPLACE INTO donor_excluded (name, memo, added_at)"
+                            " VALUES (?, ?, ?)", (who, memo, stamp))
+        _excluded_invalidate()
+        # ⚠️ 이번 방송 순위판에 이미 올라가 있으면 지금 내려준다. 안 그러면 [빼기] 를
+        #    눌러도 방송 화면에는 그대로 남아 있어 안 된 줄 안다.
+        with file_lock:
+            state = load_data()
+            if (state.get('donor_tally') or {}).pop(who, None) is not None:
+                save_data(state)
+                broadcast_event('update', state)
+        print(f'  🚫 [순위에서 빼기] {who}' + (f' ({memo})' if memo else ''))
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f'[제외 명단 저장 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/donors/excluded', methods=['DELETE'])
+def api_excluded_remove():
+    if not request_is_authed():
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+    who = _norm_donor(request.args.get('name'))
+    if not who:
+        return jsonify({'status': 'error', 'message': '이름이 없습니다.'}), 400
+    try:
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("DELETE FROM donor_excluded WHERE name = ?"), (who,))
+        _excluded_invalidate()
+        print(f'  ↩️ [다시 넣기] {who}')
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(f'[제외 명단 삭제 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ==========================================
 # 👑 특별 후원자(VIP) 관리
 #    조회는 오버레이가 써야 하므로 공개, 등록/삭제는 로그인 필요(exempt 목록에 없음)
 # ==========================================
@@ -2810,7 +2940,7 @@ def api_vip_candidates():
                     cur.execute(db_query('SELECT timestamp, name, amount FROM %s' % tbl))
                     for ts, nm, amt in cur.fetchall():
                         who = _norm_donor(nm)
-                        if not who or who == '익명':
+                        if is_excluded(nm):     # 익명·테스트는 명단에 안 넣는다
                             continue
                         a = int(amt or 0)
                         if a <= 0:
@@ -3563,13 +3693,17 @@ def receive_donation():
             #       방송 화면에 틀린 이름이 나간다. 합산은 정규화된 이름으로, 표시는 원래 이름으로.
             try:
                 _who = _norm_donor(parsed_name)
-                _dt = state.setdefault('donor_tally', {})
-                _row = _dt.get(_who) or {'total': 0, 'count': 0}
-                _row['total'] = int(_row.get('total') or 0) + max(0, amount)
-                _row['count'] = int(_row.get('count') or 0) + 1
-                _shown = ' '.join(str(parsed_name or '').split())
-                _row['name'] = _shown or _who
-                _dt[_who] = _row
+                # 🚫 사장님이 순위에서 빼둔 이름이면 아예 안 센다(테스트 후원 등).
+                #    ⚠️ 익명은 여기서 빼지 않는다 — 위에 적었듯 '익명 포함' 을 방송 중에
+                #       껐다 켜도 숫자가 안 틀어지게 세어는 두고, 보여줄 때 정한다.
+                if _who not in excluded_names():
+                    _dt = state.setdefault('donor_tally', {})
+                    _row = _dt.get(_who) or {'total': 0, 'count': 0}
+                    _row['total'] = int(_row.get('total') or 0) + max(0, amount)
+                    _row['count'] = int(_row.get('count') or 0) + 1
+                    _shown = ' '.join(str(parsed_name or '').split())
+                    _row['name'] = _shown or _who
+                    _dt[_who] = _row
             except Exception as _e:
                 print(f"⚠️ [후원 순위 집계 실패] {_e}")
 

@@ -2219,6 +2219,23 @@
                 ⚠️ 평생 누적이라 방송을 이어갈수록 사람이 늘기만 합니다(아무도 금액이 줄지 않습니다).
                 골드가 너무 흔해지면 기준선을 올리시면 됩니다 — 위 인원수를 보고 판단하세요.
             </div>
+
+            <!-- 🚫 순위에서 뺀 이름 -->
+            <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border-light);">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span style="font-weight:800; color:var(--text-dim);">🚫 순위에서 뺀 이름 <span id="ex-count" style="color:var(--text-muted); font-weight:600;"></span></span>
+                    <div style="display:flex; gap:6px;">
+                        <input id="ex-name" placeholder="직접 적어서 빼기" style="height:32px; width:180px; font-size:var(--fs-2); background:rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius:var(--r-1); color:#fff; padding:0 10px;">
+                        <button class="secondary" onclick="excludeAdd(document.getElementById('ex-name').value, '')" style="height:32px; font-size:var(--fs-2); padding:0 12px; border-radius:var(--r-1);">빼기</button>
+                    </div>
+                </div>
+                <div style="font-size: var(--fs-1); color: var(--text-muted); margin:8px 0 10px; line-height:1.6;">
+                    ⚠️ <b>후원 기록은 지우지 않습니다.</b> 돈은 장부에 그대로 있고 <b>명단·순위에서만</b> 안 보입니다.
+                    총후원 게이지와 지난 방송 내역은 그대로예요. 언제든 되돌릴 수 있습니다.<br>
+                    <b>익명</b>은 따로 빼지 않아도 항상 명단에서 제외됩니다.
+                </div>
+                <div id="ex-rows" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+            </div>
         </div>
 
         <!-- VIP 등록/수정 모달 -->
@@ -4858,6 +4875,70 @@
             }
         }
 
+        // ══ 🚫 순위에서 뺄 이름 ══
+        // ⚠️ 후원 기록은 안 지운다. 지우면 총액·게이지·지난 방송 내역이 전부 어긋나고
+        //    되돌릴 수도 없다. '명단에서 빼라' 는 쪽지만 따로 둔다.
+        let excludeList = [];
+
+        async function loadExcluded() {
+            try {
+                const r = await fetch('/api/donors/excluded');
+                const d = await r.json();
+                excludeList = d.rows || [];
+            } catch (e) { excludeList = []; }
+            const box = document.getElementById('ex-rows');
+            const cnt = document.getElementById('ex-count');
+            if (cnt) cnt.textContent = excludeList.length ? `${excludeList.length}명` : '';
+            if (!box) return;
+            box.innerHTML = excludeList.length ? excludeList.map(x => `
+                <span style="display:inline-flex; align-items:center; gap:6px; padding:5px 8px 5px 11px;
+                             background:rgba(0,0,0,0.3); border:1px solid var(--border-light);
+                             border-radius:999px; font-size:var(--fs-2); color:var(--text-dim);">
+                    ${escapeHTML(x.name)}
+                    <button class="secondary" title="다시 명단에 넣기"
+                            onclick="excludeRemove(decodeURIComponent('${encodeURIComponent(x.name)}'))"
+                            style="height:20px; width:20px; padding:0; border-radius:50%; font-size:var(--fs-1); line-height:1;">↩</button>
+                </span>`).join('')
+                : '<span style="font-size:var(--fs-2); color:var(--text-muted);">뺀 이름이 없습니다.</span>';
+        }
+
+        async function excludeAdd(name, memo) {
+            name = String(name || '').trim();
+            if (!name) return;
+            if (!await premiumConfirm(
+                    `"${name}" 을(를) 순위에서 뺍니다.\n\n후원 기록은 지우지 않습니다 — 돈은 장부에 그대로 남고\n명단·순위에서만 안 보입니다. 언제든 되돌릴 수 있어요.`,
+                    '순위에서 빼기', 'warning')) return;
+            try {
+                const r = await fetch('/api/donors/excluded', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: name, memo: memo || '' }),
+                });
+                const d = await r.json();
+                if (d.status !== 'success') throw new Error(d.message || '실패');
+                const el = document.getElementById('ex-name'); if (el) el.value = '';
+                acctToast(`🚫 ${name} — 순위에서 뺐습니다`, 'ok');
+                await loadExcluded();
+                await loadVipCandidates();
+                if (typeof loadMonthly === 'function' && document.getElementById('mon-rows')) loadMonthly(true);
+            } catch (e) {
+                premiumAlert('빼지 못했습니다: ' + (e.message || e), '통신 오류', 'warning');
+            }
+        }
+
+        async function excludeRemove(name) {
+            try {
+                const r = await fetch('/api/donors/excluded?name=' + encodeURIComponent(name), { method: 'DELETE' });
+                const d = await r.json();
+                if (d.status !== 'success') throw new Error(d.message || '실패');
+                acctToast(`↩ ${name} — 다시 명단에 넣었습니다`, 'ok');
+                await loadExcluded();
+                await loadVipCandidates();
+                if (typeof loadMonthly === 'function' && document.getElementById('mon-rows')) loadMonthly(true);
+            } catch (e) {
+                premiumAlert('되돌리지 못했습니다: ' + (e.message || e), '통신 오류', 'warning');
+            }
+        }
+
         // ══ 👑 등급 후보 ══
         // ⚠️ 여기서 등급을 자동으로 바꾸지 않는다. 사장님이 일부러 올려준 사람을
         //    서버가 멋대로 내리면 사고다. 보여주고, 누를 때만 반영한다.
@@ -4881,6 +4962,7 @@
                 if (d.status !== 'success') throw new Error(d.message || '실패');
                 vipCandData = d;
                 renderVipCandidates();
+                loadExcluded();
             } catch (e) {
                 box.innerHTML = `<div style="padding:16px; color:var(--danger);">불러오지 못했습니다: ${escapeHTML(String(e.message || e))}</div>`;
             }
@@ -4922,8 +5004,10 @@
                 const act = (x.status === 'new' || x.status === 'up')
                     ? `<button class="primary" onclick="applyVipSuggest('${arg}')" style="height:28px; font-size:var(--fs-1); padding:0 10px; border-radius:var(--r-1); white-space:nowrap;">${VIP_GRADE_KO[x.suggest] || ''}로</button>`
                     : '';
+                // 🚫 익명·테스트를 발견하는 자리가 바로 여기다 — 그 자리에서 바로 뺀다
+                const drop = `<button class="secondary" title="순위에서 빼기 (후원 기록은 안 지웁니다)" onclick="excludeAdd(decodeURIComponent('${encodeURIComponent(x.name)}'), '')" style="height:28px; width:30px; font-size:var(--fs-1); padding:0; border-radius:var(--r-1); color:var(--text-muted);">🚫</button>`;
                 return `
-                <div style="display:grid; grid-template-columns:1fr 120px 110px 96px 96px 110px; gap:8px; align-items:center;
+                <div style="display:grid; grid-template-columns:1fr 120px 110px 96px 96px 110px 38px; gap:8px; align-items:center;
                             padding:9px 12px; border-bottom:1px solid var(--border-light);">
                     <span style="font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(x.name)}</span>
                     <span style="text-align:right; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums;">${vipWon(x.lifetime)}</span>
@@ -4931,6 +5015,7 @@
                     <span style="text-align:center; font-size:var(--fs-2);">${vipGradeTag(x.current)}</span>
                     <span style="text-align:center; font-size:var(--fs-2);">${vipGradeTag(x.suggest)}</span>
                     <span style="text-align:right; font-size:var(--fs-1); color:${col};">${act || txt}</span>
+                    <span style="text-align:right;">${drop}</span>
                 </div>`;
             }).join('') : `<div style="padding:16px; color:var(--text-muted);">${todoOnly ? '손볼 것이 없습니다. 등급이 모두 맞습니다.' : '기록이 없습니다.'}</div>`;
         }
