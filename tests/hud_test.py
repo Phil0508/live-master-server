@@ -296,8 +296,28 @@ print('=' * 74)
    후원 순위가 850~1112(가로 32px 넘침) 이었다. 전부 여기 안으로 못 박았다."""
 GX, GY, GR, GB = 6, 307, 1036, 956
 # 화면에서 직접 잰 크기 (배율 1 기준)
-SIZE = {'roulette': (660, 740), 'slot': (660, 360), 'match': (466, 147),
-        'siggame': (700, 74), 'donor-rank': (262, 62), 'sig-tally': (228, 62)}
+# ⚠️ 예전 값은 전부 '선수도 줄도 하나 없는 빈 판' 이었다 —
+#      match 466×147 · siggame 700×74 · donor-rank 262×62 · sig-tally 228×62
+#    실제 방송에서는 내용이 차면서 커지는데 그 크기로는 아무도 확인하지 않았다.
+#    엑셀판 높이를 132 로 박아뒀던 것(3줄 최소가 260인데)과 똑같은 실수다.
+#    아래는 내용을 채우고 다시 잰 값이다 (2026-08-31).
+SIZE = {'roulette': (660, 740), 'slot': (660, 360),
+        'match': (792, 805),        # 6명 (2명 357 · 3명 469 · 4명 581)
+        'siggame': (700, 170),      # 카드 12장
+        'donor-rank': (380, 517),   # 7줄(상한)
+        'sig-tally': (228, 421)}    # 5줄
+
+# ⚠️ 지금 게임 자리를 벗어나 있는 것들. 사장님이 "지금은 건드리지 말기" 로 정했다.
+#    자리를 고치는 대신, 지금 넘치는 양을 숫자로 박아 둔다 — 더 나빠지면 잡힌다.
+#    (위젯: 오른쪽으로 넘치는 px, 아래로 넘치는 px)
+KNOWN = {
+    # 대결판 — 자리 (288,795) 고정인데 인원이 늘면 아래로 자란다. 2명이어도 198px,
+    #          6명이면 646px 넘는다. 카드를 2열로 바꾸면 6명 805 → 581 로 준다.
+    'match': (44, 646),
+    # 후원순위 — 오른쪽 끝 1038. 게임 자리 오른끝(1036)을 2px 넘지만 목표 막대는
+    #            1046 부터라 실제로는 안 닿는다. readable_test 가 그쪽을 본다.
+    'donor-rank': (2, 0),
+}
 mrf = re.search(r'const ROULETTE_FIT = ([\d.]+);', ov)
 chk('룰렛 배율을 상수로 못 박았다 (배치 파일의 1.123 이면 채팅에 잠긴다)',
     mrf is not None, mrf.group(1) if mrf else '못 찾음')
@@ -312,8 +332,16 @@ for wid, (w, h) in SIZE.items():
     x, y = int(mm.group(1)), int(mm.group(2))
     sc = rfit if wid == 'roulette' else 1.0
     r, bm = x + round(w * sc), y + round(h * sc)
-    chk('%s 이 게임 자리 안이다' % wid, x >= GX and r <= GR and y >= GY and bm <= GB,
-        '%d~%d / %d~%d' % (x, r, y, bm))
+    over_r, over_b = max(0, r - GR), max(0, bm - GB)
+    kr, kb = KNOWN.get(wid, (0, 0))
+    if kr or kb:
+        # ⚠️ 통과시키려고 봐주는 게 아니다. 지금보다 나빠지면 잡으라고 박아 둔 값이다.
+        chk('%s 이 알고 있는 만큼만 벗어난다 (오른쪽 %dpx · 아래 %dpx)' % (wid, kr, kb),
+            over_r <= kr and over_b <= kb,
+            '지금 오른쪽 %d · 아래 %d  (%d~%d / %d~%d)' % (over_r, over_b, x, r, y, bm))
+    else:
+        chk('%s 이 게임 자리 안이다' % wid, x >= GX and r <= GR and y >= GY and bm <= GB,
+            '%d~%d / %d~%d' % (x, r, y, bm))
 # ⚠️ 예전엔 '넷만 옮길 수 있다' 가 통과 조건이었다. 이제는 전부 옮길 수 있고,
 #    대신 안전지대 밖으로 못 나가게 붙잡는다.
 mm = re.search(r'const LAY_IDS = \[([\s\S]*?)\];', ov)
