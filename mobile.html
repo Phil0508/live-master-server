@@ -352,7 +352,7 @@ async function dgMobRoll() {
         const sel = document.getElementById('dgm-player');
         const d = await api('/api/dicegame/roll', { player: sel ? sel.value : '' });
         let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
-        if (d.scored) m += ' · ' + d.scored.name + ' ' + (d.scored.points > 0 ? '+' : '') + d.scored.points + '점';
+        if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
         if (d.lap) m += ' · 한 바퀴!';
         // ⚠️ 기여도는 저절로 들어간다. 누구에게 갔는지 안 보이면, 차례가 넘어갔는데
         //    안 바꿔서 앞사람에게 들어가도 아무도 모른다. 반드시 보여준다.
@@ -434,7 +434,7 @@ async function assign(donId, name) {
     const p = players().find(x => x.name === name);
     if (!don || !p) return;
     busy = true;
-    const pts = Math.round((don.amount || 0) / 10000);
+    const pts = manWon(don.amount);
     try {
         // 🧠 후원자를 같이 보낸다 — 서버가 기억해서 다음 'ㄱㅇㅈ' 을 푼다
         const r = await addScore({ scope:'rank', name, delta:pts, pending_id:donId,
@@ -454,8 +454,14 @@ async function assign(donId, name) {
 // ⚠️ 합이 '혼자 받았을 때'와 반드시 같아야 한다. 예전에는 폰과 조종실이 서로 다른 식을 써서,
 //    같은 5만원이 혼자 받으면 5점, 조종실 반반은 6점, 폰 반반은 4점이 됐다.
 //    조종실의 splitPoints() 와 같은 식이어야 한다 — 한쪽만 고치면 또 갈라진다.
+// 💴 금액 → 점수(만원 단위). 5,000원대는 내리고 6,000원부터 올린다 — 사장님이 정한 규칙.
+//    ⚠️ Math.round 를 쓰면 안 된다. 5,000 을 올려 버린다. 조종실·서버와 같은 식이어야 한다.
+function manWon(amount) {
+    return Math.floor(((Number(amount) || 0) + 4000) / 10000);
+}
+
 function splitPoints(amount, n) {
-    const total = Math.round((amount || 0) / 10000);
+    const total = manWon(amount);
     const base = Math.floor(total / n), rest = total % n;
     return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
 }

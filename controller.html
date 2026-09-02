@@ -2590,7 +2590,7 @@
                 if (names.indexOf(sug.target) === -1) continue;           // 목록에 없는 이름 → 손대지 않는다
 
                 autopilotHandled.add(don.id);
-                const points = Math.round((don.amount || 0) / 10000);
+                const points = manWon(don.amount);
                 // ⚠️ 번호가 아니라 이름으로 넘긴다. 화면 버튼 줄이 얼려 있을 수 있어서,
                 //    랭킹 순서로 만든 번호를 넘기면 엉뚱한 사람에게 자동 배정된다.
                 await assignPending(don.id, sug.target);
@@ -3858,7 +3858,7 @@
             const wrap = document.getElementById('ai-assign-toasts');
             if (!wrap || !don || document.getElementById('aitoast-' + don.id)) return;
             if (currentPlayerNames().indexOf(target) === -1) return;   // 그새 플레이어가 바뀌었으면 제안하지 않는다
-            const pts = Math.round((don.amount || 0) / 10000);
+            const pts = manWon(don.amount);
             const msg = (don.message || '').slice(0, 42);
             const el = document.createElement('div');
             el.className = 'ai-toast';
@@ -4247,9 +4247,9 @@
                섞이면 정산이 틀어진다. */
             const _don0 = gd.pending_donations[donIdx];
             const _contribOnly = _don0.kind === 'contrib';
-            const addPoint = _contribOnly ? 0 : Math.round(_don0.amount / 10000);
+            const addPoint = _contribOnly ? 0 : manWon(_don0.amount);
             const addContrib = _contribOnly ? Number(_don0.contrib || 0)
-                                            : Math.round(_don0.amount / 10000);
+                                            : manWon(_don0.amount);
             // 화면만 먼저 움직인다. 점수를 실제로 더하는 건 서버다.
             target.score += addPoint;
             if (target.contribution === undefined) target.contribution = 0;
@@ -4311,8 +4311,15 @@
         //    같은 후원이 어디서 나누느냐에 따라 총점이 달라졌다.
         //    딱 안 떨어지는 몫은 앞사람부터 1점씩 준다 — 버리면 그만큼 점수가 증발한다.
         //    ⚠️ mobile.html 에도 같은 함수가 있다. 한쪽만 고치면 또 갈라진다.
+        // 💴 금액 → 점수(만원 단위). 5,000원대는 내리고 6,000원부터 올린다 — 사장님이 정한 규칙.
+        //    ⚠️ Math.round 를 쓰면 안 된다. 5,000 을 올려 버린다. 서버(man_won)와 같은 식이어야 한다.
+        //    ⚠️ mobile.html 에도 같은 함수가 있다. 한쪽만 고치면 또 갈라진다.
+        function manWon(amount) {
+            return Math.floor(((Number(amount) || 0) + 4000) / 10000);
+        }
+
         function splitPoints(amount, n) {
-            const total = Math.round((amount || 0) / 10000);
+            const total = manWon(amount);
             const base = Math.floor(total / n), rest = total % n;
             return Array.from({ length: n }, (_, i) => base + (i < rest ? 1 : 0));
         }
@@ -7944,7 +7951,7 @@ initFoldablePanels();
             const d = await dgcCall('roll', { player: sel ? sel.value : '' });
             if (!d) return;
             let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
-            if (d.scored) m += ' · ' + d.scored.name + ' ' + (d.scored.points > 0 ? '+' : '') + d.scored.points + '점';
+            if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
             if (d.lap) m += ' · 🎉 한 바퀴!';
             acctToast(m, 'ok');
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');

@@ -6,7 +6,7 @@
 어떤 금액·인원이든 합계가 '혼자 받았을 때'와 같은지 본다.
 
 ⚠️ 내가 옮겨 적은 식이 아니라 파일에서 꺼낸 진짜 코드를 node 로 돌린다.
-   옮겨 적으면 그 과정에서 또 틀린다(파이썬 round 는 5 를 내리고 JS 는 올린다).
+   옮겨 적으면 그 과정에서 또 틀린다. 반올림은 manWon 하나로 통일했다 — 5,000원대 내림, 6,000부터 올림.
 """
 import io
 import json
@@ -15,6 +15,8 @@ import re
 import subprocess
 import sys
 import tempfile
+
+
 
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT = r'C:\Users\Administrator\Desktop\새로다시시작'
@@ -26,17 +28,21 @@ def chk(name, cond, detail=''):
     print(('  [OK] ' if cond else '  [!!] ') + name + (('  -- ' + str(detail)[:110]) if detail else ''))
 
 
-def grab(path):
-    """파일에서 splitPoints 함수를 통째로 꺼낸다."""
-    lines = io.open(os.path.join(ROOT, path), encoding='utf-8', errors='replace').read().splitlines()
-    i = next((k for k, l in enumerate(lines) if l.strip().startswith('function splitPoints(')), None)
-    if i is None:
-        return None
+def grab(fname):
+    """파일에서 manWon 과 splitPoints 함수를 통째로 꺼낸다 (splitPoints 가 manWon 을 부른다)."""
+    lines = io.open(os.path.join(ROOT, fname), encoding='utf-8', errors='replace').read().splitlines()
     out = []
-    for l in lines[i:]:
-        out.append(l.strip())
-        if l.strip() == '}':
-            break
+    for head in ('function manWon(', 'function splitPoints('):
+        k = next((n for n, l in enumerate(lines) if l.strip().startswith(head)), None)
+        if k is None:
+            return None
+        blk, depth = [], 0
+        for l in lines[k:]:
+            blk.append(l.strip())
+            depth += l.count('{') - l.count('}')
+            if depth == 0:
+                break
+        out.append('\n'.join(blk))
     return '\n'.join(out)
 
 
@@ -60,7 +66,7 @@ const rows = [];
 for (let 만 = 0; 만 <= 60; 만++) {
   for (const 잔돈 of [0, 1000, 3000, 5000, 7000, 9999]) {
     const a = 만 * 10000 + 잔돈;
-    const 혼자 = Math.round(a / 10000);
+    const 혼자 = manWon(a);
     for (let n = 1; n <= 12; n++) {
       const p = splitPoints(a, n);
       const 합 = p.reduce((x, y) => x + y, 0);
@@ -73,7 +79,7 @@ for (let 만 = 0; 만 <= 60; 만++) {
   }
 }
 for (const a of [10000, 30000, 50000, 70000, 333000]) {
-  rows.push({금액: a, 혼자: Math.round(a/10000), 둘: splitPoints(a,2), 셋: splitPoints(a,3)});
+  rows.push({금액: a, 혼자: manWon(a), 둘: splitPoints(a,2), 셋: splitPoints(a,3)});
 }
 console.log(JSON.stringify({bad: bad.slice(0, 8), 검사한칸: 61*6*12, 어긋난칸: bad.length, rows}));
 """

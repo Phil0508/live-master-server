@@ -781,6 +781,19 @@ def _as_int(v, default=None):
         return default
 
 
+def man_won(amount):
+    """금액 → 점수(만원 단위). 5,000원대는 내리고 6,000원부터 올린다 — 사장님이 정한 규칙.
+
+    ⚠️ round() 를 쓰면 안 된다. 파이썬 round 는 짝수 쪽으로 가서 15,000 → 2, 25,000 → 2 가
+       되고, 조종실의 Math.round 는 5,000 을 올린다 — 서로도 달랐다. 한 식으로 통일한다.
+       조종실·폰의 manWon() 과 같은 식이어야 한다.
+    """
+    try:
+        return (int(amount) + 4000) // 10000
+    except (TypeError, ValueError):
+        return 0
+
+
 def _norm_donor(name):
     """후원자 표기 정규화. 같은 사람이 '홍길동' / '홍길동님' / ' 홍길동 ' 으로 갈라져
        집계가 쪼개지는 것을 막는다."""
@@ -995,7 +1008,7 @@ def _slot_finish(winner):
             try:
                 _amt = int(winner.get('amount') or 0)
                 _price = max(0, _as_int(state.get('slot_price'), 20000) or 0)
-                _c = max(0, round((_amt - _price) / 10000))
+                _c = max(0, man_won(_amt - _price))
                 if _c:
                     _contrib_alert(
                         state, '🎰 슬롯 당첨', _c,
@@ -3688,7 +3701,7 @@ def receive_donation():
             # [비활성화] 닉네임 직접 매칭 자동 점수 가산 기능 해제 (모든 후원이 승인 대기함으로 모이도록 설정)
             # for bj in state.get(target_list_key, []):
             #     if bj['name'] == parsed_name:
-            #         add_point = int(amount / 10000 + 0.5)
+            #         add_point = man_won(amount)   # 5,000원대 내림, 6,000부터 올림
             #         bj['score'] += add_point
             #         bj['contribution'] = bj.get('contribution', 0) + add_point
             #         current_total = bj['score']
@@ -6333,38 +6346,13 @@ def _dicegame_save(state, g):
     broadcast_event('update', state)
 
 
-def _dicegame_apply_score(state, player, points):
-    """점수 칸 자동 반영. 기존 점수 경로와 같은 규칙을 지킨다 —
-       기여도 함께, 로그 남기고, 기여도순 재정렬, 대결 팀이면 팀 점수도.
-       (규칙이 갈라지면 장부가 안 맞는다. api_score_add 가 하는 일의 축소판이다)"""
-    t = _find_score_target(state, 'rank', player)
-    if t is None:
-        return None
-    t['score'] = (t.get('score') or 0) + points
-    t['contribution'] = (t.get('contribution') or 0) + points
-    team = _match_team_of(state, t.get('name') or player)
-    if team is not None:
-        team['score'] = (team.get('score') or 0) + points
-    logs = state.get('logs')
-    if not isinstance(logs, list):
-        logs = []
-        state['logs'] = logs
-    logs.insert(0, {"time": time.strftime('%H:%M:%S'), "name": t.get('name') or player,
-                    "val": points})
-    del logs[LOG_MAX:]
-    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
-    lst = state.get(src) or []
-    lst.sort(key=lambda b: -(b.get('contribution') or 0))
-    state[src] = lst
-    return t.get('name') or player
-
-
 def _dicegame_apply_contrib(state, player, contrib, why):
     """기여도만 넣는다 — 점수(그날 일당)는 건드리지 않는다.
 
-    ⚠️ _dicegame_apply_score 와 나란히 두되 규칙이 다르다. 저쪽은 점수·기여도·팀점수를
-       같이 올리지만, 여기는 기여도 하나만이다. 게임에서 나온 것이 일당에 섞이면
-       그날 정산이 틀어진다.
+    ⚠️ 주사위에서 나온 것은 전부 여기로 온다 — 점수 칸·시그니처·한 바퀴. 점수(그날
+       일당)는 후원으로만 오른다. 게임에서 나온 것이 일당에 섞이면 그날 정산이 틀어진다.
+       (예전에는 점수 칸만 _dicegame_apply_score 로 점수·기여도·팀점수를 같이 올렸다.
+        사장님이 "기여도 5점만" 이라고 정해 그 함수는 걷어냈다.)
     """
     t = _find_score_target(state, 'rank', player)
     if t is None:
@@ -6569,16 +6557,21 @@ def api_dicegame_roll():
         if tile.get('type') == 'key':
             keys = g.get('keys') or []
             action['key'] = random.choice(keys) if keys else '(황금열쇠 덱이 비어 있습니다)'
-        # 💯 점수 칸 — 누구 차례인지 알려줬을 때만 자동 반영. 아니면 표시만.
+        # 💯 점수 칸 — 칸에는 '점수' 라고 적혀 있지만 올리는 것은 기여도뿐이다.
+        #    사장님: "점수 칸은 점수라고만 써있지 기여도 5점만 올라가는거야"
+        #    ⚠️ 예전에는 점수(그날 일당)도 같이 올렸다. 게임에서 5만원어치가 가짜로 붙었다.
+        #    기여도라서 시그·한 바퀴와 같이 차례를 기억해 저절로 준다(contrib_player).
         if tile.get('type') == 'score' and tile.get('points'):
-            if player:
-                applied_to = _dicegame_apply_score(state, player, int(tile['points']))
+            _pts = int(tile['points'])
+            if contrib_player:
+                applied_to = _dicegame_apply_contrib(state, contrib_player, _pts,
+                                                     '🎲 점수 칸 %+d' % _pts)
                 if applied_to:
-                    action['scored'] = {'name': applied_to, 'points': int(tile['points'])}
+                    action['scored'] = {'name': applied_to, 'points': _pts}
                 else:
-                    action['score_note'] = f"'{player}' 을(를) 명단에서 못 찾아 점수는 넣지 않았습니다"
+                    action['score_note'] = f"'{contrib_player}' 을(를) 명단에서 못 찾아 기여도는 넣지 않았습니다"
             else:
-                action['score_note'] = '누구 차례인지 고르지 않아 점수는 손으로 주세요'
+                action['score_note'] = '누구 차례인지 몰라 기여도는 손으로 주세요'
         # 🎵 시그니처 칸 — 기존 재생 경로 그대로(재생 전용이라 집계에는 안 센다)
         if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
             try:
@@ -6596,7 +6589,7 @@ def api_dicegame_roll():
             try:
                 _sig_amt = int(tile['sig'].get('amount') or 0)
                 _price = max(0, _as_int(g.get('roll_price'), 20000) or 0)
-                _contrib = max(0, round((_sig_amt - _price) / 10000))
+                _contrib = max(0, man_won(_sig_amt - _price))
                 _why = '%s (%s원 − 한 판 %s원)' % (
                     str(tile['sig'].get('title') or '')[:40],
                     format(_sig_amt, ','), format(_price, ','))
