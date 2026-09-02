@@ -241,6 +241,31 @@ if mc and m:
 
 print()
 print('=' * 74)
+print('⑨ 연출 세 가지 — 사장님이 방송에서 본 것')
+print('=' * 74)
+"""① 시그니처 칸: 말이 닿은 뒤에 리액션이 시작돼야 한다 (리액션이 먼저 터지고 말은 순간이동)
+   ② 도착 칸 강조가 다음 굴림 뒤에도 안 풀렸다 (dgClearTimers 가 풀림 타이머까지 지웠다)
+   ③ 안 굴릴 때도 주사위가 보였다 (유휴에 눈 1 을 그리고 있었다)"""
+_ov = io.open(os.path.join(ROOT, 'overlay.html'), encoding='utf-8', errors='replace').read()
+chk('① 말이 닿는 시각을 알린다', 'window.dgBusyUntil = Date.now() + landAt' in _ov)
+chk('① 리액션 재생기가 그 전에는 시작하지 않는다',
+    "const dgWait = (window.dgBusyUntil || 0) - Date.now();" in _ov
+    and 'if (currentPlayingId === null && dgWait > 0)' in _ov)
+chk('① 미룬 것은 스스로 다시 확인한다 (다음 SSE 를 기다리지 않는다)',
+    'window.dgGateTimer = setTimeout(checkReactionQueue, dgWait + 60);' in _ov)
+chk('① 이미 나가는 리액션은 안 끊는다 (currentPlayingId === null 일 때만 미룬다)',
+    'currentPlayingId === null && dgWait > 0' in _ov)
+chk('② 굴림을 시작할 때 이전 강조를 직접 걷는다',
+    'function dgClearMarks()' in _ov and _ov.count('dgClearMarks();') >= 2)
+chk("② 걷는 것은 dg-land 와 dg-hop", "classList.remove('dg-land', 'dg-hop')" in _ov)
+chk('③ 유휴면 주사위를 숨긴다', "el.classList.toggle('dg-idle', idle);" in _ov and '.dg-dice.dg-idle { opacity: 0; }' in _ov)
+chk('③ 유휴에 눈 1 을 그리지 않는다', 'if (idle) dice = [1];' not in _ov)
+chk('③ 구르는 동안은 보인다', "box.classList.remove('dg-idle');   // 구르는 동안은 보인다" in _ov)
+chk('③ 다 끝나면 다시 숨긴다', 'dgAfter(landAt + 4200, () => dgShowDice([]));' in _ov)
+chk('③ 새로 연 창도 숨긴 채 선다', "dgShowDice([]);   // 안 굴리는 중이다" in _ov)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 for n in BAD:
     print('   [실패] ' + n)

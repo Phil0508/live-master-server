@@ -125,7 +125,8 @@ body.game-on .goal-rail-tip { opacity: 0; }
 .dg-piece.dg-hopping { animation: dgHopUp .28s ease; }
 .dg-center { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; pointer-events: none; }
 .dg-sum { font-size: 62px; font-weight: 900; color: #ffe9a8; text-shadow: 0 3px 6px #000, 0 4px 16px rgba(0,0,0,.9); min-height: 72px; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
-.dg-dice { display: flex; justify-content: center; perspective: 900px; min-height: 145px; }
+.dg-dice { display: flex; justify-content: center; perspective: 900px; min-height: 145px; transition: opacity .5s ease; }
+.dg-dice.dg-idle { opacity: 0; }
 .dg-die { width: 132px; height: 132px; position: relative; filter: drop-shadow(0 18px 18px rgba(0,0,0,.8)); }
 .dg-cube { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform .9s cubic-bezier(.2, 1.1, .35, 1); }
 .dg-face { position: absolute; inset: 0; border-radius: 26px; box-sizing: border-box; background: linear-gradient(145deg, #fffef7, #d8d8cd); border: 1px solid #b6b6aa; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 17px; }
