@@ -302,10 +302,15 @@ NIM_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 #     nvidia/nemotron-3.5-lightning-30b-a3b 200. 기입검증 0.61s · 채팅 1.26s
 #     nvidia/nemotron-nano-3-30b-a3b        404 (목록에는 있는데 안 열림)
 #     nvidia/nemotron-3-ultra-550b-a55b     60초 넘게 무응답
-# 주 모델은 '지금 확실히 열려 있는 것' 으로 둔다. 품질 좋은 super 는 예비로 내렸다 —
-# 자주 막히는 것을 주 모델로 두면 매번 예비로 넘어가느라 늦어진다.
-NIM_MODEL = (os.environ.get('NIM_MODEL') or "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
-NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
+# 주 모델은 '지금 확실히 열려 있는 것' 으로 둔다.
+# 자주 막히는 것을 주 모델로 두면 매번 예비로 넘어가느라 늦어진다 — 배정 제안은 8초,
+# 채팅은 30초를 헛기다린 뒤에야 예비가 답한다.
+# ⚠️ 2026-09-02 방송 4시간 전 점검: lightning-30b 가 90초 안에 한 번도 답하지 않았다
+#    (4/4 타임아웃, 목록에는 있음). super-120b 는 바로 답했다. 그래서 다시 맞바꿨다.
+#    8/31 에는 정반대였다(super 가 죽고 lightning 이 살아 있었다). 이 둘은 번갈아 죽는다 —
+#    방송 전마다 실제로 호출해서 살아 있는 쪽을 주 모델로 둘 것.
+NIM_MODEL = (os.environ.get('NIM_MODEL') or "nvidia/nemotron-3-super-120b-a12b").strip()
+NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3-super-120b-a12b").strip()
 
 # nemotron 3 계열은 생각을 먼저 늘어놓고 답한다. 기입검증은 JSON 한 줄만 필요하고
 # 후원이 들어온 순간 바로 답해야 하므로 추론을 끈다.
@@ -319,12 +324,12 @@ NIM_CHAT_PREFIX = ""  # 채팅은 추론을 켜 둔다 — 설명이 필요한 �
 #    방송 중에 몇 분은 길다. 한쪽이 막히면 다른 쪽으로 넘어가 AI 가 통째로 멈추지 않게 한다.
 #    (실측: 같은 모델이 어떤 때는 6/6 되고 어떤 때는 overloaded 를 뱉는다. 큰 모델일수록 잦다)
 NIM_MODEL_BACKUP = (os.environ.get('NIM_MODEL_BACKUP')
-                    or "nvidia/nemotron-3-super-120b-a12b").strip()
+                    or "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
 # ⚠️ 여기에 죽은 모델(nano-30b, 410)이 들어 있었다. 주 모델이 503 으로 막히면
 #    예비로 넘어갔다가 410 을 맞고, 그게 "모델이 종료됐다" 로 화면에 떴다.
 #    예비도 반드시 살아 있는 것으로 둬야 한다.
 NIM_CHAT_BACKUP = (os.environ.get('NIM_CHAT_BACKUP')
-                   or "nvidia/nemotron-3-super-120b-a12b").strip()
+                   or "nvidia/nemotron-3.5-lightning-30b-a3b").strip()
 
 # 다시 해보면 될 만한 응답. 410(모델이 없어짐)·401(키)은 다시 해도 같으므로 넣지 않는다.
 NIM_RETRYABLE = (429, 500, 502, 503, 504)
