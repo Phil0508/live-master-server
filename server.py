@@ -504,7 +504,11 @@ def _goal_waiting(state):
     tgt = int(state.get('target_goal') or 0)
     if tgt <= 0 or state.get('goal_event_approved'):
         return False
-    total = sum(int(b.get('contribution') or 0) for b in (state.get('bjs') or []))
+    # ⚠️ 막대와 같은 셈이어야 한다 — 점수 + 운영비 + 보정. 예전에는 기여도 합을 써서
+    #    (기여도 = 점수 + 게임 보너스) 막대가 다 차기 전에 '넘었다' 고 했다.
+    total = int((state.get('bottom_fixed') or {}).get('score') or 0)
+    total += sum(int(b.get('score') or 0) for b in (state.get('bjs') or []))
+    total += int(state.get('goal_offset') or 0)
     return total >= tgt
 
 
@@ -1449,6 +1453,7 @@ DEFAULT_STATE = {
     "bjs": [],
     "bottom_fixed": {"name": "운영비", "score": 0},
     "target_goal": 50000,
+    "goal_offset": 0,          # 💰 게이지 보정(원). 막대의 현재 금액에만 ± 로 얹는다. 방송 끝나면 0
     "theme": "default",
     "reaction_mode": False,
     "reaction_queue": [],
@@ -5129,6 +5134,7 @@ def end_broadcast():
             state['broadcast_active'] = False
             state['bjs'] = []
             state['bottom_fixed']['score'] = 0
+            state['goal_offset'] = 0      # 💰 게이지 보정은 이번 방송 것 — 다음 주로 안 넘긴다
             state['reaction_mode'] = False
             state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000,
                                    "is_running": False, "team_mode": False}

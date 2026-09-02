@@ -198,6 +198,7 @@ run('월별 후원 순위', [PY, 'monthly_test.py'], HERE, kind='pt')
 run('특별 후원자 등급', [PY, 'vip_test.py'], HERE, kind='pt')
 run('순위에서 뺄 이름', [PY, 'exclude_test.py'], HERE, kind='pt')
 run('퇴근빵 — 실제 번 돈', [PY, 'homerace_test.py'], HERE, kind='pt')
+run('게이지 보정', [PY, 'goal_offset_test.py'], HERE, kind='pt')
 
 kill_port(5177); kill_port(5199)
 

@@ -1451,6 +1451,7 @@
 
             <div class="control-group" style="margin-bottom: 15px;">
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-bullseye"></i> 목표치:</label><input type="number" id="in-goal" onchange="updateGoal()" style="width: 100px;">
+                <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600; margin-left:10px;" title="막대에 뜨는 현재 금액에 이만큼 더하거나(+) 뺍니다(−). 선수 점수·운영비는 안 건드립니다. 방송을 끝내면 0 으로 돌아갑니다."><i class="fa-solid fa-sliders"></i> 게이지 보정:</label><input type="number" id="in-offset" onchange="updateOffset()" placeholder="±원" style="width: 100px;">
                 <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(255, 207, 77, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 207, 77, 0.3); margin-left: 10px;">
                     <i class="fa-solid fa-rocket" style="color: var(--gold);"></i>
                     <input type="text" id="in-up-text" placeholder="UP 자막 (엔터 발사)" style="flex: 1; border: none; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 5px;" onkeydown="if(event.key==='Enter') triggerUpText()">
@@ -3301,6 +3302,7 @@
 
             setVal('sel-theme', gd.theme || 'default');
             setVal('in-goal', gd.target_goal); commaFormat('in-goal');
+            setVal('in-offset', gd.goal_offset || 0); commaFormat('in-offset');
             
             setChk('chk-reaction', gd.reaction_mode);
             let reactLbl = gd.reaction_mode ? "<i class='fa-solid fa-eye-slash'></i> 위젯 숨김 (리액션 ON)" : "<i class='fa-solid fa-eye'></i> 수동 리액션 켜기";
@@ -4662,6 +4664,16 @@
         function toggleMatch() { gd.match_data.active = !gd.match_data.active; pushAPI(); }
         function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
         function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
+        // 💰 게이지 보정 — 막대의 현재 금액만 ± 로 고친다.
+        //    선수 점수·운영비·퇴근빵·엑셀판은 안 건드린다. 계좌로 따로 들어온 돈처럼
+        //    점수판에 없는 금액을 막대에 얹을 때 쓴다. 방송을 끝내면 0 으로 돌아간다.
+        function updateOffset() {
+            gd.goal_offset = rawNum('in-offset');
+            gd.goal_event_pending = false;
+            gd.goal_event_approved = false;
+            pushAPI();
+        }
+
         function updateGoal() {
             gd.target_goal = rawNum('in-goal');
             // 목표를 바꾸면 달성 알림을 다시 받을 수 있게 초기화
@@ -5200,12 +5212,17 @@
             if (box) box.style.display = 'none';
         }
 
-        // 총 기여도가 목표치를 넘으면 승인 알림을 띄운다 (renderUI에서 매번 호출)
+        // 막대가 목표를 채우면 승인 알림을 띄운다 (renderUI에서 매번 호출)
+        // ⚠️ 방송 화면 막대와 똑같은 셈이어야 한다 — 점수 + 운영비 + 게이지 보정.
+        //    예전에는 기여도 합을 봤다. 기여도는 점수 + 게임 보너스라 막대가 다 차기
+        //    전에 알림이 떴고, 반대로 보정으로 채운 막대에는 알림이 안 떴다.
         function renderGoalAchievementNotice() {
             const box = document.getElementById('goal-alert-box');
             if (!box || !gd) return;
             const tgt = gd.target_goal || 0;
-            const totalContrib = (gd.bjs || []).reduce((acc, b) => acc + (b.contribution || 0), 0);
+            const totalContrib = ((gd.bottom_fixed || {}).score || 0)
+                + (gd.bjs || []).reduce((acc, b) => acc + (b.score || 0), 0)
+                + (parseInt(gd.goal_offset) || 0);
             const isGoalReached = (tgt > 0 && totalContrib >= tgt);
             const shouldShow = (gd.goal_event_pending || isGoalReached) && !gd.goal_event_approved;
             box.style.display = shouldShow ? 'block' : 'none';

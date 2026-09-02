@@ -3940,6 +3940,10 @@
                 });
 
                 let tot = bot.score || 0; bjs.forEach(b => tot += b.score);
+                // 💰 게이지 보정 — 사장님이 조종실에서 ± 로 직접 고친 값.
+                //    계좌로 따로 들어온 돈처럼 점수판엔 없는 금액을 막대에만 얹는다.
+                //    선수 점수·운영비·퇴근빵·엑셀판은 그대로다.
+                tot += parseInt(d.goal_offset) || 0;
                 let botNameEl = document.getElementById('bot-name'); let botScoreEl = document.getElementById('bot-score');
                 if(botNameEl) botNameEl.innerText = '⚙️ ' + (bot.name || '운영비');
                 if(botScoreEl) { let pvb = previousScores['bot']; if(pvb === undefined) botScoreEl.innerText = formatNum(bot.score); else if(bot.score !== pvb) { animateVal(botScoreEl, pvb, bot.score, 800); if(bot.score > pvb) popScore(botScoreEl, bot.score - pvb); } previousScores['bot'] = bot.score; }
