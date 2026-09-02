@@ -25,6 +25,7 @@ const SRC = [pth.join(__dirname, '..', 'sig-fx.js'),
 if (!SRC) { console.log('  [!!] sig-fx.js 를 못 찾았다'); process.exit(1); }
 console.log('대상: ' + SRC);
 const SigFX = require(SRC);
+const SRCTXT = fs.readFileSync(SRC, 'utf8');   // 글자 검사용(⑨)
 
 /* 무대 하나 만들기 — 방송판과 같은 1080x1920 세로 */
 function stage() {
@@ -530,6 +531,37 @@ hr('⑰ 끝이 잘리지 않는가');
     return a.length === 1;
   })());
 })();
+
+console.log();
+hr('⑱ 연출이 끝난 뒤 화면에 남는 것이 없는가');
+/* ⚠️ 사장님: "포카치노 액션이 나오고 나서 항상 전체적인 UI가 오른쪽으로 기울어지네"
+      a() 는 delay 앞 구간용으로 첫 프레임 자세를 인라인 style 로 적어 둔다. 그 대상이
+      연출 레이어(fx) 안이면 레이어와 같이 지워지지만, 흔들 대상(#master-container)처럼
+      레이어 밖 요소에 적으면 방송 내내 남는다. 실제로 pocha 가 화면 전체에
+      scale(1.04) skewX(-4deg) 를 적어 놓고 안 지웠다.
+      ⚠️ 연출 이름을 하나씩 적지 않는다 — a() 를 레이어 밖 요소에 쓰면 누구나 겪는 병이라
+         17개를 전부 돌려 본다. */
+(function () {
+  const dirty = [];
+  ITEMS.forEach(function (it) {
+    const shake = new dom.El('div');      // 방송판의 #master-container 자리
+    document.appendChild(shake);
+    const st = stage(), cd = card();
+    try { SigFX.play(it.key, st, { card: cd, shakeEl: shake }); } catch (e) {}
+    SigFX.stop(st);
+    const t = shake.style && shake.style.transform;
+    const o = shake.style && shake.style.opacity;
+    if (t || o) dirty.push(it.key + ' → ' + (t || ('opacity ' + o)));
+  });
+  chk('17개 연출 모두, 끝난 뒤 화면에 남는 자세가 없다', dirty.length === 0,
+      dirty.slice(0, 4).join(' | '));
+})();
+chk('적어 둔 인라인 style 을 기억한다', /_remember\s*\(/.test(SRCTXT));
+chk('정리할 때 그것을 되돌린다', /_restorePre\s*\(\)/.test(SRCTXT)
+    && /this\._restorePre\(\);/.test(SRCTXT));
+chk('되돌릴 때 원래 값이 없었으면 지운다 (빈 문자열로는 안 지워진다)',
+    /removeProperty\(r\.prop\)/.test(SRCTXT));
+chk('다음 연출이 다시 적을 수 있게 표시를 푼다', /_sigPre = 0/.test(SRCTXT));
 
 console.log();
 hr('통과 ' + OK.length + ' · 실패 ' + BAD.length);

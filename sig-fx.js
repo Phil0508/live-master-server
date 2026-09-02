@@ -259,6 +259,9 @@ class SigEngine {
     if (this._shakeEl) {
       try { this._shakeEl.getAnimations().forEach(a => a.cancel()); } catch (e) {}
     }
+    /* ⚠️ 애니메이션만 취소하면 안 된다. a() 가 delay 앞 구간용으로 적어 둔 인라인
+       style 은 애니메이션이 아니라서 취소해도 그대로 남는다. 그것까지 되돌린다. */
+    this._restorePre();
   }
 
   /* ══ 시그니처 연동 도우미 ══ */
@@ -358,6 +361,26 @@ class SigEngine {
     p.appendChild(d);
     return d;
   }
+  /* 연출 앞 구간용으로 인라인 style 을 적을 때, 원래 값을 함께 적어 둔다.
+     정리할 때 이 목록을 되돌린다(_restorePre). */
+  _remember(el, prop) {
+    if (!this._pre) this._pre = [];
+    this._pre.push({ el: el, prop: prop, prev: el.style.getPropertyValue(prop) });
+  }
+
+  /* 적어 뒀던 인라인 style 을 원래대로 돌린다.
+     ⚠️ 빈 문자열을 써 넣는 것으로는 안 지워진다 — removeProperty 를 써야 한다. */
+  _restorePre() {
+    (this._pre || []).forEach(r => {
+      try {
+        if (r.prev) r.el.style.setProperty(r.prop, r.prev);
+        else r.el.style.removeProperty(r.prop);
+        r.el._sigPre = 0;   // 다음 연출이 다시 적을 수 있게 표시를 푼다
+      } catch (e) {}
+    });
+    this._pre = [];
+  }
+
   a(el, frames, dur, delay, ease) {
     delay = delay || 0;
 
@@ -376,10 +399,16 @@ class SigEngine {
     if (delay > 0 && frames && frames[0] && !el._sigPre) {
       el._sigPre = 1;
       const f0 = frames[0];
+      /* ⚠️ 여기서 적은 style 은 반드시 기억해 두었다가 정리할 때 되돌린다.
+         연출 레이어(fx) 안 요소면 레이어와 같이 지워지니 상관없지만, 흔들 대상처럼
+         레이어 밖 요소(#master-container)에 적으면 방송 내내 남는다.
+         실제로 포카치노(pocha)가 화면 전체에 scale(1.04) skewX(-4deg) 를 적어 놓고
+         안 지워, 그 뒤로 방송 화면이 계속 오른쪽으로 기울어 있었다. */
       if (f0.opacity !== undefined) {
-        if (!el.style.opacity) el.style.opacity = '0';
+        if (!el.style.opacity) { this._remember(el, 'opacity'); el.style.opacity = '0'; }
       } else if (typeof f0.transform === 'string' && !el.style.transform) {
         try {
+          this._remember(el, 'transform');
           el.style.transform = this.mapFrames([f0], !this._stage(el.parentNode))[0].transform;
         } catch (e) {}
       }
