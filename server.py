@@ -902,7 +902,8 @@ def alias_lookup(message, players):
     return best
 
 
-def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, count_tally=True):
+def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, count_tally=True,
+                      play_after_ms=0):
     """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유).
 
     큐를 태우면 reaction_mode가 켜지고, 재생이 끝나 큐가 비면 자동으로 꺼진다.
@@ -935,7 +936,11 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
         "amount": amount,
         "donator": donator,
         "message": message,
-        "skip_popup": bool(skip_popup)
+        "skip_popup": bool(skip_popup),
+        # ⏳ 이 시각(밀리초) 전에는 화면이 재생을 시작하지 않고 리액션 모드로도
+        #    안 넘어간다. 주사위가 말을 다 옮길 때까지 기다리게 하려고 쓴다.
+        #    0 이면 곧바로 재생 — 보통 후원은 전부 0 이다.
+        "play_after": (int(time.time() * 1000) + play_after_ms) if play_after_ms > 0 else 0,
     })
     state['reaction_mode'] = True
 
@@ -6575,8 +6580,16 @@ def api_dicegame_roll():
         # 🎵 시그니처 칸 — 기존 재생 경로 그대로(재생 전용이라 집계에는 안 센다)
         if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
             try:
+                # ⏳ 말이 다 간 뒤에 나오게 한다. 곧바로 넣으면 reaction_mode 가 켜지면서
+                #    body.reaction-mode 가 주사위판을 숨겨, 말이 가는 것을 볼 수가 없다.
+                #    ⚠️ 큐에는 지금 넣는다 — 서버가 그 사이 재시작해도 시그니처를 안 잃는다.
+                #    ⚠️ 시간은 화면 연출(dgAnimateRoll)과 같은 식이어야 한다:
+                #       rollT = 250 + 눈수×1300, landAt = rollT + 지나간칸수×300 + 120.
+                #       거기에 도착 카드가 잠깐 보일 여유 500ms 를 더한다.
+                _anim_ms = 370 + 1300 * len(dice) + 300 * len(path) + 500
                 enqueue_signature(state, tile['sig'], tile['sig'].get('amount') or 0,
-                                  '주사위게임', '', count_tally=False)
+                                  '주사위게임', '', count_tally=False,
+                                  play_after_ms=_anim_ms)
             except Exception as e:
                 print(f'⚠️ [주사위게임] 시그니처 재생 실패 — 게임은 계속됩니다: {e}')
             # 🎯 기여도만 준다. 점수는 그날 일당이라 게임으로 오르면 안 된다.

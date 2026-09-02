@@ -293,6 +293,117 @@ chk('지금 주사위가 몇 개인지 화면에 뜬다', "' · 주사위 ' + (g
 
 print()
 print('=' * 74)
+print('⑫ 꽝은 아무것도 안 준다 · 주사위는 점수를 안 건드린다')
+print('=' * 74)
+"""사장님 말
+   "꽝에 가면 기여도 2점도 안 올라가게 해줘"
+   "주사위게임은 기여도만 올릴 뿐 점수엔 영향 없는거지?"
+
+⚠️ 꽝은 label 이 '꽝!' 인 점수 칸이고 points 가 2 였다. 그래서 밟으면 기여도 +2 가
+   붙었다. 0 으로 두면 서버가 아예 안 준다 — if … and tile.get('points') 에서 걸린다.
+"""
+
+
+def _roll_until(player='제이양'):
+    """굴림에는 연출을 지키는 쿨다운(429)이 있다. 될 때까지 기다린다."""
+    for _ in range(60):
+        c, r = post('/api/dicegame/roll', {'player': player})
+        if c == 200:
+            return r
+        time.sleep(0.5)
+    return {}
+
+
+def _fill(tile):
+    post('/api/dicegame/setup', {'cols': 8, 'rows': 5, 'dice': 1, 'roll_price': 20000})
+    n = len(dg().get('tiles') or [])
+    for i in range(1, n):
+        t = dict(tile); t['id'] = i
+        post('/api/dicegame/tile', t)
+    post('/api/dicegame/move', {'pos': 0})
+
+
+def _who(nm='제이양'):
+    for b in get().get('bjs') or []:
+        if b.get('name') == nm:
+            return int(b.get('score') or 0), int(b.get('contribution') or 0)
+    return 0, 0
+
+
+reset_all()
+_fill({'type': 'score', 'label': '꽝!', 'points': 0})
+s0, c0 = _who()
+r = _roll_until()
+s1, c1 = _who()
+chk('꽝(0점)은 기여도도 안 올린다', (s1, c1) == (s0, c0), '점수 %d→%d 기여도 %d→%d' % (s0, s1, c0, c1))
+chk('꽝은 지급 알림도 안 남긴다', not r.get('scored'), r.get('scored'))
+
+reset_all()
+_fill({'type': 'score', 'label': '', 'points': 5})
+s0, c0 = _who()
+_roll_until()
+s1, c1 = _who()
+chk('점수 칸 5점 → 기여도만 +5', s1 == s0 and c1 == c0 + 5,
+    '점수 %d→%d 기여도 %d→%d' % (s0, s1, c0, c1))
+
+# 한 바퀴도 점수를 안 건드린다
+reset_all()
+_fill({'type': 'blank', 'label': ''})
+post('/api/dicegame/move', {'pos': 20})
+s0, c0 = _who()
+r = _roll_until()
+s1, c1 = _who()
+chk('한 바퀴도 점수는 그대로', s1 == s0, '점수 %d→%d' % (s0, s1))
+
+print()
+print('=' * 74)
+print('⑬ 시그니처는 말이 다 간 뒤에 나온다')
+print('=' * 74)
+"""사장님 말: "먼저 리액션모드로 가고나서 주사위가 가서 주사위 가는게 안보여.
+   로직 자체를 주사위 이동후 나온 시그가 나오게 해줘"
+
+⚠️ 화면을 덮는 것은 재생이 아니라 리액션 모드다 —
+   body.reaction-mode 가 #dicegame-container 를 숨긴다. 그래서 '재생 시작' 만
+   미뤄서는 안 되고, 큐 항목에 '이 시각 이후' (play_after) 를 실어 화면 전환까지
+   같이 미뤄야 한다."""
+reset_all()
+post('/api/dicegame/setup', {'cols': 8, 'rows': 5, 'dice': 1, 'roll_price': 0})
+_n = len(dg().get('tiles') or [])
+for i in range(1, _n):
+    post('/api/dicegame/tile', {'id': i, 'type': 'sig', 'sig_id': 10040})
+post('/api/dicegame/move', {'pos': 0})
+_before = int(time.time() * 1000)
+r = _roll_until()
+_q = get().get('reaction_queue') or []
+chk('시그니처가 곧바로 큐에 들어간다 (서버가 재시작해도 안 잃게)', len(_q) == 1, len(_q))
+_pa = (_q[0].get('play_after') if _q else 0) or 0
+chk('play_after 가 실려 있다', _pa > _before, _pa)
+_act = (dg().get('action') or {})
+_exp = 370 + 1300 * len(_act.get('dice') or []) + 300 * len(_act.get('path') or []) + 500
+chk('미루는 시간이 화면 연출과 같은 식이다 (370 + 눈×1300 + 칸×300 + 500)',
+    abs((_pa - _before) - _exp) <= 400, '기대 %d · 실제 %d' % (_exp, _pa - _before))
+
+# 보통 후원 시그니처는 안 미룬다
+reset_all()
+donate_sig = {'tx_id': 'ps' + str(int(time.time())), 'name': '별', 'amount': 100009,
+              'message': '[시그니처 신청: 테스트]', 'time': '20:00'}
+urllib.request.urlopen(urllib.request.Request(
+    B + '/api/donation', json.dumps(donate_sig).encode(),
+    {'Content-Type': 'application/json'}), timeout=20)
+time.sleep(0.6)
+_q2 = [x.get('play_after') or 0 for x in (get().get('reaction_queue') or [])]
+chk('보통 후원 시그니처는 안 미룬다 (전부 0)', all(v == 0 for v in _q2), _q2)
+
+_ov = io.open(_os.path.join(_proj(), 'overlay.html'), encoding='utf-8', errors='replace').read()
+chk('화면이 리액션 모드 전환도 같이 미룬다',
+    "if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');" in _ov)
+chk('참는 시간을 한 곳에서 답한다', 'function reactionHoldMs()' in _ov)
+chk('⚠️ 두 시계를 섞지 않는다 (서버 시각 · 브라우저 시각)',
+    'head.play_after - (Date.now() + serverTimeOffset)' in _ov
+    and 'window.dgBusyUntil - Date.now()' in _ov)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 for n in BAD:
     print('   [실패] ' + n)

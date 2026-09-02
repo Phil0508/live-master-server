@@ -51,7 +51,8 @@ chk('칸 번호가 1~21 로 빠짐없다', sorted(r['id'] for r in rows) == list
 
 want = {
     ('sig', '이꾸욧'): 2, ('sig', '포카치노'): 1, ('sig', '멈춘시간'): 2,
-    ('score', 2): 2, ('score', 5): 3, ('score', 10): 2, ('score', 20): 1,
+    # 꽝 두 칸은 0점이다 — 밟아도 아무것도 안 준다 (예전에는 2점이었다)
+    ('score', 0): 2, ('score', 5): 3, ('score', 10): 2, ('score', 20): 1,
 }
 got = {}
 for r in rows:
@@ -249,12 +250,15 @@ print('=' * 74)
 _ov = io.open(os.path.join(ROOT, 'overlay.html'), encoding='utf-8', errors='replace').read()
 chk('① 말이 닿는 시각을 알린다', 'window.dgBusyUntil = Date.now() + landAt' in _ov)
 chk('① 리액션 재생기가 그 전에는 시작하지 않는다',
-    "const dgWait = (window.dgBusyUntil || 0) - Date.now();" in _ov
-    and 'if (currentPlayingId === null && dgWait > 0)' in _ov)
+    'const hold = reactionHoldMs();' in _ov
+    and 'if (currentPlayingId === null && hold > 0)' in _ov)
 chk('① 미룬 것은 스스로 다시 확인한다 (다음 SSE 를 기다리지 않는다)',
-    'window.dgGateTimer = setTimeout(checkReactionQueue, dgWait + 60);' in _ov)
+    'window.dgGateTimer = setTimeout(checkReactionQueue, hold + 60);' in _ov)
 chk('① 이미 나가는 리액션은 안 끊는다 (currentPlayingId === null 일 때만 미룬다)',
-    'currentPlayingId === null && dgWait > 0' in _ov)
+    'currentPlayingId === null && hold > 0' in _ov)
+# ⚠️ 재생만 미뤄서는 안 된다. 화면을 덮는 것은 리액션 모드다.
+chk('① 화면 전환(리액션 모드)도 같이 미룬다',
+    "if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');" in _ov)
 chk('② 굴림을 시작할 때 이전 강조를 직접 걷는다',
     'function dgClearMarks()' in _ov and _ov.count('dgClearMarks();') >= 2)
 chk("② 걷는 것은 dg-land 와 dg-hop", "classList.remove('dg-land', 'dg-hop')" in _ov)
@@ -263,6 +267,17 @@ chk('③ 유휴에 눈 1 을 그리지 않는다', 'if (idle) dice = [1];' not i
 chk('③ 구르는 동안은 보인다', "box.classList.remove('dg-idle');   // 구르는 동안은 보인다" in _ov)
 chk('③ 다 끝나면 다시 숨긴다', 'dgAfter(landAt + 4200, () => dgShowDice([]));' in _ov)
 chk('③ 새로 연 창도 숨긴 채 선다', "dgShowDice([]);   // 안 굴리는 중이다" in _ov)
+
+print()
+print('=' * 74)
+print('⑩ 기본판의 꽝은 아무것도 안 준다')
+print('=' * 74)
+# ⚠️ 꽝은 points 2 였다 — 밟으면 기여도 +2 가 붙었다.
+#    사장님: "꽝에 가면 기여도 2점도 안 올라가게 해줘"
+_ctl2 = io.open(os.path.join(ROOT, 'controller.html'), encoding='utf-8', errors='replace').read()
+_bang = re.findall(r"label: '꽝!',\s*points: (-?\d+)", _ctl2)
+chk('기본판에 꽝이 두 칸 있다', len(_bang) == 2, _bang)
+chk('꽝은 0점이다', all(v == '0' for v in _bang), _bang)
 
 print()
 print('=' * 74)
