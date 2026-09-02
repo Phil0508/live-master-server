@@ -185,4 +185,52 @@ chk('말도 안 되는 분은 잘라낸다', st == 200, st)
 g = game()
 chk('타이머가 180분으로 제한됨', g['timer']['timeLeft'] == 180 * 60, g['timer'])
 
+print('\n12) 총금액은 받아낸 것을 뺀다')
+"""사장님 말: "총금액이 100만원인데 5만원짜리 시그를 클리어하면 95만원으로
+   빠졌으면 좋겠어. 올리지는 말고."
+
+⚠️ 예전에는 뒤집힌 카드를 전부 더해서, 클리어를 해도 숫자가 안 줄었다. 올라가기만
+   하고 안 내려가면 '얼마 남았나' 를 알 수가 없다. 바로 옆 주석도 '다 받아내려면
+   얼마인가' 라고 적혀 있으니 뜻으로도 이쪽이 맞다."""
+import io as _io
+import os as _os
+
+_H = _os.path.dirname(_os.path.abspath(__file__))
+_FALLBACK = r'C:\Users\Administrator\Desktop\새로다시시작'
+
+
+def _proj():
+    d = _H
+    for _ in range(4):
+        d = _os.path.dirname(d)
+        if _os.path.exists(_os.path.join(d, 'overlay.html')):
+            return d
+    return _FALLBACK
+
+
+_ov = _io.open(_os.path.join(_proj(), 'overlay.html'), encoding='utf-8', errors='replace').read()
+chk('받아낸 카드(doneAt)는 총금액에서 뺀다',
+    'const sum = goals.reduce((a, c) => a + (c.doneAt ? 0 : (Number(c.amount) || 0)), 0);' in _ov)
+chk('예전처럼 전부 더하지 않는다',
+    'goals.reduce((a, c) => a + (Number(c.amount) || 0), 0)' not in _ov)
+
+# 실제로 뒤집고 클리어해서 남는 금액이 줄어드는지 본다
+_g = game()
+_cards = _g.get('cards') or []
+if len(_cards) >= 2:
+    for _c in _cards[:2]:
+        req('/api/siggame/flip', {'id': _c['id']})
+    _g = game()
+    _fl = [c for c in (_g.get('cards') or []) if c.get('flippedAt')]
+    _before = sum(int(c.get('amount') or 0) for c in _fl if not c.get('doneAt'))
+    _one = _fl[0]
+    req('/api/siggame/done', {'id': _one['id'], 'done': True})
+    _g = game()
+    _fl = [c for c in (_g.get('cards') or []) if c.get('flippedAt')]
+    _after = sum(int(c.get('amount') or 0) for c in _fl if not c.get('doneAt'))
+    chk('클리어하면 그 금액만큼 줄어든다',
+        _after == _before - int(_one.get('amount') or 0),
+        '%s → %s (뺀 값 %s)' % (_before, _after, _one.get('amount')))
+    chk('클리어해도 금액이 늘지는 않는다', _after <= _before, '%s → %s' % (_before, _after))
+
 print('\n═══ 최종 통과 %d / 실패 %d ═══' % (ok, fail))

@@ -2818,11 +2818,14 @@
                 }
             }
 
-            // 왼쪽 자리에는 '다 받아내려면 얼마인가' 를 적는다.
-            // 뒤집을 때마다 늘어나므로, 참가자도 보는 사람도 목표 금액을 바로 안다.
+            // 왼쪽 자리에는 '앞으로 더 받아내야 할 돈' 을 적는다.
+            // 뒤집을 때마다 늘고, 받아내면(doneAt) 그만큼 줄어든다.
+            // ⚠️ 예전에는 받아낸 것까지 계속 더해서, 클리어를 해도 숫자가 안 줄었다.
+            //    100만원에서 5만원짜리를 받아내면 95만원이 되어야 한다 — 사장님이 정한 규칙.
+            //    (올라가기만 하고 안 내려가면 '얼마 남았나' 를 알 수가 없다)
             const totalEl = document.getElementById('sg-total');
             if (totalEl) {
-                const sum = goals.reduce((a, c) => a + (Number(c.amount) || 0), 0);
+                const sum = goals.reduce((a, c) => a + (c.doneAt ? 0 : (Number(c.amount) || 0)), 0);
                 const txt = sum.toLocaleString() + '원';
                 if (totalEl.textContent !== txt) totalEl.textContent = txt;
             }
