@@ -6244,7 +6244,7 @@ def api_score_add():
                     if team is not None:
                         team['score'] = (team.get('score') or 0) + delta
                         team_hits.append((team.get('name'), tname, delta))
-                applied.append({"name": tname, "delta": delta,
+                applied.append({"name": tname, "delta": delta, "contrib": contrib,
                                 "score": t.get('score'), "contribution": t.get('contribution')})
             for tn, mn, dv in team_hits:
                 print(f"  ⚔️ [팀전] {mn} 의 {dv:+d} 점이 '{tn}' 팀 점수에도 반영됐습니다", flush=True)
@@ -6256,8 +6256,18 @@ def api_score_add():
                 logs = []
             state[log_key] = logs
             if want_log:
+                _reason = str(body.get('reason') or '')[:80]
                 for a in applied:
-                    logs.insert(0, {"time": time_str, "name": a['name'], "val": a['delta']})
+                    # 🧾 기여도만 움직인 것은 기여도로 적는다.
+                    #    ⚠️ 예전에는 delta 만 적어서, 기여도를 손으로 고치면 '0점' 이라는
+                    #       쓸모없는 줄이 남았다(그나마도 log:false 라 아예 안 남겼다).
+                    #       그래서 나중에 "이 사람 기여도가 왜 이렇지" 를 되짚을 수 없었다.
+                    if not a['delta'] and a.get('contrib'):
+                        logs.insert(0, {"time": time_str, "name": a['name'],
+                                        "val": a['contrib'], "kind": "contrib",
+                                        "why": _reason or '조종실에서'})
+                    else:
+                        logs.insert(0, {"time": time_str, "name": a['name'], "val": a['delta']})
             # 되돌리기: '-3점' 줄을 새로 남기는 대신 원래 줄을 지운다(장부가 깔끔하게 남는다).
             # 반반·N분할을 되돌릴 때는 지울 줄이 여러 개라 목록도 받는다.
             for u in ([undo_log] if isinstance(undo_log, dict) else (undo_log or [])):

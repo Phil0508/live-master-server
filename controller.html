@@ -3511,7 +3511,29 @@
             setVal('in-ticker', (gd.ticker_text||'').replace(/ \/ /g, '\n')); 
 
             if (gd.logs) {
-                let rankLogHtml = gd.logs.map(log => `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px;"><span style="color:var(--text-dim);">&gt;</span> <span style="color:var(--text-dim); font-size: var(--fs-1);">[${log.time}]</span> <span style="color:#fff; font-weight: bold;">${log.name}</span>님 <span style="color:var(--accent); font-weight: bold;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
+                /* 🧾 기여도 줄은 점수 줄과 다르게 그린다.
+                   ⚠️ 예전에는 kind 와 why 를 무시하고 전부 '+5점' 으로만 찍었다. 서버는
+                      이미 '기여도' 라는 것과 그 이유(주사위 점수 칸 · 시그니처 · 한 바퀴 ·
+                      슬롯 당첨)를 실어 보내는데 화면이 버리고 있었다. 그래서 점수가 오른
+                      것인지 기여도가 오른 것인지조차 알 수 없었다. */
+                let rankLogHtml = gd.logs.map(log => {
+                    const amt = (log.val > 0 ? '+' : '') + Number(log.val || 0).toLocaleString();
+                    const isC = log.kind === 'contrib';
+                    const tag = isC
+                        ? `<span style="background:rgba(175,82,222,0.18); color:#c99bff; font-size:var(--fs-1); font-weight:800; padding:1px 7px; border-radius:var(--r-1);">기여도</span>`
+                        : '';
+                    const why = (isC && log.why)
+                        ? `<span style="color:var(--text-muted); font-size:var(--fs-1);">${escapeHTML(String(log.why))}</span>`
+                        : '';
+                    return `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">`
+                        + `<span style="color:var(--text-dim);">&gt;</span>`
+                        + `<span style="color:var(--text-dim); font-size: var(--fs-1);">[${log.time}]</span>`
+                        + tag
+                        + `<span style="color:#fff; font-weight: bold;">${escapeHTML(String(log.name || ''))}</span>님`
+                        + `<span style="color:${isC ? '#c99bff' : 'var(--accent)'}; font-weight: bold;">${amt}${isC ? '' : '점'}</span>`
+                        + why
+                        + `</div>`;
+                }).join('');
                 if (lastRankLogHtml !== rankLogHtml) { document.getElementById('log-box-ranking').innerHTML = rankLogHtml; lastRankLogHtml = rankLogHtml; }
             }
             if (gd.match_logs) {
@@ -4553,8 +4575,10 @@
         //    delta 0 · contribution 만 보내면 점수는 그대로 두고 기여도만 움직인다.
         async function sendContribDelta(name, diff) {
             if (!diff) { renderUI(); return true; }
+            /* ⚠️ 예전에는 log:false 라 손으로 고친 기여도가 아무 기록도 안 남았다.
+               나중에 "이 사람 기여도가 왜 이렇지" 를 되짚을 방법이 없었다. 남긴다. */
             const r = await addScoreAPI({ scope: 'rank', name: name, delta: 0,
-                                         contribution: diff, log: false });
+                                         contribution: diff, reason: '손으로 고침' });
             if (!r) { await premiumAlert('기여도를 바꾸지 못했습니다. (서버 전송 실패)', '실패', 'error'); }
             return !!r;
         }
