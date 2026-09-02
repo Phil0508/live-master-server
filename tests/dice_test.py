@@ -141,7 +141,7 @@ chk('감아 돈 위치가 맞다', g.get('pos') == (19 + sum(r['dice'])) % 20, (
 
 print()
 print('=' * 74)
-print('⑥ 점수 칸 — 차례를 골랐을 때만 자동, 규칙은 기존 점수 경로와 동일')
+print('⑥ 점수 칸 — 기여도만 오른다 (점수는 그날 일당이라 안 건드린다)')
 print('=' * 74)
 reset_all()
 post('/api/dicegame/setup', {'cols': 4, 'rows': 3, 'dice': 1})   # 10칸 — 어디 떨어져도 점수 칸
@@ -151,18 +151,19 @@ post('/api/dicegame/move', {'pos': 0})
 c, r = post('/api/dicegame/roll', {'player': '제이양'})
 d = get()
 sc = {b['name']: (b.get('score'), b.get('contribution')) for b in d['bjs']}
-chk('제이양 점수 +2 · 기여도 +2', sc.get('제이양') == (2, 2), sc)
-chk('로그도 남는다', any(l.get('name') == '제이양' and l.get('val') == 2 for l in (d.get('logs') or [])),
+# 사장님: "점수 칸은 점수라고만 써있지 기여도 5점만 올라가는거야"
+chk('제이양 점수 그대로 0 · 기여도 +2', sc.get('제이양') == (0, 2), sc)
+chk('로그에 기여도라고 남는다', any(l.get('name') == '제이양' and l.get('val') == 2 and l.get('kind') == 'contrib' for l in (d.get('logs') or [])),
     (d.get('logs') or [])[:1])
 chk('응답에도 반영 결과', (r.get('scored') or {}).get('name') == '제이양', r.get('scored'))
 post('/api/dicegame/move', {'pos': 0})
 c, r = post('/api/dicegame/roll')                      # 차례 없이
 d = get()
-sc2 = {b['name']: b.get('score') for b in d['bjs']}
-chk('차례를 안 고르면 점수는 안 움직인다', sc2.get('제이양') == 2 and sc2.get('밍밍') == 0, sc2)
-chk('대신 안내가 실린다', '손으로' in (r.get('note') or ''), r.get('note'))
+sc2 = {b['name']: (b.get('score'), b.get('contribution')) for b in d['bjs']}
+# 기여도라서 시그·한 바퀴처럼 방금 굴린 사람을 기억해 준다 — 점수는 여전히 0
+chk('차례를 안 골라도 기억한 사람 기여도로 간다 (점수는 0 그대로)', sc2.get('제이양') == (0, 4) and sc2.get('밍밍') == (0, 0), sc2)
 c, r = post('/api/dicegame/move', {'pos': 0}) and post('/api/dicegame/roll', {'player': '없는사람'})
-chk('없는 사람이면 점수 안 넣고 알린다', '못 찾아' in ((r or {}).get('note') or ''), (r or {}).get('note'))
+chk('없는 사람이면 기여도 안 넣고 알린다', '못 찾아' in ((r or {}).get('note') or ''), (r or {}).get('note'))
 
 print()
 print('=' * 74)

@@ -196,9 +196,9 @@ post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 20000, 'lap_con
 
 src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
 chk('시그니처에서 한 판 값을 뺀다',
-    'round((_sig_amt - _price) / 10000)' in src)
+    'man_won(_sig_amt - _price)' in src)
 chk('한 판 값보다 싼 시그는 0 으로 둔다 (빼앗지 않는다)',
-    'max(0, round((_sig_amt - _price) / 10000))' in src)
+    'max(0, man_won(_sig_amt - _price))' in src)
 chk('한 바퀴에 기여도를 준다', "_lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)" in src)
 # ⚠️ 점수(그날 일당)에 섞이면 안 된다 — 기여도만 넣는 도우미를 쓴다
 chk('기여도만 넣는 길로 간다 (점수 도우미가 아니다)',
@@ -223,13 +223,12 @@ chk('마지막으로 굴린 사람을 기억한다', '"last_player": ""' in src2
 chk('고르면 기억해 둔다', "g['last_player'] = player" in src2)
 chk('안 고르면 기억한 사람에게 간다',
     "contrib_player = player or str(g.get('last_player') or '').strip()" in src2)
-# ⚠️ 그 기억은 기여도에만 쓴다. 점수 칸에 쓰면 안 고른 판의 '그날 일당' 이
-#    앞사람에게 들어가 정산이 틀어진다. 실제로 한 번 그렇게 만들었다가
-#    dice_test 의 '차례를 안 고르면 점수는 안 움직인다' 가 잡았다.
-chk('점수 칸은 기억을 안 쓴다 (그날 일당이라 위험하다)',
-    "_dicegame_apply_score(state, player, int(tile['points']))" in src2)
-chk('기여도만 기억을 쓴다',
-    src2.count('_dicegame_apply_contrib(state, contrib_player') == 2)
+# 점수 칸도 이제 기여도만 올린다 ("점수라고만 써있지 기여도 5점만"). 그래서 시그·한 바퀴와
+# 같이 기억을 써도 안전하다 — 점수(그날 일당)는 어디서도 안 건드린다.
+chk('점수 칸도 기여도만 (점수 함수는 걷어냈다)',
+    '_dicegame_apply_score(' not in src2)
+chk('점수 칸·시그·한 바퀴 셋 다 기억을 쓴다',
+    src2.count('_dicegame_apply_contrib(state, contrib_player') == 3)
 # ⚠️ 자동으로 들어가는 값은 '누구에게 갔는지' 가 보여야 한다. 안 보이면 차례가
 #    넘어갔는데 안 바꿔서 앞사람에게 들어가도 아무도 모른다.
 mob = io.open(os.path.join(PROJ, 'mobile.html'), encoding='utf-8', errors='replace').read()
@@ -264,8 +263,8 @@ src3 = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replac
 # ⚠️ 지금 값이 아니라 '코드 기본값' 을 본다. 방송마다 바꾸는 값이라 지금 값은
 #    무엇이든 될 수 있다 — 검사가 볼 것은 '안 정하면 2만원인가' 다.
 chk('슬롯 한 판 값 기본이 2만원이다', '"slot_price": 20000,' in src3)
-chk('당첨 값에서 한 판 값을 뺀다', 'round((_amt - _price) / 10000)' in src3)
-chk('한 판 값 이하면 0 으로 둔다', 'max(0, round((_amt - _price) / 10000))' in src3)
+chk('당첨 값에서 한 판 값을 뺀다', 'man_won(_amt - _price)' in src3)
+chk('한 판 값 이하면 0 으로 둔다', 'max(0, man_won(_amt - _price))' in src3)
 chk('슬롯은 대기함 카드로 올린다 (굴린 사람이 없다)',
     "_contrib_alert(" in src3.split('def _slot_finish(')[1].split('def ')[0])
 chk('점수는 안 건드린다 (슬롯 처리에 score 가 없다)',
