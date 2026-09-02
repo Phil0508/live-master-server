@@ -398,9 +398,42 @@ _ov = io.open(_os.path.join(_proj(), 'overlay.html'), encoding='utf-8', errors='
 chk('화면이 리액션 모드 전환도 같이 미룬다',
     "if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');" in _ov)
 chk('참는 시간을 한 곳에서 답한다', 'function reactionHoldMs()' in _ov)
-chk('⚠️ 두 시계를 섞지 않는다 (서버 시각 · 브라우저 시각)',
-    'head.play_after - (Date.now() + serverTimeOffset)' in _ov
-    and 'window.dgBusyUntil - Date.now()' in _ov)
+chk('⚠️ 서버 시각으로만 잰다 (브라우저가 들고 있는 묵는 값을 안 본다)',
+    'const left = head.play_after - (Date.now() + off);' in _ov
+    and 'window.dgBusyUntil - Date.now()' not in _ov)
+
+print()
+print('=' * 74)
+print('⑭ 기여도가 어떻게 올랐는지 로그에 남는가')
+print('=' * 74)
+"""사장님 말: "기여도를 올리면 어떻게 올린건지 로그창에 로그도 만들어줘"
+
+⚠️ 서버는 원래 kind:'contrib' 와 why 를 실어 보냈는데 조종실 로그창이 그걸 버리고
+   전부 '+5점' 으로만 그렸다. 그래서 점수가 오른 것인지 기여도가 오른 것인지조차
+   알 수 없었다. 손으로 고친 기여도는 아예 기록이 없었다(log:false)."""
+reset_all()
+post('/api/score/add', {'name': '제이양', 'delta': 30000, 'reason': '후원 배정'})
+post('/api/score/add', {'name': '제이양', 'delta': 0, 'contribution': 7, 'reason': '손으로 고침'})
+_fill({'type': 'score', 'label': '', 'points': 5})
+_roll_until()
+_lg = get().get('logs') or []
+_c = [l for l in _lg if l.get('kind') == 'contrib']
+_s = [l for l in _lg if l.get('kind') != 'contrib']
+chk('기여도 줄이 따로 남는다', len(_c) >= 2, len(_c))
+chk('점수 줄은 그대로 남는다', any(l.get('val') == 30000 for l in _s), [l.get('val') for l in _s][:3])
+chk('손으로 고친 것도 남는다 (예전에는 아예 없었다)',
+    any(l.get('val') == 7 and '손으로' in str(l.get('why')) for l in _c),
+    [(l.get('val'), l.get('why')) for l in _c][:3])
+chk('주사위 점수 칸은 왜인지도 남는다',
+    any('점수 칸' in str(l.get('why')) for l in _c), [l.get('why') for l in _c][:3])
+chk('기여도 줄에 점수 값이 안 섞인다 (0점 줄이 안 생긴다)',
+    not any(l.get('kind') != 'contrib' and l.get('val') == 0 for l in _lg))
+
+_ctl3 = io.open(_os.path.join(_proj(), 'controller.html'), encoding='utf-8', errors='replace').read()
+chk('조종실이 기여도 딱지를 그린다', ">기여도</span>" in _ctl3 and "log.kind === 'contrib'" in _ctl3)
+chk('조종실이 이유도 보여준다', 'escapeHTML(String(log.why))' in _ctl3)
+chk('손으로 고칠 때 기록을 남긴다 (log:false 를 뺐다)',
+    "contribution: diff, reason: '손으로 고침'" in _ctl3)
 
 print()
 print('=' * 74)

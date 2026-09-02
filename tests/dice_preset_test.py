@@ -252,6 +252,16 @@ chk('① 말이 닿는 시각을 알린다', 'window.dgBusyUntil = Date.now() + 
 chk('① 리액션 재생기가 그 전에는 시작하지 않는다',
     'const hold = reactionHoldMs();' in _ov
     and 'if (currentPlayingId === null && hold > 0)' in _ov)
+# ⚠️ 문을 넓게 만들었다가 노래가 20초 늦게 나왔다. 브라우저가 들고 있는 dgBusyUntil 은
+#    묵으면 미래 시각으로 남아 상관없는 시그니처까지 붙잡는다. 서버가 실어 준
+#    play_after 하나만 본다 — 그 후원에 대해 계산된 값이라 묵지 않는다.
+chk('① 문은 play_after 하나만 본다 (묵는 값을 안 본다)',
+    'if (!head || !head.play_after) return 0;' in _ov
+    and 'window.dgBusyUntil - Date.now()' not in _ov)
+chk('① 말도 안 되게 긴 값이 오면 안 참는다 (9초 상한)',
+    'if (left <= 0 || left > 9000) return 0;' in _ov)
+chk('① 시계가 어긋나도(NaN) 버틴다',
+    'Number.isFinite(serverTimeOffset) ? serverTimeOffset : 0' in _ov)
 chk('① 미룬 것은 스스로 다시 확인한다 (다음 SSE 를 기다리지 않는다)',
     'window.dgGateTimer = setTimeout(checkReactionQueue, hold + 60);' in _ov)
 chk('① 이미 나가는 리액션은 안 끊는다 (currentPlayingId === null 일 때만 미룬다)',
