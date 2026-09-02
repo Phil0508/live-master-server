@@ -398,9 +398,9 @@ _ov = io.open(_os.path.join(_proj(), 'overlay.html'), encoding='utf-8', errors='
 chk('화면이 리액션 모드 전환도 같이 미룬다',
     "if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');" in _ov)
 chk('참는 시간을 한 곳에서 답한다', 'function reactionHoldMs()' in _ov)
-chk('⚠️ 서버 시각으로만 잰다 (브라우저가 들고 있는 묵는 값을 안 본다)',
-    'const left = head.play_after - (Date.now() + off);' in _ov
-    and 'window.dgBusyUntil - Date.now()' not in _ov)
+chk('⚠️ 시계를 비교하지 않는다 (어긋난 만큼 그대로 늦어졌다)',
+    'const left = (window.dgBusyUntil || 0) - Date.now();' in _ov
+    and 'head.play_after - (Date.now()' not in _ov)
 
 print()
 print('=' * 74)
