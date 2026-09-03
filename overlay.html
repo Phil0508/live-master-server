@@ -766,6 +766,13 @@
         .dg-t-key     { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 10px 16px rgba(0,0,0,.75); }
         .dg-corner .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.38); }
         .dg-tile.dg-hop { transform: translateY(-4px); filter: brightness(1.14); }
+        /* 📍 지금 공주가 서 있는 칸 — 계속 켜 둔다.
+           ⚠️ 예전에는 도착 순간(dg-land)만 4.2초 반짝이고 꺼졌다. 그 뒤로는 말이
+              어디 있는지 판을 훑어야 알 수 있었다. */
+        .dg-tile.dg-here {
+            box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px var(--gold-glow);
+            background-image: linear-gradient(180deg, rgba(246,196,83,.16), transparent 60%);
+        }
         .dg-tile.dg-land {
             transform: translateY(-4px) scale(1.1); z-index: 3;
             filter: brightness(1.15) drop-shadow(0 0 16px var(--gold));
@@ -777,14 +784,35 @@
             border: 3px solid var(--gold); animation: dgBurst .7s ease-out forwards;
             pointer-events: none;
         }
-        /* 말 — 가만히 있어도 둥실거린다 */
+        /* 👸 공주 — 지금 어느 칸에 있는지가 한눈에 보여야 한다.
+           ⚠️ 예전에는 🐴 가 29px(칸 86px 의 0.34배)로 칸 오른쪽 위 **모서리 밖**에
+              걸쳐 있었다. 시청자 폰에서는 11px 이라 사실상 안 보였다.
+              칸 위 한가운데로 올리고 0.62배(≈53px · 폰 20px)로 키운다. */
         .dg-piece {
-            position: absolute; top: -16px; right: -6px; z-index: 5;
-            font-size: calc(var(--dg-cell, 86px) * 0.34); filter: drop-shadow(0 5px 5px rgba(0,0,0,.65));
+            position: absolute; left: 50%; top: calc(var(--dg-cell, 86px) * -0.46);
+            transform: translateX(-50%); z-index: 6;
+            font-size: calc(var(--dg-cell, 86px) * 0.62);
+            filter: drop-shadow(0 6px 7px rgba(0,0,0,.8));
             pointer-events: none; animation: dgIdle 1.7s ease-in-out infinite;
         }
-        @keyframes dgIdle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-        @keyframes dgHopUp { 0%{transform:translateY(0)} 40%{transform:translateY(-11px)} 100%{transform:translateY(0)} }
+        /* 배경과 섞이지 않게 뒤에 빛무리를 깐다 */
+        .dg-piece::before {
+            content: ''; position: absolute; left: 50%; top: 54%;
+            width: 1.35em; height: 1.35em; transform: translate(-50%, -50%);
+            border-radius: 50%; z-index: -1;
+            background: radial-gradient(circle, var(--gold-glow, rgba(246,196,83,.55)) 0%, transparent 68%);
+        }
+        /* ⚠️ 가운데 정렬(translateX(-50%))을 같이 써야 한다. translateY 만 쓰면
+              공주가 칸 오른쪽으로 튀어나간다 — transform 은 통째로 덮어써진다. */
+        @keyframes dgIdle {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50%      { transform: translateX(-50%) translateY(-5px); }
+        }
+        @keyframes dgHopUp {
+            0%   { transform: translateX(-50%) translateY(0); }
+            40%  { transform: translateX(-50%) translateY(-14px); }
+            100% { transform: translateX(-50%) translateY(0); }
+        }
         .dg-piece.dg-hopping { animation: dgHopUp .28s ease; }
         .dg-center {
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -6135,10 +6163,15 @@
         function dgPlacePiece(pos) {
             const tile = document.getElementById('dg-tile-' + pos);
             if (!tile) return;
+            // 📍 지금 서 있는 칸을 계속 켜 둔다 — 공주를 놓치더라도 칸은 보이게.
+            document.querySelectorAll('.dg-tile.dg-here').forEach(t => t.classList.remove('dg-here'));
+            tile.classList.add('dg-here');
             let piece = document.getElementById('dg-piece');
             if (!piece) {
                 piece = document.createElement('span');
-                piece.id = 'dg-piece'; piece.className = 'dg-piece'; piece.textContent = '🐴';
+                // 👸 사장님: "말 말고 공주라던가 — 여기가 여자만 나오는 곳이라"
+                //    바꾸고 싶으면 이 이모지 한 글자만 고치면 된다.
+                piece.id = 'dg-piece'; piece.className = 'dg-piece'; piece.textContent = '👸';
             }
             tile.appendChild(piece);
             piece.classList.remove('dg-hopping');
@@ -6287,9 +6320,18 @@
             dgClearMarks();
             const card = document.getElementById('dg-card');
             if (card) card.classList.remove('show');
-            // ① 주사위 하나가 눈 수만큼 이어 구른다 (구르고 → 쉬고 → 또 구르고)
-            dgTumbleSeq(act.dice);
-            const rollT = 250 + (act.dice || []).length * 1300;
+            // ① 주사위.
+            //    🎲 현실에서 굴렸으면(manual) 화면에서 또 구르지 않는다 — 이미 결과를
+            //       다들 봤는데 1.3초를 더 기다릴 이유가 없다. 나온 눈만 바로 크게 보여준다.
+            let rollT;
+            if (act.manual) {
+                dgShowDice(act.dice);
+                dgBlip(1040);
+                rollT = 380;                       // 눈을 읽을 만큼만 짧게 멈춘다
+            } else {
+                dgTumbleSeq(act.dice);
+                rollT = 250 + (act.dice || []).length * 1300;
+            }
             // ② 다 구른 뒤에 말이 한 칸씩 총총
             const path = act.path || [];
             path.forEach((pos, k) => {

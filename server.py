@@ -6523,7 +6523,14 @@ def api_dicegame_keys():
 
 @app.route('/api/dicegame/roll', methods=['POST'])
 def api_dicegame_roll():
-    """주사위를 굴린다. body: {player?: 이 굴림이 누구 것인지(점수 칸 자동 반영용)}
+    """주사위를 굴린다.
+
+       body: {player?: 이 굴림이 누구 것인지(점수 칸 자동 반영용),
+              value?:  현실에서 굴린 눈(1~6). 넣으면 그 눈으로 간다.}
+
+       🎲 사장님이 주사위를 현실에서 굴리기로 정했다(화면 주사위는 타격감이 없다).
+          value 를 넣으면 그 눈을 쓰고, 안 넣으면 예전처럼 서버가 무작위로 정한다
+          — 주사위를 놓고 왔을 때를 위해 무작위도 남긴다.
 
        ⚠️ 눈·경로·황금열쇠까지 전부 여기서 정해 action 에 싣는다.
           화면마다 따로 정하면 오버레이 두 개가 서로 다른 결과를 보여준다.
@@ -6550,12 +6557,25 @@ def api_dicegame_roll():
         #   연출 길이 = 굴림 횟수 × 1.3초(주사위 하나가 이어 구른다) + 칸당 0.3초 + 착지 여유.
         prev = g.get('action') or {}
         if prev.get('type') == 'ROLL':
-            hold = len(prev.get('path') or []) * 300 + 1300 * len(prev.get('dice') or [1]) + 2200
+            # 현실 주사위는 화면에서 안 구르므로 그만큼 짧다
+            _tumble = 0 if prev.get('manual') else 1300 * len(prev.get('dice') or [1])
+            hold = len(prev.get('path') or []) * 300 + _tumble + 2200
             if now_ms - (prev.get('ts') or 0) < hold:
                 return jsonify({'status': 'error',
                                 'message': '앞 연출이 아직 끝나지 않았습니다. 잠깐만요.'}), 429
         n = len(tiles)
-        dice = [random.randint(1, 6) for _ in range(max(1, min(2, _as_int(g.get('dice'), 1) or 1)))]
+        # 🎲 현실에서 굴린 눈이 왔으면 그것을 쓴다.
+        #    ⚠️ 값 검사를 여기서 확실히 한다 — 7 이나 글자가 들어오면 말이 엉뚱한 데로 간다.
+        _raw_v = body.get('value')
+        manual = _raw_v is not None
+        if manual:
+            _v = _as_int(_raw_v)
+            if _v is None or not (1 <= _v <= 6):
+                return jsonify({'status': 'error',
+                                'message': '주사위 눈은 1~6 입니다'}), 400
+            dice = [_v]
+        else:
+            dice = [random.randint(1, 6) for _ in range(max(1, min(2, _as_int(g.get('dice'), 1) or 1)))]
         steps = sum(dice)
         frm = _as_int(g.get('pos'), 0) or 0
         frm = frm % n
@@ -6564,6 +6584,8 @@ def api_dicegame_roll():
         path = [(frm + i) % n for i in range(1, steps + 1)]
         tile = tiles[to] if isinstance(tiles[to], dict) else {'id': to, 'type': 'blank'}
         action = {'type': 'ROLL', 'ts': now_ms, 'dice': dice, 'from': frm, 'to': to,
+                  # 현실에서 굴린 것이면 화면은 굴리는 연출을 건너뛰고 눈만 보여준다
+                  'manual': manual,
                   'path': path, 'lap': bool(lap),
                   'tile': {k: tile.get(k) for k in ('id', 'type', 'label', 'points')}}
         if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
@@ -6596,7 +6618,7 @@ def api_dicegame_roll():
                 #    ⚠️ 시간은 화면 연출(dgAnimateRoll)과 같은 식이어야 한다:
                 #       rollT = 250 + 눈수×1300, landAt = rollT + 지나간칸수×300 + 120.
                 #       거기에 도착 카드가 잠깐 보일 여유 500ms 를 더한다.
-                _anim_ms = 370 + 1300 * len(dice) + 300 * len(path) + 500
+                _anim_ms = 370 + (0 if manual else 1300 * len(dice)) + 300 * len(path) + 500
                 enqueue_signature(state, tile['sig'], tile['sig'].get('amount') or 0,
                                   '주사위게임', '', count_tally=False,
                                   play_after_ms=_anim_ms)

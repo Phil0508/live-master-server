@@ -2038,7 +2038,18 @@
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
                 <select id="dgc-player" style="height:44px; min-width:140px;"><option value="">(누구 차례?)</option></select>
-                <button onclick="dgcRoll()" id="dgc-roll-btn" style="height:44px; padding:0 28px; font-size:var(--fs-4); font-weight:900; background:linear-gradient(120deg,#30d158,#1d7a35); color:#fff; border:none; border-radius:var(--r-2); cursor:pointer;">🎲 굴리기</button>
+                <!-- 🎲 현실에서 굴린 눈을 넣는다 — 사장님: "주사위는 현실에서 굴리기로 했어"
+                     ⚠️ 무작위 굴리기(🎲 굴리기)도 남긴다. 주사위를 놓고 왔을 때 쓴다. -->
+                <span style="display:inline-flex; gap:5px; align-items:center;">
+                    <span style="font-size:var(--fs-2); color:var(--text-muted); font-weight:700; margin-right:2px;">나온 눈</span>
+                    <button onclick="dgcRollValue(1)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">1</button>
+                    <button onclick="dgcRollValue(2)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">2</button>
+                    <button onclick="dgcRollValue(3)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">3</button>
+                    <button onclick="dgcRollValue(4)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">4</button>
+                    <button onclick="dgcRollValue(5)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">5</button>
+                    <button onclick="dgcRollValue(6)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">6</button>
+                </span>
+                <button onclick="dgcRoll()" id="dgc-roll-btn" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다" style="height:44px; padding:0 18px; font-size:var(--fs-3); font-weight:800; background:linear-gradient(120deg,#30d158,#1d7a35); color:#fff; border:none; border-radius:var(--r-2); cursor:pointer;">🎲 무작위</button>
                 <span id="dgc-status" style="font-size:var(--fs-3); color:var(--text-dim); font-weight:700;"></span>
                 <button class="secondary" onclick="dgcToggleShow()" id="dgc-show-btn" style="height:38px; padding:0 14px; border-radius:var(--r-2); margin-left:auto;">화면에 보이기</button>
             </div>
@@ -7970,15 +7981,30 @@ initFoldablePanels();
             if (d) acctToast('🎲 테두리 ' + d.tiles + '칸 판을 깔았습니다', 'ok');
         }
 
-        async function dgcRoll() {
-            const sel = document.getElementById('dgc-player');
-            const d = await dgcCall('roll', { player: sel ? sel.value : '' });
-            if (!d) return;
+        /* 🎲 굴림 결과 알림. 무작위 굴리기와 현실 주사위가 같은 것을 쓴다.
+           ⚠️ 둘로 갈라 두면 한쪽만 고치고 다른 쪽은 낡은 채로 남는다. */
+        function dgcRollToast(d) {
             let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
             if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
             if (d.lap) m += ' · 🎉 한 바퀴!';
             acctToast(m, 'ok');
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');
+        }
+
+        // 🎲 현실에서 굴린 눈을 그대로 넣는다 — 사장님이 주사위를 현실에서 굴리기로 정했다.
+        //    ⚠️ 누구 차례인지는 무작위 굴리기와 같은 칸에서 읽는다. 두 길이 갈라지면
+        //       한쪽으로 굴렸을 때만 기여도가 들어가는 사고가 난다.
+        async function dgcRollValue(v) {
+            const sel = document.getElementById('dgc-player');
+            const d = await dgcCall('roll', { value: v, player: sel ? sel.value : '' });
+            if (d) dgcRollToast(d);
+        }
+
+        // 주사위를 놓고 왔을 때 — 서버가 눈을 정한다
+        async function dgcRoll() {
+            const sel = document.getElementById('dgc-player');
+            const d = await dgcCall('roll', { player: sel ? sel.value : '' });
+            if (d) dgcRollToast(d);
         }
 
         async function dgcToggleShow() {
