@@ -15,7 +15,8 @@ PORT = 5188
 BASE = "http://127.0.0.1:%d" % PORT
 TOK = "lt-sandbox-secret-0123456789"
 H = {"Authorization": "Bearer " + TOK, "Content-Type": "application/json"}
-PROJ = r"C:\Users\Administrator\Desktop\새로다시시작"
+PROJ = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')))
 
 if os.path.isdir(HERE):
     shutil.rmtree(HERE, ignore_errors=True)
@@ -47,8 +48,16 @@ def start_server():
 
 
 def stop(p):
-    subprocess.run(['taskkill', '/PID', str(p.pid), '/F', '/T'],
-                   capture_output=True)
+    # ⚠️ taskkill 은 윈도우에만 있다. 맥에서도 작업하므로 갈라 둔다 —
+    #    안 죽으면 서버가 남아 다음 검사가 통째로 어깋난다.
+    if os.name == 'nt':
+        subprocess.run(['taskkill', '/PID', str(p.pid), '/F', '/T'],
+                       capture_output=True)
+    else:
+        try:
+            p.kill()
+        except Exception:
+            pass
     time.sleep(1.5)
 
 

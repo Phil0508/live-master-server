@@ -25,6 +25,7 @@
     python build_hud_css.py --check  다르면 1 로 끝난다 (검사가 쓴다)
 """
 import io
+import os
 import re
 import sys
 
@@ -35,7 +36,8 @@ try:
 except Exception:
     pass
 
-ROOT = r'C:\Users\Administrator\Desktop\새로다시시작'
+ROOT = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.')))
 OVERLAY = ROOT + r'\overlay.html'
 ADMIN = ROOT + r'\admin.html'
 HUD = ROOT + r'\hud.css'

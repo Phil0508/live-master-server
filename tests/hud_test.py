@@ -27,7 +27,8 @@ import re
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8')
-ROOT = r'C:\Users\Administrator\Desktop\새로다시시작'
+ROOT = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 OK, BAD = [], []
 
 # 유튜브 세로 라이브 실측 (1080×1920)

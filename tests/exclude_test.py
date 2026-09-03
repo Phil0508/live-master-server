@@ -27,7 +27,8 @@ sys.stdout.reconfigure(encoding='utf-8')
 B = 'http://127.0.0.1:5199'
 H = {'Content-Type': 'application/json', 'Authorization': 'Bearer sandboxsecret123456'}
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = r'C:\Users\Administrator\Desktop\새로다시시작'
+REPO = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 
 
 def _find_proj():
@@ -105,7 +106,11 @@ for i, (n, a) in enumerate(SEED):
 
 # 월별 순위는 수요일 방송 시간만 세므로, 지난 수요일 기록을 장부에 직접 넣는다.
 # ⚠️ 서버 사본 옆의 SQLite 를 쓴다. 운영은 Postgres 지만 셈하는 코드는 같다.
-DB = os.path.join(HERE, 'pausetest', 'live_master.db')
+# ⚠️ 짐작하지 않는다. 예전에 tests/pausetest 를 찍었다가, 샌드박스가 임시 폴더로
+#    옮겨간 뒤에도 그 자리에 남은 낡은 DB 를 붙잡았다. 서버가 쓰는 DB 와 달라
+#    개수가 안 맞았다. runall 이 알려준 경로를 먼저 본다.
+_PT = os.environ.get('LM_SANDBOX_PT') or os.path.join(HERE, 'pausetest')
+DB = os.path.join(_PT, 'live_master.db')
 if not os.path.exists(DB):
     DB = os.path.join(HERE, 'live_master.db')
 seeded_month = os.path.exists(DB)

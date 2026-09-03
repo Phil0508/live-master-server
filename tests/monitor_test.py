@@ -12,8 +12,10 @@
 import io, os, re, sys
 
 sys.stdout.reconfigure(encoding='utf-8')
-P = r'C:\Users\Administrator\Desktop\새로다시시작\overlay.html'
-M = r'C:\Users\Administrator\Desktop\새로다시시작\mobile.html'
+_ROOT = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
+P = os.path.join(_ROOT, 'overlay.html')
+M = os.path.join(_ROOT, 'mobile.html')
 OK, BAD = [], []
 
 

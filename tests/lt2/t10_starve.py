@@ -14,7 +14,8 @@ HERE = os.path.join(SRC, 'starvebox')
 if os.path.isdir(HERE):
     shutil.rmtree(HERE, ignore_errors=True)
 os.makedirs(HERE, exist_ok=True)
-shutil.copy2(r"C:\Users\Administrator\Desktop\새로다시시작\toon_listener.py",
+shutil.copy2(os.path.join((os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))), 'toon_listener.py'),
              os.path.join(HERE, 'toon_listener.py'))
 sys.path.insert(0, HERE)
 os.chdir(HERE)

@@ -196,7 +196,8 @@ import io as _io
 import os as _os
 
 _H = _os.path.dirname(_os.path.abspath(__file__))
-_FALLBACK = r'C:\Users\Administrator\Desktop\새로다시시작'
+_FALLBACK = (_os.environ.get('LM_PROJECT_ROOT')
+        or _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..')))
 
 
 def _proj():

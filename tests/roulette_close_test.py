@@ -30,7 +30,8 @@ sys.stdout.reconfigure(encoding='utf-8')
 B = 'http://127.0.0.1:5199'
 AUTH = {'Content-Type': 'application/json', 'Authorization': 'Bearer sandboxsecret123456'}
 NOAUTH = {'Content-Type': 'application/json'}      # ← 오버레이(OBS)와 같은 조건
-ROOT = r'C:\Users\Administrator\Desktop\새로다시시작'
+ROOT = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 OK, BAD = [], []
 
 

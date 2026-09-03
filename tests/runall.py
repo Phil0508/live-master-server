@@ -4,13 +4,37 @@
 검사마다 서버를 깨끗하게 다시 띄운다. 이전 검사가 남긴 상태(방송 중 여부,
 점수, 큐)가 다음 검사의 판정을 뒤집는 일이 실제로 여러 번 있었다.
 """
-import os, subprocess, sys, time, shutil, socket, json, re
+import os, subprocess, sys, time, shutil, socket, json, re, signal, tempfile
 
 sys.stdout.reconfigure(encoding='utf-8')
 HERE = os.path.dirname(os.path.abspath(__file__))
-PROJ = r'C:\Users\Administrator\Desktop\새로다시시작'
-LT2 = os.path.join(HERE, 'lt2')
-PT = os.path.join(HERE, 'pausetest')
+def _find_root():
+    """저장소 폴더를 찾는다 — 윈도우·맥 어디서 돌려도 되게."""
+    env = os.environ.get('LM_PROJECT_ROOT')
+    if env and os.path.exists(os.path.join(env, 'server.py')):
+        return env
+    d = HERE
+    for _ in range(5):
+        if os.path.exists(os.path.join(d, 'server.py')):
+            return d
+        d = os.path.dirname(d)
+    # ⚠️ 못 찾으면 여기서 멈춘다. 그냥 두면 검사 40개가 전부 'rc=2' 로
+    #    우수수 실패해서 원인을 알아보기 어렵다.
+    print('❌ 저장소를 못 찾았습니다 (server.py 가 있는 폴더).')
+    print('   저장소에서  python tests/runall.py  로 돌리거나,')
+    print('   다른 곳에서 돌린다면 LM_PROJECT_ROOT 를 지정하세요.')
+    sys.exit(2)
+
+
+PROJ = _find_root()
+# ⚠️ 샌드박스는 저장소 밖에 둔다.
+#    안 그러면 — ① edgebox/·qbox/ 같은 폴더가 저장소에 쌓이고,
+#    ② 샌드박스가 git 안에 들어가 'git 이 없는 서버' 를 전제로 하는
+#       검사(t12)가 깨진다. 저장소에서 바로 `python tests/runall.py` 를 돌리는 것이
+#       맥에서 클론하고 처음 하는 일이라 반드시 되어야 한다.
+_SBOX = os.environ.get('LM_SANDBOX') or os.path.join(tempfile.gettempdir(), 'livemaster-sandbox')
+LT2 = os.path.join(_SBOX, 'lt2')
+PT = os.path.join(_SBOX, 'pausetest')
 PY = sys.executable
 
 RESULTS = []
@@ -18,6 +42,12 @@ RESULTS = []
 
 def sh(cmd, cwd=None, env=None, timeout=900):
     e = dict(os.environ); e['PYTHONIOENCODING'] = 'utf-8'; e['PYTHONUNBUFFERED'] = '1'
+    # ⚠️ 검사들은 저장소 밖(스크래치패드)으로 복사돼 돌아간다. 자기 위치로는 저장소를
+    #    못 찾으므로 여기서 물려준다. 예전에는 검사마다 C:\Users\... 를 박아 뒀는데,
+    #    맥에서는 그 경로가 없어 검사가 통째로 어긋난다.
+    e['LM_PROJECT_ROOT'] = PROJ
+    # 검사가 샌드박스 DB 를 짐작하지 않게 실제 경로를 알려준다
+    e['LM_SANDBOX_PT'] = PT
     if env: e.update(env)
     try:
         r = subprocess.run(cmd, cwd=cwd, env=e, capture_output=True,
@@ -27,22 +57,53 @@ def sh(cmd, cwd=None, env=None, timeout=900):
         return 124, '(시간 초과)'
 
 
+# ⚠️ netstat·taskkill 은 윈도우에만 있다. 맥에서도 작업하므로 갈라 놓는다 —
+#    포트를 못 끄면 앞 검사의 서버가 남아 다음 검사가 통째로 어긋난다.
+IS_WIN = (os.name == 'nt')
+
+
 def port_pid(port):
-    out = subprocess.run(['netstat', '-ano'], capture_output=True, text=True).stdout
-    for ln in out.splitlines():
-        # 서버는 0.0.0.0 에 붙는다 — 주소를 가리지 말고 포트로만 찾는다
-        f = ln.split()
-        if len(f) > 1 and f[1].endswith(':%d' % port) and 'LISTENING' in ln:
-            return int(ln.split()[-1])
-    return None
+    if IS_WIN:
+        out = subprocess.run(['netstat', '-ano'], capture_output=True, text=True).stdout
+        for ln in out.splitlines():
+            # 서버는 0.0.0.0 에 붙는다 — 주소를 가리지 말고 포트로만 찾는다
+            f = ln.split()
+            if len(f) > 1 and f[1].endswith(':%d' % port) and 'LISTENING' in ln:
+                return int(ln.split()[-1])
+        return None
+    # 맥·리눅스
+    out = subprocess.run(['lsof', '-ti', 'tcp:%d' % port, '-sTCP:LISTEN'],
+                         capture_output=True, text=True).stdout.strip()
+    return int(out.splitlines()[0]) if out else None
 
 
 def kill_port(port):
     for _ in range(6):
         p = port_pid(port)
         if not p: return
-        subprocess.run(['taskkill', '/PID', str(p), '/F'], capture_output=True)
+        if IS_WIN:
+            subprocess.run(['taskkill', '/PID', str(p), '/F'], capture_output=True)
+        else:
+            try:
+                os.kill(p, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
         time.sleep(0.6)
+
+
+def copy_into(src, dst):
+    """src 를 dst 로 복사한다. 같은 파일이면 건너뛴다.
+
+    ⚠️ 저장소 tests/ 에서 그대로 돌리면 원본과 목적지가 같은 파일이라
+       shutil 이 SameFileError 를 던져 검사가 통째로 죽는다. 맥에서 클론하고
+       처음 하는 일이 `python tests/runall.py` 라 반드시 되어야 한다.
+    """
+    try:
+        if os.path.abspath(src) == os.path.abspath(dst):
+            return
+    except Exception:
+        pass
+    shutil.copyfile(src, dst)
 
 
 def wipe(d):
@@ -117,7 +178,7 @@ for f in ('server.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.
     src = os.path.join(PROJ, f)
     if os.path.exists(src):
         for d in (LT2, PT):
-            shutil.copyfile(src, os.path.join(d, f))
+            copy_into(src, os.path.join(d, f))
 # ── 검사 원본은 저장소 tests/ 다. 스크래치패드는 시스템이 언제든 비울 수 있어서
 #    실제로 검사 두 개가 증발한 적이 있다. 매 실행마다 저장소에서 새로 받아온다.
 TESTS = os.path.join(PROJ, 'tests')
@@ -127,12 +188,12 @@ if os.path.isdir(TESTS):
         if f.endswith(('.py', '.js')) and os.path.isfile(src):
             dst = HERE if f != 'boot_sig.py' else PT
             if f != 'runall.py':
-                shutil.copyfile(src, os.path.join(dst, f))
+                copy_into(src, os.path.join(dst, f))
     lt2src = os.path.join(TESTS, 'lt2')
     if os.path.isdir(lt2src):
         for f in os.listdir(lt2src):
             if f.endswith('.py'):
-                shutil.copyfile(os.path.join(lt2src, f), os.path.join(LT2, f))
+                copy_into(os.path.join(lt2src, f), os.path.join(LT2, f))
     print('저장소 tests/ 에서 검사 동기화 완료', flush=True)
 
 print('샌드박스에 최신 코드 복사 완료', flush=True)

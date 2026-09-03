@@ -22,7 +22,8 @@ def _find_proj():
     for _ in range(4):
         d = os.path.dirname(d)
         if os.path.exists(os.path.join(d, 'server.py')): return d
-    return r'C:\Users\Administrator\Desktop\새로다시시작'
+    return (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 PROJ = _find_proj(); OK, BAD = [], []
 def chk(n, c, d=''):
     (OK if c else BAD).append(n); print(('  [OK] ' if c else '  [!!] ') + n + (('  -- ' + str(d)[:110]) if d else ''))

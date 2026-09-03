@@ -26,7 +26,8 @@ sys.stdout.reconfigure(encoding='utf-8')
 #    overlay.html 이 없다 — 처음에 그것 때문에 이 검사만 통째로 터졌다.
 #    위로 올라가며 찾고, 못 찾으면 저장소 자리를 쓴다.
 HERE = os.path.dirname(os.path.abspath(__file__))
-REPO = r'C:\Users\Administrator\Desktop\새로다시시작'
+REPO = (os.environ.get('LM_PROJECT_ROOT')
+        or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 
 
 def _find_proj():

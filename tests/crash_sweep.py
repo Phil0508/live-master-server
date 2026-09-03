@@ -11,8 +11,11 @@ sys.stdout.reconfigure(encoding='utf-8')
 B = 'http://127.0.0.1:5199'
 TOK = 'sandboxsecret123456'
 H = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOK}
-SRC = io.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pausetest', 'server.py'),
-              encoding='utf-8').read()
+# ⚠️ 샌드박스 자리를 짐작하지 않는다 — 임시 폴더로 옮기면서 통째로 죽었다.
+#    여기서 필요한 것은 '서버의 POST 길 목록' 뿐이라 저장소 원본을 읽으면 된다.
+_ROOT = (os.environ.get('LM_PROJECT_ROOT')
+         or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
+SRC = io.open(os.path.join(_ROOT, 'server.py'), encoding='utf-8').read()
 
 routes = re.findall(r"@app\.route\('([^']+)'(?:,\s*methods=\[([^\]]+)\])?\)", SRC)
 posts = [u for u, m in routes if m and 'POST' in m]
