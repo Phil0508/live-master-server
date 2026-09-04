@@ -307,6 +307,23 @@
             border: 1px solid var(--border-light); 
             transition: var(--transition-smooth);
         }
+        /* 🔤 한글은 기본적으로 아무 글자에서나 줄이 바뀐다. 칸이 좁아지면
+           '오늘의 시그니처' 가 한 글자씩 세로로 쌓였다. 띄어쓰기에서만 바뀌게 한다.
+           ⚠️ 위 flex-basis 와 짝이다 — 저것만 고치면 이번엔 글자가 잘려 나간다. */
+        .toggle-label { word-break: keep-all; }
+
+        /* 🔲 토글 격자 — 칸 너비를 스스로 맞춘다. 넓으면 한 줄, 좁으면 2×2 로 접힌다.
+           ⚠️ flex 로 하면 줄 끝에 홀로 남은 칸이 가로를 통째로 먹어 이상해 보인다. */
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+            align-items: stretch;
+        }
+        /* ⚠️ 좌우 여백을 18→13 으로 줄인다. 214px 칸에서 글자 자리가 112px 밖에 안 남아
+           '오늘의 시그니처' 가 두 줄로 접혔다(실측 높이 38px = 두 줄). */
+        .toggle-grid > .toggle-row { flex: none; padding: 12px 13px; gap: 8px; }
+
+
         .toggle-row:hover {
             background: rgba(255, 255, 255, 0.04);
             border-color: rgba(255, 255, 255, 0.15);
@@ -519,6 +536,33 @@
             [style*="grid-template-columns: 1fr 1.6fr"] { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 768px) { .header-buttons { flex-direction: column; width: 100%; } .control-group { flex-direction: column; align-items: stretch; } .control-group > * { width: 100% !important; box-sizing: border-box; } }
+
+        /* ⚠️ 이 블록은 위 1024px·768px 블록보다 **뒤**에 있어야 한다.
+           앞에 두면 같은 선택자를 뒤엣것이 덮어써서 아무 일도 안 일어난다(실제로 그랬다). */
+        /* 🖥️➗ 반쪽 화면(769~1024px) — 사장님이 창을 반으로 갈라 쓰는 폭이다.
+           큰 화면용 규칙과 폰용 규칙 사이가 통째로 비어 있어서, 탭이 옆으로 잘리고
+           머리말이 세로를 다 먹었다. 실측: 창 956px 일 때 탭이 107px 넘쳤다. */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            /* 탭을 옆으로 밀지 말고 두 줄로 접는다 — 지금 몇 번째에 있는지 한눈에 보여야 한다 */
+            .tabs { flex-wrap: wrap; overflow-x: visible; white-space: normal;
+                    row-gap: 4px; padding: 5px 7px; }
+            .tab-btn { padding: 7px 10px; }
+            /* 머리말이 153px 였다. 본문이 나오기 전에 화면 절반을 쓴다 */
+            .header { padding-bottom: 12px; margin-bottom: 14px; gap: 10px; }
+            #sticky-top { padding-top: 6px; margin-bottom: 12px; gap: 8px; }
+            .group-box { padding: 16px; margin-bottom: 14px; }
+            /* 머리말이 세 줄이었다(제목 / 라이브·플레이어·리액션 / 볼륨·중단·에디터).
+               1024px 규칙이 제목을 통째로 한 줄 차지하게 세워 놨기 때문이다.
+               다시 눕혀서 제목 옆에 도구가 따라붙게 한다 — 두 줄이면 충분하다. */
+            .header { flex-direction: row; flex-wrap: wrap; align-items: center; }
+            .header h1 { flex: 0 0 auto; }
+            .header h1 { font-size: 19px; gap: 8px; }
+            .header-buttons { width: auto; flex: 1 1 420px; min-width: 0; }
+            /* ⚠️ 미디어 패널을 억지로 좁히면 안 된다. 안쪽 내용(제목·시간·진행바·재생·소리)이
+               합쳐서 467px 이라, 340px 로 조였더니 옆 리액션 토글 위로 삐져나왔다.
+               폭을 정하지 말고 제 크기대로 두되, 안쪽 간격만 줄여 자리를 만든다. */
+            #ios-mini-media-panel { flex: 0 1 auto; max-width: 100%; gap: 8px !important; }
+        }
         
         /* 🔔 [Apple Liquid Glass] 알림 팝오버 및 뱃지 스타일 */
         .noti-wrapper { position: relative; }
@@ -1440,16 +1484,17 @@
 
         <div class="group-box">
             <div class="group-title"><i class="fa-solid fa-sliders"></i> 기본 설정</div>
-            <div class="control-group">
-                <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-palette"></i> 테마:</label><select id="sel-theme" onchange="updateTheme()"><option value="default">기본 다크</option><option value="pink">네온 핑크</option></select>
-                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-bell"></i> 점수 팝업</span><div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div></label>
-                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-crown"></i> 1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
-                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-ranking-star"></i> 오늘의 시그니처</span><div class="apple-switch"><input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')"><span class="apple-slider"></span></div></label>
-                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-medal"></i> 후원 순위</span><div class="apple-switch"><input type="checkbox" id="chk-donor-rank" onchange="toggleOption('donor_rank_enabled')"><span class="apple-slider"></span></div></label>
+            <!-- 🔲 토글은 격자로 놓는다. flex 로 늘리면 마지막 하나가 홀로 가로를 다 먹는다. -->
+            <div class="control-group toggle-grid">
+                <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-bell"></i> 점수 팝업</span><div class="apple-switch"><input type="checkbox" id="chk-popup" onchange="toggleOption('popup_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-crown"></i> 1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-ranking-star"></i> 오늘의 시그니처</span><div class="apple-switch"><input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-medal"></i> 후원 순위</span><div class="apple-switch"><input type="checkbox" id="chk-donor-rank" onchange="toggleOption('donor_rank_enabled')"><span class="apple-slider"></span></div></label>
 
             </div>
 
             <div class="control-group" style="margin-bottom: 15px;">
+                <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-palette"></i> 테마:</label><select id="sel-theme" onchange="updateTheme()"><option value="default">기본 다크</option><option value="pink">네온 핑크</option></select>
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-bullseye"></i> 목표치:</label><input type="number" id="in-goal" onchange="updateGoal()" style="width: 100px;">
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600; margin-left:10px;" title="막대에 뜨는 현재 금액에 이만큼 더하거나(+) 뺍니다(−). 선수 점수·운영비는 안 건드립니다. 방송을 끝내면 0 으로 돌아갑니다."><i class="fa-solid fa-sliders"></i> 게이지 보정:</label><input type="number" id="in-offset" onchange="updateOffset()" placeholder="±원" style="width: 100px;">
                 <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(255, 207, 77, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 207, 77, 0.3); margin-left: 10px;">
@@ -1473,11 +1518,11 @@
         <div class="group-box">
             <div class="group-title"><i class="fa-solid fa-tv"></i> 기본 대결 화면 설정</div>
             <div class="control-group">
-                <label class="toggle-row" style="flex: 1;"><span class="toggle-label"><i class="fa-solid fa-desktop"></i> 대결 위젯 표시</span><div class="apple-switch"><input type="checkbox" id="chk-match" onchange="toggleMatch()"><span class="apple-slider"></span></div></label>
-                <label class="toggle-row" style="flex: 1; border-color: #552222;"><span class="toggle-label" style="color: #ff6b6b;"><i class="fa-solid fa-fire"></i> 이글이글 효과</span><div class="apple-switch"><input type="checkbox" id="chk-match-fire" onchange="toggleMatchFire()"><span class="apple-slider" style="background-color: var(--line);"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-desktop"></i> 대결 위젯 표시</span><div class="apple-switch"><input type="checkbox" id="chk-match" onchange="toggleMatch()"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px; border-color: #552222;"><span class="toggle-label" style="color: #ff6b6b;"><i class="fa-solid fa-fire"></i> 이글이글 효과</span><div class="apple-switch"><input type="checkbox" id="chk-match-fire" onchange="toggleMatchFire()"><span class="apple-slider" style="background-color: var(--line);"></span></div></label>
             </div>
             <div class="control-group" style="margin-bottom: 12px;">
-                <input type="text" id="in-match-title" placeholder="대결 타이틀 입력 (선택)" style="flex: 1;" oninput="updateMatchTitle()">
+                <input type="text" id="in-match-title" placeholder="대결 타이틀 입력 (선택)" style="flex: 1 1 220px;" oninput="updateMatchTitle()">
                 <button onclick="addMatchPlayer()"><i class="fa-solid fa-user-plus"></i> 대결자 추가</button>
             </div>
             <label class="toggle-row" style="margin-bottom: 0;">
@@ -1551,7 +1596,7 @@
             <div class="group-title"><i class="fa-solid fa-bullhorn"></i> 전광판 설정 및 송출</div>
             
             <div class="control-group" style="margin-bottom: 20px;">
-                <label class="toggle-row" style="flex: 1; height: 46px; border-radius: var(--r-2);">
+                <label class="toggle-row" style="flex: 1 1 200px; height: 46px; border-radius: var(--r-2);">
                     <span class="toggle-label" style="font-weight: 700;"><i class="fa-solid fa-desktop" style="margin-right: 6px; color: var(--accent);"></i> 전광판 위젯 송출</span>
                     <div class="apple-switch">
                         <input type="checkbox" id="chk-ticker" onchange="toggleOption('ticker_enabled')">
