@@ -1124,6 +1124,7 @@ def require_login():
         '/api/match/timeup',
         '/api/signatures',
         '/api/reaction/next',
+        '/sfx/list',        # 🔊 어떤 효과음이 있나 — 오버레이는 세션이 없다
         '/toonation_tampermonkey.user.js',
     ]
     
@@ -1618,6 +1619,9 @@ DEFAULT_STATE = {
     #    ⚠️ 기본값은 꺼 둔다. 켜져 있으면 오버레이가 슬롯판을 그리고,
     #    그러면 body.game-on 이 붙어 후원 게이지 옆 금액이 가려진다.
     "slot_enabled": False,
+    # 🔊 효과음(주사위·후원·목표·1등탈환). 방송 중에 거슬리면 바로 꺼야 하므로 스위치를 둔다.
+    #    ⚠️ 기본은 켜짐 — 없으면 왜 소리가 안 나는지 찾느라 방송 중에 헤맨다.
+    "sfx_enabled": True,
     "slot_pool": [],   # 이번 방송에 쓸 시그니처 id 목록. 비어 있으면 전체를 후보로 사용.
     # 💰 슬롯 한 판 값. 이 금액의 후원으로 한 판을 산다.
     #    그 후원이 들어올 때 이미 점수·기여도가 (금액/10000)만큼 올라갔으므로,
@@ -3503,6 +3507,33 @@ def serve_sfx(filename):
     if not full.startswith(os.path.normpath(SFX_DIR) + os.sep) or not os.path.exists(full):
         return jsonify({"error": "File not found"}), 404
     return send_from_directory(SFX_DIR, filename)
+
+
+@app.route('/sfx/list')
+def api_sfx_list():
+    """있는 효과음 파일 이름만 알려준다.
+
+    ⚠️ 이게 없으면 화면이 파일이 있는지 확인하려고 하나씩 받아보게 되고,
+       없는 파일마다 404 가 콘솔에 쌓인다(효과음 9개 = 404 아홉 줄).
+       진짜 문제가 생겼을 때 그 사이에 묻힌다. 한 번만 물어보고 끝낸다.
+    ⚠️ 로그인 없이 열어둔다 — 오버레이에는 세션이 없다(/sfx/ 와 같은 이유).
+    """
+    # ⚠️ 이름만 주면 화면이 확장자를 짐작해야 한다(.mp3 로 찍으면 .wav 를 넣었을 때 못 찾는다).
+    #    이름 → 실제 파일 로 짝지어 준다.
+    out = {}
+    try:
+        for root, _dirs, files in os.walk(SFX_DIR):
+            for fn in sorted(files):
+                stem, ext = os.path.splitext(fn)
+                if ext.lower() not in SFX_EXTS:
+                    continue
+                rel_dir = os.path.relpath(root, SFX_DIR)
+                pre = '' if rel_dir in ('.', '') else rel_dir.replace(os.sep, '/') + '/'
+                out.setdefault(pre + stem, pre + fn)     # 같은 이름이면 먼저 것을 쓴다
+    except Exception as e:
+        print(f'[효과음 목록] 훑기 실패 — 빈 목록으로 진행: {e}')
+    return jsonify({'status': 'success', 'files': out, 'names': sorted(out)})
+
 
 
 # 🎬 고액후원 영상. 효과음(/sfx/)과 같은 이유로 전용 길을 낸다 —
@@ -6637,7 +6668,11 @@ def api_dicegame_roll():
         frm = _as_int(g.get('pos'), 0) or 0
         frm = frm % n
         to = (frm + steps) % n
-        lap = (frm + steps) >= n
+        # 🏁 출발 칸에 **정확히 도착**했을 때만 준다.
+        #    ⚠️ 예전에는 (frm + steps) >= n — 지나가기만 해도 줬다. 그러면 한 바퀴에
+        #       반드시 한 번 받으니 얻은 것 같지가 않다. 사장님: "1바퀴 될 때가 아니라
+        #       시작지점 오면 5점". 0번은 못 고치는 출발 전용 칸이라 점수 칸과 안 겹친다.
+        lap = ((frm + steps) % n) == 0
         path = [(frm + i) % n for i in range(1, steps + 1)]
         tile = tiles[to] if isinstance(tiles[to], dict) else {'id': to, 'type': 'blank'}
         action = {'type': 'ROLL', 'ts': now_ms, 'dice': dice, 'from': frm, 'to': to,
@@ -6718,17 +6753,17 @@ def api_dicegame_roll():
             try:
                 _lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)
                 if _lap_c:
-                    _why = '출발 칸을 넘었습니다 (%d바퀴째)' % ((_as_int(g.get('laps'), 0) or 0) + 1)
+                    _why = '출발 칸에 정확히 도착했습니다 (%d번째)' % ((_as_int(g.get('laps'), 0) or 0) + 1)
                     if contrib_player:
                         _to = _dicegame_apply_contrib(state, contrib_player, _lap_c, _why)
                         if _to:
                             action['lap_contrib'] = {'name': _to, 'points': _lap_c}
-                            print(f"🏁 [주사위게임] {_to} 에게 기여도 {_lap_c} (한 바퀴)")
+                            print(f"🏁 [주사위게임] {_to} 에게 기여도 {_lap_c} (출발 칸 도착)")
                         else:
-                            _contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
+                            _contrib_alert(state, '🏁 주사위 출발 칸', _lap_c, _why)
                     else:
-                        _contrib_alert(state, '🏁 주사위 한 바퀴', _lap_c, _why)
-                        print(f"🏁 [주사위게임] 한 바퀴 → 기여도 {_lap_c} 알림을 대기함에 올렸습니다")
+                        _contrib_alert(state, '🏁 주사위 출발 칸', _lap_c, _why)
+                        print(f"🏁 [주사위게임] 출발 칸 도착 → 기여도 {_lap_c} 알림을 대기함에 올렸습니다")
             except Exception as e:
                 print(f'⚠️ [주사위게임] 한 바퀴 기여도 실패 — 게임은 계속됩니다: {e}')
         g['pos'] = to
@@ -6737,7 +6772,7 @@ def api_dicegame_roll():
         g['action'] = action
         _dicegame_save(state, g)
     print(f"🎲 [주사위게임] {'+'.join(map(str, dice))} → {frm}→{to} 칸"
-          f" ({tile.get('type')}{' 한바퀴!' if lap else ''})", flush=True)
+          f" ({tile.get('type')}{' 출발칸!' if lap else ''})", flush=True)
     return jsonify({'status': 'success', 'dice': dice, 'to': to,
                     'tile': action['tile'], 'lap': bool(lap),
                     'scored': action.get('scored'), 'note': action.get('score_note'),

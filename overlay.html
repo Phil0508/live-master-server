@@ -2111,7 +2111,7 @@
 
             <div id="dicegame-container" class="widget-container" style="position: absolute; left: 6px; top: 307px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
                 <div class="dg-board">
-                    <div class="dg-lap-banner" id="dg-lap-banner">🎉 한 바퀴!</div>
+                    <div class="dg-lap-banner" id="dg-lap-banner">🎉 출발 칸 도착!</div>
                     <div class="dg-grid" id="dg-grid"></div>
                     <div class="dg-card" id="dg-card"></div>
                 </div>
@@ -2535,6 +2535,91 @@
             } catch (e) { /* 소리는 실패해도 게임 진행에 영향이 없어야 한다 */ }
         }
 
+        /* 🔊 있는 음원 파일 목록. 효과음과 시그뒤집기가 같이 쓴다.
+           ⚠️ 각자 물어보면 오버레이 하나가 같은 것을 두 번 받는다. 한 번만 묻고 나눈다.
+           ⚠️ 이 선언은 쓰는 곳(두 로더)보다 **위**에 있어야 한다. let 은 선언 줄을
+              지나기 전에는 못 읽는다 — 아래에 뒀더니 첫 로더에서 그대로 터졌다. */
+        let _sfxListPromise = null;
+        function sfxList() {
+            if (!_sfxListPromise) {
+                _sfxListPromise = fetch('/sfx/list')
+                    .then(r => r.json())
+                    .then(j => j.files || {})
+                    .catch(() => ({}));      // 못 물어봤으면 전부 만든 소리로 간다
+            }
+            return _sfxListPromise;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
+           🔊 효과음 — 이름으로 부른다.  playSfx('dice-start')
+
+           ① /sfx/<이름>.mp3 가 있으면 그 파일을 튼다.
+              사장님이 나중에 파일만 갖다 넣으면 코드를 안 고쳐도 소리가 바뀐다.
+           ② 파일이 없으면 아래 적어둔 음으로 만들어 낸다.
+              그래서 파일이 하나도 없는 지금도 소리가 난다.
+
+           ⚠️ 오버레이를 두 개 이상 띄우면 소리가 겹친다 — isAudioLeader() 를
+              통과한 창만 낸다. 시그뒤집기 소리와 같은 규칙이다.
+           ⚠️ 소리는 실패해도 방송이 멈추면 안 된다. 전부 감싸 둔다.
+           ⚠️ 조종실에서 끌 수 있다(sfx_enabled). 방송 중에 거슬리면 바로 꺼야 한다.
+           ═══════════════════════════════════════════════════════════════ */
+        // [주파수, 시작지연ms, 길이초, 크기, 파형]
+        const SFX_TUNE = {
+            'dice-roll':  [[300, 0, .05, .10, 'square'], [380, 60, .05, .10, 'square'],
+                           [460, 120, .06, .10, 'square']],
+            'dice-score': [[784, 0, .10, .26], [1047, 90, .18, .26]],
+            'dice-sig':   [[659, 0, .10, .26], [880, 90, .10, .26], [1175, 180, .26, .28]],
+            'dice-key':   [[1319, 0, .08, .24], [1568, 80, .08, .24], [2093, 160, .24, .20, 'sine']],
+            'dice-miss':  [[220, 0, .16, .22, 'sawtooth'], [155, 130, .30, .20, 'sawtooth']],
+            // 🏁 출발 칸은 이제 정확히 밟아야만 걸린다 — 제일 크게 울려준다
+            'dice-start': [[523, 0, .12, .30], [659, 120, .12, .30], [784, 240, .12, .30],
+                           [1047, 360, .50, .32]],
+            'donation':   [[880, 0, .07, .18], [1175, 70, .13, .18]],
+            'goal':       [[523, 0, .14, .30], [784, 140, .14, .30], [1047, 280, .14, .30],
+                           [1319, 420, .55, .32]],
+            'takeover':   [[988, 0, .09, .26], [1319, 90, .09, .26], [1568, 180, .32, .26]]
+        };
+
+        window.sfxEnabled = true;          // 조종실이 상태로 껐다 켰다 한다
+        const _sfxFile = {};               // 이름 → Audio (파일이 있을 때만)
+
+        /* ⚠️ 파일이 있는지 하나씩 받아보면 안 된다. 없는 것마다 404 가 콘솔에 쌓여서
+              (효과음 9개 = 404 아홉 줄) 진짜 문제가 그 사이에 묻힌다.
+              서버에 '뭐가 있냐'고 한 번만 묻고, 있는 것만 받아 둔다. */
+        (async function sfxLoadFiles() {
+            const files = await sfxList();
+            const want = Object.keys(files).filter(n => SFX_TUNE[n]);
+            want.forEach(name => {
+                try {
+                    const a = new Audio('/sfx/' + files[name]);
+                    a.preload = 'auto';
+                    a.addEventListener('canplaythrough', () => { _sfxFile[name] = a; }, { once: true });
+                    a.addEventListener('error', () => {}, { once: true });
+                } catch (e) {}
+            });
+            if (want.length) console.log('[효과음] 음원 파일 ' + want.length + '개 사용: ' + want.join(', '));
+        })();
+
+        function playSfx(name, scale) {
+            try {
+                if (!window.sfxEnabled) return;
+                if (typeof isAudioLeader === 'function' && !isAudioLeader()) return;
+                const f = _sfxFile[name];
+                if (f) {
+                    // ⚠️ 겹쳐 나야 하므로 매번 복제한다(하나를 재사용하면 앞 소리가 끊긴다)
+                    const a = f.cloneNode();
+                    a.volume = Math.max(0, Math.min(1, 0.85 * (scale || 1)));
+                    const p = a.play();
+                    if (p && p.catch) p.catch(() => {});
+                    return;
+                }
+                const tune = SFX_TUNE[name];
+                if (!tune || typeof sgBlip !== 'function') return;
+                tune.forEach(n => setTimeout(
+                    () => sgBlip(n[0], n[2], n[3] * (scale || 1), n[4]), n[1]));
+            } catch (e) { /* 소리 하나 때문에 방송이 멈추면 안 된다 */ }
+        }
+
         // 클리어 한 장: 몇 번째냐에 따라 음이 올라간다(발로란트 킬 카운터 느낌)
         // 🔊 CLEAR 소리 — 실제 음원 파일 5개를 쓴다(sounds/siggame/clear1~5.mp3).
         //    1~4 는 짧은 타격음, 5 는 길게 울리는 마무리음이다.
@@ -2546,10 +2631,25 @@
         const sgSounds = [];
         let sgSoundsReady = false;
 
-        (function sgLoadSounds() {
-            let ok = 0, done = 0;
+        /* ⚠️ 예전에는 clear1~5.mp3 를 그냥 받아봤다. 없으면 404 가 다섯 줄씩 쌓이는데,
+              오버레이는 새로고침이 잦아서 콘솔이 그걸로 도배됐다(진짜 오류가 묻힌다).
+              효과음과 같은 길(/sfx/list)로 먼저 물어보고 있는 것만 받는다. */
+        (async function sgLoadSounds() {
+            const files = await sfxList();
+            const have = [];
             for (let i = 1; i <= SG_SOUND_COUNT; i++) {
-                const a = new Audio('/sfx/siggame/clear' + i + '.mp3');
+                const f = files['siggame/clear' + i];
+                if (!f) break;                   // 하나라도 없으면 파일 방식은 못 쓴다
+                have.push(f);
+            }
+            if (have.length < SG_SOUND_COUNT) {
+                if (have.length) console.log('[시그게임] CLEAR 음원이 ' + have.length
+                    + '/' + SG_SOUND_COUNT + '개뿐입니다 — 기본 소리로 갑니다');
+                return;
+            }
+            let ok = 0, done = 0;
+            have.forEach((f, i) => {
+                const a = new Audio('/sfx/' + f);
                 a.preload = 'auto';
                 a.addEventListener('canplaythrough', () => {
                     if (!a._counted) { a._counted = true; ok++; done++; finish(); }
@@ -2557,14 +2657,14 @@
                 a.addEventListener('error', () => {
                     if (!a._counted) { a._counted = true; done++; finish(); }
                 }, { once: true });
-                sgSounds[i - 1] = a;
-            }
+                sgSounds[i] = a;
+            });
             function finish() {
                 if (done < SG_SOUND_COUNT) return;
                 sgSoundsReady = (ok === SG_SOUND_COUNT);
                 console.log(sgSoundsReady
                     ? '[시그게임] CLEAR 음원 ' + ok + '개 준비됨'
-                    : '[시그게임] CLEAR 음원 ' + ok + '/' + SG_SOUND_COUNT + '개만 받아졌습니다 — 기본 소리로 대체합니다');
+                    : '[시그게임] CLEAR 음원을 못 받았습니다 — 기본 소리로 대체합니다');
             }
         })();
 
@@ -3767,7 +3867,9 @@
                         if (c0 && c0 !== 'AUDI') globalNeon = c0;
                     }
                     if (d.up_trigger) lastUpTriggerTime = d.up_trigger.time;
-                    if (d.latest_popup) lastPopupTime = d.latest_popup.time;
+                    // 🔊 조종실 스위치를 그대로 따른다. 값이 없는 옛 상태면 켜진 것으로 본다.
+                window.sfxEnabled = (d.sfx_enabled !== false);
+                if (d.latest_popup) lastPopupTime = d.latest_popup.time;
                     if (d.latest_donation) lastDonationTime = d.latest_donation.time;
                     if (d.latest_takeover) lastTakeoverTime = d.latest_takeover.time;
                     isFirstLoadOverlay = false;
@@ -3880,6 +3982,7 @@
                 // 수동 알림
                 if (d.latest_popup && d.latest_popup.time !== lastPopupTime && d.popup_enabled && d.latest_popup.diff > 0) { 
                     lastPopupTime = d.latest_popup.time;
+                    playSfx('donation');
                     document.getElementById('popup-text').innerText = d.latest_popup.name + ' 후원 '; 
                     document.getElementById('popup-score').innerText = '+' + formatNum(d.latest_popup.diff); 
                     
@@ -3910,7 +4013,7 @@
                     }
                 }
 
-                if (d.takeover_enabled && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
+                if (d.takeover_enabled && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { playSfx('takeover'); document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
                 
                 let mc = document.getElementById('match-container');
                 if(md.active) {
@@ -6330,6 +6433,7 @@
                 rollT = 380;                       // 눈을 읽을 만큼만 짧게 멈춘다
             } else {
                 dgTumbleSeq(act.dice);
+                playSfx('dice-roll');
                 rollT = 250 + (act.dice || []).length * 1300;
             }
             // ② 다 구른 뒤에 말이 한 칸씩 총총
@@ -6358,11 +6462,21 @@
                 try { checkReactionQueue(); } catch (e) {}
                 const t = document.getElementById('dg-tile-' + act.to);
                 if (t) { t.classList.add('dg-land'); dgAfter(4200, () => t.classList.remove('dg-land')); }
-                dgBlip(1040);
+                // 🔊 도착한 칸이 무엇이냐에 따라 다른 소리. 귀로도 결과를 알 수 있어야 한다.
+                //    ⚠️ 꽝은 '점수 칸인데 0점' 이다(서버가 그렇게 둔다) — 소리는 달라야 한다.
+                const _tt = (act.tile || {}).type;
+                const _pt = Number((act.tile || {}).points) || 0;
+                playSfx(_tt === 'sig' ? 'dice-sig'
+                      : _tt === 'key' ? 'dice-key'
+                      : (_tt === 'score' && _pt > 0) ? 'dice-score'
+                      : (_tt === 'score') ? 'dice-miss' : 'dice-step');
+                if (_tt !== 'sig' && _tt !== 'key' && _tt !== 'score') dgBlip(1040);
                 dgShowCard(act);
                 if (act.lap) {
                     const bn = document.getElementById('dg-lap-banner');
                     if (bn) { bn.classList.add('show'); dgAfter(3200, () => bn.classList.remove('show')); }
+                    // 🏁 이제 출발 칸을 정확히 밟아야만 걸린다 — 제일 크게 울려준다
+                    dgAfter(120, () => playSfx('dice-start'));
                 }
             });
         }
@@ -6397,7 +6511,7 @@
                 dgShowDice([]);   // 안 굴리는 중이다 — 주사위는 숨긴다
             }
             const laps = document.getElementById('dg-laps');
-            if (laps) laps.textContent = g.laps ? (g.laps + '바퀴째') : '';
+            if (laps) laps.textContent = g.laps ? ('출발 ' + g.laps + '번') : '';
         }
 
         function dgUpdate(g) {
@@ -6651,6 +6765,7 @@
             const banner = document.getElementById('goal-banner');
             if (!rail && !banner) return;
             if (goalCelebrationTimer) { clearTimeout(goalCelebrationTimer); goalCelebrationTimer = null; }
+            playSfx('goal');
             if (rail) { rail.classList.remove('goal-flash'); void rail.offsetWidth; rail.classList.add('goal-flash'); }
             if (banner) { banner.classList.remove('show'); void banner.offsetWidth; banner.classList.add('show'); }
             goalCelebrationTimer = setTimeout(() => {

@@ -128,16 +128,36 @@ chk('연출이 끝나기 전의 연타는 거절(429)', c2 == 429, c2)
 
 print()
 print('=' * 74)
-print('⑤ 한 바퀴')
+print('⑤ 출발 칸 — 정확히 밟아야만 준다')
 print('=' * 74)
+# 사장님: "1바퀴 될 때가 아니라 시작지점 오면 5점"
+#   ⚠️ 예전에는 지나가기만 해도 줬다(frm+steps >= n). 그러면 한 바퀴에 반드시 한 번
+#      받으니 얻은 것 같지가 않다. 이제 (frm+steps) % n == 0 일 때만이다.
+#   ⚠️ 무작위로 굴리면 이걸 못 잰다 — 현실 주사위 값을 넣는 길로 정확히 맞춘다.
 post('/api/dicegame/move', {'pos': 19})
 laps0 = dg().get('laps') or 0
-c, r = post('/api/dicegame/roll')
+c, r = post('/api/dicegame/roll', {'value': 1})      # 19 + 1 = 20 → 0번(출발)
 g = dg()
-chk('19번에서 굴리면 반드시 한 바퀴', c == 200 and (g.get('laps') or 0) == laps0 + 1,
-    (laps0, g.get('laps')))
-chk('신호에도 한 바퀴 표시', (g.get('action') or {}).get('lap') is True)
-chk('감아 돈 위치가 맞다', g.get('pos') == (19 + sum(r['dice'])) % 20, (g.get('pos'), r['dice']))
+chk('19번에서 1이 나오면 출발 칸에 닿는다', c == 200 and g.get('pos') == 0, (c, g.get('pos')))
+chk('그때 횟수가 오른다', (g.get('laps') or 0) == laps0 + 1, (laps0, g.get('laps')))
+chk('신호에도 표시된다', (g.get('action') or {}).get('lap') is True)
+
+time.sleep(0.6)
+post('/api/dicegame/move', {'pos': 19})
+laps1 = dg().get('laps') or 0
+c, r = post('/api/dicegame/roll', {'value': 3})      # 19 + 3 = 22 → 2번 (지나가기만 한다)
+g = dg()
+chk('지나가기만 하면 안 준다', c == 200 and g.get('pos') == 2 and (g.get('laps') or 0) == laps1,
+    (g.get('pos'), laps1, g.get('laps')))
+chk('신호에도 표시가 안 된다', (g.get('action') or {}).get('lap') is False,
+    (g.get('action') or {}).get('lap'))
+
+time.sleep(0.6)
+post('/api/dicegame/move', {'pos': 0})
+laps2 = dg().get('laps') or 0
+c, r = post('/api/dicegame/roll', {'value': 5})      # 출발에서 떠나는 것은 도착이 아니다
+g = dg()
+chk('출발에서 떠나는 것은 안 친다', c == 200 and (g.get('laps') or 0) == laps2, (laps2, g.get('laps')))
 
 print()
 print('=' * 74)

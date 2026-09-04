@@ -263,6 +263,7 @@ run('퇴근빵 — 실제 번 돈', [PY, 'homerace_test.py'], HERE, kind='pt')
 run('게이지 보정', [PY, 'goal_offset_test.py'], HERE, kind='pt')
 run('로그 시각(한국시간)', [PY, 'clock_test.py'], HERE)
 run('반쪽 화면 조종실', [PY, 'halfscreen_test.py'], HERE)
+run('효과음·걷어낸 것', [PY, 'sfx_test.py'], HERE)
 
 kill_port(5177); kill_port(5199)
 

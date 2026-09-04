@@ -681,56 +681,9 @@
         }
 
         /* 탭 백그라운드 재생을 위한 visibility 기반 숨김 스타일 */
-        /* ===== 🔴 라이브 모드 =====
-           방송 중에 실제로 만지는 건 대기함·랭킹/점수·리액션 조작 셋뿐인데,
-           탭 12개와 버튼 121개가 전부 같은 비중으로 놓여 있어 급할 때 눈이 헤맸다.
-           기능을 지우지 않고 '지금 안 쓰는 것'만 접어서 비중을 다르게 준다.
-           DOM 은 그대로 두고 보이는 것만 바꾸므로 기존 동작에 영향이 없다. */
-        /* ===== 🚗 오토파일럿 배너 =====
-           금액 제한 없이 자동 배정하므로 '켜져 있다는 사실'을 잊으면 안 된다.
-           그래서 화면 맨 위에 고정으로 붙이고 눈에 띄게 깜빡인다. */
-        #autopilot-banner { display:none; position:sticky; top:0; z-index:5000; margin:-25px -25px 18px;
-            padding:12px 22px; background:linear-gradient(135deg,#b3261e,#e8543f); color:#fff;
-            font-size:var(--fs-3); font-weight:800; align-items:center; gap:12px;
-            box-shadow:0 6px 24px rgba(179,38,30,0.45); }
-        body.autopilot-on #autopilot-banner { display:flex; }
-        #autopilot-banner .ap-dot { width:10px; height:10px; border-radius:50%; background:#fff;
-            animation:apBlink 1s ease-in-out infinite; flex:none; }
-        @keyframes apBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
-        #autopilot-banner .ap-spacer { flex:1; }
-        #autopilot-banner button { border:none; cursor:pointer; padding:7px 16px; border-radius:var(--r-1);
-            font-family:inherit; font-size:var(--fs-3); font-weight:900; background:#fff; color:#b3261e; }
-        #ai-autopilot-toggle.on { background:linear-gradient(135deg,#b3261e,#e8543f) !important; color:#fff !important; }
-
-        #live-toggle { display:inline-flex; align-items:center; gap:7px; border:none; cursor:pointer;
-            padding:9px 15px; border-radius:var(--r-2); font-family:inherit; font-size:var(--fs-3); font-weight:800;
-            background:rgba(255,255,255,0.07); color:var(--text-muted); transition:var(--transition-smooth); }
-        #live-toggle:hover { background:rgba(255,255,255,0.12); color:var(--text-main); }
-        #live-toggle.on { background:linear-gradient(135deg,var(--danger),#ff6b52); color:#fff;
-            box-shadow:0 4px 16px rgba(255,59,48,0.35); }
-        #live-toggle .dot { width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.55; }
-        #live-toggle.on .dot { opacity:1; animation:liveBlink 1.6s ease-in-out infinite; }
-        @keyframes liveBlink { 0%,100%{opacity:1} 50%{opacity:.25} }
-
-        /* 라이브 모드에서 접히는 것들 */
-        body.live-mode .tabs { display:none !important; }
-        body.live-mode .tab-content { display:none !important; }
-        body.live-mode #tab-ranking { display:block !important; }
-        /* 랭킹 탭 안의 '기본 설정'(테마·목표금액·체크박스 등)은 방송 전 세팅이라 접는다 */
-        /* ⚠️ 대기함이 탭 밖으로 나갔으므로 예전 선택자(#tab-ranking > .group-box:not(#pending-box))는
-   더 이상 아무것도 안 가린다. 이제 라이브 모드는 탭바와 탭 내용만 접으면 되고,
-   대기함·되돌리기는 고정 덩어리에 있어 저절로 남는다. */
-
-        /* 대기함을 화면의 주인공으로 — 방송 중 유일하게 시간 다투는 조작이다 */
-        body.live-mode #pending-box { border-color:rgba(255,204,0,0.8) !important;
-            box-shadow:0 0 0 1px rgba(255,204,0,0.25), 0 10px 34px rgba(0,0,0,0.5); }
-        body.live-mode .pending-item { padding:18px; margin-bottom:14px; }
-        body.live-mode .pending-item .bj-btn { padding:11px 16px; font-size:var(--fs-3); }
-
-        body.live-mode #live-hint { display:block; }
-        #live-hint { display:none; margin:0 0 16px; padding:10px 14px; border-radius:var(--r-2);
-            background:rgba(255,59,48,0.08); border:1px solid rgba(255,59,48,0.25);
-            color:#ff9d92; font-size:var(--fs-2); font-weight:600; }
+        /* 🗑️ 라이브 모드는 걷어냈다 — 사장님이 안 쓴다("차피 안 써").
+           탭을 통째로 접는 모드였는데, 반쪽 화면에서 탭이 두 줄로 다 보이게
+           바뀌면서 접을 이유도 사라졌다. */
 
         .tab-content {
             position: absolute;
@@ -1244,13 +1197,14 @@
     </button>
     <div class="header">
         <h1>
-            <i class="fa-solid fa-layer-group"></i> 방송 제어 센터
+            <!-- 🗑️ 제목 글자는 뺐다 — 자리만 먹고 알려주는 게 없다.
+                 아이콘과 연결 표시는 남긴다(서버가 살아 있는지 보는 유일한 곳이다). -->
+            <i class="fa-solid fa-layer-group"></i>
             <span id="connection-status-badge" style="font-size: var(--fs-1); font-weight: 700; background: rgba(52, 199, 89, 0.15); border: 1px solid var(--success); color: var(--success); padding: 3px 10px; border-radius: var(--r-3); display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; vertical-align: middle; transition: all 0.3s ease;">
                 <span style="width: 7px; height: 7px; background: var(--success); border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite;"></span> 연결됨 · <span id="latency-val">--ms</span>
             </span>
         </h1>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <button id="live-toggle" onclick="toggleLiveMode()" title="방송 중에 쓰는 것만 남기고 나머지를 접습니다 (설정은 그대로 있습니다)"><span class="dot"></span><span id="live-toggle-label">라이브 모드</span></button>
             <!-- ☕ 깨워두기 버튼은 없앴다 — Render 무료 서버를 안 재우려던 유물이다.
                  지금은 Vultr 유료 서버라 잠들지 않는다. (서버 쪽 기능은 Render 폴백용으로 남아 있다) -->
             <!-- 📱 iOS 미니 미디어 제어센터 패널 -->
@@ -1318,17 +1272,10 @@
         <button onclick="toggleAutopilot()">끄기</button>
     </div>
 
-    <!-- 🔴 라이브 모드 안내 (모드가 켜졌을 때만 보인다) -->
-    <div id="live-hint">
-        🔴 <b>라이브 모드</b> — 방송 중에 쓰는 것만 남겼습니다. 다른 기능이 필요하면 위 버튼을 다시 눌러 끄세요.
-        (설정·연출·시그니처 관리는 그대로 있습니다)
-    </div>
-
     <!-- 📌 상단 고정 덩어리 — 탭바 + 후원 대기함.
          ⚠️ 대기함은 원래 랭킹 탭 안에 있었다. 그런데 방송 중 가장 잦은 조작이 배정인데,
             다른 탭(시그뒤집기·룰렛 등)을 보는 동안에는 대기함이 통째로 안 보였다.
             게임을 돌리는 중에도 후원은 계속 들어오므로, 탭이 뭐든 항상 보여야 한다.
-            (그래서 "전부 감추는" 라이브 모드를 껐다 켰다 하게 됐던 것이다)
          ⚠️ 버튼 배치는 그대로 둔다 — 손에 익은 자리가 바뀌면 방송 중에 그게 더 위험하다.
             자리만 옮기고 항상 보이게 했다. -->
     <div id="sticky-top">
@@ -1490,6 +1437,7 @@
                 <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-crown"></i> 1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-ranking-star"></i> 오늘의 시그니처</span><div class="apple-switch"><input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-medal"></i> 후원 순위</span><div class="apple-switch"><input type="checkbox" id="chk-donor-rank" onchange="toggleOption('donor_rank_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px;" title="주사위·후원·목표·1등탈환 효과음. 방송 중에 거슬리면 끄세요"><span class="toggle-label"><i class="fa-solid fa-volume-high"></i> 효과음</span><div class="apple-switch"><input type="checkbox" id="chk-sfx" onchange="toggleOption('sfx_enabled')"><span class="apple-slider"></span></div></label>
 
             </div>
 
@@ -2720,33 +2668,6 @@
             aiAppendMsg('sys', `↪ ${r.donor}님 후원 ${r.points}점을 ${to}에게 옮겼습니다.`);
         }
 
-        // ===== 🔴 라이브 모드 =====
-        // 기능을 지우는 게 아니라 '지금 안 쓰는 것'을 접는다. 끄면 전부 그대로 돌아온다.
-        // 새로고침해도 유지되므로(방송 중 새로고침이 잦다) localStorage 에 남긴다.
-        function applyLiveMode(on) {
-            document.body.classList.toggle('live-mode', !!on);
-            const btn = document.getElementById('live-toggle');
-            const lab = document.getElementById('live-toggle-label');
-            if (btn) btn.classList.toggle('on', !!on);
-            if (lab) lab.textContent = on ? '라이브 모드 켜짐' : '라이브 모드';
-            // 켤 때는 대기함이 있는 탭으로 맞춰준다(다른 탭을 보던 중이었을 수 있다).
-            // ⚠️ openTab 은 event.currentTarget 을 쓰므로 여기서는 부르지 않고 클래스만 직접 맞춘다.
-            if (on) {
-                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-                const r = document.getElementById('tab-ranking');
-                if (r) r.classList.add('active');
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                const rb = document.querySelector(".tab-btn[onclick*='tab-ranking']");
-                if (rb) rb.classList.add('active');
-            }
-        }
-        function toggleLiveMode() {
-            const next = !document.body.classList.contains('live-mode');
-            try { localStorage.setItem('liveMode', next ? '1' : '0'); } catch (e) {}
-            applyLiveMode(next);
-        }
-        try { applyLiveMode(localStorage.getItem('liveMode') === '1'); } catch (e) {}
-
         // 송출 중인 시그니처 id (연타로 같은 시그니처가 두 번 나가는 것을 막는다).
         // ⚠️ 쓰는 함수(playSignatureById)보다 반드시 앞에서 초기화돼야 한다 — const 는 호이스팅돼도
         //    초기화 전에는 못 쓰기 때문에, 뒤쪽에 두면 그 사이 스크립트가 한 번 멈췄을 때 터진다.
@@ -3374,6 +3295,7 @@
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
             setChk('chk-sig-tally', !!gd.sig_tally_enabled);
             setChk('chk-donor-rank', !!gd.donor_rank_enabled);
+            setChk('chk-sfx', gd.sfx_enabled !== false);
             setChk('chk-home-race', gd.home_race_enabled || false);
             renderGoalAchievementNotice();   // 🎯 목표 달성 승인 알림 표시 여부 갱신
             checkHomeRaceGoals();            // 🏃 퇴근 목표 도달 확인
@@ -3569,7 +3491,7 @@
             if (gd.logs) {
                 /* 🧾 기여도 줄은 점수 줄과 다르게 그린다.
                    ⚠️ 예전에는 kind 와 why 를 무시하고 전부 '+5점' 으로만 찍었다. 서버는
-                      이미 '기여도' 라는 것과 그 이유(주사위 점수 칸 · 시그니처 · 한 바퀴 ·
+                      이미 '기여도' 라는 것과 그 이유(주사위 점수 칸 · 시그니처 · 출발 칸 ·
                       슬롯 당첨)를 실어 보내는데 화면이 버리고 있었다. 그래서 점수가 오른
                       것인지 기여도가 오른 것인지조차 알 수 없었다. */
                 let rankLogHtml = gd.logs.map(log => {
@@ -8031,7 +7953,7 @@ initFoldablePanels();
         function dgcRollToast(d) {
             let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
             if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
-            if (d.lap) m += ' · 🎉 한 바퀴!';
+            if (d.lap) m += ' · 🎉 출발 칸 도착!';
             acctToast(m, 'ok');
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');
         }
@@ -8246,7 +8168,7 @@ initFoldablePanels();
             if (st) {
                 const dice = ((g.action || {}).dice || []).join('+');
                 st.textContent = (g.tiles || []).length
-                    ? ('말 ' + (g.pos || 0) + '번 칸 · ' + (g.laps || 0) + '바퀴'
+                    ? ('말 ' + (g.pos || 0) + '번 칸 · 출발 ' + (g.laps || 0) + '번'
                        + ' · 주사위 ' + (g.dice || 1) + '개'
                        + (dice ? ' · 마지막 눈 ' + dice : ''))
                     : '판 없음';
@@ -8516,7 +8438,6 @@ function cmdkCommands() {
         { k: '대결 1분', t: '⚔ 대결 +1분', h: '대결', run: () => modifyTimer(1, 'min') },
         { k: '올클리어', t: '🎉 시그뒤집기 올클리어', h: '게임', run: () => sgAllClear() },
         { k: '건너뛰기 스킵', t: '⏭ 시그니처 재생 건너뛰기', h: '재생', run: () => skipCurrentReaction() },
-        { k: '라이브', t: '🔴 라이브 모드 켜기/끄기', h: '화면', run: () => toggleLiveMode() },
         { k: '랭킹', t: '📑 랭킹 탭', h: '이동', run: () => openTabById('tab-ranking') },
         { k: '로그', t: '📑 로그 탭', h: '이동', run: () => openTabById('tab-logs') },
         { k: '대결 탭', t: '📑 대결 탭', h: '이동', run: () => openTabById('tab-match') },
