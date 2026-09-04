@@ -1615,7 +1615,9 @@ DEFAULT_STATE = {
     "self_ping_enabled": False,
     # 🎰 슬롯머신
     # load_data()는 DEFAULT_STATE에 있는 키만 복원하므로, 여기 없으면 재시작 때 조용히 사라진다.
-    "slot_enabled": True,
+    #    ⚠️ 기본값은 꺼 둔다. 켜져 있으면 오버레이가 슬롯판을 그리고,
+    #    그러면 body.game-on 이 붙어 후원 게이지 옆 금액이 가려진다.
+    "slot_enabled": False,
     "slot_pool": [],   # 이번 방송에 쓸 시그니처 id 목록. 비어 있으면 전체를 후보로 사용.
     # 💰 슬롯 한 판 값. 이 금액의 후원으로 한 판을 산다.
     #    그 후원이 들어올 때 이미 점수·기여도가 (금액/10000)만큼 올라갔으므로,
@@ -2074,6 +2076,11 @@ def reset_session_keys(state):
     state['home_race_notified'] = []   # '누가 이미 퇴근 카드를 받았나'는 지난 방송의 기록이라 비운다
     state['sig_tally'] = {}            # 시그니처 신청 집계도 방송 1회분 기록이라 비운다
     state['donor_tally'] = {}          # 후원 순위도 이번 방송분만 센다
+    # 💰 게이지 보정도 이번 방송 것이다.
+    #    ⚠️ 방송 종료 쪽에서만 0 으로 돌리고 있었다. 그런데 load_data() 는 메모리 상태를
+    #       그대로 돌려주므로, 종료를 안 거치고 다음 방송을 시작하면 지난주 보정값이
+    #       그대로 남아 게이지가 처음부터 그만큼 올라간 채로 시작한다.
+    state['goal_offset'] = 0
     # ⚠️ home_goals(퇴근빵 개인별 목표)는 여기서 지우면 안 된다.
     #    이건 '지난 방송의 흔적'이 아니라 운영자가 방송 전에 세팅해두는 '설정'이다.
     #    그런데 이 함수는 방송 종료뿐 아니라 '방송 시작'에서도 불린다.
@@ -2422,6 +2429,36 @@ def _bc_shift_hours():
         return 0
 
 
+def now_hms():
+    """로그·대기함에 적을 '지금 시각'. 한국 시각으로 적는다.
+
+    ⚠️ time.strftime 은 **서버 지역시**를 준다. 운영 서버는 UTC 라 9시간 뒤처진
+       시각이 찍혔다 — 밤 1시에 준 점수가 로그창에 16:07 로 떠서, 언제 준
+       것인지 알 수 없었다(사장님: "시간이 안 맞아").
+    ⚠️ DB 의 timestamp 는 여기서 손대지 않는다. 그쪽은 서버 지역시로 적힌 것을
+       전제로 _bc_window 가 읽을 때 옮긴다 — 여기서도 옮기면 두 번 밀린다.
+    """
+    return time.strftime('%H:%M:%S', time.localtime(time.time() + _bc_shift_hours() * 3600))
+
+
+def ts_kst(ts_text):
+    """DB 에 적힌 시각을 사람에게 보여줄 한국 시각으로 옮긴다.
+
+    ⚠️ 장부의 timestamp 는 서버 지역시(운영 서버는 UTC)로 적혀 있다. 지난 방송
+       후원내역·엑셀에 그대로 내보내면 9시간 뒤처진 시각이 나온다.
+    ⚠️ 옮기는 것은 **보여줄 때뿐**이다. DB 에 쓸 때 옮기면 _bc_window 가 한 번 더
+       옮겨 월별 순위가 통째로 어긋난다.
+    """
+    shift = _bc_shift_hours()
+    if not ts_text or not shift:
+        return ts_text
+    try:
+        t = datetime.datetime.strptime(str(ts_text)[:19], '%Y-%m-%d %H:%M:%S')
+    except (TypeError, ValueError):
+        return ts_text            # 모양이 다르면 건드리지 않는다
+    return (t + datetime.timedelta(hours=shift)).strftime('%Y-%m-%d %H:%M:%S')
+
+
 def _bc_window(ts_text, shift):
     """이 후원이 수요일 방송 창 안인가. 창 안이면 그 방송이 시작한 날짜를 돌려준다.
 
@@ -2540,8 +2577,10 @@ def api_archive_sessions():
                 ORDER BY MAX(archived_at) DESC, session_label DESC
             """))
             for r in cur.fetchall():
+                # ⚠️ label 은 회차를 고르는 열쇠라 그대로 둔다. 시각만 한국 시각으로 옮긴다.
                 out.append({'label': r[0] or '(이름 없음)', 'count': int(r[1] or 0),
-                            'total': int(r[2] or 0), 'first': r[3], 'last': r[4]})
+                            'total': int(r[2] or 0),
+                            'first': ts_kst(r[3]), 'last': ts_kst(r[4])})
         return jsonify({'status': 'success', 'sessions': out, 'count': len(out)})
     except Exception as e:
         print(f'[지난 방송 목록 조회 오류] {e}')
@@ -2564,7 +2603,7 @@ def api_archive_rows():
                 ORDER BY id ASC
             """), (label,))
             for r in cur.fetchall():
-                rows.append({'time': r[0], 'name': r[1], 'amount': int(r[2] or 0),
+                rows.append({'time': ts_kst(r[0]), 'name': r[1], 'amount': int(r[2] or 0),
                              'message': r[3] or '', 'source': r[4] or ''})
         total = sum(r['amount'] for r in rows)
         cut = len(rows) > ARCHIVE_ROWS_MAX
@@ -2599,10 +2638,15 @@ def api_archive_csv():
             data = cur.fetchall()
         lines = ['회차,시각,후원자,금액,메시지,경로']
         for r in data:
-            lines.append(','.join(_csv_cell(x) for x in r))
+            # ⚠️ 두 번째 칸이 시각이다. 한국 시각으로 옮겨 내보낸다 — 엑셀을 열어
+            #    정산할 때 9시간 뒤처진 시각이 나오면 어느 방송분인지 헷갈린다.
+            #    (첫 칸 session_label 은 회차 이름이라 그대로 둔다)
+            _r = list(r); _r[1] = ts_kst(_r[1])
+            lines.append(','.join(_csv_cell(x) for x in _r))
         # ⚠️ 앞에 BOM 을 붙인다. 없으면 엑셀이 UTF-8 을 못 알아채고 한글이 전부 깨진다.
         body = '\ufeff' + '\r\n'.join(lines) + '\r\n'
-        stamp = time.strftime('%Y%m%d_%H%M%S')
+        stamp = time.strftime('%Y%m%d_%H%M%S',
+                              time.localtime(time.time() + _bc_shift_hours() * 3600))
         fname = f'donations_{stamp}.csv'
         # ⚠️ mimetype 에 charset 을 적으면 Flask 가 뒤에 또 붙여 두 번 들어간다.
         #    content_type 으로 통째로 지정한다.
@@ -3675,7 +3719,7 @@ def receive_donation():
                 'orig_name': orig_name,
                 'amount': amount,
                 'message': cleaned_msg,
-                'time': time.strftime('%H:%M:%S')
+                'time': now_hms()
             }
             state['pending_donations'].append(parsed_don_entry)
             # 대기함이 커지면 state 전체가 그만큼 무거워지고, 그게 접속 대수만큼 곱해져 나간다.
@@ -4306,7 +4350,7 @@ def api_offwork_pending():
             'name': name,
             'amount': 0,
             'message': '퇴근전쟁 목표 달성!',
-            'time': time.strftime('%H:%M:%S'),
+            'time': now_hms(),
         })
         save_data(state)
         broadcast_event('update', state)
@@ -4839,7 +4883,7 @@ def api_roulette_winner():
             state['roulette_enabled'] = False
             
             # 랭킹 로그에 기록 추가
-            time_str = time.strftime('%H:%M:%S')
+            time_str = now_hms()
             if 'logs' not in state:
                 state['logs'] = []
             state['logs'].insert(0, {
@@ -5347,8 +5391,10 @@ def get_manual_logs():
             rows = cursor.fetchall()
             logs = []
             for r in rows:
+                # ⚠️ 장부에는 서버 지역시(운영 서버는 UTC)로 적혀 있다. 조종실 표에
+                #    그대로 내보내면 9시간 뒤처진 시각이 뜬다 — 방송 중에 제일 자주 보는 표다.
                 logs.append({
-                    'id': r[0], 'timestamp': r[1], 'name': r[2],
+                    'id': r[0], 'timestamp': ts_kst(r[1]), 'name': r[2],
                     'amount': r[3], 'current_total': r[4],
                     'message': r[5], 'source': r[6]
                 })
@@ -5376,10 +5422,21 @@ def restore_by_time():
         if not time_str:
             return jsonify({'status': 'error', 'message': '이동할 시간을 입력해주세요.'}), 400
             
-        today_str = time.strftime('%Y-%m-%d')
-        target_ts = f"{today_str} {time_str}"
+        # 🕘 사장님이 치는 시각은 **한국 시각**이다. 그런데 장부의 timestamp 는
+        #    서버 지역시(운영 서버는 UTC)로 적혀 있다. 그대로 비교하면 9시간 어긋난 자리로
+        #    돌아가거나 '장부가 없습니다' 가 뜬다. 그래서 KST → 서버시로 되돌려 묻는다.
+        _shift = _bc_shift_hours()
         if len(time_str.split(':')) == 2:
-            target_ts += ':00'
+            time_str_full = time_str + ':00'
+        else:
+            time_str_full = time_str
+        today_kst = time.strftime('%Y-%m-%d', time.localtime(time.time() + _shift * 3600))
+        try:
+            _t = datetime.datetime.strptime(today_kst + ' ' + time_str_full, '%Y-%m-%d %H:%M:%S')
+        except ValueError:
+            return jsonify({'status': 'error', 'message': '시간 형식이 올바르지 않습니다 (예: 21:30)'}), 400
+        target_ts = (_t - datetime.timedelta(hours=_shift)).strftime('%Y-%m-%d %H:%M:%S')
+        shown_ts = today_kst + ' ' + time_str_full   # 사람에게 보여줄 때는 한국 시각 그대로
             
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -5396,7 +5453,7 @@ def restore_by_time():
             history_rows = cursor.fetchall()
             
             if not history_rows:
-                return jsonify({'status': 'error', 'message': f'[{target_ts}] 시점 또는 그 이전에 기록된 장부가 없습니다.'}), 404
+                return jsonify({'status': 'error', 'message': f'[{shown_ts}] 시점 또는 그 이전에 기록된 장부가 없습니다.'}), 404
                 
             cursor.execute(db_query("SELECT key, value FROM kv_store WHERE key = 'target_goal'"))
             goal_row = cursor.fetchone()
@@ -6249,7 +6306,7 @@ def api_score_add():
             for tn, mn, dv in team_hits:
                 print(f"  ⚔️ [팀전] {mn} 의 {dv:+d} 점이 '{tn}' 팀 점수에도 반영됐습니다", flush=True)
 
-            time_str = time.strftime('%H:%M:%S')
+            time_str = now_hms()
             log_key = 'match_logs' if scope == 'match' else 'logs'
             logs = state.get(log_key)
             if not isinstance(logs, list):
@@ -6378,7 +6435,7 @@ def _dicegame_apply_contrib(state, player, contrib, why):
         logs = []
         state['logs'] = logs
     # ⚠️ 로그에 '기여도' 라고 남겨야 나중에 장부를 볼 때 점수와 헷갈리지 않는다
-    logs.insert(0, {"time": time.strftime('%H:%M:%S'), "name": t.get('name') or player,
+    logs.insert(0, {"time": now_hms(), "name": t.get('name') or player,
                     "val": contrib, "kind": "contrib", "why": why})
     del logs[LOG_MAX:]
     src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
@@ -6398,7 +6455,7 @@ def _contrib_alert(state, title, contrib, why):
         'orig_name': '주사위게임',
         'amount': 0,
         'message': why,
-        'time': time.strftime('%H:%M:%S'),
+        'time': now_hms(),
         'kind': 'contrib',
         'contrib': contrib,
     })
