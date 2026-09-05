@@ -299,6 +299,50 @@ chk('대기함에는 둘 다 있다 (돈은 안 사라진다)',
 
 print()
 print('=' * 74)
+print('⑨ 소액 후원은 전광판에 이름이 올라간다 (살아 있는 서버)')
+print('=' * 74)
+# 사장님: "소액결제는 지금 5분에 한번 나오는 전광판에 띄는걸로 하는건 어때"
+chk('상태 키가 있다', '"notice_donors": []' in SV)
+chk('상한이 있다', 'NOTICE_DONORS_MAX = ' in SV)
+chk('오래된 것부터 흘려보낸다', 'del _nd[:-NOTICE_DONORS_MAX]' in SV)
+chk('방송마다 초기화한다', "state['notice_donors'] = []" in SV)
+# ⚠️ 순위에서 빼둔 이름(테스트 후원)은 여기서도 빼되, 익명은 올린다
+don2 = SV.split('def receive_donation():')[1].split(chr(10) + '@app.route')[0]
+chk('제외 명단은 빼고 익명은 올린다',
+    'excluded_names()' in don2.split('notice_donors')[0][-400:] and 'is_excluded' not in don2)
+chk('오버레이가 한 줄로 묶는다', 'function noticeDonorLine(' in OV)
+dl = OV.split('function noticeDonorLine(')[1].split(chr(10) + '        }')[0]
+chk('최근 몇 명만 적는다 (줄이 무한히 안 길어지게)', 'NOTICE_DONOR_SHOW' in dl and 'slice(' in dl)
+chk('넘치면 "외 N분" 으로 줄인다', "'외 '" in dl or '외 ' in dl)
+chk('없으면 순환에 안 낀다', "return ''" in dl)
+chk('순환 목록에 끼운다', 'if (donorLine) msgs.push(donorLine);' in OV)
+# ⚠️ 후원이 들어와 글자가 바뀌면 흐름을 다시 시작해야 한다. 다른 문구는 안 끊는다.
+chk('소액 줄만 회차 이름이 바뀐다', "(pIdx === donorIdx ? donorTag : '')" in OV)
+chk('조종실에도 보인다', "id=\"ntc-donors\"" in CT and 'notice_donors' in CT)
+
+# 실제로: 소액 두 건 → 전광판 목록에 쌓이고, 정상 후원은 안 쌓인다
+post('/api/server/start_broadcast', {'names': ['가', '나']})
+_u = str(int(time.time() * 1000))
+post('/api/donation', {'name': '깨알', 'amount': 500, 'message': '', 'tx_id': 'ntc_a' + _u})
+post('/api/donation', {'name': '익명', 'amount': 2000, 'message': '', 'tx_id': 'ntc_b' + _u})
+post('/api/donation', {'name': '큰손', 'amount': 15000, 'message': '', 'tx_id': 'ntc_c' + _u})
+time.sleep(1.2)
+d = get()
+nd = d.get('notice_donors') or []
+chk('소액 두 건이 전광판 목록에 쌓인다', len(nd) == 2, [(x.get('name'), x.get('amount')) for x in nd])
+chk('익명도 올라간다', any(x.get('name') == '익명' for x in nd), [x.get('name') for x in nd])
+chk('시그니처가 나간 후원은 안 쌓인다', all(x.get('amount') != 15000 for x in nd),
+    [x.get('amount') for x in nd])
+chk('금액·이름이 그대로 실린다',
+    sorted(x.get('amount') for x in nd) == [500, 2000], [x.get('amount') for x in nd])
+# 방송을 끝내면 비워진다
+post('/api/server/end_broadcast', {})
+time.sleep(0.8)
+chk('방송을 끝내면 비워진다', not (get().get('notice_donors') or []),
+    len(get().get('notice_donors') or []))
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 print('=' * 74)
 sys.exit(1 if BAD else 0)

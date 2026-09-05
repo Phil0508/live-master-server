@@ -792,6 +792,9 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
 # 오버레이가 안 돌고 있을 때 리액션 큐가 무한정 쌓이는 것을 막는 상한.
 # 전체 큐가 매 update 마다 모든 클라이언트로 나가므로 메모리·트래픽에 직접 영향을 준다.
 REACTION_QUEUE_MAX = 40
+# 💛 전광판에 올릴 소액 후원자 수. 넘으면 오래된 것부터 흘려보낸다.
+#    ⚠️ 무한히 쌓으면 전광판 한 줄이 끝없이 길어져 다음 회차를 밀어낸다.
+NOTICE_DONORS_MAX = 20
 
 # 점수 로그 보관 개수. 위와 같은 이유로 상한이 필요하다.
 LOG_MAX = 200
@@ -1575,6 +1578,10 @@ DEFAULT_STATE = {
     "notice_period": 300,      # 몇 초마다 한 번 (기본 5분)
     "notice_speed": 130,       # 초당 몇 픽셀로 흐르는가 (뜨는 시간은 글자 길이가 정한다)
     "notice_now": {},          # 진행자가 지금 띄운 것 {ts, idx}
+    # 💛 소액 후원(제일 싼 시그니처보다 적은 것)은 시그니처를 안 튼다. 대신 여기 모아
+    #    전광판 순환에 한 줄로 끼운다 — 화면에 이름이 뜨니 무시당한 느낌이 없다.
+    #    ⚠️ 한 줄로 묶는다. 사람마다 문구를 만들면 원래 안내가 통째로 밀려난다.
+    "notice_donors": [],       # [{name, amount, ts}] — 방송마다 초기화
 
     "ticker_enabled": True,
     "ticker_speed": 70,
@@ -2143,6 +2150,7 @@ def reset_session_keys(state):
     state['home_race_notified'] = []   # '누가 이미 퇴근 카드를 받았나'는 지난 방송의 기록이라 비운다
     state['sig_tally'] = {}            # 시그니처 신청 집계도 방송 1회분 기록이라 비운다
     state['donor_tally'] = {}          # 후원 순위도 이번 방송분만 센다
+    state['notice_donors'] = []        # 전광판 소액 후원자도 이번 방송분만
     # 💰 게이지 보정도 이번 방송 것이다.
     #    ⚠️ 방송 종료 쪽에서만 0 으로 돌리고 있었다. 그런데 load_data() 는 메모리 상태를
     #       그대로 돌려주므로, 종료를 안 거치고 다음 방송을 시작하면 지난주 보정값이
@@ -3769,6 +3777,7 @@ def receive_donation():
         #    락을 쓰는 모든 조작이 통째로 멈춰 방송 중 컨트롤러가 얼어붙었다.
         #    매칭은 state를 읽지 않으므로 락이 필요 없다.
         matched_sig = None
+        _small_donation = False          # 시그니처 없이 전광판으로만 가는 후원인가
         if amount > 0:
             try:
                 # 💸 제일 싼 시그니처보다 적게 넣었으면 아무것도 안 튼다.
@@ -3777,8 +3786,9 @@ def receive_donation():
                 #    ⚠️ 막는 것은 후원 경로뿐이다. 매칭 함수 자체는 주사위·시그뒤집기도 쓴다.
                 _floor = _sig_min_amount()
                 if _floor and amount < _floor:
+                    _small_donation = True
                     print(f"  💸 [시그니처] {amount:,}원은 제일 싼 시그니처({_floor:,}원)보다 "
-                          f"적어 재생하지 않습니다", flush=True)
+                          f"적어 재생하지 않습니다 — 전광판에 올립니다", flush=True)
                 else:
                     matched_sig = supabase_match_signature(amount)
             except Exception as e:
@@ -3891,6 +3901,19 @@ def receive_donation():
                     _dt[_who] = _row
             except Exception as _e:
                 print(f"⚠️ [후원 순위 집계 실패] {_e}")
+
+            # 💛 소액 후원은 전광판에 이름을 올린다 — 시그니처 대신 이걸로 고마움을 전한다.
+            #    ⚠️ 순위에서 빼둔 이름(테스트 후원 등)은 여기서도 뺀다. 익명은 그대로 올린다 —
+            #       익명으로 보낸 사람도 방송에서 인사를 받아야 한다.
+            if _small_donation:
+                try:
+                    if _norm_donor(parsed_name) not in excluded_names():
+                        _nd = state.setdefault('notice_donors', [])
+                        _nd.append({'name': ' '.join(str(parsed_name or '').split()) or '익명',
+                                    'amount': int(amount), 'ts': int(time.time() * 1000)})
+                        del _nd[:-NOTICE_DONORS_MAX]      # 오래된 것부터 흘려보낸다
+                except Exception as _e:
+                    print(f"⚠️ [전광판 소액 후원 기록 실패] {_e}")
 
             # ⚠️ 한 번 실패하면 그 후원은 정산 장부에서 통째로 사라진다(운영자는 대기함에서 보고
             #    점수를 주지만 장부엔 없다). Supabase 는 유휴 커넥션을 끊기 때문에 조용한 구간 뒤

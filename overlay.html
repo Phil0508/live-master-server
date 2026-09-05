@@ -6131,6 +6131,14 @@
             const txt = document.getElementById('notice-text');
             if (!bar || !view || !txt) return;
             const msgs = (d.notice_msgs || []).filter(m => String(m || '').trim());
+            // 💛 소액 후원(시그니처를 안 튼 것)을 한 줄로 묶어 순환에 끼운다.
+            //    ⚠️ 사람마다 문구를 만들면 원래 안내가 통째로 밀려난다 — 반드시 한 줄이다.
+            //    ⚠️ 목록이 바뀌면 글자도 바뀌므로 회차 이름에 개수를 넣는다. 안 그러면
+            //       같은 구간 안에서 글자만 갈리고 흐르는 애니메이션은 안 다시 시작한다.
+            const donorLine = noticeDonorLine(d.notice_donors);
+            if (donorLine) msgs.push(donorLine);
+            const donorIdx = donorLine ? msgs.length - 1 : -1;
+            const donorTag = donorLine ? ':' + (d.notice_donors || []).length : '';
             if (!d.notice_enabled || !msgs.length) { bar.classList.remove('show'); noticeCycle = ''; return; }
 
             const now = Date.now() + serverTimeOffset;
@@ -6145,13 +6153,18 @@
             const mEl = nw.ts ? (now - nw.ts) : -1;
             const mIdx = Math.max(0, Math.min(msgs.length - 1, parseInt(nw.idx) || 0));
             if (mEl >= 0 && mEl < noticeDur(String(msgs[mIdx]), viewW, speed, period)) {
-                idx = mIdx; elapsed = mEl; cycle = 'M' + nw.ts;
+                idx = mIdx; elapsed = mEl;
+                cycle = 'M' + nw.ts + (mIdx === donorIdx ? donorTag : '');
             } else {
                 // 주기 구간마다 한 번 흐른다. 구간 번호가 곧 회차다.
                 const pIdx = Math.floor(now / period) % msgs.length;
                 const pEl = now % period;
                 if (pEl < noticeDur(String(msgs[pIdx]), viewW, speed, period)) {
-                    idx = pIdx; elapsed = pEl; cycle = 'C' + Math.floor(now / period);
+                    idx = pIdx; elapsed = pEl;
+                    // ⚠️ 소액 줄은 후원이 들어올 때마다 글자가 바뀐다. 회차 이름에 인원을 붙여
+                    //    바뀐 순간 흐름을 다시 시작하게 한다 — 안 그러면 글자만 갈려 중간이 잘린다.
+                    //    다른 문구에는 안 붙인다. 붙이면 후원 하나에 읽던 안내가 끊긴다.
+                    cycle = 'C' + Math.floor(now / period) + (pIdx === donorIdx ? donorTag : '');
                 }
             }
             if (idx < 0) { bar.classList.remove('show'); noticeCycle = ''; return; }
@@ -6169,6 +6182,19 @@
                                     + Math.round(elapsed) + 'ms 1 both';
             }
             bar.classList.add('show');
+        }
+
+        /* 💛 소액 후원자들을 한 줄로 묶는다. 없으면 빈 글자 — 그러면 순환에 안 낀다.
+           ⚠️ 최근 몇 명만 적는다. 전부 적으면 줄이 끝없이 길어져 다음 회차를 밀어낸다
+              (뜨는 시간은 글자 길이가 정한다 — noticeDur 참고). */
+        const NOTICE_DONOR_SHOW = 8;
+        function noticeDonorLine(list) {
+            if (!Array.isArray(list) || !list.length) return '';
+            const last = list.slice(-NOTICE_DONOR_SHOW);
+            const part = last.map(x => '*' + String((x && x.name) || '익명') + '* '
+                + (Number((x && x.amount) || 0)).toLocaleString() + '원').join(' · ');
+            const more = list.length > last.length ? ' 외 ' + (list.length - last.length) + '분' : '';
+            return '💛 후원 고맙습니다 — ' + part + more;
         }
 
         // 문구는 운영자가 적는 글이라 그대로 넣으면 안 된다. 글자로 만든 뒤

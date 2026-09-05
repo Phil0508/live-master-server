@@ -1422,6 +1422,10 @@
                 <select id="ntc-pick" style="height:34px; min-width:150px;"></select>
                 <button class="secondary" onclick="ntcNow()" style="height:34px; padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-bolt"></i> 지금 띄우기</button>
             </div>
+            <!-- 💛 소액 후원(시그니처를 안 튼 것)은 여기 모여 전광판 순환에 한 줄로 낀다 -->
+            <div id="ntc-donors" style="margin-top:10px; padding:9px 12px; border-radius:var(--r-2);
+                 background:rgba(255,207,77,0.06); border:1px solid rgba(255,207,77,0.2);
+                 font-size:var(--fs-2); color:var(--text-muted); display:none;"></div>
         </div>
 
         <!-- 🏃 퇴근전쟁(퇴근빵) 제어 -->
@@ -7933,6 +7937,22 @@ initFoldablePanels();
                 setIf('ntc-speed', gd.notice_speed || 130);
             }
             const sig = msgs.join('|');
+            // 💛 소액 후원자 — 전광판에 한 줄로 나가는 그 내용을 조종실에서도 보여준다
+            const dbox = document.getElementById('ntc-donors');
+            if (dbox) {
+                const ds = gd.notice_donors || [];
+                if (!ds.length) { dbox.style.display = 'none'; }
+                else {
+                    const last = ds.slice(-8);
+                    const more = ds.length > last.length ? ' 외 ' + (ds.length - last.length) + '분' : '';
+                    dbox.style.display = 'block';
+                    dbox.innerHTML = '💛 <b style="color:var(--gold);">소액 후원 ' + ds.length
+                        + '건</b> — 전광판에 한 줄로 함께 나갑니다<br><span style="color:var(--text-dim);">'
+                        + last.map(x => escapeHTML(String(x.name || '익명')) + ' '
+                            + (Number(x.amount) || 0).toLocaleString() + '원').join(' · ')
+                        + escapeHTML(more) + '</span>';
+                }
+            }
             const pick = document.getElementById('ntc-pick');
             if (pick && sig !== _ntcPickSig) {
                 _ntcPickSig = sig;
