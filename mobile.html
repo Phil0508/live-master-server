@@ -437,7 +437,7 @@ async function assign(donId, name) {
     const pts = manWon(don.amount);
     try {
         // 🧠 후원자를 같이 보낸다 — 서버가 기억해서 다음 'ㄱㅇㅈ' 을 푼다
-        const r = await addScore({ scope:'rank', name, delta:pts, pending_id:donId,
+        const r = await addScore({ scope:'rank', name, delta:pts, pending_id:donId, popup:true, takeover:true,
                                    donor:don.name, donor_message:don.message });
         gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
         renderApp(); renderHome();
@@ -479,7 +479,7 @@ async function assignSplit(donId) {
     if (!pts.some(p => p > 0)) { toast('나누기엔 금액이 너무 작습니다', false); return; }
     busy = true;
     try {
-        const r = await addScore({ scope:'rank', pending_id:donId,
+        const r = await addScore({ scope:'rank', pending_id:donId, popup:true, takeover:true,
                          items: targets.map((t, i) => ({ name:t.name, delta:pts[i] })),
                          donor:don.name, donor_message:don.message });
         gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);

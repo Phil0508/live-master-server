@@ -4291,7 +4291,9 @@
             /* ⚠️ contribution 을 안 보내면 서버가 delta 를 기여도에도 그대로 넣는다
                   (server.py 의 `contrib = delta if ... is None`). 기여도 전용은 반드시
                   둘 다 보내야 점수가 안 오른다. */
-            const r = await addScoreAPI({ scope: 'rank', name: chosenName,
+            // 🔔 팝업·1등 탈환은 수동 '+ 점수' 길만 보내고 있었다. 모든 후원이 대기함을 거치니
+            //    스위치를 켜놔도 방송엔 사실상 안 나왔다 — 배정도 같은 신호를 실어 준다.
+            const r = await addScoreAPI({ scope: 'rank', name: chosenName, popup: true, takeover: true,
                                          delta: addPoint, contribution: addContrib,
                                          pending_id: donId,
                                          donor: don0.name, donor_message: don0.message });
@@ -4386,7 +4388,7 @@
             gd.pending_donations.splice(donIdx, 1);
             renderUI();
 
-            const r = await addScoreAPI({ scope: 'rank', pending_id: donId,
+            const r = await addScoreAPI({ scope: 'rank', pending_id: donId, popup: true, takeover: true,
                                          items: found.map((t, i) => ({ name: t.name, delta: pts[i] })),
                                          donor: don0.name, donor_message: don0.message });
             // 🛡️ 다른 기기가 먼저 처리했으면 서버는 점수를 더하지 않았다 — 화면만 되돌린다.
@@ -6081,6 +6083,13 @@
                 if (manualNotice) premiumAlert("백업할 데이터가 아직 로드되지 않았습니다.", "백업 실패", "warning");
                 return;
             }
+            // ⚠️ 방송 중이 아니면 쓰지 않는다. 종료 뒤에도 5분마다 빈 상태를 저장해서,
+            //    종료 때 지운 백업이 되살아나 다음 갱신에 '서버 초기화 감지 — 복구?' 가 떴다
+            //    (2026-09-05 실제 재현: 종료 18:32 → 18:34:28 에 플레이어 0명 백업).
+            if (!gd.broadcast_active) {
+                if (manualNotice) premiumAlert("방송 중이 아니라 백업하지 않습니다.", "백업 생략", "info");
+                return;
+            }
             try {
                 localStorage.setItem('active_broadcast_backup', JSON.stringify(gd));
                 const now = Date.now();
@@ -6913,6 +6922,8 @@
                 if (data.status === 'success') {
                     localStorage.removeItem('active_broadcast_backup');
                     localStorage.removeItem('active_broadcast_backup_time');
+                    // 📚 지난 방송 후원내역은 한 번 읽으면 캐시한다 — 방금 보관된 회차가 안 보이면 안 된다
+                    if (typeof _archLoaded !== 'undefined') _archLoaded = false;
                     await premiumAlert("방송이 안전하게 종료되었습니다. 모든 데이터가 초기화되었습니다.", "방송 종료", "success");
                 } else {
                     window.userInitiatedEnd = false;

@@ -2085,6 +2085,16 @@ def reset_session_keys(state):
     #       그대로 돌려주므로, 종료를 안 거치고 다음 방송을 시작하면 지난주 보정값이
     #       그대로 남아 게이지가 처음부터 그만큼 올라간 채로 시작한다.
     state['goal_offset'] = 0
+    # 🎲🃏 게임판 진행 상태도 방송 1회분이다. 종료 뒤 오버레이에 CLEAR 카드판과 주사위 말이
+    #    그대로 남아 있었다. 칸 배치(tiles)와 고른 시그니처(picks)는 다음 주에도 쓰는 설정이라 남기고,
+    #    보이기·말 위치·바퀴·카드·타이머만 걷는다.
+    _dg = state.get('dicegame')
+    if isinstance(_dg, dict):
+        _dg.update({'enabled': False, 'pos': 0, 'laps': 0, 'action': {}})
+    _sg = state.get('siggame')
+    if isinstance(_sg, dict):
+        _sg.update({'enabled': False, 'cards': [], 'action': None, 'compact': False,
+                    'timer': {'status': 'STOPPED', 'timeLeft': 600, 'expiresAt': None}})
     # ⚠️ home_goals(퇴근빵 개인별 목표)는 여기서 지우면 안 된다.
     #    이건 '지난 방송의 흔적'이 아니라 운영자가 방송 전에 세팅해두는 '설정'이다.
     #    그런데 이 함수는 방송 종료뿐 아니라 '방송 시작'에서도 불린다.
@@ -4077,6 +4087,9 @@ def suggest_target(donor, amount, message, players, state=None):
              source='AI', why='메시지 내용으로 추정'), loose)
 
 
+_SUGGEST_CACHE = {}   # (이름, 금액, 메시지, 플레이어들) → (물은 시각, 답)
+
+
 @app.route('/api/audit/suggest', methods=['POST'])
 def api_audit_suggest():
     """[AI 기입 검증] 후원 메시지가 지목하는 플레이어를 추정해 돌려준다.
@@ -4093,9 +4106,19 @@ def api_audit_suggest():
                 state = load_data()
                 src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
                 players = [b.get('name') for b in state.get(src, [])]
+        # 🧠 폰 조종실과 PC 조종실이 같은 후원을 각각 물어본다 → NIM 이 두 번 간다(분당 30회 한도).
+        #    같은 (이름·금액·메시지·플레이어) 답은 10분 동안 기억해 한 번만 묻는다.
+        _ck = (name, int(amount or 0), message, tuple(players or []))
+        _now = time.time()
+        _hit = _SUGGEST_CACHE.get(_ck)
+        if _hit and _now - _hit[0] < 600:
+            return jsonify({"status": "success", **_hit[1], "cached": True})
         with file_lock:
             st = load_data()
         result = suggest_target(name, amount, message, players, st)
+        if len(_SUGGEST_CACHE) > 500:
+            _SUGGEST_CACHE.clear()          # 무한히 크지 않게 — 방송 한 회차 후원 수보다 훨씬 크다
+        _SUGGEST_CACHE[_ck] = (_now, result)
         return jsonify({"status": "success", **result})
     except Exception as e:
         return jsonify({"status": "success", "target": None, "confidence": 0.0, "error": str(e)[:80]})
