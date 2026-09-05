@@ -3542,6 +3542,13 @@ def serve_controller():
         return _redirect_keep_query('/mobile')
     return serve_html_file('controller.html')
 
+@app.route('/controller2')
+def serve_controller2():
+    """🧪 재구성한 조종실 미리보기 — 운영 조종실과 나란히 열어 비교한다. 같은 서버·같은 상태를 본다."""
+    if _wants_mobile():
+        return _redirect_keep_query('/mobile')
+    return serve_html_file('controller2.html')
+
 @app.route('/mobile')
 def serve_mobile():
     # 📱 아이폰 방식 폰 조종실 (앱 12개 + 상단 알림 배너)
