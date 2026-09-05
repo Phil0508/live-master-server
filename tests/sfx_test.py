@@ -114,6 +114,17 @@ chk('연결 표시는 남아 있다', 'connection-status-badge' in CT)
 
 print()
 print('=' * 74)
+print('⑥ 라이브 모드를 지울 때 옆에 붙어 있던 것까지 지우지 않았다')
+print('=' * 74)
+# ⚠️ 2026-09-05 실제 사고. 라이브 모드 CSS 를 통째로 잘라낼 때 바로 뒤의 오토파일럿 배너
+#    CSS 가 같이 사라져, 배너가 상태와 무관하게 항상 보였다(운영에 그대로 올라갔다).
+chk('오토파일럿 배너는 기본으로 숨긴다', '#autopilot-banner { display:none' in CT)
+chk('켜졌을 때만 보인다', 'body.autopilot-on #autopilot-banner { display:flex; }' in CT)
+chk('배너 깜빡임 정의가 있다', '@keyframes apBlink' in CT)
+chk('켜기 버튼 켜짐 색이 있다', '#ai-autopilot-toggle.on' in CT)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 print('=' * 74)
 sys.exit(1 if BAD else 0)

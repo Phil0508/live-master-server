@@ -685,6 +685,25 @@
            탭을 통째로 접는 모드였는데, 반쪽 화면에서 탭이 두 줄로 다 보이게
            바뀌면서 접을 이유도 사라졌다. */
 
+        /* ⚠️ 아래 오토파일럿 배너 CSS 는 라이브 모드 CSS 바로 뒤에 붙어 있었다.
+           라이브 모드를 통째로 잘라낼 때 같이 지워져, 배너가 상태와 무관하게 항상 보였다
+           (2026-09-05 운영에 그대로 올라갔던 사고). 되살린다. */
+        /* ===== 🚗 오토파일럿 배너 =====
+           금액 제한 없이 자동 배정하므로 '켜져 있다는 사실'을 잊으면 안 된다.
+           그래서 화면 맨 위에 고정으로 붙이고 눈에 띄게 깜빡인다. */
+        #autopilot-banner { display:none; position:sticky; top:0; z-index:5000; margin:-25px -25px 18px;
+            padding:12px 22px; background:linear-gradient(135deg,#b3261e,#e8543f); color:#fff;
+            font-size:var(--fs-3); font-weight:800; align-items:center; gap:12px;
+            box-shadow:0 6px 24px rgba(179,38,30,0.45); }
+        body.autopilot-on #autopilot-banner { display:flex; }
+        #autopilot-banner .ap-dot { width:10px; height:10px; border-radius:50%; background:#fff;
+            animation:apBlink 1s ease-in-out infinite; flex:none; }
+        @keyframes apBlink { 0%,100%{opacity:1} 50%{opacity:.2} }
+        #autopilot-banner .ap-spacer { flex:1; }
+        #autopilot-banner button { border:none; cursor:pointer; padding:7px 16px; border-radius:var(--r-1);
+            font-family:inherit; font-size:var(--fs-3); font-weight:900; background:#fff; color:#b3261e; }
+        #ai-autopilot-toggle.on { background:linear-gradient(135deg,#b3261e,#e8543f) !important; color:#fff !important; }
+
         .tab-content {
             position: absolute;
             width: 0;
