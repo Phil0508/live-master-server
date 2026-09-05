@@ -104,8 +104,11 @@ def build():
 def inject(css_text):
     """편집기 안의 표시 구간을 새 내용으로 갈아끼운다."""
     ad = io.open(ADMIN, 'rb').read().decode('utf-8')
-    # ⚠️ admin.html 은 CRLF 다. LF 로 끼워 넣으면 줄끝이 섞여 통째 diff 가 난다.
-    block = (BEGIN + '\n' + css_text + END).replace('\n', '\r\n')
+    # ⚠️ 줄바꿈을 못 박으면 안 된다. 저장소에 담긴 바이트는 LF 인데, 윈도우는 받을 때
+    #    CRLF 로 바뀌고 맥(core.autocrlf input)은 LF 그대로 놓인다. CRLF 를 박아 뒀더니
+    #    맥에서 --check 가 '통째로 어긋났다' 고 했다 — 이 파일이 쓰는 줄바꿈을 따라간다.
+    nl = '\r\n' if '\r\n' in ad else '\n'
+    block = (BEGIN + '\n' + css_text + END).replace('\n', nl)
     if BEGIN in ad:
         a = ad.index(BEGIN)
         b = ad.index(END) + len(END)
@@ -126,7 +129,9 @@ def main():
 
     if check:
         bad = []
-        if old_hud != css_text:
+        # ⚠️ 줄끝 차이로는 트집 잡지 않는다. 여기서 보려는 건 '방송판을 고치고
+        #    build 를 안 돌렸나' 이지, 받는 쪽 줄바꿈 설정이 아니다.
+        if old_hud.replace('\r\n', '\n') != css_text:
             bad.append('hud.css')
         if new_admin != old_admin:
             bad.append('admin.html')
@@ -140,8 +145,11 @@ def main():
 
     io.open(HUD, 'w', encoding='utf-8', newline='\n').write(css_text)
     out = new_admin.encode('utf-8')
-    # ⚠️ admin.html 은 CRLF 다. LF 가 섞이면 다음 사람이 통째 diff 를 보게 된다.
-    assert b'\n' not in out.replace(b'\r\n', b''), 'LF 가 섞였다'
+    # ⚠️ 줄끝이 섞이면 다음 사람이 통째 diff 를 보게 된다. 원래 쓰던 줄바꿈으로만 되게 한다.
+    if b'\r\n' in out:
+        assert b'\n' not in out.replace(b'\r\n', b''), 'CRLF 파일에 LF 가 섞였다'
+    else:
+        assert b'\r' not in out, 'LF 파일에 CR 이 섞였다'
     io.open(ADMIN, 'wb').write(out)
     print('hud.css 를 만들고 admin.html 에 끼워 넣었다 — 규칙 %d개' % css_text.count('{'))
     return 0

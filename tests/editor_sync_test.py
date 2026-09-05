@@ -220,7 +220,10 @@ print('=' * 74)
 #   크게 하면 안 잡히는' 것처럼 보였다. 시그뒤집기는 아예 못 잡았다.
 _board = ad.index('<div class="canvas-board" id="canvas-board">')
 _last = ad.rindex('<div class="widget" id="')
-_after = ad.find('</div>\r\n' + ' ' * 12 + '</div>', _last)
+# ⚠️ 줄바꿈을 못 박으면 안 된다 — 맥에서는 admin.html 이 LF 라 못 찾고,
+#    _end 가 파일 끝이 되어 마지막 위젯이 남은 </div> 를 다 삼킨다(home-race -4).
+_nl = '\r\n' if '\r\n' in ad else '\n'
+_after = ad.find('</div>' + _nl + ' ' * 12 + '</div>', _last)
 _end = _after if _after > 0 else len(ad)
 _starts = [m.start() for m in re.finditer(r'<div class="widget" id="', ad)
            if _board < m.start() < _end]
