@@ -643,6 +643,43 @@ def _supabase_query(params, retries=1):
                 time.sleep(0.5)
     raise last_err
 
+_SIG_CHEAPEST = {'amount': None, 'at': 0.0}
+
+
+def _sig_min_amount():
+    """시그니처가 재생되는 최저 후원 금액.
+
+    기본은 **전체에서 제일 싼 시그니처 값** 이다 — 숫자를 손으로 정하지 않으려고 자료에서 끌어온다.
+    ⚠️ '후원금 이상 중 제일 싼 것'(gte 결과) 을 쓰면 안 된다. 15,000원 후원에 15,100원짜리가
+       걸리는데 그걸 최저선으로 삼으면 정상 후원이 통째로 막힌다.
+    ⚠️ 값이 자주 바뀌지 않으므로 10분 기억한다(서울까지 왕복이 비싸다).
+    ⚠️ SIG_MIN_AMOUNT 환경변수로 덮어쓸 수 있다. 0 이면 최저선 없음(예전 동작).
+    """
+    env = os.environ.get('SIG_MIN_AMOUNT')
+    if env is not None:
+        try:
+            return max(0, int(env))
+        except (TypeError, ValueError):
+            pass
+    now = time.time()
+    if _SIG_CHEAPEST['amount'] is not None and now - _SIG_CHEAPEST['at'] < 600:
+        return _SIG_CHEAPEST['amount']
+    val = 0
+    try:
+        # ⚠️ _supabase_query 를 직접 부르면 안 된다. 검사 샌드박스는 supabase_list_signatures
+        #    쪽을 갈아끼우므로, 직접 부르면 검사에서 최저선이 통째로 안 걸린다(실제로 그랬다).
+        #    이 목록은 금액 오름차순이라 첫 줄이 제일 싼 것이다.
+        rows = supabase_list_signatures() or []
+        amounts = [int(r.get('amount') or 0) for r in rows if r.get('amount') is not None]
+        if amounts:
+            val = max(0, min(amounts))
+    except Exception as e:
+        print(f'⚠️ [시그니처 최저가 조회 실패 — 최저선 없이 진행] {e}')
+        return 0
+    _SIG_CHEAPEST.update({'amount': val, 'at': now})
+    return val
+
+
 def supabase_match_signature(amount):
     """금액 매칭: ① 정확히 일치하거나, 없으면 올림(이상 중 가장 가까운)
        → ② 그래도 없으면(최고가 초과 후원) 가장 비싼 시그니처.
@@ -991,6 +1028,32 @@ def is_duplicate_donation(key):
 
 # 슬롯 릴 정지 + 당첨 배너(약 3.3초) 뒤 결과 처리까지의 대기 시간
 SLOT_RESULT_DELAY_SEC = 4.0
+
+# 🎮 방송 화면에서 게임판 넷(주사위·시그뒤집기·룰렛·슬롯)은 **같은 자리**를 쓴다.
+#    둘 이상 켜면 서로 겹쳐 아무것도 못 읽는다. 하나를 켤 때 나머지를 내린다.
+#    ⚠️ 끄는 것은 여기서 안 한다 — 켜는 쪽에서만 부른다. 그래야 '전부 꺼진 상태'가 그대로 남는다.
+BOARD_NAMES = ('dicegame', 'siggame', 'roulette', 'slot')
+
+
+def _solo_board(state, keep):
+    """게임판 하나만 남기고 나머지를 내린다. keep 은 BOARD_NAMES 중 하나."""
+    off = []
+    if keep != 'dicegame':
+        _g = state.get('dicegame')
+        if isinstance(_g, dict) and _g.get('enabled'):
+            _g['enabled'] = False; off.append('주사위')
+    if keep != 'siggame':
+        _g = state.get('siggame')
+        if isinstance(_g, dict) and _g.get('enabled'):
+            _g['enabled'] = False; off.append('시그뒤집기')
+    if keep != 'roulette' and state.get('roulette_enabled'):
+        state['roulette_enabled'] = False; off.append('룰렛')
+    if keep != 'slot' and state.get('slot_enabled'):
+        state['slot_enabled'] = False; off.append('슬롯')
+    if off:
+        print('  🎮 [게임 자리] %s 를 켜면서 %s 을(를) 내렸습니다' % (keep, ' · '.join(off)), flush=True)
+    return off
+
 
 def _slot_finish(winner):
     """슬롯 당첨 확정 처리: 슬롯 위젯을 끄고 당첨 시그니처를 리액션 큐에 넣는다.
@@ -3708,7 +3771,16 @@ def receive_donation():
         matched_sig = None
         if amount > 0:
             try:
-                matched_sig = supabase_match_signature(amount)
+                # 💸 제일 싼 시그니처보다 적게 넣었으면 아무것도 안 튼다.
+                #    ⚠️ gte 매칭은 '올림' 이라 1,000원 후원에도 제일 싼 10,300원짜리가 걸렸다 —
+                #       1,000원 내고 10,300원짜리 리액션을 가져가는 셈이었다.
+                #    ⚠️ 막는 것은 후원 경로뿐이다. 매칭 함수 자체는 주사위·시그뒤집기도 쓴다.
+                _floor = _sig_min_amount()
+                if _floor and amount < _floor:
+                    print(f"  💸 [시그니처] {amount:,}원은 제일 싼 시그니처({_floor:,}원)보다 "
+                          f"적어 재생하지 않습니다", flush=True)
+                else:
+                    matched_sig = supabase_match_signature(amount)
             except Exception as e:
                 print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
 
@@ -4272,6 +4344,14 @@ def api_data():
             for k in SERVER_OWNED:
                 if k in current_state:
                     state[k] = current_state[k]          # 서버 소유 필드는 서버의 최신 값을 유지
+            # 🎮 룰렛·슬롯 스위치는 전용 길이 없고 이 경로로 온다. 꺼짐→켜짐으로 바뀐 것만 보고
+            #    나머지 게임판을 내린다(둘 다 안 바뀌었으면 아무것도 안 한다).
+            #    ⚠️ 반드시 SERVER_OWNED 복원 **뒤**에 해야 한다. 앞에 두었더니 siggame 이
+            #       서버 소유라 복원 단계가 내린 값을 도로 켜버렸다 — 룰렛을 켜도 시그판이
+            #       그대로 떠 있었다(브라우저로 잡았다).
+            for _bk, _bn in (('roulette_enabled', 'roulette'), ('slot_enabled', 'slot')):
+                if state.get(_bk) and not current_state.get(_bk):
+                    _solo_board(state, _bn)
             # ⚠️ 이름 앞뒤 공백을 저장 단계에서 떼어낸다.
             #    이름 칸에 공백을 하나만 더 눌러도 그 사람이 점수를 못 받는 사고가 있었다.
             #    찾을 때도 공백을 무시하도록 고쳤지만(_find_score_target), 저장되는 값 자체가
@@ -5738,6 +5818,7 @@ def api_siggame_deal():
                        "title": p.get('title'), "amount": p.get('amount'),
                        "state": "HIDDEN", "doneAt": None, "flippedAt": None}
                       for i, p in enumerate(picks)]
+        _solo_board(state, 'siggame')      # 카드를 깔면 그 자리를 차지한다
         g.update({"cols": cols, "rows": rows, "enabled": True, "target": target,
                   "compact": False,     # 새 판이면 올린 상태를 푼다
                   "timer": {"status": "STOPPED", "timeLeft": minutes * 60, "expiresAt": None},
@@ -6005,6 +6086,8 @@ def api_siggame_set():
         g = _siggame_state(state)
         if 'enabled' in data:
             g['enabled'] = bool(data['enabled'])
+            if g['enabled']:
+                _solo_board(state, 'siggame')
         if 'opacity' in data:
             try:
                 g['opacity'] = max(0.1, min(1.0, float(data['opacity'])))
@@ -6111,6 +6194,7 @@ def api_slot_spin():
         with file_lock:
             state = load_data()
             state['slot_enabled'] = True
+            _solo_board(state, 'slot')
             save_data(state)
             broadcast_event('update', state)
 
@@ -6834,6 +6918,8 @@ def api_dicegame_enable():
         state = load_data()
         g = _dicegame_state(state)
         g['enabled'] = on
+        if on:
+            _solo_board(state, 'dicegame')
         _dicegame_save(state, g)
     return jsonify({'status': 'success', 'enabled': on})
 

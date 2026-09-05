@@ -108,12 +108,14 @@ chk('칸 배치(tiles)와 고른 시그니처(picks)는 안 건드린다',
 # 실제로: 방송 시작 → 판 깔고 켜기 → 주사위 굴려 말 이동 → 시그 딜 → 종료 → 전부 걷혔나
 post('/api/server/start_broadcast', {'names': ['가', '나']})
 post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'dice': 1, 'roll_price': 20000})
-post('/api/dicegame/enable', {'on': True})
-post('/api/dicegame/move', {'pos': 4})
 post('/api/siggame/picks', {'picks': [10001, 10002, 10003]})
 post('/api/siggame/deal', {'minutes': 10, 'target': 3})
+# ⚠️ 카드를 깔면 주사위판이 내려간다(게임 자리는 하나뿐) — 주사위는 그 뒤에 켠다.
+#    다만 그러면 시그판이 꺼지므로, 여기서는 '진행 상태가 걷히는가' 만 본다.
+post('/api/dicegame/enable', {'on': True})
+post('/api/dicegame/move', {'pos': 4})
 g0 = get()
-chk('종료 전: 주사위 켜짐·말 4번·카드 3장',
+chk('종료 전: 주사위 켜짐·말 4번·카드 3장(깔린 채)',
     g0['dicegame'].get('enabled') is True and g0['dicegame'].get('pos') == 4
     and len(g0['siggame'].get('cards') or []) == 3,
     (g0['dicegame'].get('enabled'), g0['dicegame'].get('pos'), len(g0['siggame'].get('cards') or [])))
@@ -160,14 +162,140 @@ sug = SV.split('def api_audit_suggest():')[1].split('\n@app.route')[0]
 chk('키는 이름·금액·메시지·플레이어', "_ck = (name, int(amount or 0), message, tuple(players or []))" in sug)
 chk('10분 안이면 다시 안 묻는다', '_now - _hit[0] < 600' in sug)
 chk('무한히 커지지 않는다', 'len(_SUGGEST_CACHE) > 500' in sug)
-body = {'name': '홍길동', 'amount': 15000, 'message': '플레이어1 힘내', 'players': ['가', '나']}
+# ⚠️ 서버를 이어서 쓰면 앞 실행이 남긴 캐시에 걸린다. 실행마다 다른 말을 쓴다.
+_uniq = str(int(time.time() * 1000))
+body = {'name': '홍길동', 'amount': 15000, 'message': '힘내 ' + _uniq, 'players': ['가', '나']}
 c1, r1 = post('/api/audit/suggest', body)
 c2, r2 = post('/api/audit/suggest', body)
 chk('첫 답은 캐시가 아니다', c1 == 200 and not r1.get('cached'), (c1, r1.get('cached')))
 chk('같은 것을 다시 물으면 캐시에서 온다', c2 == 200 and r2.get('cached') is True, (c2, r2.get('cached')))
 chk('내용은 같다', r1.get('target') == r2.get('target') and r1.get('confidence') == r2.get('confidence'))
-c3, r3 = post('/api/audit/suggest', dict(body, message='다른 말'))
+c3, r3 = post('/api/audit/suggest', dict(body, message='다른 말 ' + _uniq))
 chk('메시지가 다르면 새로 묻는다', c3 == 200 and not r3.get('cached'), (c3, r3.get('cached')))
+
+print()
+print('=' * 74)
+print('⑦ 게임 자리는 하나뿐 — 하나를 켜면 나머지가 내려간다 (살아 있는 서버)')
+print('=' * 74)
+chk('공용 헬퍼가 있다', 'def _solo_board(state, keep):' in SV)
+# ⚠️ 끄는 쪽에서는 부르지 않는다 — 전부 꺼진 상태가 그대로 남아야 한다
+# ⚠️ 끄는 쪽에서는 부르지 않는다 — 전부 꺼진 상태가 그대로 남아야 한다.
+#    escape 를 피하려고 줄 단위로 본다.
+_dg_route = SV.split("def api_dicegame_enable():")[1].split(chr(10) + '@app.route')[0]
+_lines = [x.strip() for x in _dg_route.replace(chr(13), '').split(chr(10))]
+chk('켤 때만 부른다 (주사위)',
+    'if on:' in _lines and _lines[_lines.index('if on:') + 1] == "_solo_board(state, 'dicegame')",
+    _lines[:12])
+for who in ('dicegame', 'siggame', 'slot'):
+    chk("%s 를 켜는 자리에서 부른다" % who, ("_solo_board(state, '%s')" % who) in SV)
+# 룰렛·슬롯 스위치는 전용 길이 없어 /api/data 에서 이름을 변수로 넘긴다
+chk('룰렛·슬롯 스위치도 잡는다',
+    "('roulette_enabled', 'roulette'), ('slot_enabled', 'slot')" in SV
+    and '_solo_board(state, _bn)' in SV)
+
+post('/api/server/start_broadcast', {'names': ['가', '나']})
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'dice': 1})
+post('/api/dicegame/enable', {'on': True})
+post('/api/siggame/picks', {'picks': [10001, 10002, 10003]})
+post('/api/siggame/deal', {'minutes': 10, 'target': 3})   # 카드를 깔면 그 자리를 가져간다
+d = get()
+chk('카드를 깔면 주사위판이 내려간다',
+    d['siggame'].get('enabled') is True and d['dicegame'].get('enabled') is False,
+    (d['siggame'].get('enabled'), d['dicegame'].get('enabled')))
+post('/api/dicegame/enable', {'on': True})                # 다시 주사위로
+d = get()
+chk('주사위를 켜면 시그뒤집기가 내려간다',
+    d['dicegame'].get('enabled') is True and d['siggame'].get('enabled') is False,
+    (d['dicegame'].get('enabled'), d['siggame'].get('enabled')))
+post('/api/slot/spin', {})                                 # 슬롯이 자리를 가져간다
+d = get()
+chk('슬롯을 돌리면 주사위판이 내려간다',
+    d.get('slot_enabled') is True and d['dicegame'].get('enabled') is False,
+    (d.get('slot_enabled'), d['dicegame'].get('enabled')))
+# 룰렛 스위치는 전용 길이 없이 /api/data 로 온다
+_st = get(); _body = {k: v for k, v in _st.items()
+                      if k not in ('bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
+                                   'api_token', 'server_time')}
+_body['roulette_enabled'] = True
+post('/api/data', _body)
+d = get()
+chk('룰렛을 켜면 슬롯이 내려간다 (/api/data 경로)',
+    d.get('roulette_enabled') is True and d.get('slot_enabled') is False,
+    (d.get('roulette_enabled'), d.get('slot_enabled')))
+# ⚠️ siggame 은 SERVER_OWNED 라, _solo_board 를 복원보다 앞에서 부르면 복원 단계가
+#    내린 값을 도로 켠다. 룰렛을 켰는데 시그판이 그대로 떠 있었다(브라우저로 잡았다).
+post('/api/siggame/picks', {'picks': [10001, 10002]})
+post('/api/siggame/deal', {'minutes': 10, 'target': 2})     # 시그판이 자리를 가져간다
+_st = get(); _body = {k: v for k, v in _st.items()
+                      if k not in ('bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
+                                   'api_token', 'server_time')}
+_body['roulette_enabled'] = True
+post('/api/data', _body)
+d = get()
+chk('룰렛을 켜면 시그판도 내려간다 (서버 소유 필드라 복원 뒤에 내려야 한다)',
+    d.get('roulette_enabled') is True and d['siggame'].get('enabled') is False,
+    (d.get('roulette_enabled'), d['siggame'].get('enabled')))
+chk('_solo_board 가 SERVER_OWNED 복원 뒤에 있다',
+    SV.index('for k in SERVER_OWNED:') < SV.index("_solo_board(state, _bn)"))
+# 끄는 것은 아무것도 켜지 않는다
+post('/api/dicegame/enable', {'on': False})
+_st = get(); _body = {k: v for k, v in _st.items()
+                      if k not in ('bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
+                                   'api_token', 'server_time')}
+_body['roulette_enabled'] = False
+post('/api/data', _body)
+d = get()
+chk('끄면 아무것도 안 켜진다 (끄는 쪽은 _solo_board 를 안 부른다)',
+    not any([d['dicegame'].get('enabled'), d['siggame'].get('enabled'),
+             d.get('roulette_enabled'), d.get('slot_enabled')]),
+    (d['dicegame'].get('enabled'), d['siggame'].get('enabled'),
+     d.get('roulette_enabled'), d.get('slot_enabled')))
+
+print()
+print('=' * 74)
+print('⑧ 제일 싼 시그니처보다 적은 후원은 안 튼다')
+print('=' * 74)
+chk('최저선 함수가 있다', 'def _sig_min_amount():' in SV)
+mn = SV.split('def _sig_min_amount():')[1].split(chr(10) + 'def ')[0]
+# ⚠️ gte 결과(후원금 이상 중 제일 싼 것)를 최저선으로 쓰면 15,000원 후원에 15,100원이 걸려
+#    정상 후원이 통째로 막힌다. 반드시 '전체에서 제일 싼 값' 이어야 한다.
+# ⚠️ gte 결과(후원금 이상 중 제일 싼 것)를 쓰면 15,000원 후원에 15,100원이 걸려 정상 후원이 막힌다.
+#    ⚠️ 주석에는 'gte' 라는 낱말이 설명으로 들어가 있다 — 코드 줄만 보고 판단한다.
+_body = mn.split('\"\"\"')
+_mn_code = [x for x in (_body[2] if len(_body) > 2 else mn).replace(chr(13), '').split(chr(10))
+            if x.strip() and not x.strip().startswith('#')]
+chk('전체에서 제일 싼 값을 본다',
+    'min(amounts)' in mn and not any('gte' in x for x in _mn_code),
+    [x.strip()[:50] for x in _mn_code if 'gte' in x])
+chk('갈아끼울 수 있는 함수를 쓴다 (검사에서도 걸리게)', 'supabase_list_signatures()' in mn)
+chk('환경변수로 끌 수 있다 (SIG_MIN_AMOUNT)', "os.environ.get('SIG_MIN_AMOUNT')" in mn)
+chk('조회 실패하면 최저선 없이 간다', 'except Exception' in mn and 'return 0' in mn)
+chk('값을 잠깐 기억한다', "now - _SIG_CHEAPEST['at'] < 600" in mn)
+don = SV.split('def receive_donation():')[1].split(chr(10) + '@app.route')[0]
+chk('후원 경로에서만 막는다', '_sig_min_amount()' in don)
+chk('매칭 함수 자체는 안 막는다 (게임도 쓴다)',
+    '_sig_min_amount' not in SV.split('def supabase_match_signature(amount):')[1].split(chr(10) + 'def ')[0])
+
+# 실제로: 최저가(10,100)보다 적은 후원과 충분한 후원
+post('/api/server/start_broadcast', {'names': ['가', '나']})
+# ⚠️ 큐·대기함은 앞 실행이 남길 수 있다. 절대값이 아니라 '이번에 늘어난 만큼' 을 본다.
+_b = get(); _q0 = len(_b.get('reaction_queue') or []); _p0 = len(_b.get('pending_donations') or [])
+c, _ = post('/api/donation', {'name': '소액', 'amount': 500, 'message': '',
+                              'tx_id': 'toon_small_' + _uniq})
+time.sleep(0.8)
+d = get()
+chk('500원 후원은 접수된다', c == 200, c)
+chk('그래도 시그니처는 안 튼다', len(d.get('reaction_queue') or []) == _q0,
+    (_q0, len(d.get('reaction_queue') or [])))
+post('/api/donation', {'name': '정상', 'amount': 15000, 'message': '',
+                       'tx_id': 'toon_ok_' + _uniq})
+time.sleep(1.0)
+d = get()
+chk('15,000원 후원은 시그니처가 나간다', len(d.get('reaction_queue') or []) == _q0 + 1,
+    (_q0, len(d.get('reaction_queue') or [])))
+chk('대기함에는 둘 다 있다 (돈은 안 사라진다)',
+    len(d.get('pending_donations') or []) == _p0 + 2,
+    (_p0, len(d.get('pending_donations') or [])))
 
 print()
 print('=' * 74)
