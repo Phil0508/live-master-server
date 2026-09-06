@@ -163,7 +163,7 @@ print('=' * 74)
 # ⚠️ 예전에는 등급마다 CSS 클래스를 따로 뒀고, 셋 다 노랑이라 구별도 안 됐다
 chk('등급별 클래스가 사라졌다', 'vip-vvip-text' not in ov and 'vip-gold-text' not in ov)
 chk('클래스 하나로 합쳐졌다', 'vip-grade-text' in ov)
-chk('색은 사람마다 고른 값이 정한다', 'color: var(--vip-glow-color, #ffd700) !important;' in ov)
+chk('색은 사람마다 고른 값이 정한다', ('color: var(--vip-glow-color, var(--gold)) !important;' in ov or 'color: var(--vip-glow-color, #ffd700) !important;' in ov))
 chk('방송 딱지는 사장님이 부르는 이름으로', "DIAMOND: '다이아'" in ov)
 chk('DB 에 넣는 값은 영문 그대로 (기존 등록이 안 깨지게)',
     "value=\"DIAMOND\"" in io.open(os.path.join(PROJ, 'controller.html'),

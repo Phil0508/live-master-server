@@ -11,7 +11,7 @@
            그래서 아래 font-family 마다 한글 대체 글꼴을 꼭 적어 뒀다 — 안 적으면 generic
            sans-serif 로 떨어져 한글이 깨져 보인다. (기능이 걸린 스크립트는 /vendor 에 두고 쓴다) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Chakra+Petch:wght@700&family=Orbitron:wght@900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&display=swap');
         
         :root {
             /* ============================================================
@@ -48,6 +48,38 @@
             --audi-speed: 1.4s;
             --accent: #f6c453;
             --accent-glow: rgba(246, 196, 83, 0.45);
+
+            /* ── 통일 토큰 (2026-09-07) ──
+               예전엔 그림자 72가지·둥글기 22가지·전환 속도 19가지·글자로 박은 색 132가지가
+               위젯마다 제각각이었다. 아래 몇 단계로만 쓴다. 새 규칙을 적을 때도 여기서 고른다. */
+            --gold-rgb: 246, 196, 83;         /* rgba(var(--gold-rgb), .5) 처럼 쓴다 */
+            --gold-light: #ffe9b0;            /* 금색 하이라이트(그라데이션 밝은 끝) */
+            --on-gold: #241a05;               /* 금색 위에 얹는 글자색 */
+            --silver: #dfe3ea; --silver-2: #9aa2ae; --on-silver: #1a1c20;   /* 2등 */
+            --bronze: #d9a066; --bronze-2: #a8703c; --on-bronze: #1a1206;   /* 3등 */
+            --ok: #2ecc71; --ok-deep: #17a55b; --ok-rgb: 46, 204, 113;      /* 성공·완료 */
+            --game-red-rgb: 255, 59, 92; --game-red-deep: #d63049;          /* 위급·경고 */
+            --race: #6b7bff; --race-2: #9a6bff; --race-rgb: 107, 123, 255; --race-text: #cfd6ff; /* 퇴근빵 */
+            --extra: #ff3366; --extra-rgb: 255, 51, 102;                    /* 번외 게임판 */
+            --row-bg: rgba(0,0,0,.42); --row-border: rgba(255,255,255,.10); /* 판 안의 줄 */
+            /* 그림자 4단 — 작은 것 / 판 위의 것 / 유리판 / 화면 한가운데 뜨는 것 */
+            --sh-1: 0 3px 10px rgba(0,0,0,.5);
+            --sh-2: 0 8px 24px rgba(0,0,0,.55);
+            --sh-3: 0 18px 50px rgba(0,0,0,.55);
+            --sh-4: 0 22px 70px rgba(0,0,0,.75);
+            /* 금빛 번짐 3단 */
+            --glow-s: 0 4px 14px var(--gold-glow);
+            --glow-m: 0 0 24px var(--gold-glow);
+            --glow-l: 0 0 60px var(--gold-glow);
+            /* 글자 그림자 2단 — 판 위의 글자 / 판 없이 영상 위에 뜨는 글자 */
+            --ts-1: 0 2px 5px rgba(0,0,0,.85);
+            --ts-2: 0 2px 4px #000, 0 0 10px rgba(0,0,0,.85);
+            /* 둥글기 3단 (+ 알약 999px · 원 50%) */
+            --r-s: 8px; --r-m: 14px; --r-l: 22px;
+            /* 속도 3단 · 곡선 2종 (스르륵 / 튕김) */
+            --t-fast: .2s; --t-base: .4s; --t-slow: .8s;
+            --ease: cubic-bezier(.16, 1, .3, 1);
+            --ease-pop: cubic-bezier(.175, .885, .32, 1.275);
         }
 
         body.theme-pink {
@@ -65,14 +97,14 @@
            투명이 아니라 '어두운 색'으로 칠해버려서 방송 화면이 가려진다.
            only light 로 고정해 캔버스가 강제로 칠해지는 것을 막는다. */
         :root { color-scheme: only light; }
-        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: transparent !important; background-color: rgba(0,0,0,0) !important; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; overflow: hidden; transition: opacity 0.4s ease-in-out; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; background: transparent !important; background-color: rgba(0,0,0,0) !important; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-variant-numeric: tabular-nums; overflow: hidden; transition: opacity var(--t-base) ease; }
         #scale-wrapper { position: absolute; top: 0; left: 0; width: 1080px; height: 1920px; transform-origin: top left; }
         #master-container { width: 100%; height: 100%; position: relative; will-change: transform; }
         
         .widget-container { 
             position: absolute; transform-origin: top left; 
             /* 🚀 애플 리퀴드 럭셔리 이징(cubic-bezier(0.16, 1, 0.3, 1))을 인가하여 위젯이 미끄러지듯 스르륵 쫀득하게 안착 */
-            transition: top 0.8s cubic-bezier(0.16, 1, 0.3, 1), left 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease-in-out, visibility 0.6s ease-in-out; 
+            transition: top var(--t-slow) var(--ease), left var(--t-slow) var(--ease), transform var(--t-slow) var(--ease), opacity var(--t-base) ease, visibility var(--t-base) ease; 
             pointer-events: auto; 
         }
 
@@ -91,7 +123,7 @@
             position: fixed; top: 0; left: 0; width: 1080px; height: 1920px;
             transform-origin: top left; pointer-events: none; z-index: 90000;
             opacity: 0; visibility: hidden;
-            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+            transition: opacity var(--t-base) ease, visibility var(--t-base) ease;
             /* ⚠️ --nspd 는 여기서 선언하지 않는다. 선언하면 :root 의 값(슬라이더가 덮어쓰는)이 가려진다 */
             --nc: #ff1f56; --nw: 11;
         }
@@ -178,7 +210,7 @@
         -------------------------------------------------- */
         .audi-layer { 
             position: fixed; inset: 0; pointer-events: none; z-index: 89000; 
-            opacity: 0; transition: opacity 0.4s ease; 
+            opacity: 0; transition: opacity var(--t-base) ease; 
             display: flex; justify-content: space-between; align-items: flex-end;
             padding: 0 30px 40px 30px; 
         }
@@ -286,7 +318,7 @@
             color: var(--tx-3); font-weight: 700; font-size: 27px; letter-spacing: 0.04em;
             display: grid; grid-template-columns: 60px 1fr 148px 92px;
             padding: 0 6px 9px; margin-bottom: 4px;
-            border-bottom: 2px solid rgba(246,196,83,0.5);
+            border-bottom: 2px solid rgba(var(--gold-rgb), 0.5);
         }
         .excel-header div { display: flex; align-items: center; }
         .excel-header div:nth-child(3), .excel-header div:nth-child(4) { justify-content: flex-end; }
@@ -300,29 +332,29 @@
         .excel-col .excel-row:last-child { border-bottom: none; }
         /* 순위 — 1·2·3 을 같은 규칙(색 배지)으로. 예전엔 1등만 배경이라 규칙이 없었다. */
         .r-rank {
-            width: 38px; height: 38px; border-radius: 10px; flex: none;
+            width: 38px; height: 38px; border-radius: var(--r-s); flex: none;
             justify-content: center; background: rgba(255,255,255,0.07);
             color: var(--tx-2); font-size: 27px; font-weight: 800;
         }
         .r-name { color: #fff; font-weight: 800; font-size: 31px; letter-spacing: -0.02em;
                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-                  padding-left: 10px; text-shadow: 0 2px 4px rgba(0,0,0,0.85); }
+                  padding-left: 10px; text-shadow: var(--ts-1); }
         .r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums;
-                   text-shadow: 0 2px 4px rgba(0,0,0,0.85); }
+                   text-shadow: var(--ts-1); }
         /* 기여도는 점수의 조연이다 — 금색은 남기되 글로우를 빼고 한 단계 작게. */
         .r-contrib { color: var(--gold); font-weight: 700; font-size: 27px;
                      font-variant-numeric: tabular-nums; padding-left: 14px; }
         .excel-row:nth-child(even) { background: rgba(255,255,255,0.03); }
-        .excel-row.rank-1 { background: linear-gradient(90deg, rgba(246,196,83,0.20), transparent 70%); }
-        .rank-1 .r-rank { background: var(--gold);   color: #241a05; }
-        .rank-2 .r-rank { background: #dfe3ea;       color: #1a1c20; }
-        .rank-3 .r-rank { background: #d29a6b;       color: #1a1206; }
+        .excel-row.rank-1 { background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.20), transparent 70%); }
+        .rank-1 .r-rank { background: var(--gold);   color: var(--on-gold); }
+        .rank-2 .r-rank { background: var(--silver); color: var(--on-silver); }
+        .rank-3 .r-rank { background: var(--bronze); color: var(--on-bronze); }
         .rank-1 .r-score { color: var(--gold); }
 
         .row-bottom {
-            display: flex; align-items: center; justify-content: space-between; padding: 12px 22px;
-            background: rgba(246, 196, 83, 0.06);
-            border: 1px solid rgba(246, 196, 83, 0.22); border-radius: 12px; margin-top: 8px;
+            display: flex; align-items: center; justify-content: space-between; padding: 12px 20px;
+            background: rgba(var(--gold-rgb), 0.06);
+            border: 1px solid rgba(var(--gold-rgb), 0.22); border-radius: var(--r-m); margin-top: 8px;
         }
         .row-bottom .b-name { color: var(--tx-2); font-weight: 700; font-size: 27px; }
         .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 30px; position: relative; font-variant-numeric: tabular-nums; }
@@ -330,7 +362,7 @@
         /* ── 🎰 슬롯머신 ── 엑셀판·계좌와 같은 유리 카드 언어.
            ⚠️ 릴 창 170×120 은 여기서도 손대지 않는다. 둥글리기와 테두리만 준다. */
         .slot-card {
-            position: relative; padding: 22px 24px 20px;
+            position: relative; padding: 24px 24px 20px;
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius);
@@ -343,22 +375,22 @@
             pointer-events:none;
         }
         .slot-ttl {
-            width: 100%; margin: 0 0 18px; padding-bottom: 10px;
+            width: 100%; margin: 0 0 16px; padding-bottom: 8px;
             font-size: 27px; font-weight: 700; color: var(--tx-3);
             letter-spacing: 0.06em; text-align: center;
-            border-bottom: 2px solid rgba(246,196,83,0.5);
+            border-bottom: 2px solid rgba(var(--gold-rgb), 0.5);
         }
-        .slot-reels { display: flex; gap: 16px; margin-bottom: 18px; }
+        .slot-reels { display: flex; gap: 16px; margin-bottom: 16px; }
         /* ⚠️ 170×120 고정. 릴이 멈추는 좌표(cardHeight = 120)와 묶여 있다. */
         .slot-reel {
             width: 170px; height: 120px; background: #0a0a10;
-            border-radius: 16px; overflow: hidden; position: relative;
-            box-shadow: 0 10px 26px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(246,196,83,0.28);
+            border-radius: var(--r-m); overflow: hidden; position: relative;
+            box-shadow: var(--sh-2), inset 0 0 0 1px rgba(var(--gold-rgb), 0.28);
         }
         .slot-win {
             font-size: 32px; font-weight: 800; color: var(--gold);
             letter-spacing: -0.01em; height: 40px; text-align: center;
-            text-shadow: 0 2px 6px rgba(0,0,0,0.9);
+            text-shadow: var(--ts-1);
         }
 
         /* ── 총후원 게이지 — 화면 오른쪽 끝 세로 막대 ──
@@ -370,31 +402,31 @@
         .goal-rail {
             position: relative; width: 28px; height: 837px;
             background: rgba(0,0,0,.5);
-            border: 1px solid rgba(246,196,83,.45);
+            border: 1px solid rgba(var(--gold-rgb), .45);
             border-radius: 999px;
-            box-shadow: 0 6px 22px rgba(0,0,0,.6), inset 0 0 12px rgba(0,0,0,.7);
+            box-shadow: var(--sh-2), inset 0 0 12px rgba(0,0,0,.7);
         }
         .goal-rail-fill {
             position: absolute; left: 3px; right: 3px; bottom: 3px; height: 0;
             border-radius: 999px;
-            background: linear-gradient(180deg, #ffe9b0, var(--gold) 40%, var(--gold-deep));
-            box-shadow: 0 0 16px var(--gold-glow);
-            transition: height .8s cubic-bezier(.2,.9,.3,1);
+            background: linear-gradient(180deg, var(--gold-light), var(--gold) 40%, var(--gold-deep));
+            box-shadow: var(--glow-m);
+            transition: height var(--t-slow) var(--ease);
         }
         /* 찬 꼭대기에 붙어 같이 올라가는 금액 딱지 — 수은주처럼 시선이 따라간다 */
         .goal-rail-tip {
             position: absolute; right: calc(100% + 10px); bottom: 3px;
             transform: translateY(50%); white-space: nowrap; text-align: right;
-            transition: bottom .8s cubic-bezier(.2,.9,.3,1);
+            transition: bottom var(--t-slow) var(--ease);
             background: rgba(10,10,14,.9);
-            border: 2px solid var(--gold); border-radius: 14px; padding: 7px 16px;
-            box-shadow: 0 6px 20px rgba(0,0,0,.65), 0 0 20px var(--gold-glow);
+            border: 2px solid var(--gold); border-radius: var(--r-m); padding: 8px 16px;
+            box-shadow: var(--sh-2), var(--glow-m);
         }
         /* ⚠️ 방송판 1080 은 폰에서 2.7배 작아진다. 30px 이라야 폰에서 11px 이다. */
         .goal-rail-amt {
             display: block; font-size: 30px; font-weight: 900; color: var(--gold);
             line-height: 1.1; font-variant-numeric: tabular-nums;
-            text-shadow: 0 2px 4px rgba(0,0,0,.85);
+            text-shadow: var(--ts-1);
         }
         /* 게임판이 떠 있는 동안에는 딱지를 숨긴다 — 판 위에 겹쳐 앉기 때문이고,
            목표치는 게임 중에 볼 일이 없다. 막대는 그대로 찬다. */
@@ -402,12 +434,12 @@
         /* 🏅 후원 순위판(380×347)은 게임 자리와 같은 구역이라 주사위판 오른쪽 열을 통째로 덮었다.
            게이지 딱지와 같은 규칙으로 게임판이 떠 있는 동안 내린다. */
         body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none; }
-        .goal-rail-tip { transition: bottom .8s cubic-bezier(.2,.9,.3,1), opacity .35s ease; }
+        .goal-rail-tip { transition: bottom var(--t-slow) var(--ease), opacity var(--t-base) ease; }
         /* 목표를 채우면 막대가 번쩍인다.
            ⚠️ 예전에는 JS 가 goal-flash 를 붙이기만 하고 CSS 가 없어서 아무 일도 안 났다. */
         @keyframes goalRailFlash {
-            0%, 100% { box-shadow: 0 6px 22px rgba(0,0,0,.6), inset 0 0 12px rgba(0,0,0,.7);
-                       border-color: rgba(246,196,83,.45); }
+            0%, 100% { box-shadow: var(--sh-2), inset 0 0 12px rgba(0,0,0,.7);
+                       border-color: rgba(var(--gold-rgb), .45); }
             50%      { box-shadow: 0 0 34px var(--gold), 0 0 72px var(--gold-glow);
                        border-color: var(--gold); }
         }
@@ -417,11 +449,11 @@
             position: absolute; left: 50%; top: 470px;
             transform: translate(-50%, -50%) scale(.6); opacity: 0;
             pointer-events: none; z-index: 100050; white-space: nowrap;
-            font-size: 92px; font-weight: 900; letter-spacing: -2px; color: #241a05;
-            padding: 18px 54px; border-radius: 999px;
-            background: linear-gradient(120deg, #ffe9b0, var(--gold) 45%, var(--gold-deep));
-            box-shadow: 0 18px 60px rgba(0,0,0,.6), 0 0 60px var(--gold-glow);
-            transition: opacity .35s ease, transform .45s cubic-bezier(.2,1.5,.4,1);
+            font-size: 92px; font-weight: 900; letter-spacing: -2px; color: var(--on-gold);
+            padding: 20px 56px; border-radius: 999px;
+            background: linear-gradient(120deg, var(--gold-light), var(--gold) 45%, var(--gold-deep));
+            box-shadow: var(--sh-4), var(--glow-l);
+            transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop);
         }
         .goal-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 
@@ -435,8 +467,8 @@
             /* ⚠️ box-sizing 이 content-box 라 테두리가 높이에 더해진다 —
                48 로 적으면 50 이 되어 머리 줄 밖으로 삐져나갔다. */
             box-sizing: border-box; height: 48px;
-            padding: 0 18px 0 0; width: max-content; max-width: 640px;
-            white-space: nowrap; border-radius: 10px; overflow: hidden;
+            padding: 0 16px 0 0; width: max-content; max-width: 640px;
+            white-space: nowrap; border-radius: var(--r-s); overflow: hidden;
         }
         .acc-ico {
             flex: none; align-self: stretch; width: 50px;
@@ -444,7 +476,7 @@
             font-size: 28px; line-height: 1;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
         }
-        .acc-who { display: flex; align-items: baseline; gap: 7px; }
+        .acc-who { display: flex; align-items: baseline; gap: 8px; }
         /* ⚠️ 예금주는 '돈이 누구에게 가는가' 다. 15px → 22px 로 한 번 올렸는데도
            폰에서 8.2px 라 여전히 못 읽는다 (바닥선은 27px = 폰 10px).
            ⚠️ 머리줄 높이가 48px 로 고정이라 줄높이 1.15 기준 28px 이 한계다. */
@@ -455,7 +487,7 @@
                                      안 쪼개고, 띄어쓰기 없는 긴 이름만 마지막 수단으로 접는다 */
                                   max-width: 100%; word-break: keep-all; overflow-wrap: anywhere; }
         /* ⚠️ 방송판 1080 은 폰에서 2.7배 작아진다. 30px 이라야 폰에서 11px 이다. */
-        .acc-num-v2 { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: 0 2px 5px rgba(0,0,0,0.85); }
+        .acc-num-v2 { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 
         /* ── 시그니처 순위판 ── 각진 클립패스 대신 점수판과 같은 유리 카드 + 둥근 골드 헤더 */
 
@@ -464,15 +496,15 @@
            pointer-events:none — OBS 화면 조작을 막지 않는다(조작은 조종실에서 한다). */
         #siggame-container {
             position: absolute; z-index: 99000; pointer-events: none;
-            opacity: 0; visibility: hidden; transition: opacity .4s ease, visibility .4s;
+            opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base);
         }
         #siggame-container.on { opacity: 1; visibility: visible; }
         .sg-timer {
             font-size: 32px; font-weight: 900; letter-spacing: 0.5px;
-            color: #241a05; font-variant-numeric: tabular-nums; line-height: 1;
+            color: var(--on-gold); font-variant-numeric: tabular-nums; line-height: 1;
         }
         /* 30초 아래로 떨어지면 헤더째 붉게 물들여 확실히 눈에 띄게 한다 */
-        .sg-header.urgent { background: linear-gradient(120deg, #ff6b81, #d63049); box-shadow: 0 4px 16px rgba(214,48,73,.55); }
+        .sg-header.urgent { background: linear-gradient(120deg, var(--game-red), var(--game-red-deep)); box-shadow: 0 4px 16px rgba(var(--game-red-rgb), .55); }
         .sg-header.urgent .sg-header-title, .sg-header.urgent .sg-timer { color: #fff; }
         .sg-header.urgent .sg-dot { border-color: rgba(255,255,255,.6); }
         .sg-header.urgent .sg-dot.done { background: #fff; border-color: #fff; }
@@ -480,7 +512,7 @@
         .sg-header.timeup { background: linear-gradient(120deg, #6b7280, #374151); box-shadow: none; animation: none; }
         .sg-header.timeup .sg-header-title, .sg-header.timeup .sg-timer { color: #e5e7eb; }
         .sg-header.timeup .sg-timer { font-size: 30px; letter-spacing: 0; }
-        .sg-timer.urgent { color: #ff4d6d; text-shadow: 0 0 18px rgba(255,77,109,.8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
+        .sg-timer.urgent { color: var(--game-red); text-shadow: 0 0 18px rgba(var(--game-red-rgb), .8), 0 4px 0 rgba(0,0,0,.5); animation: sg-pulse 1s infinite; }
         @keyframes sg-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
         /* --sg-cw : 카드 한 장의 폭. 글자 크기를 여기에 비례시켜, 칸이 줄어도 균형이 유지된다. */
         /* 카드 폭은 px 로 고정된다(sgBuild). 나눗셈에서 남는 몇 px 이 한쪽으로
@@ -492,12 +524,12 @@
            뒤집기 원근은 카드마다 따로 걸려 있다(.sg-card { perspective: 1500px }). */
         .sg-grid { display: grid; gap: 8px; justify-content: center; }
         .sg-card { position: relative; perspective: 1500px;
-            transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s .4s; }
+            transition: transform var(--t-base) var(--ease-pop), z-index 0s var(--t-base); }
         /* ⚠️ translateZ 를 쓰지 않는다. 조상 어디에든 perspective 가 있으면 카드가
            원근에 밀려 제자리를 벗어나 뜬다(화면 위쪽 카드는 위로, 아래쪽은 아래로).
            제자리에서 커지기만 해야 판을 크게 벗어나지 않는다. */
         .sg-card.popped { transform: scale(1.3); z-index: 100;
-            transition: transform .4s cubic-bezier(.175,.885,.32,1.275), z-index 0s 0s; }
+            transition: transform var(--t-base) var(--ease-pop), z-index 0s 0s; }
         .sg-inner { width: 100%; height: 100%; position: absolute; transform-style: preserve-3d;
             transition: transform .6s cubic-bezier(.4,0,.2,1); }
         .sg-inner.flipped { transform: rotateY(180deg); }
@@ -506,13 +538,13 @@
                가로세로 4px 씩 커진다. 16장이면 그게 그대로 판 밖으로 나간다. */
             box-sizing: border-box;
             width: 100%; height: 100%; position: absolute; backface-visibility: hidden;
-            border-radius: 8px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,.5);
+            border-radius: var(--r-s); overflow: hidden; box-shadow: var(--sh-1);
             display: flex; align-items: center; justify-content: center;
         }
         .sg-front { background: #fff; border: 2px solid var(--gold); }
         .sg-front img { width: 100%; height: 100%; object-fit: cover; }
         .sg-back {
-            transform: rotateY(180deg); border: 2px solid rgba(246,196,83,0.55);
+            transform: rotateY(180deg); border: 2px solid rgba(var(--gold-rgb), 0.55);
             background: linear-gradient(145deg, rgba(46,46,60,0.92), rgba(18,18,26,0.96));
         }
         .sg-back::after {   /* 카드 뒷면 무늬 */
@@ -530,7 +562,7 @@
             position: relative; padding: 12px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
-            display: flex; flex-direction: column; gap: 10px;
+            display: flex; flex-direction: column; gap: 12px;
         }
         .sg-board::before {   /* 윗면에 스치는 빛 — 다른 위젯과 동일 */
             content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
@@ -540,22 +572,22 @@
         .sg-header {
             display: flex; align-items: center; justify-content: space-between; gap: 12px;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; padding: 6px 14px; border-radius: 12px;
-            box-shadow: 0 4px 14px var(--gold-glow);
+            color: var(--on-gold); padding: 8px 16px; border-radius: var(--r-m);
+            box-shadow: var(--glow-s);
         }
         .sg-header-title { font-weight: 900; font-size: 28px; letter-spacing: -0.3px; white-space: nowrap; }
-        .sg-progress { display: flex; gap: 5px; align-items: center; }
+        .sg-progress { display: flex; gap: 4px; align-items: center; }
         /* 헤더가 금색이라 점도 어두운 색으로 뒤집는다(금색 위 금색은 안 보인다) */
         .sg-dot {
             width: 13px; height: 13px; border-radius: 50%;
             border: 2px solid rgba(36,26,5,0.55); background: transparent;
         }
-        .sg-dot.done { background: #241a05; border-color: #241a05; box-shadow: 0 0 8px rgba(0,0,0,.35); }
+        .sg-dot.done { background: var(--on-gold); border-color: var(--on-gold); box-shadow: 0 0 8px rgba(0,0,0,.35); }
         /* 목표를 받아낸 카드 — 금테와 체크로 확실히 구분한다(방송에서 한눈에 보여야 한다) */
-        .sg-card.done .sg-front { border-color: #2ecc71; box-shadow: 0 0 0 2px rgba(46,204,113,.55), 0 0 16px rgba(46,204,113,.6); }
+        .sg-card.done .sg-front { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(var(--ok-rgb), .55), 0 0 16px rgba(var(--ok-rgb), .6); }
         .sg-card.done .sg-front::after {
             content: '✔'; position: absolute; top: 2px; right: 4px; z-index: 2;
-            font-weight: 900; color: #2ecc71; text-shadow: 0 2px 5px #000;
+            font-weight: 900; color: var(--ok); text-shadow: 0 2px 5px #000;
             font-size: calc(var(--sg-cw, 160px) * 0.20);
         }
         .sg-card.done .sg-front img { filter: saturate(1.15); }
@@ -570,10 +602,10 @@
         .sg-stamp span {
             font-weight: 900; letter-spacing: 1px; color: #fff;
             font-size: calc(var(--sg-cw, 160px) * 0.17);
-            padding: 3px 10px; border-radius: 6px; transform: rotate(-9deg);
-            background: linear-gradient(120deg, #2ecc71, #17a55b);
-            box-shadow: 0 3px 12px rgba(0,0,0,.6), 0 0 18px rgba(46,204,113,.7);
-            text-shadow: 0 2px 4px rgba(0,0,0,.5);
+            padding: 4px 12px; border-radius: var(--r-s); transform: rotate(-9deg);
+            background: linear-gradient(120deg, var(--ok), var(--ok-deep));
+            box-shadow: var(--sh-1), 0 0 18px rgba(var(--ok-rgb), .7);
+            text-shadow: var(--ts-1);
         }
         /* 방금 찍힌 순간에만 쾅 */
         .sg-card.stamping .sg-stamp span { animation: sg-stamp-in .45s cubic-bezier(.2,1.6,.4,1) backwards; }
@@ -590,7 +622,7 @@
         }
 
         /* ── 올클리어 ── 판이 커지고 왼쪽부터 하나씩 터진 뒤 배너 ── */
-        .sg-board.allclear { box-shadow: var(--glass-shadow), 0 0 0 2px rgba(46,204,113,.55), 0 0 60px rgba(46,204,113,.45); }
+        .sg-board.allclear { box-shadow: var(--glass-shadow), 0 0 0 2px rgba(var(--ok-rgb), .55), 0 0 60px rgba(var(--ok-rgb), .45); }
         .sg-grid.allclear { animation: sg-grid-swell 2.6s ease-in-out; }
         @keyframes sg-grid-swell {
             0%   { transform: scale(1); }
@@ -605,9 +637,9 @@
         .sg-allclear.on { display: flex; }
         .sg-allclear span {
             font-size: 92px; font-weight: 900; letter-spacing: 4px; color: #fff;
-            padding: 10px 40px; border-radius: 18px; white-space: nowrap;
-            background: linear-gradient(120deg, #2ecc71, #12a05a);
-            box-shadow: 0 14px 50px rgba(0,0,0,.65), 0 0 70px rgba(46,204,113,.8);
+            padding: 12px 40px; border-radius: var(--r-l); white-space: nowrap;
+            background: linear-gradient(120deg, var(--ok), var(--ok-deep));
+            box-shadow: var(--sh-4), 0 0 70px rgba(var(--ok-rgb), .8);
             text-shadow: 0 4px 10px rgba(0,0,0,.55);
             animation: sg-allclear-in .55s cubic-bezier(.2,1.7,.4,1) backwards;
         }
@@ -690,11 +722,11 @@
         .notice-board {
             display: flex; align-items: stretch;
             box-sizing: border-box; width: 100%; height: 48px; overflow: hidden;
-            background: linear-gradient(180deg, rgba(14,14,20,.90), rgba(8,8,12,.94));
+            background: var(--glass-bg);
             border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold);
-            box-shadow: 0 6px 22px rgba(0,0,0,.6), 0 0 20px var(--gold-glow);
+            box-shadow: var(--sh-2), var(--glow-m);
             opacity: 0; transform: translateY(115%);
-            transition: opacity .35s ease, transform .5s cubic-bezier(.16,1,.3,1);
+            transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease);
             pointer-events: none;
         }
         .notice-board.show { opacity: 1; transform: translateY(0); }
@@ -710,7 +742,7 @@
             transform: translate(0, -50%);
             white-space: nowrap; will-change: transform;
             font-size: 27px; font-weight: 800; color: #fff; line-height: 1;
-            text-shadow: 0 2px 6px rgba(0,0,0,.9);
+            text-shadow: var(--ts-1);
         }
         .notice-txt b, .notice-txt strong { color: var(--gold); }
         .notice-measure { visibility: hidden; animation: none !important; }
@@ -743,7 +775,7 @@
             gap: calc(var(--dg-cell, 86px) * 0.015);
             padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035)
                      calc(var(--dg-cell, 86px) * 0.07);
-            transition: transform .22s ease, filter .22s ease;
+            transition: transform var(--t-fast) ease, filter var(--t-fast) ease;
         }
         /* ⚠️ 글씨 크기를 px 로 못박으면 칸을 키워도 글씨는 그대로라 또 작아진다.
            칸 한 변(--dg-cell)에 비례시킨다. 예전에는 86px 칸에 10px 글씨였는데,
@@ -773,8 +805,8 @@
            ⚠️ 예전에는 도착 순간(dg-land)만 4.2초 반짝이고 꺼졌다. 그 뒤로는 말이
               어디 있는지 판을 훑어야 알 수 있었다. */
         .dg-tile.dg-here {
-            box-shadow: inset 0 0 0 3px var(--gold), 0 0 18px var(--gold-glow);
-            background-image: linear-gradient(180deg, rgba(246,196,83,.16), transparent 60%);
+            box-shadow: inset 0 0 0 3px var(--gold), var(--glow-m);
+            background-image: linear-gradient(180deg, rgba(var(--gold-rgb), .16), transparent 60%);
         }
         .dg-tile.dg-land {
             transform: translateY(-4px) scale(1.1); z-index: 3;
@@ -783,7 +815,7 @@
         /* 도착 순간 금빛 파열 링 */
         @keyframes dgBurst { from { opacity: .95; transform: scale(.55); } to { opacity: 0; transform: scale(1.8); } }
         .dg-tile.dg-land::after {
-            content: ''; position: absolute; inset: -5px; border-radius: 14px;
+            content: ''; position: absolute; inset: -5px; border-radius: var(--r-m);
             border: 3px solid var(--gold); animation: dgBurst .7s ease-out forwards;
             pointer-events: none;
         }
@@ -803,7 +835,7 @@
             content: ''; position: absolute; left: 50%; top: 54%;
             width: 1.35em; height: 1.35em; transform: translate(-50%, -50%);
             border-radius: 50%; z-index: -1;
-            background: radial-gradient(circle, var(--gold-glow, rgba(246,196,83,.55)) 0%, transparent 68%);
+            background: radial-gradient(circle, var(--gold-glow, rgba(var(--gold-rgb), .55)) 0%, transparent 68%);
         }
         /* ⚠️ 가운데 정렬(translateX(-50%))을 같이 써야 한다. translateY 만 쓰면
               공주가 칸 오른쪽으로 튀어나간다 — transform 은 통째로 덮어써진다. */
@@ -824,10 +856,10 @@
         /* ⚠️ 방송판은 1080 폭이라 폰에서 2.7배 작아진다. 26px 은 폰에서 10px —
            '몇 칸 가는가' 를 못 읽는다. 판에서 제일 커야 하는 숫자다. */
         .dg-sum { font-size: 62px; font-weight: 900; color: #ffe9a8;
-                  text-shadow: 0 3px 6px #000, 0 4px 16px rgba(0,0,0,.9); min-height: 72px;
+                  text-shadow: var(--ts-2); min-height: 72px;
                   font-variant-numeric: tabular-nums; letter-spacing: -1px; }
         /* 실제 3D 주사위 — 하나가 두 번 구른다. 하나만 쓰니 큼직하게 */
-        .dg-dice { display: flex; justify-content: center; perspective: 900px; min-height: 145px; transition: opacity .5s ease; }
+        .dg-dice { display: flex; justify-content: center; perspective: 900px; min-height: 145px; transition: opacity var(--t-base) ease; }
         /* 안 굴릴 때는 안 보인다 — 자리는 그대로 차지해 판이 안 흔들린다 */
         .dg-dice.dg-idle { opacity: 0; }
         .dg-die { width: 132px; height: 132px; position: relative;
@@ -836,7 +868,7 @@
                    transform-style: preserve-3d;
                    transition: transform .9s cubic-bezier(.2, 1.1, .35, 1); }
         .dg-face {
-            position: absolute; inset: 0; border-radius: 26px; box-sizing: border-box;
+            position: absolute; inset: 0; border-radius: var(--r-l); box-sizing: border-box;
             background: linear-gradient(145deg, #fffef7, #d8d8cd);
             border: 1px solid #b6b6aa;
             display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
@@ -846,15 +878,15 @@
                   align-self: center; justify-self: center;
                   box-shadow: inset 0 2px 2px rgba(0,0,0,.55); }
         .dg-laps { font-size: 30px; font-weight: 900; color: var(--gold);
-                   text-shadow: 0 2px 6px #000, 0 0 12px rgba(0,0,0,.9); }
+                   text-shadow: var(--ts-2); }
         /* 도착 칸 카드 — 가운데에 크게 떴다가 저절로 사라진다 */
         .dg-card {
             position: absolute; left: 50%; top: 50%;
             transform: translate(-50%, -50%) scale(.6); opacity: 0;
-            min-width: 560px; max-width: 86%; padding: 34px 44px; z-index: 8;
+            min-width: 560px; max-width: 86%; padding: 32px 44px; z-index: 8;
             background: rgba(10,10,14,.94); border: 4px solid var(--gold);
-            border-radius: 30px; box-shadow: 0 22px 70px rgba(0,0,0,.75), 0 0 44px var(--gold-glow);
-            text-align: center; transition: transform .3s cubic-bezier(.2,1.4,.4,1), opacity .3s ease;
+            border-radius: var(--r-l); box-shadow: var(--sh-4), var(--glow-l);
+            text-align: center; transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease;
             pointer-events: none;
         }
         .dg-card.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -864,13 +896,13 @@
         .dg-card .dg-card-txt { font-size: 54px; font-weight: 900; color: #fff;
                                 margin-top: 12px; line-height: 1.3; word-break: keep-all; }
         .dg-card .dg-card-sub { font-size: 32px; font-weight: 700; color: var(--gold); margin-top: 12px; }
-        .dg-card img { max-width: 380px; max-height: 260px; border-radius: 18px; margin-top: 16px; }
+        .dg-card img { max-width: 380px; max-height: 260px; border-radius: var(--r-m); margin-top: 16px; }
         .dg-lap-banner {
             position: absolute; left: 50%; top: -18px; transform: translateX(-50%) scale(.7);
             opacity: 0; padding: 12px 32px; z-index: 9;
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-size: 36px; font-weight: 900; border-radius: 999px;
-            box-shadow: 0 6px 18px var(--gold-glow); transition: all .3s ease; white-space: nowrap;
+            color: var(--on-gold); font-size: 36px; font-weight: 900; border-radius: 999px;
+            box-shadow: var(--glow-s); transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); white-space: nowrap;
         }
         .dg-lap-banner.show { opacity: 1; transform: translateX(-50%) scale(1); }
 
@@ -881,7 +913,7 @@
         .donor-rank-board {
             /* ⚠️ box-sizing 을 안 주면 380 은 '안쪽 폭' 이라 여백 26 + 테두리 2 가 붙어
                겉이 408 이 된다. 그러면 오른쪽 끝이 1066 — 목표 막대(1046) 를 파고든다. */
-            position: relative; box-sizing: border-box; width: 380px; padding: 13px;
+            position: relative; box-sizing: border-box; width: 380px; padding: 12px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius); box-shadow: var(--glass-shadow);
             display: flex; flex-direction: column; gap: 8px;
@@ -893,43 +925,45 @@
         }
         .donor-rank-header {
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px;
-            padding: 8px 0; border-radius: 12px;
-            box-shadow: 0 4px 14px var(--gold-glow);
+            color: var(--on-gold); font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px;
+            padding: 8px 0; border-radius: var(--r-m);
+            box-shadow: var(--glow-s);
         }
         .dr-row {
-            display: flex; align-items: center; gap: 9px; padding: 7px 10px;
-            border-radius: 11px; border: 1px solid rgba(255,255,255,0.10);
-            background: rgba(0,0,0,0.42);
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            border-radius: var(--r-m); border: 1px solid var(--row-border);
+            background: var(--row-bg);
         }
         .dr-row .dr-no {
             flex: none; width: 44px; height: 44px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 27px; font-weight: 900; color: #cfd3da;
+            font-size: 27px; font-weight: 900; color: var(--tx-2);
             background: rgba(255,255,255,0.10);
         }
-        .dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: #241a05; }
-        .dr-row.top2 .dr-no { background: linear-gradient(120deg, #d8dde6, #9aa2ae); color: #23262b; }
-        .dr-row.top3 .dr-no { background: linear-gradient(120deg, #d9a066, #a8703c); color: #2a1a0c; }
+        .dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); }
+        .dr-row.top2 .dr-no { background: linear-gradient(120deg, var(--silver), var(--silver-2)); color: var(--on-silver); }
+        .dr-row.top3 .dr-no { background: linear-gradient(120deg, var(--bronze), var(--bronze-2)); color: var(--on-bronze); }
         .dr-row .dr-name {
             flex: 1; min-width: 0; font-size: 32px; font-weight: 800; color: #fff;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-            text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+            text-shadow: var(--ts-1);
         }
         .dr-row .dr-amt {
             flex: none; font-size: 30px; font-weight: 900; color: var(--gold);
-            font-variant-numeric: tabular-nums; text-shadow: 0 2px 6px rgba(0,0,0,0.8);
+            font-variant-numeric: tabular-nums; text-shadow: var(--ts-1);
         }
         /* 👑 등급 표시. ⚠️ 이름칸이 107~157px 뿐이라(실측) 이모지 뱃지를 넣으면 이름이
            더 잘린다. 왼쪽 띠는 inset 그림자라 자리를 안 먹고, 배경도 마찬가지다. */
         .dr-row.dr-vip { border-color: rgba(255,255,255,0.20); }
-        .dr-empty { text-align:center; color: rgba(255,255,255,0.45); font-size: 27px; padding: 14px 0; }
+        .dr-empty { text-align:center; color: var(--tx-3); font-size: 27px; padding: 16px 0; }
 
         .sig-tally-header {
             background: linear-gradient(120deg, var(--gold), var(--gold-deep));
-            color: #241a05; font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px;
-            padding: 8px 0; border-radius: 12px;
-            box-shadow: 0 4px 14px var(--gold-glow);
+            /* ⚠️ 판이 206px 이라 28px 로는 '오늘의 시그니처' 가 두 줄로 꺾였다. 글씨를 줄이면
+               폰에서 못 읽는다(바닥선 27px) — 글자 수를 줄여 '시그 집계' 로 부른다. */
+            color: var(--on-gold); font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px; white-space: nowrap;
+            padding: 8px 0; border-radius: var(--r-m);
+            box-shadow: var(--glow-s);
         }
 
         /* --------------------------------------------------
@@ -949,7 +983,7 @@
             align-self: center;
             font-size: 32px; font-weight: 900; font-style: italic;
             color: rgba(255,255,255,0.75);
-            text-shadow: 0 2px 4px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7);
+            text-shadow: var(--ts-2);
             position: relative; padding: 0 8px;
         }
         .m-vs::before {
@@ -966,32 +1000,32 @@
         
         /* ⚔️ e스포츠 타이머 — 각진 절단 프레임 + 이탤릭 숫자 */
         .m-timer-pill {
-            background: linear-gradient(180deg, #23232e, #14141c);
-            border: 1px solid rgba(255,255,255,0.14);
-            border-radius: 14px;
-            padding: 7px 44px;
+            background: var(--game-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--r-m);
+            padding: 8px 44px;
             color: #fff;
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             font-size: 38px;
             font-weight: 900;
             font-variant-numeric: tabular-nums;
             letter-spacing: 1px;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-            box-shadow: 0 10px 24px rgba(0,0,0,0.55);
-            transition: all 0.2s linear;
+            text-shadow: var(--ts-1);
+            box-shadow: var(--sh-2);
+            transition: all var(--t-fast) linear;
         }
 
         /* ⚔️ 대결 위젯 리뉴얼 — 전원 배틀 게이지 + 컬러 플레이어 카드 (레퍼런스 디자인 언어) */
         .match-wrapper { gap: 16px; }
         .m-gauge {
-            display: flex; width: 720px; max-width: 88vw; height: 54px; border-radius: 14px; overflow: hidden;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08);
+            display: flex; width: 720px; max-width: 88vw; height: 54px; border-radius: var(--r-m); overflow: hidden;
+            box-shadow: var(--sh-2), inset 0 0 0 1px rgba(255,255,255,0.08);
         }
         .m-seg {
             flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
             background: linear-gradient(180deg, var(--c, #888), rgba(var(--rgb, 136,136,136), 0.72));
             box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15);
-            transition: flex 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: flex var(--t-slow) var(--ease);
         }
         .m-seg-amt {
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 900; font-size: 27px;
@@ -999,13 +1033,13 @@
         }
         .m-seg.lead .m-seg-amt { font-size: 30px; }
 
-        .m-cards { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+        .m-cards { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
         .m-card {
-            position: relative; min-width: 196px; padding: 12px 20px; display: flex; align-items: center; gap: 11px;
-            border-radius: 15px; background: linear-gradient(180deg, rgba(22,22,28,0.94), rgba(11,11,15,0.96));
+            position: relative; min-width: 196px; padding: 12px 20px; display: flex; align-items: center; gap: 12px;
+            border-radius: var(--r-m); background: var(--glass-bg);
             border: 1px solid rgba(var(--rgb, 136,136,136), 0.55);
-            box-shadow: 0 8px 22px rgba(0,0,0,0.5), inset 0 0 24px rgba(var(--rgb, 136,136,136), 0.15);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+            box-shadow: var(--sh-2), inset 0 0 24px rgba(var(--rgb, 136,136,136), 0.15);
+            transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) ease;
         }
         .m-crown { font-size: 27px; filter: drop-shadow(0 0 6px rgba(var(--rgb, 136,136,136), 0.9)); }
         .m-card-name {
@@ -1018,7 +1052,7 @@
         .m-card-members {
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 27px;
             color: rgba(255,255,255,0.62); letter-spacing: -0.2px; white-space: nowrap;
-            text-shadow: 0 1px 3px #000;
+            text-shadow: var(--ts-1);
         }
         .m-card-members:empty { display: none; }
 
@@ -1029,7 +1063,7 @@
         }
         .m-card.lead {
             transform: scale(1.06); border-color: var(--c, #fff);
-            box-shadow: 0 10px 28px rgba(0,0,0,0.6), inset 0 0 32px rgba(var(--rgb, 136,136,136), 0.3), 0 0 18px rgba(var(--rgb, 136,136,136), 0.5);
+            box-shadow: var(--sh-2), inset 0 0 32px rgba(var(--rgb, 136,136,136), 0.3), 0 0 18px rgba(var(--rgb, 136,136,136), 0.5);
         }
         .m-card.m-bump { animation: mBump 0.6s ease; }
         @keyframes mBump { 0%, 100% { filter: brightness(1); } 30% { filter: brightness(1.55); } }
@@ -1037,50 +1071,50 @@
         /* ⚔️ 전선(前線) — 1등 영역이 끝나는 지점에 '몇 점 차'를 띄운다.
            숫자를 게이지 위에 두면 타이머와 겹쳐서, 게이지 아래에 매단다.
            격차가 좁아질수록 숫자가 화면 한가운데로 이동해 팽팽함이 위치로도 보인다. */
-        .m-front { position: relative; width: 720px; max-width: 88vw; transition: margin-bottom 0.3s ease; }
+        .m-front { position: relative; width: 720px; max-width: 88vw; transition: margin-bottom var(--t-base) ease; }
         .m-front > .m-gauge { width: 100%; max-width: none; }
         .m-front.on { margin-bottom: 42px; }
         .m-front-mark {
             position: absolute; bottom: -50px; transform: translateX(-50%);
             display: flex; flex-direction: column; align-items: center;
             opacity: 0; visibility: hidden; pointer-events: none;
-            transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.3s ease;
+            transition: left var(--t-slow) var(--ease), opacity var(--t-base) ease, visibility var(--t-base) ease;
         }
         .m-front-line {
             position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; z-index: 3;
             background: rgba(255,255,255,0.9); box-shadow: 0 0 12px rgba(255,255,255,0.8);
             opacity: 0; visibility: hidden; pointer-events: none;
-            transition: left 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, visibility 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+            transition: left var(--t-slow) var(--ease), opacity var(--t-base) ease, visibility var(--t-base) ease, background var(--t-base) ease, box-shadow var(--t-base) ease;
         }
         .m-front.on .m-front-mark, .m-front.on .m-front-line { opacity: 1; visibility: visible; }
         .m-front-tail { width: 2px; height: 14px; background: linear-gradient(0deg, rgba(255,255,255,0.7), transparent); }
         .m-front-num {
-            background: linear-gradient(180deg, #23232e, #101018);
-            border: 1px solid rgba(255,255,255,0.22); border-radius: 10px;
-            padding: 3px 14px; color: #fff;
+            background: var(--game-bg);
+            border: 1px solid var(--glass-border); border-radius: var(--r-s);
+            padding: 4px 16px; color: #fff;
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 32px; font-weight: 900;
             font-variant-numeric: tabular-nums; white-space: nowrap;
-            text-shadow: 0 2px 4px #000; box-shadow: 0 6px 16px rgba(0,0,0,0.6);
-            transition: border-color 0.3s ease, color 0.3s ease;
+            text-shadow: var(--ts-1); box-shadow: var(--sh-2);
+            transition: border-color var(--t-base) ease, color var(--t-base) ease;
         }
         .m-front-num .unit { font-size: 27px; opacity: 0.75; margin-left: 5px; font-weight: 700; }
         /* 몇 점을 받으면 뒤집히는지 — 추격하는 쪽 기준, 격차보다 1점 더 받아야 단독 1등이다 */
         .m-front-hint {
-            margin-top: 4px; padding: 1px 10px; border-radius: 8px;
+            margin-top: 4px; padding: 2px 12px; border-radius: var(--r-s);
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             font-size: 14px; font-weight: 800; letter-spacing: -0.3px; white-space: nowrap;
-            color: #ffdf7a; background: rgba(16,16,24,0.85); border: 1px solid rgba(255,213,74,0.4);
-            text-shadow: 0 1px 3px #000; font-variant-numeric: tabular-nums;
+            color: var(--gold); background: var(--glass-bg); border: 1px solid rgba(var(--gold-rgb), 0.4);
+            text-shadow: var(--ts-1); font-variant-numeric: tabular-nums;
         }
         .m-front-hint:empty { display: none; }
         /* 접전 — 뒤집힐 수 있는 거리에 들어왔다 */
-        .m-front.tight .m-front-num { border-color: rgba(255,213,74,0.7); color: #ffdf7a; animation: mGapPulse 1s ease-in-out infinite; }
-        .m-front.tight .m-front-line { background: #ffd54a; box-shadow: 0 0 18px #ffd54a; }
+        .m-front.tight .m-front-num { border-color: rgba(var(--gold-rgb), 0.7); color: var(--gold); animation: mGapPulse 1s ease-in-out infinite; }
+        .m-front.tight .m-front-line { background: var(--gold); box-shadow: 0 0 18px var(--gold); }
         @keyframes mGapPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
         .m-gauge.tight { animation: mTightGlow 0.9s ease-in-out infinite; }
         @keyframes mTightGlow {
-            0%, 100% { box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.08); }
-            50% { box-shadow: 0 8px 20px rgba(0,0,0,0.5), inset 0 0 0 2px rgba(255,213,74,0.9), 0 0 26px rgba(255,213,74,0.45); }
+            0%, 100% { box-shadow: var(--sh-2), inset 0 0 0 1px rgba(255,255,255,0.08); }
+            50% { box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), 0.9), 0 0 26px rgba(var(--gold-rgb), 0.45); }
         }
 
         /* ⚔️ 역전 — 1등이 바뀌는 순간에만 터진다 */
@@ -1088,7 +1122,7 @@
             position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(0.7);
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 62px; font-weight: 900; font-style: italic;
             letter-spacing: -2px; color: #fff; white-space: nowrap;
-            text-shadow: 0 0 24px rgba(255,213,74,0.95), 0 4px 10px #000;
+            text-shadow: 0 0 24px rgba(var(--gold-rgb), 0.95), 0 4px 10px #000;
             opacity: 0; pointer-events: none; z-index: 20;
         }
         .m-flash.go { animation: mFlashIn 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
@@ -1102,7 +1136,7 @@
 
         .m-team-container { 
             display: flex; 
-            gap: 25px; 
+            gap: 24px; 
             min-width: 290px; /* 450px는 너무 벌어지는 문제 해결: 290px로 콤팩트하면서 시간이랑 절대 안 겹치게 미세 조정 */
             justify-content: center; /* 1명만 있거나 할 때도 정가운데 정렬 */
         } 
@@ -1112,7 +1146,7 @@
             flex-direction: column;
             align-items: center;
             min-width: 180px;
-            transition: transform 0.2s ease;
+            transition: transform var(--t-fast) ease;
         }
 
         /* ⚔️ 점수 — 목업처럼 상자 없이 팀 컬러로 크게 발광하는 이탤릭 숫자 */
@@ -1138,7 +1172,7 @@
                 0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.85), 2px 2px 0 rgba(0,0,0,0.6);
             position: relative;
             overflow: visible;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all var(--t-base) var(--ease-pop);
         }
 
         /* 쫀득한 3D 바운스 및 네온 에너지 벌크업 충전 애니메이션 */
@@ -1170,20 +1204,20 @@
             margin: 0 0 2px 0;
             z-index: 2;
             letter-spacing: 0.3px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8), 1px 1px 0 rgba(0,0,0,0.6);
-            transition: all 0.3s ease;
+            text-shadow: var(--ts-2);
+            transition: all var(--t-base) ease;
         }
 
         @keyframes explodeTimer { 0% { transform: scale(1.3); opacity: 1; filter: drop-shadow(0 0 20px #ff0000); color: #ff0000; background: rgba(255,0,0,0.5); } 20% { transform: scale(1.6); opacity: 1; filter: drop-shadow(0 0 50px #ff5500); color: #fff; background: #ff0000; border-color: #fff; } 100% { transform: scale(0); opacity: 0; filter: drop-shadow(0 0 100px #ffff00); } }
         .timer-explode { animation: explodeTimer 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important; }
         .score-pop { position: absolute; right: -20px; top: -15px; color: var(--theme-neon); font-weight: 900; font-size: 30px; text-shadow: 0 0 10px var(--theme-neon); animation: fu 1s ease-out forwards; z-index:100; pointer-events:none; } @keyframes fu { 0%{opacity:1; transform:translateY(0) scale(1)} 50%{transform:translateY(-15px) scale(1.2)} 100%{opacity:0; transform:translateY(-30px) scale(1)} }
         
-        .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50px; padding: 15px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: var(--glass-shadow); display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.4s; transform: translateY(30px) scale(0.8); }
+        .center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 999px; padding: 16px 60px; font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: var(--glass-shadow); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); transform: translateY(30px) scale(0.8); }
         .center-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 
-        .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(246,196,83,0.5); border-radius: 50px; padding: 15px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); opacity: 0; transition: 0.4s; transform: translateY(40px) scale(0.7); } .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
+        .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(var(--gold-rgb), 0.5); border-radius: 999px; padding: 16px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); opacity: 0; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); transform: translateY(40px) scale(0.7); } .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 
-        .ticker-bar { width: 1080px; height: 70px; background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 1px solid rgba(246,196,83,0.45); border-bottom: 1px solid rgba(246,196,83,0.45); display: flex; align-items: center; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.5);} .ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,0.8); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; } @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
+        .ticker-bar { width: 1080px; height: 70px; background: var(--glass-bg); border-top: 1px solid rgba(var(--gold-rgb), 0.45); border-bottom: 1px solid rgba(var(--gold-rgb), 0.45); display: flex; align-items: center; overflow: hidden; box-shadow: var(--sh-2);} .ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: var(--ts-1); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; } @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
         /* 🔥 시그니처 재생 중 전광판을 '@@업' 네온으로 (반복 스크롤). 색은 --tk-neon/--tk-glow 로 등급 교체 */
         .ticker-text-wrap.reac-neon {
             font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 46px; letter-spacing: 1px;
@@ -1195,16 +1229,16 @@
                 0 0 34px rgba(var(--tk-glow, 255, 45, 100), 0.26);
         }
         /* '@@업' 모드에서도 원래 전광판 위젯처럼 반투명 레터박스(어두운 유리 + 골드 상하 엣지)를 뒤에 깐다 */
-        .reac-neon-mode .ticker-bar { background: linear-gradient(180deg, rgba(18,18,26,0.82), rgba(10,10,16,0.88)); border-top: 2px solid rgba(246,196,83,0.45); border-bottom: 2px solid rgba(246,196,83,0.45); box-shadow: 0 5px 20px rgba(0,0,0,0.5); }
+        .reac-neon-mode .ticker-bar { background: var(--glass-bg); border-top: 2px solid rgba(var(--gold-rgb), 0.45); border-bottom: 2px solid rgba(var(--gold-rgb), 0.45); box-shadow: var(--sh-2); }
         /* 큰 배너가 위/아래로 '갈라지며' 등장 → 그대로 스크롤. (컨테이너 위치/스케일은 안 건드리고 안쪽 바만 연출) */
         @keyframes splitInTop    { 0% { transform: translateY(96px)  scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
         @keyframes splitInBottom { 0% { transform: translateY(-96px) scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
         .split-top    .ticker-bar { animation: splitInTop    0.55s cubic-bezier(0.16, 1, 0.3, 1); }
         .split-bottom .ticker-bar { animation: splitInBottom 0.55s cubic-bezier(0.16, 1, 0.3, 1); }
         
-        #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; color: var(--text-main); pointer-events: none; } 
+        #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; color: var(--text-main); pointer-events: none; } 
         /* 대결 컨테이너: 기본 숨김, .match-visible 클래스로만 표시 */
-        #match-container { transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out; }
+        #match-container { transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
         /* 리액션 모드: 모든 위젯 강제 숨김
            ⚠️ 시그뒤집기 판도 같이 내린다. 시그니처가 재생되는 동안 판이 그대로 떠 있으면
               연출과 겹쳐 어수선하다 — 재생이 끝나 리액션 모드가 꺼지면 저절로 돌아온다.
@@ -1215,7 +1249,7 @@
         body.reaction-mode #dicegame-container,
         body.reaction-mode #match-container { opacity: 0 !important; visibility: hidden !important; }
 
-        .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity 0.6s ease-in-out; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
+        .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
         /* --------------------------------------------------
             🏃 퇴근전쟁(퇴근빵) 목표 달성 레이스 위젯
         -------------------------------------------------- */
@@ -1223,10 +1257,12 @@
            제목은 카드 밖으로 튀어나오지 않게(잘림 방지) 안쪽 핑크 헤더로 넣는다 */
         .home-race-box {
             position: relative;
-            background: linear-gradient(160deg, rgba(16,18,34,0.90), rgba(9,10,20,0.94));
-            border: 1.5px solid rgba(120,135,255,0.55);
-            border-radius: 22px;
-            box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 0 22px rgba(90,108,255,0.35), inset 0 0 26px rgba(90,108,255,0.10);
+            /* 틀은 다른 판과 같은 유리판. 파랑은 막대·배지에만 남긴다 —
+               예전엔 틀까지 파랑이라 이 판만 다른 프로그램 같았다. */
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--glass-radius);
+            box-shadow: var(--glass-shadow);
             /* ⚠️ 폭을 540 에서 900 으로 넓혔다. 글씨를 폰에서 읽히게 27~32px 로
                키우면서 칸 폭은 그대로 뒀더니, 숫자칸 96px 에 '1,234,000'(161px)이
                안 들어가 잘렸다. 엑셀판이 698→990 으로 넓어져야 했던 것과 같다.
@@ -1235,91 +1271,90 @@
             padding: 22px 22px 16px; width: 900px;
         }
         .home-race-title {
-            width: max-content; margin: -34px auto 18px;
+            width: max-content; margin: -34px auto 16px;
             text-align: center; font-size: 30px; font-weight: 900; letter-spacing: 1px; color: #fff;
-            background: linear-gradient(100deg, #6b7bff, #9a6bff);
-            border-radius: 14px; padding: 7px 30px;
-            box-shadow: 0 4px 16px rgba(107,123,255,0.55);
+            background: linear-gradient(100deg, var(--race), var(--race-2));
+            border-radius: var(--r-m); padding: 8px 32px;
+            box-shadow: 0 4px 14px rgba(var(--race-rgb), .55);
         }
         .home-race-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .home-race-row:last-child { border-bottom: none; }
         .home-race-name {
             /* 120px 이면 네 글자에서 이미 꽉 찼다 */
             width: 200px; font-size: 27px; font-weight: 900; color: #fff;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: var(--ts-1);
         }
         .home-race-bar-bg {
-            flex: 1; height: 22px; background: rgba(255,255,255,0.045); border-radius: 11px;
-            border: 1px solid rgba(120,135,255,0.22); overflow: hidden; position: relative;
+            flex: 1; height: 22px; background: rgba(255,255,255,0.045); border-radius: 999px;
+            border: 1px solid rgba(var(--race-rgb), 0.22); overflow: hidden; position: relative;
         }
         .home-race-bar-fill {
-            height: 100%; border-radius: 8px;
-            background: linear-gradient(90deg, #5b6cff, #8b7bff);
-            box-shadow: 0 0 12px rgba(107,123,255,0.65);
-            transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); width: 0%;
+            height: 100%; border-radius: 999px;
+            background: linear-gradient(90deg, var(--race), var(--race-2));
+            box-shadow: 0 0 12px rgba(var(--race-rgb), 0.65);
+            transition: width var(--t-slow) var(--ease); width: 0%;
         }
         .home-race-bar-fill.goal-reached {
-            background: linear-gradient(90deg, var(--gold-deep), #ffe9b0);
+            background: linear-gradient(90deg, var(--gold-deep), var(--gold-light));
             box-shadow: 0 0 14px var(--gold-glow);
         }
         /* ⚠️ 96px 에 '1,234,000'(161px) 이 안 들어가 잘렸다. 오른쪽 정렬로 자릿수도 맞춘다. */
-        .home-race-nums { width: 196px; text-align: right; font-size: 30px; font-weight: 900; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+        .home-race-nums { width: 196px; text-align: right; font-size: 30px; font-weight: 900; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: var(--ts-1); }
         .home-race-nums .cur { color: #fff; }
         /* 각 플레이어 행 오른쪽 '목표' 배지 (예: 26만) */
         .home-race-goal-tag {
             flex: 0 0 auto; min-width: 50px; text-align: center;
-            background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55);
-            color: #cfd6ff; font-weight: 900; font-size: 27px; padding: 5px 14px; border-radius: 10px;
+            background: rgba(var(--race-rgb), 0.14); border: 1.5px solid rgba(var(--race-rgb), 0.55);
+            color: var(--race-text); font-weight: 900; font-size: 27px; padding: 4px 16px; border-radius: var(--r-s);
             font-variant-numeric: tabular-nums;
         }
         /* 하단 순환 GOAL 바 */
         .home-race-goal-line {
             display: flex; align-items: center; gap: 12px;
-            margin-top: 16px; padding: 11px 16px;
-            background: linear-gradient(160deg, rgba(16,18,34,0.92), rgba(9,10,20,0.95));
-            border: 1.5px solid rgba(120,135,255,0.5); border-radius: 16px;
-            box-shadow: 0 0 18px rgba(90,108,255,0.30);
+            margin-top: 16px; padding: 12px 16px;
+            background: var(--row-bg);
+            border: 1px solid var(--row-border); border-radius: var(--r-m);
         }
-        .home-race-goal-badge { background: linear-gradient(120deg, #6b7bff, #9a6bff); color: #fff; font-weight: 900; font-size: 27px; padding: 6px 15px; border-radius: 9px; letter-spacing: 0.5px; }
-        .hr-goal-name   { color: #9fb0ff; font-weight: 900; font-size: 32px; text-shadow: 0 0 10px rgba(107,123,255,0.5); }
+        .home-race-goal-badge { background: linear-gradient(120deg, var(--race), var(--race-2)); color: #fff; font-weight: 900; font-size: 27px; padding: 8px 16px; border-radius: var(--r-s); letter-spacing: 0.5px; }
+        .hr-goal-name   { color: var(--race-text); font-weight: 900; font-size: 32px; text-shadow: 0 0 10px rgba(var(--race-rgb), 0.5); }
         .hr-goal-label  { color: var(--tx-3); font-size: 27px; font-weight: 700; }
-        .hr-goal-remain { color: #fff; font-weight: 900; font-size: 32px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
-        .hr-goal-target { background: rgba(120,135,255,0.14); border: 1.5px solid rgba(130,145,255,0.55); color: #cfd6ff; font-weight: 900; font-size: 27px; padding: 5px 13px; border-radius: 9px; }
-        .hr-goal-count  { margin-left: auto; color: #96a0c8; font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
+        .hr-goal-remain { color: #fff; font-weight: 900; font-size: 32px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+        .hr-goal-target { background: rgba(var(--race-rgb), 0.14); border: 1.5px solid rgba(var(--race-rgb), 0.55); color: var(--race-text); font-weight: 900; font-size: 27px; padding: 4px 12px; border-radius: var(--r-s); }
+        .hr-goal-count  { margin-left: auto; color: var(--tx-2); font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
         /* GOAL 바 순환 전환: 빠르고 부드럽게(서서히) 슬라이드-페이드 */
         @keyframes hrGoalSwap { 0% { opacity: 0; transform: translateY(9px); } 100% { opacity: 1; transform: translateY(0); } }
         .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         #toon-popup.vip-premium-card {
-            border: 4px solid var(--vip-glow-color, #ffd700) !important;
-            background: linear-gradient(135deg, #1c1c1e 0%, var(--vip-glow-color-bg, rgba(255, 215, 0, 0.15)) 100%) !important;
-            box-shadow: 0 0 34px var(--vip-glow-color-border, rgba(255, 215, 0, 0.45)), inset 0 0 22px var(--vip-glow-color-bg, rgba(255, 215, 0, 0.14)) !important;
+            border: 4px solid var(--vip-glow-color, var(--gold)) !important;
+            background: linear-gradient(135deg, #1c1c1e 0%, var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)) 100%) !important;
+            box-shadow: 0 0 34px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.45)), inset 0 0 22px var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.14)) !important;
             animation: vip-gold-glow 2s infinite alternate !important;
         }
         /* 우리 팝업의 이름 요소는 #toon-name (클래스는 donator-name) 이라 id로 지정한다 */
         #toon-popup.vip-premium-card #toon-name {
-            color: var(--vip-glow-color, #ffd700) !important;
-            text-shadow: 0 0 14px var(--vip-glow-color-border, rgba(255, 215, 0, 0.6));
+            color: var(--vip-glow-color, var(--gold)) !important;
+            text-shadow: 0 0 14px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.6));
         }
         @keyframes vip-gold-glow {
-            0% { box-shadow: 0 0 18px var(--vip-glow-color-border, rgba(255, 215, 0, 0.35)), inset 0 0 10px var(--vip-glow-color-bg, rgba(255, 215, 0, 0.08)); }
-            100% { box-shadow: 0 0 38px var(--vip-glow-color-border, rgba(255, 215, 0, 0.7)), inset 0 0 24px var(--vip-glow-color-bg, rgba(255, 215, 0, 0.18)); }
+            0% { box-shadow: 0 0 18px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.35)), inset 0 0 10px var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.08)); }
+            100% { box-shadow: 0 0 38px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.7)), inset 0 0 24px var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.18)); }
         }
         /* ⚠️ 예전에는 등급마다 클래스를 두고 #ffd700 / #ffcc00 / #ffeb3b 를 박아 놨다.
               셋 다 노랑이라 화면에서 VVIP 와 GOLD 가 구별이 안 됐고, 등급이 하나 늘
               때마다 클래스를 또 만들어야 했다. 사람마다 고른 색을 쓰면 둘 다 없어진다. */
         #toon-name.vip-grade-text {
-            color: var(--vip-glow-color, #ffd700) !important;
-            text-shadow: 0 0 12px var(--vip-glow-color-border, rgba(255, 215, 0, 0.7));
+            color: var(--vip-glow-color, var(--gold)) !important;
+            text-shadow: 0 0 12px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.7));
             font-weight: 900 !important;
         }
         .vip-badge-tag {
             display: inline-block;
-            background: var(--vip-glow-color-bg, rgba(255, 215, 0, 0.15));
-            color: var(--vip-glow-color, #ffd700);
-            border: 1px solid var(--vip-glow-color-border, rgba(255, 215, 0, 0.3));
-            padding: 3px 10px; border-radius: 7px; font-size: 27px; font-weight: 800; margin-right: 8px;
+            background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15));
+            color: var(--vip-glow-color, var(--gold));
+            border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3));
+            padding: 4px 12px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; margin-right: 8px;
             vertical-align: middle;
         }
 
@@ -1327,8 +1362,8 @@
            기존 fire-vignette 요소를 그대로 재사용하되, 수동 스위치(match-fire-on)와
            서로 껐다 켰다 싸우지 않도록 별도 클래스를 쓴다. */
         body.match-fever-on .fire-vignette { opacity: 1; visibility: visible; }
-        .up-message { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.3); opacity: 0; font-size: 110px; font-weight: 900; color: #FFD700; text-shadow: 0 0 20px #ff0055, 0 0 50px #ff0055, 5px 5px 0px #000; z-index: 100000; pointer-events: none; white-space: nowrap; transition: 0.4s; } .up-message.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        .time-up-message { position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%) scale(0.3); opacity: 0; font-size: 130px; font-weight: 900; color: #fff; text-shadow: 0 0 20px #ff0055, 0 0 40px #ff0055, 0 0 80px #ff0055, 6px 6px 0px #000; z-index: 100000; pointer-events: none; white-space: nowrap; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .up-message { position: fixed; top: 40%; left: 50%; transform: translate(-50%, -50%) scale(0.3); opacity: 0; font-size: 110px; font-weight: 900; color: var(--gold); text-shadow: 0 0 20px var(--theme-neon), 0 0 50px var(--theme-neon), 5px 5px 0 #000; z-index: 100000; pointer-events: none; white-space: nowrap; transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease; } .up-message.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        .time-up-message { position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%) scale(0.3); opacity: 0; font-size: 130px; font-weight: 900; color: #fff; text-shadow: 0 0 20px var(--theme-neon), 0 0 40px var(--theme-neon), 0 0 80px var(--theme-neon), 6px 6px 0 #000; z-index: 100000; pointer-events: none; white-space: nowrap; transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease; }
         .time-up-message.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
         #toon-popup-container {
@@ -1342,7 +1377,7 @@
             padding: 36px 56px; text-align: center;
             box-shadow: var(--glass-shadow), 0 0 40px rgba(0,0,0,0.35);
             opacity: 0; visibility: hidden; transform: scale(0.8) translateY(30px);
-            transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0.5s;
+            transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease, visibility var(--t-base);
             display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 500px;
         }
         .donation-popup-content::before {
@@ -1353,8 +1388,8 @@
         .donation-popup-content.show { opacity: 1; visibility: visible; transform: scale(1) translateY(0); }
         .donator-text { font-size: 30px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; }
         .donator-name { color: #fff; }
-        .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: 0 0 28px var(--gold-glow); margin: 12px 0 14px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
-        .donation-message { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px; padding: 14px 32px; font-size: 30px; font-weight: 600; color: var(--tx-2); max-width: 700px; word-break: break-all; line-height: 1.45; }
+        .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: 0 0 28px var(--gold-glow); margin: 12px 0 16px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+        .donation-message { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--glass-border); border-radius: var(--r-m); padding: 16px 32px; font-size: 30px; font-weight: 600; color: var(--tx-2); max-width: 700px; word-break: break-all; line-height: 1.45; }
 
         /* 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
            크기/노출시간은 admin 에디터 값(--reac-title-size)으로 조절한다. */
@@ -1390,7 +1425,7 @@
             visibility: hidden;
             pointer-events: none;
             z-index: 100015;
-            transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease);
         }
         /* 글자 위·아래를 가로지르는 네온 라인 (레퍼런스의 핵심 요소) */
         #reaction-title-banner::before,
@@ -1431,7 +1466,7 @@
             justify-content: center;
             opacity: 0;
             visibility: hidden;
-            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: all var(--t-slow) var(--ease);
             z-index: 100010;
             padding: 0;
             box-sizing: border-box;
@@ -1450,8 +1485,8 @@
             max-width: 100%;
             max-height: 380px;
             object-fit: contain;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            border-radius: var(--r-m);
+            box-shadow: var(--sh-2);
         }
         .reaction-text-donator {
             margin-top: 20px;
@@ -1464,21 +1499,21 @@
             letter-spacing: -0.5px;
         }
         .reaction-text-message {
-            margin-top: 15px;
+            margin-top: 16px;
             font-size: 32px;
             font-weight: 700;
             color: #ffffff;
-            background: rgba(10, 10, 15, 0.85);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            padding: 12px 30px;
-            border-radius: 16px;
-            text-shadow: 1.5px 1.5px 3px rgba(0,0,0,0.8);
+            background: var(--glass-bg);
+            border: 2px solid var(--glass-border);
+            padding: 12px 32px;
+            border-radius: var(--r-m);
+            text-shadow: var(--ts-1);
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             text-align: center;
             max-width: 520px;
             word-break: break-all;
             line-height: 1.45;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+            box-shadow: var(--sh-2);
             display: inline-block;
         }
 
@@ -1498,14 +1533,14 @@
         #reaction-vignette {
             position: fixed; inset: 0; pointer-events: none; z-index: 100003; opacity: 0;
             background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 38%, rgba(0,0,0,0.88) 100%);
-            transition: opacity 0.55s ease;
+            transition: opacity var(--t-base) ease;
         }
         #reaction-vignette.show { opacity: var(--vig-peak, 0.4); }
 
         /* 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액) 흔들림 */
-        .reaction-img-box { position: relative; display: inline-block; border-radius: 16px; line-height: 0; }
-        .reaction-img-box.glow { box-shadow: 0 0 0 3px var(--reac-glow, #ff2d78), 0 0 30px var(--reac-glow, #ff2d78), 0 8px 32px rgba(0,0,0,0.35); }
-        .reaction-shine { position: absolute; inset: 0; border-radius: 16px; overflow: hidden; pointer-events: none; }
+        .reaction-img-box { position: relative; display: inline-block; border-radius: var(--r-m); line-height: 0; }
+        .reaction-img-box.glow { box-shadow: 0 0 0 3px var(--reac-glow, #ff2d78), 0 0 30px var(--reac-glow, #ff2d78), var(--sh-2); }
+        .reaction-shine { position: absolute; inset: 0; border-radius: var(--r-m); overflow: hidden; pointer-events: none; }
         .reaction-shine::before {
             content: ''; position: absolute; top: -20%; left: -70%; width: 45%; height: 140%;
             background: linear-gradient(115deg, transparent, rgba(255,255,255,0.78), transparent);
@@ -1573,10 +1608,10 @@
         #op-fx-card.on { opacity: 1; visibility: visible; animation: op-card-bg .4s ease-out; }
         @keyframes op-card-bg { from { opacity: 0; } to { opacity: 1; } }
         .op-card-box {
-            text-align: center; padding: 48px 90px; border-radius: 28px;
+            text-align: center; padding: 48px 88px; border-radius: var(--r-l);
             background: linear-gradient(150deg, rgba(38,30,8,.92), rgba(12,10,4,.96));
             border: 3px solid var(--gold);
-            box-shadow: 0 0 0 1px rgba(255,255,255,.10), 0 40px 120px rgba(0,0,0,.8), 0 0 120px var(--gold-glow);
+            box-shadow: 0 0 0 1px rgba(255,255,255,.10), var(--sh-4), 0 0 120px var(--gold-glow);
             animation: op-card-in .55s cubic-bezier(.16,1.5,.3,1) backwards;
         }
         #op-fx-card.on .op-card-box { animation: op-card-in .55s cubic-bezier(.16,1.5,.3,1) backwards; }
@@ -1585,12 +1620,12 @@
             70%  { opacity: 1; transform: perspective(900px) rotateX(-6deg) scale(1.04); }
             100% { opacity: 1; transform: perspective(900px) rotateX(0) scale(1); }
         }
-        .op-card-label { font-size: 30px; font-weight: 900; letter-spacing: 10px; color: var(--gold-deep); margin-bottom: 10px; }
+        .op-card-label { font-size: 30px; font-weight: 900; letter-spacing: 10px; color: var(--gold-deep); margin-bottom: 8px; }
         .op-card-name { font-size: 92px; font-weight: 900; color: #fff; line-height: 1.1;
             text-shadow: 0 0 40px var(--gold-glow), 0 6px 0 rgba(0,0,0,.55); }
-        .op-card-amount { font-size: 68px; font-weight: 900; color: var(--gold); margin-top: 6px;
+        .op-card-amount { font-size: 68px; font-weight: 900; color: var(--gold); margin-top: 8px;
             text-shadow: 0 0 30px var(--gold-glow); font-variant-numeric: tabular-nums; }
-        .op-card-msg { font-size: 30px; font-weight: 700; color: var(--tx-2, #d8d8e8); margin-top: 14px; max-width: 900px; }
+        .op-card-msg { font-size: 30px; font-weight: 700; color: var(--tx-2); margin-top: 16px; max-width: 900px; }
 
         /* ── 💥 충격파 + 화면 흔들림 ── */
         #op-fx-shock {
@@ -1689,14 +1724,14 @@
            전부 pointer-events:none — OBS 화면 조작을 막지 않는다. */
         #op-fx-flash {
             position: fixed; inset: 0; z-index: 101000; pointer-events: none;
-            background: radial-gradient(circle at 50% 45%, rgba(255,225,150,0.95), rgba(255,190,90,0.35) 45%, transparent 72%);
-            opacity: 0; transition: opacity .18s ease-out;
+            background: radial-gradient(circle at 50% 45%, rgba(var(--gold-rgb), 0.95), rgba(var(--gold-rgb), 0.35) 45%, transparent 72%);
+            opacity: 0; transition: opacity var(--t-fast) ease-out;
         }
         #op-fx-flash.on { opacity: 1; }
         #op-fx-edge {
             position: fixed; inset: 0; z-index: 101001; pointer-events: none; opacity: 0;
-            box-shadow: inset 0 0 90px 26px rgba(255,196,84,0.85), inset 0 0 200px 60px rgba(255,150,40,0.45);
-            transition: opacity .25s ease;
+            box-shadow: inset 0 0 90px 26px rgba(var(--gold-rgb), 0.85), inset 0 0 200px 60px rgba(var(--gold-rgb), 0.45);
+            transition: opacity var(--t-fast) ease;
         }
         #op-fx-edge.on { opacity: 1; animation: opEdgePulse 1.5s ease-in-out infinite; }
         @keyframes opEdgePulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
@@ -1704,27 +1739,27 @@
         #op-fx-banner {
             position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(.82);
             z-index: 101002; pointer-events: none; text-align: center;
-            opacity: 0; transition: opacity .3s ease, transform .45s cubic-bezier(0.16,1,0.3,1);
+            opacity: 0; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease);
             width: 92vw;
         }
         #op-fx-banner.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         #op-fx-banner-name {
             font-family: "Black Han Sans", "Malgun Gothic", sans-serif;
             font-size: 150px; font-weight: 900; line-height: 1.05; color: #fff;
-            text-shadow: 0 0 22px rgba(255,205,110,0.95), 0 0 60px rgba(255,170,60,0.8), 0 8px 26px rgba(0,0,0,0.75);
+            text-shadow: 0 0 22px rgba(var(--gold-rgb), 0.95), 0 0 60px rgba(var(--gold-rgb), 0.8), 0 8px 26px rgba(0,0,0,0.75);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         #op-fx-banner-sub {
-            margin-top: 10px; font-size: 54px; font-weight: 900; color: #ffdf9b;
-            text-shadow: 0 0 16px rgba(255,180,70,0.9), 0 6px 20px rgba(0,0,0,0.7);
+            margin-top: 8px; font-size: 54px; font-weight: 900; color: var(--gold-light);
+            text-shadow: 0 0 16px rgba(var(--gold-rgb), 0.9), 0 6px 20px rgba(0,0,0,0.7);
         }
 
         #op-fx-ticker {
             position: fixed; left: 0; right: 0; top: 0; height: 92px; z-index: 101003;
-            pointer-events: none; overflow: hidden; opacity: 0; transition: opacity .3s ease;
+            pointer-events: none; overflow: hidden; opacity: 0; transition: opacity var(--t-base) ease;
             background: linear-gradient(90deg, rgba(20,10,0,0.92), rgba(60,32,0,0.88), rgba(20,10,0,0.92));
-            border-bottom: 3px solid rgba(255,196,84,0.9);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+            border-bottom: 3px solid rgba(var(--gold-rgb), 0.9);
+            box-shadow: var(--sh-2);
         }
         #op-fx-ticker.on { opacity: 1; }
         #op-fx-ticker-track {
@@ -1732,8 +1767,8 @@
             white-space: nowrap; will-change: transform;
         }
         #op-fx-ticker-text {
-            font-size: 54px; font-weight: 900; color: #ffe6ad; padding: 0 60px;
-            text-shadow: 0 0 14px rgba(255,180,70,0.9);
+            font-size: 54px; font-weight: 900; color: var(--gold-light); padding: 0 60px;
+            text-shadow: 0 0 14px rgba(var(--gold-rgb), 0.9);
         }
 
     </style>
@@ -1744,10 +1779,10 @@
     <div id="fire-vignette" class="fire-vignette"></div>
 
     <!-- 🏆 퇴근 성공 초대형 팝업 (화면 상단 1/5 지점) -->
-    <div id="offwork-popup-layer" style="position: fixed; inset: 0; top: 20vh; z-index: 999999; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-        <div id="offwork-popup-box" style="background: linear-gradient(135deg, rgba(20, 20, 28, 0.96), rgba(35, 30, 15, 0.98)); border: 4px solid #ffd76b; border-radius: 30px; padding: 28px 55px; box-shadow: 0 20px 60px rgba(255, 215, 107, 0.6), inset 0 0 25px rgba(255, 255, 255, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 440px; text-align: center; transform: scale(0.6); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-            <div style="font-size: 24px; font-weight: 800; color: #ffd76b; letter-spacing: -0.5px; text-shadow: 0 0 12px rgba(255, 215, 107, 0.9);">🎉 퇴근을 축하합니다! 🥳</div>
-            <div id="offwork-player-name" style="font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: 0 4px 22px rgba(0, 0, 0, 0.9), 0 0 28px rgba(255, 215, 107, 0.95); word-break: keep-all;">🎉 플레이어 퇴근! 🏆</div>
+    <div id="offwork-popup-layer" style="position: fixed; inset: 0; top: 20vh; z-index: 999999; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; visibility: hidden; transition: all var(--t-base) var(--ease-pop);">
+        <div id="offwork-popup-box" style="background: var(--glass-bg); border: 3px solid var(--gold); border-radius: var(--r-l); padding: 28px 56px; box-shadow: var(--sh-4), var(--glow-l); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 440px; text-align: center; transform: scale(0.6); transition: transform var(--t-base) var(--ease-pop);">
+            <div style="font-size: 24px; font-weight: 800; color: var(--gold); letter-spacing: -0.5px; text-shadow: var(--ts-1);">🎉 퇴근을 축하합니다! 🥳</div>
+            <div id="offwork-player-name" style="font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: var(--ts-1), 0 0 28px var(--gold-glow); word-break: keep-all;">🎉 플레이어 퇴근! 🏆</div>
         </div>
     </div>
     <!-- 🌈 네온 테두리: 금액 등급마다 아예 다른 연출 하나. 안쪽 <g>는 스크립트가 채운다. -->
@@ -1859,7 +1894,7 @@
             <div id="ticker_bottom-container" class="widget-container" style="left: 0px; top: 882px; opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_bottom-text"></div></div></div>
 
             <!-- 🎤 노래방 모드: 붙여넣은 유튜브(inst) 영상을 큰 화면으로 (에디터에서 위치/크기 조절) -->
-            <div id="karaoke-container" class="widget-container" style="display:none; left:40px; top:560px; width:1000px; height:563px; border-radius:20px; overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(140,155,255,0.75); box-shadow:0 22px 64px rgba(0,0,0,0.65), 0 0 34px rgba(120,135,255,0.5);">
+            <div id="karaoke-container" class="widget-container" style="display:none; left:40px; top:560px; width:1000px; height:563px; border-radius:var(--r-l); overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(var(--gold-rgb), 0.75); box-shadow:var(--sh-4), var(--glow-m);">
                 <div id="karaoke-frame" style="width:100%; height:100%;"></div>
             </div>
 
@@ -1906,7 +1941,7 @@
                     시그니처(z-index 90000)와 리액션이 그 밑에 가려 '영상 때문에 아무것도
                     안 보이는' 상태가 됐다. 지금은 가운데 영상 상자만 두고, z-index 도
                     시그니처보다 낮춰 시그니처가 영상 위에 정상적으로 뜨게 한다. -->
-            <div id="acct_video-container" class="widget-container" style="display:none; left:320px; top:180px; width:1280px; height:720px; z-index:88000; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 30px 90px rgba(0,0,0,0.7); border:3px solid rgba(46,204,113,0.6);">
+            <div id="acct_video-container" class="widget-container" style="display:none; left:320px; top:180px; width:1280px; height:720px; z-index:88000; border-radius:var(--r-l); overflow:hidden; background:#000; box-shadow:var(--sh-4); border:3px solid rgba(var(--gold-rgb), 0.75);">
                 <div id="acct-video-frame" style="width:100%; height:100%;"></div>
             </div>
 
@@ -1968,15 +2003,15 @@
                 </div>
 
                 <!-- 🟢 번외 임시 게임판 마크업 추가 -->
-                <div id="extra-ranking-container" class="widget-container" style="left: 1500px; top: 183px; transform: scale(0.99); transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-                    <div class="excel-board" id="extra-excel-board" style="border-color: #ff3366; box-shadow: 0 10px 40px rgba(255, 51, 102, 0.25);">
+                <div id="extra-ranking-container" class="widget-container" style="left: 1500px; top: 183px; transform: scale(0.99); transition: all var(--t-base) var(--ease-pop);">
+                    <div class="excel-board" id="extra-excel-board" style="border-color: var(--extra); box-shadow: var(--glass-shadow), 0 0 24px rgba(var(--extra-rgb), 0.35);">
                         <div class="excel-grid-container">
                             <div class="excel-col">
-                                <div class="excel-header" style="background: #ff3366; color: #fff;"><div></div><div>플레이어</div><div>점수</div><div>기여도</div></div>
+                                <div class="excel-header" style="background: var(--extra); color: #fff;"><div></div><div>플레이어</div><div>점수</div><div>기여도</div></div>
                                 <div id="extra-rank-left"></div>
                             </div>
                             <div class="excel-col">
-                                <div class="excel-header" style="background: #ff3366; color: #fff;"><div></div><div>플레이어</div><div>점수</div><div>기여도</div></div>
+                                <div class="excel-header" style="background: var(--extra); color: #fff;"><div></div><div>플레이어</div><div>점수</div><div>기여도</div></div>
                                 <div id="extra-rank-right"></div>
                             </div>
                         </div>
@@ -2021,19 +2056,19 @@
 
 
             <!-- 🎡 팝업형 내장 룰렛 레이어 -->
-            <div id="roulette-overlay-backdrop" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 99999; opacity: 0; visibility: hidden; transition: all 0.5s ease; width: 100%; height: 100%;"></div>
+            <div id="roulette-overlay-backdrop" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.75); z-index: 99999; opacity: 0; visibility: hidden; transition: all var(--t-base) ease; width: 100%; height: 100%;"></div>
             
             <!-- 🎡 룰렛 — 게임 자리 가운데. 660×740 이라 그대로면 649 높이를 넘어 채팅에 잠긴다.
                  배율 0.866 으로 572×641 이 된다 (ROULETTE_FIT). -->
-            <div id="roulette-container" class="widget-container" style="position: absolute; left: 234px; top: 311px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s, left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto;">
-                <div class="roulette-wrap" style="position: relative; width: 660px; height: 740px; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px), linear-gradient(165deg, #16161f 0%, #0d0d14 100%); clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px); padding: 25px; box-shadow: 0 18px 44px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <h1 id="roulette-title" style="font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 28px; font-weight: 900; font-style: italic; color: #0e0e14; margin: 0 0 20px 0; text-align: center; display: inline-block; padding: 5px 28px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: 0 6px 18px var(--gold-glow);">🎡 행운의 돌림판</h1>
+            <div id="roulette-container" class="widget-container" style="position: absolute; left: 234px; top: 311px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease), visibility var(--t-base), left var(--t-slow) var(--ease), top var(--t-slow) var(--ease); pointer-events: auto;">
+                <div class="roulette-wrap" style="position: relative; width: 660px; height: 740px; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px), linear-gradient(165deg, #16161f 0%, #0d0d14 100%); clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px); padding: 24px; box-shadow: var(--sh-3); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
+                    <h1 id="roulette-title" style="font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 28px; font-weight: 900; font-style: italic; color: var(--on-gold); margin: 0 0 20px 0; text-align: center; display: inline-block; padding: 5px 28px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: var(--glow-s);">🎡 행운의 돌림판</h1>
                     <canvas id="roulette-canvas" width="600" height="600" style="display: block; width: 600px; height: 600px; border-radius: 50%;"></canvas>
                 </div>
             </div>
 
             <!-- 🎰 슬롯머신 위젯 레이어 -->
-            <div id="slot-container" class="widget-container" style="position: absolute; left: 191px; top: 452px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s, left 0.8s cubic-bezier(0.16, 1, 0.3, 1), top 0.8s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: auto;">
+            <div id="slot-container" class="widget-container" style="position: absolute; left: 191px; top: 452px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease), visibility var(--t-base), left var(--t-slow) var(--ease), top var(--t-slow) var(--ease); pointer-events: auto;">
                 <!-- 🎰 우리 테마(둥근 유리 카드 + 금색)로. 예전에는 배경 없이 비스듬히 잘린
                      각진 릴만 떠 있어, 엑셀판·계좌와 언어가 달라 혼자 다른 물건처럼 보였다.
                      ⚠️ 릴 창 170×120 은 절대 건드리지 말 것 — 릴이 멈추는 좌표가 그 숫자에
@@ -2112,7 +2147,7 @@
                 </div>
             </div>
 
-            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 6px; top: 307px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+            <div id="dicegame-container" class="widget-container" style="position: absolute; left: 6px; top: 307px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base); pointer-events: none;">
                 <div class="dg-board">
                     <div class="dg-lap-banner" id="dg-lap-banner">🎉 출발 칸 도착!</div>
                     <div class="dg-grid" id="dg-grid"></div>
@@ -2122,7 +2157,7 @@
 
             <!-- ⚠️ 왼쪽 자리를 658 로 옮겼다. 칸이 380px 이라 766 이면 오른쪽 끝이 1146 —
                  화면(1080) 밖으로 나간다. 658+380=1038 이 목표 막대(1046) 바로 앞이다. -->
-            <div id="donor-rank-container" class="widget-container" style="position: absolute; left: 658px; top: 387px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+            <div id="donor-rank-container" class="widget-container" style="position: absolute; left: 658px; top: 387px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base); pointer-events: none;">
                 <div class="donor-rank-board">
                     <div class="donor-rank-header">🏅 후원 순위</div>
                     <!-- ⚠️ 줄 높이가 63px 이라 8줄이면 아래끝이 966 — 안전지대(954) 를 넘어
@@ -2131,9 +2166,9 @@
                 </div>
             </div>
 
-            <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 800px; top: 315px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity 0.4s ease, visibility 0.4s; pointer-events: none;">
+            <div id="sig-tally-container" class="widget-container" style="position: absolute; left: 800px; top: 315px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base); pointer-events: none;">
                 <div class="sig-tally-board">
-                    <div class="sig-tally-header">🎵 오늘의 시그니처</div>
+                    <div class="sig-tally-header">🎵 시그 집계</div>
                     <div id="sig-tally-rows" style="display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
             </div>
@@ -6095,12 +6130,12 @@
             const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
             // 점수판 테마에 맞춘 둥근 카드 행 (예전 각진 클립패스 → border-radius)
             const html = list.map(r => `
-                <div style="position:relative; height:54px; overflow:hidden; border-radius:12px; border:1px solid rgba(255,255,255,0.10); box-shadow:0 6px 16px rgba(0,0,0,0.6);">
+                <div style="position:relative; height:54px; overflow:hidden; border-radius:var(--r-m); border:1px solid var(--row-border); box-shadow:var(--sh-1);">
                     ${r.image_url ? `<img src="${esc(r.image_url)}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">` : `<div style="position:absolute; inset:0; background:#14141c;"></div>`}
                     <div style="position:absolute; inset:0; background:linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.72) 100%);"></div>
-                    <div style="position:absolute; left:5px; top:5px; font-size:12px; font-weight:900; color:#241a05; background:linear-gradient(120deg,var(--gold),var(--gold-deep)); padding:1px 8px; border-radius:8px; box-shadow:0 2px 8px var(--gold-glow);">${r.count}개</div>
+                    <div style="position:absolute; left:5px; top:5px; font-size:12px; font-weight:900; color:var(--on-gold); background:linear-gradient(120deg,var(--gold),var(--gold-deep)); padding:1px 8px; border-radius:var(--r-s); box-shadow:0 2px 8px var(--gold-glow);">${r.count}개</div>
                     <div style="position:absolute; left:0; right:0; bottom:4px; text-align:center; font-size:16px; font-weight:900; color:var(--gold); font-variant-numeric:tabular-nums; text-shadow:0 0 10px var(--gold-glow), 0 2px 5px rgba(0,0,0,0.95); letter-spacing:0.3px;">${formatNum(r.amount || 0)}</div>
-                    <div style="position:absolute; left:0; right:0; top:16px; text-align:center; font-size:14px; font-weight:800; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px;">${esc(r.title || '')}</div>
+                    <div style="position:absolute; left:0; right:0; top:16px; text-align:center; font-size:14px; font-weight:800; color:#fff; text-shadow:var(--ts-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 6px;">${esc(r.title || '')}</div>
                 </div>`).join('');
             if (html !== lastSigTallyHtml) { rowsEl.innerHTML = html; lastSigTallyHtml = html; }
         }
@@ -6695,7 +6730,7 @@
             if (nameEl) nameEl.textContent = p.name;
             if (remEl) remEl.innerHTML = (p.goal > 0 && remain === 0)
                 ? '퇴근 완료 🎉'
-                : (formatNum(remain) + '<span style="font-size:15px;color:#aab2d6;margin-left:2px;">점</span>');
+                : (formatNum(remain) + '<span style="font-size:15px;color:var(--tx-2);margin-left:2px;">점</span>');
             if (tgtEl) tgtEl.textContent = '목표 ' + manLabel(p.goal) + '점';
             if (cntEl) cntEl.textContent = (homeRaceCycleIdx + 1) + '/' + data.length;   // 예: 1/6
             // 순환으로 사람이 바뀔 때만 부드러운 스왑(같은 사람 금액 갱신은 애니메이션 없이)
@@ -6843,15 +6878,15 @@
                 const amt = (item.amount || 0).toLocaleString();
                 const img = item.image_url || '/money.png';
                 // 리뉴얼 팔레트: 일반 카드는 흰색, 당첨 카드만 엔젤 골드로 발광
-                const accent = isWinner ? '#f6c453' : '#ffffff';
-                const glow = isWinner ? 'rgba(246,196,83,0.8)' : 'rgba(0,0,0,0.6)';
-                const border = isWinner ? 'rgba(246,196,83,0.75)' : 'rgba(255,255,255,0.12)';
+                const accent = isWinner ? 'var(--gold)' : '#ffffff';
+                const glow = isWinner ? 'var(--gold-glow)' : 'rgba(0,0,0,0.6)';
+                const border = isWinner ? 'rgba(var(--gold-rgb), 0.75)' : 'rgba(255,255,255,0.12)';
                 return `
                     <div style="width: 170px; height: ${cardHeight}px; position: relative; overflow: hidden; box-sizing: border-box; background: ${isWinner ? '#1c1408' : '#101016'}; border-bottom: 2px solid ${border};">
                         <img src="${img}" onerror="this.src='/money.png'" style="width: 100%; height: 100%; object-fit: cover; display: block;">
                         <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 8px 6px; box-sizing: border-box; background: linear-gradient(to top, rgba(0,0,0,0.94) 55%, rgba(0,0,0,0));">
                             <div style="font-size: 14px; font-weight: 900; font-style: italic; color: ${accent}; text-shadow: 0 0 10px ${glow}, 0 1px 3px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;">${escapeSlotText(t)}</div>
-                            <div style="font-size: 12px; font-weight: 800; color: ${isWinner ? '#ffe9b0' : 'rgba(235,235,245,0.75)'}; text-shadow: 0 1px 3px #000; text-align: center; font-variant-numeric: tabular-nums;">${amt}원</div>
+                            <div style="font-size: 12px; font-weight: 800; color: ${isWinner ? 'var(--gold-light)' : 'rgba(235,235,245,0.75)'}; text-shadow: 0 1px 3px #000; text-align: center; font-variant-numeric: tabular-nums;">${amt}원</div>
                         </div>
                     </div>
                 `;

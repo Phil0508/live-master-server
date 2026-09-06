@@ -177,10 +177,10 @@ chk('위쪽 하이라이트 한 줄이 있다', '.slot-card::before' in css)
 chk('머리글의 금색 알약을 걷어냈다',
     re.search(r'\.slot-ttl \{[^}]*background:', css, re.S) is None)
 chk('금색은 밑줄로만 남긴다',
-    re.search(r'\.slot-ttl \{[^}]*border-bottom: 2px solid rgba\(246,196,83', css, re.S) is not None)
+    re.search(r'\.slot-ttl \{[^}]*border-bottom: 2px solid rgba\((?:246,196,83|var\(--gold-rgb\))', css, re.S) is not None)
 # ⚠️ 비스듬히 자르던 clip-path 가 남아 있으면 되돌아간 것이다
 chk('릴을 비스듬히 자르지 않는다', 'clip-path: polygon(7px 0' not in ov)
-chk('릴을 둥글린다', re.search(r'\.slot-reel \{[^}]*border-radius: 16px', css, re.S) is not None)
+chk('릴을 둥글린다', re.search(r'\.slot-reel \{[^}]*border-radius: (?:16px|var\(--r-m\))', css, re.S) is not None)
 # ⚠️ 릴 창 170×120 은 릴이 멈추는 좌표(cardHeight = 120)와 묶여 있다.
 #    바꾸면 당첨 칸이 어긋난다 — 모양을 바꾸면서도 이 숫자는 지켜야 한다.
 chk('릴 창이 170×120 그대로다 (멈추는 좌표와 묶여 있다)',
