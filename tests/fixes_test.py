@@ -343,6 +343,30 @@ chk('방송을 끝내면 비워진다', not (get().get('notice_donors') or []),
 
 print()
 print('=' * 74)
+print('⑩ 전광판에 적는 이름은 바깥에서 온 값이다 — 자르고 별표를 뗀다')
+print('=' * 74)
+chk('이름 길이 상한이 있다', 'NOTICE_DONOR_NAME_MAX = ' in SV)
+chk('자른 뒤 넣는다', '_nm[:NOTICE_DONOR_NAME_MAX]' in SV)
+# ⚠️ 전광판은 *별표* 를 굵게 바꾼다. 이름에 별표가 하나 끼면 그 뒤가 통째로 굵어진다.
+chk('별표를 뗀다', ".replace('*', '')" in SV)
+
+post('/api/server/start_broadcast', {'names': ['가', '나']})
+_u2 = str(int(time.time() * 1000))
+_long = '가나다라마바사아자차카타파하' * 4          # 56글자
+post('/api/donation', {'name': _long, 'amount': 700, 'message': '', 'tx_id': 'ln_' + _u2})
+post('/api/donation', {'name': '별*표*이름', 'amount': 800, 'message': '', 'tx_id': 'st_' + _u2})
+time.sleep(1.2)
+nd = get().get('notice_donors') or []
+names = [x.get('name') for x in nd]
+chk('긴 이름이 잘려 들어간다', any(len(n) <= 16 for n in names) and not any(len(n) > 16 for n in names),
+    [(n, len(n)) for n in names])
+chk('별표가 빠진다', all('*' not in n for n in names), names)
+chk('그래도 대기함에는 원래 이름 그대로', any(len(str(d.get('name') or '')) > 16
+    for d in (get().get('pending_donations') or [])),
+    [str(d.get('name'))[:20] for d in (get().get('pending_donations') or [])])
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 print('=' * 74)
 sys.exit(1 if BAD else 0)

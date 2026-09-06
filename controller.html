@@ -7590,15 +7590,15 @@
             const cur = (sgState() || {}).cards || [];
             if (cur.length) {
                 const flipped = cur.filter(c => c.flippedAt).length;
-                if (!confirm('이미 ' + cur.length + '장이 깔려 있습니다'
+                if (!await premiumConfirm('이미 ' + cur.length + '장이 깔려 있습니다'
                            + (flipped ? ' (뒤집은 카드 ' + flipped + '장)' : '') + '.\n\n'
-                           + '새로 깔면 지금 판과 달성 기록이 모두 사라집니다. 계속할까요?')) return;
+                           + '새로 깔면 지금 판과 달성 기록이 모두 사라집니다. 계속할까요?', '카드 다시 깔기', 'question')) return;
             }
             const d = await sgCall('deal', { minutes: sgNum('sg-min', 10), target: sgNum('sg-target', 5) });
             if (d) acctToast(d.count + '장을 깔았습니다 (' + d.cols + '×' + d.rows + ', 뒤집을 장수 ' + d.target + ')', 'ok');
         }
         async function sgShuffle() {
-            if (!confirm('다시 섞을까요? 달성 기록도 초기화됩니다.')) return;
+            if (!await premiumConfirm('다시 섞을까요? 달성 기록도 초기화됩니다.', '판 다시 섞기', 'question')) return;
             if (await sgCall('shuffle')) acctToast('자리를 다시 섞었습니다', 'ok');
         }
         // 🃏 목표만 한 줄로 올리기 — 언제 올릴지는 진행자가 정한다.
@@ -7620,11 +7620,11 @@
         }
 
         async function sgRevealAll() {
-            if (!confirm('남은 카드를 전부 공개할까요? (게임이 끝난 뒤 쓰는 기능입니다)')) return;
+            if (!await premiumConfirm('남은 카드를 전부 공개할까요?\n(게임이 끝난 뒤 쓰는 기능입니다)', '전부 공개', 'question')) return;
             if (await sgCall('reveal')) acctToast('전부 공개했습니다', 'ok');
         }
         async function sgClear() {
-            if (!confirm('판을 치울까요? 고른 시그니처 목록은 그대로 남습니다.')) return;
+            if (!await premiumConfirm('판을 치울까요?\n고른 시그니처 목록은 그대로 남습니다.', '판 치우기', 'question')) return;
             if (await sgCall('clear')) acctToast('판을 치웠습니다', 'ok');
         }
         async function sgTimer(action) {
@@ -7646,9 +7646,9 @@
             const g = sgState() || {};
             const flipped = ((g.cards || []).filter(c => c.flippedAt)).length;
             const target = g.target || 5;
-            if (!confirm(id + '번 카드를 뒤집을까요?\n\n'
+            if (!await premiumConfirm(id + '번 카드를 뒤집을까요?\n\n'
                        + '뒤집으면 이번 판의 목표가 되고 되돌릴 수 없습니다.\n'
-                       + '(지금 ' + flipped + '/' + target + '장)')) return;
+                       + '(지금 ' + flipped + '/' + target + '장)', '카드 뒤집기', 'question')) return;
             const d = await sgCall('flip', { id });
             if (!d) return;
             if (d.already) acctToast(id + '번은 이미 뒤집혔습니다', 'info');
@@ -7662,9 +7662,9 @@
             const g = sgState() || {};
             const goals = (g.cards || []).filter(c => c.flippedAt);
             const left = goals.filter(c => !c.doneAt).length;
-            if (left > 0 && !confirm('아직 ' + left + '장이 남아 있습니다.\n\n'
+            if (left > 0 && !await premiumConfirm('아직 ' + left + '장이 남아 있습니다.\n\n'
                                    + '남은 목표를 전부 달성 처리하고 올클리어를 터뜨릴까요?\n'
-                                   + '(한 방에 몰아서 쏜 후원일 때 쓰는 버튼입니다)')) return;
+                                   + '(한 방에 몰아서 쏜 후원일 때 쓰는 버튼입니다)', '올클리어', 'question')) return;
             const d = await sgCall('allclear');
             if (d) acctToast('🎉 ALL CLEAR! (' + d.count + '장'
                              + (d.filled ? ' · ' + d.filled + '장 한 번에 달성' : '') + ')', 'ok');

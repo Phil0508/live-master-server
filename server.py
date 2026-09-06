@@ -795,6 +795,8 @@ REACTION_QUEUE_MAX = 40
 # 💛 전광판에 올릴 소액 후원자 수. 넘으면 오래된 것부터 흘려보낸다.
 #    ⚠️ 무한히 쌓으면 전광판 한 줄이 끝없이 길어져 다음 회차를 밀어낸다.
 NOTICE_DONORS_MAX = 20
+# 💛 전광판에 적을 이름 길이. 바깥에서 오는 값이라 상한이 필요하다.
+NOTICE_DONOR_NAME_MAX = 16
 
 # 점수 로그 보관 개수. 위와 같은 이유로 상한이 필요하다.
 LOG_MAX = 200
@@ -3916,7 +3918,13 @@ def receive_donation():
                 try:
                     if _norm_donor(parsed_name) not in excluded_names():
                         _nd = state.setdefault('notice_donors', [])
-                        _nd.append({'name': ' '.join(str(parsed_name or '').split()) or '익명',
+                        # ⚠️ 이름 길이를 자른다. 후원자 이름은 바깥에서 오는 값이라 길이 제한이
+                        #    없다 — 긴 이름 하나가 전광판 한 줄을 통째로 밀어내고, 그 줄이 길수록
+                        #    오래 떠 있어(noticeDur) 다음 안내까지 늦춘다.
+                        # ⚠️ 별표(*)도 뗀다. 전광판은 *별표* 를 굵게 바꾸는데, 이름에 별표가
+                        #    하나 끼면 그 뒤 글자가 통째로 굵어진다.
+                        _nm = ' '.join(str(parsed_name or '').split()).replace('*', '')
+                        _nd.append({'name': _nm[:NOTICE_DONOR_NAME_MAX] or '익명',
                                     'amount': int(amount), 'ts': int(time.time() * 1000)})
                         del _nd[:-NOTICE_DONORS_MAX]      # 오래된 것부터 흘려보낸다
                 except Exception as _e:
