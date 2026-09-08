@@ -6816,7 +6816,11 @@ def api_dicegame_tile():
         if not (0 <= tid < len(tiles)):
             return jsonify({'status': 'error', 'message': '없는 칸입니다'}), 400
         tile = {'id': tid, 'type': ttype, 'label': label}
-        if ttype == 'score':
+        # 숫자를 쓰는 칸은 넷이다. 뜻은 종류마다 다르다 —
+        #   score 점수 · move 몇 칸(음수면 뒤로) · goto 칸 번호 · giveall 기여도
+        # ⚠️ 예전에는 score 만 저장했다. 그래서 싱크홀(-5)·전원지급(5)이 0 으로
+        #    저장돼 밟아도 아무 일이 없었다(블랙홀만 목표가 0 이라 우연히 맞았다).
+        if ttype in ('score', 'move', 'goto', 'giveall'):
             tile['points'] = points
         if ttype == 'sig' and sig:
             tile['sig'] = sig
