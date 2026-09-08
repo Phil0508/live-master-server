@@ -6850,8 +6850,11 @@
                             playSfx(t2.type === 'key' ? 'dice-key'
                                   : (t2.type === 'score' && (t2.points || 0) > 0) ? 'dice-score'
                                   : t2.type === 'score' ? 'dice-miss' : 'dice-step');
-                            dgShowCard({ tile: t2, key: af.key, scored: af.scored,
-                                         score_note: af.note });
+                            // 끌려간 자리가 황금열쇠면 여기서도 뽑는 연출을 거친다 —
+                            // 첫 착지에서만 뽑고 여기선 글만 뜨면 같은 칸이 두 가지로 보인다.
+                            const showAfter = () => dgShowCard({ tile: t2, key: af.key, scored: af.scored,
+                                                                 score_note: af.note });
+                            if (t2.type === 'key') dgKeyDraw(showAfter); else showAfter();
                         }
                     });
                 }
