@@ -6693,6 +6693,16 @@
                         dgPlacePieces(act.piece, af.to);
                         const t3 = document.getElementById('dg-tile-' + af.to);
                         if (t3) { t3.classList.add('dg-land'); dgAfter(3000, () => t3.classList.remove('dg-land')); }
+                        // 끌려간 자리의 칸도 제 일을 한다 — 카드를 다시 띄운다.
+                        // 판에서 쓰는 dgShowCard 를 그대로 부른다(새로 만들지 않는다).
+                        const t2 = af.tile || {};
+                        if (t2.type && t2.type !== 'blank' && t2.type !== 'start') {
+                            playSfx(t2.type === 'key' ? 'dice-key'
+                                  : (t2.type === 'score' && (t2.points || 0) > 0) ? 'dice-score'
+                                  : t2.type === 'score' ? 'dice-miss' : 'dice-step');
+                            dgShowCard({ tile: t2, key: af.key, scored: af.scored,
+                                         score_note: af.note });
+                        }
                     });
                 }
             });

@@ -7058,6 +7058,41 @@ def api_dicegame_roll():
             action['after'] = {'kind': _tt, 'from': to, 'to': _dest, 'path': _path2,
                                'label': tile.get('label') or '',
                                'tile': {k: _t2.get(k) for k in ('id', 'type', 'label', 'points')}}
+            # 🎯 끌려간 자리의 칸도 제 일을 해야 한다. 뒤로 5칸 밀렸는데 그 자리가
+            #    기여도 칸이면 그 기여도를 받아야 말이 된다.
+            #    ⚠️ 다시 옮기는 칸(move·goto)에는 걸지 않는다 — 싱크홀에서 싱크홀로
+            #       끝없이 튕길 수 있고, 방송 중에 그게 터지면 손쓸 수가 없다.
+            #    ⚠️ 시그니처 칸도 뺐다. 재생 큐가 얽혀 있어 굴림 한 번에 두 곡이
+            #       걸릴 수 있다. 그 자리에 서면 진행자가 직접 틀어준다.
+            _d2 = _t2.get('type')
+            if _d2 == 'score' and _t2.get('points'):
+                _p2 = _as_int(_t2.get('points'), 0) or 0
+                if contrib_player:
+                    _got = _dicegame_apply_contrib(
+                        state, contrib_player, _p2,
+                        (_t2.get('label') or '점수 칸') + ' (끌려간 자리)')
+                    if _got:
+                        action['after']['scored'] = {'name': _got, 'points': _p2}
+                        print(f"🎯 [주사위게임] 끌려간 자리 {_dest}번 → {_got} 기여도 {_p2}", flush=True)
+                    else:
+                        action['after']['note'] = "'%s' 을(를) 명단에서 못 찾아 기여도는 안 넣었습니다" % contrib_player
+                else:
+                    action['after']['note'] = '누구 차례인지 몰라 기여도는 손으로 주세요'
+            elif _d2 == 'giveall':
+                _p2 = _as_int(_t2.get('points'), 0) or 0
+                _names = []
+                if _p2:
+                    _why2 = (_t2.get('label') or '전원 지급') + ' 칸 (끌려간 자리)'
+                    for _pc in g['pieces']:
+                        try:
+                            if _dicegame_apply_contrib(state, _pc['name'], _p2, _why2):
+                                _names.append(_pc['name'])
+                        except Exception as e:
+                            print(f'⚠️ [주사위게임] 끌려간 자리 전원 지급 실패 — 계속합니다: {e}')
+                action['after']['giveall'] = {'points': _p2, 'names': _names}
+            elif _d2 == 'key':
+                _keys2 = [str(x) for x in (g.get('keys') or []) if str(x).strip()]
+                action['after']['key'] = random.choice(_keys2) if _keys2 else '(황금열쇠 덱이 비어 있습니다)'
             print(f"🕳️ [주사위게임] {tile.get('label') or _tt} → {to}번에서 {_dest}번으로", flush=True)
             to = _dest
         elif _tt == 'giveall':
