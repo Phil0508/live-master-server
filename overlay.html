@@ -386,12 +386,6 @@
         .rank-3 .r-rank { background: var(--bronze); color: var(--on-bronze); }
         .rank-1 .r-score { color: var(--gold); }
 
-        /* 계좌가 들어앉는 자리 — 운영비 줄이 쓰던 간격을 그대로 물려받는다.
-           .acc-box-v2 가 이미 유리 카드라 여기에 배경을 또 깔면 두 겹이 된다. */
-        .acc-in-board { margin-top: 8px; }
-        /* ⚠️ .acc-box-v2 는 머리 줄에 있을 때를 기준으로 max-width:640px 이 걸려 있다.
-           판 아랫줄에서는 판 폭(약 886)을 꽉 채워야 '길쭉한' 모양이 나오므로 푼다. */
-        .acc-in-board .acc-box-v2 { width: 100%; max-width: none; box-sizing: border-box; }
 
         .row-bottom {
             display: flex; align-items: center; justify-content: space-between; padding: 12px 20px;
@@ -2054,15 +2048,11 @@
                                 <div id="rank-right"></div>
                             </div>
                         </div>
-                        <!-- 운영비 자리에 계좌를 넣었다. 운영비 점수는 화면에서만 빠지고
-                             총계 계산(bot.score)에는 그대로 쓰인다 — 정산은 안 건드린다. -->
-                        <div class="acc-in-board">
-                            <div class="acc-box-v2" id="account-box-ui" style="opacity: 0; visibility: hidden;">
-                                <span class="acc-ico">🏦</span>
-                                <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
-                                <span class="acc-num-v2" id="ui-num">464-068673-04-016</span>
-                            </div>
-                        </div>
+                        <!-- 운영비 표시는 뺐다. 그 점수(bottom_fixed)는 총계 계산과 보고에
+                             그대로 쓰이므로 데이터는 안 건드렸다 — 정산이 틀어지면 안 된다.
+                             계좌는 판 밖(자기 칸)에 있다. 판은 게임마다 숨거나 화면 밖으로
+                             비켜나는데 계좌는 늘 떠 있어야 해서, 운명을 같이하면 안 된다
+                             (판 안에 넣었다가 퇴근빵과 겹치고 번외에서 사라졌다). -->
                     </div>
                 </div>
 
@@ -2192,7 +2182,13 @@
             <div id="headrow" style="position: absolute; left: 0; top: 0; width: 1080px; height: 0; z-index: 100000; pointer-events: none;">
                 <!-- 계좌는 엑셀판 아랫줄(운영비 자리)로 옮겼다. 이 칸은 배치 편집기가
                      아는 위젯(LAY_IDS)이라 지우지 않고 비워 둔다 — 지우면 저장된 배치가 깨진다. -->
-                <div id="account-container" class="widget-container" style="position: absolute; left: 6px; top: 115px;"></div>
+                <div id="account-container" class="widget-container" style="position: absolute; left: 6px; top: 115px;">
+                    <div class="acc-box-v2" id="account-box-ui" style="opacity: 0; visibility: hidden;">
+                        <span class="acc-ico">🏦</span>
+                        <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
+                        <span class="acc-num-v2" id="ui-num">464-068673-04-016</span>
+                    </div>
+                </div>
                 <!-- ⚠️ .notice-board 는 width:100% 라 칸을 따라간다. 묶음을 풀면 기댈 데가
                      없어 50px 로 쪼그라든다 — 칸에 폭을 준다.
                      계좌가 아랫줄로 내려가 위쪽이 통째로 비었으므로 전부 쓴다(1080 - 좌우 6). -->
@@ -3325,6 +3321,9 @@
                   자리를 도로 덮어써서, 편집기에서 옮겨도 방송이 안 듣는다.
                   배치 파일에 있으면 손대지 않는다. */
             const laid = id => layOK && !!ly[id];
+            // 계좌·전광판 자리를 코드가 옮겨도 되는지 — 편집기에서 잡아 뒀으면 그쪽이 우선
+            window.__accLaid = laid('account');
+            window.__noticeLaid = laid('notice');
 
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
@@ -3379,6 +3378,72 @@
            ⚠️ 주사위판은 y 307~936 이고 엑셀판은 y 167 에서 최소 261px(줄이 최소 3줄)이라
               아래끝이 427 이다 — 안 숨기면 반드시 겹친다. 예전에는 안 숨겼다. */
         const rankHiddenBy = { race: false, dice: false };
+
+        /* 🏦 계좌 자리 — 평소엔 점수판 바로 아래(운영비가 있던 자리), 게임이 켜져
+           점수판이 숨거나 화면 밖으로 비켜나면 머리 줄로 올라간다.
+           ⚠️ 실측해 보니 어느 게임에서도 안 겹치는 띠는 머리 줄(115~163) 뿐이다 —
+              퇴근빵 167~455 · 주사위 307~956 · 룰렛 311~955 · 슬롯 452~812.
+              그래서 '판을 따라다니되 게임 때는 머리 줄로 비킨다' 로 정했다.
+           ⚠️ 계좌가 머리 줄로 오면 안내 전광판과 자리를 나눠 써야 한다 —
+              계좌 640 + 사이 8 + 전광판 388 = 1036. 계좌가 내려가 있을 땐 전광판이 다 쓴다.
+           ⚠️ 편집기에서 자리를 잡아 뒀으면(__accLaid / __noticeLaid) 손대지 않는다. */
+        function syncAccountPos() {
+            const el = document.getElementById('account-container');
+            const rank = document.getElementById('ranking-container');
+            const box = document.getElementById('account-box-ui');
+            const nc = document.getElementById('notice-container');
+            if (!el || !rank) return;
+            // 판 아래 자리를 쓰는 게임이 실제로 떠 있는가 — 룰렛·슬롯은 판을 숨기지 않고
+            // 위에 겹쳐 뜨므로 rankHiddenBy 만으론 못 잡는다. 화면에 떠 있는지로 본다.
+            const covered = ['roulette-container', 'slot-container', 'siggame-container'].some(id => {
+                const g = document.getElementById(id);
+                if (!g) return false;
+                const st = getComputedStyle(g);
+                return st.visibility !== 'hidden' && parseFloat(st.opacity) > 0.5
+                       && g.getBoundingClientRect().width > 2;
+            });
+            const away = rankHiddenBy.race || rankHiddenBy.dice || currentExtraActiveState || covered;
+            if (!window.__accLaid) {
+                if (away) {
+                    el.style.left = '6px'; el.style.right = 'auto';
+                    el.style.top = '115px'; el.style.width = '';
+                    if (box) { box.style.width = ''; box.style.maxWidth = ''; }
+                } else {
+                    // offsetTop/Height 는 방송판 좌표(1080×1920) 그대로라 화면 배율과 무관하다
+                    el.style.left = 'auto'; el.style.right = '42px';
+                    el.style.top = (rank.offsetTop + rank.offsetHeight + 8) + 'px';
+                    el.style.width = rank.offsetWidth + 'px';
+                    // 판 아래에서는 판 폭을 꽉 채운다. 머리 줄 기준으로 걸린 640px 제한을 푼다.
+                    if (box) { box.style.width = '100%'; box.style.maxWidth = 'none'; }
+                }
+            }
+            // 전광판은 계좌가 머리 줄에 있으면 오른쪽으로 물러나고, 없으면 다 쓴다
+            if (nc && !window.__noticeLaid) {
+                nc.style.left = away ? '654px' : '6px';
+                nc.style.width = away ? '388px' : '1068px';
+            }
+        }
+
+        /* 게임 위젯이 떴다 졌다 하면 계좌 자리를 다시 잡는다.
+           ⚠️ 부르는 자리를 하나씩 늘리는 방식으로 세 번 틀렸다 — 위젯마다 그려지는 시점이
+              달라서(룰렛은 handleData 를 안 거친다) 어디에 넣어도 놓치는 게 생겼다.
+              그래서 '누가 부르는가' 대신 '바뀌면 알아챈다' 로 바꿨다. style/class 만 본다. */
+        (function watchAccountBlockers() {
+            const ids = ['roulette-container', 'slot-container', 'siggame-container',
+                         'dicegame-container', 'home-race-container', 'extra-ranking-container',
+                         'ranking-container'];
+            let pending = null;
+            const kick = () => {
+                if (pending) return;   // 한 렌더에서 여러 개가 바뀌므로 한 박자 모아 한 번만
+                pending = setTimeout(() => { pending = null; try { syncAccountPos(); } catch (e) {} }, 60);
+            };
+            ids.forEach(id => {
+                const g = document.getElementById(id);
+                if (!g) return;
+                try { new MutationObserver(kick).observe(g, { attributes: true, attributeFilter: ['style', 'class'] }); }
+                catch (e) {}
+            });
+        })();
         function syncRankVisible() {
             const el = document.getElementById('ranking-container');
             if (!el) return;
@@ -3387,6 +3452,7 @@
             const hide = rankHiddenBy.race || rankHiddenBy.dice;
             el.style.opacity = hide ? '0' : '1';
             el.style.visibility = hide ? 'hidden' : 'visible';
+            syncAccountPos();   // 계좌는 판을 따라 자리를 옮긴다
         }
         // 현재 재생 중인 시그니처의 '@@업' 문구 ("홍길동님"→"홍길동업", 슬롯 당첨은 시그니처 제목)
         function reactionUpText(item, gd) {
@@ -4147,6 +4213,7 @@
                     accBox.style.opacity = 0;
                     accBox.style.visibility = 'hidden';
                 }
+                try { syncAccountPos(); } catch (e) {}   // 계좌 유무가 바뀌면 자리도 다시
 
                 if (d.up_trigger && d.up_trigger.time !== lastUpTriggerTime) { lastUpTriggerTime = d.up_trigger.time; const upEl = document.getElementById('up-message-layer'); upEl.innerText = d.up_trigger.text; upEl.style.transition = 'none'; upEl.classList.remove('show'); void upEl.offsetWidth; upEl.style.transition = ''; upEl.classList.add('show'); clearTimeout(upMessageTimer); upMessageTimer = setTimeout(() => { upEl.classList.remove('show'); }, 2000); }
                 
@@ -4304,6 +4371,8 @@
                 //    통째로 건너뛰었다. 그 예외는 데이터가 원인이라 매 틱 반복되므로
                 //    콘솔에 경고 한 줄만 남긴 채 큐가 방송 내내 멈춰 있었다.
                 try { checkReactionQueue(); } catch(e2) { console.error("⚠️ checkReactionQueue Error:", e2); }
+                // 계좌 자리는 다 그린 뒤 한 번 더 — 게임 위젯은 계좌 판단보다 늦게 그려진다
+                try { syncAccountPos(); } catch(e3) { console.error("⚠️ 계좌 자리:", e3); }
             }
         }
 

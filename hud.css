@@ -26,8 +26,6 @@
 .rank-2 .r-rank { background: var(--silver); color: var(--on-silver); }
 .rank-3 .r-rank { background: var(--bronze); color: var(--on-bronze); }
 .rank-1 .r-score { color: var(--gold); }
-.acc-in-board { margin-top: 8px; }
-.acc-in-board .acc-box-v2 { width: 100%; max-width: none; box-sizing: border-box; }
 .row-bottom { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; background: rgba(var(--gold-rgb), 0.06); border: 1px solid rgba(var(--gold-rgb), 0.22); border-radius: var(--r-m); margin-top: 8px; }
 .row-bottom .b-name { color: var(--tx-2); font-weight: 700; font-size: 27px; }
 .row-bottom .b-score { color: var(--gold); font-weight: 900; font-size: 30px; position: relative; font-variant-numeric: tabular-nums; }
