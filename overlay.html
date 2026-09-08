@@ -361,6 +361,24 @@
                                                        inset 0 0 0 2px rgba(var(--gold-rgb), .35); }
             100% { transform: scale(1);    box-shadow: none; }
         }
+        /* 🔎 판이 숨겨진 동안(주사위게임 등) 기여도가 바뀐 그 줄만 꺼내 온다.
+           주사위게임은 기여도를 주는 게임인데 정작 기여도 판이 안 보인다 —
+           판 전체를 다시 띄우면 주사위판과 반드시 겹친다(엑셀판 아래끝 427 >
+           주사위판 위끝 307).
+           ⚠️ 여기서 새로 꾸미지 않는다. 줄은 판에 있던 그대로 복제하고, 판때기도
+              판이 쓰는 .excel-board(유리 배경)를 그대로 씌운다. 줄만 꺼내면
+              영상 위에 글자만 떠서 안 읽힌다.
+           ⚠️ 착지 카드가 고리 한가운데(560px 이상)를 쓴다. 그 아래로 비켜 놓는다. */
+        #contrib-float {
+            position: absolute; left: 50%; top: 760px; transform: translateX(-50%);
+            z-index: 100050; pointer-events: none; opacity: 0; visibility: hidden;
+        }
+        #contrib-float.show { opacity: 1; visibility: visible; animation: cfIn .34s var(--ease-pop) both; }
+        @keyframes cfIn {
+            0%   { opacity: 0; transform: translateX(-50%) translateY(16px) scale(.92); }
+            55%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.03); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
         .excel-row:nth-child(even) { background: rgba(255,255,255,0.03); }
         .excel-row.rank-1 { background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.20), transparent 70%); }
         .rank-1 .r-rank { background: var(--gold);   color: var(--on-gold); }
@@ -1984,6 +2002,9 @@
                 </div>
             </div>
 
+            <!-- 판이 숨겨졌을 때 기여도가 바뀐 줄 하나만 띄우는 자리 -->
+            <div id="contrib-float" aria-hidden="true"></div>
+
             <div id="popup-container" class="widget-container">
                 <div id="center-popup" class="center-popup-content">
                     <span id="popup-text"></span><span style="color:var(--text-secondary); margin-left:15px;" id="popup-score"></span>
@@ -2384,16 +2405,62 @@
         
         function popScore(el, diff) { const p = document.createElement('div'); p.className = 'score-pop'; p.innerText = '+' + formatNum(diff); el.appendChild(p); setTimeout(() => p.remove(), 1000); }
 
-        // 🔎 기여도가 오른 선수 줄을 잠깐 키운다.
+        // 판(엑셀판)이 지금 화면에 안 보이는가.
+        //   ⚠️ 숨기는 방식이 두 가지다 — 주사위게임은 opacity/visibility 로 감추고,
+        //      번외판은 left:-800px 로 화면 밖에 내보낸다. 둘 다 잡아야 한다.
+        function lmBoardHidden(el) {
+            let cur = el;
+            while (cur && cur !== document.body) {
+                const st = getComputedStyle(cur);
+                if (st.visibility === "hidden" || st.display === "none") return true;
+                if (parseFloat(st.opacity) < 0.05) return true;
+                cur = cur.parentElement;
+            }
+            const r = el.getBoundingClientRect();
+            return r.right < 1 || r.left > window.innerWidth - 1;
+        }
+
+        // 🔎 기여도가 바뀐 선수 줄을 잠깐 키운다.
+        //    판이 안 보이는 동안(주사위게임 등)에는 그 줄만 화면 가운데로 꺼내 온다 —
+        //    주사위게임은 기여도를 주는 게임인데 정작 기여도 판이 안 보이기 때문이다.
         //    ⚠️ 클래스를 걷었다가 강제로 되감고(offsetWidth) 다시 걸어야 한다.
         //       안 그러면 연속으로 들어올 때 두 번째부터는 이미 걸려 있어 안 뛴다.
-        function popContribRow(cbEl) {
+        let cfTimer = null;
+        function popContribRow(cbEl, from, to) {
             const row = cbEl && cbEl.closest && cbEl.closest(".excel-row");
             if (!row) return;
+            if (lmBoardHidden(row)) { showContribFloat(row, from, to); return; }
             row.classList.remove("contrib-pop");
             void row.offsetWidth;
             row.classList.add("contrib-pop");
             setTimeout(() => row.classList.remove("contrib-pop"), 800);
+        }
+
+        // 판에 있던 줄을 그대로 복제해 가운데에 띄운다.
+        // ⚠️ 여기서 새로 꾸미지 않는다 —
+        //    · 줄은 판에 있던 것 그대로(순위 배지·이름·점수·기여도)
+        //    · 판때기도 판이 쓰는 .excel-board / .excel-col 를 그대로 씌운다
+        //    · 숫자가 오르는 연출도 판에서 쓰는 animateVal 을 그대로 부른다
+        //    한 번 배지를 따로 붙였다가 줄이 두 줄로 깨졌다 —
+        //    .excel-row 는 4칸 격자라 다섯 번째를 붙이면 다음 줄로 밀린다.
+        function showContribFloat(row, from, to) {
+            const box = document.getElementById("contrib-float");
+            if (!box) return;
+            const clone = row.cloneNode(true);
+            clone.classList.remove("contrib-pop");
+            clone.removeAttribute("id");
+            clone.querySelectorAll("[id]").forEach(x => x.removeAttribute("id"));
+            box.innerHTML = '<div class="excel-board"><div class="excel-col"></div></div>';
+            box.querySelector(".excel-col").appendChild(clone);
+            box.classList.remove("show");
+            void box.offsetWidth;
+            box.classList.add("show");
+            // 이미 있는 연출을 그대로 쓴다. 복제본은 새 값이 박혀 있으므로
+            // 옛 값에서 다시 세어 올린다 — 판이 보일 때와 똑같이 보인다.
+            const cb = clone.querySelector(".r-contrib");
+            if (cb) { try { animateVal(cb, from, to, 800); } catch (e) {} }
+            if (cfTimer) clearTimeout(cfTimer);
+            cfTimer = setTimeout(() => { box.classList.remove("show"); cfTimer = null; }, 2800);
         }
 
         // ⚔️ 대결 위젯: 전원 배틀 게이지(점수 비율) + 컬러 플레이어 카드(왕관·이름·금액·1등강조)
@@ -3931,7 +3998,7 @@
                         } else if ((b.contribution || 0) !== pcv) { 
                             animateVal(cbEl, pcv, b.contribution || 0, 800); 
                             // 오를 때만 줄을 키운다 — 깎이는데 커지면 좋은 일로 잘못 읽힌다
-                            if ((b.contribution || 0) > pcv) popContribRow(cbEl);
+                            popContribRow(cbEl, pcv, b.contribution || 0);
                             previousContribs[id] = b.contribution || 0; 
                         } 
                     }
@@ -4167,7 +4234,7 @@
                             animateVal(cbEl, pvc, curCb, 800); 
                             // 오를 때만 줄을 키운다. ⚠️ 기여도를 그리는 판이 둘이다 —
                             //    여기(번외 점수판)를 빠뜨리면 그 판만 조용하다. 실제로 빠뜨렸었다.
-                            if (curCb > pvc) popContribRow(cbEl);
+                            popContribRow(cbEl, pvc, curCb);
                             previousContribs[id] = curCb; 
                         } 
                     }
