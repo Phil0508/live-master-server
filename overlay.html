@@ -2425,7 +2425,7 @@
         //    주사위게임은 기여도를 주는 게임인데 정작 기여도 판이 안 보이기 때문이다.
         //    ⚠️ 클래스를 걷었다가 강제로 되감고(offsetWidth) 다시 걸어야 한다.
         //       안 그러면 연속으로 들어올 때 두 번째부터는 이미 걸려 있어 안 뛴다.
-        let cfTimer = null;
+        let cfTimer = null, cfWaitTimer = null;
         function popContribRow(cbEl, from, to) {
             const row = cbEl && cbEl.closest && cbEl.closest(".excel-row");
             if (!row) return;
@@ -2446,21 +2446,33 @@
         function showContribFloat(row, from, to) {
             const box = document.getElementById("contrib-float");
             if (!box) return;
+            // 줄은 지금 복제해 둔다 — 기다리는 사이에 판이 다시 그려지면 사라진다.
             const clone = row.cloneNode(true);
             clone.classList.remove("contrib-pop");
             clone.removeAttribute("id");
             clone.querySelectorAll("[id]").forEach(x => x.removeAttribute("id"));
-            box.innerHTML = '<div class="excel-board"><div class="excel-col"></div></div>';
-            box.querySelector(".excel-col").appendChild(clone);
-            box.classList.remove("show");
-            void box.offsetWidth;
-            box.classList.add("show");
-            // 이미 있는 연출을 그대로 쓴다. 복제본은 새 값이 박혀 있으므로
-            // 옛 값에서 다시 세어 올린다 — 판이 보일 때와 똑같이 보인다.
-            const cb = clone.querySelector(".r-contrib");
-            if (cb) { try { animateVal(cb, from, to, 800); } catch (e) {} }
-            if (cfTimer) clearTimeout(cfTimer);
-            cfTimer = setTimeout(() => { box.classList.remove("show"); cfTimer = null; }, 2800);
+            // ⏱️ 주사위가 구르는 동안에는 띄우지 않는다.
+            //    서버는 굴리는 즉시 기여도를 넣고 그 신호가 바로 오지만, 화면에서는
+            //    말이 아직 굴러가는 중이다. 그때 띄우면 주사위를 보는 사이에 떴다가
+            //    카드가 나올 무렵 사라진다(실측: 9~333ms 에 떠서 3초에 사라짐,
+            //    말이 닿는 시각은 약 1970ms). 닿는 순간에 맞춰 카드와 같이 보여준다.
+            const show = () => {
+                box.innerHTML = '<div class="excel-board"><div class="excel-col"></div></div>';
+                box.querySelector(".excel-col").appendChild(clone);
+                box.classList.remove("show");
+                void box.offsetWidth;
+                box.classList.add("show");
+                // 이미 있는 연출을 그대로 쓴다. 복제본은 새 값이 박혀 있으므로
+                // 옛 값에서 다시 세어 올린다 — 판이 보일 때와 똑같이 보인다.
+                const cb = clone.querySelector(".r-contrib");
+                if (cb) { try { animateVal(cb, from, to, 800); } catch (e) {} }
+                if (cfTimer) clearTimeout(cfTimer);
+                cfTimer = setTimeout(() => { box.classList.remove("show"); cfTimer = null; }, 2800);
+            };
+            // dgBusyUntil = 말이 칸에 닿는 시각(주사위게임이 정해 둔다). 없으면 바로.
+            const wait = Math.max(0, (window.dgBusyUntil || 0) - Date.now());
+            if (cfWaitTimer) clearTimeout(cfWaitTimer);
+            if (wait > 0) { cfWaitTimer = setTimeout(show, wait + 260); } else { show(); }
         }
 
         // ⚔️ 대결 위젯: 전원 배틀 게이지(점수 비율) + 컬러 플레이어 카드(왕관·이름·금액·1등강조)
