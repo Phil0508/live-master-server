@@ -142,6 +142,8 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .dg-face { position: absolute; inset: 0; border-radius: var(--r-l); box-sizing: border-box; background: linear-gradient(145deg, #fffef7, #d8d8cd); border: 1px solid #b6b6aa; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); padding: 17px; }
 .dg-pip { width: 23px; height: 23px; border-radius: 50%; background: #23232a; align-self: center; justify-self: center; box-shadow: inset 0 2px 2px rgba(0,0,0,.55); }
 .dg-laps { font-size: 30px; font-weight: 900; color: var(--gold); text-shadow: var(--ts-2); }
+#dg-keydraw { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 9; pointer-events: none; opacity: 0; visibility: hidden; width: 640px; height: 260px; }
+#dg-keydraw.on { opacity: 1; visibility: visible; }
 .dg-card { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) scale(.6); opacity: 0; min-width: 560px; max-width: 86%; padding: 32px 44px; z-index: 8; background: rgba(10,10,14,.94); border: 4px solid var(--gold); border-radius: var(--r-l); box-shadow: var(--sh-4), var(--glow-l); text-align: center; transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease; pointer-events: none; }
 .dg-card.show { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 .dg-card .dg-card-ico { font-size: 96px; line-height: 1.1; }
