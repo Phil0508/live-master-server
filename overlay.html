@@ -4165,6 +4165,9 @@
                             previousContribs[id] = curCb;
                         } else if (curCb !== pvc) { 
                             animateVal(cbEl, pvc, curCb, 800); 
+                            // 오를 때만 줄을 키운다. ⚠️ 기여도를 그리는 판이 둘이다 —
+                            //    여기(번외 점수판)를 빠뜨리면 그 판만 조용하다. 실제로 빠뜨렸었다.
+                            if (curCb > pvc) popContribRow(cbEl);
                             previousContribs[id] = curCb; 
                         } 
                     }
