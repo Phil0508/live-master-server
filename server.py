@@ -6592,6 +6592,119 @@ DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key',
                    'move', 'goto', 'giveall')
 
 
+def _dicegame_key_effect(text):
+    """황금열쇠 글을 읽어 어떤 효과인지 알아낸다. 덱은 글자로 저장돼 있으므로
+    (조종실이 그렇게 만들어져 있다) 글을 그대로 두고 여기서 뜻만 읽는다.
+    ⚠️ 순서가 중요하다 — '기여도 1등과 바꾸기' 는 '기여도 N' 보다 먼저 '바꾸기' 로 잡아야 한다.
+    모르는 글이면 None — 예전처럼 화면에 글만 뜨고 진행자가 처리한다."""
+    import re
+    t = str(text or '')
+    for rx, kind in (
+        (r'(\d+)\s*등\s*(?:이|과|와|이랑|랑)?\s*바꾸', 'swap'),
+        (r'뒤\s*로\s*(\d+)\s*칸', 'back'),
+        (r'앞\s*으로\s*(\d+)\s*칸', 'fwd'),
+        (r'출발', 'start'),
+        (r'파산', 'bankrupt'),
+        (r'한\s*번\s*더', 'again'),
+        (r'실드', 'shield'),
+        (r'원하는', 'choose'),
+        (r'꽝', 'nothing'),
+        (r'기여도\s*(-?\d+)', 'contrib'),
+    ):
+        m = re.search(rx, t)
+        if m:
+            n = int(m.group(1)) if m.groups() else None
+            return {'kind': kind, 'n': n}
+    return None
+
+
+def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
+    """뽑힌 황금열쇠의 효과를 건다.
+    돌려주는 값: {'note': 화면·조종실에 보일 한 줄, 'after': 이동이면 두 번째 이동 신호, 'again': 한 번 더}
+    ⚠️ 말은 여기서 옮기지 않는다 — 부르는 쪽이 착지 처리를 끝낸 뒤 'after' 를 적용한다.
+       (착지 처리가 뒤에서 piece['pos'] 를 덮어쓰므로 여기서 옮기면 되돌아간다)
+    ⚠️ allow_move=False 는 끌려온 자리에서 뽑은 경우 — 다시 옮기면 끝없이 튕길 수 있다."""
+    out = {'note': '', 'after': None, 'again': False}
+    eff = _dicegame_key_effect(text)
+    if not eff:
+        return out
+    k, n = eff['kind'], eff['n']
+    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    roster = [b for b in (state.get(src) or []) if isinstance(b, dict)]
+
+    def _log(name, val, why):
+        logs = state.get('logs')
+        if not isinstance(logs, list):
+            logs = []
+            state['logs'] = logs
+        logs.insert(0, {'time': now_hms(), 'name': name, 'val': val, 'kind': 'contrib', 'why': why})
+
+    if k == 'contrib' and n:
+        got = _dicegame_apply_contrib(state, who, n, '황금열쇠: ' + str(text)) if who else None
+        out['note'] = ('%s 기여도 %+d' % (got, n)) if got else '누구 차례인지 몰라 기여도는 손으로'
+    elif k == 'bankrupt':
+        t = _find_score_target(state, 'rank', who) if who else None
+        if t is None:
+            out['note'] = '명단에서 못 찾아 파산은 손으로'
+        else:
+            before = int(t.get('contribution') or 0)
+            t['contribution'] = 0
+            _log(t.get('name') or who, -before, '황금열쇠: 파산')
+            out['note'] = '%s 기여도 %d → 0' % (t.get('name') or who, before)
+    elif k == 'swap' and n:
+        me = _find_score_target(state, 'rank', who) if who else None
+        ranked = sorted(roster, key=lambda b: int(b.get('contribution') or 0), reverse=True)
+        tgt = ranked[n - 1] if 0 < n <= len(ranked) else None
+        if me is None or tgt is None:
+            out['note'] = '%d등을 못 찾아 바꾸기는 손으로' % n
+        elif tgt is me:
+            out['note'] = '본인이 %d등이라 바꿀 상대가 없음' % n
+        else:
+            a, b = int(me.get('contribution') or 0), int(tgt.get('contribution') or 0)
+            me['contribution'], tgt['contribution'] = b, a
+            _log(me.get('name'), b - a, '황금열쇠: %d등과 바꾸기' % n)
+            _log(tgt.get('name'), a - b, '황금열쇠: %d등과 바꾸기(상대)' % n)
+            out['note'] = '%s %d ↔ %s %d' % (me.get('name'), a, tgt.get('name'), b)
+    elif k == 'again':
+        out['again'] = True
+        out['note'] = '한 번 더 — 차례가 넘어가지 않는다'
+    elif k == 'shield':
+        piece['shield'] = True
+        out['note'] = '실드 획득 — 다음 벌칙 한 번을 막는다'
+    elif k == 'choose':
+        out['note'] = '원하는 칸으로 — 조종실에서 손으로 옮겨주세요'
+    elif k == 'nothing':
+        out['note'] = '꽝'
+    elif k in ('back', 'fwd', 'start'):
+        if not allow_move:
+            out['note'] = '끌려온 자리에서는 다시 옮기지 않는다 — 손으로'
+        else:
+            tiles = g.get('tiles') or []
+            nt = len(tiles)
+            if k == 'start':
+                dest, path, kind = 0, [], 'goto'
+            elif k == 'back':
+                dest = (cur_pos - n) % nt
+                path = [(cur_pos - i) % nt for i in range(1, n + 1)]
+                kind = 'move'
+            else:
+                dest = (cur_pos + n) % nt
+                path = [(cur_pos + i) % nt for i in range(1, n + 1)]
+                kind = 'move'
+            t2 = tiles[dest] if isinstance(tiles[dest], dict) else {'id': dest, 'type': 'blank'}
+            after = {'kind': kind, 'from': cur_pos, 'to': dest, 'path': path, 'label': str(text),
+                     'tile': {kk: t2.get(kk) for kk in ('id', 'type', 'label', 'points')}}
+            # 도착한 칸이 점수 칸이면 그 점수도 준다. 열쇠·이동 칸은 다시 걸지 않는다(끝없는 연쇄 방지).
+            if t2.get('type') == 'score' and t2.get('points') and who:
+                p2 = _as_int(t2.get('points'), 0) or 0
+                got = _dicegame_apply_contrib(state, who, p2, (t2.get('label') or '점수 칸') + ' (열쇠로 이동)')
+                if got:
+                    after['scored'] = {'name': got, 'points': p2}
+            out['after'] = after
+            out['note'] = '%d번으로' % dest
+    return out
+
+
 def _dicegame_sync_pieces(state, g):
     """말 목록을 지금 쓰는 점수판 명단에 맞춘다.
 
@@ -6618,7 +6731,8 @@ def _dicegame_sync_pieces(state, g):
     # 이름이 남아 있으면 자리도 그대로 — 명단을 고쳤다고 판이 초기화되면 안 된다
     g['pieces'] = [{'name': nm,
                     'pos': (old.get(nm) or {}).get('pos', 0),
-                    'laps': (old.get(nm) or {}).get('laps', 0)} for nm in names]
+                    'laps': (old.get(nm) or {}).get('laps', 0),
+                    'shield': bool((old.get(nm) or {}).get('shield'))} for nm in names]
 
 
 def _dicegame_state(state):
@@ -6646,7 +6760,8 @@ def _dicegame_state(state):
             continue
         _fixed.append({'name': _nm,
                        'pos': max(0, _as_int(_p.get('pos'), 0) or 0),
-                       'laps': max(0, _as_int(_p.get('laps'), 0) or 0)})
+                       'laps': max(0, _as_int(_p.get('laps'), 0) or 0),
+                       'shield': bool(_p.get('shield'))})
     g['pieces'] = _fixed
     _dicegame_sync_pieces(state, g)
     g['turn'] = max(0, min(max(0, len(g['pieces']) - 1), _as_int(g.get('turn'), 0) or 0))
@@ -6950,13 +7065,29 @@ def api_dicegame_roll():
         if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
             action['tile']['image'] = tile['sig'].get('image_url')
         # 🔑 황금열쇠 — 뽑기도 서버가 한다. 화면마다 다른 카드가 나오면 안 된다.
+        _ke_after, _key_again = None, False   # 열쇠가 만든 두 번째 이동 · 한 번 더
         if tile.get('type') == 'key':
             keys = g.get('keys') or []
             action['key'] = random.choice(keys) if keys else '(황금열쇠 덱이 비어 있습니다)'
+            # 뽑힌 글을 읽어 효과를 건다. 이동은 착지 처리가 끝난 뒤에 적용한다(아래).
+            if keys:
+                _ke = _dicegame_apply_key(state, g, piece, contrib_player, action['key'], to, allow_move=True)
+                if _ke['note']:
+                    action['key_effect'] = _ke['note']
+                _ke_after, _key_again = _ke['after'], _ke['again']
+                print('[주사위게임] 황금열쇠 %r -> %s' % (action['key'], _ke['note'] or '효과 없음(글만)'), flush=True)
         # 💯 점수 칸 — 칸에는 '점수' 라고 적혀 있지만 올리는 것은 기여도뿐이다.
         #    사장님: "점수 칸은 점수라고만 써있지 기여도 5점만 올라가는거야"
         #    ⚠️ 예전에는 점수(그날 일당)도 같이 올렸다. 게임에서 5만원어치가 가짜로 붙었다.
         #    기여도라서 시그·한 바퀴와 같이 차례를 기억해 저절로 준다(contrib_player).
+        # 실드권 — 음수 점수 칸을 한 번 막는다. 카드에는 '실드로 막았다' 만 남긴다.
+        if tile.get('type') == 'score' and (_as_int(tile.get('points'), 0) or 0) < 0 and piece.get('shield'):
+            piece['shield'] = False
+            action['shield_used'] = True
+            action['score_note'] = '실드로 막았다 — 기여도 차감 없음'
+            action['tile']['points'] = 0
+            tile = dict(tile)
+            tile['points'] = 0   # 아래 점수 분기가 안 걸리게
         if tile.get('type') == 'score' and tile.get('points'):
             _pts = int(tile['points'])
             if contrib_player:
@@ -7039,6 +7170,11 @@ def api_dicegame_roll():
         # 🕳️ 말을 다시 옮기는 칸(싱크홀·블랙홀)과 전원 지급 칸.
         #    화면이 두 번째 이동을 이어서 그리도록 action 에 실어 보낸다.
         _tt = tile.get('type')
+        if _tt in ('move', 'goto') and piece.get('shield'):
+            piece['shield'] = False
+            action['shield_used'] = True
+            action['key_effect'] = '실드로 막았다 — 옮겨지지 않는다'
+            _tt = 'shielded'   # 아래 이동 분기가 안 걸리게
         if _tt in ('move', 'goto'):
             _pts = _as_int(tile.get('points'), 0) or 0
             _dest = (to + _pts) % n if _tt == 'move' else (_pts % n)
@@ -7093,6 +7229,12 @@ def api_dicegame_roll():
             elif _d2 == 'key':
                 _keys2 = [str(x) for x in (g.get('keys') or []) if str(x).strip()]
                 action['after']['key'] = random.choice(_keys2) if _keys2 else '(황금열쇠 덱이 비어 있습니다)'
+                if _keys2:
+                    _ke2 = _dicegame_apply_key(state, g, piece, contrib_player, action['after']['key'], _dest, allow_move=False)
+                    if _ke2['note']:
+                        action['after']['key_effect'] = _ke2['note']
+                    if _ke2['again']:
+                        _key_again = True
             print(f"🕳️ [주사위게임] {tile.get('label') or _tt} → {to}번에서 {_dest}번으로", flush=True)
             to = _dest
         elif _tt == 'giveall':
@@ -7110,7 +7252,13 @@ def api_dicegame_roll():
             print(f"🎁 [주사위게임] 전원 기여도 {_pts} → {', '.join(_got) or '아무도 못 받음'}", flush=True)
         # 차례를 다음 말로 넘긴다. 조종실이 말을 고르면 그게 우선이므로
         # 이건 '안 고르고 계속 굴릴 때' 넷이 돌아가게 하는 기본값일 뿐이다.
-        g['turn'] = (_idx + 1) % len(g['pieces'])
+        # 열쇠가 만든 두 번째 이동(뒤로 N칸·출발지로). 칸이 만든 이동(싱크홀)이 이미 있으면 그쪽이 우선.
+        if _ke_after and not action.get('after'):
+            action['after'] = _ke_after
+            piece['pos'] = _ke_after['to']
+            to = _ke_after['to']
+        # '한 번 더' 면 차례를 이 말에 그대로 둔다
+        g['turn'] = _idx if _key_again else (_idx + 1) % len(g['pieces'])
         # 옛 저장본·옛 화면 호환 — 위치는 마지막으로 움직인 말,
         # 바퀴 수는 **넷을 합한 값**. 말마다 따로 세면 다른 말이 움직인 순간
         # 숫자가 거꾸로 줄어든다(화면의 '출발 N번' 이 깜빡 내려간다).
@@ -7125,7 +7273,10 @@ def api_dicegame_roll():
                     'scored': action.get('scored'), 'note': action.get('score_note'),
                     'contrib': action.get('contrib'),
                     'lap_contrib': action.get('lap_contrib'),
-                    'key': action.get('key')})
+                    'key': action.get('key'),
+                    'key_effect': action.get('key_effect'),
+                    'shield_used': bool(action.get('shield_used')),
+                    'again': bool(_key_again)})
 
 
 @app.route('/api/dicegame/move', methods=['POST'])

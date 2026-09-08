@@ -3438,7 +3438,11 @@
                        && g.getBoundingClientRect().width > 2;
             });
             const away = rankHiddenBy.race || rankHiddenBy.dice || currentExtraActiveState || covered;
-            if (!window.__accLaid) {
+            // ⚠️ 편집기에 저장된 계좌 자리는 무시한다. 계좌는 이제 판을 따라다니는 위젯이라
+            //    고정 좌표가 뜻이 없다 — 실제로 옛 저장값(0,530)이 살아나 계좌가 화면
+            //    한가운데 떠 있었다(2026-09-09). 편집기에는 위젯 하나를 지우는 기능도 없다.
+            //    전광판(__noticeLaid)은 사장님이 크기를 손본 흔적이 있어 그대로 존중한다.
+            if (true) {
                 if (away) {
                     el.style.left = '6px'; el.style.right = 'auto';
                     el.style.top = '115px'; el.style.width = '';
@@ -6727,7 +6731,9 @@
             const t = act.tile || {};
             let ico = dgTileIcon(t), txt = dgEsc(t.label || ''), sub = '', img = '', hold = 5000;
             if (t.type === 'key') {
-                ico = '🔑'; txt = dgEsc(act.key || '');  sub = '황금열쇠';
+                ico = '🔑'; txt = dgEsc(act.key || '');
+                // 서버가 건 효과를 아래줄에 — 글만 뜨고 아무 일이 없던 것을 이제 진짜로 건다
+                sub = act.key_effect ? ('황금열쇠 · ' + dgEsc(act.key_effect)) : '황금열쇠';
             } else if (t.type === 'score') {
                 // 라벨이 있으면 그게 제목이고 점수는 아래줄로 (꽝! / +2점)
                 // ⚠️ 0 이면 '+0점' 이라고 쓰지 않는다 — 꽝은 아무것도 안 주는 칸이다
@@ -6745,6 +6751,7 @@
             } else if (!txt) {
                 txt = '빈 칸'; hold = 2200;
             }
+            if (act.shield_used) sub = (sub ? sub + ' · ' : '') + '실드로 막았다';
             card.innerHTML = '<div class="dg-card-ico">' + ico + '</div>'
                 + (txt ? '<div class="dg-card-txt">' + txt + '</div>' : '') + img
                 + (sub ? '<div class="dg-card-sub">' + sub + '</div>' : '');
@@ -6827,7 +6834,10 @@
                 const af = act.after;
                 if (af) {
                     const p2 = af.path || [];
-                    const START = 1500;          // 카드를 읽는 시간
+                    // 카드를 읽는 시간. 열쇠 칸은 착지 뒤에 뽑기 연출(1.7초)이 더 있으므로
+                    // 그만큼 더 기다린다 — 안 그러면 카드가 섞이는 중에 말이 먼저 미끄러져
+                    // '뒤로 7칸' 을 읽을 틈이 없다(실측: 이동 2403ms, 카드 2652ms).
+                    const START = (_tt === 'key') ? 3200 : 1500;
                     const STEP = 220;            // 끌려가는 것이라 걸을 때(300)보다 빠르다
                     dgAfter(START, () => playSfx('dice-miss'));
                     p2.forEach((pos, k) => {
@@ -6853,7 +6863,7 @@
                             // 끌려간 자리가 황금열쇠면 여기서도 뽑는 연출을 거친다 —
                             // 첫 착지에서만 뽑고 여기선 글만 뜨면 같은 칸이 두 가지로 보인다.
                             const showAfter = () => dgShowCard({ tile: t2, key: af.key, scored: af.scored,
-                                                                 score_note: af.note });
+                                                                 score_note: af.note, key_effect: af.key_effect });
                             if (t2.type === 'key') dgKeyDraw(showAfter); else showAfter();
                         }
                     });

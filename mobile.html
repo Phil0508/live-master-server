@@ -361,6 +361,10 @@ async function dgMobRoll() {
         //    안 바꿔서 앞사람에게 들어가도 아무도 모른다. 반드시 보여준다.
         if (d.contrib) m += ' · ' + d.contrib.name + ' 기여도 +' + d.contrib.points;
         if (d.lap_contrib) m += ' · ' + d.lap_contrib.name + ' 기여도 +' + d.lap_contrib.points;
+        // 황금열쇠 — 뽑힌 글과 서버가 건 효과. 실드로 막았거나 한 번 더면 그것도.
+        if (d.key) m += ' · 열쇠: ' + d.key + (d.key_effect ? ' → ' + d.key_effect : '');
+        if (d.shield_used) m += ' · 실드로 막음';
+        if (d.again) m += ' · 한 번 더!';
         toast(m);
         if (d.note) toast(d.note, false);
     } catch (e) { toast(e.message, false); }
