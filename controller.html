@@ -8053,7 +8053,11 @@ initFoldablePanels();
         }
 
         const DGC_TYPES = [['blank', '빈칸'], ['mission', '📜 미션'], ['sig', '🎵 시그니처'],
-                           ['score', '💯 점수'], ['key', '🔑 황금열쇠']];
+                           ['score', '💯 점수'], ['key', '🔑 황금열쇠'],
+                           // 아래 셋은 '점수' 칸의 숫자를 다른 뜻으로 쓴다 —
+                           //   이동 = 몇 칸(음수면 뒤로) · 특정 칸으로 = 칸 번호 · 전원 지급 = 기여도
+                           ['move', '🕳️ 이동'], ['goto', '🌀 특정 칸으로'],
+                           ['giveall', '🎁 전원 지급']];
 
         /* ══ 22칸 기본판 ══
            칸 22개를 손으로 고르면 오래 걸리고 빠뜨린다. 한 번에 깐다.
@@ -8106,21 +8110,21 @@ initFoldablePanels();
             { id:  4, type: 'score',   label: '기여도 -10',           points: -10 },
             { id:  5, type: 'score',   label: '기여도 5',             points: 5 },
             { id:  6, type: 'mission', label: '고팍' },
-            { id:  7, type: 'mission', label: '싱크홀 · 뒤 5칸' },
+            { id:  7, type: 'move',    label: '싱크홀 · 뒤 5칸',    points: -5 },
             { id:  8, type: 'key',     label: '황금열쇠' },
             { id:  9, type: 'mission', label: '코끼리코' },
             { id: 10, type: 'score',   label: '기여도 10',            points: 10 },
-            { id: 11, type: 'mission', label: '각 플레이어 5점씩' },
+            { id: 11, type: 'giveall', label: '각 플레이어 5점씩',  points: 5 },
             { id: 12, type: 'mission', label: '분장' },
             { id: 13, type: 'score',   label: '기여도 5',             points: 5 },
             { id: 14, type: 'mission', label: '고팍' },
             { id: 15, type: 'score',   label: '기여도 20',            points: 20 },
             { id: 16, type: 'score',   label: '기여도 -10',           points: -10 },
             { id: 17, type: 'mission', label: '코끼리코' },
-            { id: 18, type: 'mission', label: '싱크홀 · 뒤 5칸' },
+            { id: 18, type: 'move',    label: '싱크홀 · 뒤 5칸',    points: -5 },
             { id: 19, type: 'key',     label: '황금열쇠' },
             { id: 20, type: 'score',   label: '기여도 30',            points: 30 },
-            { id: 21, type: 'mission', label: '블랙홀 · 출발점으로' },
+            { id: 21, type: 'goto',    label: '블랙홀 · 출발점으로', points: 0 },
         ];
 
         /* 황금열쇠 10장. 이 시스템의 열쇠는 '글' 이다 — 뽑으면 화면에 뜨고
@@ -8156,7 +8160,8 @@ initFoldablePanels();
             const failed = [];
             for (const t of DGC_PRESET_22_DRAW) {
                 const body = { id: t.id, type: t.type, label: t.label || '' };
-                if (t.type === 'score') body.points = t.points;
+                // 이동·특정칸·전원지급도 숫자를 쓴다(칸 수·칸 번호·기여도)
+                if (t.points !== undefined) body.points = t.points;
                 const r = await dgcCall('tile', body);
                 if (!r) failed.push(t.id + '번');
             }
@@ -8229,6 +8234,17 @@ initFoldablePanels();
             if (type === 'score') {
                 return '<input type="number" value="' + (t.points || 0) + '" onchange="dgcSaveTile(' + i + ')"'
                      + ' id="dgc-t-pts-' + i + '" style="width:90px; height:32px;" title="음수면 차감"> 점';
+            }
+            // 이동·특정칸·전원지급 — 글과 숫자를 둘 다 받는다.
+            // 안 만들어 두면 이 종류들이 아래 시그니처 고르기로 잘못 떨어진다.
+            if (type === 'move' || type === 'goto' || type === 'giveall') {
+                const unit = type === 'move' ? '칸 (음수면 뒤로)'
+                           : type === 'goto' ? '번 칸으로' : '기여도씩';
+                return '<input type="text" placeholder="표시할 글" value="' + escapeHTML(t.label || '')
+                     + '" onchange="dgcSaveTile(' + i + ')" id="dgc-t-lbl-' + i + '"'
+                     + ' style="flex:1; min-width:80px; height:32px;">'
+                     + '<input type="number" value="' + (t.points || 0) + '" onchange="dgcSaveTile(' + i + ')"'
+                     + ' id="dgc-t-pts-' + i + '" style="width:78px; height:32px; margin-left:6px;"> ' + unit;
             }
             // sig — 시그니처 고르기
             const cur = (t.sig && t.sig.id) || '';

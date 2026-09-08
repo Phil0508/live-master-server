@@ -6318,6 +6318,9 @@
                 case 'sig':     return '🎵';
                 case 'score':   return '💯';
                 case 'key':     return '🔑';
+                case 'move':    return '🕳️';
+                case 'goto':    return '🌀';
+                case 'giveall': return '🎁';
                 default:        return '·';
             }
         }
@@ -6601,6 +6604,29 @@
                     if (bn) { bn.classList.add('show'); dgAfter(3200, () => bn.classList.remove('show')); }
                     // 🏁 이제 출발 칸을 정확히 밟아야만 걸린다 — 제일 크게 울려준다
                     dgAfter(120, () => playSfx('dice-start'));
+                }
+                // 🕳️ 싱크홀·블랙홀 — 카드를 읽을 틈을 준 뒤에 끌고 간다.
+                //    바로 끌면 왜 자리가 바뀌었는지 모른 채 순간이동한 것처럼 보인다.
+                const af = act.after;
+                if (af) {
+                    const p2 = af.path || [];
+                    const START = 1500;          // 카드를 읽는 시간
+                    const STEP = 220;            // 끌려가는 것이라 걸을 때(300)보다 빠르다
+                    dgAfter(START, () => playSfx('dice-miss'));
+                    p2.forEach((pos, k) => {
+                        dgAfter(START + k * STEP, () => {
+                            dgPlacePieces(act.piece, pos);
+                            dgBlip(320 + k * 20);
+                            const t2 = document.getElementById('dg-tile-' + pos);
+                            if (t2) { t2.classList.add('dg-hop'); dgAfter(200, () => t2.classList.remove('dg-hop')); }
+                        });
+                    });
+                    // 경로가 없으면(블랙홀) 한 번에 옮긴다
+                    dgAfter(START + p2.length * STEP + 120, () => {
+                        dgPlacePieces(act.piece, af.to);
+                        const t3 = document.getElementById('dg-tile-' + af.to);
+                        if (t3) { t3.classList.add('dg-land'); dgAfter(3000, () => t3.classList.remove('dg-land')); }
+                    });
                 }
             });
         }

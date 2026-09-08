@@ -6588,7 +6588,13 @@ def api_notice_now():
 # 🎲 주사위게임 (부루마블식) — 로그인 필요 (exempt 목록에 없음)
 #   시그뒤집기와 같은 원칙: 서버가 유일한 진실, 화면은 action 신호로 연출만.
 # ==========================================
-DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key')
+#    move    : 말을 points 칸만큼 옮긴다(음수면 뒤로). 싱크홀 = -5
+#    goto    : points 번 칸으로 보낸다. 블랙홀 = 0(출발점)
+#    giveall : 모든 말 주인에게 기여도를 points 만큼 준다
+#    ⚠️ 옮겨 간 칸의 효과는 **다시 걸지 않는다**. 걸면 싱크홀→싱크홀 로
+#       끝없이 튕길 수 있고, 방송 중에 그게 터지면 손쓸 수가 없다.
+DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key',
+                   'move', 'goto', 'giveall')
 
 
 def _dicegame_state(state):
@@ -6997,6 +7003,43 @@ def api_dicegame_roll():
         piece['pos'] = to
         if lap:
             piece['laps'] += 1
+        # 🕳️ 말을 다시 옮기는 칸(싱크홀·블랙홀)과 전원 지급 칸.
+        #    화면이 두 번째 이동을 이어서 그리도록 action 에 실어 보낸다.
+        _tt = tile.get('type')
+        if _tt in ('move', 'goto'):
+            _pts = _as_int(tile.get('points'), 0) or 0
+            _dest = (to + _pts) % n if _tt == 'move' else (_pts % n)
+            # 두 번째 이동에는 한 바퀴 보상을 주지 않는다 — 벌칙으로 끌려간 것이지
+            # 제 힘으로 돈 게 아니다.
+            # 경로: move 는 한 칸씩 걸어간다(뒤로 가면 뒤로 밟는다).
+            # goto 는 끌려가는 것이라 경로 없이 한 번에 옮긴다 — 21번에서 0번으로
+            # '한 칸 앞으로' 처럼 그리면 벌칙이 아니라 보너스로 보인다.
+            if _tt == 'goto':
+                _path2 = []
+            elif _pts < 0:
+                _path2 = [(to - i) % n for i in range(1, (-_pts) + 1)]
+            else:
+                _path2 = [(to + i) % n for i in range(1, _pts + 1)]
+            piece['pos'] = _dest
+            _t2 = tiles[_dest] if isinstance(tiles[_dest], dict) else {'id': _dest, 'type': 'blank'}
+            action['after'] = {'kind': _tt, 'from': to, 'to': _dest, 'path': _path2,
+                               'label': tile.get('label') or '',
+                               'tile': {k: _t2.get(k) for k in ('id', 'type', 'label', 'points')}}
+            print(f"🕳️ [주사위게임] {tile.get('label') or _tt} → {to}번에서 {_dest}번으로", flush=True)
+            to = _dest
+        elif _tt == 'giveall':
+            _pts = _as_int(tile.get('points'), 0) or 0
+            _got = []
+            if _pts:
+                _why = (tile.get('label') or '전원 지급') + ' 칸'
+                for _pc in g['pieces']:
+                    try:
+                        if _dicegame_apply_contrib(state, _pc['name'], _pts, _why):
+                            _got.append(_pc['name'])
+                    except Exception as e:
+                        print(f'⚠️ [주사위게임] 전원 지급 실패({_pc["name"]}) — 계속합니다: {e}')
+            action['giveall'] = {'points': _pts, 'names': _got}
+            print(f"🎁 [주사위게임] 전원 기여도 {_pts} → {', '.join(_got) or '아무도 못 받음'}", flush=True)
         # 차례를 다음 말로 넘긴다. 조종실이 말을 고르면 그게 우선이므로
         # 이건 '안 고르고 계속 굴릴 때' 넷이 돌아가게 하는 기본값일 뿐이다.
         g['turn'] = (_idx + 1) % len(g['pieces'])
