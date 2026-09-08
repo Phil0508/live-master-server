@@ -1631,16 +1631,11 @@ DEFAULT_STATE = {
         #    ⚠️ 차례가 넘어갔는데 안 바꾸면 앞사람에게 들어간다 — 그래서 굴림 응답에
         #       '누구에게 갔는지' 를 반드시 실어 보낸다.
         "last_player": "",
-        # 🧩 말 = 선수. 네 명이 각자 자기 말을 가지고 돈다.
-        #    말이 선 칸의 점수는 그 말의 주인에게 간다(예전에는 마지막에 굴린
-        #    사람에게 갔다 — 말이 하나뿐이었으므로).
-        #    이름을 바꾸려면 여기만 고치면 된다. 수는 늘려도 줄여도 된다.
-        "pieces": [
-            {"name": "예지", "pos": 0, "laps": 0},
-            {"name": "행복", "pos": 0, "laps": 0},
-            {"name": "밍밍", "pos": 0, "laps": 0},
-            {"name": "앙앙", "pos": 0, "laps": 0},
-        ],
+        # 🧩 말 = 선수. 엑셀판에 있는 사람이 그대로 말이 된다.
+        #    말이 선 칸의 점수는 그 말의 주인에게 간다.
+        #    이름을 여기 박아두면 방송마다 코드를 고쳐야 해서, 명단을 따라가게 했다.
+        # 비워 둔다 — 지금 쓰는 점수판 명단에서 저절로 채워진다.
+        "pieces": [],
         # 🙋 다음에 굴릴 말 번호. 조종실이 안 고르면 이 말이 움직인다.
         "turn": 0,
         # ⬇️ 아래 둘은 옛 저장본 호환용. 마지막으로 움직인 말을 그대로 비춰 둔다.
@@ -6597,6 +6592,35 @@ DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key',
                    'move', 'goto', 'giveall')
 
 
+def _dicegame_sync_pieces(state, g):
+    """말 목록을 지금 쓰는 점수판 명단에 맞춘다.
+
+    이름을 코드에 박아두면 방송마다 고쳐야 한다 — 엑셀판에 있는 사람이 곧 말이다.
+    ⚠️ 번외 게임 중에는 명단이 extra_bjs 로 바뀐다. 기여도가 그쪽으로 들어가므로
+       말도 같이 따라가야 한다(_find_score_target 과 같은 규칙을 쓴다).
+    ⚠️ 명단이 비면 있던 말을 그대로 둔다 — 명단을 잠깐 비웠다고 판 위의 말이
+       사라지면 방송 중에 사고로 보인다.
+    """
+    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    names = []
+    for b in (state.get(src) or []):
+        if isinstance(b, dict):
+            nm = str(b.get('name') or '').strip()
+            if nm and nm not in names:
+                names.append(nm)
+    if not names:
+        # 명단이 비어도 말은 하나 있어야 한다. 없으면 굴리기·옮기기가 통째로 막혀
+        # 판을 미리 깔아두는 것조차 못 한다(명단은 방송 직전에 채우기도 한다).
+        if not g.get('pieces'):
+            g['pieces'] = [{'name': '말', 'pos': 0, 'laps': 0}]
+        return
+    old = {p['name']: p for p in g.get('pieces') or []}
+    # 이름이 남아 있으면 자리도 그대로 — 명단을 고쳤다고 판이 초기화되면 안 된다
+    g['pieces'] = [{'name': nm,
+                    'pos': (old.get(nm) or {}).get('pos', 0),
+                    'laps': (old.get(nm) or {}).get('laps', 0)} for nm in names]
+
+
 def _dicegame_state(state):
     """항상 온전한 모양의 게임 상태를 돌려준다(예전 저장본에 없던 키 보정)."""
     g = state.get('dicegame')
@@ -6611,22 +6635,21 @@ def _dicegame_state(state):
     # 🧩 말 목록 보정 — 옛 저장본에는 말이 아예 없다. 그때는 기본 넷을 깔고,
     #    예전 말 위치(pos)를 첫 말에게 물려준다(판 위의 말이 갑자기 출발점으로
     #    돌아가면 방송 중에 사고로 보인다).
-    if not isinstance(g.get('pieces'), list) or not g['pieces']:
-        g['pieces'] = copy.deepcopy(DEFAULT_STATE['dicegame']['pieces'])
-        _old = _as_int(g.get('pos'), 0) or 0
-        if _old:
-            g['pieces'][0]['pos'] = _old
-            g['pieces'][0]['laps'] = _as_int(g.get('laps'), 0) or 0
+    if not isinstance(g.get('pieces'), list):
+        g['pieces'] = []
     _fixed = []
-    for i, _p in enumerate(g['pieces']):
+    for _p in g['pieces']:
         if not isinstance(_p, dict):
             continue
-        _nm = str(_p.get('name') or '').strip() or ('말%d' % (i + 1))
+        _nm = str(_p.get('name') or '').strip()
+        if not _nm:
+            continue
         _fixed.append({'name': _nm,
                        'pos': max(0, _as_int(_p.get('pos'), 0) or 0),
                        'laps': max(0, _as_int(_p.get('laps'), 0) or 0)})
-    g['pieces'] = _fixed or copy.deepcopy(DEFAULT_STATE['dicegame']['pieces'])
-    g['turn'] = max(0, min(len(g['pieces']) - 1, _as_int(g.get('turn'), 0) or 0))
+    g['pieces'] = _fixed
+    _dicegame_sync_pieces(state, g)
+    g['turn'] = max(0, min(max(0, len(g['pieces']) - 1), _as_int(g.get('turn'), 0) or 0))
     return g
 
 
@@ -6637,6 +6660,8 @@ def _dicegame_pick(g, want):
     굴렸을 때 엉뚱한 말이 가는 것을 막으려고, 고른 결과를 항상 돌려준다.
     """
     ps = g['pieces']
+    if not ps:
+        return None          # 명단이 비었다 — 부르는 쪽이 알아서 알린다
     want = '' if want is None else str(want).strip()
     if want:
         for i, p in enumerate(ps):
@@ -6866,6 +6891,10 @@ def api_dicegame_roll():
             _idx = _dicegame_pick(g, player)
         if _idx is None:
             _idx = _dicegame_pick(g, None)
+        if _idx is None:
+            # 말은 점수판 명단에서 나온다 — 명단이 비면 굴릴 말이 없다
+            return jsonify({'status': 'error',
+                            'message': '점수판에 사람이 없습니다. 엑셀판에 선수를 넣어주세요'}), 400
         piece = g['pieces'][_idx]
         # 말만 고르고 사람을 안 골랐으면 그 말의 주인이 받는다
         if not contrib_player:
@@ -7078,6 +7107,9 @@ def api_dicegame_move():
         # 🧩 어느 말을 옮기는가. 안 주면 '다음 차례' 말 — 비상 손잡이라서
         #    엉뚱한 말을 옮기면 더 큰 사고가 되므로 고른 말을 응답에 실어 보낸다.
         _idx = _dicegame_pick(g, body.get('piece'))
+        if _idx is None and not g['pieces']:
+            return jsonify({'status': 'error',
+                            'message': '점수판에 사람이 없습니다. 엑셀판에 선수를 넣어주세요'}), 400
         if _idx is None:
             _names = ' · '.join(x['name'] for x in g['pieces'])
             return jsonify({'status': 'error',
