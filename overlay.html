@@ -386,6 +386,13 @@
         .rank-3 .r-rank { background: var(--bronze); color: var(--on-bronze); }
         .rank-1 .r-score { color: var(--gold); }
 
+        /* 계좌가 들어앉는 자리 — 운영비 줄이 쓰던 간격을 그대로 물려받는다.
+           .acc-box-v2 가 이미 유리 카드라 여기에 배경을 또 깔면 두 겹이 된다. */
+        .acc-in-board { margin-top: 8px; }
+        /* ⚠️ .acc-box-v2 는 머리 줄에 있을 때를 기준으로 max-width:640px 이 걸려 있다.
+           판 아랫줄에서는 판 폭(약 886)을 꽉 채워야 '길쭉한' 모양이 나오므로 푼다. */
+        .acc-in-board .acc-box-v2 { width: 100%; max-width: none; box-sizing: border-box; }
+
         .row-bottom {
             display: flex; align-items: center; justify-content: space-between; padding: 12px 20px;
             background: rgba(var(--gold-rgb), 0.06);
@@ -2047,9 +2054,14 @@
                                 <div id="rank-right"></div>
                             </div>
                         </div>
-                        <div class="row-bottom" id="excel-bottom-fixed">
-                            <div class="b-name" id="bot-name">⚙️ 운영비</div>
-                            <div class="b-score" id="bot-score">0</div>
+                        <!-- 운영비 자리에 계좌를 넣었다. 운영비 점수는 화면에서만 빠지고
+                             총계 계산(bot.score)에는 그대로 쓰인다 — 정산은 안 건드린다. -->
+                        <div class="acc-in-board">
+                            <div class="acc-box-v2" id="account-box-ui" style="opacity: 0; visibility: hidden;">
+                                <span class="acc-ico">🏦</span>
+                                <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
+                                <span class="acc-num-v2" id="ui-num">464-068673-04-016</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2178,16 +2190,13 @@
                  숨기기 때문이다(연출 중 계좌·안내가 남아 있으면 안 된다).
                  자리는 안의 둘이 각자 갖는다. 여기는 자리를 안 차지하는 껍데기다. -->
             <div id="headrow" style="position: absolute; left: 0; top: 0; width: 1080px; height: 0; z-index: 100000; pointer-events: none;">
-                <div id="account-container" class="widget-container" style="position: absolute; left: 6px; top: 115px;">
-                    <div class="acc-box-v2" id="account-box-ui" style="opacity: 0; visibility: hidden;">
-                        <span class="acc-ico">🏦</span>
-                        <span class="acc-who"><span id="ui-bank">기업은행</span><span class="acc-holder" id="ui-name">드래곤엔터</span></span>
-                        <span class="acc-num-v2" id="ui-num">464-068673-04-016</span>
-                    </div>
-                </div>
+                <!-- 계좌는 엑셀판 아랫줄(운영비 자리)로 옮겼다. 이 칸은 배치 편집기가
+                     아는 위젯(LAY_IDS)이라 지우지 않고 비워 둔다 — 지우면 저장된 배치가 깨진다. -->
+                <div id="account-container" class="widget-container" style="position: absolute; left: 6px; top: 115px;"></div>
                 <!-- ⚠️ .notice-board 는 width:100% 라 칸을 따라간다. 묶음을 풀면 기댈 데가
-                     없어 50px 로 쪼그라든다 — 칸에 폭을 준다 (1036 - 계좌 640 - 사이 8). -->
-                <div id="notice-container" class="widget-container" style="position: absolute; left: 654px; top: 115px; width: 388px;">
+                     없어 50px 로 쪼그라든다 — 칸에 폭을 준다.
+                     계좌가 아랫줄로 내려가 위쪽이 통째로 비었으므로 전부 쓴다(1080 - 좌우 6). -->
+                <div id="notice-container" class="widget-container" style="position: absolute; left: 6px; top: 115px; width: 1068px;">
                     <div class="notice-board" id="notice-board">
                         <span class="notice-ico">📣</span>
                         <div class="notice-view" id="notice-view">

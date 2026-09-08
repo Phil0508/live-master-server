@@ -91,13 +91,16 @@ ma_ = re.search(r'id="account-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px',
 mn_ = re.search(r'id="notice-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px', ov)
 chk('계좌가 제 자리를 갖는다', ma_ and ma_.groups() == ('6', '115'),
     ma_.groups() if ma_ else '못 찾음')
-chk('안내가 제 자리를 갖는다', mn_ and mn_.groups() == ('654', '115'),
+# 2026-09-09: 계좌를 엑셀판 아랫줄(옛 운영비 자리)로 내렸다. 머리 줄이 통째로
+#   비었으므로 안내가 왼쪽 끝부터 전부 쓴다. 계좌 칸은 편집기가 아는 위젯이라
+#   자리만 남겨 두었다(지우면 저장된 배치가 깨진다).
+chk('안내가 제 자리를 갖는다', mn_ and mn_.groups() == ('6', '115'),
     mn_.groups() if mn_ else '못 찾음')
 # ⚠️ .notice-board 는 width:100% 라 칸을 따라간다. 묶음을 풀었으니 칸에 폭이 있어야
 #    한다 — 없으면 50px 로 쪼그라든다 (실제로 그랬다).
 chk('안내 칸에 폭이 있다 (없으면 50px 로 쪼그라든다)',
-    mn_ is not None and 'width: 388px' in
-    ov[ov.find('id="notice-container"'):ov.find('id="notice-container"') + 220])
+    mn_ is not None and 'width: 1068px' in
+    ov[ov.find('id="notice-container"'):ov.find('id="notice-container"') + 320])
 hx, hy, hw, hh = 6, 115, 1036, 48   # 아래 겹침 검사는 예전 머리 줄 칸을 그대로 쓴다
 ma = re.search(r'\.acc-box-v2 \{[^}]*height:\s*(\d+)px', ov)
 chk('계좌가 한 줄이다', ma and int(ma.group(1)) <= 60,
