@@ -350,8 +350,11 @@ async function dgMobRoll() {
     busy = true;
     try {
         const sel = document.getElementById('dgm-player');
-        const d = await api('/api/dicegame/roll', { player: sel ? sel.value : '' });
+        // 🧩 말 = 선수. 고른 말이 움직이고 그 말 주인이 점수를 받는다.
+        //    안 고르면 서버가 '다음 차례' 말을 굴린다(넷이 돌아가며).
+        const d = await api('/api/dicegame/roll', { piece: sel ? sel.value : '' });
         let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
+        if (d.piece) m = '[' + d.piece + '] ' + m;
         if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
         if (d.lap) m += ' · 출발 칸 도착!';
         // ⚠️ 기여도는 저절로 들어간다. 누구에게 갔는지 안 보이면, 차례가 넘어갔는데
@@ -372,17 +375,18 @@ function rDice(el) {
     const g = (gd || {}).dicegame || {};
     const tiles = (g.tiles || []);
     const dice = ((g.action || {}).dice || []).join('+');
-    const names = players().map(p => p.name);
     const keep = (document.getElementById('dgm-player') || {}).value || '';
     el.innerHTML = `
       <div class="stat" style="display:flex; gap:14px; flex-wrap:wrap; font-size:15px; font-weight:700; margin-bottom:14px;">
-        <span>${tiles.length ? ('말 ' + (g.pos || 0) + '번 칸') : '판 없음 — PC 조종실에서 판을 깔아주세요'}</span>
+        <span>${tiles.length
+            ? (g.pieces || []).map(p => p.name + ' ' + (p.pos || 0) + '번').join(' · ')
+            : '판 없음 — PC 조종실에서 판을 깔아주세요'}</span>
         <span>${g.laps ? ('출발 ' + g.laps + '번') : ''}</span>
         <span>${dice ? ('마지막 눈 ' + dice) : ''}</span>
       </div>
       <select id="dgm-player" style="width:100%; height:44px; margin-bottom:10px;">
-        <option value="">(누구 차례?)</option>
-        ${names.map(n => `<option value="${n}" ${n === keep ? 'selected' : ''}>${n}</option>`).join('')}
+        <option value="">(다음 차례 말로)</option>
+        ${(g.pieces || []).map(p => `<option value="${p.name}" ${p.name === keep ? 'selected' : ''}>${p.name}</option>`).join('')}
       </select>
       <button onclick="dgMobRoll()" style="width:100%; height:54px; font-size:18px; font-weight:900;
               background:linear-gradient(135deg,#30d158,#1d7a35); color:#fff; border:none; border-radius:14px;"

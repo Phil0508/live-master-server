@@ -2076,6 +2076,8 @@
                 <button class="secondary" onclick="dgcSetup()" style="height:34px; padding:0 14px; border-radius:var(--r-2);">판 만들기</button>
                 <button class="secondary" onclick="dgcPreset22()" title="8×5 테두리 22칸 — 출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
                         style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 기본판</button>
+                <button class="secondary" onclick="dgcPreset22Draw()" title="8×5 테두리 22칸 — 종이에 그린 판 그대로. 기여도 칸 9개·분장/고팍/코끼리코·싱크홀·블랙홀·황금열쇠 2개와 열쇠 10장을 한 번에 깝니다"
+                        style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 손그림판</button>
                 <span style="width:14px;"></span>
                 말 위치 <input id="dgc-pos" type="number" min="0" value="0" style="width:70px; height:34px;">
                 <button class="secondary" onclick="dgcMove()" style="height:34px; padding:0 12px; border-radius:var(--r-2);">이동</button>
@@ -8088,6 +8090,46 @@ initFoldablePanels();
             { id: 21, type: 'score',   label: '10점',                 points: 10 },
         ];
 
+        /* ══ 22칸 손그림판 ══
+           사장님이 종이에 그린 판을 그대로 옮긴 것. 8×5 테두리 = 22칸.
+           번호는 왼쪽 위(출발)에서 시계방향. 0번은 출발이라 손대지 않는다.
+
+           ⚠️ 이 판에는 지금 엔진이 못 하는 칸이 셋 있다 —
+              싱크홀(뒤 5칸) · 블랙홀(출발점으로) · 각 플레이어 5점씩 받기.
+              말을 옮기거나 전원에게 주는 칸 종류가 아직 없어서 mission 으로 넣었다.
+              화면에는 글이 뜨고, 실제 처리는 진행자가 한다(말은 손으로 옮기기).
+              나중에 칸 종류를 늘리면 여기 type 만 바꾸면 된다. */
+        const DGC_PRESET_22_DRAW = [
+            { id:  1, type: 'score',   label: '기여도 10',            points: 10 },
+            { id:  2, type: 'score',   label: '기여도 5',             points: 5 },
+            { id:  3, type: 'mission', label: '분장' },
+            { id:  4, type: 'score',   label: '기여도 -10',           points: -10 },
+            { id:  5, type: 'score',   label: '기여도 5',             points: 5 },
+            { id:  6, type: 'mission', label: '고팍' },
+            { id:  7, type: 'mission', label: '싱크홀 · 뒤 5칸' },
+            { id:  8, type: 'key',     label: '황금열쇠' },
+            { id:  9, type: 'mission', label: '코끼리코' },
+            { id: 10, type: 'score',   label: '기여도 10',            points: 10 },
+            { id: 11, type: 'mission', label: '각 플레이어 5점씩' },
+            { id: 12, type: 'mission', label: '분장' },
+            { id: 13, type: 'score',   label: '기여도 5',             points: 5 },
+            { id: 14, type: 'mission', label: '고팍' },
+            { id: 15, type: 'score',   label: '기여도 20',            points: 20 },
+            { id: 16, type: 'score',   label: '기여도 -10',           points: -10 },
+            { id: 17, type: 'mission', label: '코끼리코' },
+            { id: 18, type: 'mission', label: '싱크홀 · 뒤 5칸' },
+            { id: 19, type: 'key',     label: '황금열쇠' },
+            { id: 20, type: 'score',   label: '기여도 30',            points: 30 },
+            { id: 21, type: 'mission', label: '블랙홀 · 출발점으로' },
+        ];
+
+        /* 황금열쇠 10장. 이 시스템의 열쇠는 '글' 이다 — 뽑으면 화면에 뜨고
+           효과는 진행자가 처리한다(자동으로 거는 장치가 아직 없다). */
+        const DGC_KEYS_DRAW = [
+            '기여도 1등과 바꾸기', '뒤로 7칸', '출발지로 (뒤)', '기여도 50', '한 번 더',
+            '꽝', '원하는 곳으로', '실드권', '파산', '3등과 바꾸기',
+        ];
+
         /* 시그니처를 이름으로 찾는다. 띄어쓰기·따옴표·대소문자는 무시한다 —
            '이꾸욧' 과 '이꾸욧!' 이 다른 것으로 보이면 사람이 헷갈린다. */
         function dgcFindSig(sigs, name) {
@@ -8096,6 +8138,42 @@ initFoldablePanels();
             return sigs.find(x => norm(x.title) === want)
                 || sigs.find(x => norm(x.title).includes(want) && want.length >= 2)
                 || null;
+        }
+
+        /* 손그림판을 한 번에 깐다. 칸 22개를 손으로 고르면 오래 걸리고 빠뜨린다. */
+        async function dgcPreset22Draw() {
+            if (!await premiumConfirm(
+                    '손그림 22칸 판을 깝니다.\n\n지금 판에 적어둔 칸 내용과 황금열쇠는 모두 새로 덮어씁니다.\n계속할까요?',
+                    '주사위 22칸 손그림판', 'warning')) return;
+
+            // 8×5 테두리 = 22칸. 주사위 한 개(사장님이 정한 규칙).
+            const su = await dgcCall('setup', { cols: 8, rows: 5, dice: 1 });
+            if (!su) return;
+            document.getElementById('dgc-cols').value = '8';
+            document.getElementById('dgc-rows').value = '5';
+            document.getElementById('dgc-dice').value = '1';
+
+            const failed = [];
+            for (const t of DGC_PRESET_22_DRAW) {
+                const body = { id: t.id, type: t.type, label: t.label || '' };
+                if (t.type === 'score') body.points = t.points;
+                const r = await dgcCall('tile', body);
+                if (!r) failed.push(t.id + '번');
+            }
+            // 황금열쇠 10장도 같이 넣는다 — 판만 깔고 열쇠를 빼먹으면 뽑을 게 없다.
+            let keyFail = false;
+            if (!await dgcCall('keys', { keys: DGC_KEYS_DRAW })) keyFail = true;
+            const ta = document.getElementById('dgc-keys');
+            if (ta) ta.value = DGC_KEYS_DRAW.join('\n');
+            dgcSync(true);
+
+            let msg = '🎲 손그림 22칸을 깔았습니다 · 황금열쇠 ' + DGC_KEYS_DRAW.length + '장';
+            if (failed.length) msg += ' · 저장 실패: ' + failed.join(', ');
+            if (keyFail) msg += ' · 황금열쇠 저장 실패';
+            acctToast(msg, (failed.length || keyFail) ? 'warn' : 'ok');
+            if (!failed.length && !keyFail) {
+                acctToast('싱크홀·블랙홀·전원지급 칸은 글만 뜹니다 — 말은 손으로 옮겨주세요', 'warn');
+            }
         }
 
         async function dgcPreset22() {
