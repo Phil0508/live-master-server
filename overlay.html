@@ -2475,9 +2475,25 @@
         //    ⚠️ 클래스를 걷었다가 강제로 되감고(offsetWidth) 다시 걸어야 한다.
         //       안 그러면 연속으로 들어올 때 두 번째부터는 이미 걸려 있어 안 뛴다.
         let cfTimer = null, cfWaitTimer = null, cfShownAt = 0;
+        // 🎲 이 기여도 변화가 주사위게임 것인가 — 굴림/원하는-곳-이동 신호(action.ts)가 방금 것이면
+        //    같은 update 에 실려 온 기여도 변화다. 그 밖(후원 승인·손보기·번외 합산·복구·재접속)은
+        //    줄을 키우거나 가운데로 띄우지 않는다 — 숫자만 제자리에서 세어 올린다.
+        //    ⚠️ 후원 승인도 기여도를 같이 올린다(/api/score/add 는 contribution 기본값이 delta).
+        //       그래서 시그니처 재생 중(판이 숨는다)에 후원을 배정하면 줄이 화면 가운데로 떠올랐다.
+        //       사장님: '주사위 게임을 안 해도 점수 올라가는 팝업이 뜨네'(2026-09-09).
+        function dgContribFresh() {
+            const act = (((globalData || {}).dicegame) || {}).action || {};
+            if (!act.ts) return false;
+            const age = (Date.now() + serverTimeOffset) - act.ts;
+            const dicey = act.type === 'ROLL' || (act.type === 'MOVE' && act.tile);
+            return dicey && age > -5000 && age < 8000;
+        }
         function popContribRow(cbEl, from, to) {
             const row = cbEl && cbEl.closest && cbEl.closest(".excel-row");
             if (!row) return;
+            // 오를 때만 · 주사위게임 것일 때만 (댓글은 늘 그렇게 적혀 있었는데 코드는 아무 변화에나 걸렸다)
+            if (!(Number(to) > Number(from))) return;
+            if (!dgContribFresh()) return;
             if (lmBoardHidden(row)) { showContribFloat(row, from, to); return; }
             row.classList.remove("contrib-pop");
             void row.offsetWidth;
@@ -2506,6 +2522,13 @@
             //    카드가 나올 무렵 사라진다(실측: 9~333ms 에 떠서 3초에 사라짐,
             //    말이 닿는 시각은 약 1970ms). 닿는 순간에 맞춰 카드와 같이 보여준다.
             const show = () => {
+                // 기다리는 사이 판이 다시 보이게 됐으면(굴린 직후 주사위판을 내린 경우) 가운데가 아니라
+                // 제자리에서 키운다 — 판이 보이는데 가운데에 또 뜨면 두 번 보인다.
+                if (row.isConnected && !lmBoardHidden(row)) {
+                    row.classList.remove("contrib-pop"); void row.offsetWidth; row.classList.add("contrib-pop");
+                    setTimeout(() => row.classList.remove("contrib-pop"), 800);
+                    return;
+                }
                 // 🔁 바로 이어 들어온 줄(황금열쇠 '바꾸기' 는 두 사람이 한 번에 바뀐다)은
                 //    앞 줄을 덮지 않고 아래에 붙인다 — 안 그러면 한 사람만 보인다.
                 const stack = box.classList.contains("show") && (Date.now() - cfShownAt) < 700
@@ -3351,8 +3374,10 @@
                (0,1600)·0.57, 계좌 1.07 이 남아 있어 방송이 설계와 달랐다(2026-09-09).
                사장님: '1로 되돌려, 후원순위랑 계좌도 코드 자리로'.
                ⚠️ 후원 순위는 다시 편집기를 따른다 — 코드 소유로 돌렸더니 편집기에서 끌어도
-                  방송이 안 들었다('에디터에서 해도 안 움직여'). 편집기에 없을 때만 계좌 아래. */
-            const CODE_OWNED = ['account', 'notice'];
+                  방송이 안 들었다('에디터에서 해도 안 움직여'). 편집기에 없을 때만 계좌 아래.
+               ⚠️ 계좌도 같다(사장님: '어디 붙게 하지 말고 옛날같이 자유롭게') — 편집기에 있으면
+                  그 자리·배율, 없을 때만 판 아래/머리 줄. 코드 소유는 전광판 하나. */
+            const CODE_OWNED = ['notice'];
             CODE_OWNED.forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if (el) el.style.transform = '';
@@ -3385,8 +3410,8 @@
                   배치 파일에 있으면 손대지 않는다. */
             const laid = id => layOK && !!ly[id];
             // 계좌·전광판 자리를 코드가 옮겨도 되는지 — 편집기에서 잡아 뒀으면 그쪽이 우선
-            // 셋 다 코드 소유(위 CODE_OWNED) — 배치 파일에 있어도 syncAccountPos 가 자리를 정한다
-            window.__accLaid = false;
+            // 전광판만 코드 소유(위 CODE_OWNED). 계좌·후원 순위는 편집기에 있으면 그쪽.
+            window.__accLaid = laid('account');
             window.__noticeLaid = false;
             window.__donorLaid = laid('donor-rank');   // 편집기에서 잡았으면 그쪽, 아니면 계좌 아래
 
@@ -3468,29 +3493,30 @@
                        && g.getBoundingClientRect().width > 2;
             });
             const away = rankHiddenBy.race || rankHiddenBy.dice || currentExtraActiveState || covered;
-            // ⚠️ 편집기에 저장된 계좌 자리는 무시한다. 계좌는 이제 판을 따라다니는 위젯이라
-            //    고정 좌표가 뜻이 없다 — 실제로 옛 저장값(0,530)이 살아나 계좌가 화면
-            //    한가운데 떠 있었다(2026-09-09). 편집기에는 위젯 하나를 지우는 기능도 없다.
-            //    전광판도 이제 같다 — 배율 2.78 이 남아 글자가 75px 로 나가고 있었다.
-            if (true) {
+            // 🏦 계좌: 편집기에서 자리를 잡아 뒀으면(__accLaid) 손대지 않는다 — 사장님:
+            //    '어디 붙게 하지 말고 옛날같이 자유롭게'. 편집기에 없을 때만 판 아래/머리 줄.
+            //    폭은 언제나 내용만큼(max-content) — 판 폭으로 늘렸더니 계좌번호 뒤가 텅 비었다.
+            if (box) { box.style.width = ''; box.style.maxWidth = ''; }
+            el.style.width = '';
+            if (!window.__accLaid) {
                 if (away) {
                     el.style.left = '6px'; el.style.right = 'auto';
-                    el.style.top = '115px'; el.style.width = '';
-                    if (box) { box.style.width = ''; box.style.maxWidth = ''; }
+                    el.style.top = '115px';
                 } else {
                     // offsetTop/Height 는 방송판 좌표(1080×1920) 그대로라 화면 배율과 무관하다
                     el.style.left = 'auto'; el.style.right = '42px';
                     el.style.top = (rank.offsetTop + rank.offsetHeight + 8) + 'px';
-                    el.style.width = rank.offsetWidth + 'px';
-                    // 판 아래에서는 판 폭을 꽉 채운다. 머리 줄 기준으로 걸린 640px 제한을 푼다.
-                    if (box) { box.style.width = '100%'; box.style.maxWidth = 'none'; }
-                    // 🏅 후원 순위도 판을 따라 내려온다 — 고정 y(387)는 여섯 줄 판의 아랫단과
-                    //    계좌 줄을 덮었다(캡처로 잡았다). 판이 2×2 로 줄면 같이 올라온다.
-                    //    편집기에서 자리를 잡아 뒀으면(__donorLaid) 그쪽이 우선.
-                    const dr = document.getElementById('donor-rank-container');
-                    if (dr && !window.__donorLaid) {
-                        dr.style.top = (rank.offsetTop + rank.offsetHeight + 8 + el.offsetHeight + 8) + 'px';
-                    }
+                }
+            }
+            if (!away) {
+                // 🏅 후원 순위도 판을 따라 내려온다 — 고정 y(387)는 여섯 줄 판의 아랫단과
+                //    계좌 줄을 덮었다(캡처로 잡았다). 판이 2×2 로 줄면 같이 올라온다.
+                //    편집기에서 자리를 잡아 뒀으면(__donorLaid) 그쪽이 우선. 계좌가 편집기
+                //    자리에 가 있으면 판 바로 아래로.
+                const dr = document.getElementById('donor-rank-container');
+                if (dr && !window.__donorLaid) {
+                    const accH = window.__accLaid ? 0 : (el.offsetHeight + 8);
+                    dr.style.top = (rank.offsetTop + rank.offsetHeight + 8 + accH) + 'px';
                 }
             }
             // 전광판은 계좌가 머리 줄에 있으면 오른쪽으로 물러나고, 없으면 다 쓴다
