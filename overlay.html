@@ -3496,7 +3496,60 @@
                 nc.style.left = away ? '654px' : '6px';
                 nc.style.width = away ? '388px' : '1068px';
             }
+            placeGoalTip();   // 위젯이 움직였으니 금액 딱지도 다시 비킨다
         }
+
+        /* 💰 목표 막대의 금액 딱지 — 채움 꼭대기를 따라가되(수은주) 그 높이에 위젯이 있으면
+           위젯 바로 아래나 위 중 가까운 빈자리로 비킨다. 빈자리가 없으면 숨긴다 —
+           막대가 찬 높이가 곧 달성률이라 딱지가 잠깐 없어도 읽힌다.
+           ⚠️ 딱지는 막대 왼쪽(x 약 800~1036)에 뜨는데 엑셀판·계좌·후원 순위·전광판이 전부
+              그 x 를 지난다. 60% 쯤이면 후원 순위 제목을, 90% 면 엑셀판 줄을 덮었다(캡처로 잡았다).
+           ⚠️ offsetTop/Left 는 방송판(1080×1920) 좌표다 — 화면 배율과 무관하다. */
+        let lastGoalTipF = 0.045;
+        function placeGoalTip() {
+            const tip = document.getElementById('goal-tip');
+            const gauge = document.getElementById('gauge-container');
+            const rail = document.getElementById('goal-box-ui');
+            if (!tip || !gauge || !rail) return;
+            const railTop = gauge.offsetTop + rail.offsetTop, railH = rail.offsetHeight || 837;
+            const half = (tip.offsetHeight || 76) / 2;
+            const want = railTop + 3 + (railH - 6) * (1 - lastGoalTipF);   // 딱지 가운데의 y
+            const x2 = gauge.offsetLeft - 10, x1 = x2 - (tip.offsetWidth || 240);
+            const taken = [];
+            ['ranking-container', 'extra-ranking-container', 'account-container',
+             'donor-rank-container', 'notice-container'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el || el.offsetWidth < 2) return;
+                const st = getComputedStyle(el);
+                if (st.visibility === 'hidden' || parseFloat(st.opacity) < 0.5) return;
+                // 전광판은 띠가 올라와 있을 때만 자리를 차지한다
+                if (id === 'notice-container' && !el.querySelector('.notice-board.show')) return;
+                const l = el.offsetLeft, r = l + el.offsetWidth, t = el.offsetTop, b = t + el.offsetHeight;
+                if (r < x1 || l > x2) return;
+                taken.push([t - 8, b + 8]);
+            });
+            const hits = y => taken.some(([t, b]) => y + half > t && y - half < b);
+            const lo = 115 + half, hi = 954 - half;   // 채널 줄 아래 · 채팅 구역 위
+            let y = Math.min(hi, Math.max(lo, want));
+            if (hits(y)) {
+                let down = y, up = y;
+                while (down <= hi && hits(down)) down += 8;
+                while (up >= lo && hits(up)) up -= 8;
+                const okD = down <= hi, okU = up >= lo;
+                if (!okD && !okU) { tip.style.opacity = '0'; return; }
+                y = (okD && (!okU || down - want <= want - up)) ? down : up;
+            }
+            tip.style.opacity = '';
+            // bottom 은 막대 아래끝에서 잰다. translateY(50%) 라 딱지 가운데가 그 높이에 온다.
+            tip.style.bottom = Math.round(railTop + railH - 1 - y) + 'px';
+        }
+        // 전광판 띠가 오르내릴 때도 다시 잰다 (class 만 본다)
+        (function watchNoticeForTip() {
+            const nb = document.querySelector('.notice-board');
+            if (!nb || typeof MutationObserver === 'undefined') return;
+            new MutationObserver(() => { try { placeGoalTip(); } catch (e) {} })
+                .observe(nb, { attributes: true, attributeFilter: ['class'] });
+        })();
 
         /* 게임 위젯이 떴다 졌다 하면 계좌 자리를 다시 잡는다.
            ⚠️ 부르는 자리를 하나씩 늘리는 방식으로 세 번 틀렸다 — 위젯마다 그려지는 시점이
@@ -4437,7 +4490,9 @@
                 //    아래끝이 채팅 구역(960)을, 100% 에서 위끝이 채널줄(115)을 넘는다.
                 //    막대 안(0.045~0.955)에 가둬 둔다 — 막대 자체는 끝까지 찬다.
                 const goalTipF = Math.min(0.955, Math.max(0.045, goalF));
-                if (goalTip) goalTip.style.bottom = 'calc(3px + (100% - 6px) * ' + goalTipF + ')';
+                // 자리는 placeGoalTip 이 정한다 — 그 높이에 위젯이 있으면 비킨다
+                lastGoalTipF = goalTipF;
+                if (goalTip) placeGoalTip();
                 // 목표 금액·달성률은 따로 안 쓴다 — 막대가 찬 높이가 곧 달성률이다.
                 
                 if(tot >= tgt && tgt > 0) { 
