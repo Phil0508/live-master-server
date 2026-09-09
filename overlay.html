@@ -4095,8 +4095,12 @@
                     
                     extraBjs.forEach(b => {
                         let id = 'ex-' + safeId(b.name);
-                        previousScores[id] = b.score;
-                        previousContribs[id] = b.contribution || 0;
+                        // ⚠️ 이미 알던 선수의 옛 값은 남겨 둔다 — 아래 루프가 옛 값에서 새 값으로
+                        //    세어 올리고 줄을 키운다. 서버는 기여도가 오르면 판을 기여도순으로 다시
+                        //    세우므로 순서가 바뀌면 여기로 오는데, 예전엔 여기서 새 값을 덮어써서
+                        //    순위가 바뀌는 바로 그 순간에만 연출이 사라졌다(사장님: '기여도 올라갈 땐 안 보이네').
+                        if (previousScores[id] === undefined) previousScores[id] = b.score;
+                        if (previousContribs[id] === undefined) previousContribs[id] = b.contribution || 0;
                     });
                 }
 
@@ -4330,8 +4334,12 @@
                     
                     bjs.forEach(b => {
                         let id = safeId(b.name);
-                        previousScores[id] = b.score;
-                        previousContribs[id] = b.contribution || 0;
+                        // ⚠️ 이미 알던 선수의 옛 값은 남겨 둔다 — 아래 루프가 옛 값에서 새 값으로
+                        //    세어 올리고 줄을 키운다. 서버는 기여도가 오르면 판을 기여도순으로 다시
+                        //    세우므로 순서가 바뀌면 여기로 오는데, 예전엔 여기서 새 값을 덮어써서
+                        //    순위가 바뀌는 바로 그 순간에만 연출이 사라졌다(사장님: '기여도 올라갈 땐 안 보이네').
+                        if (previousScores[id] === undefined) previousScores[id] = b.score;
+                        if (previousContribs[id] === undefined) previousContribs[id] = b.contribution || 0;
                     });
                 }
 

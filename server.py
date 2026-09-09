@@ -6981,12 +6981,15 @@ def api_dicegame_roll():
     with file_lock:
         state = load_data()
         g = _dicegame_state(state)
-        # 🙋 기여도 받을 사람 — 예전 규칙 그대로 둔다. 골랐으면 그 사람, 아니면
-        #    마지막으로 굴린 사람. 점수 칸에는 이 기억을 절대 안 쓴다(정산이 틀어진다).
+        # 🙋 기여도 받을 사람 — 골랐으면 그 사람, 아니면 **움직인 말의 주인**(아래).
+        #    ⚠️ 예전에는 '마지막으로 굴린 사람' 을 기억해 줬다 — 말이 하나뿐일 때 규칙이다.
+        #       말이 선수마다 하나씩 생긴 뒤로는 그 기억이 거짓이 된다: 폰은 말만 골라
+        #       보내므로(piece) 첫 사람이 한 번 굴리면 그 뒤 모두의 기여도가 첫 사람에게
+        #       갔다(사장님: '기여도 올라가는 게 안 보이네' — 다른 줄이 오르고 있었다).
         player = str(body.get('player') or '').strip()
         if player:
             g['last_player'] = player
-        contrib_player = player or str(g.get('last_player') or '').strip()
+        contrib_player = player
         # 🧩 어느 말이 가는가.
         #    ① piece 를 줬으면 그 말  ② 안 줬는데 사람 이름이 말 이름이면 그 말
         #    ③ 둘 다 아니면 '다음 차례' 말
@@ -7015,7 +7018,7 @@ def api_dicegame_roll():
             return jsonify({'status': 'error',
                             'message': '점수판에 사람이 없습니다. 엑셀판에 선수를 넣어주세요'}), 400
         piece = g['pieces'][_idx]
-        # 말만 고르고 사람을 안 골랐으면 그 말의 주인이 받는다
+        # 사람을 안 골랐으면 움직인 말의 주인이 받는다 (말 = 점수판 선수)
         if not contrib_player:
             contrib_player = piece['name']
             g['last_player'] = piece['name']

@@ -218,12 +218,15 @@ print('=' * 74)
 # 사장님 말: "누르지말고 기여도가 자동으로 올라가게 해줘. 이미 플레이어를 고르고 게임하니까"
 # ⚠️ 예전에는 굴릴 때 사람을 안 고르면 대기함에 알림으로 남아 한 번 더 눌러야 했다.
 #    주사위를 굴리는 것도 폰, 누르는 것도 폰이라 같은 일을 두 번 하는 셈이었다.
-#    이제 마지막으로 굴린 사람을 기억해 그 사람에게 넣는다.
+#    이제 사람을 안 고르면 **움직인 말의 주인**에게 넣는다 — 말은 선수마다 하나씩이라
+#    주인이 곧 굴린 사람이다. ('마지막으로 굴린 사람' 기억은 말이 하나뿐일 때 규칙이었고,
+#    폰이 말만 골라 보내면 모두의 기여도가 첫 사람에게 몰렸다.)
 src2 = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
 chk('마지막으로 굴린 사람을 기억한다', '"last_player": ""' in src2)
 chk('고르면 기억해 둔다', "g['last_player'] = player" in src2)
-chk('안 고르면 기억한 사람에게 간다',
-    "contrib_player = player or str(g.get('last_player') or '').strip()" in src2)
+chk('안 고르면 움직인 말의 주인에게 간다',
+    any(l.strip() == 'contrib_player = player' for l in src2.splitlines())
+    and "contrib_player = piece['name']" in src2)
 # 점수 칸도 이제 기여도만 올린다 ("점수라고만 써있지 기여도 5점만"). 그래서 시그·한 바퀴와
 # 같이 기억을 써도 안전하다 — 점수(그날 일당)는 어디서도 안 건드린다.
 chk('점수 칸도 기여도만 (점수 함수는 걷어냈다)',

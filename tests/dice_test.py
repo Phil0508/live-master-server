@@ -180,8 +180,10 @@ post('/api/dicegame/move', {'pos': 0})
 c, r = post('/api/dicegame/roll')                      # 차례 없이
 d = get()
 sc2 = {b['name']: (b.get('score'), b.get('contribution')) for b in d['bjs']}
-# 기여도라서 시그·한 바퀴처럼 방금 굴린 사람을 기억해 준다 — 점수는 여전히 0
-chk('차례를 안 골라도 기억한 사람 기여도로 간다 (점수는 0 그대로)', sc2.get('제이양') == (0, 4) and sc2.get('밍밍') == (0, 0), sc2)
+# 사람을 안 고르면 **움직인 말의 주인**이 받는다 — 말은 선수마다 하나씩이라
+# '방금 굴린 사람' 기억은 남의 기여도를 첫 사람에게 몰아주는 거짓 규칙이었다.
+# 제이양이 굴렸으니 차례는 밍밍 — 밍밍 말이 가고 밍밍이 받는다 (0번에서 1~6칸은 전부 점수 칸)
+chk('차례를 안 골라도 움직인 말의 주인이 받는다 (점수는 0 그대로)', sc2.get('제이양') == (0, 2) and sc2.get('밍밍') == (0, 2), sc2)
 c, r = post('/api/dicegame/move', {'pos': 0}) and post('/api/dicegame/roll', {'player': '없는사람'})
 chk('없는 사람이면 기여도 안 넣고 알린다', '못 찾아' in ((r or {}).get('note') or ''), (r or {}).get('note'))
 
