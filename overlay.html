@@ -313,9 +313,10 @@
         .excel-board { padding: 18px; width: max-content; display: flex; flex-direction: column; gap: 8px; }
         .excel-grid-container { display: flex; gap: 20px; }
         .excel-col { display: flex; flex-direction: column; width: 466px; }
-        /* 머리줄 — 한 번 읽고 마는 것이라 조용히 둔다. 금색은 밑줄로만 남긴다. */
+        /* 머리줄 — 사장님: '회색 말고 금색으로'(2026-09-09). 밑줄과 같은 금색으로 맞춘다.
+           ⚠️ 번외 점수판은 인라인 style 로 흰 글자를 덮어쓴다(색 배경이라) — 그쪽은 그대로다. */
         .excel-header {
-            color: var(--tx-3); font-weight: 700; font-size: 27px; letter-spacing: 0.04em;
+            color: var(--gold); font-weight: 700; font-size: 27px; letter-spacing: 0.04em;
             display: grid; grid-template-columns: 60px 1fr 148px 92px;
             padding: 0 6px 9px; margin-bottom: 4px;
             border-bottom: 2px solid rgba(var(--gold-rgb), 0.5);
