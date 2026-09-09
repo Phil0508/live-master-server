@@ -4410,6 +4410,14 @@ def api_data():
                 for _p in (state.get(_k) or []):
                     if isinstance(_p, dict) and isinstance(_p.get('name'), str):
                         _p['name'] = _p['name'].strip()
+            # 🎲 명단이 바뀌었으면 주사위 말도 그 자리에서 맞춘다. 안 그러면 새로 넣은
+            #    사람이 다음 굴림 전까지 판에도 폰 목록에도 없다(dicegame 은 서버 소유라
+            #    여기서 손봐도 조종실 사본에 덮이지 않는다).
+            if ('bjs' in incoming or 'extra_bjs' in incoming) and isinstance(state.get('dicegame'), dict):
+                try:
+                    _dicegame_state(state)
+                except Exception as _e:
+                    print(f'⚠️ [주사위게임] 명단 변경 뒤 말 맞추기 실패 — 계속합니다: {_e}', flush=True)
             _md = state.get('match_data')
             if isinstance(_md, dict):
                 for _p in (_md.get('players') or []):
@@ -6738,6 +6746,17 @@ def _dicegame_sync_pieces(state, g):
     #    누군가는 한 차례를 건너뛴다 — 남의 차례에 남의 말이 가고 기여도도 그리로 간다.
     kept = [p['name'] for p in (g.get('pieces') or []) if p.get('name') in names]
     order = kept + [nm for nm in names if nm not in kept]
+    # 차례는 자리 번호라서, 차례보다 앞에 있던 사람이 명단에서 빠지면 번호가 한 칸
+    # 당겨져 다음 사람이 건너뛰어진다. 차례였던 이름을 기억해 새 목록에서 다시 찾는다.
+    # 그 사람이 빠졌으면 그 다음 남은 사람.
+    _old_ps = g.get('pieces') or []
+    _ti = max(0, min(len(_old_ps) - 1, _as_int(g.get('turn'), 0) or 0)) if _old_ps else 0
+    _next_name = None
+    for _p in _old_ps[_ti:] + _old_ps[:_ti]:
+        if _p.get('name') in order:
+            _next_name = _p['name']
+            break
+    g['turn'] = order.index(_next_name) if _next_name in order else 0
     g['pieces'] = [{'name': nm,
                     'pos': (old.get(nm) or {}).get('pos', 0),
                     'laps': (old.get(nm) or {}).get('laps', 0),

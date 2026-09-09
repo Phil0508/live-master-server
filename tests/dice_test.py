@@ -518,6 +518,37 @@ chk('효과 없는 손 이동엔 칸 정보가 없다(방송판이 카드를 안
 
 print()
 print('=' * 74)
+print('⑱ 방송 중 명단을 늘리거나 줄여도 그대로 — 말·자리·차례')
+print('=' * 74)
+post('/api/restore', {'broadcast_active': True, 'extra_game_active': False,
+                      'bjs': [{'name': n, 'score': 0, 'contribution': 0} for n in ('가', '나', '다', '라')],
+                      'pending_donations': [], 'logs': [], 'reaction_queue': []})
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'dice': 1})
+for i in range(1, 20):
+    post('/api/dicegame/tile', {'id': i, 'type': 'score', 'points': 10})
+post('/api/dicegame/move', {'piece': '가', 'pos': 5})
+post('/api/dicegame/move', {'piece': '나', 'pos': 7})
+c, r = post('/api/dicegame/roll', {'piece': '다', 'value': 2})    # 차례 → 라
+_cur = {b['name']: b['contribution'] for b in get()['bjs']}
+# 조종실이 하는 그대로: 명단(bjs)만 /api/data 로 저장
+post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': _cur.get(n, 0)} for n in ('가', '나', '다', '라', '마', '바')]})
+g8 = dg()
+chk('저장 즉시 말이 여섯 (다음 굴림을 안 기다린다)', [p['name'] for p in g8['pieces']] == ['가', '나', '다', '라', '마', '바'],
+    [p['name'] for p in g8['pieces']])
+chk('있던 말 자리는 그대로', {p['name']: p['pos'] for p in g8['pieces']}.get('가') == 5 and {p['name']: p['pos'] for p in g8['pieces']}.get('나') == 7,
+    [(p['name'], p['pos']) for p in g8['pieces']])
+chk('차례도 그대로(라)', g8['pieces'][g8['turn']]['name'] == '라', g8['pieces'][g8['turn']]['name'])
+# 차례(라)보다 앞에 있던 가를 뺀다 — 자리 번호가 당겨져도 라 차례여야 한다
+post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': _cur.get(n, 0)} for n in ('나', '다', '라', '마', '바')]})
+g8 = dg()
+chk('앞사람을 빼도 차례는 라 그대로(건너뛰지 않는다)', g8['pieces'][g8['turn']]['name'] == '라', g8['pieces'][g8['turn']]['name'])
+# 차례인 사람 자신을 빼면 그 다음 사람
+post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': _cur.get(n, 0)} for n in ('나', '다', '마', '바')]})
+g8 = dg()
+chk('차례인 사람을 빼면 다음 사람(마)', g8['pieces'][g8['turn']]['name'] == '마', g8['pieces'][g8['turn']]['name'])
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 for n in BAD:
     print('   [실패] ' + n)
