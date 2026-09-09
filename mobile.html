@@ -366,6 +366,8 @@ async function dgMobRoll() {
         if (d.shield_used) m += ' · 실드로 막음';
         if (d.again) m += ' · 한 번 더!';
         toast(m);
+        // 고른 말은 이번 굴림에만 — 남겨 두면 다음 굴림도 그 말이 가고 그 사람이 받는다
+        if (sel) sel.value = '';
         if (d.note) toast(d.note, false);
     } catch (e) { toast(e.message, false); }
     finally { busy = false; }
@@ -389,7 +391,7 @@ function rDice(el) {
         <span>${dice ? ('마지막 눈 ' + dice) : ''}</span>
       </div>
       <select id="dgm-player" style="width:100%; height:44px; margin-bottom:10px;">
-        <option value="">(다음 차례 말로)</option>
+        <option value="">(다음 차례: ${(((g.pieces || [])[g.turn | 0]) || {}).name || '?'})</option>
         ${(g.pieces || []).map(p => `<option value="${p.name}" ${p.name === keep ? 'selected' : ''}>${p.name}</option>`).join('')}
       </select>
       <button onclick="dgMobRoll()" style="width:100%; height:54px; font-size:18px; font-weight:900;

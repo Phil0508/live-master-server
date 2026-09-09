@@ -460,6 +460,64 @@ chk('손으로 고칠 때 기록을 남긴다 (log:false 를 뺐다)',
 
 print()
 print('=' * 74)
+print('⑮ 차례는 판 순서를 따라가지 않는다 — 점수를 받아 1등으로 뛰어도 남의 차례를 안 먹는다')
+print('=' * 74)
+# 판은 기여도순으로 계속 다시 서지만 차례는 말 목록의 자리 번호다. 말 목록이 판을 따라
+# 다시 서면 1등으로 뛴 사람이 곧바로 또 굴리고 누군가는 건너뛴다 — 남의 말이 가고 남이 받는다.
+post('/api/restore', {'broadcast_active': True, 'extra_game_active': False,
+                      'bjs': [{'name': n, 'score': 0, 'contribution': 0} for n in ('가', '나', '다', '라')],
+                      'pending_donations': [], 'logs': [], 'reaction_queue': []})
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'dice': 1})   # 20칸
+for i in range(1, 20):
+    post('/api/dicegame/tile', {'id': i, 'type': 'score', 'points': 10})
+chk('말 순서 = 명단 순서로 시작', [p['name'] for p in dg()['pieces']] == ['가', '나', '다', '라'], [p['name'] for p in dg()['pieces']])
+c, r = post('/api/dicegame/roll', {'piece': '라', 'value': 3})     # 라 +10 → 판에서 1등
+d = get()
+chk('라가 기여도 1등으로 올라섰다', d['bjs'][0]['name'] == '라' and d['bjs'][0]['contribution'] == 10,
+    [(b['name'], b['contribution']) for b in d['bjs']])
+chk('말 순서는 그대로', [p['name'] for p in d['dicegame']['pieces']] == ['가', '나', '다', '라'],
+    [p['name'] for p in d['dicegame']['pieces']])
+chk('응답에 어느 말이 갔는지 실린다', r.get('piece') == '라', r.get('piece'))
+time.sleep(3.3)      # 연타 방지(3칸 × 0.3초 + 2.2초)가 풀리기를 기다린다
+c, r = post('/api/dicegame/roll', {'value': 2})                    # 안 고르면 차례 말
+chk('다음 차례는 처음 사람(가) — 1등으로 뛴 라가 또 굴리지 않는다', r.get('piece') == '가', r.get('piece'))
+sc = {b['name']: b['contribution'] for b in get()['bjs']}
+chk('기여도도 가에게 (라는 그대로 10)', sc.get('가') == 10 and sc.get('라') == 10, sc)
+
+print()
+print('=' * 74)
+print('⑯ 손으로 옮길 때 기본 말 = 차례 말 (굴리기와 같은 규칙 · 응답에 어느 말인지)')
+print('=' * 74)
+c, r = post('/api/dicegame/move', {'pos': 9})
+chk('말을 안 고르면 차례 말(나)이 옮겨진다 — 굴리기와 같은 말', r.get('piece') == '나', r.get('piece'))
+chk('나 위치 9', next(p['pos'] for p in dg()['pieces'] if p['name'] == '나') == 9,
+    [(p['name'], p['pos']) for p in dg()['pieces']])
+
+print()
+print('=' * 74)
+print('⑰ 원하는 곳으로 — 옮겨진 칸이 제 일을 한다 (그 말 주인에게, 한 번만)')
+print('=' * 74)
+post('/api/dicegame/keys', {'keys': ['원하는 곳으로']})
+post('/api/dicegame/tile', {'id': 12, 'type': 'key'})
+post('/api/dicegame/move', {'piece': '나', 'pos': 10})
+c, r = post('/api/dicegame/roll', {'piece': '나', 'value': 2})    # 12번 열쇠
+chk('열쇠를 뽑았다', r.get('key') == '원하는 곳으로', r)
+chk('말에 선택권 표시가 남는다', any(p['name'] == '나' and p.get('choose') for p in dg()['pieces']),
+    dg()['pieces'])
+c, r = post('/api/dicegame/move', {'piece': '나', 'pos': 15})     # 15번 = 기여도 10
+chk('옮겨진 자리의 기여도가 그 말 주인(나)에게', (r.get('scored') or {}).get('name') == '나' and r.get('choose') is True, r)
+sc = {b['name']: b['contribution'] for b in get()['bjs']}
+chk('나 기여도 10', sc.get('나') == 10, sc)
+act = dg().get('action') or {}
+chk('방송판용 신호: MOVE 에 칸 정보가 실린다', act.get('type') == 'MOVE' and (act.get('tile') or {}).get('type') == 'score'
+    and (act.get('scored') or {}).get('name') == '나', act)
+c, r = post('/api/dicegame/move', {'piece': '나', 'pos': 16})
+chk('두 번째 손 이동은 아무 효과 없다', not r.get('scored') and not r.get('choose'), r)
+chk('나 기여도 그대로 10', {b['name']: b['contribution'] for b in get()['bjs']}.get('나') == 10)
+chk('효과 없는 손 이동엔 칸 정보가 없다(방송판이 카드를 안 띄운다)', 'tile' not in (dg().get('action') or {}))
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))
 for n in BAD:
     print('   [실패] ' + n)

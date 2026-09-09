@@ -8006,10 +8006,22 @@ initFoldablePanels();
            ⚠️ 둘로 갈라 두면 한쪽만 고치고 다른 쪽은 낡은 채로 남는다. */
         function dgcRollToast(d) {
             let m = '🎲 ' + (d.dice || []).join('+') + ' → ' + d.to + '번 칸';
+            // 어느 말이 갔고 누가 받았는지 반드시 보인다 — 남의 말이 가고 남이 받아도
+            // 화면만 보면 모른다(실제로 그랬다).
+            if (d.piece) m = '[' + d.piece + '] ' + m;
             if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
             if (d.lap) m += ' · 🎉 출발 칸 도착!';
+            if (d.contrib) m += ' · ' + d.contrib.name + ' 기여도 +' + d.contrib.points;
+            if (d.lap_contrib) m += ' · ' + d.lap_contrib.name + ' 기여도 +' + d.lap_contrib.points;
+            if (d.key) m += ' · 🔑 ' + d.key + (d.key_effect ? ' → ' + d.key_effect : '');
+            if (d.shield_used) m += ' · 🛡️ 실드로 막음';
+            if (d.again) m += ' · 한 번 더!';
             acctToast(m, 'ok');
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');
+            // 고른 사람은 이번 굴림에만 쓴다 — 남겨 두면 다음 굴림도 그 사람 말이 가고
+            // 그 사람이 받는다. 차례대로 돌아가야 한다.
+            const sel = document.getElementById('dgc-player');
+            if (sel) sel.value = '';
         }
 
         // 🎲 현실에서 굴린 눈을 그대로 넣는다 — 사장님이 주사위를 현실에서 굴리기로 정했다.
@@ -8043,8 +8055,19 @@ initFoldablePanels();
         async function dgcMove() {
             const pos = parseInt(document.getElementById('dgc-pos').value);
             if (isNaN(pos)) { acctToast('칸 번호를 적어주세요', 'warn'); return; }
-            const d = await dgcCall('move', { pos });
-            if (d) acctToast('말을 ' + pos + '번 칸으로 옮겼습니다', 'ok');
+            // 어느 말인지는 '누구 차례' 칸을 따른다. 비워 두면 서버가 마지막으로 움직인 말을
+            // 잡는다 — 차례 말이 아니다(굴림 뒤엔 차례가 이미 넘어가 있어 남의 말을 옮기게 된다).
+            const sel = document.getElementById('dgc-player');
+            const d = await dgcCall('move', { pos, piece: sel ? sel.value : '' });
+            if (!d) return;
+            let m = '[' + (d.piece || '?') + '] 말을 ' + pos + '번 칸으로 옮겼습니다';
+            if (d.choose) m += ' · 🎯 원하는 곳으로';
+            if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
+            if (d.giveall) m += ' · 전원 기여도 +' + d.giveall.points;
+            if (d.key) m += ' · 🔑 ' + d.key + (d.key_effect ? ' → ' + d.key_effect : '');
+            acctToast(m, 'ok');
+            if (d.note) acctToast('⚠️ ' + d.note, 'warn');
+            if (sel) sel.value = '';
         }
 
         async function dgcSaveKeys() {
@@ -8382,6 +8405,9 @@ initFoldablePanels();
                         + names.map(n => '<option value="' + escapeHTML(n) + '">' + escapeHTML(n) + '</option>').join('');
                     ps.value = keep;
                 }
+                // 첫 줄에 지금 차례를 적어 준다 — 안 고르고 굴리면 이 사람의 말이 간다
+                const nx = (g.pieces || [])[g.turn | 0];
+                if (ps.options[0]) ps.options[0].textContent = nx ? ('(다음 차례: ' + nx.name + ')') : '(누구 차례?)';
             }
             // 황금열쇠 — 처음 한 번만 채운다(적던 글을 SSE 가 덮으면 안 된다)
             const ta = document.getElementById('dgc-keys');

@@ -6672,7 +6672,10 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
         piece['shield'] = True
         out['note'] = '실드 획득 — 다음 벌칙 한 번을 막는다'
     elif k == 'choose':
-        out['note'] = '원하는 칸으로 — 조종실에서 손으로 옮겨주세요'
+        # 조종실이 이 말을 손으로 옮기면 그 칸이 제 일을 한다(/api/dicegame/move).
+        # 표시가 없으면 '기여도 10' 칸을 골라 가도 아무것도 못 받는다 — 열쇠가 헛것이 된다.
+        piece['choose'] = True
+        out['note'] = '원하는 칸으로 — 조종실에서 옮기면 그 칸 효과가 걸린다'
     elif k == 'nothing':
         out['note'] = '꽝'
     elif k in ('back', 'fwd', 'start'):
@@ -6729,10 +6732,18 @@ def _dicegame_sync_pieces(state, g):
         return
     old = {p['name']: p for p in g.get('pieces') or []}
     # 이름이 남아 있으면 자리도 그대로 — 명단을 고쳤다고 판이 초기화되면 안 된다
+    # ⚠️ 순서는 **있던 말 순서를 지킨다**(새 이름만 뒤에 붙인다). 판은 기여도순으로 계속
+    #    다시 서는데, 차례(turn)는 이 목록의 자리 번호다. 목록이 판을 따라 다시 서면
+    #    점수를 받아 1등으로 뛴 사람이 곧바로 또 굴리고(자리 0번이 그 사람이 된다)
+    #    누군가는 한 차례를 건너뛴다 — 남의 차례에 남의 말이 가고 기여도도 그리로 간다.
+    kept = [p['name'] for p in (g.get('pieces') or []) if p.get('name') in names]
+    order = kept + [nm for nm in names if nm not in kept]
     g['pieces'] = [{'name': nm,
                     'pos': (old.get(nm) or {}).get('pos', 0),
                     'laps': (old.get(nm) or {}).get('laps', 0),
-                    'shield': bool((old.get(nm) or {}).get('shield'))} for nm in names]
+                    'shield': bool((old.get(nm) or {}).get('shield')),
+                    # '원하는 곳으로' 를 뽑아 손 이동을 기다리는 중인가
+                    'choose': bool((old.get(nm) or {}).get('choose'))} for nm in order]
 
 
 def _dicegame_state(state):
@@ -6761,7 +6772,8 @@ def _dicegame_state(state):
         _fixed.append({'name': _nm,
                        'pos': max(0, _as_int(_p.get('pos'), 0) or 0),
                        'laps': max(0, _as_int(_p.get('laps'), 0) or 0),
-                       'shield': bool(_p.get('shield'))})
+                       'shield': bool(_p.get('shield')),
+                       'choose': bool(_p.get('choose'))})
     g['pieces'] = _fixed
     _dicegame_sync_pieces(state, g)
     g['turn'] = max(0, min(max(0, len(g['pieces']) - 1), _as_int(g.get('turn'), 0) or 0))
@@ -6962,6 +6974,54 @@ def api_dicegame_keys():
     return jsonify({'status': 'success', 'count': len(keys)})
 
 
+def _dicegame_dest_effects(state, g, piece, who, dest, tag):
+    """끌려가거나 손으로 옮겨진 자리의 칸이 제 일을 한다 — 점수·전원 지급·황금열쇠.
+    돌려주는 값: {'parts': action 에 합칠 조각(scored/note/giveall/key/key_effect),
+                  'again': 한 번 더, 'tile': 그 칸 요약}
+    ⚠️ 다시 옮기는 칸(move·goto)에는 걸지 않는다 — 싱크홀에서 싱크홀로 끝없이 튕길 수 있고,
+       방송 중에 그게 터지면 손쓸 수가 없다.
+    ⚠️ 시그니처 칸도 뺐다. 재생 큐가 얽혀 있어 한 번에 두 곡이 걸릴 수 있다. 그 자리에 서면
+       진행자가 직접 틀어준다.
+    """
+    tiles = g.get('tiles') or []
+    t2 = tiles[dest] if 0 <= dest < len(tiles) and isinstance(tiles[dest], dict) else {'id': dest, 'type': 'blank'}
+    parts, again = {}, False
+    d2 = t2.get('type')
+    if d2 == 'score' and t2.get('points'):
+        p2 = _as_int(t2.get('points'), 0) or 0
+        if who:
+            got = _dicegame_apply_contrib(state, who, p2, (t2.get('label') or '점수 칸') + tag)
+            if got:
+                parts['scored'] = {'name': got, 'points': p2}
+                print(f"🎯 [주사위게임] {dest}번{tag} → {got} 기여도 {p2}", flush=True)
+            else:
+                parts['note'] = "'%s' 을(를) 명단에서 못 찾아 기여도는 안 넣었습니다" % who
+        else:
+            parts['note'] = '누구 차례인지 몰라 기여도는 손으로 주세요'
+    elif d2 == 'giveall':
+        p2 = _as_int(t2.get('points'), 0) or 0
+        names = []
+        if p2:
+            why2 = (t2.get('label') or '전원 지급') + ' 칸' + tag
+            for pc in g['pieces']:
+                try:
+                    if _dicegame_apply_contrib(state, pc['name'], p2, why2):
+                        names.append(pc['name'])
+                except Exception as e:
+                    print(f'⚠️ [주사위게임] 전원 지급 실패{tag} — 계속합니다: {e}')
+        parts['giveall'] = {'points': p2, 'names': names}
+    elif d2 == 'key':
+        keys2 = [str(x) for x in (g.get('keys') or []) if str(x).strip()]
+        parts['key'] = random.choice(keys2) if keys2 else '(황금열쇠 덱이 비어 있습니다)'
+        if keys2:
+            ke2 = _dicegame_apply_key(state, g, piece, who, parts['key'], dest, allow_move=False)
+            if ke2['note']:
+                parts['key_effect'] = ke2['note']
+            again = bool(ke2['again'])
+    return {'parts': parts, 'again': again,
+            'tile': {k: t2.get(k) for k in ('id', 'type', 'label', 'points')}}
+
+
 @app.route('/api/dicegame/roll', methods=['POST'])
 def api_dicegame_roll():
     """주사위를 굴린다.
@@ -7018,6 +7078,8 @@ def api_dicegame_roll():
             return jsonify({'status': 'error',
                             'message': '점수판에 사람이 없습니다. 엑셀판에 선수를 넣어주세요'}), 400
         piece = g['pieces'][_idx]
+        # '원하는 곳으로' 를 뽑고 옮기지 않은 채 다시 굴렸으면 그 선택권은 사라진다
+        piece.pop('choose', None)
         # 사람을 안 골랐으면 움직인 말의 주인이 받는다 (말 = 점수판 선수)
         if not contrib_player:
             contrib_player = piece['name']
@@ -7203,41 +7265,10 @@ def api_dicegame_roll():
             #       끝없이 튕길 수 있고, 방송 중에 그게 터지면 손쓸 수가 없다.
             #    ⚠️ 시그니처 칸도 뺐다. 재생 큐가 얽혀 있어 굴림 한 번에 두 곡이
             #       걸릴 수 있다. 그 자리에 서면 진행자가 직접 틀어준다.
-            _d2 = _t2.get('type')
-            if _d2 == 'score' and _t2.get('points'):
-                _p2 = _as_int(_t2.get('points'), 0) or 0
-                if contrib_player:
-                    _got = _dicegame_apply_contrib(
-                        state, contrib_player, _p2,
-                        (_t2.get('label') or '점수 칸') + ' (끌려간 자리)')
-                    if _got:
-                        action['after']['scored'] = {'name': _got, 'points': _p2}
-                        print(f"🎯 [주사위게임] 끌려간 자리 {_dest}번 → {_got} 기여도 {_p2}", flush=True)
-                    else:
-                        action['after']['note'] = "'%s' 을(를) 명단에서 못 찾아 기여도는 안 넣었습니다" % contrib_player
-                else:
-                    action['after']['note'] = '누구 차례인지 몰라 기여도는 손으로 주세요'
-            elif _d2 == 'giveall':
-                _p2 = _as_int(_t2.get('points'), 0) or 0
-                _names = []
-                if _p2:
-                    _why2 = (_t2.get('label') or '전원 지급') + ' 칸 (끌려간 자리)'
-                    for _pc in g['pieces']:
-                        try:
-                            if _dicegame_apply_contrib(state, _pc['name'], _p2, _why2):
-                                _names.append(_pc['name'])
-                        except Exception as e:
-                            print(f'⚠️ [주사위게임] 끌려간 자리 전원 지급 실패 — 계속합니다: {e}')
-                action['after']['giveall'] = {'points': _p2, 'names': _names}
-            elif _d2 == 'key':
-                _keys2 = [str(x) for x in (g.get('keys') or []) if str(x).strip()]
-                action['after']['key'] = random.choice(_keys2) if _keys2 else '(황금열쇠 덱이 비어 있습니다)'
-                if _keys2:
-                    _ke2 = _dicegame_apply_key(state, g, piece, contrib_player, action['after']['key'], _dest, allow_move=False)
-                    if _ke2['note']:
-                        action['after']['key_effect'] = _ke2['note']
-                    if _ke2['again']:
-                        _key_again = True
+            _fx = _dicegame_dest_effects(state, g, piece, contrib_player, _dest, ' (끌려간 자리)')
+            action['after'].update(_fx['parts'])
+            if _fx['again']:
+                _key_again = True
             print(f"🕳️ [주사위게임] {tile.get('label') or _tt} → {to}번에서 {_dest}번으로", flush=True)
             to = _dest
         elif _tt == 'giveall':
@@ -7273,6 +7304,7 @@ def api_dicegame_roll():
           f" ({tile.get('type')}{' 출발칸!' if lap else ''})", flush=True)
     return jsonify({'status': 'success', 'dice': dice, 'to': to,
                     'tile': action['tile'], 'lap': bool(lap),
+                    'piece': piece['name'],
                     'scored': action.get('scored'), 'note': action.get('score_note'),
                     'contrib': action.get('contrib'),
                     'lap_contrib': action.get('lap_contrib'),
@@ -7297,7 +7329,10 @@ def api_dicegame_move():
             return jsonify({'status': 'error', 'message': '먼저 판을 깔아주세요'}), 400
         if not (0 <= pos < n):
             return jsonify({'status': 'error', 'message': f'칸 번호는 0~{n - 1} 입니다'}), 400
-        # 🧩 어느 말을 옮기는가. 안 주면 '다음 차례' 말 — 비상 손잡이라서
+        # 🧩 어느 말을 옮기는가. 안 주면 '다음 차례' 말 — 굴리기와 **같은 규칙**이어야 한다.
+        #    (마지막으로 움직인 말을 잡게 했다가 되돌렸다: 옮긴 말과 이어서 굴리는 말이
+        #     달라져 '19번으로 옮기고 1' 이 출발 칸에 안 닿았다.) 조종실 첫 줄에
+        #    '(다음 차례: 누구)' 라고 적혀 있으니 비워 두면 그 말이다.
         #    엉뚱한 말을 옮기면 더 큰 사고가 되므로 고른 말을 응답에 실어 보낸다.
         _idx = _dicegame_pick(g, body.get('piece'))
         if _idx is None and not g['pieces']:
@@ -7308,13 +7343,28 @@ def api_dicegame_move():
             return jsonify({'status': 'error',
                             'message': "'%s' 말이 없습니다. 있는 말: %s"
                                        % (body.get('piece'), _names)}), 400
-        g['pieces'][_idx]['pos'] = pos
+        piece = g['pieces'][_idx]
+        piece['pos'] = pos
         g['pos'] = pos
-        g['action'] = {'type': 'MOVE', 'ts': int(time.time() * 1000), 'to': pos,
-                       'piece': g['pieces'][_idx]['name'], 'piece_idx': _idx}
+        action = {'type': 'MOVE', 'ts': int(time.time() * 1000), 'to': pos,
+                  'piece': piece['name'], 'piece_idx': _idx}
+        # 🎯 '원하는 곳으로' 열쇠를 뽑은 말은 옮겨진 자리의 칸이 제 일을 한다 —
+        #    고른 자리가 기여도 칸이면 그 기여도를 받아야 열쇠가 뜻이 있다. 한 번만.
+        #    받는 사람은 그 말의 주인. 기억해 둔 남이 아니다.
+        if piece.pop('choose', None):
+            _fx = _dicegame_dest_effects(state, g, piece, piece['name'], pos, ' (원하는 곳으로)')
+            action['tile'] = _fx['tile']
+            action['choose'] = True
+            action.update(_fx['parts'])
+            if _fx['again']:
+                g['turn'] = _idx
+        g['action'] = action
         _dicegame_save(state, g)
-    return jsonify({'status': 'success', 'pos': pos,
-                    'piece': g['pieces'][_idx]['name']})
+    out = {'status': 'success', 'pos': pos, 'piece': piece['name']}
+    for k in ('tile', 'scored', 'note', 'giveall', 'key', 'key_effect', 'choose'):
+        if k in action:
+            out[k] = action[k]
+    return jsonify(out)
 
 
 @app.route('/api/dicegame/enable', methods=['POST'])

@@ -2465,7 +2465,7 @@
         //    주사위게임은 기여도를 주는 게임인데 정작 기여도 판이 안 보이기 때문이다.
         //    ⚠️ 클래스를 걷었다가 강제로 되감고(offsetWidth) 다시 걸어야 한다.
         //       안 그러면 연속으로 들어올 때 두 번째부터는 이미 걸려 있어 안 뛴다.
-        let cfTimer = null, cfWaitTimer = null;
+        let cfTimer = null, cfWaitTimer = null, cfShownAt = 0;
         function popContribRow(cbEl, from, to) {
             const row = cbEl && cbEl.closest && cbEl.closest(".excel-row");
             if (!row) return;
@@ -2497,11 +2497,18 @@
             //    카드가 나올 무렵 사라진다(실측: 9~333ms 에 떠서 3초에 사라짐,
             //    말이 닿는 시각은 약 1970ms). 닿는 순간에 맞춰 카드와 같이 보여준다.
             const show = () => {
-                box.innerHTML = '<div class="excel-board"><div class="excel-col"></div></div>';
+                // 🔁 바로 이어 들어온 줄(황금열쇠 '바꾸기' 는 두 사람이 한 번에 바뀐다)은
+                //    앞 줄을 덮지 않고 아래에 붙인다 — 안 그러면 한 사람만 보인다.
+                const stack = box.classList.contains("show") && (Date.now() - cfShownAt) < 700
+                              && box.querySelector(".excel-col");
+                if (!stack) {
+                    box.innerHTML = '<div class="excel-board"><div class="excel-col"></div></div>';
+                    box.classList.remove("show");
+                    void box.offsetWidth;
+                    box.classList.add("show");
+                }
+                cfShownAt = Date.now();
                 box.querySelector(".excel-col").appendChild(clone);
-                box.classList.remove("show");
-                void box.offsetWidth;
-                box.classList.add("show");
                 // 이미 있는 연출을 그대로 쓴다. 복제본은 새 값이 박혀 있으므로
                 // 옛 값에서 다시 세어 올린다 — 판이 보일 때와 똑같이 보인다.
                 const cb = clone.querySelector(".r-contrib");
@@ -6754,6 +6761,11 @@
             } else if (t.type === 'sig') {
                 sub = '시그니처 재생!'; hold = 4000;
                 if (t.image) img = '<img src="' + dgEsc(t.image) + '" alt="">';
+            } else if (t.type === 'giveall') {
+                // 누가 받았는지 — 전원 지급도 기여도다
+                const ga = act.giveall || {};
+                sub = ga.points ? ('전원 기여도 ' + (ga.points > 0 ? '+' : '') + ga.points) : '';
+                txt = txt || '전원 지급';
             } else if (t.type === 'start') {
                 txt = txt || '출발!';
             } else if (!txt) {
@@ -6871,7 +6883,8 @@
                             // 끌려간 자리가 황금열쇠면 여기서도 뽑는 연출을 거친다 —
                             // 첫 착지에서만 뽑고 여기선 글만 뜨면 같은 칸이 두 가지로 보인다.
                             const showAfter = () => dgShowCard({ tile: t2, key: af.key, scored: af.scored,
-                                                                 score_note: af.note, key_effect: af.key_effect });
+                                                                 score_note: af.note, key_effect: af.key_effect,
+                                                                 giveall: af.giveall });
                             if (t2.type === 'key') dgKeyDraw(showAfter); else showAfter();
                         }
                     });
@@ -6903,6 +6916,19 @@
             if (act.type === 'ROLL' && act.ts !== dgSeenTs && fresh && !rebuilt) {
                 dgSeenTs = act.ts;
                 dgAnimateRoll(g, act);
+            } else if (act.type === 'MOVE' && act.tile && act.ts !== dgSeenTs && fresh && !rebuilt) {
+                // 🎯 '원하는 곳으로' — 손으로 옮긴 자리의 칸이 일을 했다(서버가 tile 을 실어 보낸다).
+                //    굴림 연출은 없다. 말을 세우고 그 칸을 밝히고 카드만 보여준다
+                //    (열쇠 칸이면 뽑기 연출을 거친다). 기여도 줄 띄우기는 바로 나와도 된다.
+                dgSeenTs = act.ts;
+                dgClearTimers();
+                dgClearMarks();
+                dgPlacePieces(null, null);
+                dgShowDice([]);
+                window.dgBusyUntil = 0;
+                const lt = document.getElementById('dg-tile-' + act.to);
+                if (lt) { lt.classList.add('dg-land'); dgAfter(4200, () => lt.classList.remove('dg-land')); }
+                if ((act.tile || {}).type === 'key') dgKeyDraw(() => dgShowCard(act)); else dgShowCard(act);
             } else if (act.ts !== dgSeenTs || rebuilt) {
                 // 새로 온 창(또는 판을 다시 그린 직후)은 연출 없이 마지막 상태로 선다
                 dgSeenTs = act.ts || 0;
