@@ -3345,9 +3345,19 @@
                 return [Math.min(Math.max(x, 0), W), Math.min(Math.max(y, SAFE_TOP), SAFE_BOT)];
             };
 
+            /* 🔒 코드가 자리를 정하는 위젯 — 배치 파일 값을 읽지 않는다.
+               계좌·후원 순위는 엑셀판을 따라다니고, 전광판은 머리 줄에 맞춰 설계됐다.
+               운영 배치 파일에 전광판 배율 2.78(글자 75px, 띠가 화면 밖으로), 후원 순위
+               (0,1600)·0.57, 계좌 1.07 이 남아 있어 방송이 설계와 달랐다(2026-09-09).
+               사장님: '1로 되돌려, 후원순위랑 계좌도 코드 자리로'. */
+            const CODE_OWNED = ['account', 'notice', 'donor-rank'];
+            CODE_OWNED.forEach(id => {
+                const el = document.getElementById(id + '-container');
+                if (el) el.style.transform = '';
+            });
             LAY_IDS.forEach(id => {
                 const el = document.getElementById(id + '-container');
-                const coord = layOK ? ly[id] : null;
+                const coord = (layOK && CODE_OWNED.indexOf(id) === -1) ? ly[id] : null;
                 if (!el || !coord) return;
                 const sc = coord.scale || 1;
                 const [x, y] = fit(el, coord.x_px || 0, coord.y_px || 0, sc);
@@ -3373,9 +3383,10 @@
                   배치 파일에 있으면 손대지 않는다. */
             const laid = id => layOK && !!ly[id];
             // 계좌·전광판 자리를 코드가 옮겨도 되는지 — 편집기에서 잡아 뒀으면 그쪽이 우선
-            window.__accLaid = laid('account');
-            window.__noticeLaid = laid('notice');
-            window.__donorLaid = laid('donor-rank');
+            // 셋 다 코드 소유(위 CODE_OWNED) — 배치 파일에 있어도 syncAccountPos 가 자리를 정한다
+            window.__accLaid = false;
+            window.__noticeLaid = false;
+            window.__donorLaid = false;
 
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
@@ -3458,7 +3469,7 @@
             // ⚠️ 편집기에 저장된 계좌 자리는 무시한다. 계좌는 이제 판을 따라다니는 위젯이라
             //    고정 좌표가 뜻이 없다 — 실제로 옛 저장값(0,530)이 살아나 계좌가 화면
             //    한가운데 떠 있었다(2026-09-09). 편집기에는 위젯 하나를 지우는 기능도 없다.
-            //    전광판(__noticeLaid)은 사장님이 크기를 손본 흔적이 있어 그대로 존중한다.
+            //    전광판도 이제 같다 — 배율 2.78 이 남아 글자가 75px 로 나가고 있었다.
             if (true) {
                 if (away) {
                     el.style.left = '6px'; el.style.right = 'auto';
