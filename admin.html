@@ -887,14 +887,14 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                     
                     for(let i=0; i<leftCount; i++) {
                         if(i < bjs.length) {
-                            let b = bjs[i]; let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let b = bjs[i]; let rankStr = (i+1);   // 방송판과 같이 숫자로
                             let colorStyle = i===0 ? 'color:#FFD700; text-shadow:0 0 10px #FFD700;' : i===1 ? 'color:#E0E0E0; text-shadow:0 0 10px #E0E0E0;' : i===2 ? 'color:#CD7F32; text-shadow:0 0 10px #CD7F32;' : '';
                             leftHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
-                            let b = bjs[i]; let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let b = bjs[i]; let rankStr = (i+1);   // 방송판과 같이 숫자로
                             let colorStyle = i===0 ? 'color:#FFD700; text-shadow:0 0 10px #FFD700;' : i===1 ? 'color:#E0E0E0; text-shadow:0 0 10px #E0E0E0;' : i===2 ? 'color:#CD7F32; text-shadow:0 0 10px #CD7F32;' : '';
                             rightHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;

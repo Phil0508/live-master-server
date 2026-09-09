@@ -4075,6 +4075,9 @@
                 serverTimeOffset = d.server_time - Date.now();
             }
             globalData = d;
+            // 👑 이번 방송 순위 등급 — 서버가 매 상태에 실어 보낸다. 팝업·순위판이 vipOf 로 본다.
+            //    ⚠️ 팝업보다 먼저 받아 둬야 '이 후원으로 1위' 가 그 팝업에 바로 보인다.
+            if (d && d.vip_live && typeof d.vip_live === 'object') window.vipLive = d.vip_live;
 
             // 전광판은 방송 On/Off 와 무관하게(시그니처는 방송무관 재생) 항상 갱신한다.
             updateTickers(d);
@@ -4169,14 +4172,14 @@
                     
                     for(let i=0; i<leftCount; i++) {
                         if(i < extraBjs.length) {
-                            let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = (i+1);   // 1·2·3 도 숫자로 — 사장님: '메달 말고 123위로'
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
                             leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < extraBjs.length) {
-                            let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = (i+1);   // 1·2·3 도 숫자로 — 사장님: '메달 말고 123위로'
                             // 줄이 짧아지면 3등이 오른쪽 칸으로 넘어온다 — 배지는 순위로 정한다
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
                             rightHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
@@ -4411,14 +4414,14 @@
                     
                     for(let i=0; i<leftCount; i++) {
                         if(i < bjs.length) {
-                            let b = bjs[i]; let id = safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let b = bjs[i]; let id = safeId(b.name); let rankStr = (i+1);   // 1·2·3 도 숫자로 — 사장님: '메달 말고 123위로'
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
                             leftHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { leftHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
-                            let b = bjs[i]; let id = safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let b = bjs[i]; let id = safeId(b.name); let rankStr = (i+1);   // 1·2·3 도 숫자로 — 사장님: '메달 말고 123위로'
                             // 줄이 짧아지면 3등이 오른쪽 칸으로 넘어온다 — 배지는 순위로 정한다
                             let rowClass = i < 3 ? `rank-${i+1}` : '';
                             rightHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
@@ -6217,7 +6220,8 @@
                    ⚠️ DB 에 저장되는 값(VVIP/VIP/DIAMOND/GOLD)은 건드리지 않는다 —
                       바꾸면 이미 등록된 사람들의 등급이 통째로 깨진다.
                    'DIAMOND' 는 딱지가 149px 이라 이름 자리를 많이 먹기도 했다. */
-                const gradeText = ({ DIAMOND: '다이아', GOLD: '골드' })[grade] || grade;
+                const gradeText = (({ DIAMOND: '다이아', GOLD: '골드' })[grade] || grade)
+                                + (vipInfo.rank ? ' ' + vipInfo.rank + '위' : '');   // 순위 등급이면 몇 위인지
                 // 등급이 늘어도 여기는 안 건드린다 — 색은 사람마다 고른 값이 정한다
                 nameEl.className = 'donator-name vip-grade-text';
                 nameEl.innerHTML = `<span class="vip-badge-tag">${escapeSlotText(gradeText)}</span>${escapeSlotText(badge)} ${escapeSlotText(finalName)}`;
@@ -7217,10 +7221,17 @@
             return n;
         }
         // 이 이름이 특별 후원자인가. 아니면 null.
+        //   👑 이번 방송 순위 등급(vipLive, 실시간)이 먼저다 — 1위 VVIP · 2~3위 VIP · 4~6위 다이아 · 7~10위 골드.
+        //      직접 준 등급(vipCache, /api/vips)은 순위에 못 든 사람에게만 붙는다.
+        //      사장님(2026-09-09): '한달치가 아니라 방송 한 회차의 순위로' · '실시간으로 반영'.
         function vipOf(name) {
-            const c = window.vipCache || {}, n = window.vipCacheNorm || {};
             const raw = String(name == null ? '' : name).trim();
-            return c[raw] || n[vipNormName(raw)] || null;
+            const key = vipNormName(raw);
+            const lv = window.vipLive || {};
+            if (lv[key]) return lv[key];
+            if (lv[raw]) return lv[raw];
+            const c = window.vipCache || {}, n = window.vipCacheNorm || {};
+            return c[raw] || n[key] || null;
         }
         // 사람마다 고른 색을 옅게 깐다 (#rrggbb → rgba)
         function vipRgba(color, a) {

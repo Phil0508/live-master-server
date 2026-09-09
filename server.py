@@ -597,14 +597,22 @@ def build_ai_snapshot(state):
     }
 
 def _ai_vip_list():
-    """AI 스냅샷용 VIP(특별 후원자) 목록. 실패해도 빈 리스트."""
+    """AI 스냅샷용 VIP 목록 — 이번 방송 순위 등급 + 직접 준 등급. 실패해도 빈 리스트."""
+    out = []
+    try:
+        live = _vip_live(load_data())
+        out = [{"이름": v['name'], "등급": v['grade'], "뱃지": v['badge'], "순위": v['rank']}
+               for v in sorted(live.values(), key=lambda v: v['rank'])]
+    except Exception:
+        pass
     try:
         with get_db_connection() as conn:
             cur = conn.cursor()
             cur.execute(db_query("SELECT name, grade, badge FROM vip_donators ORDER BY name ASC"))
-            return [{"이름": r[0], "등급": r[1], "뱃지": r[2]} for r in cur.fetchall()]
+            out += [{"이름": r[0], "등급": r[1], "뱃지": r[2], "비고": "직접 준 등급"} for r in cur.fetchall()]
     except Exception:
-        return []
+        pass
+    return out
 
 def _supabase_ready():
     return bool(SUPABASE['url'] and SUPABASE['key'] and requests)
@@ -1392,6 +1400,12 @@ def state_for_client(state, authed):
     out = dict(out)                      # 원본을 건드리면 서버가 정답을 잃는다
     out.pop('api_token', None)           # 🔐 상태에 섞여 들어갔더라도 절대 내보내지 않는다
     out['server_time'] = int(time.time() * 1000)   # ⏱️ 화면이 서버 시계에 맞출 수 있게
+    # 👑 이번 방송 순위 등급 — 후원 순위(donor_tally)처럼 공개다. 팝업·순위판·조종실이 같이 본다.
+    try:
+        out['vip_live'] = _vip_live(out)
+    except Exception as _e:
+        print(f'⚠️ [VIP 순위 계산 실패] {_e}', flush=True)
+        out['vip_live'] = {}
     return out
 
 
@@ -1857,7 +1871,7 @@ def init_db():
         """)
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_alias_memory_token ON alias_memory(token)")
 
-        # 👑 [특별 후원자(VIP)] 닉네임별 등급/색상/뱃지. 방송 데이터와 무관하게 계속 유지된다.
+        # 👑 [특별 후원자(VIP)] 직접 준 등급(예외용). 진짜 등급은 이번 방송 순위(_vip_live)다.
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS vip_donators (
                 name TEXT PRIMARY KEY,
@@ -1866,6 +1880,11 @@ def init_db():
                 badge TEXT DEFAULT '👑'
             )
         """)
+        # 2026-09-09 등급이 '이번 방송 순위' 로 바뀌었다 — 옛 평생누적 등급은 한 번 비운다
+        try:
+            _vip_wipe_legacy_once(cursor)
+        except Exception as _e:
+            print(f'⚠️ [VIP] 옛 등급 비우기 실패(계속합니다): {_e}', flush=True)
 
         # 🚫 [순위에서 뺄 이름] 익명·테스트처럼 명단에 넣으면 안 되는 이름.
         # ⚠️ 후원 기록 자체는 절대 지우지 않는다(바로 아래 영구 보관 장부 참고).
@@ -2983,6 +3002,26 @@ def is_excluded(name):
     return (not who) or who == '익명' or who in excluded_names()
 
 
+def _tally_restore_from_ledger(who):
+    """순위에서 뺐다가 되돌린 사람의 이번 방송 합계를 장부에서 다시 세어 순위판에 올린다.
+    ⚠️ 장부는 읽기만 한다 — 후원 기록을 지우거나 고치는 곳이 아니다."""
+    with file_lock:
+        state = load_data()
+        tot, cnt, shown = 0, 0, ''
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(db_query("SELECT name, amount FROM donation_history"))
+            for nm, amt in cur.fetchall():
+                if _norm_donor(nm) == who and int(amt or 0) > 0:
+                    tot += int(amt or 0)
+                    cnt += 1
+                    shown = shown or ' '.join(str(nm or '').split())
+        if tot > 0:
+            state.setdefault('donor_tally', {})[who] = {'total': tot, 'count': cnt, 'name': shown or who}
+            save_data(state)
+            broadcast_event('update', state)
+
+
 @app.route('/api/donors/excluded', methods=['GET'])
 def api_excluded_list():
     if not request_is_authed():
@@ -3048,6 +3087,12 @@ def api_excluded_remove():
             cur = conn.cursor()
             cur.execute(db_query("DELETE FROM donor_excluded WHERE name = ?"), (who,))
         _excluded_invalidate()
+        # ↩️ 이번 방송 순위판에도 되돌린다 — 뺄 때 순위판에서 내렸으므로 이번 방송 장부에서
+        #    다시 센다. 안 그러면 되돌려도 순위(= 등급)에 안 나온다. (읽기만 한다)
+        try:
+            _tally_restore_from_ledger(who)
+        except Exception as _e:
+            print(f'⚠️ [다시 넣기] 순위판 복구 실패(계속합니다): {_e}')
         print(f'  ↩️ [다시 넣기] {who}')
         return jsonify({'status': 'success'})
     except Exception as e:
@@ -3060,112 +3105,119 @@ def api_excluded_remove():
 #    조회는 오버레이가 써야 하므로 공개, 등록/삭제는 로그인 필요(exempt 목록에 없음)
 # ==========================================
 
-# ── 등급 기준선 ──
-# 2026-09-01 에 운영 DB 를 실제로 재서 정했다. 후원자 111명 · 총 4,740만원.
-# 이 선이면 네 등급이 각각 전체 후원액의 5분의 1씩(19~20%)을 맡는다:
-#   VVIP 300만+ 2명 · VIP 200만+ 4명 · DIAMOND 100만+ 7명 · GOLD 50만+ 13명
-#   → 26명(전체의 23%)이 후원금의 78% 를 냈다.
-# 금액 경계에 실제로 빈틈이 있어 억지로 자른 선이 아니다 (2등 431만 ↔ 3등 290만,
-# 13등이 정확히 100만, 26등이 정확히 50만).
-#
-# ⚠️ 평생 누적이라 방송을 이어갈수록 사람이 늘기만 한다(아무도 금액이 줄지 않는다).
-#    조종실이 이 선으로 걸리는 인원을 늘 보여주니, 골드가 흔해지면 선을 올린다.
+# ── 등급 = 이번 방송 후원 순위 (실시간) ──
+# 2026-09-09 사장님: "한달치가 아니라 수~목 방송 한 회차의 순위로 등록" · "실시간으로 반영".
+#   회차 = 조종실 방송 On ~ Off (수 17:00 ~ 목 03:00 처럼 날짜를 걸쳐도 한 회차).
+#   순위는 후원 순위 위젯이 쓰는 donor_tally(이번 방송분 합산, 투네이션·계좌 모두) 그대로.
+#   1위 VVIP · 2~3위 VIP · 4~6위 DIAMOND · 7~10위 GOLD · 11위부터 없음.
+#   동점은 같은 순위(둘 다 위 등급). 익명·순위에서 뺀 이름은 순위에 안 들어간다.
+#   후원이 들어올 때마다 순위가 다시 매겨지므로 등급도 그 자리에서 바뀐다 — 저장하지 않는다.
+# ⚠️ 예전(평생 누적 금액: VVIP 300만+ …)에는 한 번 오르면 아무도 안 내려가 골드만 늘었다.
+#    그때 준 등급은 서버가 처음 뜰 때 한 번 비운다(_vip_wipe_legacy_once).
+#    직접 준 등급(vip_donators)은 예외용으로 남는다 — 순위에 못 든 사람에게만 붙는다.
 VIP_TIERS = [
-    ('VVIP',    3000000, '#ff3b30', '🏆'),
-    ('VIP',     2000000, '#af52de', '👑'),
-    ('DIAMOND', 1000000, '#5ac8fa', '💎'),
-    ('GOLD',     500000, '#ffcf4d', '🥇'),
+    # (등급, 순위 시작, 순위 끝, 색, 뱃지)
+    ('VVIP',    1,  1, '#ff3b30', '🏆'),
+    ('VIP',     2,  3, '#af52de', '👑'),
+    ('DIAMOND', 4,  6, '#5ac8fa', '💎'),
+    ('GOLD',    7, 10, '#ffcf4d', '🥇'),
 ]
-VIP_RECENT_DAYS = 90          # '요즘도 오시는가' 를 같이 보여준다
-VIP_ORDER = {g: i for i, (g, _, _, _) in enumerate(VIP_TIERS)}   # 0 이 제일 높다
+VIP_ORDER = {g: i for i, (g, _, _, _, _) in enumerate(VIP_TIERS)}   # 0 이 제일 높다
+VIP_STYLE = {g: (c, bd) for g, _, _, c, bd in VIP_TIERS}
 
 
-def vip_tier_for(total):
-    """이 누적 금액이면 어느 등급인가. 어디에도 못 미치면 None."""
-    for g, floor, _, _ in VIP_TIERS:
-        if total >= floor:
+def vip_tier_for_rank(rank):
+    """이 순위면 어느 등급인가. 10위 밖이면 None."""
+    for g, lo, hi, _, _ in VIP_TIERS:
+        if lo <= rank <= hi:
             return g
     return None
 
 
+def _vip_live(state):
+    """이번 방송 후원 순위 → 등급. {다듬은 이름: {name, rank, total, grade, custom_color, badge}}
+    ⚠️ 순위표는 여기 하나에서만 만든다 — 방송판·조종실·AI 가 서로 다른 순위를 보면 안 된다."""
+    tally = (state or {}).get('donor_tally') or {}
+    rows = []
+    for who, row in tally.items():
+        if not isinstance(row, dict) or is_excluded(who):
+            continue
+        total = int(row.get('total') or 0)
+        if total <= 0:
+            continue
+        rows.append((who, ' '.join(str(row.get('name') or who).split()) or who, total))
+    rows.sort(key=lambda r: (-r[2], r[1]))
+    out, rank, prev = {}, 0, None
+    for i, (who, shown, total) in enumerate(rows):
+        if total != prev:
+            rank = i + 1          # 동점은 같은 순위, 다음 순위는 건너뛴다 (1·1·3)
+            prev = total
+        g = vip_tier_for_rank(rank)
+        if not g:
+            break                 # 정렬돼 있으니 뒤는 전부 밖이다
+        c, bd = VIP_STYLE[g]
+        out[who] = {'name': shown, 'rank': rank, 'total': total, 'grade': g,
+                    'custom_color': c, 'badge': bd}
+    return out
+
+
+def _vip_wipe_legacy_once(cursor):
+    """평생 누적으로 준 옛 등급을 한 번만 비운다. 사장님: '지금 바로 전부 지우고 시작'.
+    ⚠️ 표시는 kv_store 에 두지 않는다 — 거기 키는 상태로 읽히고 방송 종료 때 지워진다."""
+    cursor.execute("CREATE TABLE IF NOT EXISTS app_flags (key TEXT PRIMARY KEY, value TEXT)")
+    cursor.execute(db_query("SELECT value FROM app_flags WHERE key = ?"), ('vip_rank_reset_v1',))
+    if cursor.fetchone():
+        return
+    cursor.execute("DELETE FROM vip_donators")
+    cursor.execute(db_query("INSERT INTO app_flags (key, value) VALUES (?, ?)"),
+                   ('vip_rank_reset_v1', time.strftime('%Y-%m-%d %H:%M:%S')))
+    print('  👑 [VIP] 등급이 회차 순위 기준으로 바뀌어 옛 평생누적 등급을 비웠다', flush=True)
+
+
 @app.route('/api/vips/candidates')
 def api_vip_candidates():
-    """등급 후보 — 누가 어느 등급 자격이 있는지, 지금 등급과 무엇이 다른지.
-
-    ⚠️ 여기서 등급을 자동으로 바꾸지 않는다. 사장님이 일부러 올려준 사람을 서버가
-       멋대로 내리면 사고다. 보여주기만 하고, 반영은 조종실에서 눌러야 한다.
-    """
+    """이번 방송 후원 순위와 그에 따른 등급 — 조종실 표시용. 등급은 저장하지 않는다.
+    (이름은 옛 '후보' 그대로 둔다 — 조종실이 이 주소를 부른다.)"""
     if not request_is_authed():
         return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
     try:
-        # 최근 90일 경계. ⚠️ 후원 시각과 같은 서버 지역시로 재므로 시간대 보정이
-        #    필요 없다 (양쪽이 같이 밀리면 차이는 그대로다).
-        cut = (datetime.datetime.now()
-               - datetime.timedelta(days=VIP_RECENT_DAYS)).strftime('%Y-%m-%d %H:%M:%S')
-        life, recent, shown = {}, {}, {}
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            # 지난 방송분과 이번 방송분을 같이 본다
-            for tbl in ('donation_archive', 'donation_history'):
-                try:
-                    cur.execute(db_query('SELECT timestamp, name, amount FROM %s' % tbl))
-                    for ts, nm, amt in cur.fetchall():
-                        who = _norm_donor(nm)
-                        if is_excluded(nm):     # 익명·테스트는 명단에 안 넣는다
-                            continue
-                        a = int(amt or 0)
-                        if a <= 0:
-                            continue
-                        life[who] = life.get(who, 0) + a
-                        shown.setdefault(who, nm or who)
-                        if str(ts or '')[:19] >= cut:
-                            recent[who] = recent.get(who, 0) + a
-                except Exception as e:
-                    print(f'[등급 후보] {tbl} 조회 실패(건너뜀): {e}')
-            cur.execute(db_query('SELECT name, grade FROM vip_donators'))
-            now_grade = {_norm_donor(r[0]): (r[1] or '') for r in cur.fetchall()}
-
-        rows, counts = [], {g: 0 for g, _, _, _ in VIP_TIERS}
-        for who, total in life.items():
-            sug = vip_tier_for(total)
-            cur_g = now_grade.get(who)
-            if sug:
-                counts[sug] += 1
-            if not sug and not cur_g:
-                continue                       # 자격도 없고 등록도 안 됐다 — 볼 것 없다
-            if not cur_g:
-                st = 'new'                     # 자격은 있는데 아직 등록 안 됨
-            elif sug and VIP_ORDER.get(sug, 9) < VIP_ORDER.get(cur_g, 9):
-                st = 'up'                      # 지금 등급보다 자격이 더 높다
-            elif sug and VIP_ORDER.get(sug, 9) > VIP_ORDER.get(cur_g, 9):
-                st = 'down'                    # 자격보다 높은 등급을 받고 있다(일부러일 수 있다)
-            elif not sug:
-                st = 'down'
-            else:
-                st = 'same'
-            rows.append({'name': shown.get(who, who), 'key': who,
-                         'lifetime': total, 'recent': recent.get(who, 0),
-                         'suggest': sug or '', 'current': cur_g or '', 'status': st})
-        rows.sort(key=lambda r: -r['lifetime'])
-
+        state = load_data()
+        live = _vip_live(state)
+        tally = state.get('donor_tally') or {}
+        rows = []
+        for who, row in tally.items():
+            if not isinstance(row, dict) or is_excluded(who):
+                continue
+            total = int(row.get('total') or 0)
+            if total <= 0:
+                continue
+            v = live.get(who) or {}
+            rows.append({'key': who, 'name': ' '.join(str(row.get('name') or who).split()) or who,
+                         'total': total, 'count': int(row.get('count') or 0),
+                         'rank': v.get('rank') or 0, 'grade': v.get('grade') or ''})
+        rows.sort(key=lambda r: (-r['total'], r['name']))
+        # 등급 밖 사람도 순위는 이어서 매긴다 (11위, 12위 …) — 몇 등인지 보이게
+        rank, prev = 0, None
+        for i, r in enumerate(rows):
+            if r['total'] != prev:
+                rank, prev = i + 1, r['total']
+            r['rank'] = rank
         return jsonify({
             'status': 'success',
             'rows': rows,
-            'counts': counts,
-            'donors': len(life),
-            'total': sum(life.values()),
-            'recent_days': VIP_RECENT_DAYS,
-            'tiers': [{'grade': g, 'floor': f, 'color': c, 'badge': b}
-                      for g, f, c, b in VIP_TIERS],
+            'broadcast_active': bool(state.get('broadcast_active')),
+            'tiers': [{'grade': g, 'from': lo, 'to': hi, 'color': c, 'badge': bd}
+                      for g, lo, hi, c, bd in VIP_TIERS],
         })
     except Exception as e:
-        print(f'[등급 후보 조회 오류] {e}')
+        print(f'[등급 순위 조회 오류] {e}')
         return jsonify({'status': 'error', 'message': str(e), 'rows': []}), 500
 
 
 @app.route('/api/vips', methods=['GET'])
 def get_vips():
     try:
+        load_data()   # 갓 뜬 서버는 첫 상태 읽기에서 표를 만든다 — 그 전에 오면 '표가 없다' 가 났다
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(db_query("SELECT name, grade, custom_color, badge FROM vip_donators ORDER BY name ASC"))
