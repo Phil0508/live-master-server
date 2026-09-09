@@ -3349,8 +3349,10 @@
                계좌·후원 순위는 엑셀판을 따라다니고, 전광판은 머리 줄에 맞춰 설계됐다.
                운영 배치 파일에 전광판 배율 2.78(글자 75px, 띠가 화면 밖으로), 후원 순위
                (0,1600)·0.57, 계좌 1.07 이 남아 있어 방송이 설계와 달랐다(2026-09-09).
-               사장님: '1로 되돌려, 후원순위랑 계좌도 코드 자리로'. */
-            const CODE_OWNED = ['account', 'notice', 'donor-rank'];
+               사장님: '1로 되돌려, 후원순위랑 계좌도 코드 자리로'.
+               ⚠️ 후원 순위는 다시 편집기를 따른다 — 코드 소유로 돌렸더니 편집기에서 끌어도
+                  방송이 안 들었다('에디터에서 해도 안 움직여'). 편집기에 없을 때만 계좌 아래. */
+            const CODE_OWNED = ['account', 'notice'];
             CODE_OWNED.forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if (el) el.style.transform = '';
@@ -3386,7 +3388,7 @@
             // 셋 다 코드 소유(위 CODE_OWNED) — 배치 파일에 있어도 syncAccountPos 가 자리를 정한다
             window.__accLaid = false;
             window.__noticeLaid = false;
-            window.__donorLaid = false;
+            window.__donorLaid = laid('donor-rank');   // 편집기에서 잡았으면 그쪽, 아니면 계좌 아래
 
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
