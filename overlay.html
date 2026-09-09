@@ -875,10 +875,19 @@
             text-shadow: 0 1px 2px rgba(0,0,0,.8);
             animation: dgIdle 1.7s ease-in-out infinite;
         }
-        /* 셋 넘게 겹치면 이름표가 칸 밖으로 나간다 — 그때만 줄인다 */
+        /* 셋 넘게 겹치면 이름표가 칸 밖으로 나간다 — 그때만 줄이고 두 줄로 접는다.
+           넷이 한 줄로 서면 출발 칸(왼쪽 끝)에서 첫 이름이 화면 밖으로 잘렸다(캡처로 잡았다). */
+        .dg-piece-wrap.dg-tight {
+            flex-wrap: wrap; justify-content: center; row-gap: 2px;
+            width: calc(var(--dg-cell, 86px) * 2.1);
+            top: calc(var(--dg-cell, 86px) * -0.62);
+        }
         .dg-piece-wrap.dg-tight .dg-piece {
             font-size: calc(var(--dg-cell, 86px) * 0.155); padding: 1px 5px; border-width: 1px;
         }
+        /* 가장자리 열: 담는 자리를 칸 안쪽 모서리에 붙인다 */
+        .dg-tile.dg-edge-l .dg-piece-wrap { left: 0; transform: none; justify-content: flex-start; }
+        .dg-tile.dg-edge-r .dg-piece-wrap { left: auto; right: 0; transform: none; justify-content: flex-end; }
         /* 넷을 색으로 가른다. 이름이 짧아 글자만으로는 순간적으로 안 갈린다. */
         .dg-piece.p0 { --dg-p-bg: linear-gradient(180deg, #d9743a, #97441a); }
         .dg-piece.p1 { --dg-p-bg: linear-gradient(180deg, #3f9d7a, #1d6148); }
@@ -3366,6 +3375,7 @@
             // 계좌·전광판 자리를 코드가 옮겨도 되는지 — 편집기에서 잡아 뒀으면 그쪽이 우선
             window.__accLaid = laid('account');
             window.__noticeLaid = laid('notice');
+            window.__donorLaid = laid('donor-rank');
 
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
@@ -3461,6 +3471,13 @@
                     el.style.width = rank.offsetWidth + 'px';
                     // 판 아래에서는 판 폭을 꽉 채운다. 머리 줄 기준으로 걸린 640px 제한을 푼다.
                     if (box) { box.style.width = '100%'; box.style.maxWidth = 'none'; }
+                    // 🏅 후원 순위도 판을 따라 내려온다 — 고정 y(387)는 여섯 줄 판의 아랫단과
+                    //    계좌 줄을 덮었다(캡처로 잡았다). 판이 2×2 로 줄면 같이 올라온다.
+                    //    편집기에서 자리를 잡아 뒀으면(__donorLaid) 그쪽이 우선.
+                    const dr = document.getElementById('donor-rank-container');
+                    if (dr && !window.__donorLaid) {
+                        dr.style.top = (rank.offsetTop + rank.offsetHeight + 8 + el.offsetHeight + 8) + 'px';
+                    }
                 }
             }
             // 전광판은 계좌가 머리 줄에 있으면 오른쪽으로 물러나고, 없으면 다 쓴다
@@ -4080,7 +4097,8 @@
                 if (lastExtraRosterStr !== extraRosterStr) {
                     lastExtraRosterStr = extraRosterStr;
                     
-                    let leftCount = Math.max(3, Math.ceil(extraBjs.length / 2));
+                    // 사람 수에 맞춰 줄을 나눈다 — 넷이면 2×2, 여섯이면 3×2. 예전엔 3줄이 최소라 넷일 때 빈 칸 둘이 남았다.
+                    let leftCount = Math.max(1, Math.ceil(extraBjs.length / 2));
                     let leftHtml = ''; let rightHtml = '';
                     
                     for(let i=0; i<leftCount; i++) {
@@ -4092,8 +4110,10 @@
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < extraBjs.length) {
-                            let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
+                            let b = extraBjs[i]; let id = 'ex-' + safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            // 줄이 짧아지면 3등이 오른쪽 칸으로 넘어온다 — 배지는 순위로 정한다
+                            let rowClass = i < 3 ? `rank-${i+1}` : '';
+                            rightHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank" style="color:#ff3366;">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}" style="color:#ff85a2;">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
 
@@ -4319,7 +4339,8 @@
                 if (lastRosterStr !== currentRosterStr) {
                     lastRosterStr = currentRosterStr;
                     
-                    let leftCount = Math.max(3, Math.ceil(bjs.length / 2));
+                    // 사람 수에 맞춰 줄을 나눈다 — 넷이면 2×2, 여섯이면 3×2. 예전엔 3줄이 최소라 넷일 때 빈 칸 둘이 남았다.
+                    let leftCount = Math.max(1, Math.ceil(bjs.length / 2));
                     let leftHtml = ''; let rightHtml = '';
                     
                     for(let i=0; i<leftCount; i++) {
@@ -4331,8 +4352,10 @@
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
-                            let b = bjs[i]; let id = safeId(b.name); let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
+                            let b = bjs[i]; let id = safeId(b.name); let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            // 줄이 짧아지면 3등이 오른쪽 칸으로 넘어온다 — 배지는 순위로 정한다
+                            let rowClass = i < 3 ? `rank-${i+1}` : '';
+                            rightHtml += `<div class="excel-row ${rowClass}" id="${id}"><div class="r-rank">${rankStr}</div><div class="r-name">${escapeSlotText(b.name)}</div><div class="r-score" id="sc-${id}">${formatNum(b.score)}</div><div class="r-contrib" id="cb-${id}">${formatNum(b.contribution || 0)}</div></div>`;
                         } else { rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`; }
                     }
 
@@ -6573,7 +6596,9 @@
             for (let i = 0; i < tiles.length; i++) {
                 const p = dgRingCell(i, cols, rows), t = tiles[i] || {};
                 const corner = (i === 0 || i === cols - 1 || i === cols + rows - 2 || i === 2 * cols + rows - 3);
-                html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + (corner ? ' dg-corner' : '') + '" id="dg-tile-' + i + '"'
+                // 왼쪽·오른쪽 끝 열은 이름표를 칸 안쪽으로 정렬한다 — 가운데정렬이면 화면 밖으로 잘린다
+                const edge = p.c === 1 ? ' dg-edge-l' : (p.c === cols ? ' dg-edge-r' : '');
+                html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + (corner ? ' dg-corner' : '') + edge + '" id="dg-tile-' + i + '"'
                       + ' style="grid-column:' + p.c + ';grid-row:' + p.r + ';">'
                       + '<span class="dg-ico">' + dgTileIcon(t) + '</span>'
                       // ⚠️ 라벨이 있으면 라벨이 먼저다. 예전에는 점수 칸이 라벨을 무시하고

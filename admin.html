@@ -306,7 +306,10 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .dg-tile.dg-land::after { content: ''; position: absolute; inset: -5px; border-radius: var(--r-m); border: 3px solid var(--gold); animation: dgBurst .7s ease-out forwards; pointer-events: none; }
 .dg-piece-wrap { position: absolute; left: 50%; top: calc(var(--dg-cell, 86px) * -0.42); transform: translateX(-50%); z-index: 6; display: flex; gap: 3px; pointer-events: none; white-space: nowrap; }
 .dg-piece { font-size: calc(var(--dg-cell, 86px) * 0.21); font-weight: 800; color: #fff; letter-spacing: -.01em; padding: 2px 8px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,.5); background: var(--dg-p-bg, linear-gradient(180deg, #b98b2e, #7d5a13)); box-shadow: 0 3px 6px rgba(0,0,0,.75); text-shadow: 0 1px 2px rgba(0,0,0,.8); animation: dgIdle 1.7s ease-in-out infinite; }
+.dg-piece-wrap.dg-tight { flex-wrap: wrap; justify-content: center; row-gap: 2px; width: calc(var(--dg-cell, 86px) * 2.1); top: calc(var(--dg-cell, 86px) * -0.62); }
 .dg-piece-wrap.dg-tight .dg-piece { font-size: calc(var(--dg-cell, 86px) * 0.155); padding: 1px 5px; border-width: 1px; }
+.dg-tile.dg-edge-l .dg-piece-wrap { left: 0; transform: none; justify-content: flex-start; }
+.dg-tile.dg-edge-r .dg-piece-wrap { left: auto; right: 0; transform: none; justify-content: flex-end; }
 .dg-piece.p0 { --dg-p-bg: linear-gradient(180deg, #d9743a, #97441a); }
 .dg-piece.p1 { --dg-p-bg: linear-gradient(180deg, #3f9d7a, #1d6148); }
 .dg-piece.p2 { --dg-p-bg: linear-gradient(180deg, #4a7fd0, #24488a); }
@@ -880,7 +883,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 try {
                     let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = d.target_goal || 1; 
                     let tot = bot.score || 0; bjs.forEach(b => tot += b.score);
-                    let leftCount = Math.max(3, Math.ceil(bjs.length / 2)); let leftHtml = ''; let rightHtml = '';
+                    let leftCount = Math.max(1, Math.ceil(bjs.length / 2)); let leftHtml = ''; let rightHtml = '';   // 방송판과 같은 규칙 — 사람 수에 맞춰 줄을 나눈다
                     
                     for(let i=0; i<leftCount; i++) {
                         if(i < bjs.length) {
@@ -891,8 +894,9 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                     }
                     for(let i=leftCount; i<leftCount*2; i++) {
                         if(i < bjs.length) {
-                            let b = bjs[i]; let rankStr = (i+1);
-                            rightHtml += `<div class="excel-row"><div class="r-rank">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
+                            let b = bjs[i]; let rankStr = i===0 ? '🥇' : i===1 ? '🥈' : i===2 ? '🥉' : (i+1);
+                            let colorStyle = i===0 ? 'color:#FFD700; text-shadow:0 0 10px #FFD700;' : i===1 ? 'color:#E0E0E0; text-shadow:0 0 10px #E0E0E0;' : i===2 ? 'color:#CD7F32; text-shadow:0 0 10px #CD7F32;' : '';
+                            rightHtml += `<div class="excel-row"><div class="r-rank" style="${colorStyle}">${rankStr}</div><div class="r-name">${escText(b.name)}</div><div class="r-score">${formatNum(b.score)}</div><div class="r-contrib">${formatNum(b.contribution||0)}</div></div>`;
                         } else rightHtml += `<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>`;
                     }
                     document.getElementById('rank-left').innerHTML = leftHtml; document.getElementById('rank-right').innerHTML = rightHtml;
