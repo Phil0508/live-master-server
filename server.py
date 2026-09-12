@@ -1400,6 +1400,18 @@ def state_for_client(state, authed):
     out = dict(out)                      # 원본을 건드리면 서버가 정답을 잃는다
     out.pop('api_token', None)           # 🔐 상태에 섞여 들어갔더라도 절대 내보내지 않는다
     out['server_time'] = int(time.time() * 1000)   # ⏱️ 화면이 서버 시계에 맞출 수 있게
+    # 🎲 전용 점수판이 아직 없는 옛 저장본이면 여기서 채워 내보낸다.
+    #    ⚠️ 원본은 안 건드린다(얕은 복사본에만 얹는다) — 읽는 길에서 상태를 고치면 안 된다.
+    #       조종실이 주사위를 한 번 건드리기 전까지 방송판 판이 비어 보이던 것을 막는다.
+    try:
+        _dg = out.get('dicegame')
+        if isinstance(_dg, dict) and not isinstance(_dg.get('board'), list):
+            _dg = dict(_dg)
+            _dg['board'] = [{'name': p.get('name'), 'pts': 0}
+                            for p in (_dg.get('pieces') or []) if isinstance(p, dict) and p.get('name')]
+            out['dicegame'] = _dg
+    except Exception as _e:
+        print(f'⚠️ [주사위 판] 내보내기 보정 실패: {_e}', flush=True)
     # 👑 이번 방송 순위 등급 — 후원 순위(donor_tally)처럼 공개다. 팝업·순위판·조종실이 같이 본다.
     try:
         out['vip_live'] = _vip_live(out)
