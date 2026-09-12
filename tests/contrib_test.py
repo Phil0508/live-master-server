@@ -106,7 +106,11 @@ chk('굴렸다', code == 200, r.get('tile'))
 got = r.get('contrib') or {}
 chk('누구에게 얼마가 갔는지 응답에 실린다', got.get('name') == NAME and got.get('points'), got)
 s1, c1 = who(NAME)
-chk('기여도가 저절로 올랐다 (누를 것 없이)', c1 > c0, '%d → %d' % (c0, c1))
+# 🎲 2026-09-13 부터 주사위 점수는 **전용 판**에만 쌓인다 — 엑셀판 기여도는 안 움직인다.
+#    (사장님: "평소에 쓰는 엑셀판 말고 주사위게임 전용 기여도판이 필요함")
+chk('엑셀판 기여도는 그대로 (주사위는 전용 판에만 쌓인다)', c1 == c0, '%d → %d' % (c0, c1))
+_bd = {r['name']: r['pts'] for r in ((get().get('dicegame') or {}).get('board') or [])}
+chk('전용 판에 쌓였다', _bd.get(NAME, 0) > 0, _bd)
 chk('점수는 한 점도 안 올랐다 (그날 일당이다)', s1 == s0, '%d → %d' % (s0, s1))
 # ⚠️ 슬롯은 3.3초 뒤 타이머가 카드를 올린다. 앞 구간의 슬롯이 끼어들 수 있으니
 #    여기서는 '주사위 것' 만 센다.
@@ -202,11 +206,15 @@ chk('한 판 값보다 싼 시그는 0 으로 둔다 (빼앗지 않는다)',
     'max(0, man_won(_sig_amt - _price))' in src)
 chk('한 바퀴에 기여도를 준다', "_lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)" in src)
 # ⚠️ 점수(그날 일당)에 섞이면 안 된다 — 기여도만 넣는 도우미를 쓴다
-chk('기여도만 넣는 길로 간다 (점수 도우미가 아니다)',
-    'def _dicegame_apply_contrib(' in src and "t['contribution'] = (t.get('contribution') or 0) + contrib" in src)
-chk('그 도우미는 점수를 안 건드린다',
-    "def _dicegame_apply_contrib(" in src
-    and "t['score']" not in src.split('def _dicegame_apply_contrib(')[1].split('def ')[0])
+# ⚠️ 주사위에서 나온 점수는 **전용 판**으로만 간다. 엑셀판(기여도·점수)은 안 건드린다.
+chk('전용 판 도우미를 쓴다 (엑셀판 도우미가 아니다)',
+    'def _dicegame_add_pts(' in src and 'def _dicegame_apply_contrib(' not in src)
+chk('그 도우미는 엑셀판을 안 건드린다',
+    'contribution' not in src.split('def _dicegame_add_pts(')[1].split('def ')[0]
+    and "['score']" not in src.split('def _dicegame_add_pts(')[1].split('def ')[0])
+chk('엑셀판으로 옮기는 길은 조종실 버튼 하나뿐',
+    src.count("t['contribution'] = (t.get('contribution') or 0) + pts") == 1
+    and 'def api_dicegame_board(' in src)
 # ⚠️ 누구 차례인지 안 골랐으면 잃어버리지 말고 조종실에 남긴다
 chk('누구에게 줄지 모르면 대기함에 남긴다 (주사위·슬롯이 같이 쓴다)',
     'def _contrib_alert(' in src)
@@ -232,7 +240,7 @@ chk('안 고르면 움직인 말의 주인에게 간다',
 chk('점수 칸도 기여도만 (점수 함수는 걷어냈다)',
     '_dicegame_apply_score(' not in src2)
 chk('점수 칸·시그·한 바퀴 셋 다 기억을 쓴다',
-    src2.count('_dicegame_apply_contrib(state, contrib_player') == 3)
+    src2.count('_dicegame_add_pts(state, g, contrib_player') == 3)
 # ⚠️ 자동으로 들어가는 값은 '누구에게 갔는지' 가 보여야 한다. 안 보이면 차례가
 #    넘어갔는데 안 바꿔서 앞사람에게 들어가도 아무도 모른다.
 mob = io.open(os.path.join(PROJ, 'mobile.html'), encoding='utf-8', errors='replace').read()

@@ -2093,6 +2093,24 @@
             <div id="dgc-tiles" style="display:flex; flex-direction:column; gap:6px; max-height:420px; overflow:auto;"></div>
         </div>
 
+        <!-- 🏆 주사위 **전용** 점수판. 엑셀판(진짜 기여도)과 따로 논다. -->
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(255, 214, 10, 0.35);">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <span style="color:var(--gold);"><i class="fa-solid fa-trophy"></i> 🏆 주사위 전용 점수판</span>
+                <span style="display:flex; gap:6px;">
+                    <button class="secondary" onclick="dgcBoard('reset')" title="전원 0점으로 되돌립니다. 엑셀판 기여도는 안 건드립니다"
+                            style="height:30px; padding:0 12px; border-radius:var(--r-2); font-size:var(--fs-2);">전원 0점</button>
+                    <button class="primary" onclick="dgcBoard('apply')" title="이 판의 점수를 엑셀판 기여도에 더하고 판을 비웁니다"
+                            style="height:30px; padding:0 12px; border-radius:var(--r-2); font-size:var(--fs-2);">엑셀판으로 옮기기</button>
+                </span>
+            </div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px; line-height:1.6;">
+                주사위 칸·황금열쇠 점수는 <b style="color:var(--gold);">전부 이 판에만</b> 쌓입니다 — 엑셀판 기여도는 안 건드려요.
+                게임이 끝나면 <b>[엑셀판으로 옮기기]</b> 를 눌러야 진짜 기여도가 됩니다. 마이너스도 그대로 옮겨집니다.
+            </div>
+            <div id="dgc-board" style="display:flex; flex-direction:column; gap:4px;"></div>
+        </div>
+
         <div class="group-box" style="margin-bottom: 15px; border-color: rgba(255, 214, 10, 0.35);">
             <div class="group-title"><span style="color:var(--gold);"><i class="fa-solid fa-key"></i> 🔑 황금열쇠 덱</span></div>
             <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px;">줄마다 한 장. 열쇠 칸에 도착하면 서버가 이 중 하나를 무작위로 뽑아 화면에 띄웁니다. 뽑기 전에는 시청자에게 보이지 않아요.</div>
@@ -3519,10 +3537,14 @@
                 let rankLogHtml = gd.logs.map(log => {
                     const amt = (log.val > 0 ? '+' : '') + Number(log.val || 0).toLocaleString();
                     const isC = log.kind === 'contrib';
+                    // 🎲 주사위 전용 판 점수는 진짜 기여도가 아니다 — 딱지를 갈라 놓는다
+                    const isD = log.kind === 'dice';
                     const tag = isC
                         ? `<span style="background:rgba(175,82,222,0.18); color:#c99bff; font-size:var(--fs-1); font-weight:800; padding:1px 7px; border-radius:var(--r-1);">기여도</span>`
+                        : isD
+                        ? `<span style="background:rgba(255,214,10,0.16); color:var(--gold); font-size:var(--fs-1); font-weight:800; padding:1px 7px; border-radius:var(--r-1);">🎲 주사위</span>`
                         : '';
-                    const why = (isC && log.why)
+                    const why = ((isC || isD) && log.why)
                         ? `<span style="color:var(--text-muted); font-size:var(--fs-1);">${escapeHTML(String(log.why))}</span>`
                         : '';
                     return `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">`
@@ -8025,6 +8047,54 @@ initFoldablePanels();
             if (sel) sel.value = '';
         }
 
+        /* 🏆 전용 점수판 — 상태가 올 때마다 다시 그린다(dgcSync 가 부른다). */
+        let _dgcBoardHtml = '';
+        function dgcRenderBoard(g) {
+            const box = document.getElementById('dgc-board');
+            if (!box) return;
+            const rows = (g.board || []).slice()
+                .sort((a, b) => (b.pts || 0) - (a.pts || 0) || String(a.name).localeCompare(String(b.name)));
+            const html = rows.length ? rows.map((r, i) => {
+                const p = Number(r.pts) || 0;
+                const col = p > 0 ? 'var(--gold)' : (p < 0 ? '#ff6b7a' : 'var(--text-muted)');
+                const nm = encodeURIComponent(String(r.name));
+                return `<div style="display:grid; grid-template-columns:38px 1fr 90px 120px; gap:8px; align-items:center;
+                             padding:6px 10px; border-bottom:1px solid var(--border-light);">
+                    <span style="font-weight:900; color:var(--text-muted); font-variant-numeric:tabular-nums;">${i + 1}</span>
+                    <span style="font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHTML(String(r.name))}</span>
+                    <span style="text-align:right; font-weight:900; color:${col}; font-variant-numeric:tabular-nums;">${p.toLocaleString()}</span>
+                    <span style="display:flex; gap:4px; justify-content:flex-end;">
+                      <button class="secondary" onclick="dgcBoardAdd('${nm}', -5)" style="height:26px; width:34px; padding:0; border-radius:var(--r-1); font-size:var(--fs-1);">−5</button>
+                      <button class="secondary" onclick="dgcBoardAdd('${nm}', 5)" style="height:26px; width:34px; padding:0; border-radius:var(--r-1); font-size:var(--fs-1);">+5</button>
+                    </span>
+                </div>`;
+            }).join('') : '<div style="padding:12px; color:var(--text-muted); font-size:var(--fs-2);">엑셀판에 선수를 넣으면 여기에 나옵니다.</div>';
+            if (html !== _dgcBoardHtml) { box.innerHTML = html; _dgcBoardHtml = html; }
+        }
+
+        async function dgcBoardAdd(nameEnc, delta) {
+            const d = await dgcCall('board', { do: 'add', name: decodeURIComponent(nameEnc), pts: delta });
+            if (d) acctToast('🎲 ' + decodeURIComponent(nameEnc) + ' ' + (delta > 0 ? '+' : '') + delta + '점', 'ok');
+        }
+
+        async function dgcBoard(what) {
+            if (what === 'reset') {
+                if (!(await premiumConfirm('주사위 전용 점수판을 전원 0점으로 되돌립니다.\n엑셀판 기여도는 건드리지 않아요.',
+                                           '🏆 판 초기화', 'warning'))) return;
+            } else if (what === 'apply') {
+                if (!(await premiumConfirm('이 판의 점수를 엑셀판 기여도에 더하고 판을 비웁니다.\n마이너스도 그대로 옮겨집니다.',
+                                           '🎯 엑셀판으로 옮기기', 'warning'))) return;
+            }
+            const d = await dgcCall('board', { do: what });
+            if (!d) return;
+            if (what === 'apply') {
+                const m = (d.moved || []).map(x => x.name + ' ' + (x.points > 0 ? '+' : '') + x.points).join(' · ');
+                acctToast(m ? ('🎯 기여도로 옮겼습니다 — ' + m) : '🎯 옮길 점수가 없었습니다', 'ok');
+            } else {
+                acctToast('🏆 전원 0점으로 되돌렸습니다', 'ok');
+            }
+        }
+
         async function dgcSaveKeys() {
             const ta = document.getElementById('dgc-keys');
             const keys = ta.value.split('\n').map(x => x.trim()).filter(Boolean);
@@ -8034,10 +8104,11 @@ initFoldablePanels();
 
         const DGC_TYPES = [['blank', '빈칸'], ['mission', '📜 미션'], ['sig', '🎵 시그니처'],
                            ['score', '💯 점수'], ['key', '🔑 황금열쇠'],
-                           // 아래 셋은 '점수' 칸의 숫자를 다른 뜻으로 쓴다 —
-                           //   이동 = 몇 칸(음수면 뒤로) · 특정 칸으로 = 칸 번호 · 전원 지급 = 기여도
+                           // 아래 넷은 '점수' 칸의 숫자를 다른 뜻으로 쓴다 —
+                           //   이동 = 몇 칸(음수면 뒤로) · 특정 칸으로 = 칸 번호
+                           //   전원 지급 = 모두에게 줄 점수 · 뺏어오기 = 한 사람에게서 뺏을 점수
                            ['move', '🕳️ 이동'], ['goto', '🌀 특정 칸으로'],
-                           ['giveall', '🎁 전원 지급']];
+                           ['giveall', '🎁 전원 지급'], ['steal', '💰 뺏어오기']];
 
         /* ══ 22칸 기본판 ══
            칸 22개를 손으로 고르면 오래 걸리고 빠뜨린다. 한 번에 깐다.
@@ -8094,7 +8165,7 @@ initFoldablePanels();
             { id:  8, type: 'key',     label: '황금열쇠' },
             { id:  9, type: 'mission', label: '코끼리코' },
             { id: 10, type: 'score',   label: '기여도 10',            points: 10 },
-            { id: 11, type: 'giveall', label: '각 플레이어 5점씩',  points: 5 },
+            { id: 11, type: 'steal',   label: '각 플레이어에게서 5점씩', points: 5 },
             { id: 12, type: 'mission', label: '분장' },
             { id: 13, type: 'score',   label: '기여도 5',             points: 5 },
             { id: 14, type: 'mission', label: '고팍' },
@@ -8364,6 +8435,7 @@ initFoldablePanels();
                 const nx = (g.pieces || [])[g.turn | 0];
                 if (ps.options[0]) ps.options[0].textContent = nx ? ('(다음 차례: ' + nx.name + ')') : '(누구 차례?)';
             }
+            try { dgcRenderBoard(g); } catch (e) {}   // 🏆 전용 점수판
             // 황금열쇠 — 처음 한 번만 채운다(적던 글을 SSE 가 덮으면 안 된다)
             const ta = document.getElementById('dgc-keys');
             if (ta && !_dgcKeysFilled && (g.keys || []).length) { ta.value = (g.keys || []).join('\n'); _dgcKeysFilled = true; }

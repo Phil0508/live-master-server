@@ -172,9 +172,13 @@ c, r = post('/api/dicegame/roll', {'player': '제이양'})
 d = get()
 sc = {b['name']: (b.get('score'), b.get('contribution')) for b in d['bjs']}
 # 사장님: "점수 칸은 점수라고만 써있지 기여도 5점만 올라가는거야"
-chk('제이양 점수 그대로 0 · 기여도 +2', sc.get('제이양') == (0, 2), sc)
-chk('로그에 기여도라고 남는다', any(l.get('name') == '제이양' and l.get('val') == 2 and l.get('kind') == 'contrib' for l in (d.get('logs') or [])),
-    (d.get('logs') or [])[:1])
+bd0 = {r['name']: r['pts'] for r in (d['dicegame'].get('board') or [])}
+# 🎲 2026-09-13: 주사위 점수는 **전용 판**에만 쌓인다. 엑셀판은 손도 안 댄다.
+chk('엑셀판은 그대로 (점수·기여도 둘 다 0)', sc.get('제이양') == (0, 0), sc)
+chk('전용 판에 +2', bd0.get('제이양') == 2, bd0)
+chk('로그에 주사위라고 남는다',
+    any(l.get('name') == '제이양' and l.get('val') == 2 and l.get('kind') == 'dice'
+        for l in (d.get('logs') or [])), (d.get('logs') or [])[:1])
 chk('응답에도 반영 결과', (r.get('scored') or {}).get('name') == '제이양', r.get('scored'))
 post('/api/dicegame/move', {'pos': 0})
 c, r = post('/api/dicegame/roll')                      # 차례 없이
@@ -183,7 +187,8 @@ sc2 = {b['name']: (b.get('score'), b.get('contribution')) for b in d['bjs']}
 # 사람을 안 고르면 **움직인 말의 주인**이 받는다 — 말은 선수마다 하나씩이라
 # '방금 굴린 사람' 기억은 남의 기여도를 첫 사람에게 몰아주는 거짓 규칙이었다.
 # 제이양이 굴렸으니 차례는 밍밍 — 밍밍 말이 가고 밍밍이 받는다 (0번에서 1~6칸은 전부 점수 칸)
-chk('차례를 안 골라도 움직인 말의 주인이 받는다 (점수는 0 그대로)', sc2.get('제이양') == (0, 2) and sc2.get('밍밍') == (0, 2), sc2)
+bd2 = {r['name']: r['pts'] for r in (get()['dicegame'].get('board') or [])}
+chk('차례를 안 골라도 움직인 말의 주인이 받는다', bd2.get('제이양') == 2 and bd2.get('밍밍') == 2, bd2)
 c, r = post('/api/dicegame/move', {'pos': 0}) and post('/api/dicegame/roll', {'player': '없는사람'})
 chk('없는 사람이면 기여도 안 넣고 알린다', '못 찾아' in ((r or {}).get('note') or ''), (r or {}).get('note'))
 
@@ -366,7 +371,9 @@ _fill({'type': 'score', 'label': '', 'points': 5})
 s0, c0 = _who()
 _roll_until()
 s1, c1 = _who()
-chk('점수 칸 5점 → 기여도만 +5', s1 == s0 and c1 == c0 + 5,
+bd3 = {r['name']: r['pts'] for r in (dg().get('board') or [])}
+chk('점수 칸 5점 → 엑셀판은 그대로, 전용 판만 +5',
+    s1 == s0 and c1 == c0 and bd3.get('제이양', 0) >= 5,
     '점수 %d→%d 기여도 %d→%d' % (s0, s1, c0, c1))
 
 # 한 바퀴도 점수를 안 건드린다
@@ -440,16 +447,16 @@ post('/api/score/add', {'name': '제이양', 'delta': 0, 'contribution': 7, 'rea
 _fill({'type': 'score', 'label': '', 'points': 5})
 _roll_until()
 _lg = get().get('logs') or []
-_c = [l for l in _lg if l.get('kind') == 'contrib']
-_s = [l for l in _lg if l.get('kind') != 'contrib']
-chk('기여도 줄이 따로 남는다', len(_c) >= 2, len(_c))
+_c = [l for l in _lg if l.get('kind') in ('contrib', 'dice')]
+_s = [l for l in _lg if l.get('kind') not in ('contrib', 'dice')]
+chk('기여도·주사위 줄이 따로 남는다', len(_c) >= 2, len(_c))
 chk('점수 줄은 그대로 남는다', any(l.get('val') == 30000 for l in _s), [l.get('val') for l in _s][:3])
 chk('손으로 고친 것도 남는다 (예전에는 아예 없었다)',
     any(l.get('val') == 7 and '손으로' in str(l.get('why')) for l in _c),
     [(l.get('val'), l.get('why')) for l in _c][:3])
 chk('주사위 점수 칸은 왜인지도 남는다',
     any('점수 칸' in str(l.get('why')) for l in _c), [l.get('why') for l in _c][:3])
-chk('기여도 줄에 점수 값이 안 섞인다 (0점 줄이 안 생긴다)',
+chk('기여도·주사위 줄에 점수 값이 안 섞인다 (0점 줄이 안 생긴다)',
     not any(l.get('kind') != 'contrib' and l.get('val') == 0 for l in _lg))
 
 _ctl3 = io.open(_os.path.join(_proj(), 'controller.html'), encoding='utf-8', errors='replace').read()
@@ -473,7 +480,11 @@ for i in range(1, 20):
 chk('말 순서 = 명단 순서로 시작', [p['name'] for p in dg()['pieces']] == ['가', '나', '다', '라'], [p['name'] for p in dg()['pieces']])
 c, r = post('/api/dicegame/roll', {'piece': '라', 'value': 3})     # 라 +10 → 판에서 1등
 d = get()
-chk('라가 기여도 1등으로 올라섰다', d['bjs'][0]['name'] == '라' and d['bjs'][0]['contribution'] == 10,
+chk('라가 전용 판 1등으로 올라섰다',
+    {x['name']: x['pts'] for x in d['dicegame']['board']}.get('라') == 10,
+    [(x['name'], x['pts']) for x in d['dicegame']['board']])
+chk('엑셀판 기여도는 한 점도 안 움직였다',
+    all((b.get('contribution') or 0) == 0 for b in d['bjs']),
     [(b['name'], b['contribution']) for b in d['bjs']])
 chk('말 순서는 그대로', [p['name'] for p in d['dicegame']['pieces']] == ['가', '나', '다', '라'],
     [p['name'] for p in d['dicegame']['pieces']])
@@ -482,7 +493,8 @@ time.sleep(3.3)      # 연타 방지(3칸 × 0.3초 + 2.2초)가 풀리기를 �
 c, r = post('/api/dicegame/roll', {'value': 2})                    # 안 고르면 차례 말
 chk('다음 차례는 처음 사람(가) — 1등으로 뛴 라가 또 굴리지 않는다', r.get('piece') == '가', r.get('piece'))
 sc = {b['name']: b['contribution'] for b in get()['bjs']}
-chk('기여도도 가에게 (라는 그대로 10)', sc.get('가') == 10 and sc.get('라') == 10, sc)
+sc = {x['name']: x['pts'] for x in dg()['board']}
+chk('점수도 가에게 (라는 그대로 10)', sc.get('가') == 10 and sc.get('라') == 10, sc)
 
 print()
 print('=' * 74)
@@ -505,15 +517,16 @@ chk('열쇠를 뽑았다', r.get('key') == '원하는 곳으로', r)
 chk('말에 선택권 표시가 남는다', any(p['name'] == '나' and p.get('choose') for p in dg()['pieces']),
     dg()['pieces'])
 c, r = post('/api/dicegame/move', {'piece': '나', 'pos': 15})     # 15번 = 기여도 10
-chk('옮겨진 자리의 기여도가 그 말 주인(나)에게', (r.get('scored') or {}).get('name') == '나' and r.get('choose') is True, r)
-sc = {b['name']: b['contribution'] for b in get()['bjs']}
-chk('나 기여도 10', sc.get('나') == 10, sc)
+chk('옮겨진 자리의 점수가 그 말 주인(나)에게',
+    (r.get('scored') or {}).get('name') == '나' and r.get('choose') is True, r)
+sc = {x['name']: x['pts'] for x in dg()['board']}
+chk('나 전용 판 10점', sc.get('나') == 10, sc)
 act = dg().get('action') or {}
 chk('방송판용 신호: MOVE 에 칸 정보가 실린다', act.get('type') == 'MOVE' and (act.get('tile') or {}).get('type') == 'score'
     and (act.get('scored') or {}).get('name') == '나', act)
 c, r = post('/api/dicegame/move', {'piece': '나', 'pos': 16})
 chk('두 번째 손 이동은 아무 효과 없다', not r.get('scored') and not r.get('choose'), r)
-chk('나 기여도 그대로 10', {b['name']: b['contribution'] for b in get()['bjs']}.get('나') == 10)
+chk('나 점수 그대로 10', {x['name']: x['pts'] for x in dg()['board']}.get('나') == 10)
 chk('효과 없는 손 이동엔 칸 정보가 없다(방송판이 카드를 안 띄운다)', 'tile' not in (dg().get('action') or {}))
 
 print()
@@ -546,6 +559,67 @@ chk('앞사람을 빼도 차례는 라 그대로(건너뛰지 않는다)', g8['p
 post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': _cur.get(n, 0)} for n in ('나', '다', '마', '바')]})
 g8 = dg()
 chk('차례인 사람을 빼면 다음 사람(마)', g8['pieces'][g8['turn']]['name'] == '마', g8['pieces'][g8['turn']]['name'])
+
+print()
+print('=' * 74)
+print()
+print('=' * 74)
+print('⑲ 전용 점수판 — 뺏어오기 · 블랙홀 역주행 · 열쇠 미션 · 엑셀판으로 옮기기')
+print('=' * 74)
+post('/api/restore', {'broadcast_active': True, 'extra_game_active': False,
+                      'bjs': [{'name': n, 'score': 0, 'contribution': 100} for n in ('가', '나', '다', '라')],
+                      'pending_donations': [], 'logs': [], 'reaction_queue': []})
+post('/api/dicegame/setup', {'cols': 8, 'rows': 5, 'dice': 1})      # 22칸
+chk('22칸 판', len(dg()['tiles']) == 22, len(dg()['tiles']))
+for i in range(1, 22):
+    post('/api/dicegame/tile', {'id': i, 'type': 'blank'})
+post('/api/dicegame/tile', {'id': 5, 'type': 'steal', 'label': '각 플레이어에게서 5점씩', 'points': 5})
+post('/api/dicegame/tile', {'id': 21, 'type': 'goto', 'label': '블랙홀 · 출발점으로', 'points': 0})
+post('/api/dicegame/tile', {'id': 3, 'type': 'score', 'points': 10})
+post('/api/dicegame/board', {'do': 'reset'})
+bd = lambda: {x['name']: x['pts'] for x in dg()['board']}
+chk('전용 판은 명단을 따라가고 전원 0점에서 시작', bd() == {'가': 0, '나': 0, '다': 0, '라': 0}, bd())
+post('/api/dicegame/move', {'piece': '가', 'pos': 0})
+post('/api/dicegame/roll', {'piece': '가', 'value': 3})
+chk('점수 칸이 전용 판에 들어간다', bd().get('가') == 10, bd())
+time.sleep(3.4)
+post('/api/dicegame/move', {'piece': '나', 'pos': 0})
+c, r = post('/api/dicegame/roll', {'piece': '나', 'value': 5})
+st = r.get('steal') or {}
+chk('뺏어오기가 응답에 실린다',
+    st.get('taker') == '나' and st.get('per') == 5 and len(st.get('from') or []) == 3, st)
+chk('뺏은 사람 +15', bd().get('나') == 15, bd())
+chk('뺏긴 사람은 각 −5 (가 10→5 · 다·라 0→−5)',
+    bd().get('가') == 5 and bd().get('다') == -5 and bd().get('라') == -5, bd())
+chk('판의 총점은 그대로 (주고받기만 한다)', sum(bd().values()) == 10, bd())
+chk('마이너스가 된다 (사장님이 허용했다)', bd().get('다') == -5, bd())
+time.sleep(3.4)
+post('/api/dicegame/move', {'piece': '다', 'pos': 18})
+c, r = post('/api/dicegame/roll', {'piece': '다', 'value': 3})       # 18+3 = 21 블랙홀
+af = (dg().get('action') or {}).get('after') or {}
+chk('블랙홀이 출발로 보낸다',
+    af.get('kind') == 'goto' and af.get('to') == 0 and af.get('from') == 21, af)
+chk('거꾸로 걸어간다 (원래 가던 방향의 반대)',
+    af.get('path') == [(21 - i) % 22 for i in range(1, 22)], (af.get('path') or [])[:5])
+chk('역주행이라고 알려준다 (화면이 빠르게 밟는다)', af.get('rev') is True, af.get('rev'))
+chk('블랙홀은 출발 보상을 안 준다', not r.get('lap_contrib'), r.get('lap_contrib'))
+time.sleep(3.4)
+post('/api/dicegame/keys', {'keys': ['파산']})
+post('/api/dicegame/tile', {'id': 4, 'type': 'key'})
+post('/api/dicegame/move', {'piece': '나', 'pos': 0})
+post('/api/dicegame/roll', {'piece': '나', 'value': 4})
+chk('파산은 전용 판 점수만 0으로', bd().get('나') == 0, bd())
+chk('엑셀판 기여도는 여전히 100 그대로',
+    all(b['contribution'] == 100 for b in get()['bjs']),
+    [(b['name'], b['contribution']) for b in get()['bjs']])
+before = bd()
+c, r = post('/api/dicegame/board', {'do': 'apply'})
+moved = {x['name']: x['points'] for x in (r.get('moved') or [])}
+chk('옮기기 응답에 누가 얼마인지', moved.get('가') == before.get('가'), (moved, before))
+after_c = {b['name']: b['contribution'] for b in get()['bjs']}
+chk('기여도에 더해졌다 (100 + 전용 판 점수)',
+    all(after_c[k] == 100 + before.get(k, 0) for k in after_c), (after_c, before))
+chk('옮긴 뒤 전용 판은 비워진다', all(v == 0 for v in bd().values()), bd())
 
 print()
 print('=' * 74)

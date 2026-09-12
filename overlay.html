@@ -526,6 +526,21 @@
         /* ⚠️ 방송판 1080 은 폰에서 2.7배 작아진다. 30px 이라야 폰에서 11px 이다. */
         .acc-num-v2 { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 
+        /* 🎲 주사위 전용 점수판 — 엑셀판 모양 그대로, 칸만 셋(순위·이름·점수)이다.
+           ⚠️ 엑셀판은 넷(순위·이름·점수·기여도)이라 격자만 덮어쓴다. 글꼴·높이·선은 그대로. */
+        .dgb-board { border-color: rgba(var(--gold-rgb), 0.55); }
+        .dgb-board .excel-header, .dgb-board .excel-row { grid-template-columns: 60px 1fr 148px; }
+        .dgb-board .excel-col { width: 380px; }
+        .dgb-pts { color: var(--gold); font-weight: 900; font-size: 31px;
+                   font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+        .dgb-pts.minus { color: #ff6b7a; }          /* 마이너스는 빨강 — 사장님이 마이너스를 허용했다 */
+        .excel-row.dgb-up   { animation: dgbUp .8s var(--ease-pop); }
+        .excel-row.dgb-down { animation: dgbDown .8s var(--ease-pop); }
+        @keyframes dgbUp   { 0%,100% { transform: scale(1); }
+                             35% { transform: scale(1.06); background: rgba(var(--gold-rgb), 0.18); } }
+        @keyframes dgbDown { 0%,100% { transform: scale(1); }
+                             35% { transform: scale(0.97); background: rgba(255, 60, 80, 0.16); } }
+
         /* ── 시그니처 순위판 ── 각진 클립패스 대신 점수판과 같은 유리 카드 + 둥근 골드 헤더 */
 
         /* ═══ 🃏 시그 뒤집기 게임 ═══
@@ -889,6 +904,10 @@
         /* 가장자리 열: 담는 자리를 칸 안쪽 모서리에 붙인다 */
         .dg-tile.dg-edge-l .dg-piece-wrap { left: 0; transform: none; justify-content: flex-start; }
         .dg-tile.dg-edge-r .dg-piece-wrap { left: auto; right: 0; transform: none; justify-content: flex-end; }
+        /* 맨 윗줄: 이름표를 칸 **안쪽**에 놓는다 — 위로 띄우면 바로 위 엑셀판을 덮는다
+           (주사위판이 엑셀판 아래로 내려온 뒤로 생긴 문제. 캡처로 잡았다) */
+        .dg-tile.dg-edge-t .dg-piece-wrap,
+        .dg-tile.dg-edge-t .dg-piece-wrap.dg-tight { top: 5px; }
         /* 넷을 색으로 가른다. 이름이 짧아 글자만으로는 순간적으로 안 갈린다. */
         .dg-piece.p0 { --dg-p-bg: linear-gradient(180deg, #d9743a, #97441a); }
         .dg-piece.p1 { --dg-p-bg: linear-gradient(180deg, #3f9d7a, #1d6148); }
@@ -2097,6 +2116,25 @@
                              계좌는 판 밖(자기 칸)에 있다. 판은 게임마다 숨거나 화면 밖으로
                              비켜나는데 계좌는 늘 떠 있어야 해서, 운명을 같이하면 안 된다
                              (판 안에 넣었다가 퇴근빵과 겹치고 번외에서 사라졌다). -->
+                    </div>
+                </div>
+
+                <!-- 🎲 주사위게임 **전용** 점수판. 엑셀판과 같은 자리를 쓴다 —
+                     주사위를 켜면 엑셀판이 비키고 이 판이 들어온다.
+                     ⚠️ 모양은 엑셀판 것(.excel-board/.excel-row)을 그대로 쓴다. 새로 만들지 않는다
+                        — 예전에 따로 만들었다가 줄이 두 줄로 깨졌다. -->
+                <div id="dgboard-container" class="widget-container" style="left: auto; right: 42px; top: 167px; opacity: 0; visibility: hidden;">
+                    <div class="excel-board dgb-board">
+                        <div class="excel-grid-container">
+                            <div class="excel-col">
+                                <div class="excel-header"><div></div><div>플레이어</div><div>점수</div></div>
+                                <div id="dgb-left"></div>
+                            </div>
+                            <div class="excel-col">
+                                <div class="excel-header"><div></div><div>플레이어</div><div>점수</div></div>
+                                <div id="dgb-right"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -3525,6 +3563,7 @@
                 nc.style.left = away ? '654px' : '6px';
                 nc.style.width = away ? '388px' : '1068px';
             }
+            try { dgSyncPos(); } catch (e) {}   // 판이 움직였으면 주사위판도 따라 내려온다
             placeGoalTip();   // 위젯이 움직였으니 금액 딱지도 다시 비킨다
         }
 
@@ -3605,7 +3644,16 @@
             if (!el) return;
             // 번외판이 켜져 있으면 엑셀판은 이미 화면 밖(left:-800px)으로 비켜 있다 — 안 건드린다
             if (currentExtraActiveState) return;
+            // 🎲 주사위 중에는 엑셀판이 비키고 그 자리에 **전용 점수판**이 들어온다
+            //    (사장님 2026-09-13: "평소에 쓰는 엑셀판 말고 주사위게임 전용 기여도판").
+            //    자리·크기 계산(dgSyncPos)은 그대로 — 위에 오는 판만 바뀐다.
             const hide = rankHiddenBy.race || rankHiddenBy.dice;
+            const dgb = document.getElementById('dgboard-container');
+            if (dgb) {
+                const showB = !!rankHiddenBy.dice && !currentExtraActiveState;
+                dgb.style.opacity = showB ? '1' : '0';
+                dgb.style.visibility = showB ? 'visible' : 'hidden';
+            }
             el.style.opacity = hide ? '0' : '1';
             el.style.visibility = hide ? 'hidden' : 'visible';
             syncAccountPos();   // 계좌는 판을 따라 자리를 옮긴다
@@ -4457,6 +4505,8 @@
 
                     document.getElementById('rank-left').innerHTML = leftHtml; 
                     document.getElementById('rank-right').innerHTML = rightHtml;
+                    // 판 높이가 달라졌다(넷이면 2줄·여섯이면 3줄) — 주사위판 자리를 다시 잡는다
+                    try { dgSyncPos(); } catch (e) {}
                     
                     bjs.forEach(b => {
                         let id = safeId(b.name);
@@ -6654,6 +6704,7 @@
                 case 'move':    return '🕳️';
                 case 'goto':    return '🌀';
                 case 'giveall': return '🎁';
+                case 'steal':   return '💰';
                 default:        return '·';
             }
         }
@@ -6664,6 +6715,45 @@
             if (i < cols + rows - 1) return { c: cols, r: i - cols + 2 };
             if (i < 2 * cols + rows - 2) return { c: cols - (i - (cols + rows - 2)), r: rows };
             return { c: 1, r: rows - (i - (2 * cols + rows - 3)) };
+        }
+
+        /* 🎲 주사위판은 엑셀판 **아래**에 선다.
+           예전에는 주사위를 켜면 엑셀판을 통째로 내렸다 — 기여도를 주는 게임인데 정작
+           기여도 판이 안 보였다(사장님: '주사위모드에서도 엑셀판 보이게').
+           엑셀판 높이는 사람 수를 따라 변하므로(넷이면 2줄) 남는 세로를 재서 칸 크기를 정한다.
+           ⚠️ 아래끝 1030 은 채팅 구역 위. 이 아래로 내려가면 폰에서 판이 잘린다. */
+        const DG_BOTTOM = 1030, DG_TOP_MIN = 175, DG_TOP_MAX = 620;
+        let dgRoom = 810;                 // 주사위판이 쓸 수 있는 세로. dgBuild 가 이걸 본다.
+        let dgLastG = null;               // 마지막으로 그린 판 상태(자리가 바뀌면 다시 그린다)
+        function dgTopAndRoom() {
+            // 지금 화면에 떠 있는 판(평소 엑셀판 / 번외 점수판)의 아래끝을 찾는다
+            let bottom = 0;
+            ['ranking-container', 'extra-ranking-container', 'dgboard-container'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el || el.style.display === 'none') return;
+                const st = getComputedStyle(el);
+                if (st.visibility === 'hidden' || parseFloat(st.opacity) < 0.05) return;
+                if (el.offsetLeft < -400 || el.offsetLeft > 1200) return;   // 화면 밖으로 비켜 있다
+                bottom = Math.max(bottom, el.offsetTop + el.offsetHeight);
+            });
+            const top = Math.min(DG_TOP_MAX, Math.max(DG_TOP_MIN, bottom ? bottom + 10 : 307));
+            return { top: top, room: Math.max(300, DG_BOTTOM - top) };
+        }
+        // 자리만 옮긴다. 칸 크기는 dgRender 가 dgRoom 이 바뀐 것을 보고 다시 그린다.
+        function dgSyncPos() {
+            const box = document.getElementById('dicegame-container');
+            if (!box || box.style.visibility !== 'visible') return;
+            const r = dgTopAndRoom();
+            box.style.top = r.top + 'px';
+            if (r.room === dgRoom) return;
+            dgRoom = r.room;
+            // ⚠️ 엑셀판은 주사위판보다 **늦게** 그려진다(handleData 순서). 그래서 여기서
+            //    자리가 바뀐 것을 알게 되는데, dgRender 는 이미 지나갔다 — 칸 크기를
+            //    여기서 직접 다시 잡는다. 안 그러면 판이 옛 크기 그대로라 아래가 잘린다.
+            //    굴리는 중이면 건드리지 않는다(연출이 끊긴다) — 다음 갱신 때 맞춰진다.
+            if (dgLastG && !((window.dgBusyUntil || 0) > Date.now())) {
+                try { dgBuild(dgLastG); dgPlacePieces(null, null); } catch (e) {}
+            }
         }
 
         function dgBuild(g) {
@@ -6684,9 +6774,12 @@
                ⚠️ 1010 인 이유: 판 오른쪽 끝(6+1030=1036)이 세로 후원 막대
                   (1046~1076) 를 안 건드려야 한다. 예전 1020(판 1038)이면 겹쳤다. */
             const GAP = 6, MAXW = 1010, MAXH = 810, CELL_CAP = 160;
+            // ⚠️ 세로는 엑셀판 아래에 **남는 자리**(dgRoom)를 따른다 — 판을 같이 보여주게
+            //    되면서 주사위판이 아래로 내려갔기 때문이다. MAXH 는 판이 없을 때의 한도.
+            const roomH = Math.min(MAXH, dgRoom || MAXH);
             const cell = Math.max(40, Math.min(CELL_CAP,
                 Math.floor((MAXW - GAP * (cols - 1)) / cols),
-                Math.floor((MAXH - GAP * (rows - 1)) / rows)));
+                Math.floor((roomH - GAP * (rows - 1)) / rows)));
             grid.style.setProperty('--dg-cell', cell + 'px');   // 글씨·아이콘·말이 이걸 따라간다
             grid.style.gridTemplateColumns = 'repeat(' + cols + ', ' + cell + 'px)';
             grid.style.gridTemplateRows = 'repeat(' + rows + ', ' + cell + 'px)';
@@ -6696,7 +6789,8 @@
                 const p = dgRingCell(i, cols, rows), t = tiles[i] || {};
                 const corner = (i === 0 || i === cols - 1 || i === cols + rows - 2 || i === 2 * cols + rows - 3);
                 // 왼쪽·오른쪽 끝 열은 이름표를 칸 안쪽으로 정렬한다 — 가운데정렬이면 화면 밖으로 잘린다
-                const edge = p.c === 1 ? ' dg-edge-l' : (p.c === cols ? ' dg-edge-r' : '');
+                const edge = (p.c === 1 ? ' dg-edge-l' : (p.c === cols ? ' dg-edge-r' : ''))
+                           + (p.r === 1 ? ' dg-edge-t' : '');
                 html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + (corner ? ' dg-corner' : '') + edge + '" id="dg-tile-' + i + '"'
                       + ' style="grid-column:' + p.c + ';grid-row:' + p.r + ';">'
                       + '<span class="dg-ico">' + dgTileIcon(t) + '</span>'
@@ -6711,6 +6805,14 @@
                   + '<div class="dg-sum" id="dg-sum"></div>'
                   + '<div class="dg-laps" id="dg-laps"></div></div>';
             grid.innerHTML = html;
+            // 판이 엑셀판 아래로 내려오면서 세로에 맞춰 작아진다 — 그만큼 가로가 남으므로
+            // 가운데로 모은다. 왼쪽에 붙여두면 오른쪽이 휑하다(캡처로 잡았다).
+            const box = document.getElementById('dicegame-container');
+            if (box) {
+                box.style.left = '6px';
+                const w = box.offsetWidth;
+                if (w > 2) box.style.left = Math.max(6, Math.round((1080 - w) / 2)) + 'px';
+            }
         }
 
         // 🧩 서버가 알려준 말 목록. 굴리는 연출 중에는 움직이는 말만 자리를 덮어쓴다.
@@ -6886,10 +6988,17 @@
                 sub = '시그니처 재생!'; hold = 4000;
                 if (t.image) img = '<img src="' + dgEsc(t.image) + '" alt="">';
             } else if (t.type === 'giveall') {
-                // 누가 받았는지 — 전원 지급도 기여도다
+                // 누가 받았는지 — 전원 지급
                 const ga = act.giveall || {};
-                sub = ga.points ? ('전원 기여도 ' + (ga.points > 0 ? '+' : '') + ga.points) : '';
+                sub = ga.points ? ('전원 ' + (ga.points > 0 ? '+' : '') + ga.points + '점') : '';
                 txt = txt || '전원 지급';
+            } else if (t.type === 'steal') {
+                // 💰 뺏어오기 — 누가 누구에게서 얼마를 가져왔나
+                const st = act.steal || {};
+                sub = st.taker
+                    ? (dgEsc(st.taker) + ' +' + st.gain + '점 · ' + dgEsc((st.from || []).join(', ')) + ' 각 −' + st.per)
+                    : (act.score_note || '');
+                txt = txt || ('각 플레이어에게서 ' + (t.points || 0) + '점씩');
             } else if (t.type === 'start') {
                 txt = txt || '출발!';
             } else if (!txt) {
@@ -6982,7 +7091,11 @@
                     // 그만큼 더 기다린다 — 안 그러면 카드가 섞이는 중에 말이 먼저 미끄러져
                     // '뒤로 7칸' 을 읽을 틈이 없다(실측: 이동 2403ms, 카드 2652ms).
                     const START = (_tt === 'key') ? 3200 : 1500;
-                    const STEP = 220;            // 끌려가는 것이라 걸을 때(300)보다 빠르다
+                    // 끌려가는 것이라 걸을 때(300)보다 빠르다. 🕳️ 블랙홀은 출발까지 거꾸로
+                    // 21칸을 밟으므로(사장님: "반대방향으로 돌아야함") 220ms 로는 4.6초라
+                    // 늘어진다 — 길수록 빨리 밟아 전체가 2.4초를 안 넘게 한다.
+                    const STEP = af.rev && p2.length > 8
+                        ? Math.max(90, Math.round(2400 / p2.length)) : 220;
                     dgAfter(START, () => playSfx('dice-miss'));
                     p2.forEach((pos, k) => {
                         dgAfter(START + k * STEP, () => {
@@ -7023,11 +7136,13 @@
             const on = !!g.enabled && (g.tiles || []).length > 0;
             box.style.opacity = on ? '1' : '0';
             box.style.visibility = on ? 'visible' : 'hidden';
-            // 주사위판(307~936)은 엑셀판(167~427+) 자리를 먹는다 — 켜져 있는 동안 엑셀판을 내린다
+            // 엑셀판은 이제 그대로 둔다(위). 계좌만 머리 줄로 비킨다 — rankHiddenBy.dice 가 그 신호.
             rankHiddenBy.dice = on;
             syncRankVisible();
             if (!on) { dgClearTimers(); return; }
-            const key = JSON.stringify([g.cols, g.rows,
+            dgLastG = g;
+            dgSyncPos();   // 엑셀판 아래로 내려가 남는 자리를 잰다
+            const key = JSON.stringify([g.cols, g.rows, dgRoom,
                 (g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points])]);
             const rebuilt = key !== dgLayoutKey;
             if (rebuilt) { dgLayoutKey = key; dgBuild(g); }
@@ -7065,9 +7180,63 @@
             if (laps) laps.textContent = g.laps ? ('출발 ' + g.laps + '번') : '';
         }
 
+        /* 🏆 전용 점수판 그리기 — 점수 높은 차례. 엑셀판과 같은 줄 모양을 쓴다.
+           ⚠️ 숫자는 animateVal 로 세어 올린다(엑셀판과 같은 연출). 오른 줄은 키우고,
+              내린 줄은 살짝 줄인다 — 뺏어오기는 두 줄이 한 번에 움직이기 때문이다. */
+        let dgbPrev = {}, dgbRosterKey = '';
+        function renderDiceBoard(g) {
+            const left = document.getElementById('dgb-left');
+            const right = document.getElementById('dgb-right');
+            if (!left || !right) return;
+            const rows = (Array.isArray(g.board) ? g.board : [])
+                .filter(r => r && r.name)
+                .map(r => ({ name: String(r.name), pts: Number(r.pts) || 0 }))
+                .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+            const key = rows.map(r => r.name).join('|');
+            const half = Math.max(1, Math.ceil(rows.length / 2));
+            const cell = (r, i) => `<div class="excel-row ${i < 3 ? 'rank-' + (i + 1) : ''}" id="dgb-${safeId(r.name)}">`
+                + `<div class="r-rank">${i + 1}</div>`
+                + `<div class="r-name">${escapeSlotText(r.name)}</div>`
+                + `<div class="dgb-pts${r.pts < 0 ? ' minus' : ''}" id="dgbp-${safeId(r.name)}">${formatNum(r.pts)}</div></div>`;
+            const blank = '<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="dgb-pts"></div></div>';
+            let lh = '', rh = '';
+            for (let i = 0; i < half; i++) lh += i < rows.length ? cell(rows[i], i) : blank;
+            for (let i = half; i < half * 2; i++) rh += i < rows.length ? cell(rows[i], i) : blank;
+            // 줄 차례가 바뀌면 다시 그린다. 그 뒤에 숫자를 세어 올린다(순서가 중요하다 —
+            // 먼저 그려야 새 줄에 대고 애니메이션을 걸 수 있다).
+            if (key !== dgbRosterKey || left.childElementCount !== half) {
+                dgbRosterKey = key;
+                left.innerHTML = lh;
+                right.innerHTML = rh;
+            } else {
+                left.innerHTML = lh;
+                right.innerHTML = rh;
+            }
+            rows.forEach(r => {
+                const el = document.getElementById('dgbp-' + safeId(r.name));
+                if (!el) return;
+                const was = dgbPrev[r.name];
+                if (was === undefined || was === r.pts) { dgbPrev[r.name] = r.pts; return; }
+                try { animateVal(el, was, r.pts, 800); } catch (e) { el.innerText = formatNum(r.pts); }
+                const row = el.closest('.excel-row');
+                if (row) {
+                    const cls = r.pts > was ? 'dgb-up' : 'dgb-down';
+                    row.classList.remove('dgb-up', 'dgb-down');
+                    void row.offsetWidth;
+                    row.classList.add(cls);
+                    setTimeout(() => row.classList.remove(cls), 900);
+                }
+                dgbPrev[r.name] = r.pts;
+            });
+            // 판에서 빠진 사람은 기억도 지운다
+            Object.keys(dgbPrev).forEach(n => { if (!rows.some(r => r.name === n)) delete dgbPrev[n]; });
+        }
+
         function dgUpdate(g) {
             try { dgRender(g); }
             catch (e) { console.error('[주사위게임] 화면 갱신 실패 — 방송은 계속됩니다:', e); }
+            try { renderDiceBoard(g || {}); }
+            catch (e) { console.error('[주사위 점수판] 갱신 실패 — 방송은 계속됩니다:', e); }
         }
 
         // 🏅 후원 순위 — 이번 방송에 누가 얼마를 넣었나.

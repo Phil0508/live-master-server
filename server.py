@@ -1650,6 +1650,11 @@ DEFAULT_STATE = {
         #    이름을 여기 박아두면 방송마다 코드를 고쳐야 해서, 명단을 따라가게 했다.
         # 비워 둔다 — 지금 쓰는 점수판 명단에서 저절로 채워진다.
         "pieces": [],
+        # 🏆 주사위게임 **전용** 점수판. [{name, pts}]
+        #    엑셀판(진짜 기여도)과 완전히 따로 논다 — 여기 점수는 조종실에서
+        #    [엑셀판으로 옮기기] 를 눌러야 기여도가 된다. 전원 0점에서 시작하고
+        #    마이너스도 된다(사장님이 정함).
+        "board": [],
         # 🙋 다음에 굴릴 말 번호. 조종실이 안 고르면 이 말이 움직인다.
         "turn": 0,
         # ⬇️ 아래 둘은 옛 저장본 호환용. 마지막으로 움직인 말을 그대로 비춰 둔다.
@@ -6645,11 +6650,13 @@ def api_notice_now():
 # ==========================================
 #    move    : 말을 points 칸만큼 옮긴다(음수면 뒤로). 싱크홀 = -5
 #    goto    : points 번 칸으로 보낸다. 블랙홀 = 0(출발점)
-#    giveall : 모든 말 주인에게 기여도를 points 만큼 준다
+#    giveall : 모든 말 주인에게 points 만큼 준다 (전원 지급 — 판의 총점이 늘어난다)
+#    steal   : 착지한 사람이 **다른 말들에게서** points 만큼씩 뺏는다 (총점은 그대로)
+#              사장님: "각 플레이어 5점씩 받는건 다른 플레이어들에게서 뺏어오는거였음"
 #    ⚠️ 옮겨 간 칸의 효과는 **다시 걸지 않는다**. 걸면 싱크홀→싱크홀 로
 #       끝없이 튕길 수 있고, 방송 중에 그게 터지면 손쓸 수가 없다.
 DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key',
-                   'move', 'goto', 'giveall')
+                   'move', 'goto', 'giveall', 'steal')
 
 
 def _dicegame_key_effect(text):
@@ -6689,42 +6696,36 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
     if not eff:
         return out
     k, n = eff['kind'], eff['n']
-    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
-    roster = [b for b in (state.get(src) or []) if isinstance(b, dict)]
-
-    def _log(name, val, why):
-        logs = state.get('logs')
-        if not isinstance(logs, list):
-            logs = []
-            state['logs'] = logs
-        logs.insert(0, {'time': now_hms(), 'name': name, 'val': val, 'kind': 'contrib', 'why': why})
+    # ⚠️ 바꾸기·파산·점수는 전부 **주사위 전용 판** 안에서 돈다. 엑셀판(진짜 기여도)은
+    #    안 건드린다 — 사장님: "전용 기여도판안에서 해당하는 미션임".
 
     if k == 'contrib' and n:
-        got = _dicegame_apply_contrib(state, who, n, '황금열쇠: ' + str(text)) if who else None
-        out['note'] = ('%s 기여도 %+d' % (got, n)) if got else '누구 차례인지 몰라 기여도는 손으로'
+        got = _dicegame_add_pts(state, g, who, n, '황금열쇠: ' + str(text)) if who else None
+        out['note'] = ('%s %+d점' % (got, n)) if got else '누구 차례인지 몰라 점수는 손으로'
     elif k == 'bankrupt':
-        t = _find_score_target(state, 'rank', who) if who else None
+        t = _dicegame_row(g, who) if who else None
         if t is None:
-            out['note'] = '명단에서 못 찾아 파산은 손으로'
+            out['note'] = '판에서 못 찾아 파산은 손으로'
         else:
-            before = int(t.get('contribution') or 0)
-            t['contribution'] = 0
-            _log(t.get('name') or who, -before, '황금열쇠: 파산')
-            out['note'] = '%s 기여도 %d → 0' % (t.get('name') or who, before)
+            before = _as_int(t.get('pts'), 0) or 0
+            t['pts'] = 0
+            _dicegame_log(state, t['name'], -before, '황금열쇠: 파산')
+            out['note'] = '%s %d점 → 0' % (t['name'], before)
     elif k == 'swap' and n:
-        me = _find_score_target(state, 'rank', who) if who else None
-        ranked = sorted(roster, key=lambda b: int(b.get('contribution') or 0), reverse=True)
+        me = _dicegame_row(g, who) if who else None
+        ranked = _dicegame_ranked(g)
         tgt = ranked[n - 1] if 0 < n <= len(ranked) else None
         if me is None or tgt is None:
             out['note'] = '%d등을 못 찾아 바꾸기는 손으로' % n
         elif tgt is me:
             out['note'] = '본인이 %d등이라 바꿀 상대가 없음' % n
         else:
-            a, b = int(me.get('contribution') or 0), int(tgt.get('contribution') or 0)
-            me['contribution'], tgt['contribution'] = b, a
-            _log(me.get('name'), b - a, '황금열쇠: %d등과 바꾸기' % n)
-            _log(tgt.get('name'), a - b, '황금열쇠: %d등과 바꾸기(상대)' % n)
-            out['note'] = '%s %d ↔ %s %d' % (me.get('name'), a, tgt.get('name'), b)
+            a = _as_int(me.get('pts'), 0) or 0
+            b = _as_int(tgt.get('pts'), 0) or 0
+            me['pts'], tgt['pts'] = b, a
+            _dicegame_log(state, me['name'], b - a, '황금열쇠: %d등과 바꾸기' % n)
+            _dicegame_log(state, tgt['name'], a - b, '황금열쇠: %d등과 바꾸기(상대)' % n)
+            out['note'] = '%s %d ↔ %s %d' % (me['name'], a, tgt['name'], b)
     elif k == 'again':
         out['again'] = True
         out['note'] = '한 번 더 — 차례가 넘어가지 않는다'
@@ -6760,7 +6761,7 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
             # 도착한 칸이 점수 칸이면 그 점수도 준다. 열쇠·이동 칸은 다시 걸지 않는다(끝없는 연쇄 방지).
             if t2.get('type') == 'score' and t2.get('points') and who:
                 p2 = _as_int(t2.get('points'), 0) or 0
-                got = _dicegame_apply_contrib(state, who, p2, (t2.get('label') or '점수 칸') + ' (열쇠로 이동)')
+                got = _dicegame_add_pts(state, g, who, p2, (t2.get('label') or '점수 칸') + ' (열쇠로 이동)')
                 if got:
                     after['scored'] = {'name': got, 'points': p2}
             out['after'] = after
@@ -6847,6 +6848,9 @@ def _dicegame_state(state):
                        'choose': bool(_p.get('choose'))})
     g['pieces'] = _fixed
     _dicegame_sync_pieces(state, g)
+    if not isinstance(g.get('board'), list):
+        g['board'] = []
+    _dicegame_sync_board(g)
     g['turn'] = max(0, min(max(0, len(g['pieces']) - 1), _as_int(g.get('turn'), 0) or 0))
     return g
 
@@ -6878,31 +6882,77 @@ def _dicegame_save(state, g):
     broadcast_event('update', state)
 
 
-def _dicegame_apply_contrib(state, player, contrib, why):
-    """기여도만 넣는다 — 점수(그날 일당)는 건드리지 않는다.
+# ══════════════════════════════════════════════════════════════
+# 🎲 주사위게임 **전용** 점수판
+#   사장님(2026-09-13): "평소에 쓰는 엑셀판 말고 주사위게임 전용 기여도판이 필요함"
+#   · 전원 0점에서 시작 · 마이너스도 된다
+#   · 엑셀판(진짜 기여도)은 절대 안 건드린다 — 조종실에서 [옮기기] 를 눌러야 넘어간다
+#   ⚠️ 예전에는 주사위 칸·열쇠가 곧바로 엑셀판 기여도를 올렸다. 그래서 '기여도 1등과
+#      바꾸기' 가 진짜 후원 순위를 뒤바꿔 버렸다 — 이제 전부 이 판 안에서만 돈다.
+# ══════════════════════════════════════════════════════════════
 
-    ⚠️ 주사위에서 나온 것은 전부 여기로 온다 — 점수 칸·시그니처·한 바퀴. 점수(그날
-       일당)는 후원으로만 오른다. 게임에서 나온 것이 일당에 섞이면 그날 정산이 틀어진다.
-       (예전에는 점수 칸만 _dicegame_apply_score 로 점수·기여도·팀점수를 같이 올렸다.
-        사장님이 "기여도 5점만" 이라고 정해 그 함수는 걷어냈다.)
-    """
-    t = _find_score_target(state, 'rank', player)
-    if t is None:
-        return None
-    t['contribution'] = (t.get('contribution') or 0) + contrib
+def _dicegame_sync_board(g):
+    """전용 점수판을 말 명단에 맞춘다. 있던 점수는 이름으로 지킨다."""
+    old = {}
+    for r in (g.get('board') or []):
+        if isinstance(r, dict) and str(r.get('name') or '').strip():
+            old[str(r['name']).strip()] = _as_int(r.get('pts'), 0) or 0
+    g['board'] = [{'name': p['name'], 'pts': old.get(p['name'], 0)}
+                  for p in (g.get('pieces') or [])]
+
+
+def _dicegame_row(g, name):
+    want = str(name or '').strip()
+    for r in (g.get('board') or []):
+        if str(r.get('name') or '').strip() == want:
+            return r
+    return None
+
+
+def _dicegame_log(state, name, val, why):
+    """⚠️ kind 는 'dice' 다 — 'contrib' 로 남기면 조종실 장부에서 진짜 기여도와 섞인다."""
     logs = state.get('logs')
     if not isinstance(logs, list):
         logs = []
         state['logs'] = logs
-    # ⚠️ 로그에 '기여도' 라고 남겨야 나중에 장부를 볼 때 점수와 헷갈리지 않는다
-    logs.insert(0, {"time": now_hms(), "name": t.get('name') or player,
-                    "val": contrib, "kind": "contrib", "why": why})
+    logs.insert(0, {'time': now_hms(), 'name': name, 'val': int(val),
+                    'kind': 'dice', 'why': why})
     del logs[LOG_MAX:]
-    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
-    lst = state.get(src) or []
-    lst.sort(key=lambda b: -(b.get('contribution') or 0))
-    state[src] = lst
-    return t.get('name') or player
+
+
+def _dicegame_add_pts(state, g, player, pts, why):
+    """전용 판 점수를 더한다(마이너스도 된다). 그 이름이 판에 없으면 None."""
+    r = _dicegame_row(g, player)
+    if r is None:
+        return None
+    r['pts'] = (_as_int(r.get('pts'), 0) or 0) + int(pts)
+    _dicegame_log(state, r['name'], int(pts), why)
+    return r['name']
+
+
+def _dicegame_ranked(g):
+    """점수 높은 차례. 같으면 이름 차례 — 굴릴 때마다 순위가 흔들리면 안 된다."""
+    rows = [r for r in (g.get('board') or []) if isinstance(r, dict)]
+    return sorted(rows, key=lambda r: (-(_as_int(r.get('pts'), 0) or 0),
+                                       str(r.get('name') or '')))
+
+
+def _dicegame_steal(state, g, taker, per):
+    """착지한 사람이 다른 말들에게서 per 점씩 뺏는다. 판의 총점은 그대로다."""
+    me = _dicegame_row(g, taker)
+    if me is None or not per:
+        return None
+    victims = [r for r in (g.get('board') or []) if r is not me]
+    if not victims:
+        return None
+    for v in victims:
+        v['pts'] = (_as_int(v.get('pts'), 0) or 0) - per
+        _dicegame_log(state, v['name'], -per, '%s 에게 빼앗김' % me['name'])
+    gain = per * len(victims)
+    me['pts'] = (_as_int(me.get('pts'), 0) or 0) + gain
+    _dicegame_log(state, me['name'], gain, '%d명에게서 %d점씩 빼앗음' % (len(victims), per))
+    return {'taker': me['name'], 'per': per, 'gain': gain,
+            'from': [v['name'] for v in victims]}
 
 
 def _contrib_alert(state, title, contrib, why):
@@ -7015,10 +7065,10 @@ def api_dicegame_tile():
             return jsonify({'status': 'error', 'message': '없는 칸입니다'}), 400
         tile = {'id': tid, 'type': ttype, 'label': label}
         # 숫자를 쓰는 칸은 넷이다. 뜻은 종류마다 다르다 —
-        #   score 점수 · move 몇 칸(음수면 뒤로) · goto 칸 번호 · giveall 기여도
+        #   score 점수 · move 몇 칸(음수면 뒤로) · goto 칸 번호 · giveall/steal 점수
         # ⚠️ 예전에는 score 만 저장했다. 그래서 싱크홀(-5)·전원지급(5)이 0 으로
         #    저장돼 밟아도 아무 일이 없었다(블랙홀만 목표가 0 이라 우연히 맞았다).
-        if ttype in ('score', 'move', 'goto', 'giveall'):
+        if ttype in ('score', 'move', 'goto', 'giveall', 'steal'):
             tile['points'] = points
         if ttype == 'sig' and sig:
             tile['sig'] = sig
@@ -7061,7 +7111,7 @@ def _dicegame_dest_effects(state, g, piece, who, dest, tag):
     if d2 == 'score' and t2.get('points'):
         p2 = _as_int(t2.get('points'), 0) or 0
         if who:
-            got = _dicegame_apply_contrib(state, who, p2, (t2.get('label') or '점수 칸') + tag)
+            got = _dicegame_add_pts(state, g, who, p2, (t2.get('label') or '점수 칸') + tag)
             if got:
                 parts['scored'] = {'name': got, 'points': p2}
                 print(f"🎯 [주사위게임] {dest}번{tag} → {got} 기여도 {p2}", flush=True)
@@ -7076,11 +7126,16 @@ def _dicegame_dest_effects(state, g, piece, who, dest, tag):
             why2 = (t2.get('label') or '전원 지급') + ' 칸' + tag
             for pc in g['pieces']:
                 try:
-                    if _dicegame_apply_contrib(state, pc['name'], p2, why2):
+                    if _dicegame_add_pts(state, g, pc['name'], p2, why2):
                         names.append(pc['name'])
                 except Exception as e:
                     print(f'⚠️ [주사위게임] 전원 지급 실패{tag} — 계속합니다: {e}')
         parts['giveall'] = {'points': p2, 'names': names}
+    elif d2 == 'steal':
+        p2 = _as_int(t2.get('points'), 0) or 0
+        st = _dicegame_steal(state, g, who or (piece or {}).get('name'), p2)
+        if st:
+            parts['steal'] = st
     elif d2 == 'key':
         keys2 = [str(x) for x in (g.get('keys') or []) if str(x).strip()]
         parts['key'] = random.choice(keys2) if keys2 else '(황금열쇠 덱이 비어 있습니다)'
@@ -7227,14 +7282,14 @@ def api_dicegame_roll():
         if tile.get('type') == 'score' and tile.get('points'):
             _pts = int(tile['points'])
             if contrib_player:
-                applied_to = _dicegame_apply_contrib(state, contrib_player, _pts,
-                                                     '🎲 점수 칸 %+d' % _pts)
+                applied_to = _dicegame_add_pts(state, g, contrib_player, _pts,
+                                               '🎲 점수 칸 %+d' % _pts)
                 if applied_to:
                     action['scored'] = {'name': applied_to, 'points': _pts}
                 else:
-                    action['score_note'] = f"'{contrib_player}' 을(를) 명단에서 못 찾아 기여도는 넣지 않았습니다"
+                    action['score_note'] = f"'{contrib_player}' 을(를) 판에서 못 찾아 점수를 넣지 않았습니다"
             else:
-                action['score_note'] = '누구 차례인지 몰라 기여도는 손으로 주세요'
+                action['score_note'] = '누구 차례인지 몰라 점수는 손으로 주세요'
         # 🎵 시그니처 칸 — 기존 재생 경로 그대로(재생 전용이라 집계에는 안 센다)
         if tile.get('type') == 'sig' and isinstance(tile.get('sig'), dict):
             try:
@@ -7268,15 +7323,14 @@ def api_dicegame_roll():
                     print(f"🎯 [주사위게임] 시그니처 '{tile['sig'].get('title')}' 는 한 판 값"
                           f"({_price:,}원) 이하라 더 줄 기여도가 없습니다")
                 elif contrib_player:
-                    _to = _dicegame_apply_contrib(state, contrib_player, _contrib, _why)
+                    _to = _dicegame_add_pts(state, g, contrib_player, _contrib, _why)
                     if _to:
                         action['contrib'] = {'name': _to, 'points': _contrib, 'why': _why}
-                        print(f"🎯 [주사위게임] {_to} 에게 기여도 {_contrib} (시그니처)")
+                        print(f"🎯 [주사위게임] {_to} 에게 {_contrib}점 (시그니처)")
                     else:
-                        _contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
+                        print(f"🎯 [주사위게임] 시그니처 {_contrib}점 — 받을 말이 판에 없습니다")
                 else:
-                    _contrib_alert(state, '🎲 주사위 시그니처', _contrib, _why)
-                    print(f"🎯 [주사위게임] 시그니처 → 기여도 {_contrib} 알림을 대기함에 올렸습니다")
+                    print(f"🎯 [주사위게임] 시그니처 {_contrib}점 — 누구 차례인지 몰라 손으로")
             except Exception as e:
                 print(f'⚠️ [주사위게임] 기여도 실패 — 게임은 계속됩니다: {e}')
 
@@ -7289,15 +7343,14 @@ def api_dicegame_roll():
                 if _lap_c:
                     _why = '출발 칸에 정확히 도착했습니다 (%d번째)' % (piece['laps'] + 1)
                     if contrib_player:
-                        _to = _dicegame_apply_contrib(state, contrib_player, _lap_c, _why)
+                        _to = _dicegame_add_pts(state, g, contrib_player, _lap_c, _why)
                         if _to:
                             action['lap_contrib'] = {'name': _to, 'points': _lap_c}
-                            print(f"🏁 [주사위게임] {_to} 에게 기여도 {_lap_c} (출발 칸 도착)")
+                            print(f"🏁 [주사위게임] {_to} 에게 {_lap_c}점 (출발 칸 도착)")
                         else:
-                            _contrib_alert(state, '🏁 주사위 출발 칸', _lap_c, _why)
+                            print(f"🏁 [주사위게임] 출발 칸 {_lap_c}점 — 받을 말이 판에 없습니다")
                     else:
-                        _contrib_alert(state, '🏁 주사위 출발 칸', _lap_c, _why)
-                        print(f"🏁 [주사위게임] 출발 칸 도착 → 기여도 {_lap_c} 알림을 대기함에 올렸습니다")
+                        print(f"🏁 [주사위게임] 출발 칸 {_lap_c}점 — 누구 차례인지 몰라 손으로")
             except Exception as e:
                 print(f'⚠️ [주사위게임] 한 바퀴 기여도 실패 — 게임은 계속됩니다: {e}')
         piece['pos'] = to
@@ -7317,10 +7370,13 @@ def api_dicegame_roll():
             # 두 번째 이동에는 한 바퀴 보상을 주지 않는다 — 벌칙으로 끌려간 것이지
             # 제 힘으로 돈 게 아니다.
             # 경로: move 는 한 칸씩 걸어간다(뒤로 가면 뒤로 밟는다).
-            # goto 는 끌려가는 것이라 경로 없이 한 번에 옮긴다 — 21번에서 0번으로
-            # '한 칸 앞으로' 처럼 그리면 벌칙이 아니라 보너스로 보인다.
+            # 🕳️ goto(블랙홀)도 이제 걸어간다 — 사장님: "출발점으로 돌아가는 애니메이션이
+            #    필요함, 근데 원래 가던 방향말고 반대방향으로 돌아야함".
+            #    그래서 뒤로 몇 칸인지 재서 거꾸로 밟는다(21번 → 0번이면 21칸 역주행).
+            #    ⚠️ 앞으로 한 칸처럼 그리면 벌칙이 아니라 보너스로 보인다 — 반드시 역방향.
             if _tt == 'goto':
-                _path2 = []
+                _back = (to - _dest) % n
+                _path2 = [(to - i) % n for i in range(1, _back + 1)]
             elif _pts < 0:
                 _path2 = [(to - i) % n for i in range(1, (-_pts) + 1)]
             else:
@@ -7329,6 +7385,9 @@ def api_dicegame_roll():
             _t2 = tiles[_dest] if isinstance(tiles[_dest], dict) else {'id': _dest, 'type': 'blank'}
             action['after'] = {'kind': _tt, 'from': to, 'to': _dest, 'path': _path2,
                                'label': tile.get('label') or '',
+                               # 🕳️ 역주행이다 — 화면은 이 표시를 보고 빠르게(110ms/칸) 밟는다.
+                               #    21칸을 걸을 때(220ms)처럼 가면 4.6초라 늘어진다.
+                               'rev': bool(_tt == 'goto' or (_as_int(tile.get('points'), 0) or 0) < 0),
                                'tile': {k: _t2.get(k) for k in ('id', 'type', 'label', 'points')}}
             # 🎯 끌려간 자리의 칸도 제 일을 해야 한다. 뒤로 5칸 밀렸는데 그 자리가
             #    기여도 칸이면 그 기여도를 받아야 말이 된다.
@@ -7349,12 +7408,23 @@ def api_dicegame_roll():
                 _why = (tile.get('label') or '전원 지급') + ' 칸'
                 for _pc in g['pieces']:
                     try:
-                        if _dicegame_apply_contrib(state, _pc['name'], _pts, _why):
+                        if _dicegame_add_pts(state, g, _pc['name'], _pts, _why):
                             _got.append(_pc['name'])
                     except Exception as e:
                         print(f'⚠️ [주사위게임] 전원 지급 실패({_pc["name"]}) — 계속합니다: {e}')
             action['giveall'] = {'points': _pts, 'names': _got}
-            print(f"🎁 [주사위게임] 전원 기여도 {_pts} → {', '.join(_got) or '아무도 못 받음'}", flush=True)
+            print(f"🎁 [주사위게임] 전원 {_pts}점 → {', '.join(_got) or '아무도 못 받음'}", flush=True)
+        elif _tt == 'steal':
+            # 💰 뺏어오기 — 착지한 사람이 나머지 전원에게서 points 점씩 가져온다.
+            #    판의 총점은 변하지 않는다(주고받기만 한다).
+            _pts = _as_int(tile.get('points'), 0) or 0
+            _st = _dicegame_steal(state, g, contrib_player or piece['name'], _pts)
+            if _st:
+                action['steal'] = _st
+                print(f"💰 [주사위게임] {_st['taker']} 가 {len(_st['from'])}명에게서"
+                      f" {_pts}점씩 (+{_st['gain']})", flush=True)
+            else:
+                action['score_note'] = '뺏을 상대가 없습니다'
         # 차례를 다음 말로 넘긴다. 조종실이 말을 고르면 그게 우선이므로
         # 이건 '안 고르고 계속 굴릴 때' 넷이 돌아가게 하는 기본값일 뿐이다.
         # 열쇠가 만든 두 번째 이동(뒤로 N칸·출발지로). 칸이 만든 이동(싱크홀)이 이미 있으면 그쪽이 우선.
@@ -7377,6 +7447,7 @@ def api_dicegame_roll():
                     'tile': action['tile'], 'lap': bool(lap),
                     'piece': piece['name'],
                     'scored': action.get('scored'), 'note': action.get('score_note'),
+                    'steal': action.get('steal'), 'giveall': action.get('giveall'),
                     'contrib': action.get('contrib'),
                     'lap_contrib': action.get('lap_contrib'),
                     'key': action.get('key'),
@@ -7432,7 +7503,7 @@ def api_dicegame_move():
         g['action'] = action
         _dicegame_save(state, g)
     out = {'status': 'success', 'pos': pos, 'piece': piece['name']}
-    for k in ('tile', 'scored', 'note', 'giveall', 'key', 'key_effect', 'choose'):
+    for k in ('tile', 'scored', 'note', 'giveall', 'steal', 'key', 'key_effect', 'choose'):
         if k in action:
             out[k] = action[k]
     return jsonify(out)
@@ -7465,6 +7536,78 @@ def api_dicegame_reset():
                   'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
         _dicegame_save(state, g)
     return jsonify({'status': 'success'})
+
+
+@app.route('/api/dicegame/board', methods=['POST'])
+def api_dicegame_board():
+    """🏆 주사위 전용 점수판을 조종한다.
+
+       body: {do: 'reset'}              전원 0점
+             {do: 'set', name, pts}     한 사람 점수를 그 값으로
+             {do: 'add', name, pts}     한 사람 점수를 그만큼 더한다(음수 가능)
+             {do: 'apply', clear?}      **엑셀판 기여도로 옮긴다** (기본은 옮기고 판을 비운다)
+
+    ⚠️ 'apply' 가 이 게임에서 유일하게 진짜 기여도를 건드리는 곳이다.
+       사장님이 버튼을 눌러야만 넘어간다 — 게임 중에 저절로 넘어가면 되돌릴 수가 없다.
+    """
+    body = request.get_json(silent=True) or {}
+    do = str(body.get('do') or '').strip().lower()
+    if do not in ('reset', 'set', 'add', 'apply'):
+        return jsonify({'status': 'error',
+                        'message': "do 는 reset·set·add·apply 중 하나입니다"}), 400
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        moved = []
+        if do == 'reset':
+            for r in g['board']:
+                r['pts'] = 0
+            print('🏆 [주사위 판] 전원 0점으로 되돌렸습니다', flush=True)
+        elif do in ('set', 'add'):
+            nm = str(body.get('name') or '').strip()
+            pts = _as_int(body.get('pts'))
+            if pts is None:
+                return jsonify({'status': 'error', 'message': '점수가 숫자가 아닙니다'}), 400
+            r = _dicegame_row(g, nm)
+            if r is None:
+                _names = ' · '.join(x['name'] for x in g['board'])
+                return jsonify({'status': 'error',
+                                'message': "'%s' 가 판에 없습니다. 있는 사람: %s"
+                                           % (nm, _names)}), 400
+            before = _as_int(r.get('pts'), 0) or 0
+            r['pts'] = pts if do == 'set' else before + pts
+            _dicegame_log(state, r['name'], r['pts'] - before, '손으로 고침')
+        else:   # apply
+            # 🎯 전용 판 점수를 엑셀판 기여도에 더한다. 0점인 사람은 건너뛴다.
+            #    ⚠️ 여기서만 _find_score_target(엑셀판)을 쓴다.
+            for r in g['board']:
+                pts = _as_int(r.get('pts'), 0) or 0
+                if not pts:
+                    continue
+                t = _find_score_target(state, 'rank', r['name'])
+                if t is None:
+                    print(f"⚠️ [주사위 판] '{r['name']}' 을(를) 엑셀판에서 못 찾아 건너뜁니다", flush=True)
+                    continue
+                t['contribution'] = (t.get('contribution') or 0) + pts
+                logs = state.get('logs')
+                if not isinstance(logs, list):
+                    logs = []
+                    state['logs'] = logs
+                logs.insert(0, {'time': now_hms(), 'name': t.get('name') or r['name'],
+                                'val': pts, 'kind': 'contrib', 'why': '🎲 주사위게임 정산'})
+                del logs[LOG_MAX:]
+                moved.append({'name': t.get('name') or r['name'], 'points': pts})
+            if moved:
+                src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+                lst = state.get(src) or []
+                lst.sort(key=lambda b: -(b.get('contribution') or 0))
+                state[src] = lst
+            if body.get('clear', True):
+                for r in g['board']:
+                    r['pts'] = 0
+            print(f"🎯 [주사위 판] 기여도로 옮겼습니다 — {len(moved)}명", flush=True)
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success', 'board': g['board'], 'moved': moved})
 
 
 # ==========================================

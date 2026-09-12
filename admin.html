@@ -229,6 +229,10 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .acc-who #ui-bank { font-weight: 900; color: var(--gold); font-size: 27px; }
 .acc-who .acc-holder { font-weight: 900; color: #fff; font-size: 28px; letter-spacing: -0.3px; line-height: 1.15; /* 상호가 길어도 카드 밖으로 밀려나지 않게. keep-all 로 한글 낱말은 안 쪼개고, 띄어쓰기 없는 긴 이름만 마지막 수단으로 접는다 */ max-width: 100%; word-break: keep-all; overflow-wrap: anywhere; }
 .acc-num-v2 { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+.dgb-board .excel-header, .dgb-board .excel-row { grid-template-columns: 60px 1fr 148px; }
+.dgb-board .excel-col { width: 380px; }
+.excel-row.dgb-up { animation: dgbUp .8s var(--ease-pop); }
+.excel-row.dgb-down { animation: dgbDown .8s var(--ease-pop); }
 .sg-timer { font-size: 32px; font-weight: 900; letter-spacing: 0.5px; color: var(--on-gold); font-variant-numeric: tabular-nums; line-height: 1; }
 .sg-header.urgent { background: linear-gradient(120deg, var(--game-red), var(--game-red-deep)); box-shadow: 0 4px 16px rgba(var(--game-red-rgb), .55); }
 .sg-header.urgent .sg-header-title, .sg-header.urgent .sg-timer { color: #fff; }
@@ -310,6 +314,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .dg-piece-wrap.dg-tight .dg-piece { font-size: calc(var(--dg-cell, 86px) * 0.155); padding: 1px 5px; border-width: 1px; }
 .dg-tile.dg-edge-l .dg-piece-wrap { left: 0; transform: none; justify-content: flex-start; }
 .dg-tile.dg-edge-r .dg-piece-wrap { left: auto; right: 0; transform: none; justify-content: flex-end; }
+.dg-tile.dg-edge-t .dg-piece-wrap, .dg-tile.dg-edge-t .dg-piece-wrap.dg-tight { top: 5px; }
 .dg-piece.p0 { --dg-p-bg: linear-gradient(180deg, #d9743a, #97441a); }
 .dg-piece.p1 { --dg-p-bg: linear-gradient(180deg, #3f9d7a, #1d6148); }
 .dg-piece.p2 { --dg-p-bg: linear-gradient(180deg, #4a7fd0, #24488a); }
