@@ -822,7 +822,9 @@
         .dg-tile {
             position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1);
             background: linear-gradient(180deg, #fffdf2, #e7e2cf);
-            box-shadow: 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75);
+            /* ⚠️ 첫 줄(테두리 링)이 있어야 **밝은 배경**에서 칸 경계가 산다. 없으면 흰 화면
+               위에서 크림색 칸이 뭉개져 판이 판으로 안 보인다(흰 배경 점검에서 잡았다). */
+            box-shadow: 0 0 0 3px rgba(38, 31, 12, .82), 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: calc(var(--dg-cell, 86px) * 0.015);
             padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035)
@@ -1439,11 +1441,20 @@
         .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
+        /* ⚠️ 배경에 **알파를 쓰지 않는다**. 예전에는 그라데이션 끝이 rgba(등급색, 0.15) 라
+           85% 투명이었다 — 검은 화면에선 은은해 보였지만 캠이 밝거나 흰 옷·흰 벽이 잡히면
+           카드가 통째로 사라졌다(사장님: "배경이 까매서 잘보이지 하야면 안보이더라").
+           제일 잘 보여야 할 VVIP 카드가 제일 안 보이는 상태였다. 그래서 등급색을 어두운
+           바탕에 **섞은 불투명 색**(--vip-card-2, JS 가 계산해 넣는다)으로 칠한다.
+           ⚠️ 바깥 2px 검은 테두리도 같은 이유다 — 밝은 배경에서 카드 경계가 살아야 한다. */
         #toon-popup.vip-premium-card {
             border: 4px solid var(--vip-glow-color, var(--gold)) !important;
-            background: linear-gradient(135deg, #1c1c1e 0%, var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)) 100%) !important;
-            box-shadow: 0 0 34px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.45)), inset 0 0 22px var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.14)) !important;
-            animation: vip-gold-glow 2s infinite alternate !important;
+            background: linear-gradient(135deg, #1c1c1e 0%, var(--vip-card-2, #2a2620) 100%) !important;
+            box-shadow: 0 0 0 2px rgba(0,0,0,.55),
+                        0 0 34px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.45)),
+                        0 18px 50px rgba(0,0,0,0.55) !important;
+            /* 등장할 때 한 번만 번쩍이고 가만히 있는다 — 5초 뜨는데 2.5번 깜빡이면 피곤하다 */
+            animation: vip-gold-glow .9s ease-out both !important;
         }
         /* 우리 팝업의 이름 요소는 #toon-name (클래스는 donator-name) 이라 id로 지정한다 */
         #toon-popup.vip-premium-card #toon-name {
@@ -1467,9 +1478,68 @@
             background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15));
             color: var(--vip-glow-color, var(--gold));
             border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3));
-            padding: 4px 12px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; margin-right: 8px;
-            vertical-align: middle;
+            /* 이름 위에 제 줄로 올린다 — 한 줄에 같이 두면 이름을 밀어낸다 */
+            display: block; width: max-content; margin: 0 auto 10px;
+            /* ⚠️ 27px 밑으로 내리지 말 것 — 폰에서 2.7배 작아져 10px 밑이 된다(검사가 잡는다) */
+            padding: 3px 14px; border-radius: var(--r-s); font-size: 27px; font-weight: 800;
         }
+
+        /* 🎖️ [등급마다 모양이 다르다] 색만 다르면 1위와 8위가 같은 급으로 보인다 —
+           사장님: "vip 1등 이런 부분이 너무 강조가 안 되어있는 것 같아".
+             1위      훈장   (메달이 카드 **밖으로** 튀어나온다)
+             2~3위    머리띠 (카드 위를 가로지르는 등급 바)
+             4위 이하 지금 그대로 (딱지)
+           ⚠️ 카드 안쪽 구조(이름·금액·메시지)는 안 건드린다. 장식은 #toon-vip-deco
+              하나를 자리만 잡아 띄우는 방식이다 — 후원 내용 쪽을 건드리면 시그니처·
+              기여도 팝업까지 같이 흔들린다. */
+        #toon-vip-deco { display: none; }
+
+        /* ── 1위: 훈장 ── */
+        #toon-popup.vip-rank-top { padding-top: 78px; }
+        #toon-popup.vip-rank-top #toon-vip-deco {
+            display: block; position: absolute; top: -62px; left: 50%;
+            transform: translateX(-50%);
+            width: 134px; height: 134px; border-radius: 50%; padding: 10px;
+            box-sizing: border-box;
+            background: conic-gradient(from 205deg, var(--vip-c-lite, var(--gold-light)),
+                        var(--vip-glow-color, var(--gold)) 25%, var(--vip-c-dark, var(--gold-deep)) 50%,
+                        var(--vip-glow-color, var(--gold)) 74%, var(--vip-c-lite, var(--gold-light)));
+            box-shadow: 0 0 0 6px #16161a, 0 12px 28px rgba(0,0,0,.8),
+                        0 0 46px var(--vip-glow-color-border, var(--gold-glow));
+        }
+        /* 메달 속을 어둡게 파야 순위 글자가 읽힌다 — 금속 그라데이션 위에 바로 얹으면 뭉갠다 */
+        #toon-popup.vip-rank-top #toon-vip-deco .medal-in {
+            width: 100%; height: 100%; border-radius: 50%; background: #131317;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: inset 0 3px 12px rgba(0,0,0,.9);
+        }
+        .medal-em { font-size: 36px; line-height: 1.05; }
+        .medal-rk { font-size: 31px; font-weight: 900; line-height: 1;
+                    color: var(--vip-glow-color, var(--gold));
+                    text-shadow: 0 0 12px var(--vip-glow-color-border, var(--gold-glow)); }
+        /* 순위는 메달이 달고 있으니 딱지는 등급 이름만 — 알약을 벗기고 글자만 크게 */
+        #toon-popup.vip-rank-top .vip-badge-tag {
+            background: none; border: none; padding: 0; margin: 0 auto 12px;
+            font-size: 32px; font-weight: 900; letter-spacing: 7px;
+            text-shadow: 0 0 16px var(--vip-glow-color-border, var(--gold-glow));
+        }
+
+        /* ── 2~3위: 머리띠 ── */
+        #toon-popup.vip-rank-mid { padding-top: 76px; }
+        #toon-popup.vip-rank-mid #toon-vip-deco {
+            display: flex; position: absolute; top: 0; left: 0; right: 0;
+            align-items: center; justify-content: space-between;
+            padding: 10px 28px; box-sizing: border-box;
+            border-radius: var(--glass-radius) var(--glass-radius) 0 0;
+            background: linear-gradient(90deg, var(--vip-c-dark, var(--gold-deep)),
+                        var(--vip-glow-color, var(--gold)) 50%, var(--vip-c-dark, var(--gold-deep)));
+            box-shadow: inset 0 2px 0 rgba(255,255,255,.42), 0 5px 16px rgba(0,0,0,.5);
+            color: var(--vip-ink, var(--on-gold)); font-weight: 900;
+        }
+        .hdr-g { font-size: 34px; letter-spacing: 2px; }
+        .hdr-r { font-size: 38px; letter-spacing: -1px; }
+        /* 머리띠가 이미 등급 색을 크게 쓴다 — 이름까지 같은 색이면 둘이 싸운다 */
+        #toon-popup.vip-rank-mid #toon-name { color: #fff !important; text-shadow: var(--ts-1); }
 
         /* 🔥 [피버 타임] 대결 남은 시간 60초 미만이면 자동으로 불꽃 테두리.
            기존 fire-vignette 요소를 그대로 재사용하되, 수동 스위치(match-fire-on)와
@@ -1487,11 +1557,13 @@
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
             border-radius: var(--glass-radius);
-            padding: 36px 56px; text-align: center;
+            padding: 32px 48px; text-align: center;
+            /* 후원마다 카드 폭이 출렁이면 시선이 매번 다시 찾아야 한다 — 최소 폭을 준다 */
+            min-width: 640px; box-sizing: border-box;
             box-shadow: var(--glass-shadow), 0 0 40px rgba(0,0,0,0.35);
             opacity: 0; visibility: hidden; transform: scale(0.8) translateY(30px);
             transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease, visibility var(--t-base);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 500px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
         .donation-popup-content::before {
             content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit;
@@ -1499,10 +1571,26 @@
             pointer-events:none;
         }
         .donation-popup-content.show { opacity: 1; visibility: visible; transform: scale(1) translateY(0); }
-        .donator-text { font-size: 30px; font-weight: 800; color: #ffffff; letter-spacing: -0.3px; }
-        .donator-name { color: #fff; }
-        .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: 0 0 28px var(--gold-glow); margin: 12px 0 16px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
-        .donation-message { background: rgba(255, 255, 255, 0.06); border: 1px solid var(--glass-border); border-radius: var(--r-m); padding: 16px 32px; font-size: 30px; font-weight: 600; color: var(--tx-2); max-width: 700px; word-break: break-all; line-height: 1.45; }
+        /* ⚠️ 이름이 주인공이다. 예전에는 딱지·왕관·이름·'님이 후원하셨습니다' 가 전부 같은
+           크기로 한 줄에서 싸워서 '다!' 가 혼자 다음 줄로 떨어졌다(캡처로 잡았다).
+           ⚠️ word-break:break-all 은 영문 기준이라 한글을 낱말 중간에서 자른다
+              ('응원합니/다'). keep-all + anywhere 가 한글에 맞다. */
+        .donator-text { font-size: 26px; font-weight: 700; color: var(--tx-2); letter-spacing: -0.3px;
+                        word-break: keep-all; overflow-wrap: anywhere; line-height: 1.35; }
+        .donator-name { color: #fff; font-size: 40px; font-weight: 900; letter-spacing: -0.5px; }
+        /* ⚠️ 그림자가 없으면 밝은 배경에서 금색이 그대로 날아간다. 글로우만으론 못 버틴다. */
+        .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold);
+                           text-shadow: var(--ts-2), 0 0 28px var(--gold-glow);
+                           margin: 8px 0 16px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+        /* 숫자와 단위는 위계가 다르다 — '원' 을 줄이면 숫자가 더 큼직해 보인다 */
+        .donation-amount .won { font-size: 0.56em; font-weight: 800; color: var(--tx-2);
+                                margin-left: 4px; letter-spacing: 0; }
+        /* ⚠️ 테두리를 뺐다 — 카드 안에 또 카드가 있는 꼴이었다. 배경만 옅게 깔면 충분하다.
+           ⚠️ 글자 대비도 올렸다(0.62 → 0.85). 방송판 1080 은 폰에서 2.7배 작아진다. */
+        .donation-message { background: rgba(255, 255, 255, 0.07); border: none;
+                            border-radius: var(--r-m); padding: 14px 28px; font-size: 29px;
+                            font-weight: 600; color: rgba(235,235,245,0.85); max-width: 700px;
+                            word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45; }
 
         /* 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
            크기/노출시간은 admin 에디터 값(--reac-title-size)으로 조절한다. */
@@ -2060,6 +2148,8 @@
 
             <div id="toon-popup-container">
                 <div id="toon-popup" class="donation-popup-content">
+                    <!-- 🎖️ 등급 장식 자리 (1위 훈장 · 2~3위 머리띠). 4위 이하면 비어 있다. -->
+                    <div id="toon-vip-deco" aria-hidden="true"></div>
                     <div class="donator-text"><span id="toon-name" class="donator-name">누군가</span> <span id="toon-action-text">님이 후원하셨습니다!</span></div>
                     <div class="donation-amount" id="toon-amount">10,000원</div>
                     <div class="donation-message" id="toon-msg">메시지</div>
@@ -6269,12 +6359,17 @@
             const vipInfo = vipOf(finalName);
 
             // 먼저 이전 후원자의 VIP 흔적을 깨끗이 지운다 (안 지우면 다음 일반 후원에도 남는다)
+            const decoEl = document.getElementById('toon-vip-deco');
             if (popupEl) {
-                popupEl.classList.remove('vip-premium-card');
+                popupEl.classList.remove('vip-premium-card', 'vip-rank-top', 'vip-rank-mid');
                 popupEl.style.removeProperty('--vip-glow-color');
                 popupEl.style.removeProperty('--vip-glow-color-bg');
                 popupEl.style.removeProperty('--vip-glow-color-border');
+                popupEl.style.removeProperty('--vip-c-lite');
+                popupEl.style.removeProperty('--vip-c-dark');
+                popupEl.style.removeProperty('--vip-ink');
             }
+            if (decoEl) decoEl.innerHTML = '';   // 안 지우면 다음 일반 후원에도 메달이 남는다
             if (nameEl) nameEl.className = 'donator-name';
 
             if (vipInfo && popupEl && nameEl) {
@@ -6290,19 +6385,55 @@
                 popupEl.style.setProperty('--vip-glow-color', color);
                 popupEl.style.setProperty('--vip-glow-color-bg', `rgba(${r}, ${g}, ${b}, 0.15)`);
                 popupEl.style.setProperty('--vip-glow-color-border', `rgba(${r}, ${g}, ${b}, 0.3)`);
+                // 🎨 등급색을 어두운 바탕(#1c1c1e)에 22% 섞은 **불투명** 색.
+                //    예전처럼 알파로 칠하면 밝은 화면이 그대로 비쳐 카드가 사라진다.
+                const mix = (c, base) => Math.round(base * 0.78 + c * 0.22);
+                popupEl.style.setProperty('--vip-card-2',
+                    `rgb(${mix(r, 28)}, ${mix(g, 28)}, ${mix(b, 30)})`);
 
                 const grade = vipInfo.grade || 'VIP';
                 const badge = vipInfo.badge || '👑';
                 /* 화면에 찍는 글자만 사장님이 부르시는 이름으로 바꾼다.
-                   ⚠️ DB 에 저장되는 값(VVIP/VIP/DIAMOND/GOLD)은 건드리지 않는다 —
+                   ⚠️ DB 에 저장되는 값(VVIP/VIP/DIAMOND/BRONZE)은 건드리지 않는다 —
                       바꾸면 이미 등록된 사람들의 등급이 통째로 깨진다.
+                   ⚠️ 'GOLD' 는 7~10위의 옛 이름이다(지금은 BRONZE). 직접 준 등급에 옛
+                      이름으로 남아 있을 수 있어 표에서 빼지 않는다 — 빼면 화면에 'GOLD'
+                      가 영문 그대로 찍힌다.
                    'DIAMOND' 는 딱지가 149px 이라 이름 자리를 많이 먹기도 했다. */
-                const gradeText = (({ DIAMOND: '다이아', GOLD: '골드' })[grade] || grade)
-                                + (vipInfo.rank ? ' ' + vipInfo.rank + '위' : '');   // 순위 등급이면 몇 위인지
+                const gradeName = ({ DIAMOND: '다이아', BRONZE: '브론즈',
+                                    GOLD: '골드' })[grade] || grade;
+                const vipRank = Number(vipInfo.rank || 0);                 // 직접 준 등급은 0
+                const gradeText = gradeName + (vipRank ? ' ' + vipRank + '위' : '');
                 // 등급이 늘어도 여기는 안 건드린다 — 색은 사람마다 고른 값이 정한다
                 nameEl.className = 'donator-name vip-grade-text';
-                nameEl.innerHTML = `<span class="vip-badge-tag">${escapeSlotText(gradeText)}</span>${escapeSlotText(badge)} ${escapeSlotText(finalName)}`;
-                console.log(`👑 [특별 후원자] ${finalName} (${grade})`);
+
+                // 🎖️ 등급색에서 밝은/어두운 짝을 뽑는다 — 메달 테두리와 머리띠 그라데이션에 쓴다
+                const _lite = c => Math.round(c + (255 - c) * 0.45);
+                const _dark = c => Math.round(c * 0.58);
+                popupEl.style.setProperty('--vip-c-lite', `rgb(${_lite(r)}, ${_lite(g)}, ${_lite(b)})`);
+                popupEl.style.setProperty('--vip-c-dark', `rgb(${_dark(r)}, ${_dark(g)}, ${_dark(b)})`);
+                // 머리띠 위에 얹는 글자색 — 밝은 등급색(금·백금)이면 검정, 어두우면 금색
+                popupEl.style.setProperty('--vip-ink',
+                    (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#1c1206' : '#ffe9b0');
+
+                if (vipRank === 1 && decoEl) {
+                    // 1위 — 훈장. 메달이 순위를 달았으니 딱지는 등급 이름만 크게
+                    popupEl.classList.add('vip-rank-top');
+                    decoEl.innerHTML = `<div class="medal-in"><span class="medal-em">${escapeSlotText(badge)}</span>`
+                                     + `<span class="medal-rk">${vipRank}위</span></div>`;
+                    nameEl.innerHTML = `<span class="vip-badge-tag">${escapeSlotText(gradeName)}</span>`
+                                     + escapeSlotText(finalName);
+                } else if (vipRank >= 2 && vipRank <= 3 && decoEl) {
+                    // 2~3위 — 머리띠. 등급은 왼쪽, 순위는 오른쪽
+                    popupEl.classList.add('vip-rank-mid');
+                    decoEl.innerHTML = `<span class="hdr-g">${escapeSlotText(badge)} ${escapeSlotText(gradeName)}</span>`
+                                     + `<span class="hdr-r">${vipRank}위</span>`;
+                    nameEl.innerHTML = escapeSlotText(finalName);
+                } else {
+                    // 4위 이하 · 직접 준 등급(순위 없음) — 지금 그대로 딱지
+                    nameEl.innerHTML = `<span class="vip-badge-tag">${escapeSlotText(gradeText)}</span>${escapeSlotText(badge)} ${escapeSlotText(finalName)}`;
+                }
+                console.log(`👑 [특별 후원자] ${finalName} (${grade}${vipRank ? ' ' + vipRank + '위' : ''})`);
             } else {
                 document.getElementById('toon-name').innerText = finalName;
             }
@@ -6323,7 +6454,9 @@
                 if (donation.amount === 0) {
                     amountEl.innerText = '후원';
                 } else {
-                    amountEl.innerText = formatNum(donation.amount) + '원';
+                    // '원' 은 숫자보다 작게 — 숫자가 주인공이다
+                    amountEl.innerHTML = escapeSlotText(formatNum(donation.amount))
+                                       + '<span class="won">원</span>';
                 }
             }
             

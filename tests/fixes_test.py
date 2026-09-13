@@ -271,6 +271,9 @@ chk('갈아끼울 수 있는 함수를 쓴다 (검사에서도 걸리게)', 'sup
 chk('환경변수로 끌 수 있다 (SIG_MIN_AMOUNT)', "os.environ.get('SIG_MIN_AMOUNT')" in mn)
 chk('조회 실패하면 최저선 없이 간다', 'except Exception' in mn and 'return 0' in mn)
 chk('값을 잠깐 기억한다', "now - _SIG_CHEAPEST['at'] < 600" in mn)
+# 💛 만원 특수 취급 — 제일 싼 시그니처가 10,300원이라 만원 후원이 통째로 빠졌다
+chk('최저선이 만원을 못 넘는다 (만원은 최저 시그를 튼다)',
+    'SIG_ROUND_FLOOR = 10000' in SV and 'min(val, SIG_ROUND_FLOOR)' in mn)
 don = SV.split('def receive_donation():')[1].split(chr(10) + '@app.route')[0]
 chk('후원 경로에서만 막는다', '_sig_min_amount()' in don)
 chk('매칭 함수 자체는 안 막는다 (게임도 쓴다)',
@@ -293,8 +296,16 @@ time.sleep(1.0)
 d = get()
 chk('15,000원 후원은 시그니처가 나간다', len(d.get('reaction_queue') or []) == _q0 + 1,
     (_q0, len(d.get('reaction_queue') or [])))
-chk('대기함에는 둘 다 있다 (돈은 안 사라진다)',
-    len(d.get('pending_donations') or []) == _p0 + 2,
+# 딱 만원 — 제일 싼 시그니처(10,100원)보다 적지만 특수 취급이라 나가야 한다
+post('/api/donation', {'name': '만원', 'amount': 10000, 'message': '',
+                       'tx_id': 'toon_10k_' + _uniq})
+time.sleep(1.0)
+d = get()
+chk('10,000원 후원도 시그니처가 나간다 (특수 취급)',
+    len(d.get('reaction_queue') or []) == _q0 + 2,
+    (_q0, len(d.get('reaction_queue') or [])))
+chk('대기함에는 셋 다 있다 (돈은 안 사라진다)',
+    len(d.get('pending_donations') or []) == _p0 + 3,
     (_p0, len(d.get('pending_donations') or [])))
 
 print()

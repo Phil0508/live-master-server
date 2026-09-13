@@ -2298,12 +2298,14 @@
                     <div>
                         <label style="font-size: var(--fs-2); color: var(--text-muted); display: block; margin-bottom: 6px;">등급</label>
                         <!-- 낮은 등급부터 차례로. ⚠️ value 는 영문 그대로 둔다 —
-                             DB 에 이미 VVIP/VIP/GOLD 로 쌓여 있어 한글로 바꾸면 기존 등록이 깨진다. -->
+                             DB 에 영문으로 쌓여 있어 한글로 바꾸면 기존 등록이 깨진다.
+                             ⚠️ 색은 귀금속 순서(금·백금·다이아·동)다. server.py 의 VIP_TIERS 와
+                                같은 값을 써야 조종실과 방송판 색이 어긋나지 않는다. -->
                         <div style="display: flex; gap: 6px;">
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="GOLD" checked style="accent-color:#ffcf4d;"><span style="color:#ffcf4d; font-weight:800; font-size:var(--fs-2);">🥇 골드</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="BRONZE" checked style="accent-color:#c97f3d;"><span style="color:#c97f3d; font-weight:800; font-size:var(--fs-2);">🥉 브론즈</span></label>
                             <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="DIAMOND" style="accent-color:#5ac8fa;"><span style="color:#5ac8fa; font-weight:800; font-size:var(--fs-2);">💎 다이아</span></label>
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VIP" style="accent-color:#af52de;"><span style="color:#af52de; font-weight:800; font-size:var(--fs-2);">👑 VIP</span></label>
-                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VVIP" style="accent-color:#ff3b30;"><span style="color:#ff3b30; font-weight:800; font-size:var(--fs-2);">🏆 VVIP</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VIP" style="accent-color:#c8d4e3;"><span style="color:#c8d4e3; font-weight:800; font-size:var(--fs-2);">👑 VIP</span></label>
+                            <label style="flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:10px 4px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-1); cursor:pointer;"><input type="radio" name="vip-grade" value="VVIP" style="accent-color:#f6c453;"><span style="color:#f6c453; font-weight:800; font-size:var(--fs-2);">🏆 VVIP</span></label>
                         </div>
                     </div>
                     <div>
@@ -5009,9 +5011,11 @@
         // ══ 👑 등급 후보 ══
         // ⚠️ 여기서 등급을 자동으로 바꾸지 않는다. 사장님이 일부러 올려준 사람을
         //    서버가 멋대로 내리면 사고다. 보여주고, 누를 때만 반영한다.
-        const VIP_GRADE_COLOR = { VVIP: '#ff3b30', VIP: '#af52de', DIAMOND: '#5ac8fa', GOLD: '#ffcf4d' };
-        const VIP_GRADE_KO = { VVIP: '🏆 VVIP', VIP: '👑 VIP', DIAMOND: '💎 다이아', GOLD: '🥇 골드' };
-        const VIP_GRADE_BADGE = { VVIP: '🏆', VIP: '👑', DIAMOND: '💎', GOLD: '🥇' };
+        // 🎖️ 귀금속 순서 — 금 > 백금 > 다이아 > 동. server.py 의 VIP_TIERS 와 같은 값이어야 한다.
+        //    'GOLD' 는 7~10위의 옛 이름이다. 직접 준 등급에 남아 있을 수 있어 표에 같이 둔다.
+        const VIP_GRADE_COLOR = { VVIP: '#f6c453', VIP: '#c8d4e3', DIAMOND: '#5ac8fa', BRONZE: '#c97f3d', GOLD: '#ffcf4d' };
+        const VIP_GRADE_KO = { VVIP: '🏆 VVIP', VIP: '👑 VIP', DIAMOND: '💎 다이아', BRONZE: '🥉 브론즈', GOLD: '🥇 골드(옛)' };
+        const VIP_GRADE_BADGE = { VVIP: '🏆', VIP: '👑', DIAMOND: '💎', BRONZE: '🥉', GOLD: '🥇' };
         let vipCandData = null;
 
         const vipWon = n => Number(n || 0).toLocaleString() + '원';
@@ -5028,7 +5032,7 @@
             if (!box || !gd) return;
             const tab = document.getElementById('tab-vip');
             if (!force && tab && tab.style.display === 'none') return;   // 안 보이는 탭은 안 그린다
-            const RANGES = [['VVIP', 1, 1], ['VIP', 2, 3], ['DIAMOND', 4, 6], ['GOLD', 7, 10]];
+            const RANGES = [['VVIP', 1, 1], ['VIP', 2, 3], ['DIAMOND', 4, 6], ['BRONZE', 7, 10]];
             const tiersEl = document.getElementById('vip-tiers');
             if (tiersEl && !tiersEl.childElementCount) {
                 tiersEl.innerHTML = RANGES.map(([g, lo, hi]) => `
@@ -5136,10 +5140,10 @@
                 : '<i class="fa-solid fa-crown" style="color:var(--gold);"></i> 특별 후원자 등록';
             document.getElementById('vip-old-name').value = isEdit ? name : '';
             document.getElementById('vip-name').value = v ? v.name : '';
-            document.getElementById('vip-color').value = (v && v.custom_color) || '#ffcf4d';
-            document.getElementById('vip-color-text').value = (v && v.custom_color) || '#ffcf4d';
+            document.getElementById('vip-color').value = (v && v.custom_color) || '#c97f3d';
+            document.getElementById('vip-color-text').value = (v && v.custom_color) || '#c97f3d';
             document.getElementById('vip-badge').value = (v && v.badge) || '👑';
-            const grade = (v && v.grade) || 'GOLD';
+            const grade = (v && v.grade) || 'BRONZE';
             document.querySelectorAll('input[name="vip-grade"]').forEach(r => { r.checked = (r.value === grade); });
 
             modal.style.display = 'flex';
@@ -5153,8 +5157,8 @@
             const name = document.getElementById('vip-name').value.trim();
             const oldName = document.getElementById('vip-old-name').value;
             const gradeEl = document.querySelector('input[name="vip-grade"]:checked');
-            const grade = gradeEl ? gradeEl.value : 'GOLD';
-            const custom_color = document.getElementById('vip-color-text').value.trim() || '#ffcf4d';
+            const grade = gradeEl ? gradeEl.value : 'BRONZE';
+            const custom_color = document.getElementById('vip-color-text').value.trim() || '#c97f3d';
             const badge = document.getElementById('vip-badge').value;
 
             if (!name) {

@@ -4,7 +4,7 @@
 사장님 말 (2026-09-09)
   "한달치가 아니라 수-목 방송 한 회차의 순위로 등록하고싶어"
   "수 17:00~목 03:00까지의 순위를 매기는거라 실시간으로 반영이 되어야해"
-  등급: 1위 VVIP · 2~3위 VIP · 4~6위 DIAMOND · 7~10위 GOLD · 계좌 후원 포함 · 옛 등급은 전부 비움
+  등급: 1위 VVIP · 2~3위 VIP · 4~6위 DIAMOND · 7~10위 BRONZE · 계좌 후원 포함 · 옛 등급은 전부 비움
 
 여기서 지키는 것
   ① 순위 구간이 코드에 박혀 있고, 옛 평생누적 등급은 한 번 비운다
@@ -102,7 +102,10 @@ ctl = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8', errors='r
 print('=' * 74)
 print('① 순위 구간이 코드에 박혀 있는가 · 옛 등급은 한 번 비우는가')
 print('=' * 74)
-chk('순위 구간표', "('VVIP',    1,  1," in src and "('GOLD',    7, 10," in src)
+chk('순위 구간표', "('VVIP',    1,  1," in src and "('BRONZE',  7, 10," in src)
+# 🎖️ 색이 귀금속 순서인지 — 빨강으로 되돌아가면 여기서 잡힌다
+chk('1위는 금 · 7~10위는 동 (빨강·노랑 아님)',
+    "'#f6c453', '🏆'" in src and "'#c97f3d', '🥉'" in src and "'#ff3b30'" not in src)
 chk('순위 → 등급 함수', 'def vip_tier_for_rank(rank)' in src and 'def _vip_live(state)' in src)
 chk('평생 누적 기준선이 사라졌다', 'def vip_tier_for(total)' not in src and 'VIP_RECENT_DAYS' not in src)
 chk('옛 등급은 서버가 뜰 때 한 번 비운다 (표시는 kv_store 가 아니라 app_flags)',
@@ -135,11 +138,11 @@ chk('1위 VVIP', g('으뜸') == 'VVIP' and r('으뜸') == 1, (g('으뜸'), r('�
 chk('동점 둘은 같은 2위 · 둘 다 VIP', g('버금') == 'VIP' and g('버금둘') == 'VIP' and r('버금') == 2 and r('버금둘') == 2,
     [(n, g(n), r(n)) for n in ('버금', '버금둘')])
 chk('동점 다음은 4위(3위 건너뜀) → DIAMOND', g('넷째') == 'DIAMOND' and r('넷째') == 4, (g('넷째'), r('넷째')))
-chk('6위 DIAMOND · 7위 GOLD', g('여섯') == 'DIAMOND' and g('일곱') == 'GOLD', (g('여섯'), g('일곱')))
-chk('10위 GOLD', g('열') == 'GOLD' and r('열') == 10, (g('열'), r('열')))
+chk('6위 DIAMOND · 7위 BRONZE', g('여섯') == 'DIAMOND' and g('일곱') == 'BRONZE', (g('여섯'), g('일곱')))
+chk('10위 BRONZE', g('열') == 'BRONZE' and r('열') == 10, (g('열'), r('열')))
 chk('11위는 등급 없음', '열하나' not in L)
 chk('익명은 아무리 커도 순위에 없다', '익명' not in L)
-chk('색·뱃지가 같이 온다 (방송판이 그대로 쓴다)', (L.get('으뜸') or {}).get('custom_color') == '#ff3b30'
+chk('색·뱃지가 같이 온다 (방송판이 그대로 쓴다)', (L.get('으뜸') or {}).get('custom_color') == '#f6c453'
     and (L.get('으뜸') or {}).get('badge') == '🏆', L.get('으뜸'))
 c, cand = get('/api/vips/candidates')
 chk('조종실 순위표가 열린다', c == 200 and cand.get('status') == 'success', c)
@@ -171,13 +174,14 @@ print()
 print('=' * 74)
 print('④ 직접 준 등급은 순위에 못 든 사람에게만 (방송판 규칙)')
 print('=' * 74)
-post('/api/vips', {'name': '골드미달', 'grade': 'VVIP', 'custom_color': '#ff3b30', 'badge': '🏆'})
+post('/api/vips', {'name': '골드미달', 'grade': 'VVIP', 'custom_color': '#f6c453', 'badge': '🏆'})
 c, v = get('/api/vips')
 chk('직접 준 등급은 그대로 남는다 (서버가 멋대로 안 지운다)', any(x['name'] == '골드미달' and x['grade'] == 'VVIP' for x in v.get('vips', [])))
 chk('방송판은 순위 등급을 먼저 본다', 'const lv = window.vipLive || {};' in ov and 'if (lv[key]) return lv[key];' in ov)
 chk('그 다음에야 직접 준 등급', 'return c[raw] || n[key] || null;' in ov)
 chk('상태가 올 때마다 순위 등급을 받아 둔다 (팝업보다 먼저)', 'window.vipLive = d.vip_live;' in ov)
-chk('팝업 딱지에 몇 위인지 붙인다', "vipInfo.rank + '위'" in ov)
+chk('팝업에 몇 위인지 붙인다 (딱지·메달·머리띠 어디로 가든)',
+    "vipRank + '위'" in ov and '${vipRank}위' in ov)
 
 print()
 print('=' * 74)
@@ -205,6 +209,13 @@ print('⑦ 등급이 늘어도 방송판을 다시 안 고쳐도 되는가')
 print('=' * 74)
 chk('등급별 클래스가 사라졌다', 'vip-vvip-text' not in ov and 'vip-gold-text' not in ov)
 chk('클래스 하나로 합쳐졌다', 'vip-grade-text' in ov)
+# 🎖️ 등급마다 모양이 다르다 — 색만 다르면 1위와 8위가 같은 급으로 보인다
+chk('1위는 훈장 · 2~3위는 머리띠 · 4위 이하는 딱지',
+    'vip-rank-top' in ov and 'vip-rank-mid' in ov and 'vipRank === 1' in ov
+    and 'vipRank >= 2 && vipRank <= 3' in ov)
+chk('장식 자리는 따로 둔다 (후원 내용 구조는 안 건드린다)', 'id="toon-vip-deco"' in ov)
+chk('다음 후원에 흔적이 안 남는다', "decoEl.innerHTML = ''" in ov
+    and "'vip-premium-card', 'vip-rank-top', 'vip-rank-mid'" in ov)
 chk('색은 온 값이 정한다', ('color: var(--vip-glow-color, var(--gold)) !important;' in ov or 'color: var(--vip-glow-color, #ffd700) !important;' in ov))
 chk('방송 딱지는 사장님이 부르는 이름으로', "DIAMOND: '다이아'" in ov)
 
@@ -213,7 +224,11 @@ print('=' * 74)
 print('⑧ 조종실 화면')
 print('=' * 74)
 chk('이번 방송 순위표가 있다', 'id="vip-cand-rows"' in ctl and 'function renderVipLive' in ctl)
-chk('순위 구간을 보여준다', 'id="vip-tiers"' in ctl and "['GOLD', 7, 10]" in ctl)
+chk('순위 구간을 보여준다', 'id="vip-tiers"' in ctl and "['BRONZE', 7, 10]" in ctl)
+# 조종실과 방송판이 서로 다른 색을 쓰면 같은 사람이 화면마다 다른 등급으로 보인다
+chk('조종실 색표가 서버와 같다', "VVIP: '#f6c453'" in ctl and "BRONZE: '#c97f3d'" in ctl)
+chk('옛 GOLD 도 계속 알아듣는다 (직접 준 등급에 남아 있을 수 있다)',
+    "GOLD: '#ffcf4d'" in ctl and "BRONZE: '브론즈'" in ov)
 chk('상태가 올 때마다 다시 그린다 (실시간)', 'renderVipLive(false)' in ctl)
 chk('예전 "누르면 반영" 버튼은 없다', 'applyVipSuggest' not in ctl and 'vip-only-todo' not in ctl)
 chk('실시간이라고 적어 뒀다', '후원이 들어오면 그 자리에서 바뀝니다' in ctl)

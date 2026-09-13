@@ -294,7 +294,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .notice-measure { visibility: hidden; animation: none !important; }
 .dg-board { position: relative; padding: 10px; background: transparent; border: none; box-shadow: none; }
 .dg-grid { display: grid; gap: 6px; }
-.dg-tile { position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1); background: linear-gradient(180deg, #fffdf2, #e7e2cf); box-shadow: 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--dg-cell, 86px) * 0.015); padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035) calc(var(--dg-cell, 86px) * 0.07); transition: transform var(--t-fast) ease, filter var(--t-fast) ease; }
+.dg-tile { position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1); background: linear-gradient(180deg, #fffdf2, #e7e2cf); /* ⚠️ 첫 줄(테두리 링)이 있어야 **밝은 배경**에서 칸 경계가 산다. 없으면 흰 화면 위에서 크림색 칸이 뭉개져 판이 판으로 안 보인다(흰 배경 점검에서 잡았다). */ box-shadow: 0 0 0 3px rgba(38, 31, 12, .82), 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--dg-cell, 86px) * 0.015); padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035) calc(var(--dg-cell, 86px) * 0.07); transition: transform var(--t-fast) ease, filter var(--t-fast) ease; }
 .dg-tile .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.32); line-height: 1.05; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
 .dg-tile .dg-lbl { font-size: calc(var(--dg-cell, 86px) * 0.225); font-weight: 900; color: #3b3324; text-align: center; line-height: 1.1; max-height: calc(var(--dg-cell, 86px) * 0.46); overflow: hidden; word-break: keep-all; }
 .dg-t-start { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 10px 16px rgba(0,0,0,.75); }
@@ -422,7 +422,8 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .hr-goal-target { background: rgba(var(--race-rgb), 0.14); border: 1.5px solid rgba(var(--race-rgb), 0.55); color: var(--race-text); font-weight: 900; font-size: 27px; padding: 4px 12px; border-radius: var(--r-s); }
 .hr-goal-count { margin-left: auto; color: var(--tx-2); font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
 .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-.vip-badge-tag { display: inline-block; background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)); color: var(--vip-glow-color, var(--gold)); border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3)); padding: 4px 12px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; margin-right: 8px; vertical-align: middle; }
+.vip-badge-tag { display: inline-block; background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)); color: var(--vip-glow-color, var(--gold)); border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3)); /* 이름 위에 제 줄로 올린다 — 한 줄에 같이 두면 이름을 밀어낸다 */ display: block; width: max-content; margin: 0 auto 10px; /* ⚠️ 27px 밑으로 내리지 말 것 — 폰에서 2.7배 작아져 10px 밑이 된다(검사가 잡는다) */ padding: 3px 14px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; }
+#toon-popup.vip-rank-top .vip-badge-tag { background: none; border: none; padding: 0; margin: 0 auto 12px; font-size: 32px; font-weight: 900; letter-spacing: 7px; text-shadow: 0 0 16px var(--vip-glow-color-border, var(--gold-glow)); }
 /* ===== hud.css 끝 ===== */
     </style>
 </head>

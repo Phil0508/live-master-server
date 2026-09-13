@@ -88,8 +88,12 @@ print()
 print('=' * 74)
 print('③ 둥글기·속도는 단계 밖 값을 새로 만들지 않는다')
 print('=' * 74)
-# 허용: 토큰 · 알약 · 원 · inherit · 칸 비례(calc) · LED(6px)
-RADIUS_OK = re.compile(r'^(var\(--r-[sml]\)|var\(--glass-radius\)|999px|50%|inherit|calc\(.*\)|6px)$')
+# 허용: 토큰 · 알약 · 원 · inherit · 칸 비례(calc) · LED(6px) · 0
+# ⚠️ 모서리를 따로 주는 표기도 허용한다 — 자리마다 전부 허용값이면 단계를 벗어난 게
+#    아니다. (예: 위만 둥근 등급 머리띠 'var(--glass-radius) var(--glass-radius) 0 0')
+#    막으려는 건 '28px' 같은 **새 숫자**를 지어내는 것이지, 모서리를 나눠 주는 게 아니다.
+_R1 = r'(?:var\(--r-[sml]\)|var\(--glass-radius\)|999px|50%|inherit|6px|0)'
+RADIUS_OK = re.compile(r'^(?:calc\(.*\)|%s(?:\s+%s){0,3})$' % (_R1, _R1))
 bad = [v.strip() for v in re.findall(r'border-radius:\s*([^;]+);', BODY) if not RADIUS_OK.match(v.strip())]
 chk('CSS 둥글기가 단계 안에 있다', not bad, bad[:5])
 # 전환: var(--t-…) 아니면 안 된다. 예외 셋 — 릴(0.1s, 멈추는 좌표와 묶여 있다),
