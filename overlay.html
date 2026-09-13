@@ -818,13 +818,21 @@
            입체감은 칸마다 붙은 아랫단 그림자(0 5px 0)로 충분하다. 판은 반듯하게 둔다.
            (주사위 굴리기는 .dg-dice 가 제 perspective 를 따로 갖고 있어 그대로 돈다) */
         .dg-grid { display: grid; gap: 6px; }
-        /* 칸 — 밝은 면 + 두꺼운 아랫단(입체 블록) */
+        /* 칸 — 어두운 면 + 종류별 네온 링 + 두꺼운 아랫단(입체 블록)
+           ⚠️ 예전에는 크림색 블록이었다. 판 크기는 똑같은데 **밝은 칸 22개가 한 덩어리로**
+              보여서 화면을 실제보다 크게 잡아먹었고, 방송판 나머지(검은 유리 + 금색)와
+              혼자 겉돌았다(사장님: "주사위판이 너무 크지 않아? 화면을 많이 가리네").
+              어둡게 바꾸면 크기는 그대로인데 훨씬 덜 가린 것처럼 보인다.
+           ⚠️ 링을 **border 로 주면 안 된다.** 칸이 6px 두꺼워져 격자(repeat(n, cell px))와
+              어긋나 오른쪽 열이 밀려 나간다. box-shadow 링은 자리를 안 먹는다.
+           ⚠️ 색은 --dg-c(링·글씨) 와 --dg-g(번짐) 두 개로만 가른다. 칸 종류가 늘어도
+              아래 목록에 한 줄만 더 쓰면 된다. */
         .dg-tile {
             position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1);
-            background: linear-gradient(180deg, #fffdf2, #e7e2cf);
-            /* ⚠️ 첫 줄(테두리 링)이 있어야 **밝은 배경**에서 칸 경계가 산다. 없으면 흰 화면
-               위에서 크림색 칸이 뭉개져 판이 판으로 안 보인다(흰 배경 점검에서 잡았다). */
-            box-shadow: 0 0 0 3px rgba(38, 31, 12, .82), 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75);
+            background: linear-gradient(180deg, #24242e, #141419);
+            box-shadow: 0 0 0 3px var(--dg-c, #6b6b7a),
+                        0 0 18px var(--dg-g, transparent),
+                        0 6px 0 #08080b, 0 10px 18px rgba(0,0,0,.8);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: calc(var(--dg-cell, 86px) * 0.015);
             padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035)
@@ -836,31 +844,57 @@
            폰에서 1080 이 400px 로 줄면 3.7px 이 되어 못 읽었다. */
         .dg-tile .dg-ico {
             font-size: calc(var(--dg-cell, 86px) * 0.32); line-height: 1.05;
-            filter: drop-shadow(0 1px 2px rgba(0,0,0,.3));
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,.85));
         }
-        /* ⚠️ 0.225 는 한계선이다. 한글 4자(코끼리코·멈춘시간·포카치노)가 칸 안쪽
-           너비에 딱 들어가는 크기 — word-break: keep-all 이라 더 키우면 줄바꿈이
-           아니라 글자가 잘려 나간다. 칸이 122px 이어도 폰에서 10.2px 을 지킨다. */
+        /* ⚠️ 0.225 는 **네 글자** 한계선이다. 한글 4자(코끼리코·멈춘시간·포카치노)가
+           칸 안쪽 너비에 딱 들어가는 크기 — word-break: keep-all 이라 더 키우면
+           줄바꿈이 아니라 글자가 잘려 나간다. */
         .dg-tile .dg-lbl {
             font-size: calc(var(--dg-cell, 86px) * 0.225);
-            font-weight: 900; color: #3b3324; text-align: center;
+            font-weight: 900; color: var(--dg-c, #e6e6f0); text-align: center;
             line-height: 1.1; max-height: calc(var(--dg-cell, 86px) * 0.46);
             overflow: hidden; word-break: keep-all;
+            text-shadow: 0 2px 5px rgba(0,0,0,.9);
         }
-        .dg-t-start   { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 10px 16px rgba(0,0,0,.75); }
-        .dg-t-start .dg-lbl { color: #4a3608; }
-        .dg-t-mission { background: linear-gradient(180deg, #ecf7ff, #c8e3f8); box-shadow: 0 5px 0 #7c9fc0, 0 10px 16px rgba(0,0,0,.75); }
-        .dg-t-sig     { background: linear-gradient(180deg, #f5edff, #ddc9f6); box-shadow: 0 5px 0 #967cc0, 0 10px 16px rgba(0,0,0,.75); }
-        .dg-t-score   { background: linear-gradient(180deg, #eafcf0, #c3ecd2); box-shadow: 0 5px 0 #66a880, 0 10px 16px rgba(0,0,0,.75); }
-        .dg-t-key     { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 10px 16px rgba(0,0,0,.75); }
+        /* 🔠 세 글자 이하는 한 단계 크게(27 → 34px). 쇼츠는 폰에서 2.7배 작아져
+           27px 이 10px 밖에 안 된다 — 사장님: "쇼츠방송이라 작게 글씨해놓으면 안보일걸".
+           ⚠️ 규칙을 외울 필요는 없다. dgBuild 가 글자 수를 세서 알아서 붙인다 —
+              짧게 쓰면 커지고, 길게 쓰면 지금 크기 그대로라 안 깨진다. */
+        .dg-tile .dg-lbl.dg-lbl-s {
+            font-size: calc(var(--dg-cell, 86px) * 0.28);
+            max-height: calc(var(--dg-cell, 86px) * 0.64);
+        }
+        /* 칸 종류별 색 — 링과 글씨가 같은 색을 쓴다 */
+        /* ⚠️ 금색은 토큰으로. 숫자로 박으면 테마를 바꿀 때 여기만 옛 금색으로 남는다(검사가 잡는다) */
+        .dg-t-start   { --dg-c: var(--gold); --dg-g: rgba(var(--gold-rgb), .45); }
+        .dg-t-score   { --dg-c: #3ddc84; --dg-g: rgba(61,220,132,.40); }
+        .dg-t-mission { --dg-c: #5ac8fa; --dg-g: rgba(90,200,250,.40); }
+        .dg-t-key     { --dg-c: #ffd54d; --dg-g: rgba(255,213,77,.45); }
+        .dg-t-sig     { --dg-c: #c08cff; --dg-g: rgba(192,140,255,.42); }
+        .dg-t-steal   { --dg-c: #ff9b4d; --dg-g: rgba(255,155,77,.45); }
+        .dg-t-giveall { --dg-c: #ff9b4d; --dg-g: rgba(255,155,77,.45); }
+        .dg-t-goto    { --dg-c: #4de0d0; --dg-g: rgba(77,224,208,.42); }
+        .dg-t-move    { --dg-c: #4de0d0; --dg-g: rgba(77,224,208,.42); }
+        /* 🫧 빈칸은 반쯤 비춘다 — 22칸 중 열두어 칸이 빈칸이라, 여기서 카메라가
+           비치면 판이 화면을 덮는 게 아니라 **얹혀 있는** 느낌이 된다.
+           ⚠️ 링이 두 겹이다. 밝은 안쪽은 어두운 배경에서, 어두운 바깥쪽은 흰 배경에서
+              칸 경계를 지킨다. 한 겹만 두면 둘 중 한쪽에서 칸이 통째로 사라진다. */
+        .dg-t-blank {
+            background: rgba(18,18,24,0.42);
+            box-shadow: 0 0 0 1.5px rgba(255,255,255,.26), 0 0 0 3px rgba(0,0,0,.5),
+                        0 5px 0 rgba(8,8,11,.55), 0 8px 14px rgba(0,0,0,.55);
+        }
+        .dg-t-blank .dg-ico, .dg-t-blank .dg-lbl { color: #a8a8ba; }
         .dg-corner .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.38); }
         .dg-tile.dg-hop { transform: translateY(-4px); filter: brightness(1.14); }
         /* 📍 지금 공주가 서 있는 칸 — 계속 켜 둔다.
            ⚠️ 예전에는 도착 순간(dg-land)만 4.2초 반짝이고 꺼졌다. 그 뒤로는 말이
               어디 있는지 판을 훑어야 알 수 있었다. */
+        /* ⚠️ 어두운 칸에서는 안쪽 금테만으로 잘 안 보인다 — 바깥 링까지 금색으로 덮고
+           바탕 금빛도 .16 → .26 으로 올린다(크림색일 때 정한 값이라 어두운 면에선 묻혔다). */
         .dg-tile.dg-here {
-            box-shadow: inset 0 0 0 3px var(--gold), var(--glow-m);
-            background-image: linear-gradient(180deg, rgba(var(--gold-rgb), .16), transparent 60%);
+            box-shadow: inset 0 0 0 3px var(--gold), 0 0 0 3px var(--gold), var(--glow-m);
+            background-image: linear-gradient(180deg, rgba(var(--gold-rgb), .26), transparent 60%);
         }
         .dg-tile.dg-land {
             transform: translateY(-4px) scale(1.1); z-index: 3;
@@ -2378,7 +2412,7 @@
 
             <div id="dicegame-container" class="widget-container" style="position: absolute; left: 6px; top: 307px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base); pointer-events: none;">
                 <div class="dg-board">
-                    <div class="dg-lap-banner" id="dg-lap-banner">🎉 출발 칸 도착!</div>
+                    <div class="dg-lap-banner" id="dg-lap-banner">🎉 한 바퀴 완주!</div>
                     <div class="dg-grid" id="dg-grid"></div>
                     <div id="dg-keydraw" aria-hidden="true"></div>
                     <div class="dg-card" id="dg-card"></div>
@@ -2939,7 +2973,7 @@
             'dice-sig':   [[659, 0, .10, .26], [880, 90, .10, .26], [1175, 180, .26, .28]],
             'dice-key':   [[1319, 0, .08, .24], [1568, 80, .08, .24], [2093, 160, .24, .20, 'sine']],
             'dice-miss':  [[220, 0, .16, .22, 'sawtooth'], [155, 130, .30, .20, 'sawtooth']],
-            // 🏁 출발 칸은 이제 정확히 밟아야만 걸린다 — 제일 크게 울려준다
+            // 🏁 한 바퀴 돌 때마다(출발 칸을 지나치면) 걸린다 — 제일 크게 울려준다
             'dice-start': [[523, 0, .12, .30], [659, 120, .12, .30], [784, 240, .12, .30],
                            [1047, 360, .50, .32]],
             'donation':   [[880, 0, .07, .18], [1175, 70, .13, .18]],
@@ -6842,6 +6876,20 @@
             }
         }
 
+        /* 칸에 그릴 글자 + 크기 등급.
+           ⚠️ 라벨이 있으면 라벨이 먼저다. 예전에는 점수 칸이 라벨을 무시하고 '+2점' 만
+              그려서, 꽝 칸이 그냥 점수 칸으로 보였다.
+           🔠 세 글자 이하면 dg-lbl-s 를 붙여 한 단계 크게 그린다(27 → 34px). */
+        function dgLblHtml(t) {
+            let s = (t && t.label) ? String(t.label) : '';
+            if (!s && t && t.type === 'score' && t.points) {
+                s = (t.points > 0 ? '+' : '') + t.points + '점';
+            }
+            if (!s) return '';
+            const big = s.replace(/\s/g, '').length <= 3;
+            return '<span class="dg-lbl' + (big ? ' dg-lbl-s' : '') + '">' + dgEsc(s) + '</span>';
+        }
+
         // 고리 번호 → 격자 칸. 0 = 왼쪽 위 모서리, 시계방향.
         function dgRingCell(i, cols, rows) {
             if (i < cols) return { c: i + 1, r: 1 };
@@ -6927,10 +6975,7 @@
                 html += '<div class="dg-tile dg-t-' + (t.type || 'blank') + (corner ? ' dg-corner' : '') + edge + '" id="dg-tile-' + i + '"'
                       + ' style="grid-column:' + p.c + ';grid-row:' + p.r + ';">'
                       + '<span class="dg-ico">' + dgTileIcon(t) + '</span>'
-                      // ⚠️ 라벨이 있으면 라벨이 먼저다. 예전에는 점수 칸이 라벨을 무시하고
-                      //    '+2점' 만 그려서, 꽝 칸이 그냥 점수 칸으로 보였다.
-                      + (t.label ? '<span class="dg-lbl">' + dgEsc(t.label) + '</span>'
-                         : (t.type === 'score' && t.points ? '<span class="dg-lbl">' + (t.points > 0 ? '+' : '') + t.points + '점</span>' : ''))
+                      + dgLblHtml(t)
                       + '</div>';
             }
             html += '<div class="dg-center" style="grid-column:2 / ' + cols + ';grid-row:2 / ' + rows + ';">'

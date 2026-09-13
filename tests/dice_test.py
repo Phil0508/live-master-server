@@ -128,11 +128,11 @@ chk('연출이 끝나기 전의 연타는 거절(429)', c2 == 429, c2)
 
 print()
 print('=' * 74)
-print('⑤ 출발 칸 — 정확히 밟아야만 준다')
+print('⑤ 한 바퀴 — 출발 칸을 지나치면 준다 (밟지 않아도 된다)')
 print('=' * 74)
-# 사장님: "1바퀴 될 때가 아니라 시작지점 오면 5점"
-#   ⚠️ 예전에는 지나가기만 해도 줬다(frm+steps >= n). 그러면 한 바퀴에 반드시 한 번
-#      받으니 얻은 것 같지가 않다. 이제 (frm+steps) % n == 0 일 때만이다.
+# 사장님: "출발칸을 밟을 때 말고 한 바퀴 돌 때마다로"
+#   ⚠️ 이 규칙은 두 번 뒤집혔다. ① 지나가면 줌 → ② 정확히 밟아야 줌 → ③ 다시 지나가면 줌.
+#      지금은 ③ 이다. ②로 되돌리는 고침은 사장님 뜻이 아니다.
 #   ⚠️ 무작위로 굴리면 이걸 못 잰다 — 현실 주사위 값을 넣는 길로 정확히 맞춘다.
 post('/api/dicegame/move', {'pos': 19})
 laps0 = dg().get('laps') or 0
@@ -145,11 +145,12 @@ chk('신호에도 표시된다', (g.get('action') or {}).get('lap') is True)
 time.sleep(0.6)
 post('/api/dicegame/move', {'pos': 19})
 laps1 = dg().get('laps') or 0
-c, r = post('/api/dicegame/roll', {'value': 3})      # 19 + 3 = 22 → 2번 (지나가기만 한다)
+c, r = post('/api/dicegame/roll', {'value': 3})      # 19 + 3 = 22 → 2번 (출발을 지나쳤다)
 g = dg()
-chk('지나가기만 하면 안 준다', c == 200 and g.get('pos') == 2 and (g.get('laps') or 0) == laps1,
+chk('지나치기만 해도 준다 (2번에 섰어도 한 바퀴다)',
+    c == 200 and g.get('pos') == 2 and (g.get('laps') or 0) == laps1 + 1,
     (g.get('pos'), laps1, g.get('laps')))
-chk('신호에도 표시가 안 된다', (g.get('action') or {}).get('lap') is False,
+chk('신호에도 표시된다 (지나침)', (g.get('action') or {}).get('lap') is True,
     (g.get('action') or {}).get('lap'))
 
 time.sleep(0.6)
@@ -158,6 +159,7 @@ laps2 = dg().get('laps') or 0
 c, r = post('/api/dicegame/roll', {'value': 5})      # 출발에서 떠나는 것은 도착이 아니다
 g = dg()
 chk('출발에서 떠나는 것은 안 친다', c == 200 and (g.get('laps') or 0) == laps2, (laps2, g.get('laps')))
+chk('한 바퀴 보상은 10점이다', (dg().get('lap_contrib') or 0) == 10, dg().get('lap_contrib'))
 
 print()
 print('=' * 74)
@@ -595,6 +597,7 @@ chk('판의 총점은 그대로 (주고받기만 한다)', sum(bd().values()) ==
 chk('마이너스가 된다 (사장님이 허용했다)', bd().get('다') == -5, bd())
 time.sleep(3.4)
 post('/api/dicegame/move', {'piece': '다', 'pos': 18})
+_laps_b = dg().get('laps') or 0
 c, r = post('/api/dicegame/roll', {'piece': '다', 'value': 3})       # 18+3 = 21 블랙홀
 af = (dg().get('action') or {}).get('after') or {}
 chk('블랙홀이 출발로 보낸다',
@@ -603,6 +606,9 @@ chk('거꾸로 걸어간다 (원래 가던 방향의 반대)',
     af.get('path') == [(21 - i) % 22 for i in range(1, 22)], (af.get('path') or [])[:5])
 chk('역주행이라고 알려준다 (화면이 빠르게 밟는다)', af.get('rev') is True, af.get('rev'))
 chk('블랙홀은 출발 보상을 안 준다', not r.get('lap_contrib'), r.get('lap_contrib'))
+# 🕳️ 규칙이 '지나침' 으로 바뀌면서 제일 헷갈릴 자리 — 끌려가 출발에 닿은 것은 한 바퀴가 아니다
+chk('블랙홀로 출발에 닿아도 한 바퀴로 안 센다', (dg().get('laps') or 0) == _laps_b,
+    (_laps_b, dg().get('laps')))
 time.sleep(3.4)
 post('/api/dicegame/keys', {'keys': ['파산']})
 post('/api/dicegame/tile', {'id': 4, 'type': 'key'})

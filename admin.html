@@ -294,18 +294,24 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .notice-measure { visibility: hidden; animation: none !important; }
 .dg-board { position: relative; padding: 10px; background: transparent; border: none; box-shadow: none; }
 .dg-grid { display: grid; gap: 6px; }
-.dg-tile { position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1); background: linear-gradient(180deg, #fffdf2, #e7e2cf); /* ⚠️ 첫 줄(테두리 링)이 있어야 **밝은 배경**에서 칸 경계가 산다. 없으면 흰 화면 위에서 크림색 칸이 뭉개져 판이 판으로 안 보인다(흰 배경 점검에서 잡았다). */ box-shadow: 0 0 0 3px rgba(38, 31, 12, .82), 0 5px 0 #b6ad91, 0 10px 16px rgba(0,0,0,.75); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--dg-cell, 86px) * 0.015); padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035) calc(var(--dg-cell, 86px) * 0.07); transition: transform var(--t-fast) ease, filter var(--t-fast) ease; }
-.dg-tile .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.32); line-height: 1.05; filter: drop-shadow(0 1px 2px rgba(0,0,0,.3)); }
-.dg-tile .dg-lbl { font-size: calc(var(--dg-cell, 86px) * 0.225); font-weight: 900; color: #3b3324; text-align: center; line-height: 1.1; max-height: calc(var(--dg-cell, 86px) * 0.46); overflow: hidden; word-break: keep-all; }
-.dg-t-start { background: linear-gradient(180deg, #ffeaa6, #f2c553); box-shadow: 0 5px 0 #a57f22, 0 10px 16px rgba(0,0,0,.75); }
-.dg-t-start .dg-lbl { color: #4a3608; }
-.dg-t-mission { background: linear-gradient(180deg, #ecf7ff, #c8e3f8); box-shadow: 0 5px 0 #7c9fc0, 0 10px 16px rgba(0,0,0,.75); }
-.dg-t-sig { background: linear-gradient(180deg, #f5edff, #ddc9f6); box-shadow: 0 5px 0 #967cc0, 0 10px 16px rgba(0,0,0,.75); }
-.dg-t-score { background: linear-gradient(180deg, #eafcf0, #c3ecd2); box-shadow: 0 5px 0 #66a880, 0 10px 16px rgba(0,0,0,.75); }
-.dg-t-key { background: linear-gradient(180deg, #fff6da, #f6e2a0); box-shadow: 0 5px 0 #b7933a, 0 10px 16px rgba(0,0,0,.75); }
+.dg-tile { position: relative; border-radius: calc(var(--dg-cell, 86px) * 0.1); background: linear-gradient(180deg, #24242e, #141419); box-shadow: 0 0 0 3px var(--dg-c, #6b6b7a), 0 0 18px var(--dg-g, transparent), 0 6px 0 #08080b, 0 10px 18px rgba(0,0,0,.8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--dg-cell, 86px) * 0.015); padding: calc(var(--dg-cell, 86px) * 0.05) calc(var(--dg-cell, 86px) * 0.035) calc(var(--dg-cell, 86px) * 0.07); transition: transform var(--t-fast) ease, filter var(--t-fast) ease; }
+.dg-tile .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.32); line-height: 1.05; filter: drop-shadow(0 2px 3px rgba(0,0,0,.85)); }
+.dg-tile .dg-lbl { font-size: calc(var(--dg-cell, 86px) * 0.225); font-weight: 900; color: var(--dg-c, #e6e6f0); text-align: center; line-height: 1.1; max-height: calc(var(--dg-cell, 86px) * 0.46); overflow: hidden; word-break: keep-all; text-shadow: 0 2px 5px rgba(0,0,0,.9); }
+.dg-tile .dg-lbl.dg-lbl-s { font-size: calc(var(--dg-cell, 86px) * 0.28); max-height: calc(var(--dg-cell, 86px) * 0.64); }
+.dg-t-start { --dg-c: var(--gold); --dg-g: rgba(var(--gold-rgb), .45); }
+.dg-t-score { --dg-c: #3ddc84; --dg-g: rgba(61,220,132,.40); }
+.dg-t-mission { --dg-c: #5ac8fa; --dg-g: rgba(90,200,250,.40); }
+.dg-t-key { --dg-c: #ffd54d; --dg-g: rgba(255,213,77,.45); }
+.dg-t-sig { --dg-c: #c08cff; --dg-g: rgba(192,140,255,.42); }
+.dg-t-steal { --dg-c: #ff9b4d; --dg-g: rgba(255,155,77,.45); }
+.dg-t-giveall { --dg-c: #ff9b4d; --dg-g: rgba(255,155,77,.45); }
+.dg-t-goto { --dg-c: #4de0d0; --dg-g: rgba(77,224,208,.42); }
+.dg-t-move { --dg-c: #4de0d0; --dg-g: rgba(77,224,208,.42); }
+.dg-t-blank { background: rgba(18,18,24,0.42); box-shadow: 0 0 0 1.5px rgba(255,255,255,.26), 0 0 0 3px rgba(0,0,0,.5), 0 5px 0 rgba(8,8,11,.55), 0 8px 14px rgba(0,0,0,.55); }
+.dg-t-blank .dg-ico, .dg-t-blank .dg-lbl { color: #a8a8ba; }
 .dg-corner .dg-ico { font-size: calc(var(--dg-cell, 86px) * 0.38); }
 .dg-tile.dg-hop { transform: translateY(-4px); filter: brightness(1.14); }
-.dg-tile.dg-here { box-shadow: inset 0 0 0 3px var(--gold), var(--glow-m); background-image: linear-gradient(180deg, rgba(var(--gold-rgb), .16), transparent 60%); }
+.dg-tile.dg-here { box-shadow: inset 0 0 0 3px var(--gold), 0 0 0 3px var(--gold), var(--glow-m); background-image: linear-gradient(180deg, rgba(var(--gold-rgb), .26), transparent 60%); }
 .dg-tile.dg-land { transform: translateY(-4px) scale(1.1); z-index: 3; filter: brightness(1.15) drop-shadow(0 0 16px var(--gold)); }
 .dg-tile.dg-land::after { content: ''; position: absolute; inset: -5px; border-radius: var(--r-m); border: 3px solid var(--gold); animation: dgBurst .7s ease-out forwards; pointer-events: none; }
 .dg-piece-wrap { position: absolute; left: 50%; top: calc(var(--dg-cell, 86px) * -0.42); transform: translateX(-50%); z-index: 6; display: flex; gap: 3px; pointer-events: none; white-space: nowrap; }

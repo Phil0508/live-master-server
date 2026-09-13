@@ -179,7 +179,16 @@ for name, pat, want in [
         '%dpx → 폰 %.1fpx' % (v, v / P_PHONE) if mm else '못 찾음')
 
 chk('점수 칸도 라벨이 있으면 라벨을 앞세운다 (꽝을 알 수 있게)',
-    "t.label ? '<span class=\"dg-lbl\">' + dgEsc(t.label)" in ov)
+    'function dgLblHtml(t)' in ov and "t.type === 'score' && t.points" in ov)
+# 🔠 쇼츠는 폰에서 2.7배 작아진다 — 짧은 라벨은 한 단계 크게 그려야 읽힌다
+chk('세 글자 이하 라벨은 한 단계 크게 (27 → 34px)',
+    "length <= 3" in ov and '.dg-tile .dg-lbl.dg-lbl-s' in ov
+    and re.search(r'\.dg-lbl\.dg-lbl-s \{[\s\S]*?\* 0\.28\)', ov) is not None)
+# 🎨 칸이 밝으면 판이 실제보다 커 보이고 방송판 나머지와 겉돈다
+chk('칸이 어둡다 (크림색 블록이 아니다)',
+    'linear-gradient(180deg, #24242e, #141419)' in ov
+    and 'linear-gradient(180deg, #fffdf2, #e7e2cf)' not in ov)
+chk('빈칸은 반투명이라 카메라가 비친다', 'background: rgba(18,18,24,0.42)' in ov)
 
 long_lbl = [r['label'] for r in rows if len(r['label']) > 6]
 chk('칸 라벨이 짧다 (긴 설명은 도착 카드에)', not long_lbl, long_lbl)

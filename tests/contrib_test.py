@@ -177,18 +177,18 @@ print('=' * 74)
 # ② 시그니처 기여도 = (시그 값 − 한 판 값) ÷ 10,000
 #    한 판이 2만원이면 그 후원으로 이미 2점이 올라갔다. 10만원짜리 시그가 걸리면
 #    10 − 2 = 8점만 더 준다. 통째로 또 주면 2점이 두 번 셈된다.
-# ③ 출발 칸을 넘어가면 기여도 5점
+# ③ 한 바퀴 돌 때마다(출발 칸을 지나치면) 기여도 10점
 #
 # ⚠️ 굴림은 앞 연출이 끝나야 받아준다(429). 여기서는 그 사이를 기다리지 않고
 #    '셈이 맞는가' 만 본다 — 기다리며 굴리는 것은 2026-08-31 에 손으로 확인했다.
 #      한 판 20,000원 · 시그 14,000원 → 기여도 0
 #      한 판  4,000원 · 시그 14,000원 → 기여도 1
-#      한 바퀴 → 기여도 +5, 점수 0 그대로
+#      한 바퀴 → 기여도 +10, 점수 0 그대로
 c, g0 = post('/api/dicegame/setup', {'cols': 7, 'rows': 5})
 d = get().get('dicegame') or {}
 chk('주사위가 한 개다', d.get('dice') == 1, d.get('dice'))
 chk('한 판 값이 있다 (기본 2만원)', d.get('roll_price') == 20000, d.get('roll_price'))
-chk('한 바퀴 기여도가 있다 (기본 5)', d.get('lap_contrib') == 5, d.get('lap_contrib'))
+chk('한 바퀴 기여도가 있다 (기본 10)', d.get('lap_contrib') == 10, d.get('lap_contrib'))
 
 # ⚠️ 한 판 값을 바꿀 길이 없으면 방송마다 단가가 달라질 때 손을 못 댄다
 c, r = post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 30000, 'lap_contrib': 7})
@@ -197,14 +197,20 @@ chk('설정으로 바꿀 수 있다', r.get('roll_price') == 30000 and r.get('la
 c, r = post('/api/dicegame/setup', {'cols': 8, 'rows': 5})
 chk('크기만 바꾸면 단가는 그대로 이어받는다',
     r.get('roll_price') == 30000 and r.get('lap_contrib') == 7, r)
-post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 20000, 'lap_contrib': 5})
+post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 20000, 'lap_contrib': 10})
 
 src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
 chk('시그니처에서 한 판 값을 뺀다',
     'man_won(_sig_amt - _price)' in src)
 chk('한 판 값보다 싼 시그는 0 으로 둔다 (빼앗지 않는다)',
     'max(0, man_won(_sig_amt - _price))' in src)
-chk('한 바퀴에 기여도를 준다', "_lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)" in src)
+chk('한 바퀴에 기여도를 준다', "_lap_c = max(0, _as_int(g.get('lap_contrib'), 10) or 0)" in src)
+# 🏁 출발 칸을 **지나치기만** 해도 준다 — 밟아야만 주던 규칙으로 되돌아가면 여기서 잡힌다
+chk('한 바퀴는 지나침으로 센다 (밟아야만 주던 규칙이 아니다)',
+    'lap = (frm + steps) >= n' in src and 'lap = ((frm + steps) % n) == 0' not in src)
+# 🕳️ 이미 깔려 있는 판도 10점으로 올라가야 한다 (조종실에 이 값을 고치는 칸이 없다)
+chk('옛 판(5점)도 한 번만 10점으로 올린다',
+    "g['lap_v2'] = True" in src and "g['lap_contrib'] = 10" in src)
 # ⚠️ 점수(그날 일당)에 섞이면 안 된다 — 기여도만 넣는 도우미를 쓴다
 # ⚠️ 주사위에서 나온 점수는 **전용 판**으로만 간다. 엑셀판(기여도·점수)은 안 건드린다.
 chk('전용 판 도우미를 쓴다 (엑셀판 도우미가 아니다)',

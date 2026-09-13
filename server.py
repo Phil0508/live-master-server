@@ -1661,8 +1661,8 @@ DEFAULT_STATE = {
         #    그래서 시그니처가 걸렸을 때 시그니처 값에서 이만큼을 빼고 준다
         #    (10만원짜리 시그 = 10점, 한 판 2만원 = 2점 → 기여도 8점).
         "roll_price": 20000,
-        # 🏁 출발 칸을 넘어갈 때 주는 기여도
-        "lap_contrib": 5,
+        # 🏁 한 바퀴 돌 때마다 주는 기여도 (출발 칸을 **지나치면** 준다 — 밟지 않아도 된다)
+        "lap_contrib": 10,
         # 🙋 마지막으로 굴린 사람. 다음 굴림에 아무도 안 고르면 이 사람에게 간다.
         #    ⚠️ 차례가 넘어갔는데 안 바꾸면 앞사람에게 들어간다 — 그래서 굴림 응답에
         #       '누구에게 갔는지' 를 반드시 실어 보낸다.
@@ -6882,6 +6882,16 @@ def _dicegame_state(state):
     if not isinstance(g.get('board'), list):
         g['board'] = []
     _dicegame_sync_board(g)
+    # 🏁 한 바퀴 보상을 5 → 10 으로 **한 번만** 올린다.
+    #    조종실에는 이 값을 고치는 칸이 없고 setup 은 쓰던 값을 그대로 이어받는다 —
+    #    여기서 안 올리면 이미 깔려 있는 판은 영영 5점으로 남는다.
+    # ⚠️ 표시(lap_v2)를 **DEFAULT_STATE 에 넣지 말 것.** 위 setdefault 반복이 먼저
+    #    돌아서 옛 저장본까지 '이미 올렸다' 로 찍어 버린다 — 그러면 영영 안 올라간다.
+    # ⚠️ 한 번 올린 뒤 사장님이 일부러 다른 값으로 바꾸면 그 값을 그대로 둔다.
+    if not g.get('lap_v2'):
+        g['lap_v2'] = True
+        if _as_int(g.get('lap_contrib'), 0) == 5:      # 옛 기본값 그대로인 판만
+            g['lap_contrib'] = 10
     g['turn'] = max(0, min(max(0, len(g['pieces']) - 1), _as_int(g.get('turn'), 0) or 0))
     return g
 
@@ -7019,9 +7029,9 @@ def api_dicegame_setup():
     with file_lock:
         _cur = _dicegame_state(load_data())
         _cur_price = _as_int(_cur.get('roll_price'), 20000) or 20000
-        _cur_lapc = _as_int(_cur.get('lap_contrib'), 5)
+        _cur_lapc = _as_int(_cur.get('lap_contrib'), 10)
         if _cur_lapc is None:
-            _cur_lapc = 5
+            _cur_lapc = 10
     roll_price = _opt('roll_price', _cur_price)
     lap_contrib = _opt('lap_contrib', _cur_lapc)
     if cols is None or rows is None or dice is None or roll_price is None or lap_contrib is None:
@@ -7270,11 +7280,16 @@ def api_dicegame_roll():
         steps = sum(dice)
         frm = piece['pos'] % n
         to = (frm + steps) % n
-        # 🏁 출발 칸에 **정확히 도착**했을 때만 준다.
-        #    ⚠️ 예전에는 (frm + steps) >= n — 지나가기만 해도 줬다. 그러면 한 바퀴에
-        #       반드시 한 번 받으니 얻은 것 같지가 않다. 사장님: "1바퀴 될 때가 아니라
-        #       시작지점 오면 5점". 0번은 못 고치는 출발 전용 칸이라 점수 칸과 안 겹친다.
-        lap = ((frm + steps) % n) == 0
+        # 🏁 **한 바퀴 돌 때마다** 준다 — 출발 칸을 지나치면 되고, 밟지 않아도 된다.
+        #    ⚠️ 이 규칙은 두 번 뒤집혔다. 되돌리기 전에 이걸 읽을 것:
+        #       ① 처음엔 지나가기만 해도 줬다 — (frm + steps) >= n
+        #       ② 사장님: "1바퀴 될 때가 아니라 시작지점 오면 5점" → 정확히 밟을 때만
+        #       ③ 사장님: "출발칸을 밟을 때 말고 한 바퀴 돌 때마다로" → ①로 되돌림
+        #       지금은 ③ 이다. ②로 되돌리는 고침은 사장님 뜻이 아니다.
+        #    ⚠️ 벌칙으로 끌려간 이동(블랙홀·싱크홀)은 여기를 안 탄다. 아래 두 번째
+        #       이동에서 lap 을 다시 세지 않으므로, 블랙홀로 출발에 닿아도 한 바퀴가
+        #       아니다 — 사장님: "블랙홀 그거는 한 바퀴 돌 때의 점수를 안 줘".
+        lap = (frm + steps) >= n
         path = [(frm + i) % n for i in range(1, steps + 1)]
         tile = tiles[to] if isinstance(tiles[to], dict) else {'id': to, 'type': 'blank'}
         action = {'type': 'ROLL', 'ts': now_ms, 'dice': dice, 'from': frm, 'to': to,
@@ -7365,23 +7380,23 @@ def api_dicegame_roll():
             except Exception as e:
                 print(f'⚠️ [주사위게임] 기여도 실패 — 게임은 계속됩니다: {e}')
 
-        # 🏁 출발 칸을 넘어갔다 — 한 바퀴 돈 사람에게 기여도를 준다.
+        # 🏁 출발 칸을 지나쳤다 — 한 바퀴 돈 사람에게 기여도를 준다.
         #    ⚠️ 시그니처와 같은 판에서 둘 다 일어날 수 있다(시그 칸을 밟으며 한 바퀴).
         #       그때는 둘 다 준다 — 각각 다른 이유로 받는 것이다.
         if lap:
             try:
-                _lap_c = max(0, _as_int(g.get('lap_contrib'), 5) or 0)
+                _lap_c = max(0, _as_int(g.get('lap_contrib'), 10) or 0)
                 if _lap_c:
-                    _why = '출발 칸에 정확히 도착했습니다 (%d번째)' % (piece['laps'] + 1)
+                    _why = '한 바퀴 돌았습니다 (%d번째)' % (piece['laps'] + 1)
                     if contrib_player:
                         _to = _dicegame_add_pts(state, g, contrib_player, _lap_c, _why)
                         if _to:
                             action['lap_contrib'] = {'name': _to, 'points': _lap_c}
-                            print(f"🏁 [주사위게임] {_to} 에게 {_lap_c}점 (출발 칸 도착)")
+                            print(f"🏁 [주사위게임] {_to} 에게 {_lap_c}점 (한 바퀴)")
                         else:
-                            print(f"🏁 [주사위게임] 출발 칸 {_lap_c}점 — 받을 말이 판에 없습니다")
+                            print(f"🏁 [주사위게임] 한 바퀴 {_lap_c}점 — 받을 말이 판에 없습니다")
                     else:
-                        print(f"🏁 [주사위게임] 출발 칸 {_lap_c}점 — 누구 차례인지 몰라 손으로")
+                        print(f"🏁 [주사위게임] 한 바퀴 {_lap_c}점 — 누구 차례인지 몰라 손으로")
             except Exception as e:
                 print(f'⚠️ [주사위게임] 한 바퀴 기여도 실패 — 게임은 계속됩니다: {e}')
         piece['pos'] = to
