@@ -72,9 +72,17 @@ def _calls(src, fn):
             out.append(win.split(');')[0])
     return out
 pend_calls = _calls(CT, 'addScoreAPI')
-chk('조종실 배정 호출이 둘이다(단건·나눠주기)', len(pend_calls) == 2, len(pend_calls))
-chk('둘 다 popup·takeover 를 보낸다',
-    bool(pend_calls) and all('popup: true' in c and 'takeover: true' in c for c in pend_calls))
+# 🏺 길이 셋이다 — 선수 단건 · 나눠주기 · 모금함.
+#    ⚠️ popup·takeover 는 **선수에게 줄 때만** 보낸다. 모금함은 사람이 아니라 통이라
+#       '누가 점수를 받았다' 연출도 '역전' 연출도 띄울 것이 없다. 그래서 갈라서 센다.
+jar_calls = [c for c in pend_calls if "scope: 'jar'" in c]
+bj_calls = [c for c in pend_calls if "scope: 'jar'" not in c]
+chk('선수 배정 호출이 둘이다(단건·나눠주기)', len(bj_calls) == 2, len(bj_calls))
+chk('선수 배정은 둘 다 popup·takeover 를 보낸다',
+    bool(bj_calls) and all('popup: true' in c and 'takeover: true' in c for c in bj_calls))
+chk('모금함으로 보내는 길이 있다', len(jar_calls) == 1, len(jar_calls))
+chk('모금함은 연출을 안 띄운다 (사람이 아니라 통이다)',
+    bool(jar_calls) and all('popup: true' not in c and 'takeover: true' not in c for c in jar_calls))
 mb_calls = _calls(MB, 'addScore')
 chk('폰 배정 호출도 둘이다', len(mb_calls) == 2, len(mb_calls))
 chk('폰도 둘 다 보낸다',

@@ -3266,7 +3266,12 @@
                           같은 모양으로 뜨면 '후원이 들어왔다' 로 읽는다. */
                     const _isC = don.kind === 'contrib';
                     const _cN  = Number(don.contrib || 0);
-                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}<button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    /* 🏺 모금함으로 보내는 버튼 — 켜져 있을 때만, 그리고 **돈일 때만** 보인다.
+                       기여도 알림(주사위 시그니처)은 돈이 아니라 모금함에 넣을 것이 없다. */
+                    const _jarBtn = (!_isC && gd.fundjar && gd.fundjar.enabled)
+                        ? `<button class="bj-btn" style="background:rgba(246,196,83,0.15); color:var(--gold); border-color:var(--gold);" onclick="assignPendingToJar('${don.id}')">🏺 모금함</button>`
+                        : '';
+                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}${_jarBtn}<button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -3490,6 +3495,28 @@
                     <td><input type="number" id="rank-add-bot" data-scope="bot" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('bot', this)"></td>
                     <td><i class="fa-solid fa-lock" style="color:var(--text-muted);"></i></td>
                 </tr>`; 
+                /* 🏺 모금함 — 운영비와 같은 통 하나. 다른 점은 **종잣돈** 이 있다는 것뿐이다.
+                   왼쪽 칸: 켜고 끄기 + 종잣돈(회사 상금) · 가운데: 화면에 뜨는 금액(종잣돈+후원)
+                   · 오른쪽: 후원 얹기 · 맨 끝: 후원분만 비우기.
+                   ⚠️ 금액을 더하는 길은 선수 점수와 **같은 길**(addScoreEl)이다. 따로 만들면
+                      폰과 조종실이 동시에 눌렀을 때 이중 지급 방지가 안 걸린다. */
+                const _fj = gd.fundjar || { name: '모금함', enabled: false, seed: 0, score: 0 };
+                rHtml += `<tr style="background:rgba(246,196,83,0.06);">
+                    <td>
+                        <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <button onclick="fundjarSet({on:${!_fj.enabled}})" title="방송 화면에서 켜고 끕니다"
+                                    style="padding:4px 10px; white-space:nowrap; ${_fj.enabled ? 'background:var(--gold); color:#241a05; font-weight:800;' : ''}">
+                                ${_fj.enabled ? '🏺 켜짐' : '🏺 꺼짐'}</button>
+                            <input type="number" value="${_fj.seed || 0}" style="flex:1; text-align:right;"
+                                   title="회사 종잣돈(상금). 방송을 껐다 켜도 남습니다."
+                                   onchange="fundjarSet({seed:this.value})">
+                        </div>
+                    </td>
+                    <td class="score-display" style="color:var(--gold);">${((_fj.seed||0)+(_fj.score||0)).toLocaleString()}</td>
+                    <td class="score-display" style="color:var(--text-muted); font-size:var(--fs-2);">후원 ${(_fj.score||0).toLocaleString()}</td>
+                    <td><input type="number" id="rank-add-jar" data-scope="jar" placeholder="+ 금액" onkeydown="if(event.key==='Enter') addScoreEl('jar', this)"></td>
+                    <td><button onclick="fundjarReset()" title="후원분만 0으로. 종잣돈은 남습니다."><i class="fa-solid fa-rotate-left"></i></button></td>
+                </tr>`;
             }
             if (lastRHtml !== rHtml) { document.getElementById('ranking-tbody').innerHTML = rHtml; lastRHtml = rHtml; }
 
@@ -5284,9 +5311,55 @@
             pushAPI();
         }
         
+        /* 🏺 이 후원을 통째로 모금함에 넣는다.
+           ⚠️ 선수 점수에는 **안** 들어간다. 운영비와 같은 규칙이다 — 양쪽에 다 넣으면
+              같은 돈이 두 번 세어져 정산이 어긋난다(대표님 상금이 걸린 돈이라 더 위험하다). */
+        async function assignPendingToJar(donId) {
+            const idx = (gd.pending_donations || []).findIndex(d => d.id === donId);
+            if (idx === -1) return;
+            const don = gd.pending_donations[idx];
+            const amt = Number(don.amount) || 0;
+            if (amt <= 0) { acctToast('금액이 없는 건은 모금함에 넣을 수 없습니다', 'warn'); return; }
+            if (!gd.fundjar) gd.fundjar = { name: '모금함', enabled: true, seed: 0, score: 0 };
+            gd.fundjar.score = (gd.fundjar.score || 0) + amt;   // 화면만 먼저(손맛)
+            gd.pending_donations.splice(idx, 1);
+            renderUI();
+            const r = await addScoreAPI({ scope: 'jar', delta: amt, pending_id: donId,
+                                          donor: don.name, donor_message: don.message });
+            // 🛡️ 다른 기기가 먼저 처리했으면 서버는 안 더했다 — 화면만 되돌린다.
+            if (!r || r.already) {
+                gd.fundjar.score -= amt;
+                renderUI();
+                acctToast(r && r.already ? '이미 다른 기기에서 처리된 후원입니다'
+                                         : '모금함에 못 넣었습니다 — 다시 눌러주세요', 'warn');
+                return;
+            }
+            acctToast('🏺 ' + don.name + '님 ' + amt.toLocaleString() + '원 → 모금함', 'ok');
+        }
+
+        /* 🏺 [모금함] 켜고 끄기 · 종잣돈 · 초기화.
+           ⚠️ 금액을 더하는 건 여기가 아니다 — addScoreEl('jar') 가 선수 점수와 같은 길로 보낸다.
+              그래야 폰과 조종실이 같은 후원을 동시에 눌러도 두 번 안 들어간다. */
+        async function fundjarSet(body) {
+            try {
+                const r = await fetch('/api/fundjar', { method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || '모금함 설정 실패', 'warn'); return null; }
+                return d;
+            } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); return null; }
+        }
+        async function fundjarReset() {
+            if (!await premiumConfirm('모금함의 후원분을 0 으로 되돌립니다.\n회사 종잣돈은 그대로 남습니다.',
+                                      '🏺 모금함 초기화', 'warning')) return;
+            if (await fundjarSet({ reset: true })) acctToast('🏺 모금함을 비웠습니다 (종잣돈은 그대로)', 'ok');
+        }
+
         // 하위호환용: 혹시 남아있는 인덱스 기반 호출을 이름 기반으로 넘겨준다.
         function addScore(type, idx) {
-            const elId = (type === 'bot') ? 'rank-add-bot' : `${type === 'match' ? 'match' : 'rank'}-add-${idx}`;
+            const elId = (type === 'bot') ? 'rank-add-bot'
+                       : (type === 'jar') ? 'rank-add-jar'
+                       : `${type === 'match' ? 'match' : 'rank'}-add-${idx}`;
             addScoreEl(type, document.getElementById(elId));
         }
 
@@ -5303,6 +5376,7 @@
             const name = el.dataset.tname;
             let target = null;
             if (scope === 'bot') { target = gd.bottom_fixed; }
+            else if (scope === 'jar') { target = gd.fundjar; }   // 🏺 모금함도 통 하나
             else if (scope === 'match') { target = (gd.match_data.players || []).find(p => p.name === name); }
             else { target = (targetList || []).find(b => b.name === name); }
             if (!target) { el.value = ''; el.blur(); return; }   // 대상을 못 찾으면 안전하게 무시(엉뚱한 기록 방지)

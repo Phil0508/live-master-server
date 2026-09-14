@@ -106,7 +106,7 @@ chk('무시할 때 조용히 넘어가지 않고 알린다', '옛 배치 파일�
 chk('배치에 없으면 기본 자리를 그대로 둔다', 'if (!el || !coord) return;' in ov)
 mm = __import__('re').search(r'const LAY_IDS = \[([\s\S]*?)\];', ov)
 n = len(__import__('re').findall(r"'[\w-]+'", mm.group(1))) if mm else 0
-chk('열여덟 개를 다 읽는다', n == 18, '%d개' % n)
+chk('열아홉 개를 다 읽는다', n == 19, '%d개' % n)   # 🏺 모금함이 늘었다
 
 print()
 print('=' * 74)

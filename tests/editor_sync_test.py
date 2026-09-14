@@ -227,7 +227,7 @@ _after = ad.find('</div>' + _nl + ' ' * 12 + '</div>', _last)
 _end = _after if _after > 0 else len(ad)
 _starts = [m.start() for m in re.finditer(r'<div class="widget" id="', ad)
            if _board < m.start() < _end]
-chk('무대 안에서 위젯을 찾았다', len(_starts) == 18, '%d개' % len(_starts))
+chk('무대 안에서 위젯을 찾았다', len(_starts) == 19, '%d개' % len(_starts))   # 🏺 모금함이 늘었다
 
 
 def _depth(seg):

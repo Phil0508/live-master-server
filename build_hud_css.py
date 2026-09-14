@@ -54,6 +54,7 @@ PREFIX = (
     'dg-', 'm-', 'hr-', 'home-race', 'sg-',
     'center-popup', 'takeover-popup', 'vip-badge',
     'slot-',
+    'jar-', 'fundjar',        # 🏺 모금함(유리병)
 )
 
 

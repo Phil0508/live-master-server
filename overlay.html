@@ -1474,6 +1474,49 @@
         @keyframes hrGoalSwap { 0% { opacity: 0; transform: translateY(9px); } 100% { opacity: 1; transform: translateY(0); } }
         .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
+        /* 🏺 [모금함] 회사 종잣돈 + 시청자 후원을 담는 유리병.
+           대표님: "비치는 유리병에 금액 보이는 모양" · "쨍그랑 소리 나면 좋구요".
+           사장님: "지금 운영비 방식이라 생각하면 될거같아" — 통 하나, 선수별로 안 나눈다. */
+        #fundjar-container {
+            position: absolute; left: 40px; top: 470px; z-index: 60;
+            opacity: 0; visibility: hidden;
+            transition: opacity var(--t-base) ease, visibility var(--t-base) ease;
+        }
+        .jar-title {
+            display: block; width: max-content; margin: 0 auto 4px;
+            background: linear-gradient(180deg, var(--gold-light), var(--gold-deep));
+            color: var(--on-gold); font-size: 27px; font-weight: 900;
+            padding: 3px 18px; border-radius: var(--r-s); white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.5);
+        }
+        .fundjar-box { position: relative; width: 260px; margin: 0 auto; }
+        .jar-glow {
+            position: absolute; inset: -16px; border-radius: 50%; pointer-events: none;
+            background: radial-gradient(circle, var(--gold-glow), transparent 68%);
+            opacity: 0; transition: opacity var(--t-slow) ease;
+        }
+        /* 금액은 **병 안에** 뜬다 — 대표님이 콕 집어 말씀하신 부분이다(위에 따로 띄우지 않는다) */
+        .jar-amt {
+            position: absolute; left: 0; right: 0; top: 41%; text-align: center; z-index: 3;
+            font-size: 48px; font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1;
+            font-variant-numeric: tabular-nums;
+            text-shadow: 0 3px 10px rgba(0,0,0,.98), 0 2px 3px #000, 0 0 20px var(--gold-glow);
+        }
+        .jar-amt .jar-won { font-size: 0.55em; margin-left: 3px; color: var(--gold-light); }
+        /* ⚠️ 병 안쪽 너비가 220px 뿐이라 '회사 200,000 + 후원 137,000' 은 안 들어간다.
+           병 밑에 따로 두고 만 단위로 줄인다. 27px 밑으로 내리지 말 것 — 폰에서 10px 이 된다. */
+        .jar-sub {
+            margin-top: 6px; text-align: center; font-size: 27px; font-weight: 800;
+            color: var(--gold-light); white-space: nowrap;
+            text-shadow: 0 2px 6px rgba(0,0,0,.98), 0 1px 2px #000;
+        }
+        @keyframes jarPop {
+            0%   { transform: scale(1); }
+            35%  { transform: scale(1.06) translateY(-5px); }
+            100% { transform: scale(1); }
+        }
+        .fundjar-box.jar-pop { animation: jarPop .42s var(--ease-pop); }
+        .fundjar-box.jar-pop .jar-glow { opacity: 1; }
         /* 👑 [특별 후원자(VIP) 후원 알림 스타일] 등록된 닉네임이면 팝업이 등급 색으로 바뀐다 */
         /* ⚠️ 배경에 **알파를 쓰지 않는다**. 예전에는 그라데이션 끝이 rgba(등급색, 0.15) 라
            85% 투명이었다 — 검은 화면에선 은은해 보였지만 캠이 밝거나 흰 옷·흰 벽이 잡히면
@@ -2410,6 +2453,67 @@
                 </div>
             </div>
 
+            <!-- 🏺 모금함 — 회사 종잣돈 + 시청자 후원. 금액이 **병 안에** 뜬다.
+                 동전은 JS 가 한 번만 만들어 두고(jarBuild) 금액에 따라 몇 개까지 보일지만 바꾼다. -->
+            <div id="fundjar-container" class="widget-container">
+                <div class="jar-title">🏺 오늘의 모금함</div>
+                <div class="fundjar-box" id="fundjar-box">
+                    <div class="jar-glow"></div>
+                    <svg width="260" height="432" viewBox="0 0 260 432">
+                        <defs>
+                            <path id="jar-shape" d="M 90,40 L 90,84 C 90,112 20,124 20,166 L 20,382 Q 20,416 54,416 L 206,416 Q 240,416 240,382 L 240,166 C 240,124 170,112 170,84 L 170,40 Z"/>
+                            <clipPath id="jar-clip"><use href="#jar-shape"/></clipPath>
+                            <linearGradient id="jar-glassG" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0" stop-color="#cdeeff" stop-opacity=".26"/>
+                                <stop offset=".44" stop-color="#ffffff" stop-opacity=".07"/>
+                                <stop offset="1" stop-color="#a5cdeb" stop-opacity=".22"/>
+                            </linearGradient>
+                            <linearGradient id="jar-capG" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0" stop-color="#f0cc70"/>
+                                <stop offset=".45" stop-color="#c09526"/>
+                                <stop offset="1" stop-color="#8a6512"/>
+                            </linearGradient>
+                            <linearGradient id="jar-gloss" x1="0" y1="0" x2=".7" y2="1">
+                                <stop offset="0" stop-color="#fff" stop-opacity=".62"/>
+                                <stop offset=".42" stop-color="#fff" stop-opacity=".06"/>
+                                <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                            </linearGradient>
+                            <radialGradient id="jar-drop" cx="50%" cy="50%" r="50%">
+                                <stop offset=".45" stop-color="#000" stop-opacity=".6"/>
+                                <stop offset="1" stop-color="#000" stop-opacity="0"/>
+                            </radialGradient>
+                            <radialGradient id="jar-f-gold" cx="34%" cy="24%" r="86%">
+                                <stop offset="0" stop-color="#fff8dc"/><stop offset=".45" stop-color="#f3c74f"/>
+                                <stop offset="1" stop-color="#b8871c"/></radialGradient>
+                            <radialGradient id="jar-f-silver" cx="34%" cy="24%" r="86%">
+                                <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#d9dee7"/>
+                                <stop offset="1" stop-color="#98a1ae"/></radialGradient>
+                            <radialGradient id="jar-f-copper" cx="34%" cy="24%" r="86%">
+                                <stop offset="0" stop-color="#ffe0c2"/><stop offset=".45" stop-color="#d78f4e"/>
+                                <stop offset="1" stop-color="#96581f"/></radialGradient>
+                            <linearGradient id="jar-e-gold" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0" stop-color="#68450b"/><stop offset=".38" stop-color="#a9761a"/>
+                                <stop offset=".62" stop-color="#a9761a"/><stop offset="1" stop-color="#68450b"/></linearGradient>
+                            <linearGradient id="jar-e-silver" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0" stop-color="#545b66"/><stop offset=".38" stop-color="#8b93a1"/>
+                                <stop offset=".62" stop-color="#8b93a1"/><stop offset="1" stop-color="#545b66"/></linearGradient>
+                            <linearGradient id="jar-e-copper" x1="0" y1="0" x2="1" y2="0">
+                                <stop offset="0" stop-color="#5a3410"/><stop offset=".38" stop-color="#8f5a22"/>
+                                <stop offset=".62" stop-color="#8f5a22"/><stop offset="1" stop-color="#5a3410"/></linearGradient>
+                        </defs>
+                        <use href="#jar-shape" fill="url(#jar-glassG)"/>
+                        <g clip-path="url(#jar-clip)"><g id="fundjar-coins"></g></g>
+                        <use href="#jar-shape" fill="none" stroke="#def6ff" stroke-opacity=".55" stroke-width="3.5"/>
+                        <rect x="74" y="18" width="112" height="27" rx="7" fill="url(#jar-capG)" stroke="#6d4f0e" stroke-width="2"/>
+                        <rect x="80" y="22" width="100" height="6" rx="3" fill="#fff" opacity=".38"/>
+                        <rect x="40" y="176" width="26" height="150" rx="13" fill="#fff" opacity=".28"/>
+                        <rect x="36" y="96" width="14" height="44" rx="7" fill="#fff" opacity=".20"/>
+                    </svg>
+                    <div class="jar-amt" id="fundjar-amt">0<span class="jar-won">원</span></div>
+                </div>
+                <div class="jar-sub" id="fundjar-sub">회사 20만 + 후원 0</div>
+            </div>
+
             <div id="dicegame-container" class="widget-container" style="position: absolute; left: 6px; top: 307px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base); pointer-events: none;">
                 <div class="dg-board">
                     <div class="dg-lap-banner" id="dg-lap-banner">🎉 한 바퀴 완주!</div>
@@ -2967,6 +3071,10 @@
            ═══════════════════════════════════════════════════════════════ */
         // [주파수, 시작지연ms, 길이초, 크기, 파형]
         const SFX_TUNE = {
+            // 🪙 쨍그랑 — 동전이 유리병에 떨어지는 소리. 쇳소리라 높은 배음을 겹친다
+            //    (하나만 울리면 '삐' 소리가 되고 동전 느낌이 안 난다).
+            'jar-coin':   [[2489, 0, .05, .20], [4186, 8, .04, .09],
+                           [3322, 16, .07, .15], [1661, 34, .13, .17]],
             'dice-roll':  [[300, 0, .05, .10, 'square'], [380, 60, .05, .10, 'square'],
                            [460, 120, .06, .10, 'square']],
             'dice-score': [[784, 0, .10, .26], [1047, 90, .18, .26]],
@@ -3507,7 +3615,8 @@
             const LAY_IDS = ['ranking', 'gauge', 'account', 'notice', 'match',
                              'ticker_top', 'ticker_bottom', 'roulette', 'slot',
                              'dicegame', 'donor-rank', 'sig-tally', 'siggame',
-                             'home-race', 'popup', 'takeover', 'karaoke', 'acct_video'];
+                             'home-race', 'popup', 'takeover', 'karaoke', 'acct_video',
+                             'fundjar'];
             /* ⚠️ 옛 배치 파일을 그대로 읽으면 방송이 옛 자리로 되돌아간다. 지금 저장소에
                   남아 있던 것만 봐도 게이지 y=1598(폰에서 안 보이는 구역), 엑셀판
                   362,178(옛 크기 기준) 이었다. 판 번호가 2 이상일 때만 읽는다. */
@@ -4538,6 +4647,7 @@
                 renderHomeRace(d);   // 🏃 퇴근전쟁 진행바 (켜져 있으면 랭킹판 대신 표시)
                 renderSigTally(d);   // 📊 시그니처 신청 집계 패널
             renderDonorRank(d);  // 🏅 후원 순위 패널
+                renderFundJar(d);    // 🏺 모금함(유리병)
                 let md = d.match_data || {active: false, players: [], fire_effect: false}; if (md.active && md.fire_effect) document.body.classList.add('match-fire-on'); else document.body.classList.remove('match-fire-on');
 
                 const accBox = document.getElementById('account-box-ui');
@@ -7422,6 +7532,86 @@
         //       화면은 받은 것만 그린다 — 몇 초마다 물어보지 않으므로 서버 부담이 없고,
         //       후원이 뜨는 그 순간 순위가 움직인다.
         let lastDonorRankHtml = '';
+        /* 🏺 [모금함] 회사 종잣돈 + 시청자 후원을 담는 유리병.
+           ⚠️ 동전을 갱신할 때마다 새로 뿌리면 금액이 바뀔 때마다 무더기가 통째로 흔들린다.
+              그래서 **한 번만** 만들어 두고(자리·크기·기울기 고정) 금액에 따라 '몇 개까지
+              보일지'만 바꾼다. 그러면 후원이 들어올 때 아래부터 한 닢씩 늘어난다.
+           ⚠️ 쌓는 차례(아래층부터)와 그리는 차례(뒤에서 앞으로)는 다르다. 번호(data-i)는
+              쌓는 차례, DOM 순서는 그리는 차례다 — 둘을 같게 하면 앞뒤 가림이 깨진다. */
+        const JAR_MAX = 64, JAR_PER_COIN = 10000;
+        // 테두리 링은 동전 색을 따라간다 — 전부 흰색이면 금화도 은화처럼 보인다
+        const JAR_RIM = { gold: '#fff1bd', silver: '#ffffff', copper: '#ffd9b3' };
+        let jarBuilt = false, jarPrev = null;
+        function jarMan(n) {
+            n = Math.max(0, Math.round(n || 0));
+            if (n < 10000) return formatNum(n);
+            const m = n / 10000;
+            return (m >= 100 ? Math.round(m) : Math.round(m * 10) / 10) + '만';
+        }
+        function jarBuild() {
+            const box = document.getElementById('fundjar-coins');
+            if (!box || jarBuilt) return;
+            let s = 11;
+            const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+            const cs = [];
+            // ⚠️ 한 층에 많이 깔면 '무더기' 가 아니라 '바닥' 이 된다. 층을 얇게(적게) 하고
+            //    층 간격을 동전 두께보다 넉넉히 줘야 쌓인 티가 난다(납작하게 나와서 고쳤다).
+            const layers = 13, per = 5, LGAP = 9.2;
+            let n = 0;
+            for (let Lv = 0; Lv < layers && n < JAR_MAX; Lv++) {
+                const f = Lv / (layers - 1), spread = 186 * (0.84 - f * 0.60);
+                const cnt = Math.max(2, Math.round(per * (1.30 - f * 0.72)));
+                for (let i = 0; i < cnt && n < JAR_MAX; i++, n++) {
+                    const k = rnd();
+                    cs.push({ i: n, x: 130 + (rnd() - .5) * spread,
+                              y: 398 - Lv * LGAP + (rnd() - .5) * 3.0,
+                              sc: 0.80 + rnd() * 0.34, rot: (rnd() - .5) * 15,
+                              k: k < .62 ? 'gold' : (k < .85 ? 'silver' : 'copper') });
+                }
+            }
+            cs.sort((a, b) => a.y - b.y);          // 뒤(위)에 있는 것부터 그려야 앞이 덮는다
+            box.innerHTML = cs.map(c => {
+                const rx = (26 * c.sc).toFixed(1), ry = (9.6 * c.sc).toFixed(1), t = (4.2 * c.sc).toFixed(1);
+                return '<g class="jc" data-i="' + c.i + '" transform="translate('
+                     + c.x.toFixed(1) + ',' + c.y.toFixed(1) + ') rotate(' + c.rot.toFixed(1) + ')">'
+                     + '<ellipse cx="1" cy="' + (+t + 2.5).toFixed(1) + '" rx="' + (rx * 1.12).toFixed(1)
+                     + '" ry="' + (ry * 1.1).toFixed(1) + '" fill="url(#jar-drop)"/>'
+                     + '<path d="M -' + rx + ',0 A ' + rx + ',' + ry + ' 0 0 0 ' + rx + ',0 L ' + rx + ',' + t
+                     + ' A ' + rx + ',' + ry + ' 0 0 1 -' + rx + ',' + t + ' Z" fill="url(#jar-e-' + c.k + ')"/>'
+                     + '<ellipse rx="' + rx + '" ry="' + ry + '" fill="url(#jar-f-' + c.k + ')"/>'
+                     + '<ellipse rx="' + (rx * .78).toFixed(1) + '" ry="' + (ry * .74).toFixed(1)
+                     + '" fill="none" stroke="' + JAR_RIM[c.k] + '" stroke-opacity=".55" stroke-width="'
+                     + (1.5 * c.sc).toFixed(2) + '"/>'
+                     + '<ellipse rx="' + rx + '" ry="' + ry + '" fill="url(#jar-gloss)"/></g>';
+            }).join('');
+            jarBuilt = true;
+        }
+        function renderFundJar(d) {
+            const box = document.getElementById('fundjar-container');
+            if (!box) return;
+            const j = (d && d.fundjar) || {};
+            const on = !!j.enabled;
+            box.style.opacity = on ? 1 : 0;
+            box.style.visibility = on ? 'visible' : 'hidden';
+            if (!on) { jarPrev = null; return; }
+            jarBuild();
+            const seed = Number(j.seed) || 0, got = Number(j.score) || 0, total = seed + got;
+            const amtEl = document.getElementById('fundjar-amt');
+            const subEl = document.getElementById('fundjar-sub');
+            if (amtEl) amtEl.innerHTML = formatNum(total) + '<span class="jar-won">원</span>';
+            if (subEl) subEl.innerText = '회사 ' + jarMan(seed) + ' + 후원 ' + jarMan(got);
+            const n = Math.min(JAR_MAX, Math.round(total / JAR_PER_COIN));
+            document.querySelectorAll('#fundjar-coins .jc').forEach(el => {
+                el.style.display = (Number(el.dataset.i) < n) ? '' : 'none';
+            });
+            // 💰 금액이 올랐을 때만 쨍그랑. 많이 들어오면 소리도 커진다.
+            if (jarPrev !== null && total > jarPrev) {
+                const bx = document.getElementById('fundjar-box');
+                if (bx) { bx.classList.remove('jar-pop'); void bx.offsetWidth; bx.classList.add('jar-pop'); }
+                try { playSfx('jar-coin', Math.min(1.4, 0.8 + (total - jarPrev) / 100000)); } catch (e) {}
+            }
+            jarPrev = total;
+        }
         function renderDonorRank(d) {
             const box = document.getElementById('donor-rank-container');
             if (!box) return;
