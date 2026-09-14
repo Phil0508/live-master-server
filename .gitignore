@@ -50,3 +50,7 @@ tests/pausetest/
 #    ⚠️ git 에 넣어 두면 자동배포(git reset --hard)가 사장님이 방금 잡은 자리를
 #       통째로 되돌린다. 서버에만 두고, 없으면 방송판의 기본 자리를 쓴다.
 layout.json
+
+# 진행봇 — 토큰과 입막음 기록은 저장소에 두지 않는다
+bot/token.json
+bot/dryrun.log

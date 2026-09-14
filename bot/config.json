@@ -1,0 +1,19 @@
+{
+  "_읽는법": [
+    "server 는 방송 서버 주소. 같은 컴퓨터에서 돌리면 그대로 두세요.",
+    "min_interval_sec 를 늘리면 봇이 조용해집니다.",
+    "daily_budget 은 하루에 칠 수 있는 최대 개수 — 유튜브 하루 한도를 넘지 않으려는 안전선입니다.",
+    "넘으면 후원 감사만 남기고 나머지는 조용히 끕니다."
+  ],
+
+  "server": "http://127.0.0.1:5000",
+  "min_interval_sec": 25,
+  "idle_after_sec": 90,
+  "daily_budget": 180,
+  "only_when_broadcasting": true,
+
+  "youtube": {
+    "video_id": "",
+    "live_chat_id": ""
+  }
+}
