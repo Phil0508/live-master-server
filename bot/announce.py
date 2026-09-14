@@ -5,6 +5,12 @@
 
 ⚠️ server.py 안에 넣지 않는다. 유튜브 쪽이 느려지거나 토큰이 만료돼도 방송은 멀쩡해야
    하고, 봇만 껐다 켤 수 있어야 한다. 봇은 방송판과 똑같이 그냥 '또 하나의 손님' 이다.
+⚠️ 점수 배정(조종실에서 선수에게 주는 것)은 **한 건씩 알리지 않는다**
+   (사장님: "후원이 나올 때 누가 후원했는지가 필요한 거지, 점수 들어가는 거 하나하나
+   쓸 필요 없어"). 후원 인사에 이미 후원자 이름이 들어 있고, 배정은 조종실 사정이다.
+⚠️ 주사위게임은 **안내하지 않는다**(사장님: "안내봇이 주사위에 관해서 안내하는건 빼").
+   화면에 판이 그대로 보이는데 채팅이 굴림마다 따라 읽으면 시끄럽기만 하다.
+   판단하는 코드는 그대로 두고 **문구표만 비워** 둔다 — 나중에 마음이 바뀌면 문구만 넣으면 된다.
 ⚠️ AI 를 쓰지 않는다. 할 말이 전부 서버가 이미 아는 사실이라 문구표 빈칸에 끼워 넣으면
    된다(사장님: "안내봇은 말 그대로 안내만 하면 되는 거잖아"). 그 편이 사고도 없고,
    자주 죽는 AI 모델에 봇이 매달리지도 않는다.
@@ -30,6 +36,11 @@ from collections import deque
 
 sys.stdout.reconfigure(encoding='utf-8')
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+# 🌐 IPv4 로만 나간다. 이 컴퓨터는 나갈 수 없는 IPv6 주소를 갖고 있어서, 그대로 두면
+#    구글에 한 번 붙는 데 48~168초가 걸린다(실측). IPv4 로만 붙으면 0.1초다.
+from net import force_ipv4
+force_ipv4()
 
 # ── 우선순위. 작을수록 먼저 나간다. 밀리면 큰 숫자부터 버린다 ──
 P_DONATION = 0     # 돈이 들어온 것 — 절대 안 버린다
@@ -37,6 +48,7 @@ P_DICE_BIG = 1     # 한 바퀴·황금열쇠·뺏기·블랙홀
 P_RANK     = 2     # 1위가 바뀜
 P_DICE     = 3     # 그냥 굴림
 P_GOAL     = 4     # 목표 진행
+P_NOTICE   = 5     # 계좌·순위·모금함 되풀이 안내 (사건이 아니라 시계로 나간다)
 P_IDLE     = 9     # 조용할 때 던지는 질문
 # ⚠️ 1위가 바뀌는 건 그냥 굴림보다 위다. 주사위를 연달아 굴리면 큐가 밀리는데,
 #    그때 '1위가 바뀌었다' 가 버려지고 '2번 칸으로 갔다' 가 남으면 순서가 거꾸로다.
@@ -78,6 +90,10 @@ class Templates:
             cur = (cur or {}).get(part)
         return [s for s in (cur or []) if isinstance(s, str) and s.strip()]
 
+    def has(self, key):
+        """이 칸에 쓸 문구가 하나라도 있나. 비어 있으면 그 사건은 아예 안 만든다."""
+        return bool(self._list(key))
+
     def render(self, key, fields):
         """빈칸을 채운 문장. 칸이 비어 있거나 채울 값이 없으면 None(= 안 친다)."""
         opts = self._list(key)
@@ -110,28 +126,100 @@ def goal_total(st):
     return total
 
 
-def top_name(st):
-    """기여도 1위 이름. 동점이면 이름순 — 서버 순위표와 같은 규칙."""
+def rank_rows(st):
+    """기여도 순으로 줄 세운다 — [(기여도, 이름), ...]. 동점이면 이름순.
+    ⚠️ 서버 순위표(ORDER BY contribution DESC)와 **같은 규칙**이어야 한다.
+       봇이 말하는 순위와 화면의 순위가 다르면 시청자가 봇을 안 믿는다.
+    ⚠️ 기여도 0 은 뺀다 — 아직 아무것도 안 한 사람을 '3위' 라고 부르지 않는다."""
     rows = [(int(b.get('contribution') or 0), str(b.get('name') or '')) for b in (st.get('bjs') or [])]
-    rows = [r for r in rows if r[1]]
-    if not rows:
-        return None
+    rows = [r for r in rows if r[1] and r[0] > 0]
     rows.sort(key=lambda r: (-r[0], r[1]))
-    return rows[0][1] if rows[0][0] > 0 else None
+    return rows
+
+
+def top_name(st):
+    """기여도 1위 이름. 아무도 없으면 None."""
+    rows = rank_rows(st)
+    return rows[0][1] if rows else None
 
 
 GOAL_MARKS = (25, 50, 75, 90)
 
 
-def detect(prev, cur):
-    """이전 상태와 견줘 '알릴 만한 일' 을 뽑는다. 순수 함수 — 검사에서 그대로 부른다."""
+def _queue_ids(st):
+    return [str(q.get('id') or '') for q in (st.get('reaction_queue') or []) if q.get('id')]
+
+
+def _head_id(st):
+    """지금 화면에서 재생 중인(또는 막 시작한) 리액션의 번호."""
+    q = st.get('reaction_queue') or []
+    return str((q[0].get('id') if q and isinstance(q[0], dict) else '') or '')
+
+
+def _reaction_for(prev, cur, name, amount):
+    """이번 후원 때문에 **새로 생긴** 리액션의 번호. 없으면 None.
+
+    ⚠️ 큐에는 후원만 들어가는 게 아니다 — 슬롯 당첨('🎰 슬롯머신'), 주사위 칸('주사위게임'),
+       조종실 수동 송출도 같은 큐를 쓴다. 그래서 '큐가 늘었다' 만으로는 안 되고
+       **이번에 들어온 후원과 이름·금액이 맞는가**까지 봐야 한다.
+       안 그러면 주사위판이 시그니처를 하나 틀 때마다 '주사위게임님 후원 감사합니다' 가 나간다.
+
+    ⚠️ 이름을 글자 그대로 비교해도 되는 근거: 서버가 후원을 받을 때 latest_donation 의 name 과
+       큐의 donator 에 **같은 변수(parsed_name)** 를 넣는다(server.py 의 receive_donation).
+       '홍길동님' → '홍길동' 같은 다듬기는 그보다 먼저 끝나 있어서 양쪽이 늘 같다.
+    """
+    old = set(_queue_ids(prev))
+    for q in (cur.get('reaction_queue') or []):
+        if not isinstance(q, dict):
+            continue
+        qid = str(q.get('id') or '')
+        if not qid or qid in old:
+            continue
+        if str(q.get('donator') or '') == str(name or '')                 and int(q.get('amount') or 0) == int(amount or 0):
+            return qid
+    return None
+
+
+DEFAULT_CLOSE_GAP = 50000   # 1·2위 격차가 이 밑으로 내려오면 '접전' 이라고 부른다
+
+
+def detect(prev, cur, close_gap=DEFAULT_CLOSE_GAP, waiting=None):
+    """이전 상태와 견줘 '알릴 만한 일' 을 뽑는다.
+
+    waiting 은 '리액션이 나오기를 기다리는 후원' 을 담아두는 상자다(부르는 쪽이 들고 있는다).
+    안 주면 예전처럼 후원이 도착하자마자 인사한다 — 검사에서 한 조각씩 보기 편하라고 남겨 둔다.
+    """
     out = []
 
-    # ── 💝 후원 ──
+    # ── 💝 후원. **도착할 때가 아니라 리액션이 화면에 나올 때** 인사한다 ──
+    # 사장님: "후원이 후원함에 들어오자마자 저게 나오면 스포니까 리액션 할 때 나오게 해줘".
+    # 후원은 도착과 동시에 리액션 큐에 들어가지만, 앞에 밀린 게 있으면 화면에 나오기까지
+    # 한참이다. 그 사이에 채팅이 먼저 '누가 얼마' 를 말하면 연출을 다 까먹는다.
     ld, pld = cur.get('latest_donation') or {}, prev.get('latest_donation') or {}
     if ld.get('time') and ld.get('time') != pld.get('time') and int(ld.get('amount') or 0) > 0:
-        out.append(Event(P_DONATION, 'donation',
-                         {'name': ld.get('name') or '익명', 'amount': won(ld.get('amount'))}))
+        f = {'name': ld.get('name') or '익명', 'amount': won(ld.get('amount'))}
+        rq = _reaction_for(prev, cur, ld.get('name'), ld.get('amount'))
+        if rq is None or waiting is None:
+            # 리액션이 안 걸린 후원(소액 등)은 화면에 나올 게 없다 — 깔 스포도 없으니 바로 인사
+            out.append(Event(P_DONATION, 'donation', f))
+        else:
+            waiting[rq] = dict(f, _at=time.time())
+
+    # ── ▶️ 리액션이 화면에 나오기 시작했다 = 큐 머리가 바뀌었다. 그때 인사가 나간다 ──
+    if waiting is not None:
+        head, phead = _head_id(cur), _head_id(prev)
+        if head and head != phead and head in waiting:
+            f = waiting.pop(head)
+            f.pop('_at', None)
+            out.append(Event(P_DONATION, 'donation', f))
+        # 큐에서 사라진 것 — 진행자가 건너뛰었거나 상한을 넘겨 버려졌다.
+        # ⚠️ 그래도 인사는 한다. 리액션은 이미 지나갔으니 깔 스포가 없고,
+        #    돈을 낸 사람에게 인사를 빠뜨리는 게 훨씬 나쁘다.
+        alive = set(_queue_ids(cur))
+        for k in [k for k in waiting if k not in alive]:
+            f = waiting.pop(k)
+            f.pop('_at', None)
+            out.append(Event(P_DONATION, 'donation', f))
 
     # ── 🎲 주사위. 한 번 굴림에 한 줄만 낸다 — 사건마다 한 줄이면 채팅이 도배된다 ──
     a = (cur.get('dicegame') or {}).get('action') or {}
@@ -168,10 +256,28 @@ def detect(prev, cur):
             key, prio = 'dice_roll', P_DICE
         out.append(Event(prio, key, f))
 
-    # ── 👑 1위가 바뀜 ──
-    t, pt = top_name(cur), top_name(prev)
+    # ── 👑 1위가 바뀜. 2위가 있으면 '몇 점 차' 까지 싣는다 ──
+    rows, prows = rank_rows(cur), rank_rows(prev)
+    t = rows[0][1] if rows else None
+    pt = prows[0][1] if prows else None
     if t and t != pt:
-        out.append(Event(P_RANK, 'rank_top', {'name': t}))
+        if len(rows) >= 2:
+            out.append(Event(P_RANK, 'rank_top',
+                             {'name': t, 'second': rows[1][1],
+                              'gap': won(rows[0][0] - rows[1][0])}))
+        else:
+            # ⚠️ 혼자면 '2위와 ? 차이' 라고 말할 수 없다. 빈칸이 안 채워지는 문구를
+            #    쓰면 그 줄은 통째로 안 나간다 → 칸을 따로 둔다.
+            out.append(Event(P_RANK, 'rank_top_only', {'name': t}))
+
+    # ── 🔥 접전. 격차가 기준 밑으로 **내려오는 순간**에만 한 번 ──
+    # ⚠️ '지금 가깝다' 로 치면 붙어 있는 내내 떠든다. '방금 가까워졌다' 여야 한다.
+    if close_gap > 0 and len(rows) >= 2 and len(prows) >= 2:
+        now_gap = rows[0][0] - rows[1][0]
+        was_gap = prows[0][0] - prows[1][0]
+        if now_gap <= close_gap < was_gap:
+            out.append(Event(P_RANK, 'rank_close',
+                             {'first': rows[0][1], 'second': rows[1][1], 'gap': won(now_gap)}))
 
     # ── 🎯 목표. 25·50·75·90% 를 **지나는 순간**만. 매번 떠들면 시끄럽다 ──
     tgt = int(cur.get('target_goal') or 0)
@@ -189,6 +295,61 @@ def detect(prev, cur):
     return out
 
 
+# ══ 📣 주기 안내 ══════════════════════════════════════════════════════════
+# 사건이 아니라 **시계**로 나간다. 방송 중간에 들어온 시청자는 후원하는 법도,
+# 지금 판이 어떤지도 모른다. 화면에는 다 떠 있지만 폰으로 보면 작고 복사도 안 된다.
+# 채팅에 한 줄 있으면 길게 눌러 복사가 된다 — 그게 이 기능이 있는 이유다.
+#
+# 각 함수는 (문구칸, 채울값) 을 주거나, 지금 말할 게 없으면 None 을 준다.
+
+
+def notice_account(st):
+    """💛 후원 계좌. 화면의 계좌판과 같은 값을 읽는다."""
+    a = st.get('account') or {}
+    num = str(a.get('acc_num') or '').strip()
+    if not num:
+        return None
+    return ('notice.account', {'bank': str(a.get('bank') or '').strip(),
+                               'acc_num': num,
+                               'holder': str(a.get('name') or '').strip()})
+
+
+def notice_rank(st):
+    """📊 지금 순위. **바로 위와 몇 점 차**까지 붙인다 — 격차가 보여야 추격이 된다."""
+    rows = rank_rows(st)
+    if len(rows) < 2:
+        return None                      # 혼자면 '순위' 가 아니다
+    f = {'first': rows[0][1], 'first_score': won(rows[0][0]),
+         'second': rows[1][1], 'second_score': won(rows[1][0]),
+         'gap': won(rows[0][0] - rows[1][0])}
+    if len(rows) < 3:
+        return ('notice.rank2', f)
+    f['third'] = rows[2][1]
+    f['third_score'] = won(rows[2][0])
+    f['gap2'] = won(rows[1][0] - rows[2][0])
+    return ('notice.rank3', f)
+
+
+def notice_fundjar(st):
+    """🏺 모금함. 화면 금액과 같은 셈 = 종잣돈 + 시청자 후원분."""
+    j = st.get('fundjar') or {}
+    if not j.get('enabled'):
+        return None
+    seed, added = int(j.get('seed') or 0), int(j.get('score') or 0)
+    if seed + added <= 0:
+        return None
+    return ('notice.fundjar', {'total': won(seed + added),
+                               'seed': won(seed), 'added': won(added)})
+
+
+# (이름, config 칸, 기본 간격(초), 만드는 함수)
+NOTICES = [
+    ('account', 'account_every_sec', 420, notice_account),
+    ('rank',    'rank_every_sec',    480, notice_rank),
+    ('fundjar', 'fundjar_every_sec', 600, notice_fundjar),
+]
+
+
 class Bot:
     def __init__(self, cfg, tpl, live=False):
         self.cfg, self.tpl, self.live = cfg, tpl, live
@@ -198,6 +359,11 @@ class Bot:
         self.prev = None
         self.last_sent = 0.0
         self.last_event = time.time()
+        self.notice_at = {}        # {안내이름: 마지막으로 친 때}
+        self.last_notice = 0.0     # 안내끼리도 너무 붙지 않게
+        # ⏳ 리액션이 화면에 나오기를 기다리는 후원들 {리액션번호: 채울값}
+        self.waiting = {}
+        self.wlock = threading.Lock()   # detect(받는 실) 와 훑기(보내는 실) 가 같이 만진다
         self.sent_today, self.today = 0, time.strftime('%Y-%m-%d')
         self.interval = float(cfg.get('min_interval_sec', 25))
         self.stop = False
@@ -268,11 +434,17 @@ class Bot:
             print('📌 기준 상태를 잡았습니다. 지금부터 새로 생기는 일만 알립니다.')
             return
         try:
-            evs = detect(self.prev, st)
+            with self.wlock:
+                evs = detect(self.prev, st,
+                             close_gap=self._ncfg('close_gap', DEFAULT_CLOSE_GAP),
+                             waiting=self.waiting)
         except Exception as e:
             print(f'⚠️ 사건을 찾다 넘어갔습니다 ({e})')
             evs = []
         self.prev = st
+        # ⚠️ 문구를 [] 로 비워 둔 사건은 여기서 버린다. 큐에 넣어 두면 여섯 칸을
+        #    말없이 차지하고, 정작 알릴 일을 밀어낸다.
+        evs = [e for e in evs if self.tpl.has(e.key)]
         if not evs:
             return
         self.last_event = time.time()
@@ -293,8 +465,33 @@ class Bot:
             except Exception as e:
                 print(f'⚠️ 보내다 넘어갔습니다 ({e})')
 
+    def _sweep_waiting(self, now):
+        """⏳ 리액션을 아무리 기다려도 안 나오면 늦게라도 인사한다.
+
+        ⚠️ OBS 장면을 바꿔놨거나 오버레이가 닫혀 있으면 큐가 줄지 않는다. 그때 그냥 두면
+           돈을 낸 사람이 **끝까지 인사를 못 받는다.** 늦은 인사가 없는 인사보다 낫다.
+        ⚠️ 봇을 껐다 켜면 이 상자가 비니, 그때 기다리던 후원은 인사가 빠진다(문서에 적어 뒀다).
+        """
+        limit = float(self.cfg.get('reaction_wait_max_sec', 600))
+        if limit <= 0:
+            return
+        with self.wlock:
+            late = [k for k, f in self.waiting.items() if now - f.get('_at', now) > limit]
+            fs = []
+            for k in late:
+                f = self.waiting.pop(k)
+                f.pop('_at', None)
+                fs.append(f)
+        if not fs:
+            return
+        print(f'⏳ 리액션이 {limit:.0f}초 넘게 안 나와 먼저 인사합니다 ({len(fs)}건)')
+        with self.lock:
+            for f in fs:
+                self.q.append(Event(P_DONATION, 'donation', f))
+
     def _tick(self):
         now = time.time()
+        self._sweep_waiting(now)
         if now - self.last_sent < self.interval:
             return
         if self.cfg.get('only_when_broadcasting', True) and not self.state.get('broadcast_active'):
@@ -305,7 +502,8 @@ class Bot:
             self.q = deque(sorted(self.q, key=lambda x: (x.prio, x.at)))
             e = self.q.popleft() if self.q else None
         if e is None:
-            e = self._idle(now)
+            # 알릴 일이 없을 때 비로소 안내가 나간다. 사건이 안내에 밀리지 않는다.
+            e = self._notice(now) or self._idle(now)
             if e is None:
                 return
         # 하루 예산을 넘으면 후원 감사만 남긴다 — 돈 낸 사람에게 인사는 해야 한다
@@ -316,6 +514,38 @@ class Bot:
             return
         self._say(text)
         self.last_sent, self.sent_today = now, self.sent_today + 1
+
+    def _ncfg(self, key, default):
+        return float((self.cfg.get('notices') or {}).get(key, default))
+
+    def _notice(self, now):
+        """📣 되풀이 안내 — 계좌·순위·모금함. 제일 오래 묵은 것 하나만 낸다."""
+        if now - self.last_notice < self._ncfg('gap_sec', 120):
+            return None                      # 안내끼리 붙어 나오면 광고처럼 보인다
+        st = self.state
+        best, best_over = None, -1.0
+        for name, cfg_key, default, build in NOTICES:
+            every = self._ncfg(cfg_key, default)
+            if every <= 0:
+                continue                     # 0 으로 두면 그 안내는 끈 것이다
+            last = self.notice_at.get(name)
+            if last is None:
+                # ⚠️ 켜자마자 셋을 연달아 치지 않는다. 첫 차례는 간격의 절반 뒤부터.
+                self.notice_at[name] = now - every / 2
+                continue
+            over = (now - last) - every
+            if over < 0 or over < best_over:
+                continue
+            made = build(st)
+            if made and self.tpl.has(made[0]):
+                best, best_over = (name, made), over
+        if not best:
+            return None
+        name, (key, fields) = best
+        self.notice_at[name] = now
+        self.last_notice = now
+        self.last_event = now                # 안내도 '봇이 말한 것' — 질문 시계를 되감는다
+        return Event(P_NOTICE, key, fields)
 
     def _idle(self, now):
         """아무 일도 없을 때만 질문을 던진다. 상황을 보고 고를 뿐 생각하지는 않는다."""
@@ -330,7 +560,12 @@ class Bot:
             tgt = int(st.get('target_goal') or 0)
             if tgt > 0 and goal_total(st) * 100 // tgt >= 60:
                 kind = 'goal'
-        return Event(P_IDLE, 'idle.' + kind, {})
+        # ⚠️ 그 바구니를 비워 뒀으면 보통 질문으로 간다. 안 그러면 주사위판이 켜져 있는
+        #    내내 봇이 한마디도 안 한다 — 비운 건 '주사위 얘기를 말라' 지 '입 다물라' 가 아니다.
+        key = 'idle.' + kind
+        if not self.tpl.has(key):
+            key = 'idle.any'
+        return Event(P_IDLE, key, {})
 
     def _say(self, text):
         line = f'[{time.strftime("%H:%M:%S")}] {text}'

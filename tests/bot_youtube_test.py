@@ -63,7 +63,7 @@ class Fake(BaseHTTPRequestHandler):
             G['tokens'] += 1
             return self._send(200, {'access_token': 'AT-%d' % G['tokens'],
                                     'expires_in': G['expires_in']})
-        if '/liveChatMessages' in path:
+        if '/liveChat/messages' in path:
             G['posts'].append((self.path, dict(self.headers), raw))
             if G['post_status'] != 200:
                 b = G['post_body'].encode()
@@ -163,7 +163,11 @@ chk('보냈다고 답한다', sent is True and err == '', (sent, err))
 chk('한 번만 보냈다', len(G['posts']) == 1, len(G['posts']))
 path, hdr, body = G['posts'][0]
 j = json.loads(body)
-chk('주소가 맞다 (part=snippet)', '/youtube/v3/liveChatMessages' in path and 'part=snippet' in path, path)
+# ⚠️ 자원 이름은 liveChatMessages 인데 **주소는 liveChat/messages** 다.
+#    여기를 liveChatMessages 로 적었다가 진짜 구글에서 빈 404 를 맞았다(2026-09-14).
+chk('주소가 맞다 (liveChat/messages · part=snippet)',
+    '/youtube/v3/liveChat/messages' in path and 'part=snippet' in path, path)
+chk('옛 주소로 되돌아가지 않았다', '/youtube/v3/liveChatMessages' not in path, path)
 chk('출입증을 들고 간다', hdr.get('Authorization', '').startswith('Bearer AT-'),
     hdr.get('Authorization'))
 chk('보내는 모양이 맞다',
@@ -230,6 +234,26 @@ chk('채팅 쓰기 권한만 받는다', LK.SCOPE.endswith('youtube.force-ssl'),
 chk('갱신 토큰을 받게 돼 있다',
     "'access_type': 'offline'" in io.open(os.path.join(ROOT, 'bot', 'link.py'),
                                           encoding='utf-8').read())
+
+print()
+print('=' * 74)
+print('⑥ IPv4 로만 나가는가 — 안 그러면 한 번 붙는 데 168초다')
+print('=' * 74)
+# ⚠️ 방송 컴퓨터는 **나갈 수 없는** IPv6 주소를 갖고 있다(fdee:… · Hamachi).
+#    www.googleapis.com 은 AAAA 를 여덟 개 주므로 그대로 두면 그걸 다 기다린 뒤에야
+#    IPv4 로 넘어간다 — 실측 168초, 세 번 다 똑같았다. IPv4 로만 붙으면 0.1초.
+#    이게 빠지면 봇이 '멈춘 것처럼' 보인다(실제로 연동이 두 번 그렇게 보였다).
+import net as NET   # noqa: E402
+NETSRC = io.open(os.path.join(ROOT, 'bot', 'net.py'), encoding='utf-8').read()
+chk('IPv4 고정 도우미가 있다', hasattr(NET, 'force_ipv4') and 'AF_INET' in NETSRC)
+for f in ('announce.py', 'link.py', 'youtube.py'):
+    s = io.open(os.path.join(ROOT, 'bot', f), encoding='utf-8').read()
+    chk('%s 가 IPv4 로 고정한다' % f, 'force_ipv4()' in s)
+NET.undo(); NET.force_ipv4()
+chk('두 번 불러도 안전하다', True)
+_fam = {a[0] for a in __import__('socket').getaddrinfo('localhost', 80)}
+chk('실제로 IPv4 만 돌려준다', _fam == {__import__('socket').AF_INET}, _fam)
+NET.undo()
 
 print()
 print('=' * 74)

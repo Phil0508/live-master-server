@@ -18,6 +18,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# 🌐 IPv4 로만 나간다. 이 컴퓨터는 나갈 수 없는 IPv6 주소를 갖고 있어서, 그대로 두면
+#    구글에 한 번 붙는 데 48~168초가 걸린다(실측). IPv4 로만 붙으면 0.1초다.
+from net import force_ipv4
+force_ipv4()
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 # ⏳ 동의 화면이 '테스트' 상태면 갱신 토큰이 **7일마다** 만료된다(구글 규칙).
 #    그러면 봇이 일주일마다 조용히 멈춘다 — 원인을 짐작하게 두지 않는다.
@@ -97,20 +102,38 @@ class YouTube:
     def _auth(self):
         return {'Authorization': 'Bearer ' + self._token()}
 
+    def _chat_of_video(self, vid):
+        """영상 하나의 지금 열려 있는 채팅방. 1단위로 싸다."""
+        j = _get(f'{API}/videos?part=liveStreamingDetails&id={urllib.parse.quote(vid)}',
+                 self._auth())
+        items = j.get('items') or []
+        return ((items[0].get('liveStreamingDetails') or {}).get('activeLiveChatId')
+                if items else None)
+
     # ── 어느 채팅방에 칠 것인가 ──
     def _chat(self):
-        """① 설정에 적어둔 값 → ② 영상 id 로 조회 → ③ 지금 켜져 있는 내 라이브 자동 찾기.
-        ③ 이 있어서 방송마다 주소를 붙여넣지 않아도 된다."""
+        """① 적어둔 채팅방 → ② 적어둔 영상 → ③ 적어둔 **채널**의 지금 라이브 → ④ 봇 소유 라이브.
+
+        ⚠️ ③ 이 있어야 **봇 계정과 방송 채널이 다를 때**도 찾는다. ④(mine=true)는
+           '봇이 소유한 라이브' 만 찾으므로, 봇이 방송 주인이 아니면 아무것도 못 찾는다.
+           사장님 경우가 그렇다 — 방송은 다른 계정으로 한다.
+        ⚠️ ③ 의 search 는 **100단위**로 비싸다(보통 조회는 1단위, 하루 한도 10,000).
+           한 번 찾으면 기억하고, 방송이 끝나 채팅방이 닫혔을 때만 다시 찾는다.
+        """
         if self.chat_id:
             return self.chat_id
         vid = (self.cfg.get('video_id') or '').strip()
         if vid:
-            j = _get(f'{API}/videos?part=liveStreamingDetails&id={urllib.parse.quote(vid)}',
-                     self._auth())
+            self.chat_id = self._chat_of_video(vid)
+        ch = (self.cfg.get('channel_id') or '').strip()
+        if not self.chat_id and ch:
+            j = _get(f'{API}/search?part=snippet&channelId={urllib.parse.quote(ch)}'
+                     f'&eventType=live&type=video&maxResults=1', self._auth())
             items = j.get('items') or []
             if items:
-                self.chat_id = ((items[0].get('liveStreamingDetails') or {})
-                                .get('activeLiveChatId'))
+                _v = (items[0].get('id') or {}).get('videoId')
+                if _v:
+                    self.chat_id = self._chat_of_video(_v)
         if not self.chat_id:
             j = _get(f'{API}/liveBroadcasts?part=snippet&broadcastStatus=active'
                      f'&broadcastType=all&mine=true', self._auth())
@@ -120,7 +143,10 @@ class YouTube:
                     self.chat_id = cid
                     break
         if not self.chat_id:
-            raise RuntimeError('켜져 있는 라이브가 없습니다')
+            raise RuntimeError('켜져 있는 라이브가 없습니다'
+                               + ('' if (vid or ch) else
+                                  ' — 방송을 다른 계정으로 하신다면 config.json 의'
+                                  ' youtube.channel_id 에 방송 채널 id 를 적어주세요'))
         return self.chat_id
 
     def post(self, text):
@@ -134,7 +160,10 @@ class YouTube:
             body = {'snippet': {'liveChatId': self._chat(),
                                 'type': 'textMessageEvent',
                                 'textMessageDetails': {'messageText': text[:200]}}}
-            _post(f'{API}/liveChatMessages?part=snippet', body, self._auth())
+            # ⚠️ 자원 이름은 liveChatMessages 인데 **주소는 liveChat/messages** 다.
+            #    이름 그대로 쓰면 '없는 주소' 라 빈 404 가 온다(그것 때문에 한참 헤맸다).
+            #    구글이 주는 목록 문서(discovery)에 적힌 그대로가 맞다.
+            _post(f'{API}/liveChat/messages?part=snippet', body, self._auth())
             return True, ''
         except urllib.error.HTTPError as e:
             detail = (e.read() or b'').decode('utf-8', 'replace')[:300]

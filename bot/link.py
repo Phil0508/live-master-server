@@ -27,7 +27,44 @@ import webbrowser
 sys.stdout.reconfigure(encoding='utf-8')
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOKEN_PATH = os.path.join(HERE, 'token.json')
+# 🌐 IPv4 로만 나간다. 이 컴퓨터는 나갈 수 없는 IPv6 주소를 갖고 있어서, 그대로 두면
+#    구글에 한 번 붙는 데 48~168초가 걸린다(실측). IPv4 로만 붙으면 0.1초다.
+from net import force_ipv4
+force_ipv4()
+
 SECRET_FILE = None            # --secrets 로 받은 경로 (없으면 알아서 찾는다)
+LOG_PATH = os.path.join(HERE, 'link.log')
+
+
+class _Tee:
+    """화면에 찍는 것을 파일에도 남긴다 — 막혔을 때 무엇 때문인지 봐야 한다.
+
+    ⚠️ 비밀은 안 남는다. 보안 비밀·갱신 토큰은 애초에 화면에 안 찍는다.
+    """
+
+    def __init__(self, path, real):
+        self.real = real
+        try:
+            self.f = io.open(path, 'w', encoding='utf-8')
+        except Exception:
+            self.f = None
+
+    def write(self, s):
+        self.real.write(s)
+        if self.f:
+            try:
+                self.f.write(s)
+                self.f.flush()
+            except Exception:
+                pass
+
+    def flush(self):
+        self.real.flush()
+        if self.f:
+            try:
+                self.f.flush()
+            except Exception:
+                pass
 AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 TOKEN_URL = 'https://oauth2.googleapis.com/token'
 API = 'https://www.googleapis.com/youtube/v3'
@@ -44,18 +81,58 @@ DONE_HTML = """<!doctype html><meta charset="utf-8">
 </div></body>"""
 
 
-def post_form(url, data):
-    body = urllib.parse.urlencode(data).encode()
-    req = urllib.request.Request(url, data=body, method='POST',
-                                 headers={'Content-Type': 'application/x-www-form-urlencoded'})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read().decode('utf-8'))
+def post_form(url, data, deadline=30):
+    """구글에 값을 보내고 답을 받는다.
+
+    ⚠️ urlopen 의 timeout 은 '소켓 한 번의 대기' 에만 걸린다. 프록시나 보안 프로그램이
+       끼어들어 '연결은 살아 있는데 아무것도 안 오는' 상태가 되면 영원히 기다린다
+       (실제로 40분을 서 있었다). 그래서 **바깥에서 시간을 재서** 무슨 일이 있어도 끝낸다.
+    """
+    box = {}
+
+    def _run():
+        try:
+            body = urllib.parse.urlencode(data).encode()
+            req = urllib.request.Request(
+                url, data=body, method='POST',
+                headers={'Content-Type': 'application/x-www-form-urlencoded'})
+            with urllib.request.urlopen(req, timeout=20) as r:
+                box['ok'] = json.loads(r.read().decode('utf-8'))
+        except BaseException as e:          # HTTPError 도 여기로 모은다
+            box['err'] = e
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(deadline)
+    if t.is_alive():
+        raise TimeoutError(
+            f'구글이 {deadline}초 안에 답하지 않았습니다. 프록시·VPN·백신(nProtect 등)이'
+            ' 막고 있을 수 있습니다 — 잠시 끄고 다시 해보세요.')
+    if 'err' in box:
+        raise box['err']
+    return box['ok']
 
 
-def get_json(url, token):
-    req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read().decode('utf-8'))
+def get_json(url, token, deadline=20):
+    """조회도 바깥에서 시간을 잰다 — 여기에 제한이 없어서 연동이 영영 멈춘 적이 있다."""
+    box = {}
+
+    def _run():
+        try:
+            req = urllib.request.Request(url, headers={'Authorization': 'Bearer ' + token})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                box['ok'] = json.loads(r.read().decode('utf-8'))
+        except BaseException as e:
+            box['err'] = e
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    t.join(deadline)
+    if t.is_alive():
+        raise TimeoutError(f'구글이 {deadline}초 안에 답하지 않았습니다')
+    if 'err' in box:
+        raise box['err']
+    return box['ok']
 
 
 def load_token():
@@ -196,6 +273,12 @@ def link():
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            # ⚠️ 브라우저는 /favicon.ico 같은 것을 먼저 보내기도 한다. 그걸 '응답' 으로
+            #    받아버리면 진짜 응답을 놓친다 — code 나 error 가 있는 것만 받는다.
+            if 'code' not in q and 'error' not in q:
+                self.send_response(204)
+                self.end_headers()
+                return
             got['code'] = (q.get('code') or [''])[0]
             got['error'] = (q.get('error') or [''])[0]
             ok = bool(got['code'])
@@ -210,7 +293,16 @@ def link():
             pass          # 콘솔을 어지럽히지 않는다
 
     httpd = http.server.HTTPServer(('127.0.0.1', port), Handler)
-    threading.Thread(target=httpd.handle_request, daemon=True).start()
+
+    def _serve_until_answer():
+        """답이 올 때까지 계속 받는다 — 한 번만 받으면 favicon 하나에 놓친다."""
+        while not (got.get('code') or got.get('error')):
+            try:
+                httpd.handle_request()
+            except Exception:
+                return
+
+    threading.Thread(target=_serve_until_answer, daemon=True).start()
 
     url = AUTH_URL + '?' + urllib.parse.urlencode({
         'client_id': cid, 'redirect_uri': redirect, 'response_type': 'code',
@@ -240,34 +332,50 @@ def link():
         print('❌ 허용을 못 받았습니다:', got.get('error') or '시간 초과')
         return 1
 
-    print('🔑 열쇠를 받는 중…')
+    print('🔑 열쇠를 받는 중… (구글에 연결합니다)')
     try:
         j = post_form(TOKEN_URL, {'code': got['code'], 'client_id': cid, 'client_secret': csec,
                                   'redirect_uri': redirect, 'grant_type': 'authorization_code'})
     except urllib.error.HTTPError as e:
-        _d = (e.read() or b'').decode('utf-8', 'replace')[:300]
+        _d = (e.read() or b'').decode('utf-8', 'replace')[:400]
         print('❌ 열쇠 교환 실패:', e.code, _d)
         if 'redirect_uri' in _d:
             print('   → 구글 클라우드에서 이 열쇠를 **데스크톱 앱**으로 만들었는지 확인해주세요.')
             print('     (웹 애플리케이션으로 만들면 이 방식이 막힙니다)')
+        if 'invalid_client' in _d:
+            print('   → 클라이언트 ID·보안 비밀이 서로 다른 프로젝트 것일 수 있습니다.')
+            print('     바탕화면에 열쇠 파일이 여러 개면 --secrets 로 콕 집어주세요.')
+        if 'invalid_grant' in _d:
+            print('   → 허용을 누른 지 오래됐을 수 있습니다(코드는 몇 분이면 만료됩니다).')
+            print('     python bot/link.py 를 다시 돌려 바로 허용해주세요.')
+        return 1
+    except Exception as e:
+        # ⚠️ 연결 끊김·시간 초과는 HTTPError 가 아니다. 그대로 두면 시커먼 추적문만 남는다.
+        print('❌ 열쇠 교환 중 통신이 막혔습니다:', e)
+        print('   인터넷·방화벽·백신을 한 번 보시고 다시 돌려주세요.')
         return 1
     if not j.get('refresh_token'):
         print('❌ 갱신 토큰이 안 왔습니다. 구글 계정의 [보안 → 타사 앱] 에서 이 앱의 접근을')
         print('   지운 뒤 다시 해보세요. (한 번 허용한 계정은 갱신 토큰을 다시 안 줍니다)')
         return 1
 
-    name, chan = None, None
-    try:
-        name, chan = whoami(j['access_token'])
-    except Exception:
-        pass
-
+    # ⚠️ **먼저 저장한다.** 예전에는 채널 이름을 알아본 뒤에 저장했는데, 그 조회가
+    #    멈추는 바람에 정작 제일 중요한 열쇠가 저장되지 않았다(실제로 두 번 그랬다).
+    #    채널 이름은 '있으면 좋은 것' 이지 저장을 막을 이유가 없다.
     with io.open(TOKEN_PATH, 'w', encoding='utf-8') as f:
         json.dump({'client_id': cid, 'client_secret': csec,
                    'refresh_token': j['refresh_token']}, f, ensure_ascii=False, indent=2)
     print()
     print('=' * 66)
     print(f'✅ 연동 끝났습니다 — {os.path.relpath(TOKEN_PATH)} 에 저장했습니다')
+
+    name, chan = None, None
+    try:
+        print('📺 어느 채널에 묶였는지 확인하는 중…')
+        name, chan = whoami(j['access_token'])
+    except Exception as e:
+        print(f'   (확인은 못 했습니다 — {e})')
+        print('   나중에 python bot/link.py --check 로 보시면 됩니다.')
     if name:
         print(f'📺 묶인 채널: **{name}**  ({chan})')
         print('   이 이름으로 채팅이 올라갑니다. 본계정이면 다시 연동해주세요.')
@@ -284,8 +392,15 @@ if __name__ == '__main__':
                     help='구글이 내려준 client_secret_*.json 경로 (안 주면 알아서 찾는다)')
     a = ap.parse_args()
     SECRET_FILE = a.secrets
+    sys.stdout = _Tee(LOG_PATH, sys.stdout)      # 막혔을 때 읽을 수 있게 남긴다
     try:
         sys.exit(check() if a.check else link())
     except KeyboardInterrupt:
         print('\n👋 그만뒀습니다.')
+        sys.exit(1)
+    except Exception:
+        # ⚠️ 여기까지 온 예외는 시커먼 추적문만 남기고 끝난다. 파일에도 남겨야 잡는다.
+        import traceback
+        print('❌ 뜻밖의 오류로 멈췄습니다:')
+        traceback.print_exc(file=sys.stdout)
         sys.exit(1)
