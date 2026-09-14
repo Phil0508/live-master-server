@@ -145,6 +145,42 @@ def top_name(st):
 
 GOAL_MARKS = (25, 50, 75, 90)
 
+# 🎛️ 사건 → 조종실 스위치 이름. 조종실(state['announce_bot']['say'])에서 끄면 안 나간다.
+# ⚠️ 여기 없는 사건은 늘 나간다. 새 사건을 만들면 여기에도 적어야 조종실에서 끌 수 있다.
+SAY_OF = {
+    'donation': 'donation',
+    'rank_top': 'rank_top', 'rank_top_only': 'rank_top',
+    'rank_close': 'rank_close',
+    'goal': 'goal', 'goal_done': 'goal',
+    'dice_roll': 'dice', 'dice_score': 'dice', 'dice_lap': 'dice', 'dice_key': 'dice',
+    'dice_steal': 'dice', 'dice_giveall': 'dice', 'dice_blackhole': 'dice',
+}
+# 📣 되풀이 안내: 봇 설정 이름 ↔ 조종실 이름(분 단위)
+NOTICE_MIN_OF = {'account_every_sec': 'account_min',
+                 'rank_every_sec': 'rank_min',
+                 'fundjar_every_sec': 'fundjar_min'}
+
+
+def bot_cfg(st):
+    """조종실이 정한 설정. 없으면 빈 사전 — 그때는 파일 설정대로 간다.
+
+    ⚠️ 서버가 이 값을 상태에 실어 SSE 로 보낸다. 봇은 다른 프로그램이라 서버가 직접
+       켜고 끌 수는 없고, 봇이 이걸 보고 스스로 입을 다무는 방식이다.
+    """
+    b = st.get('announce_bot')
+    return b if isinstance(b, dict) else {}
+
+
+def says(st, key):
+    """이 사건을 말해도 되나 — 조종실 스위치를 본다."""
+    name = SAY_OF.get(key) or ('idle' if key.startswith('idle.') else None)
+    if not name:
+        return True
+    say = bot_cfg(st).get('say')
+    if not isinstance(say, dict) or name not in say:
+        return True          # 조종실이 정한 게 없으면 문구표대로 간다
+    return bool(say[name])
+
 
 def _queue_ids(st):
     return [str(q.get('id') or '') for q in (st.get('reaction_queue') or []) if q.get('id')]
@@ -366,6 +402,7 @@ class Bot:
         self.wlock = threading.Lock()   # detect(받는 실) 와 훑기(보내는 실) 가 같이 만진다
         self.sent_today, self.today = 0, time.strftime('%Y-%m-%d')
         self.interval = float(cfg.get('min_interval_sec', 25))
+        self.backoff = 0.0         # 유튜브가 막아서 늘려둔 만큼 (조종실이 내려도 안 지워진다)
         self.stop = False
         self.yt = None
         self.dry_path = os.path.join(HERE, 'dryrun.log')
@@ -444,7 +481,7 @@ class Bot:
         self.prev = st
         # ⚠️ 문구를 [] 로 비워 둔 사건은 여기서 버린다. 큐에 넣어 두면 여섯 칸을
         #    말없이 차지하고, 정작 알릴 일을 밀어낸다.
-        evs = [e for e in evs if self.tpl.has(e.key)]
+        evs = [e for e in evs if self.tpl.has(e.key) and says(st, e.key)]
         if not evs:
             return
         self.last_event = time.time()
@@ -492,6 +529,23 @@ class Bot:
     def _tick(self):
         now = time.time()
         self._sweep_waiting(now)
+        live = bot_cfg(self.state)
+        # 🎛️ 조종실에서 봇을 끄면 한마디도 안 한다.
+        # ⚠️ 끄는 동안 쌓인 소식 중 **후원만 남기고 버린다.** 다시 켰을 때
+        #    '1위가 바뀌었습니다' 가 10분 늦게 나가면 거짓말이 된다. 반대로 후원은
+        #    늦더라도 인사해야 한다 — 돈을 낸 사람이기 때문이다.
+        #    (하루 예산을 넘겼을 때와 같은 규칙이다)
+        if live.get('enabled') is False:
+            with self.lock:
+                if any(e.prio != P_DONATION for e in self.q):
+                    self.q = deque(e for e in self.q if e.prio == P_DONATION)
+            return
+        # ⚠️ 조종실이 간격을 정하면 그게 기본이 된다. 다만 유튜브가 '너무 빠르다' 고 막아서
+        #    늘려둔 값(self.interval)은 **그 위에 얹힌다** — 조종실에서 5초로 내렸다고
+        #    막힌 상태에서 5초마다 두드리면 더 오래 막힌다.
+        iv = live.get('min_interval_sec')
+        if iv:
+            self.interval = max(float(iv), self.backoff)
         if now - self.last_sent < self.interval:
             return
         if self.cfg.get('only_when_broadcasting', True) and not self.state.get('broadcast_active'):
@@ -516,6 +570,12 @@ class Bot:
         self.last_sent, self.sent_today = now, self.sent_today + 1
 
     def _ncfg(self, key, default):
+        """되풀이 안내 간격(초). **조종실이 정한 값이 파일 설정을 이긴다.**"""
+        nm = NOTICE_MIN_OF.get(key)
+        if nm:
+            live = bot_cfg(self.state).get('notices')
+            if isinstance(live, dict) and live.get(nm) is not None:
+                return float(live[nm]) * 60      # 조종실은 분, 여기는 초
         return float((self.cfg.get('notices') or {}).get(key, default))
 
     def _notice(self, now):
@@ -580,6 +640,7 @@ class Bot:
             # 너무 빨리 쳐서 막힌 것이면 스스로 느려진다
             if 'rateLimit' in str(err):
                 self.interval = min(self.interval * 2, 300)
+                self.backoff = self.interval
                 print(f'⏳ 간격을 {self.interval:.0f}초로 늘립니다')
 
 

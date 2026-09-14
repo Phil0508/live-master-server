@@ -156,6 +156,16 @@
         /* 그룹 사이 세로 구분선 */
         .tab-sep { width: 1px; align-self: stretch; background: var(--border-light); margin: 3px 4px; flex: 0 0 auto; }
         /* 핵심 그룹 탭은 평소에도 살짝 밝게(자주 쓰는 곳임을 표시) */
+        /* 🤖 진행봇 탭 — 스위치 줄 */
+        .ab-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+                  background: rgba(0,0,0,0.22); border: 1px solid var(--border-light);
+                  border-radius: var(--r-2); cursor: pointer; }
+        .ab-chk { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+        .ab-txt { flex: 1; min-width: 0; }
+        .ab-t { font-size: var(--fs-3); font-weight: 700; color: #fff; }
+        .ab-h { display: block; font-size: var(--fs-1); color: var(--text-muted); line-height: 1.4; }
+        .ab-num { width: 62px; text-align: right; flex-shrink: 0; }
+        .ab-unit { font-size: var(--fs-2); color: var(--text-muted); flex-shrink: 0; }
         .tab-btn.tab-key:not(.active) { color: #cfe0ff; }
         .tab-btn { 
             background: transparent; 
@@ -1319,6 +1329,7 @@
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
             <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
             <a href="/signature-display" target="_blank" class="tab-extra" style="text-decoration: none;"><button class="tab-btn"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
         </div>
         <!-- 후원 결재 대기함 (탭과 무관하게 항상 보인다) -->
@@ -1679,6 +1690,64 @@
         </div>
     </div>
 
+    <!-- 🤖 진행봇 -->
+    <div id="tab-bot" class="tab-content">
+        <div class="group-box" style="margin-bottom:15px; border-color:rgba(109,179,255,0.4); background:rgba(109,179,255,0.04);">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--accent);"><i class="fa-solid fa-robot"></i> 🤖 진행봇 — 유튜브 라이브 채팅</span>
+                <label class="apple-switch" title="끄면 봇이 한마디도 안 합니다">
+                    <input type="checkbox" id="ab-on" onchange="abSet({enabled:this.checked})">
+                    <span class="apple-slider"></span>
+                </label>
+            </div>
+            <div style="font-size:var(--fs-2); color:var(--text-muted); margin:8px 0 12px; line-height:1.6;">
+                방송에서 일어난 일을 <b>유튜브 라이브 채팅</b>에 대신 적어주는 프로그램입니다.
+                여기서 켜고 끄면 <b>방송 중에도 바로</b> 바뀝니다.
+            </div>
+            <!-- ⚠️ 봇은 서버가 아니라 다른 프로그램이다. 안 떠 있으면 여기서 뭘 눌러도 아무 일도 안 난다.
+                 그 사실을 숨기면 사장님이 "껐는데 왜 계속 말해" / "켰는데 왜 조용해" 로 헤맨다. -->
+            <div id="ab-alive" style="font-size:var(--fs-2); padding:10px 12px; border-radius:var(--r-2);
+                        border:1px solid var(--border-light); background:rgba(0,0,0,0.25); margin-bottom:14px;">
+                봇이 붙어 있는지 확인하는 중…
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;">
+                <!-- 무엇을 말할지 -->
+                <div>
+                    <div style="font-size:var(--fs-3); font-weight:800; color:#fff; margin-bottom:8px;">
+                        <i class="fa-solid fa-comment-dots"></i> 무엇을 말할지</div>
+                    <div id="ab-say" style="display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+
+                <!-- 되풀이 안내 · 간격 -->
+                <div>
+                    <div style="font-size:var(--fs-3); font-weight:800; color:#fff; margin-bottom:8px;">
+                        <i class="fa-solid fa-bullhorn"></i> 되풀이 안내 <span style="font-weight:600; color:var(--text-muted); font-size:var(--fs-2);">(0 이면 끔)</span></div>
+                    <div id="ab-notices" style="display:flex; flex-direction:column; gap:6px;"></div>
+
+                    <div style="margin-top:16px; font-size:var(--fs-3); font-weight:800; color:#fff; margin-bottom:8px;">
+                        <i class="fa-solid fa-stopwatch"></i> 최소 간격</div>
+                    <div style="display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.25);
+                                padding:10px 12px; border-radius:var(--r-2); border:1px solid var(--border-light);">
+                        <input type="range" id="ab-iv" min="5" max="120" step="5" value="25"
+                               oninput="document.getElementById('ab-iv-t').innerText=this.value+'초'"
+                               onchange="abSet({min_interval_sec:parseInt(this.value)})"
+                               style="flex:1; accent-color:var(--accent);">
+                        <span id="ab-iv-t" style="font-weight:800; color:var(--accent); min-width:46px; text-align:right;">25초</span>
+                    </div>
+                    <div style="font-size:var(--fs-1); color:var(--text-muted); margin-top:6px; line-height:1.5;">
+                        늘리면 조용해집니다. 유튜브가 “너무 빠르다”고 막으면 봇이 <b>스스로</b> 더 늘립니다.
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:16px; font-size:var(--fs-1); color:var(--text-muted); line-height:1.6;
+                        border-top:1px solid var(--border-light); padding-top:12px;">
+                💝 후원 인사는 <b>후원이 들어올 때가 아니라 리액션이 화면에 나올 때</b> 나갑니다(스포 방지).<br>
+                📝 말하는 <b>문구</b>는 <code>bot/messages.json</code> 에서 고칩니다. 여기서는 켜고 끄기만 합니다.
+            </div>
+        </div>
+    </div>
     <div id="tab-roulette" class="tab-content">
         <div id="roulette-grid-container" style="display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start;">
             <!-- 룰렛 제어/설정 카드 -->
@@ -3291,6 +3360,7 @@
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
             try { dgcSync(); } catch(e) {}       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
             try { ntcSync(); } catch(e) {}       // 📣 안내 전광판 설정 반영
+            try { abSync(false); } catch(e) {}   // 🤖 진행봇 설정 반영
             try { renderVipLive(false); } catch(e) {}   // 👑 이번 방송 순위 등급(탭이 보일 때만)
             // ⚠️ 아래 조기 반환은 "입력 중에 값이 튀는 것"을 막으려는 것이다. 그런데 예전에는
             //    승인 대기함까지 같이 멈췄다 — 어디든 칸을 눌러둔 채 자리를 뜨면 그 사이 들어온
@@ -7977,6 +8047,98 @@ initFoldablePanels();
                 acctToast(r.ok ? ('📣 ' + String(d.text || '').slice(0, 26)) : (d.message || '실패'),
                           r.ok ? 'ok' : 'warn');
             } catch (e) { acctToast('통신 실패', 'warn'); }
+        }
+
+        /* == 🤖 진행봇 ====================================================
+           봇은 **다른 프로그램**(bot/announce.py)이다. 서버는 설정을 상태에 적어
+           SSE 로 뿌릴 뿐이고, 봇이 그걸 보고 스스로 입을 다문다.
+           ⚠️ 그래서 봇이 안 떠 있으면 여기서 뭘 눌러도 아무 일도 안 난다.
+              그 사실을 화면에 그대로 보여준다 — 숨기면 사장님이 헤맨다. */
+        const AB_SAY = [
+            ['donation',   '💝 후원 감사',      '리액션이 화면에 나올 때 “누가 얼마”를 적습니다'],
+            ['rank_top',   '👑 1위 바뀜',       '순위 1등이 바뀌면 알립니다'],
+            ['rank_close', '🔥 접전(점수차)',   '1·2위가 바짝 붙으면 “단 2만 차이!”라고 외칩니다'],
+            ['goal',       '🎯 목표 진행',      '25·50·75·90%를 지날 때와 달성했을 때'],
+            ['dice',       '🎲 주사위',         '굴림·한 바퀴·황금열쇠·뺏기·블랙홀. 켜면 말이 많아집니다'],
+            ['idle',       '💬 조용할 때 질문', '아무 일도 없으면 채팅에 말을 겁니다'],
+        ];
+        const AB_NOTICE = [
+            ['account_min', '💛 후원 계좌', '폰에서는 화면의 계좌번호를 복사할 수 없습니다. 채팅에 있으면 길게 눌러 복사됩니다'],
+            ['rank_min',    '📊 순위 요약', '지금 1·2·3위와 점수차를 한 줄로'],
+            ['fundjar_min', '🏺 모금함',    '지금 모금함에 얼마 쌓였는지'],
+        ];
+
+        async function abSet(body) {
+            try {
+                const r = await fetch('/api/announcebot', { method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || '진행봇 설정 실패', 'warn'); abSync(true); return; }
+                if (d.announce_bot) { gd.announce_bot = d.announce_bot; abSync(true); }
+                acctToast('🤖 저장했습니다', 'ok');
+            } catch (e) { acctToast('통신 실패', 'warn'); }
+        }
+
+        function abSync(force) {
+            const box = document.getElementById('ab-say');
+            if (!box || typeof gd === 'undefined' || !gd) return;
+            const b = gd.announce_bot;
+            if (!b) return;
+            const sw = document.getElementById('ab-on');
+            if (sw && sw.checked !== !!b.enabled) sw.checked = !!b.enabled;
+
+            /* ⚠️ 매번 다시 그리면 체크를 누르는 순간 그 칸이 지워져 안 눌린다.
+                  값이 바뀌었을 때만 그린다(안내 전광판과 같은 규칙). */
+            const say = b.say || {}, ntc = b.notices || {};
+            const sig = JSON.stringify([say, ntc]);
+            if (force || sig !== box.dataset.sig) {
+                box.dataset.sig = sig;
+                box.innerHTML = AB_SAY.map(function (row) {
+                    const k = row[0], t = row[1], h = row[2];
+                    return '<label class="ab-row">'
+                        + '<input type="checkbox" ' + (say[k] ? 'checked' : '') + ' class="ab-chk"'
+                        + ' onchange="abSet({say:{' + k + ':this.checked}})">'
+                        + '<span class="ab-txt"><span class="ab-t">' + t + '</span>'
+                        + '<span class="ab-h">' + h + '</span></span></label>';
+                }).join('');
+                document.getElementById('ab-notices').innerHTML = AB_NOTICE.map(function (row) {
+                    const k = row[0], t = row[1], h = row[2];
+                    return '<div class="ab-row">'
+                        + '<span class="ab-txt"><span class="ab-t">' + t + '</span>'
+                        + '<span class="ab-h">' + h + '</span></span>'
+                        + '<input type="number" min="0" max="120" value="' + (ntc[k] || 0) + '"'
+                        + ' title="분. 0 이면 끕니다" class="ab-num"'
+                        + ' onchange="abSet({notices:{' + k + ':parseInt(this.value)||0}})">'
+                        + '<span class="ab-unit">분</span></div>';
+                }).join('');
+            }
+            const iv = document.getElementById('ab-iv');
+            if (iv && document.activeElement !== iv) {
+                const v = b.min_interval_sec || 25;
+                if (String(iv.value) !== String(v)) iv.value = v;
+                document.getElementById('ab-iv-t').innerText = v + '초';
+            }
+            abAlive();
+        }
+
+        /* 🔌 지금 실제로 채팅이 올라가는 상태인가.
+           ⚠️ 서버는 '봇 프로그램이 떠 있는지' 를 모른다(SSE 손님 수만 안다).
+              그래서 단정하지 않고, 무엇이 더 필요한지를 알려준다. */
+        function abAlive() {
+            const el = document.getElementById('ab-alive');
+            if (!el) return;
+            const b = (typeof gd !== 'undefined' && gd && gd.announce_bot) || {};
+            let html;
+            if (!b.enabled) {
+                html = '<span style="color:var(--text-muted);">⚫ <b>꺼둔 상태</b>입니다 — 봇이 한마디도 안 합니다.</span>';
+            } else if (!gd.broadcast_active) {
+                html = '<span style="color:var(--gold);">🟡 켜져 있지만 <b>방송이 시작되지 않았습니다.</b> 봇은 방송 중에만 말합니다.</span>';
+            } else {
+                html = '<span style="color:#2ecc71;">🟢 켜짐 · 방송 중</span>'
+                     + '<span style="color:var(--text-muted);"> — 봇 프로그램이 떠 있어야 실제로 채팅에 올라갑니다'
+                     + ' (<code>python bot/announce.py --live</code>).</span>';
+            }
+            if (el.innerHTML !== html) el.innerHTML = html;
         }
 
         function ntcSync() {

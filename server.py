@@ -1581,6 +1581,26 @@ DEFAULT_STATE = {
     #    화면에 뜨는 금액 = seed + score. seed 는 회사가 깔아준 상금, score 는 시청자 후원분.
     #    ⚠️ 목표 게이지 셈에는 **안 넣는다**. 상금으로 나갈 돈이라 방송 매출이 아니다.
     "fundjar": {"name": "모금함", "enabled": False, "seed": 200000, "score": 0},
+    # 🤖 진행봇 설정 — 봇(bot/announce.py)은 **다른 프로그램**이라 서버가 켜고 끄지는 못한다.
+    #    대신 봇이 SSE 로 이 값을 받아 스스로 입을 다물거나 연다. 조종실에서 방송 중에 바꾼다.
+    #    ⚠️ 봇이 안 떠 있으면 여기서 뭘 눌러도 아무 일도 안 일어난다 — 조종실이 그렇게 안내한다.
+    "announce_bot": {
+        "enabled": True,            # 전체 스위치. 끄면 봇이 한마디도 안 한다
+        "min_interval_sec": 25,     # 최소 몇 초에 한 줄
+        "say": {                    # 무엇을 말할지
+            "donation": True,       # 💝 후원 감사 (리액션이 화면에 나올 때)
+            "rank_top": True,       # 👑 1위 바뀜
+            "rank_close": False,    # 🔥 접전 — 1·2위 점수차
+            "goal": False,          # 🎯 목표 진행·달성
+            "dice": False,          # 🎲 주사위 전부
+            "idle": True,           # 💬 조용할 때 던지는 질문
+        },
+        "notices": {                # 📣 되풀이 안내. **분** 단위, 0 이면 끔
+            "account_min": 7,       # 💛 후원 계좌
+            "rank_min": 0,          # 📊 순위 요약
+            "fundjar_min": 0,       # 🏺 모금함
+        },
+    },
     "target_goal": 50000,
     "goal_offset": 0,          # 💰 게이지 보정(원). 막대의 현재 금액에만 ± 로 얹는다. 방송 끝나면 0
     "theme": "default",
@@ -2002,6 +2022,19 @@ def load_data():
     _fj = state.get("fundjar")
     if not isinstance(_fj, dict) or _fj is DEFAULT_STATE["fundjar"]:
         state["fundjar"] = copy.deepcopy(DEFAULT_STATE["fundjar"])
+
+    # 🤖 진행봇 설정 보정 — 위와 같은 이유(기본값 객체를 그대로 물면 안 된다) + 속칸도 채운다.
+    #    ⚠️ 나중에 스위치를 하나 더 늘려도 옛 저장본이 그 칸 없이 돌아오면 안 된다.
+    _ab = state.get("announce_bot")
+    if not isinstance(_ab, dict) or _ab is DEFAULT_STATE["announce_bot"]:
+        _ab = copy.deepcopy(DEFAULT_STATE["announce_bot"])
+        state["announce_bot"] = _ab
+    for _sub in ("say", "notices"):
+        if not isinstance(_ab.get(_sub), dict):
+            _ab[_sub] = copy.deepcopy(DEFAULT_STATE["announce_bot"][_sub])
+        else:
+            for _k, _v in DEFAULT_STATE["announce_bot"][_sub].items():
+                _ab[_sub].setdefault(_k, _v)
 
     # saved_colors 보정 (6개 -> 9개로 확장 및 하위 호환 마이그레이션)
     default_colors = ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff']
@@ -4544,7 +4577,7 @@ def api_data():
             #      상금이 어긋난다(운영비 점수를 지키는 것과 똑같은 이유다).
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
-                            'fundjar')
+                            'fundjar', 'announce_bot')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -6659,6 +6692,61 @@ def api_fundjar():
         return jsonify({'status': 'success', 'fundjar': j})
     except Exception as e:
         print(f'[모금함 오류] {e}')
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/announcebot', methods=['POST'])
+def api_announce_bot():
+    """🤖 진행봇 설정 — 조종실에서 켜고 끄고 간격을 바꾼다.
+
+    ⚠️ 봇은 **다른 프로그램**이다(bot/announce.py). 서버는 이 값을 상태에 적어 SSE 로
+       뿌릴 뿐이고, 봇이 그걸 보고 스스로 입을 다문다. 봇이 안 떠 있으면 아무 일도 안 난다.
+    ⚠️ /api/data 로는 못 바꾼다(SERVER_OWNED). 조종실이 낡은 사본을 통째로 보낼 때
+       방금 바꾼 설정이 되돌아가면 안 되기 때문이다 — 모금함과 같은 이유다.
+    """
+    try:
+        body = request.get_json(silent=True) or {}
+        _D = DEFAULT_STATE['announce_bot']
+        with file_lock:
+            state = load_data()
+            b = state.get('announce_bot')
+            if not isinstance(b, dict):
+                b = copy.deepcopy(_D)
+                state['announce_bot'] = b
+            for _sub in ('say', 'notices'):
+                if not isinstance(b.get(_sub), dict):
+                    b[_sub] = copy.deepcopy(_D[_sub])
+
+            if 'enabled' in body:
+                b['enabled'] = bool(body.get('enabled'))
+            if body.get('min_interval_sec') is not None:
+                _iv = _as_int(body.get('min_interval_sec'))
+                if _iv is None or not (5 <= _iv <= 600):
+                    return jsonify({'status': 'error',
+                                    'message': '간격은 5~600초 사이입니다'}), 400
+                b['min_interval_sec'] = _iv
+            # ⚠️ 모르는 이름은 조용히 버린다. 오타로 상태에 쓰레기 칸이 생기면
+            #    봇은 그걸 안 보는데 조종실에는 켜진 것처럼 남는다.
+            for _k, _v in (body.get('say') or {}).items():
+                if _k in _D['say']:
+                    b['say'][_k] = bool(_v)
+            for _k, _v in (body.get('notices') or {}).items():
+                if _k not in _D['notices']:
+                    continue
+                _m = _as_int(_v)
+                if _m is None or not (0 <= _m <= 120):
+                    return jsonify({'status': 'error',
+                                    'message': '안내 간격은 0~120분 사이입니다 (0 이면 끔)'}), 400
+                b['notices'][_k] = _m
+
+            save_data(state)
+            broadcast_event('update', state)
+        _on = [k for k, v in b['say'].items() if v]
+        print(f"  🤖 [진행봇] {'켬' if b['enabled'] else '끔'} · {b['min_interval_sec']}초"
+              f" · 말하는 것 {','.join(_on) or '없음'}", flush=True)
+        return jsonify({'status': 'success', 'announce_bot': b})
+    except Exception as e:
+        print(f'[진행봇 설정 오류] {e}')
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 

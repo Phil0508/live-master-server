@@ -196,18 +196,21 @@ chk('큰 사건은 그냥 굴림보다 먼저 나간다',
         for x in ({'after': {'kind': 'goto'}}, {'key_effect': 'x'},
                   {'steal': {'per': 5}}, {'lap_contrib': {'points': 10}})))
 
-# 🔇 …하지만 지금은 **아무 말도 안 한다**. 사장님: "안내봇이 주사위에 관해서 안내하는건 빼".
-#    판단하는 코드는 그대로 둔다 — 문구만 비웠으니 마음이 바뀌면 문구만 넣으면 된다.
+# 🔇 …하지만 기본값은 **말하지 않음**이다. 사장님: "안내봇이 주사위에 관해서 안내하는건 빼".
+#    ⚠️ 알아보는 코드와 문구는 그대로 둔다. 조종실에서 켜면 그 자리에서 다시 말한다.
+#       (예전에는 문구를 비워서 껐는데, 그러면 조종실 스위치가 거짓말을 한다)
+_DICE_KEYS = ('dice_roll', 'dice_score', 'dice_lap', 'dice_key', 'dice_steal',
+              'dice_giveall', 'dice_blackhole')
+_OFF = S(announce_bot={'say': {'dice': False}})
+_ON = S(announce_bot={'say': {'dice': True}})
+for k in _DICE_KEYS:
+    if A.says(_OFF, k):
+        chk('꺼두면 주사위를 안 친다: ' + k, False)
+chk('꺼두면 주사위를 아예 안 친다', True)
+chk('조종실에서 켜면 다시 친다', all(A.says(_ON, k) for k in _DICE_KEYS))
 _T = A.Templates(os.path.join(ROOT, 'bot', 'messages.json'))
-for k in ('dice_roll', 'dice_score', 'dice_lap', 'dice_key', 'dice_steal',
-          'dice_giveall', 'dice_blackhole'):
-    if _T._list(k):
-        chk('주사위를 안 친다: ' + k, False, _T._list(k))
-chk('주사위 사건을 알아보기는 하되 입은 막았다', True)
-chk('주사위 문구는 보관함에 그대로 있다 (되돌릴 수 있다)',
-    all((_T.data.get('_꺼둔_문구') or {}).get(k)
-        for k in ('dice_roll', 'dice_lap', 'dice_key', 'dice_steal',
-                  'dice_giveall', 'dice_blackhole')))
+chk('켰을 때 할 말이 있다 (문구를 안 지웠다)', all(_T._list(k) for k in _DICE_KEYS))
+chk('서버 기본값은 꺼짐이다', '"dice": False' in SRV)
 
 print()
 print('=' * 74)
@@ -342,41 +345,127 @@ chk('안내는 사건보다 뒤로 밀린다',
 
 print()
 print('=' * 74)
-print('⑧ 무엇을 안 치는가 — 사장님이 빼 달라 하신 것들')
+print('⑧ 문구표 — 무슨 말을 할지만 정한다')
 print('=' * 74)
-# 화면에 이미 다 있는 것들이다. 채팅까지 같은 말을 하면 시끄럽기만 하다.
-# 주사위는 ② 에서 따로 본다 — 알아보기는 하되 입은 막았다
-chk('목표 진행(50%)을 안 친다', TPL._list('goal') == [], TPL._list('goal'))
-chk('목표 달성도 안 친다', TPL._list('goal_done') == [])
-chk('접전(점수차)을 안 친다', TPL._list('rank_close') == [])
-chk('순위 요약(점수차)을 꺼 뒀다', CFG['notices']['rank_every_sec'] == 0)
-chk('모금함을 꺼 뒀다', CFG['notices']['fundjar_every_sec'] == 0)
-chk('1위 바뀜에는 점수차를 안 붙인다',
+# ⚠️ 설계가 바뀌었다. 예전에는 문구를 비워서 껐는데, 그러면 조종실에서 '주사위 켜기' 를
+#    눌러도 할 말이 없어 아무 일도 안 일어난다(스위치가 거짓말을 한다).
+#    그래서 문구는 **전부 갖춰 두고**, 켜고 끄는 건 조종실이 쥔다(⑩·⑪).
+USED_MSG = ('donation', 'rank_top', 'rank_top_only', 'rank_close', 'goal', 'goal_done',
+            'dice_roll', 'dice_score', 'dice_lap', 'dice_key', 'dice_steal',
+            'dice_giveall', 'dice_blackhole')
+for k in USED_MSG:
+    if not TPL._list(k):
+        chk('문구가 갖춰져 있다: ' + k, False)
+chk('코드가 쓰는 문구가 전부 갖춰져 있다', True)
+chk('되풀이 안내 문구도 갖춰져 있다',
+    all(TPL._list('notice.' + k) for k in ('account', 'rank2', 'rank3', 'fundjar')))
+chk('조용할 때 질문도 갖춰져 있다',
+    all((TPL.data.get('idle') or {}).get(k) for k in ('dice', 'goal', 'any')))
+# 비우는 길도 남겨 둔다 — 조종실보다 아래에 있는 최후의 차단기다
+chk('칸을 비우면 조종실에서 켜도 안 친다', 'self.tpl.has(e.key)' in BOT)
+chk('빈 칸인지 물어볼 수 있다', TPL.has('donation') and not TPL.has('있지도않은칸'))
+# ⚠️ 1위 바뀜에 점수차를 붙일지는 문구로 정한다(사장님: "점수차도 빼줘")
+chk('1위 바뀜에는 점수차를 안 붙여 뒀다',
     all('{gap}' not in t and '{second}' not in t for t in TPL._list('rank_top')),
     TPL._list('rank_top'))
-
-# 남는 것 — 이게 전부다
-chk('후원 감사는 남는다', bool(TPL._list('donation')))
+chk('붙이는 법을 파일에 적어 뒀다',
+    any('{second}' in x and '{gap}' in x for x in TPL.data.get('_읽는법', [])))
+# ⚠️ 문구표에만 있고 코드가 안 쓰는 칸이 있으면, 고쳤다고 믿는데 아무 일도 안 일어난다
+DOCS = {'_읽는법', 'idle', 'notice'}
+for k in TPL.data:
+    if k not in DOCS and k not in USED_MSG:
+        chk('문구표에만 있고 코드는 안 쓰는 칸: ' + k, False)
+chk('문구표에 헛된 칸이 없다', True)
 chk('점수 배정은 한 건씩 안 알린다 (②-2 참고)', 'score_up' not in BOT)
-chk('1위 바뀜은 남는다', bool(TPL._list('rank_top')))
-chk('계좌 안내는 남는다',
-    bool(TPL._list('notice.account')) and CFG['notices']['account_every_sec'] > 0)
-chk('조용할 때 질문은 남는다', bool(TPL._list('idle.any')))
 
-# 되돌릴 수 있어야 한다 — 지운 게 아니라 옮긴 것이다
-BOX = TPL.data.get('_꺼둔_문구') or {}
-for k in ('dice_roll', 'dice_lap', 'dice_key', 'dice_steal', 'dice_giveall',
-          'dice_blackhole', 'goal', 'goal_done', 'rank_close'):
-    if not BOX.get(k):
-        chk('되돌릴 문구가 남아 있다: ' + k, False)
-chk('꺼 둔 문구를 전부 되돌릴 수 있다', True)
+print()
+print('=' * 74)
+print('⑩ 조종실 스위치 — 방송 중에 켜고 끈다')
+print('=' * 74)
+# 봇은 서버가 아니라 **다른 프로그램**이다. 서버는 설정을 상태에 적어 SSE 로 뿌리고,
+# 봇이 그걸 보고 스스로 입을 다문다. 그래서 '무엇을 보고 판단하는가' 가 전부다.
+CTL = io.open(os.path.join(ROOT, 'controller.html'), encoding='utf-8', errors='replace').read()
 
-chk('문구가 빈 사건은 큐에 넣지도 않는다', 'self.tpl.has(e.key)' in BOT)
-chk('빈 칸인지 물어볼 수 있다', TPL.has('donation') and not TPL.has('goal'))
-# ⚠️ 주사위판이 켜져 있으면 질문 바구니가 'dice' 로 간다. 그걸 비웠으니
-#    보통 질문으로 되돌아가야 한다 — 안 그러면 봇이 내내 한마디도 안 한다.
-chk('비운 질문 바구니는 보통 질문으로 되돌아간다',
-    "key = 'idle.any'" in BOT and 'if not self.tpl.has(key)' in BOT)
+_st = S(announce_bot={'enabled': True, 'min_interval_sec': 25,
+                      'say': {'donation': True, 'rank_top': False, 'rank_close': False,
+                              'goal': False, 'dice': False, 'idle': True},
+                      'notices': {'account_min': 7, 'rank_min': 0, 'fundjar_min': 0}})
+chk('켜둔 것은 말한다', A.says(_st, 'donation'))
+chk('꺼둔 것은 안 말한다', not A.says(_st, 'rank_top'))
+chk('1위 문구 두 가지가 같은 스위치를 쓴다',
+    not A.says(_st, 'rank_top_only') and not A.says(_st, 'rank_top'))
+chk('주사위는 한 스위치로 전부 꺼진다',
+    not any(A.says(_st, k) for k in ('dice_roll', 'dice_score', 'dice_lap', 'dice_key',
+                                     'dice_steal', 'dice_giveall', 'dice_blackhole')))
+chk('목표도 한 스위치로 전부', not A.says(_st, 'goal') and not A.says(_st, 'goal_done'))
+chk('조용할 때 질문도 끌 수 있다',
+    A.says(_st, 'idle.any') and not A.says(
+        S(announce_bot={'say': {'idle': False}}), 'idle.any'))
+chk('조종실이 정한 게 없으면 문구표대로 간다', A.says(S(), 'donation') and A.says(S(), 'dice_roll'))
+# ⚠️ 스위치 이름을 모르는 사건은 늘 나간다. 새 사건을 만들면 SAY_OF 에도 적어야 끌 수 있다.
+chk('모르는 사건은 막지 않는다', A.says(_st, '아직없는사건'))
+
+chk('사건마다 스위치 이름이 정해져 있다',
+    A.SAY_OF.get('rank_close') == 'rank_close' and A.SAY_OF.get('dice_lap') == 'dice')
+chk('큐에 넣기 전에 스위치를 본다', 'says(st, e.key)' in BOT)
+chk('전체 스위치를 끄면 한마디도 안 한다', "live.get('enabled') is False" in BOT)
+# ⚠️ 끈 동안 쌓인 소식: 후원만 남기고 버린다. '1위가 바뀌었습니다' 가 10분 늦게 나가면 거짓말이다
+chk('끈 동안 쌓인 것은 후원만 남긴다',
+    'e.prio == P_DONATION' in BOT and 'live.get(\'enabled\') is False' in BOT)
+
+# 안내 간격 — 조종실은 '분', 봇은 '초'
+_b = A.Bot({'server': 'x', 'notices': {'account_every_sec': 420}}, TPL)
+_b.state = S(announce_bot={'notices': {'account_min': 3}})
+chk('안내 간격은 조종실이 이긴다 (분 → 초)', _b._ncfg('account_every_sec', 420) == 180.0,
+    _b._ncfg('account_every_sec', 420))
+_b.state = S()
+chk('조종실 값이 없으면 파일 설정대로', _b._ncfg('account_every_sec', 420) == 420.0)
+chk('0 분이면 그 안내는 꺼진다',
+    A.Bot({'server': 'x'}, TPL).__class__ and True)
+_b.state = S(announce_bot={'notices': {'account_min': 0}})
+chk('0 으로 두면 안내를 안 한다', _b._ncfg('account_every_sec', 420) == 0.0)
+
+# 유튜브가 막아서 늘린 간격은 조종실이 내려도 안 지워진다
+chk('막혀서 늘린 간격은 조종실보다 세다', 'max(float(iv), self.backoff)' in BOT)
+
+print()
+print('=' * 74)
+print('⑪ 조종실 화면 — 눌러서 바꿀 수 있는가')
+print('=' * 74)
+chk('진행봇 탭이 있다', 'tab-bot' in CTL and '진행봇' in CTL)
+chk('전체 스위치가 있다', 'id="ab-on"' in CTL and 'abSet({enabled:this.checked})' in CTL)
+chk('전용 주소로만 저장한다 (상태 통째로 안 보낸다)', "fetch('/api/announcebot'" in CTL)
+for _k in ('donation', 'rank_top', 'rank_close', 'goal', 'dice', 'idle'):
+    if "'" + _k + "'" not in CTL:
+        chk('화면에 스위치가 있다: ' + _k, False)
+chk('말할 것 스위치가 화면에 다 있다', True)
+for _k in ('account_min', 'rank_min', 'fundjar_min'):
+    if "'" + _k + "'" not in CTL:
+        chk('화면에 안내 간격이 있다: ' + _k, False)
+chk('안내 간격이 화면에 다 있다', True)
+chk('최소 간격도 바꿀 수 있다', 'ab-iv' in CTL and 'min_interval_sec' in CTL)
+chk('새로고침 고리에 물려 있다 (다른 기기에서 바꿔도 따라온다)', 'abSync(false)' in CTL)
+# ⚠️ 매번 다시 그리면 체크를 누르는 순간 그 칸이 지워져 안 눌린다
+chk('값이 바뀌었을 때만 다시 그린다', 'box.dataset.sig' in CTL)
+# ⚠️ 봇이 안 떠 있으면 여기서 뭘 눌러도 아무 일도 안 난다. 그걸 숨기면 사장님이 헤맨다
+chk('봇이 떠 있어야 한다는 걸 화면이 알려준다',
+    'ab-alive' in CTL and 'announce.py --live' in CTL)
+chk('방송 전에는 그렇다고 알려준다', 'broadcast_active' in CTL and '방송이 시작되지 않았습니다' in CTL)
+
+print()
+print('=' * 74)
+print('⑫ 서버 — 설정을 어디로 넣고 무엇이 막히는가')
+print('=' * 74)
+chk('기본 설정이 서버에 있다', "'announce_bot'" in SRV or '"announce_bot"' in SRV)
+chk('전용 주소가 있다', "@app.route('/api/announcebot'" in SRV)
+# ⚠️ /api/data 로 바꿀 수 있으면, 조종실이 낡은 사본을 통째로 보낼 때 방금 바꾼 설정이 되돌아간다
+chk('상태를 통째로 보내도 안 덮인다 (모금함과 같은 규칙)',
+    "'fundjar', 'announce_bot')" in SRV)
+chk('말도 안 되는 간격은 거절한다', '간격은 5~600초 사이입니다' in SRV)
+chk('말도 안 되는 안내 간격도 거절한다', '안내 간격은 0~120분 사이입니다' in SRV)
+# ⚠️ 오타로 상태에 쓰레기 칸이 생기면 봇은 안 보는데 조종실에는 켜진 것처럼 남는다
+chk('모르는 스위치 이름은 버린다', "if _k in _D['say']" in SRV)
+chk('옛 저장본에 칸이 없어도 채운다', "_ab[_sub].setdefault(_k, _v)" in SRV)
 
 print()
 print('=' * 74)
