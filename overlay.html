@@ -1503,13 +1503,6 @@
             text-shadow: 0 3px 10px rgba(0,0,0,.98), 0 2px 3px #000, 0 0 20px var(--gold-glow);
         }
         .jar-amt .jar-won { font-size: 0.55em; margin-left: 3px; color: var(--gold-light); }
-        /* ⚠️ 병 안쪽 너비가 220px 뿐이라 '회사 200,000 + 후원 137,000' 은 안 들어간다.
-           병 밑에 따로 두고 만 단위로 줄인다. 27px 밑으로 내리지 말 것 — 폰에서 10px 이 된다. */
-        .jar-sub {
-            margin-top: 6px; text-align: center; font-size: 27px; font-weight: 800;
-            color: var(--gold-light); white-space: nowrap;
-            text-shadow: 0 2px 6px rgba(0,0,0,.98), 0 1px 2px #000;
-        }
         @keyframes jarPop {
             0%   { transform: scale(1); }
             35%  { transform: scale(1.06) translateY(-5px); }
@@ -2511,7 +2504,6 @@
                     </svg>
                     <div class="jar-amt" id="fundjar-amt">0<span class="jar-won">원</span></div>
                 </div>
-                <div class="jar-sub" id="fundjar-sub">회사 20만 + 후원 0</div>
             </div>
 
             <div id="dicegame-container" class="widget-container" style="position: absolute; left: 6px; top: 307px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base); pointer-events: none;">
@@ -7542,12 +7534,6 @@
         // 테두리 링은 동전 색을 따라간다 — 전부 흰색이면 금화도 은화처럼 보인다
         const JAR_RIM = { gold: '#fff1bd', silver: '#ffffff', copper: '#ffd9b3' };
         let jarBuilt = false, jarPrev = null;
-        function jarMan(n) {
-            n = Math.max(0, Math.round(n || 0));
-            if (n < 10000) return formatNum(n);
-            const m = n / 10000;
-            return (m >= 100 ? Math.round(m) : Math.round(m * 10) / 10) + '만';
-        }
         function jarBuild() {
             const box = document.getElementById('fundjar-coins');
             if (!box || jarBuilt) return;
@@ -7597,9 +7583,7 @@
             jarBuild();
             const seed = Number(j.seed) || 0, got = Number(j.score) || 0, total = seed + got;
             const amtEl = document.getElementById('fundjar-amt');
-            const subEl = document.getElementById('fundjar-sub');
             if (amtEl) amtEl.innerHTML = formatNum(total) + '<span class="jar-won">원</span>';
-            if (subEl) subEl.innerText = '회사 ' + jarMan(seed) + ' + 후원 ' + jarMan(got);
             const n = Math.min(JAR_MAX, Math.round(total / JAR_PER_COIN));
             document.querySelectorAll('#fundjar-coins .jc').forEach(el => {
                 el.style.display = (Number(el.dataset.i) < n) ? '' : 'none';

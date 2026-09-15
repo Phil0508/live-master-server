@@ -80,7 +80,11 @@
         #stage-frame { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px;
                        border: 0; background: transparent; pointer-events: none; }
         /* 무대를 쓸 때는 흉내 속살을 감춘다 — 손잡이 상자만 남는다 */
-        .stage-on .widget > *:not(.resize-handle) { display: none !important; }
+        /* ⚠️ 무대에 그려지는 것만 흉내를 감춘다. no-stage(무대에서 0x0 인 것 — 영상
+              재생기처럼 빈 것)까지 감추면 크기가 통째로 사라져 **손으로 잡을 수조차 없다.**
+              실제로 노래방·고액후원 위젯이 0x0 이 됐다(2026-09-15). 그때는 옛 흉내가
+              그나마 참값에 가깝다. */
+        .stage-on .widget:not(.no-stage) > *:not(.resize-handle) { display: none !important; }
         .stage-on .widget { background: rgba(120,200,255,.05); outline-color: rgba(140,210,255,.28); }
         .stage-on .widget::before { content: attr(data-label); position: absolute; left: 0; top: -21px;
             font: 700 12px 'Malgun Gothic', sans-serif; color: #9fe8ff; background: rgba(0,0,0,.65);
@@ -456,7 +460,6 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .jar-glow { position: absolute; inset: -16px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, var(--gold-glow), transparent 68%); opacity: 0; transition: opacity var(--t-slow) ease; }
 .jar-amt { position: absolute; left: 0; right: 0; top: 41%; text-align: center; z-index: 3; font-size: 48px; font-weight: 900; color: #fff; letter-spacing: -1px; line-height: 1; font-variant-numeric: tabular-nums; text-shadow: 0 3px 10px rgba(0,0,0,.98), 0 2px 3px #000, 0 0 20px var(--gold-glow); }
 .jar-amt .jar-won { font-size: 0.55em; margin-left: 3px; color: var(--gold-light); }
-.jar-sub { margin-top: 6px; text-align: center; font-size: 27px; font-weight: 800; color: var(--gold-light); white-space: nowrap; text-shadow: 0 2px 6px rgba(0,0,0,.98), 0 1px 2px #000; }
 .fundjar-box.jar-pop { animation: jarPop .42s var(--ease-pop); }
 .fundjar-box.jar-pop .jar-glow { opacity: 1; }
 .vip-badge-tag { display: inline-block; background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)); color: var(--vip-glow-color, var(--gold)); border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3)); /* 이름 위에 제 줄로 올린다 — 한 줄에 같이 두면 이름을 밀어낸다 */ display: block; width: max-content; margin: 0 auto 10px; /* ⚠️ 27px 밑으로 내리지 말 것 — 폰에서 2.7배 작아져 10px 밑이 된다(검사가 잡는다) */ padding: 3px 14px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; }
@@ -719,7 +722,6 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                         </svg>
                         <div class="jar-amt">337,000<span class="jar-won">원</span></div>
                     </div>
-                    <div class="jar-sub">회사 20만 + 후원 13.7만</div>
                 </div>
                 <div class="widget" id="donor-rank" data-id="donor-rank" style="left:658px; top:387px; display: none;">
                     <div class="donor-rank-board">
@@ -940,18 +942,25 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 if (isDragging || isResizing) return;   // 끄는 중에 크기가 바뀌면 손이 걸린다
                 document.querySelectorAll('.widget').forEach(el => {
                     el.dataset.label = el.dataset.label || (typeof widgetNames !== 'undefined' && widgetNames[el.id]) || el.id;
+                    // 숨겨 둔 것은 잴 수도 없고 잴 이유도 없다 — 건너뛴다
+                    if (el.style.display === 'none') return;
                     const real = d.getElementById(el.id + '-container');
                     // offsetWidth 는 transform(배율) 에 안 흔들린다 — 알맹이 크기다
                     const w = real ? real.offsetWidth : 0, h = real ? real.offsetHeight : 0;
                     const shown = w > 0 && h > 0;
                     el.classList.toggle('no-stage', !shown);
-                    if (shown) { el.style.width = w + 'px'; el.style.height = h + 'px'; }
+                    if (!shown) { el.style.width = ''; el.style.height = ''; return; }
+                    /* ⚠️ 값이 같은데도 다시 쓰면 그때마다 배치를 다시 계산한다(reflow).
+                          0.7초마다 19개면 끌던 손이 걸린다. 달라졌을 때만 쓴다. */
+                    const nw = w + 'px', nh = h + 'px';
+                    if (el.style.width !== nw) el.style.width = nw;
+                    if (el.style.height !== nh) el.style.height = nh;
                 });
             }
 
             /* 지금 잡아 둔 자리를 무대에 먹인다. 방송이 쓰는 그 함수라, 안전지대 붙잡기나
                엑셀판 자리 다툼까지 방송과 똑같이 재현된다. */
-            function pushLayoutToStage() {
+            function pushLayoutToStage(live) {
                 const w = stageWin(); if (!w || !w.applyLayout || !stageOn()) return;
                 const free = document.getElementById('free-on');
                 const ly = { __v: 2, __free: !!(free && free.checked) };
@@ -960,8 +969,54 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                                   y_px: parseInt(el.style.top) || 0,
                                   scale: parseFloat(el.dataset.scale) || 1 };
                 });
+                /* 끄는 중에는 left/top 이 아직 옛 값이다(움직임은 transform 으로만 그린다).
+                   그래서 끌고 있는 위젯만 '지금 손이 있는 자리' 로 덮어 넣는다. */
+                if (live && live.id && ly[live.id]) {
+                    if (live.x != null) ly[live.id].x_px = live.x;
+                    if (live.y != null) ly[live.id].y_px = live.y;
+                    if (live.scale != null) ly[live.id].scale = live.scale;
+                }
                 try { w.applyLayout(ly); } catch (e) {}
-                requestAnimationFrame(syncHandles);
+                if (!live) requestAnimationFrame(syncHandles);
+            }
+
+            /* 🖼️ 끄는 동안 무대가 손을 따라오게 한다.
+               ⚠️ 방송판 .widget-container 에는 자리·배율에 0.8초 미끄러짐(transition)이 걸려 있다.
+                  방송에서는 '스르륵 안착' 이 멋이지만, 편집 중에는 손보다 늦게 따라와 뚝뚝 끊겨 보인다.
+                  게다가 대결판·시그뒤집기·모금함·후원순위 넷은 자기 규칙이 그 미끄러짐을 덮어써서
+                  즉시 뛴다 — 위젯마다 느낌이 달랐던 이유다(2026-09-15 실측: "엑셀판만 잘 움직인다").
+                  그래서 끄는 동안만 iframe 안에 '전환 끄기' 를 걸고, 놓으면 도로 푼다.
+                  overlay.html 은 한 글자도 안 건드린다. */
+            let _stageDragOn = false;
+            function stageDragBegin() {
+                const d = stageDoc(); if (!d || !stageOn()) return;
+                if (!d.getElementById('ed-noanim')) {
+                    const st = d.createElement('style'); st.id = 'ed-noanim';
+                    st.textContent = 'html.ed-drag .widget-container{transition:none !important}';
+                    (d.head || d.documentElement).appendChild(st);
+                }
+                d.documentElement.classList.add('ed-drag');
+                if (_stageDragOn) return;
+                _stageDragOn = true;
+                /* 손을 뗀 뒤에 푼다 — 그런데 이 리스너는 dragEnd 보다 먼저 달려서 먼저 불린다.
+                   setTimeout(0) 으로 dragEnd→autoSaveLayout→pushLayoutToStage(마지막 자리)가 끝난 뒤로
+                   미루고, 거기서 한 프레임 더 쉬고 푼다. 바로 풀면 마지막 한 걸음이 0.8초 미끄러진다. */
+                const off = () => {
+                    document.removeEventListener('mouseup', off); document.removeEventListener('touchend', off);
+                    /* ⚠️ rAF 로 미루면 안 된다 — 탭이 가려지면 rAF 가 영영 안 와서 전환이 꺼진 채 남는다
+                       (실측: 가려진 창에서 rAF 0회). 대신 offsetWidth 를 읽어 지금 자리를 강제로 확정(reflow)한
+                       뒤 클래스를 뺀다. 이미 확정된 자리라 전환이 돌아와도 미끄러질 거리가 없다. */
+                    setTimeout(() => {
+                        const dd = stageDoc();
+                        if (dd) { void dd.documentElement.offsetWidth; dd.documentElement.classList.remove('ed-drag'); }
+                        _stageDragOn = false;
+                    }, 0);
+                };
+                document.addEventListener('mouseup', off); document.addEventListener('touchend', off);
+            }
+            function stagePushLive(x, y, scale) {
+                if (!activeWidget || !stageOn()) return;
+                pushLayoutToStage({ id: activeWidget.id, x: x, y: y, scale: scale });
             }
 
             /* 서버 상태를 무대에 넘긴다. 무대는 제 SSE 도 따로 듣지만, 편집기가 먼저 받은
@@ -1424,6 +1479,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 //  대신 안전지대 밖으로 못 나가게 dragEnd 에서 붙잡는다.)
                 selectWidget(widgetEl);
                 isDragging = true; dragMoved = false;
+                stageDragBegin();   // 🖼️ 끄는 동안 무대의 0.8초 미끄러짐을 끈다
                 startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
                 startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
                 initialX = parseInt(activeWidget.style.left) || 0;
@@ -1488,6 +1544,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 activeWidget.dataset.dy = ny - initialY;
                 activeWidget.style.transform =
                     `translate3d(${nx - initialX}px, ${ny - initialY}px, 0) scale(${activeWidget.dataset.scale || 1})`;
+                stagePushLive(nx, ny, null);   // 🖼️ 진짜 위젯도 손을 따라온다 (이 함수는 rAF 로 프레임당 한 번 돈다)
             }
 
             function dragEnd() {
@@ -1586,8 +1643,8 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 clearTimeout(window._nudgeT);
                 window._nudgeT = setTimeout(autoSaveLayout, 400);   // 연타할 때 저장을 몰아서 한 번만
             });
-            function resizeStart(e) { e.stopPropagation(); isResizing = true; startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; startScale = parseFloat(activeWidget.dataset.scale) || 1.0; baseWidth = activeWidget.offsetWidth; document.addEventListener('mousemove', resizing); document.addEventListener('touchmove', resizing, {passive: false}); document.addEventListener('mouseup', resizeEnd); document.addEventListener('touchend', resizeEnd); }
-            function resizing(e) { if (!isResizing || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const dx = (clientX - startX) / scaleRatio; let newScale = startScale + (dx / baseWidth); newScale = Math.max(0.3, Math.min(newScale, 3.0)); activeWidget.style.transform = `scale(${newScale})`; activeWidget.dataset.scale = newScale; const scaleSlider = document.getElementById('prop-scale'); if(scaleSlider) { scaleSlider.value = newScale; document.getElementById('prop-scale-val').innerText = newScale.toFixed(2); } }
+            function resizeStart(e) { e.stopPropagation(); isResizing = true; stageDragBegin(); startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; startScale = parseFloat(activeWidget.dataset.scale) || 1.0; baseWidth = activeWidget.offsetWidth; document.addEventListener('mousemove', resizing); document.addEventListener('touchmove', resizing, {passive: false}); document.addEventListener('mouseup', resizeEnd); document.addEventListener('touchend', resizeEnd); }
+            function resizing(e) { if (!isResizing || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const dx = (clientX - startX) / scaleRatio; let newScale = startScale + (dx / baseWidth); newScale = Math.max(0.3, Math.min(newScale, 3.0)); activeWidget.style.transform = `scale(${newScale})`; activeWidget.dataset.scale = newScale; stagePushLive(null, null, newScale); const scaleSlider = document.getElementById('prop-scale'); if(scaleSlider) { scaleSlider.value = newScale; document.getElementById('prop-scale-val').innerText = newScale.toFixed(2); } }
             function resizeEnd() { if(isResizing) { isResizing = false;
                 /* ⚠️ 배율을 키우면 상자가 커져 안전지대를 삐져나갈 수 있다.
                       끌 때만 붙잡으면 '크게만 하면 빠져나가는' 구멍이 남는다. */
