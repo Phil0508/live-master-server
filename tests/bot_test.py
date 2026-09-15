@@ -531,6 +531,17 @@ chk('열쇠는 다른 비밀들과 같은 곳에서 읽는다', 'EnvironmentFile
 chk('설정이 없으면 재시작 고리에 안 빠진다', 'RestartPreventExitStatus=78' in UNIT)
 chk('봇도 그 값으로 끝낸다', 'return 78' in BOT)
 
+# ⏳ '지금 라이브가 없다' 는 설정 잘못이 아니다. 방송 전에는 늘 그렇다.
+#    그걸 78 로 다루면 봇이 아예 안 떠서, 조종실에서 라이브 주소를 넣어줄 기회가 없다
+#    (주소는 봇이 떠서 상태를 받아야 읽는다). 2026-09-15 에 실제로 그 막다른 길을 밟았다.
+_YTSRC2 = io.open(os.path.join(ROOT, 'bot', 'youtube.py'), encoding='utf-8', errors='replace').read()
+chk('열쇠만 따로 볼 수 있다', 'def creds_ready' in _YTSRC2)
+chk('ready 는 그 위에 채팅방까지 본다', 'self.creds_ready()' in _YTSRC2)
+chk('라이브를 못 찾은 것만으로는 안 죽는다', 'creds_ready()' in BOT)
+chk('열쇠가 없을 때만 78 로 끝낸다',
+    BOT.find('creds_ready()') < BOT.find('return 78'))
+chk('기다린다고 알려준다', '그대로 기다립니다' in BOT)
+
 chk('저장소 파일을 안 고치고 방송을 지정할 수 있다',
     "os.environ.get('YT_' + _k.upper())" in BOT)
 for _k in ('YT_CHANNEL_ID', 'YT_CLIENT_ID', 'YT_REFRESH_TOKEN'):

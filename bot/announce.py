@@ -681,12 +681,21 @@ def main():
         ok, why = bot.yt.ready()
         if not ok:
             print(f'❌ 유튜브 준비가 안 됐습니다: {why}')
-            print('   README.md 의 2단계를 먼저 해주세요. 지금은 --live 없이 돌리면 됩니다.')
-            # ⚠️ 78(EX_CONFIG) 로 끝낸다. 서비스로 돌 때 systemd 가 이 값을 보고
-            #    **되살리지 않는다**(RestartPreventExitStatus=78). 열쇠가 없는 건 시간이
-            #    지난다고 고쳐지지 않는데, 그냥 1 로 끝내면 5초마다 영원히 재시작하며
-            #    로그만 채운다. 설정을 고치고 사람이 다시 켜야 하는 상황이다.
-            return 78
+            # ⏳ 라이브를 아직 못 찾은 것뿐이면 **죽지 않고 그대로 떠 있는다**.
+            #    방송 전에는 늘 못 찾는다. 여기서 죽으면 조종실에서 라이브 주소를
+            #    넣어줄 기회가 없다 — 주소는 봇이 떠서 상태를 받아야 읽는다.
+            #    글을 올릴 때마다 채팅방을 다시 찾으므로(post → _chat) 기다려도 안전하다.
+            _cok, _cwhy = bot.yt.creds_ready()
+            if _cok:
+                print('   ⏳ 열쇠는 멀쩡합니다. 방송이 켜지거나 조종실에서 라이브 주소를 '
+                      '넣으면 그때 붙습니다 — 그대로 기다립니다.', flush=True)
+            else:
+                print('   README.md 의 2단계를 먼저 해주세요. 지금은 --live 없이 돌리면 됩니다.')
+                # ⚠️ 78(EX_CONFIG) 로 끝낸다. 서비스로 돌 때 systemd 가 이 값을 보고
+                #    **되살리지 않는다**(RestartPreventExitStatus=78). 열쇠가 없는 건 시간이
+                #    지난다고 고쳐지지 않는데, 그냥 1 로 끝내면 5초마다 영원히 재시작하며
+                #    로그만 채운다. 설정을 고치고 사람이 다시 켜야 하는 상황이다.
+                return 78
         print('💬 진짜로 칩니다.')
     try:
         bot.run(once=args.once)

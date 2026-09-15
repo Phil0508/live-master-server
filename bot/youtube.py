@@ -69,7 +69,14 @@ class YouTube:
                 pass
         return c
 
-    def ready(self):
+    def creds_ready(self):
+        """열쇠만 본다 — '라이브를 못 찾았다' 와 구분하려고 따로 뒀다.
+
+        ⚠️ '지금 라이브가 없다' 는 설정 잘못이 아니다. 방송 전에는 늘 그렇다.
+           그걸 78(설정 오류)로 다루면 봇이 아예 안 뜬다. 그러면 조종실에서 라이브
+           주소를 넣어줄 기회조차 없다 — 주소를 읽으려면 봇이 떠서 상태를 받아야 한다.
+           실제로 그 막다른 길에 부딪혔다(2026-09-15).
+        """
         missing = [k for k, v in self.creds.items() if not v]
         if missing:
             return False, '없는 값: ' + ', '.join(missing)
@@ -81,6 +88,13 @@ class YouTube:
             _e = str(e)
             hint = ('  ← ' + EXPIRED_HINT) if ('401' in _e or '400' in _e or 'invalid_grant' in _e) else ''
             return False, f'토큰을 못 받았습니다 ({e}){hint}'
+        return True, ''
+
+    def ready(self):
+        """열쇠 + 지금 칠 채팅방까지 다 됐는가. (부르는 쪽 약속은 예전 그대로다)"""
+        ok, why = self.creds_ready()
+        if not ok:
+            return False, why
         try:
             self._chat()
         except Exception as e:
