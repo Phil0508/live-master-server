@@ -67,6 +67,28 @@
         .widget { position: absolute; display: flex; align-items: flex-start; justify-content: flex-start; outline: 2px solid transparent; outline-offset: 2px; border-radius: 6px; cursor: grab; user-select: none; width: max-content; height: max-content; transform-origin: top left; transition: outline-color 0.1s; } 
         .widget:active { cursor: grabbing; } .widget:hover { outline-color: rgba(255, 255, 255, 0.3); } .widget.selected { outline-color: var(--accent); z-index: 1000 !important; }
         .widget > div { pointer-events: none; }
+
+        /* ══ 🖼️ 무대 = 진짜 방송판 ══
+           편집기는 오래도록 방송판을 '손으로 베낀 그림자' 로 그렸다. 그래서 방송판을 고칠
+           때마다 두 곳을 같이 고쳐야 했고, 안 고치면 편집기가 거짓말을 한다 (2026-08-31
+           실측: 같은 이름 규칙 18개 중 56곳이 어긋났고, 엑셀판이 편집기 698x130 인데 실제
+           방송은 990x399 였다). 게다가 룰렛·슬롯·시그뒤집기처럼 방송판이 JS 로 그리는 것은
+           베낄 마크업 자체가 없어 영영 맞출 수 없었다.
+           이제 overlay.html 을 그대로 띄우고 손잡이만 그 위에 얹는다. 사본이 없으니
+           어긋날 곳도 없다.
+           ⚠️ overlay.html 은 한 글자도 안 건드린다 — OBS 가 직접 읽는 파일이다. */
+        #stage-frame { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px;
+                       border: 0; background: transparent; pointer-events: none; }
+        /* 무대를 쓸 때는 흉내 속살을 감춘다 — 손잡이 상자만 남는다 */
+        .stage-on .widget > *:not(.resize-handle) { display: none !important; }
+        .stage-on .widget { background: rgba(120,200,255,.05); outline-color: rgba(140,210,255,.28); }
+        .stage-on .widget::before { content: attr(data-label); position: absolute; left: 0; top: -21px;
+            font: 700 12px 'Malgun Gothic', sans-serif; color: #9fe8ff; background: rgba(0,0,0,.65);
+            padding: 1px 6px; border-radius: 4px; white-space: nowrap; opacity: 0;
+            transition: opacity .12s; pointer-events: none; }
+        .stage-on .widget:hover::before, .stage-on .widget.selected::before { opacity: 1; }
+        /* 지금 방송판에 안 그려지는 것 — 크기를 잴 수 없으니 그렇다고 알린다 */
+        .stage-on .widget.no-stage { outline-color: rgba(255,107,107,.40); background: rgba(255,107,107,.06); }
         /* ⚠️ 예전에는 여기에 '🔒 고정' 표시가 있었다. 오버레이가 자리를 못 박아
            끌어도 방송이 안 듣는 위젯들이었다 — 편집기가 거짓말을 하는 셈이었다.
            이제 전부 끌 수 있으므로 표시를 없앴다. 되살리지 말 것.
@@ -469,6 +491,11 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
                     <input type="checkbox" id="snap-on" checked style="width:auto; margin:0; accent-color:#ffcf4d;"> 격자·안내선에 붙이기
                 </label>
+                <!-- 🖼️ 켜면 진짜 방송판 위에서 편집한다. 끄면 옛 흉내 그림으로 돌아간다
+                     (무대가 말을 안 들을 때 돌아갈 자리를 남겨둔 것이다). -->
+                <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
+                    <input type="checkbox" id="stage-on" checked onchange="stageApply()" style="width:auto; margin:0; accent-color:#4dd0ff;"> 진짜 방송판 위에서 편집
+                </label>
                 <!-- ⚠️ 안전지대(세로 115~954) 밖은 시청자 폰에서 잘린다. 예전에 룰렛이
                      채팅창을 39px, 슬롯이 80px 침범해 잘려 나간 적이 있다. 기본은
                      경계에서 붙잡고, 일부러 빼야 할 때만 이걸 켠다. -->
@@ -563,6 +590,9 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
         <div class="guide-text"><i class="fa-solid fa-mobile"></i> 세로형 모니터 영역 (1080 x 1920)</div>
         <div class="canvas-wrapper" id="canvas-wrapper">
             <div class="canvas-board" id="canvas-board">
+                <!-- 🖼️ 진짜 방송판. 베낀 그림자가 아니라 원본이다.
+                     구역 안내선과 손잡이가 이 위에 겹쳐 그려진다. -->
+                <iframe id="stage-frame" src="/overlay.html" title="방송판" scrolling="no"></iframe>
                 <!-- 📱 유튜브 세로 라이브에서 가려지는 구역 (실측 1080×1920 기준) -->
                 <div class="zone zone-dead" style="top:0; height:115px;"><span>채널줄 · 가려짐</span></div>
                 <div class="zone zone-safe" style="top:115px; height:845px;"><span>안전지대 — 여기 안에 놓으세요</span></div>
@@ -789,7 +819,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'fundjar': '🏺 모금함', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
 
             // ══ 🎬 소스 목록 (OBS 방식) ══
             //    👁 = 편집 화면 전용 보이기/숨기기(방송과 무관), 🔒 = 캔버스에서 안 집히게.
@@ -883,6 +913,94 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
             let layout = {}; let activeWidget = null; let isDragging = false; let isResizing = false; let startX, startY, initialX, initialY; let startScale = 1.0; let baseWidth = 100;
             let globalData = null;
 
+            /* ══ 🖼️ 무대(진짜 방송판) 다루기 ══
+               overlay.html 을 iframe 으로 띄우고, 그 안의 전역 함수를 그대로 부른다.
+                 · handleData(d)   — 위젯을 실제 내용으로 채운다
+                 · applyLayout(ly) — 자리를 잡는다. 방송이 쓰는 바로 그 함수다.
+               같은 출처라서 부를 수 있다. overlay.html 은 손대지 않았다.
+               ⚠️ 데이터가 없으면 방송판 위젯은 쪼그라든다(후원 순위판 380x89). 그래서
+                  크기를 '재는' 시점이 중요하다 — 내용이 채워진 뒤에 재야 참값이다. */
+            const stageFrame = document.getElementById('stage-frame');
+            const stageWin = () => { try { return stageFrame && stageFrame.contentWindow; } catch (e) { return null; } };
+            const stageDoc = () => { try { return stageFrame && stageFrame.contentDocument; } catch (e) { return null; } };
+            const stageOn  = () => { const c = document.getElementById('stage-on'); return !!(c && c.checked); };
+
+            /* 편집 중에 방송 소리·영상이 나면 곤란하다. overlay.html 을 고치지 않고
+               부모에서 잠재운다. */
+            function hushStage() {
+                const d = stageDoc(); if (!d) return;
+                d.querySelectorAll('audio, video').forEach(m => { try { m.muted = true; m.pause(); } catch (e) {} });
+            }
+
+            /* 무대 안 실제 요소를 재어 손잡이에 그 크기를 입힌다.
+               이 한 줄이 '편집기와 방송이 같은 모양' 의 전부다 — 더 이상 손으로 베낀
+               크기를 믿지 않는다. */
+            function syncHandles() {
+                const d = stageDoc(); if (!d || !stageOn()) return;
+                if (isDragging || isResizing) return;   // 끄는 중에 크기가 바뀌면 손이 걸린다
+                document.querySelectorAll('.widget').forEach(el => {
+                    el.dataset.label = el.dataset.label || (typeof widgetNames !== 'undefined' && widgetNames[el.id]) || el.id;
+                    const real = d.getElementById(el.id + '-container');
+                    // offsetWidth 는 transform(배율) 에 안 흔들린다 — 알맹이 크기다
+                    const w = real ? real.offsetWidth : 0, h = real ? real.offsetHeight : 0;
+                    const shown = w > 0 && h > 0;
+                    el.classList.toggle('no-stage', !shown);
+                    if (shown) { el.style.width = w + 'px'; el.style.height = h + 'px'; }
+                });
+            }
+
+            /* 지금 잡아 둔 자리를 무대에 먹인다. 방송이 쓰는 그 함수라, 안전지대 붙잡기나
+               엑셀판 자리 다툼까지 방송과 똑같이 재현된다. */
+            function pushLayoutToStage() {
+                const w = stageWin(); if (!w || !w.applyLayout || !stageOn()) return;
+                const free = document.getElementById('free-on');
+                const ly = { __v: 2, __free: !!(free && free.checked) };
+                document.querySelectorAll('.widget').forEach(el => {
+                    ly[el.id] = { x_px: parseInt(el.style.left) || 0,
+                                  y_px: parseInt(el.style.top) || 0,
+                                  scale: parseFloat(el.dataset.scale) || 1 };
+                });
+                try { w.applyLayout(ly); } catch (e) {}
+                requestAnimationFrame(syncHandles);
+            }
+
+            /* 서버 상태를 무대에 넘긴다. 무대는 제 SSE 도 따로 듣지만, 편집기가 먼저 받은
+               것을 바로 먹여야 손잡이 크기가 늦지 않는다. */
+            function feedStage(d) {
+                const w = stageWin(); if (!w || !w.handleData || !d || !stageOn()) return;
+                try { w.handleData(d); } catch (e) {}
+                hushStage();
+                requestAnimationFrame(syncHandles);
+            }
+
+            window.stageApply = function stageApply() {
+                const on = stageOn();
+                document.body.classList.toggle('stage-on', on);
+                if (stageFrame) stageFrame.style.display = on ? '' : 'none';
+                if (on) {
+                    pushLayoutToStage();
+                    if (globalData) feedStage(globalData);
+                    setTimeout(syncHandles, 250);
+                } else {
+                    // 흉내로 돌아가면 손으로 박은 크기를 풀어 max-content 로 되돌린다
+                    document.querySelectorAll('.widget').forEach(el => {
+                        el.style.width = ''; el.style.height = ''; el.classList.remove('no-stage');
+                    });
+                }
+                try { localStorage.setItem('edstage', on ? '1' : '0'); } catch (e) {}
+            };
+
+            if (stageFrame) {
+                stageFrame.addEventListener('load', () => {
+                    hushStage();
+                    if (globalData) feedStage(globalData);
+                    pushLayoutToStage();
+                    setTimeout(syncHandles, 400);
+                });
+                // 무대는 제 SSE 로 계속 다시 그린다. 손잡이도 그만큼 따라가야 참값이 된다.
+                setInterval(syncHandles, 700);
+            }
+
             // 📡 상태는 SSE 로 받는다.
             // ⚠️ 예전에는 setInterval(fetchRealData, 1000) 으로 /api/data 를 1초마다 통째로 받아왔다.
             //    state 는 방송이 길어지면 수십 KB 까지 커지므로, 편집기를 켜두기만 해도 계속
@@ -894,7 +1012,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 globalData = d;
                 // 후원이 몰리면 SSE 가 초당 수십 번 온다. 편집 화면을 그만큼 다시 그릴 이유는 없다.
                 if (_paintTimer) return;
-                _paintTimer = setTimeout(() => { _paintTimer = null; paint(globalData); }, 200);
+                _paintTimer = setTimeout(() => { _paintTimer = null; paint(globalData); feedStage(globalData); }, 200);
             }
 
             // 처음 한 번, 그리고 SSE 가 조용히 죽었을 때만 직접 받아온다.
@@ -1045,8 +1163,16 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
             Object.keys(widgetNames).forEach(id => {
                 const el = document.getElementById(id);
                 if (el && el.dataset.live === undefined) el.dataset.live = (el.style.display === 'none') ? '0' : '1';
+                if (el) el.dataset.label = widgetNames[id];   // 🖼️ 무대 위 손잡이 이름표
             });
             srcApply();
+            /* 🖼️ 무대를 켠다. 지난번 선택을 기억한다 — 끈 채로 뒀으면 끈 채로 연다. */
+            try {
+                const saved = localStorage.getItem('edstage');
+                const box = document.getElementById('stage-on');
+                if (box && saved === '0') box.checked = false;
+            } catch (e) {}
+            stageApply();
 
             function connectAdminSSE() {
                 if (adminEs) adminEs.close();
@@ -1148,6 +1274,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
             }
 
             window.autoSaveLayout = async function() {
+                pushLayoutToStage();   // 🖼️ 자리가 바뀔 때마다 무대도 같이 움직인다
                 document.querySelectorAll('.widget').forEach(el => {
                     let id = el.id; layout[id] = { x_px: parseInt(el.style.left) || 0, y_px: parseInt(el.style.top) || 0, scale: parseFloat(el.dataset.scale) || 1.0 }; });
                 /* ⚠️ 판 번호를 같이 적는다. 방송판은 2 미만이면 배치를 통째로 무시한다 —
