@@ -856,6 +856,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                     el.style.opacity = (soloOn && activeWidget && activeWidget !== el) ? '.22' : '';
                     el.style.pointerEvents = srcLock(id) ? 'none' : '';
                 });
+                stageForceVisible();   // 🖼️ 눈을 켠 것은 무대에서도 보이게
                 srcRenderList();
             }
 
@@ -939,6 +940,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                크기를 믿지 않는다. */
             function syncHandles() {
                 const d = stageDoc(); if (!d || !stageOn()) return;
+                stageForceVisible();                     // 방송 상태가 바뀌어 다시 감춰져도 도로 보이게
                 if (isDragging || isResizing) return;   // 끄는 중에 크기가 바뀌면 손이 걸린다
                 document.querySelectorAll('.widget').forEach(el => {
                     el.dataset.label = el.dataset.label || (typeof widgetNames !== 'undefined' && widgetNames[el.id]) || el.id;
@@ -1028,15 +1030,52 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 requestAnimationFrame(syncHandles);
             }
 
+            /* 🖼️ 편집기에서 눈을 켠 위젯은 무대에서도 보이게 한다.
+               ⚠️ 방송판은 꺼 둔 위젯을 opacity:0 / visibility:hidden 으로 감춘다 — 대결판·룰렛·슬롯·
+                  주사위·후원순위·시그집계·퇴근빵·전광판 둘·모금함이 그렇다. 무대를 그대로 띄우면 이것들은
+                  투명해서 손잡이만 움직이고 진짜 위젯은 안 보인다("끌어봤는데 또 안 따라와", 2026-09-15).
+                  엑셀판·게이지만 늘 보여서 그 둘만 따라오는 것처럼 보였다.
+                  그래서 편집 중에는 눈을 켠 것을 강제로 보이게 한다. 방송에는 아무 영향이 없다 —
+                  iframe 안에서만 도는 규칙이고 overlay.html 은 안 건드린다.
+               ⚠️ 방송판에 body.reaction-mode #x {opacity:0 !important} 가 있다(특이도 1,1,1).
+                  그걸 이기려고 html.ed-stage body #x 로 쓴다(1,1,2). */
+            function stageForceVisible(enable) {
+                const d = stageDoc(); if (!d) return;
+                const root = d.documentElement;
+                let st = d.getElementById('ed-show');
+                if (enable === false || !stageOn()) { root.classList.remove('ed-stage'); if (st) st.remove(); return; }
+                root.classList.add('ed-stage');
+                const cs = (d.defaultView || window).getComputedStyle;
+                /* 편집 중에는 무대의 전환(transition)을 통째로 끈다 — 눈을 켜고 끌 때, 끌어서 놓을 때 즉시
+                   확정적으로 반응해야 한다. 방송판은 opacity 0.4초·자리 0.8초 전환을 걸어 두어 눈을 꺼도
+                   서서히 사라지고, 창이 가려지면 그 전환이 얼어 영영 안 사라진다(실측: 규칙을 뺐는데도
+                   opacity:running 으로 1/visible 고정). 방송에는 영향 없다 — iframe 안에서만 도는 규칙이다. */
+                const rules = ['html.ed-stage body .widget-container{transition:none !important}'];
+                document.querySelectorAll('.widget').forEach(el => {
+                    if (el.style.display === 'none') return;             // 눈을 끈 것은 무대에서도 감춘 채 둔다
+                    const real = d.getElementById(el.id + '-container'); if (!real) return;
+                    /* transition 도 끈다 — 방송판은 opacity 에 0.4초 전환을 걸어 두어 눈을 켜도 서서히 나타난다.
+                       편집기에서는 즉시 보여야 하고, 창이 가려지면 전환이 얼어 영영 안 나타난다(실측: CSSTransition running 고정). */
+                    let r = 'html.ed-stage body #' + el.id + '-container{opacity:1 !important;visibility:visible !important;transition:none !important;';
+                    if (cs(real).display === 'none') r += 'display:block !important;';
+                    rules.push(r + '}');
+                });
+                const css = rules.join('\n');
+                if (!st) { st = d.createElement('style'); st.id = 'ed-show'; (d.head || root).appendChild(st); }
+                if (st.textContent !== css) st.textContent = css;
+            }
+
             window.stageApply = function stageApply() {
                 const on = stageOn();
                 document.body.classList.toggle('stage-on', on);
                 if (stageFrame) stageFrame.style.display = on ? '' : 'none';
                 if (on) {
+                    stageForceVisible();
                     pushLayoutToStage();
                     if (globalData) feedStage(globalData);
                     setTimeout(syncHandles, 250);
                 } else {
+                    stageForceVisible(false);
                     // 흉내로 돌아가면 손으로 박은 크기를 풀어 max-content 로 되돌린다
                     document.querySelectorAll('.widget').forEach(el => {
                         el.style.width = ''; el.style.height = ''; el.classList.remove('no-stage');
@@ -1048,6 +1087,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
             if (stageFrame) {
                 stageFrame.addEventListener('load', () => {
                     hushStage();
+                    stageForceVisible();
                     if (globalData) feedStage(globalData);
                     pushLayoutToStage();
                     setTimeout(syncHandles, 400);
