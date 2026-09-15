@@ -266,7 +266,8 @@ chk('결승선 앞에서 느려진다', 'function pbSlowFactor(' in OV and 'PB_S
 # ⚠️ 슬로모션이 물리 걸음의 **크기**를 바꾸면 화면마다 결과가 갈릴 수 있다.
 #    걸음은 그대로 두고 띄엄띄엄 민다.
 chk('슬로모션이 물리 걸음 크기를 안 바꾼다',
-    'Matter.Engine.update(pbEng, PB_STEP)' in OV and 'pbSlowAcc' in OV)
+    'Matter.Engine.update(pbEng, PB_STEP / PB_SUB)' in OV and 'pbSlowAcc' in OV
+    and 'PB_STEP * ' not in _nocomment(OV[OV.find('function pbStepOnce('):OV.find('function pbCapSpeed(')]))
 # ⚠️ 확대하면 글씨·테두리도 같이 커져 구슬을 덮는다. 화면 기준 굵기를 지켜야 한다.
 chk('글씨 굵기가 확대에 안 딸려간다', '(19 / Z).toFixed(2)' in OV)
 
@@ -335,7 +336,69 @@ chk('옆 구슬이 어디서 시작하든 어긋나게 굴린다', 'b.pbCool = 1
 
 print()
 print('=' * 74)
-print('⑬ 물리 엔진을 우리 서버에서 내보내는가')
+print('⑬ 실전에서 나온 세 가지 (2026-09-16)')
+print('=' * 74)
+"""대표님 실전 테스트: ① 벽을 뻐고 밖으로 튵겨나감 ② 줌될 때 프레임이 떨어짐
+   ③ 카메라가 엉뛱한 구슬을 따라감. 세 개 다 재현해서 고쳤다."""
+
+# 🚧 벽 뻐기 — 실측: 한 걸음에 최대 35～49px 움직이는데 벽은 2.5～3.9px 였다.
+#    matter.js 는 걸음 사이를 되짚지 않는다(box2d 는 CCD 가 기본이라 원본은 멀슝했다).
+#    세 가지를 같이 건다: 조각내기 + 속도 상한 + 벽 두께. 조각당 최대 이동 < 벽 두께 여야 한다.
+_sub = re.search(r'const PB_SUB = (\d+);', OV)
+_vmax = re.search(r'const PB_VMAX = ([\d.]+);', OV)
+_segt = re.search(r'const segT = Math\.max\(([\d.]+),', OV)
+# ❌ 조각내기(PB_SUB=8)는 접었다 — 뻐림은 막았지만 판이 2.5배 느려졌다(Wheel 6.6→16초).
+#    matter 는 작은 조각에서 충돌마다 힘을 조금씩 먹어 구슬이 못을 튵기지 못한다.
+chk('조각내기는 안 쓴다 (PB_SUB=1)', bool(_sub) and int(_sub.group(1)) == 1,
+    ('PB_SUB=%s' % _sub.group(1)) if _sub else '없음')
+chk('속도 상한이 있다', bool(_vmax) and 'function pbCapSpeed(' in OV and 'pbCapSpeed();' in OV)
+# 🚧 뻐림은 **훑기**가 막는다 — 걸음이 끝난 뒤 직전→지금 선분이 벽 속을 지났는지 본다.
+#    ⚠️ "지금 닿아 있으면 정상"으로 보면 안 된다(관통해 반대편에 살짝 닿은 경우를 놓쳤다).
+#       선분 위 표본을 찍어 "안쪽을 지나 다시 밖"이면 관통이다. 정상 충돌은 마지막 표본이 안쪽.
+_sw = _nocomment(OV[OV.find('function pbSweep('):OV.find('function pbCapSpeed(')])
+chk('걸음마다 경로를 훑는다 (pbSweep)', 'function pbSweep(' in OV and 'pbSweep();' in OV)
+chk('폭 0 선분으로 거른다', 'M.Query.ray(pbStatics, p0, p1)' in _sw)
+chk('안쪽을 지나 다시 밖으로 나가면 관통이다', 'if (seen && !lastIn) crossed = true;' in _sw)
+chk('관통했으면 직전 자리로 되돌린다', 'M.Body.setPosition(b, p0);' in _sw)
+# 🔒 그래도 판 밖으로는 절대 못 나간다 — 대표님 1번 증상을 확실히 막는 마지막 잠금.
+chk('판 좌우 밖으로는 못 나간다', 'if (cx < pbR) { cx = pbR; out = true; }' in _sw
+    and 'else if (cx > PB_W - pbR)' in _sw)
+# 🌀 바람개비는 훑기에서 빼고(회전체는 지난 경로를 지금 모양으로 판정하면 오판), 삼켜진 공은 따로 빼낸다.
+chk('바람개비는 훑기 대상에서 빼다', "b.isStatic && b.label !== 'spin'" in OV)
+# ❌ 팔에 삼켜진 공을 손으로 빼내는 장치(pbEject)도 해 봤다가 접었다 — setPosition 으로
+#    억지로 옮기면 솔버와 싸워 속도가 180px 까지 튀고 벽속 걸음이 67→288 로 나뻐졌다.
+#    솔버에 맡기고, 오래 끼면 pbUnstick 이 밀어 준다.
+chk('손으로 빼내는 장치는 안 쓴다', 'function pbEject(' not in OV and 'pbEject();' not in OV)
+# ⚠️ 조각을 내면 body.velocity 는 조각 기준이 된다. 직접 읽으면 문턱과 단위가 안 맞는다.
+_phys = _nocomment(OV[OV.find('function pbUnstick('):OV.find('function pbShowWinner(')])
+chk('속도를 getVelocity 로만 읽는다', '.velocity.x' not in _phys and '.velocity.y' not in _phys)
+# 🌀 바람개비 — 회전 속도 없이 각도만 바꾸면 팔이 구슬을 삼킨다
+#    (실측 Pot of greed: 20판 중 18판이 팔 속에 갇힘 → 0판).
+chk('바람개비가 회전 속도를 가진다', 'sp.speed / PB_SUB, true)' in OV)
+chk('각도만 바꾸는 예전 방식이 없다', 'sp.dir * sp.speed);' not in OV)
+
+# 🎬 끊김 — 슬로모션은 걸음을 건너뛰어 만든다. 0.25배면 4프레임에 한 번만 움직여 뛝뛝 끊겼다.
+#    물리는 그대로 두고 **그림만** 사이를 채운다 — 결과는 한 치도 안 바뀜다.
+chk('그릴 때 걸음 사이를 채운다 (보간)', 'function pbPos(' in OV and 'b.pbPx = b.position.x' in OV)
+chk('구슬과 카메라 모두 보간된 자리를 쓴다', OV.count('pbPos(') >= 3)
+_pos = _nocomment(OV[OV.find('function pbPos('):OV.find('function pbTarget(')])
+chk('보간은 물리를 안 건드린다', 'setPosition' not in _pos and 'setVelocity' not in _pos)
+# ⚠️ 그림자 번짐은 확대를 그대로 타서 3배면 48px — 비싸고 번들거린다.
+chk('그림자 번짐이 확대에 안 따라간다', '(16 + hit * 26) / Z' in OV)
+
+# 🎯 카메라 — 비슷한 자리의 구슬 둘이 매 프레임 순위를 주고받으면 카메라도 오간다.
+chk('주인공을 뚌 들여 바꾼다', 'function pbTarget(' in OV and 'PB_TGT_HOLD' in OV)
+chk('주인공이 골인하면 바로 바꾼다', 'pbTgt.pbDone || act.indexOf(pbTgt) < 0' in OV)
+chk('카메라·슬로모션·표시가 같은 주인공을 본다',
+    'const t = pbTarget();' in OV and 'const t = pbTgt;' in OV and 'const tgt = pbTgt;' in OV)
+# ⚠️ pbLoop 과 검사 도구가 같은 걸음 함수를 써야 한다. 도구가 루프를 베껴 쓰다 한 줄을
+#    빠뜨려 "고쳐도 안 고쳐진다"고 잘못 읽은 적이 있다.
+chk('물리 한 걸음이 함수 하나다', 'function pbStepOnce(' in OV and 'pbStepOnce();' in OV
+    and 'Matter.Engine.update(' not in _nocomment(OV[OV.find('function pbLoop('):OV.find('function pbCamera(')]))
+
+print()
+print('=' * 74)
+print('⑭ 물리 엔진을 우리 서버에서 내보내는가')
 print('=' * 74)
 # ⚠️ 외부 CDN 을 부르면 방송 중 그쪽이 막히는 순간 게임이 통째로 안 뜬다.
 #    컨페티를 vendor 에 둔 것과 같은 이유다.
@@ -348,6 +411,47 @@ if os.path.exists(_mj):
     _head = io.open(_mj, encoding='utf-8', errors='replace').read(400)
     chk('MIT 표기를 지운 적 없다', 'MIT' in _head and 'matter-js' in _head)
 chk('없어도 방송은 계속된다', 'function pbHasEngine(' in OV and '!pbHasEngine()' in OV)
+
+print()
+print('=' * 74)
+print('⑮ 없는 함수를 부르지 않는가')
+print('=' * 74)
+# ⚠️ 실제로 당했다 — pbShowWinner 가 escText 를 불렀는데 방송판엔 그 함수가 없다.
+#    우승 딱지를 띄우려는 순간마다 ReferenceError 로 터져서 딱지가 영영 안 떴다.
+#    문법 검사로는 안 잡힌다(부를 때가 돼야 터지므로). 방송판은 첫 화면이라
+#    여기서 터지면 대표님이 방송 중에 알게 된다.
+#    내가 만든 시험 페이지가 escText 를 자체 정의해 두어 더 오래 가려져 있었다.
+_pbblk = _nocomment(OV[OV.find('const PB_W = 980'):OV.find('let dgLastG = null;')])
+_calls = set(re.findall(r'(?<![.\w])([A-Za-z_$][\w$]*)\s*\(', _pbblk))
+_BUILTIN = set([
+    'if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'typeof', 'new',
+    'delete', 'void', 'in', 'instanceof', 'parseInt', 'parseFloat', 'isFinite', 'isNaN',
+    'encodeURIComponent', 'decodeURIComponent', 'setTimeout', 'clearTimeout',
+    'setInterval', 'clearInterval', 'requestAnimationFrame', 'cancelAnimationFrame',
+    'fetch', 'alert',
+    'rgba',            # CSS 글자 안의 rgba( — 함수가 아니다
+])
+# vendor 가 실어오는 전역 — 없을 때 대비가 있어야 통과시킨다
+_VENDOR = {'confetti': "typeof confetti !== 'function'", 'Matter': 'pbHasEngine'}
+_missing = []
+for _c in sorted(_calls):
+    if _c in _BUILTIN or _c.startswith('pb'):
+        continue
+    if _c in _VENDOR:
+        if _VENDOR[_c] not in OV:
+            _missing.append(_c + '(없을 때 대비 없음)')
+        continue
+    if _c[:1].isupper():          # Matter·Math·JSON 같은 객체 — 위에서 걸렀다
+        continue
+    if (re.search(r'function\s+' + re.escape(_c) + r'\s*\(', OV)
+            or re.search(r'(?:const|let|var)\s+' + re.escape(_c) + r'\s*=', OV)):
+        continue
+    _missing.append(_c)
+chk('핀볼이 부르는 함수가 모두 있다', not _missing,
+    ('없는 함수: ' + ', '.join(_missing)) if _missing else ('%d개 확인' % len(_calls)))
+# ⚠️ 방송판의 이스케이프 함수는 escapeSlotText 다. escText 는 어디에도 없다(조종실은 escapeHTML).
+chk('이름을 방송판의 함수로 안전하게 넣는다',
+    'escapeSlotText(n)' in OV and 'escText(' not in OV)   # 주석에 남긴 기록은 통과시킨다
 
 print()
 print('=' * 74)

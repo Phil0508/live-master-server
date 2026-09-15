@@ -280,6 +280,30 @@ chk('무대 배율이 0 이하로 안 내려간다', 'Math.max(0.08, Math.min(av
 
 print()
 print('=' * 74)
+print('📏 손잡이가 샐어난 부분까지 덮는가')
+print('=' * 74)
+"""대표님: "게이지는 잘 움직이는데 옆에 숲자가 안따라가는다" (2026-09-16)
+   목표 게이지의 금액 딱지는 position:absolute 로 막대 **왼쪽 107px 밖**에 떠 있다.
+   offsetWidth 는 그런 자식을 안 센다 — 손잡이가 막대(30px)만 덮어 숲자를 못 잡았다."""
+chk('실제 네모를 재는 함수가 있다', 'function stageBox(' in ad)
+chk('손잡이 크기를 그걸로 정한다', 'const bx = stageBox(real, d);' in ad)
+# ⚠️ 자리(style.left/top)는 곧 배치 값이다. 샐어난 만큼을 left 로 밀면 저장값이 동값이 된다.
+chk('샐어난 만큼은 margin 으로만 밀린다', 'el.style.marginLeft = ml;' in ad and 'el.style.marginTop = mt;' in ad)
+chk('자리 값은 안 건드린다', 'bx.dx' in ad and 'el.style.left = bx' not in ad)
+# ⚠️ 화면에 고정된 팝업·안 보이는 것은 네모에서 빼야 한다.
+chk('안 보이는 것은 뺀다', "c.position === 'fixed'" in ad and "c.visibility === 'hidden'" in ad)
+
+print()
+print('=' * 74)
+print('👁️ 무대 강제표시가 깜빡이지 않는가')
+print('=' * 74)
+"""⚠️ 한 번 display:block 을 박아 두면 다음번엔 '이미 block 이네' 하고 규칙을 빼버려
+   도로 숨고, 그 다음번엔 다시 박는다 — 0.7초마다 깜빡였다(목표 게이지 실측).
+   재기 전에 규칙을 비워 항상 본모습을 기준으로 재게 한다."""
+chk('재기 전에 규칙을 비운다', "if (st && st.textContent) { st.textContent = ''; void root.offsetWidth; }" in ad)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (ok, bad))
 print('=' * 74)
 sys.exit(1 if bad else 0)

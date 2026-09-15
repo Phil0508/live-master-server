@@ -7109,6 +7109,27 @@
         const PB_SKILL_R_M = 10;               // 밀리는 범위(미터) — 원본과 같다
         const PB_SKILL_V_MPS = 12;             // 밀려나는 빠르기(미터/초)
         const PB_SKILL_FX_MS = 500;            // 퍼지는 고리가 사라지기까지
+
+        /* 🚧 벽 뚫기 막기 — 대표님 실전: "맵에 걸려서 밖으로 튕겨나가버린다"
+           실측: 구슬이 한 걸음에 최대 35～49px 움직이는데 벽은 2.5～3.9px 였다.
+           matter.js 는 걸음 사이를 되짚어 보지 않는다(box2d 는 CCD 가 기본이라 원본은 멀쩡했다).
+           그래서 셋을 같이 건다:
+             · 한 걸음을 PB_SUB 조각으로 쪼개 민다 (조각당 이동 = 1/PB_SUB)
+             · 속도 상한 PB_VMAX (60Hz 한 걸음 기준 px) — box2d 의 b2_maxTranslation 과 같은 생각
+             · 벽을 조각당 최대 이동보다 두껍게 (pbBuildFromMap 의 segT)
+           PB_VMAX / PB_SUB = 4.5px < 벽 5px 이므로 **뚫을 수 없다.** */
+        /* ⚠️ 4조각·상한 18 로 해 봤더니 판이 전부 느려지고(Wheel 5.5→13초) 항아리에서 튵겨 나갈
+              힘도 못 내서 Pot of greed 가 40판 중 33판 멎었다. 조각을 늘려 상한을 자연 속도까지 올린다.
+              조각당 이동은 그대로 36/8 = 4.5px < 벽 5px. */
+        /* ❌ 조각내기는 접었다. 8조각으로 해 봤더니 뻐림은 막혔지만 판이 2.5배 느려졌다
+              (Wheel 6.6→16초, Pot 6→18초 — 조각만 끄면 바로 돌아옴. matter 는 작은 조각에서
+              충돌마다 힘을 조금씩 먹어 구슬이 못을 튵기지 못한다). 뻐림은 pbSweep 이 막는다. */
+        const PB_SUB = 1;                      // 한 걸음을 몇 조각으로
+        const PB_VMAX = 36;                    // px / 60Hz 걸음 (= 2160 px/s, 실측 최고 31～49 에 가깝다)
+        /* 🎯 카메라 주인공을 바꿀 때 뜸을 들인다 — 대표님: "줌이 중요한 사람이 아니라 지 맘대로"
+           비슷한 자리의 구슬 둘이 매 프레임 순위를 주고받으면 카메라가 둘 사이를 오간다.
+           새 후보가 이만큼 연속으로 같아야 갈아탄다. 지금 주인공이 골인했으면 즉시 바꾼다. */
+        const PB_TGT_HOLD = 12;                // 프레임
         /* 🎥 카메라 — 원본을 그대로 따른다.
            원본은 화면에 맵을 다 담지 않고 **주인공 구슬을 따라다니며** 골 근처에서 확 당긴다.
            그래서 구슬이 커 보이고 결승 장면이 극적이다. 우리는 판 전체를 멀리서 보고 있었다. */
@@ -7148,6 +7169,9 @@
         let pbStall = 0;           // 아무도 더 깊이 못 간 걸음 수
         let pbSkillOn = true;      // 밀어내기를 쓸까(조종실에서 끌 수 있다)
         let pbFx = [];             // 밀어낸 자리에 퍼지는 고리 — 그리기용일 뿐이다
+        let pbStatics = [];        // 뻐림 검사용 벽·못 목록(판을 지을 때 한 번 모아 둔다)
+        let pbTgt = null;          // 카메라가 따라가는 구슬(뜸 들여 바꾼다)
+        let pbTgtCand = null, pbTgtN = 0;   // 갈아탈 후보와 연속 횟수
         let pbRandom = null;       // 이 판의 씨앗 난수 — 끼임 풀기도 이걸 써야 화면마다 같다
         let pbShowUntil = 0;       // 결과 딱지를 언제까지 띄울지
 
@@ -7214,6 +7238,10 @@
                   없어 얇은 막대로 깐다. 이때 두께가 곧 **틈을 잡아먹는다** — 8px 로 고정했더니
                   배율이 큰 맵에서 통로가 그만큼 좁아졌다. 배율에 맞춰 얇게 깐다.
                ⚠️ 이음매에 틈이 생기면 구슬이 새므로 두께만큼 길이를 겹쳐 준다. */
+            /* ⚠️ 조각당 최대 이동(PB_VMAX / PB_SUB = 4.5px)보다 두꺼워야 한다. 예전 2.5px 는
+                  뚫렸다. 너무 두꺼우면 좁은 통로가 막히므로 딱 필요한 만큼만. */
+            /* ⚠️ 5px 로 두꺼이 해 봤더니 Yoru 의 좁은 통로에 구슬이 끼었다(20판 중 18판 벽 속 판정).
+                  뻐림은 두께가 아니라 pbSweep(훑기) + 경계 잠금이 막는다. 원본에 가깝게 얇게 둔다. */
             const segT = Math.max(2.5, SC * 0.06);
             const seg = function (x1, y1, x2, y2, opt) {
                 const dx = x2 - x1, dy = y2 - y1;
@@ -7461,6 +7489,11 @@
             const rng = pbRng(seed);
             pbRandom = pbRng(seed ^ 0x5bf03635);   // 끼임 풀기 전용 — 코스 난수와 섞이지 않게
             pbEng = Matter.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0016 } });
+            /* ⚠️ 걸음을 조각내면 반드시 같이 나눠야 하는 값. matter 는 한 걸음 이동이 이 문턱(4px)보다
+                  작으면 '쉬는 접촉'으로 보고 **튵김을 꺼 버린다.** 8조각이면 조각당 이동이 늘 그 아래라
+                  모든 충돌이 뭉개져 구슬이 못을 튵기지 못하고 흘러내렸다.
+                  실측(먼저 골인 중앙값): 이 줄 없이 8조각 → Wheel 16초·Pot 18초, 조각 안 내면 6.6초·6초. */
+
             pbSpawn = null;
 
             /* 🗺️ 어느 판에서 굴릴까 — **조종실에서 고른 값**을 쓴다(서버 상태에 있다).
@@ -7503,7 +7536,14 @@
 
             pbBalls = pbMakeBalls(names, rng);
             Matter.Composite.add(pbEng.world, bodies.concat(pbBalls));
+            /* ⚠️ 바람개비(spin)는 훑기에서 빼는다. 회전하는 팔을 **지금 모양**으로 지난 경로를 판정하면
+                  정상으로 지나간 구슬을 관통으로 오판해 팔 속으로 되돌린다(실측 Yoru: 되돌림 63회 전부 spin).
+               ❌ 팔에 삼켜진 공을 손으로 빼내는 것(pbEject)도 해 봤는데 더 나뻐졌다 —
+                  setPosition 으로 억지로 옮기면 솔버가 다시 밀고 들어와 싸우고, 속도가 180px 까지 튀었다
+                  (벽속 걸음 67→288). 솔버에 맡기고, 오래 끼면 pbUnstick 이 밀어 준다. */
+            pbStatics = bodies.filter(function (b) { return b.isStatic && b.label !== 'spin'; });
             pbFinish = []; pbReported = false; pbOverAt = 0; pbStall = 0; pbFx = [];
+            pbTgt = null; pbTgtCand = null; pbTgtN = 0;
             pbStartedAt = performance.now(); pbLast = pbStartedAt;
             pbAcc = 0; pbTick = 0; pbSlowAcc = 0; pbSteps = 0;
             // 카메라를 첫 구슬 자리에 맞춰 두고 시작한다(첫 프레임에 화면이 튀지 않게)
@@ -7549,7 +7589,10 @@
                 /* ⚠️ '얼마나 내려갔나(dy)'로 보면 안 된다. 덫에 걸린 구슬은 제자리에서
                       조금씩 떨리는데, 그 떨림이 셈을 계속 0으로 되돌려 영영 안 걸린다
                       (실측: 20초를 굴려도 끼임수가 0~5 를 오갔다). **속도**로 본다. */
-                const v = Math.hypot(b.velocity.x, b.velocity.y);
+                /* ⚠️ b.velocity 를 직접 읽지 않는다 — 걸음을 조각내면 그 값은 조각 기준이라
+                      문턱(PB_STUCK_V)과 단위가 안 맞는다. getVelocity 는 늘 60Hz 기준으로 준다. */
+                const vv = Matter.Body.getVelocity(b);
+                const v = Math.hypot(vv.x, vv.y);
                 b.pbStuck = (v < PB_STUCK_V) ? (b.pbStuck || 0) + 1 : 0;
 
                 if (b.pbStuck >= PB_STUCK_N) {
@@ -7592,11 +7635,12 @@
            ⚠️ 혼자 굴러올 때는 늦추지 않는다 — 볼 게 없는데 판만 길어진다. */
         function pbSlowFactor() {
             if (!pbZoomY) return 1;
+            const t = pbTgt;                                  // 카메라와 같은 구슬을 본다
+            if (!t || t.pbDone) return 1;
             const act = pbActive();
             if (act.length < 2) return 1;
-            const ti = pbTargetIdx(act);
-            const t = act[ti];
-            if (!t) return 1;
+            const ti = act.indexOf(t);
+            if (ti < 0) return 1;
             const d = Math.abs(pbZoomY - t.position.y) / pbScale;      // 미터
             if (d >= PB_ZOOM_TH) return 1;
             if (!act[ti - 1] && !act[ti + 1]) return 1;                // 붙어 있는 경쟁자가 없다
@@ -7615,7 +7659,8 @@
                 const d = Math.hypot(dx, dy);
                 if (d > R || d < 0.001) continue;
                 dx /= d; dy /= d;
-                Matter.Body.setVelocity(b, { x: b.velocity.x + dx * dv, y: b.velocity.y + dy * dv });
+                const bv = Matter.Body.getVelocity(b);      // 60Hz 기준 (b.velocity 직접 읽지 말 것)
+                Matter.Body.setVelocity(b, { x: bv.x + dx * dv, y: bv.y + dy * dv });
                 b.pbHit = performance.now();               // 잠깐 밝아진다(그리기용)
             }
             pbFx.push({ x: sp.x, y: sp.y, r: R, t: performance.now() });
@@ -7633,6 +7678,142 @@
                 b.pbCool = PB_SKILL_COOL;
                 if (pbRandom() < PB_SKILL_RATE) pbImpact(b);
             }
+        }
+
+        /* 👣 물리 한 걸음(60Hz). pbLoop 과 검사 도구가 **이 함수 하나**를 쓴다 —
+           예전에 도구가 루프를 베껴 쓰다 한 줄을 빠뜨려 "고쳐도 안 고쳐진다"고 잘못 읽은 적 있다. */
+        function pbStepOnce() {
+            // 🎬 그리기 보간용 — 이 걸음 **직전** 자리를 기억해 둔다(물리와 무관)
+            for (let i = 0; i < pbBalls.length; i++) {
+                const b = pbBalls[i];
+                b.pbPx = b.position.x; b.pbPy = b.position.y;
+            }
+            pbSkills();
+            /* 🚧 조각내어 민다 + 조각마다 속도 상한. 벽 뚫기를 막는 핵심이다(상수 설명 참고). */
+            for (let k = 0; k < PB_SUB; k++) {
+                /* 🌀 바람개비 — 세 번째 인자 true 가 핵심이다. 회전 속도를 함께 적어 두어야
+                      부딪힌 구슬을 그 속도로 밀어낸다(원본 box2d 의 kinematic 과 같은 동작).
+                   ⚠️ 없이 각도만 바꾸면 팔이 구슬을 **삼킨다** — 실측(Pot of greed): 서로 반대로
+                      도는 팔 둘 사이에 끼어 구슬 중심이 팔 속에 들어간 채 수백 걸음을 버티다(20판 중 18판).
+                   ⚠️ 조각마다 조금씩 돌린다. 한 번에 돌리면 팔이 구슬을 건너뛴다. */
+                pbSpinners.forEach(function (sp) {
+                    Matter.Body.setAngle(sp.body, sp.body.angle + sp.dir * sp.speed / PB_SUB, true);
+                });
+                pbCapSpeed();
+                Matter.Engine.update(pbEng, PB_STEP / PB_SUB);
+                pbPopDrain();
+            }
+            pbSweep();
+            pbSteps++;
+            pbCheckGoal();
+            pbStallWatch();
+            if (++pbTick % 8 === 0) pbUnstick();
+        }
+
+        /* 🚧 속도 상한 — 이보다 빠르면 방향은 두고 크기만 줄인다. */
+        /* 🚧 벽 뻐기 막기 — 원본 box2d 의 CCD 가 하는 일을 손으로 한다.
+           걸음이 끝난 뒤 구슬마다 **직전 자리→지금 자리** 선분이 벽 속을 지나갔는지 본다.
+           ⚠️ "지금 벽에 닿아 있으면 정상" 으로 판단하면 안 된다 — 실측: 벽을 관통해 **반대편에
+              살짝 닿은** 채 끝난 걸음을 정상으로 봤고, 다음 걸음엔 이미 밖이라 훑을 벽이 없었다.
+              그래서 선분 위의 점들을 2px 간격으로 찍어 **벽 안쪽을 통과했는지** 본다.
+              정상 충돌은 끝점만 1px 안팔 파고들므로 중간 점들은 벽 밖이다 — 걸리지 않는다.
+           ⚠️ 씨앗도 시계도 안 쓴다 — 물리 상태로만 정해지므로 화면마다 같다. */
+        function pbSweep() {
+            const M = Matter;
+            for (let i = 0; i < pbBalls.length; i++) {
+                const b = pbBalls[i];
+                if (b.pbDone || b.pbPx === undefined) continue;
+                const p0 = { x: b.pbPx, y: b.pbPy }, p1 = b.position;
+                const dx = p1.x - p0.x, dy = p1.y - p0.y;
+                const len = Math.hypot(dx, dy);
+                let crossed = false, ws = null;
+                if (len >= 3 && pbStatics.length) {
+                    const hits = M.Query.ray(pbStatics, p0, p1);                // 폭 0 — 중심선만
+                    ws = [];
+                    for (let k = 0; k < hits.length; k++) {
+                        const w = (hits[k].bodyA && hits[k].bodyA.isStatic) ? hits[k].bodyA : hits[k].bodyB;
+                        if (w && !w.pbGone && ws.indexOf(w) < 0) ws.push(w);
+                    }
+                    if (ws.length) {
+                        /* 선분 위 점들을 1.5px 간격으로 찍는다.
+                           · 정상 충돌: 끝점 쪽만 살짝 파고든다 → 안쪽 표본이 있어도 **마지막 표본까지 안쪽**
+                           · 관통: 중간은 안쪽인데 마지막 표본은 밖 → 벽을 지나쳐 나간 것
+                           · 끝점이 4px 넘게 박혔다 → 그것도 뻐린 것(솔버가 어느 쪽으로 밀어낼지 모른다)
+                           ⚠️ 예전에 "안쪽 표본이 하나라도 있으면 관통"으로 했더니 정상 충돌을 되돌려
+                              구슬 힘을 빼앗고 판이 두 배 느려졌다(Wheel 7.8→15.4초). */
+                        const n = Math.max(2, Math.ceil(len / 1.5));
+                        let seen = false, lastIn = false;
+                        for (let t = 1; t < n; t++) {
+                            const q = { x: p0.x + dx * t / n, y: p0.y + dy * t / n };
+                            let inside = false;
+                            for (let k = 0; k < ws.length; k++) {
+                                if (M.Vertices.contains(ws[k].vertices, q)) { inside = true; break; }
+                            }
+                            if (inside) seen = true;
+                            lastIn = inside;
+                        }
+                        if (seen && !lastIn) crossed = true;
+                        else if (seen) {
+                            const cs = M.Query.collides(b, ws);
+                            for (let k = 0; k < cs.length; k++) if (cs[k].depth > pbR * 0.6) { crossed = true; break; }
+                        }
+                    }
+                }
+                /* 🔒 그래도 판 밖으로는 절대 못 나간다. 여기가 마지막 잠금이다 —
+                      대표님: "맵에 걸려서 밖으로 튵겨나가버리는 버그". */
+                let cx = p1.x, out = false;
+                if (cx < pbR) { cx = pbR; out = true; }
+                else if (cx > PB_W - pbR) { cx = PB_W - pbR; out = true; }
+                if (crossed) {
+                    M.Body.setPosition(b, p0);
+                    const v = M.Body.getVelocity(b);
+                    M.Body.setVelocity(b, { x: -v.x * 0.35, y: -v.y * 0.35 });
+                } else if (out) {
+                    M.Body.setPosition(b, { x: cx, y: p1.y });
+                    const v = M.Body.getVelocity(b);
+                    M.Body.setVelocity(b, { x: -v.x * 0.5, y: v.y });
+                }
+            }
+        }
+
+        function pbCapSpeed() {
+            for (let i = 0; i < pbBalls.length; i++) {
+                const b = pbBalls[i];
+                if (b.pbDone) continue;
+                const v = Matter.Body.getVelocity(b);
+                const sp = Math.hypot(v.x, v.y);
+                if (sp > PB_VMAX) {
+                    const k = PB_VMAX / sp;
+                    Matter.Body.setVelocity(b, { x: v.x * k, y: v.y * k });
+                }
+            }
+        }
+
+        /* 🎬 그릴 때 쓰는 자리 — 직전 걸음과 지금 걸음 사이를 pbSlowAcc 만큼 섞는다.
+           ⚠️ 슬로모션은 걸음을 **건너뛰어** 만든다(물리 걸음 크기는 그대로). 그러면 0.25배일 때
+              구슬이 4프레임에 한 번만 움직여 뚝뚝 끊긴다 — 대표님: "줌될 때 프레임이 떨어진다".
+              물리는 그대로 두고 **그림만** 사이를 채운다. 물리 결과는 한 치도 안 바뀐다. */
+        function pbPos(b) {
+            if (b.pbPx === undefined) return b.position;
+            const a = Math.max(0, Math.min(1, pbSlowAcc));
+            return { x: b.pbPx + (b.position.x - b.pbPx) * a,
+                     y: b.pbPy + (b.position.y - b.pbPy) * a };
+        }
+
+        /* 🎯 카메라 주인공 — 규칙이 가리키는 구슬을 따르되, 뜸을 들여 바꾼다(PB_TGT_HOLD). */
+        function pbTarget() {
+            const act = pbActive();
+            const want = act.length ? act[pbTargetIdx(act)] : null;
+            if (!pbTgt || pbTgt.pbDone || act.indexOf(pbTgt) < 0) {
+                pbTgt = want; pbTgtCand = null; pbTgtN = 0;      // 주인공이 사라졌다 — 바로 바꾼다
+            } else if (want === pbTgt) {
+                pbTgtCand = null; pbTgtN = 0;
+            } else if (want === pbTgtCand) {
+                if (++pbTgtN >= PB_TGT_HOLD) { pbTgt = want; pbTgtCand = null; pbTgtN = 0; }
+            } else {
+                pbTgtCand = want; pbTgtN = 1;
+            }
+            return pbTgt;
         }
 
         /* 🚨 아무도 더 못 나아가는지 지켜본다.
@@ -7681,16 +7862,7 @@
                 pbSlowAcc += pbSlowFactor();
                 if (pbSlowAcc < 1) continue;
                 pbSlowAcc -= 1;
-                pbSpinners.forEach(function (sp) {
-                    Matter.Body.setAngle(sp.body, sp.body.angle + sp.dir * sp.speed);
-                });
-                pbSkills();
-                Matter.Engine.update(pbEng, PB_STEP);
-                pbPopDrain();
-                pbSteps++;
-                pbCheckGoal();
-                pbStallWatch();
-                if (++pbTick % 8 === 0) pbUnstick();
+                pbStepOnce();
             }
             pbDraw();
 
@@ -7718,15 +7890,15 @@
            ⚠️ 주인공은 규칙에 따라 다르다(pbTargetIdx). '끝까지 남기' 면 꼴찌를 따라간다.
            ⚠️ 그리기용일 뿐이라 물리에 영향이 없다 — 화면마다 달라도 경기는 같다. */
         function pbCamera() {
-            const act = pbActive();
-            const t = act.length ? act[pbTargetIdx(act)] : null;
+            const t = pbTarget();
 
             let wz = PB_ZOOM_BASE, wx = PB_W / 2, wy = pbCamY;
             if (t) {
-                wx = t.position.x;
-                wy = t.position.y;
+                const tp = pbPos(t);                              // 보간된 자리 — 슬로모션에서도 매끈하게
+                wx = tp.x;
+                wy = tp.y;
                 if (pbZoomY) {
-                    const d = Math.abs(pbZoomY - t.position.y) / pbScale;    // 골까지 몇 미터
+                    const d = Math.abs(pbZoomY - tp.y) / pbScale;    // 골까지 몇 미터
                     if (d < PB_ZOOM_TH) {
                         wz = Math.max(PB_ZOOM_BASE, (1 - d / PB_ZOOM_TH) * PB_ZOOM_MAX);
                     }
@@ -7810,12 +7982,11 @@
                   구슬을 다 덮어버린다. 배율로 나눠 그린다. */
             g.font = '900 ' + (19 / Z).toFixed(2) + 'px Pretendard, "Malgun Gothic", sans-serif';
             g.textAlign = 'center'; g.textBaseline = 'middle';
-            const act = pbActive();
-            const tgt = act.length ? act[pbTargetIdx(act)] : null;
+            const tgt = pbTgt;
             for (let i = 0; i < pbBalls.length; i++) {
                 const b = pbBalls[i];
                 if (b.pbDone) continue;
-                const p = b.position;
+                const p = pbPos(b);                               // 보간된 자리
                 if (p.y < top - 40 || p.y > bot + 40) continue;
                 if (p.x < lft - 40 || p.x > rgt + 40) continue;
                 // 주인공은 한 겹 더 둘러 눈에 띄게 — 누구를 보라고 하는지 알려준다
@@ -7827,7 +7998,9 @@
                 g.fillStyle = b.pbColor; g.shadowColor = b.pbColor;
                 // 방금 밀린 구슬은 잠깐 환해진다 — 누가 맞았는지 보이게
                 const hit = b.pbHit ? Math.max(0, 1 - (performance.now() - b.pbHit) / 400) : 0;
-                g.shadowBlur = 16 + hit * 26;
+                /* ⚠️ 그림자 번짐은 확대를 그대로 타서 3배면 48px 이 된다 — 비싸고 보기에도
+                      번들거린다. 화면 기준 크기로 고정한다. */
+                g.shadowBlur = (16 + hit * 26) / Z;
                 g.fill(); g.shadowBlur = 0;
                 if (hit > 0) {
                     g.fillStyle = 'rgba(255,255,255,' + (hit * .55).toFixed(2) + ')';
@@ -7934,7 +8107,11 @@
             const sub = (pbRule === 'last')
                 ? (list.length > 1 ? ('끝까지 남은 ' + list.length + '명') : '끝까지 살아남음')
                 : (list.length > 1 ? ('먼저 들어온 ' + list.length + '명') : '1등');
-            el.innerHTML = '🏆 ' + list.map(escText).join(' · ')
+            /* ⚠️ 방송판에는 escText 가 **없다**. escapeSlotText 가 그 일을 한다.
+                  escText 를 써 둣다가 우승 딱지를 띄울 때마다 터져 딱지가 영영 안 뗴다
+                  (실측 2026-09-16: ReferenceError: escText is not defined).
+               ⚠️ map 은 (값, 번호, 배열) 을 넘긴다 — 한 개만 받는 함수로 감싼다. */
+            el.innerHTML = '🏆 ' + list.map(function (n) { return escapeSlotText(n); }).join(' · ')
                          + '<span class="pb-w-sub">' + sub + '</span>';
             el.classList.add('show');
         }

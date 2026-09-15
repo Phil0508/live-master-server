@@ -920,6 +920,38 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
             /* 무대 안 실제 요소를 재어 손잡이에 그 크기를 입힌다.
                이 한 줄이 '편집기와 방송이 같은 모양' 의 전부다 — 더 이상 손으로 베낀
                크기를 믿지 않는다. */
+            /* 📏 무대에서 위젯이 **실제로 차지하는** 네모를 재서 돌려준다.
+               ⚠️ offsetWidth/Height 는 position:absolute 로 밖에 떠 있는 자식을 안 센다.
+                  목표 게이지가 바로 그 경우다 — 금액 딱지가 막대 **왼쪽 108px 밖**에 떠 있어
+                  손잡이가 막대(30px)만 덮었고, 끌어도 숲자가 함께 잡히지 않았다
+                  (대표님, 2026-09-16). 안내판·퇴근빵도 조금씩 샐어난다.
+               ⚠️ getBoundingClientRect 는 무대 축소 배율이 걸린 값이다. offsetWidth 와 대보아
+                  배율을 구해 다시 알맹이 크기(방송판 px)로 되돌린다.
+               ⚠️ 안 보이는 것·화면에 고정된 것(position:fixed 팝업)은 빼야 한다.
+               비용은 쟿다 — 실측: 위젯 20개·후손 162개 한 바퀴 0.46ms. */
+            function stageBox(real, d) {
+                if (!real || !real.offsetWidth || !real.offsetHeight) return null;
+                const V = d.defaultView || window;
+                const rr = real.getBoundingClientRect();
+                const sc = rr.width / real.offsetWidth;
+                if (!sc || !isFinite(sc)) return null;
+                let l = rr.left, t = rr.top, r = rr.right, b = rr.bottom;
+                const kids = real.querySelectorAll('*');
+                for (let i = 0; i < kids.length; i++) {
+                    const e = kids[i], c = V.getComputedStyle(e);
+                    if (c.display === 'none' || c.visibility === 'hidden'
+                        || parseFloat(c.opacity) === 0 || c.position === 'fixed') continue;
+                    const x = e.getBoundingClientRect();
+                    if (!x.width && !x.height) continue;
+                    if (x.left < l) l = x.left;
+                    if (x.top < t) t = x.top;
+                    if (x.right > r) r = x.right;
+                    if (x.bottom > b) b = x.bottom;
+                }
+                return { dx: Math.round((l - rr.left) / sc), dy: Math.round((t - rr.top) / sc),
+                         w: Math.round((r - l) / sc), h: Math.round((b - t) / sc) };
+            }
+
             function syncHandles() {
                 const d = stageDoc(); if (!d || !stageOn()) return;
                 stageForceVisible();                     // 방송 상태가 바뀌어 다시 감춰져도 도로 보이게
@@ -930,15 +962,23 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                     if (el.style.display === 'none') return;
                     const real = d.getElementById(el.id + '-container');
                     // offsetWidth 는 transform(배율) 에 안 흔들린다 — 알맹이 크기다
-                    const w = real ? real.offsetWidth : 0, h = real ? real.offsetHeight : 0;
-                    const shown = w > 0 && h > 0;
+                    const bx = stageBox(real, d);
+                    const shown = !!bx;
                     el.classList.toggle('no-stage', !shown);
-                    if (!shown) { el.style.width = ''; el.style.height = ''; return; }
-                    /* ⚠️ 값이 같은데도 다시 쓰면 그때마다 배치를 다시 계산한다(reflow).
-                          0.7초마다 19개면 끌던 손이 걸린다. 달라졌을 때만 쓴다. */
-                    const nw = w + 'px', nh = h + 'px';
+                    if (!shown) {
+                        el.style.width = ''; el.style.height = '';
+                        el.style.marginLeft = ''; el.style.marginTop = '';
+                        return;
+                    }
+                    /* ⚠️ 자리(style.left/top)는 건드리지 않는다 — 그게 곧 배치 값이라 손대면
+                          끌었을 때 엉뚱한 좌표가 저장된다. 밖으로 샐어난 만큼은 margin 으로만 밀어
+                          **보이는 네모**를 넓힌다. 끌기·저장은 전혀 안 바뀐다. */
+                    const nw = bx.w + 'px', nh = bx.h + 'px';
+                    const ml = (bx.dx ? bx.dx + 'px' : ''), mt = (bx.dy ? bx.dy + 'px' : '');
                     if (el.style.width !== nw) el.style.width = nw;
                     if (el.style.height !== nh) el.style.height = nh;
+                    if (el.style.marginLeft !== ml) el.style.marginLeft = ml;
+                    if (el.style.marginTop !== mt) el.style.marginTop = mt;
                 });
             }
 
@@ -1033,6 +1073,12 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                    서서히 사라지고, 창이 가려지면 그 전환이 얼어 영영 안 사라진다(실측: 규칙을 뺐는데도
                    opacity:running 으로 1/visible 고정). 방송에는 영향 없다 — iframe 안에서만 도는 규칙이다. */
                 const rules = ['html.ed-stage body .widget-container{transition:none !important}'];
+                /* ⚠️ 재기 전에 지금 규칙을 **비워야** 한다.
+                      안 비우면: 한 번 display:block 을 박아 두면 다음번엔 '이미 block 이네' 하고
+                      규칙을 빼버려 도로 숨고, 그 다음번엔 다시 박고 — 0.7초마다 깜빡인다.
+                      실측: 목표 게이지가 보였다 안 보였다를 반복했다(2026-09-16).
+                      비우고 배치를 한 번 확정시킨 뒤 재면 항상 본모습 기준으로 재게 된다. */
+                if (st && st.textContent) { st.textContent = ''; void root.offsetWidth; }
                 document.querySelectorAll('.widget').forEach(el => {
                     if (el.style.display === 'none') return;             // 눈을 끈 것은 무대에서도 감춘 채 둔다
                     const real = d.getElementById(el.id + '-container'); if (!real) return;
