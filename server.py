@@ -1587,6 +1587,10 @@ DEFAULT_STATE = {
     "announce_bot": {
         "enabled": True,            # 전체 스위치. 끄면 봇이 한마디도 안 한다
         "min_interval_sec": 25,     # 최소 몇 초에 한 줄
+        # 🔗 어느 방송 채팅에 칠 것인가 — 조종실에서 라이브 주소를 붙여넣는다.
+        #    비워두면 봇이 제 계정의 라이브를 찾는다(방송을 다른 계정으로 하면 못 찾는다).
+        "live_url": "",             # 사장님이 붙여넣은 주소 그대로 (화면에 도로 보여준다)
+        "live_video_id": "",        # 거기서 뽑아낸 영상 번호 — 봇이 실제로 쓰는 값
         "say": {                    # 무엇을 말할지
             "donation": True,       # 💝 후원 감사 (리액션이 화면에 나올 때)
             "rank_top": True,       # 👑 1위 바뀜
@@ -2029,6 +2033,9 @@ def load_data():
     if not isinstance(_ab, dict) or _ab is DEFAULT_STATE["announce_bot"]:
         _ab = copy.deepcopy(DEFAULT_STATE["announce_bot"])
         state["announce_bot"] = _ab
+    # ⚠️ 속칸(say·notices)만 채우면 위 칸이 빠진다. 옛 저장본에는 주소 칸이 없다.
+    for _k in ("live_url", "live_video_id"):
+        _ab.setdefault(_k, DEFAULT_STATE["announce_bot"][_k])
     for _sub in ("say", "notices"):
         if not isinstance(_ab.get(_sub), dict):
             _ab[_sub] = copy.deepcopy(DEFAULT_STATE["announce_bot"][_sub])
@@ -6695,6 +6702,30 @@ def api_fundjar():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+_YT_ID_RE = re.compile(r'(?:v=|/live/|youtu\.be/|/shorts/|/embed/)([A-Za-z0-9_-]{11})')
+
+
+def _yt_video_id(text):
+    """붙여넣은 라이브 주소에서 영상 번호(11글자)를 뽑는다.
+
+    유튜브 주소는 모양이 여럿이다 — watch?v= · youtu.be/ · /live/ · /shorts/ · /embed/.
+    사장님이 어느 걸 복사해 오든 받아야 한다. 번호만 그냥 붙여넣어도 받는다.
+
+    ⚠️ 돌려주는 값이 셋이다. '' 는 **비우라는 뜻**(채널에서 알아서 찾기)이고,
+       None 은 **못 읽었다**는 뜻이다. 둘을 같게 다루면, 오타를 조용히 '비움'으로
+       받아들여 봇이 엉뚱한 데를 쳐다본다.
+    """
+    t = (text or '').strip()
+    if not t:
+        return ''
+    m = _YT_ID_RE.search(t)
+    if m:
+        return m.group(1)
+    if re.fullmatch(r'[A-Za-z0-9_-]{11}', t):
+        return t
+    return None
+
+
 @app.route('/api/announcebot', methods=['POST'])
 def api_announce_bot():
     """🤖 진행봇 설정 — 조종실에서 켜고 끄고 간격을 바꾼다.
@@ -6725,6 +6756,16 @@ def api_announce_bot():
                     return jsonify({'status': 'error',
                                     'message': '간격은 5~600초 사이입니다'}), 400
                 b['min_interval_sec'] = _iv
+            if 'live_url' in body:
+                _raw = str(body.get('live_url') or '').strip()
+                _vid = _yt_video_id(_raw)
+                if _vid is None:
+                    return jsonify({'status': 'error',
+                                    'message': '라이브 주소를 못 읽었습니다. 유튜브 주소를 '
+                                               '그대로 붙여넣어 주세요'}), 400
+                b['live_url'] = _raw
+                b['live_video_id'] = _vid
+
             # ⚠️ 모르는 이름은 조용히 버린다. 오타로 상태에 쓰레기 칸이 생기면
             #    봇은 그걸 안 보는데 조종실에는 켜진 것처럼 남는다.
             for _k, _v in (body.get('say') or {}).items():

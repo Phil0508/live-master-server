@@ -443,6 +443,45 @@ for _k in ('account_min', 'rank_min', 'fundjar_min'):
     if "'" + _k + "'" not in CTL:
         chk('화면에 안내 간격이 있다: ' + _k, False)
 chk('안내 간격이 화면에 다 있다', True)
+
+print()
+print('=' * 74)
+print('🔗 라이브 주소 — 어느 방송 채팅에 칠 것인가')
+print('=' * 74)
+# 왜 필요한가: 봇 계정과 방송 채널이 다르면(사장님 경우) 봇이 제 라이브를 찾다가
+# 아무것도 못 찾는다. 방송마다 주소가 바뀌므로 서버에 들어가지 않고 조종실에서 갈아끼운다.
+chk('조종실에 주소 칸이 있다', 'id="ab-url"' in CTL)
+chk('저장 단추가 있다', 'abSaveUrl' in CTL)
+chk('비우기가 있다 (채널에서 알아서 찾기)', 'abClearUrl' in CTL)
+chk('치는 중에 덮어쓰지 않는다', 'document.activeElement !== ub' in CTL)
+chk('상태에 칸이 있다', '"live_url"' in SRV and '"live_video_id"' in SRV)
+chk('옛 저장본에도 칸을 채운다', 'live_video_id"' in SRV and '_ab.setdefault' in SRV)
+chk('서버가 주소를 읽는다', '_yt_video_id' in SRV)
+chk('못 읽은 주소는 거절한다 (조용히 비우지 않는다)', "'라이브 주소를 못 읽었습니다" in SRV
+    or '라이브 주소를 못 읽었습니다' in SRV)
+
+# ⚠️ 주소를 바꿔도 chat_id 를 안 비우면 옛 방송의 빈 채팅방에 계속 친다.
+# (YT 는 아래쪽에서 읽으므로 여기서는 따로 읽는다 — 순서에 기대지 않는다)
+_YTSRC = io.open(os.path.join(ROOT, 'bot', 'youtube.py'), encoding='utf-8', errors='replace').read()
+chk('방송을 갈아탈 수 있다', 'def set_video' in _YTSRC)
+chk('갈아탈 때 옛 채팅방을 버린다', 'self.chat_id = None' in _YTSRC)
+chk('봇이 도는 중에 주소 바뀜을 알아챈다', '_seen_vid' in BOT and 'live_video_id' in BOT)
+
+_ids = ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'https://youtu.be/dQw4w9WgXcQ',
+        'https://www.youtube.com/live/dQw4w9WgXcQ', 'dQw4w9WgXcQ']
+try:
+    import re as _re
+    _rx = _re.compile(r"_YT_ID_RE = re\.compile\(r'([^']+)'\)").search(SRV)
+    _pat = _re.compile(_rx.group(1)) if _rx else None
+    _bad = []
+    for _u in _ids:
+        _m = _pat.search(_u) if _pat else None
+        _got = _m.group(1) if _m else ('dQw4w9WgXcQ' if _re.fullmatch(r'[A-Za-z0-9_-]{11}', _u) else None)
+        if _got != 'dQw4w9WgXcQ':
+            _bad.append(_u)
+    chk('주소 모양 네 가지를 다 읽는다', not _bad, ' · '.join(_bad))
+except Exception as _e:
+    chk('주소 모양 네 가지를 다 읽는다', False, str(_e))
 chk('최소 간격도 바꿀 수 있다', 'ab-iv' in CTL and 'min_interval_sec' in CTL)
 chk('새로고침 고리에 물려 있다 (다른 기기에서 바꿔도 따라온다)', 'abSync(false)' in CTL)
 # ⚠️ 매번 다시 그리면 체크를 누르는 순간 그 칸이 지워져 안 눌린다

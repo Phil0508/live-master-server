@@ -464,6 +464,16 @@ class Bot:
 
     def _on_state(self, st):
         self.state = st
+        # 🔗 조종실에서 라이브 주소를 바꾸면 그때부터 그 방송 채팅에 친다.
+        #    ⚠️ 봇을 껐다 켜지 않아도 바뀌어야 한다 — 방송 도중에 주소를
+        #       넣는 일이 흔하다. 그래서 상태가 올 때마다 살핀다.
+        if self.yt is not None:
+            _vid = (bot_cfg(st).get('live_video_id') or '').strip()
+            if _vid != getattr(self, '_seen_vid', None):
+                self._seen_vid = _vid
+                if self.yt.set_video(_vid):
+                    print('🔗 라이브를 갈아탑니다: '
+                          + (_vid or '(비움 — 채널에서 찾기)'), flush=True)
         if self.prev is None:
             # ⚠️ 붙자마자 받는 첫 상태로는 아무 말도 안 한다. 안 그러면 봇을 켤 때마다
             #    이미 지나간 후원·굴림을 뒤늦게 떠든다.

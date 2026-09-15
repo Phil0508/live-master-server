@@ -110,6 +110,19 @@ class YouTube:
         return ((items[0].get('liveStreamingDetails') or {}).get('activeLiveChatId')
                 if items else None)
 
+    def set_video(self, vid):
+        """조종실에서 라이브 주소를 바꿨다. 다음 글부터 그 방송 채팅에 친다.
+
+        ⚠️ chat_id 를 반드시 비워야 한다. 안 비우면 한 번 찾아 기억해 둔 **옛 방송의**
+           채팅방에 계속 친다 — 방송을 갈아탄 줄도 모르고 빈 방에 떠든다.
+        """
+        vid = (vid or '').strip()
+        if vid == (self.cfg.get('video_id') or '').strip():
+            return False
+        self.cfg['video_id'] = vid
+        self.chat_id = None
+        return True
+
     # ── 어느 채팅방에 칠 것인가 ──
     def _chat(self):
         """① 적어둔 채팅방 → ② 적어둔 영상 → ③ 적어둔 **채널**의 지금 라이브 → ④ 봇 소유 라이브.

@@ -1711,6 +1711,27 @@
                 봇이 붙어 있는지 확인하는 중…
             </div>
 
+            <!-- 🔗 어느 방송에 칠 것인가. 방송마다 주소가 바뀌므로 여기서 갈아끼운다.
+                 ⚠️ 비워두면 봇이 '제 계정의 라이브' 를 찾는다. 방송을 다른 계정으로 하면
+                    못 찾는다 — 사장님 경우가 그렇다. 그래서 이 칸이 필요하다. -->
+            <div style="padding:12px; border-radius:var(--r-2); border:1px solid var(--border-light);
+                        background:rgba(0,0,0,0.18); margin-bottom:14px;">
+                <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:8px;">
+                    🔗 라이브 주소
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <input type="text" id="ab-url" placeholder="https://www.youtube.com/watch?v=..."
+                           style="flex:1; min-width:220px; margin:0;"
+                           onkeydown="if(event.key==='Enter') abSaveUrl();">
+                    <button onclick="abSaveUrl()" style="margin:0;">저장</button>
+                    <button onclick="abClearUrl()" style="margin:0; background:transparent;
+                            border:1px solid var(--border-light);" title="비우면 봇이 채널에서 알아서 찾습니다">비우기</button>
+                </div>
+                <div id="ab-url-now" style="font-size:var(--fs-1); color:var(--text-muted); margin-top:8px; line-height:1.6;">
+                    유튜브 라이브 주소를 그대로 붙여넣으세요. 방송 중에 바꿔도 바로 갈아탑니다.
+                </div>
+            </div>
+
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;">
                 <!-- 무엇을 말할지 -->
                 <div>
@@ -8079,6 +8100,19 @@ initFoldablePanels();
             } catch (e) { acctToast('통신 실패', 'warn'); }
         }
 
+        /* 🔗 붙여넣은 주소를 서버로. 영상 번호를 뽑는 일은 서버가 한다 —
+              주소 모양이 여럿이라(watch?v= · youtu.be · /live/) 한 곳에서만 다루는 게 낫다. */
+        async function abSaveUrl() {
+            const box = document.getElementById('ab-url');
+            if (!box) return;
+            await abSet({ live_url: box.value.trim() });
+        }
+        async function abClearUrl() {
+            const box = document.getElementById('ab-url');
+            if (box) box.value = '';
+            await abSet({ live_url: '' });
+        }
+
         function abSync(force) {
             const box = document.getElementById('ab-say');
             if (!box || typeof gd === 'undefined' || !gd) return;
@@ -8086,6 +8120,18 @@ initFoldablePanels();
             if (!b) return;
             const sw = document.getElementById('ab-on');
             if (sw && sw.checked !== !!b.enabled) sw.checked = !!b.enabled;
+
+            /* 🔗 라이브 주소. ⚠️ 치고 있는 중에 덮어쓰면 글자가 사라진다 — 손이 떠나
+                  있을 때만 맞춘다(체크칸을 매번 다시 그리면 안 되는 것과 같은 이유다). */
+            const ub = document.getElementById('ab-url');
+            if (ub && document.activeElement !== ub) ub.value = b.live_url || '';
+            const un = document.getElementById('ab-url-now');
+            if (un) {
+                un.innerHTML = b.live_video_id
+                    ? ('✅ 이 방송에 칩니다 — 영상 번호 <b style="color:var(--accent);">'
+                       + String(b.live_video_id).replace(/[<>&]/g, '') + '</b>')
+                    : '비어 있습니다 — 봇이 <b>제 계정의</b> 라이브를 찾습니다. 방송을 다른 계정으로 하면 못 찾습니다.';
+            }
 
             /* ⚠️ 매번 다시 그리면 체크를 누르는 순간 그 칸이 지워져 안 눌린다.
                   값이 바뀌었을 때만 그린다(안내 전광판과 같은 규칙). */
