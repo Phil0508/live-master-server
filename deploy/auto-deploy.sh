@@ -26,9 +26,11 @@ if [ -s "$PIN_FILE" ]; then
       run_as git fetch --quiet origin "$BRANCH" || true
       if run_as git checkout --quiet --detach "$PINNED"; then
         systemctl restart livemaster
-        if systemctl is-enabled --quiet toon-listener 2>/dev/null; then
-          systemctl restart toon-listener
-        fi
+        for svc in toon-listener livemaster-bot; do
+          if systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+            systemctl restart "$svc"
+          fi
+        done
         echo "✅ 고정 버전 적용: ${PINNED:0:8}"
       else
         echo "⚠️ 고정된 버전으로 옮기지 못했습니다: ${PINNED:0:8}"
@@ -63,8 +65,12 @@ if [ "$NEED_PIP" = "1" ]; then
 fi
 
 systemctl restart livemaster
-# 후원 리스너가 켜져 있으면 코드가 바뀌었을 수 있으니 같이 새로고침
-if systemctl is-enabled --quiet toon-listener 2>/dev/null; then
-  systemctl restart toon-listener
-fi
+# 곁다리 서비스들도 코드가 바뀌었을 수 있으니 같이 새로고침.
+# ⚠️ 켜 두지 않은 것은 건드리지 않는다(is-enabled 로 확인) — 안 쓰는 서비스를
+#    배포 때마다 깨우면 로그만 지저분해진다.
+for svc in toon-listener livemaster-bot; do
+  if systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+    systemctl restart "$svc"
+  fi
+done
 echo "✅ 배포 완료: ${REMOTE:0:8}"

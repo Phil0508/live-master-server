@@ -655,6 +655,13 @@ def main():
     cfg['server'] = os.environ.get('BOT_SERVER') or cfg.get('server') or 'http://127.0.0.1:5000'
     cfg['min_interval_sec'] = float(os.environ.get('BOT_INTERVAL') or cfg.get('min_interval_sec', 25))
     cfg['idle_after_sec'] = float(os.environ.get('BOT_IDLE') or cfg.get('idle_after_sec', 90))
+    # 🖥️ 서버에서 서비스로 돌 때는 저장소 파일을 안 고치고 환경변수로 준다
+    #    (/etc/livemaster.env 에 적으면 된다 — 열쇠도 거기 있다)
+    _y = cfg.setdefault('youtube', {})
+    for _k in ('channel_id', 'video_id', 'live_chat_id'):
+        _env = os.environ.get('YT_' + _k.upper())
+        if _env:
+            _y[_k] = _env.strip()
     tpl = Templates(os.path.join(HERE, 'messages.json'))
     bot = Bot(cfg, tpl, live=args.live)
 
@@ -665,7 +672,11 @@ def main():
         if not ok:
             print(f'❌ 유튜브 준비가 안 됐습니다: {why}')
             print('   README.md 의 2단계를 먼저 해주세요. 지금은 --live 없이 돌리면 됩니다.')
-            return 1
+            # ⚠️ 78(EX_CONFIG) 로 끝낸다. 서비스로 돌 때 systemd 가 이 값을 보고
+            #    **되살리지 않는다**(RestartPreventExitStatus=78). 열쇠가 없는 건 시간이
+            #    지난다고 고쳐지지 않는데, 그냥 1 로 끝내면 5초마다 영원히 재시작하며
+            #    로그만 채운다. 설정을 고치고 사람이 다시 켜야 하는 상황이다.
+            return 78
         print('💬 진짜로 칩니다.')
     try:
         bot.run(once=args.once)

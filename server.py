@@ -5043,7 +5043,7 @@ def _restart_services():
        ⚠️ 이 명령이 지금 이 프로세스를 죽인다. 그래서 응답을 먼저 보낸 뒤
           딴 갈래에서 잠깐 있다가 부른다.
     """
-    for unit in ('livemaster', 'toon-listener'):
+    for unit in ('livemaster', 'toon-listener', 'livemaster-bot'):
         try:
             r = subprocess.run(['sudo', '-n', 'systemctl', 'restart', unit],
                                capture_output=True, text=True, encoding='utf-8',

@@ -1,0 +1,50 @@
+# 🤖 진행봇 — 방송에서 일어난 일을 유튜브 라이브 채팅에 알린다.
+#
+# 방송 서버와 **따로** 돈다. 유튜브가 느려지거나 열쇠가 만료돼도 방송 화면은 멀쩡하고,
+# 봇만 껐다 켤 수 있다. (투네이션 리스너와 같은 자리다)
+#
+# ⚠️ 무엇을 말할지 / 켜고 끄기는 **조종실 '진행봇' 탭**에서 정한다.
+#    이 서비스는 "봇 프로그램이 떠 있게" 하는 것뿐이다. 조종실에서 전체를 끄면
+#    프로그램은 떠 있되 한마디도 안 한다 — 그게 정상이다.
+#
+# ⚠️ 돌아가려면 /etc/livemaster.env 에 이 셋이 있어야 한다:
+#        YT_CLIENT_ID · YT_CLIENT_SECRET · YT_REFRESH_TOKEN
+#    없으면 78(EX_CONFIG)로 끝내고 **되살리지 않는다**(아래 RestartPreventExitStatus).
+#    시간이 지난다고 고쳐지는 일이 아니라서, 5초마다 재시작하며 로그만 채우면 안 된다.
+#    열쇠는 방송 컴퓨터에서 `python bot/link.py` 를 돌리면 bot/token.json 에 생긴다.
+#
+# ⚠️ 방송을 봇 계정이 아닌 다른 계정으로 한다면 YT_CHANNEL_ID 도 있어야 한다.
+#    없으면 봇 계정 자신의 라이브를 찾다가 못 찾는다.
+
+[Unit]
+Description=진행봇 (방송 사건 → 유튜브 라이브 채팅)
+After=livemaster.service network-online.target
+Wants=network-online.target
+# 방송 서버가 떠 있어야 사건을 받아볼 수 있다
+Requires=livemaster.service
+
+[Service]
+Type=simple
+User=livemaster
+WorkingDirectory=/opt/livemaster
+EnvironmentFile=/etc/livemaster.env
+ExecStart=/opt/livemaster/.venv/bin/python /opt/livemaster/bot/announce.py --live
+
+# 🖥️ 서버 자신에게 붙는다. 저장소의 bot/config.json 은 방송 컴퓨터용(127.0.0.1:5000)이라
+#    여기서 덮어쓴다 — 파일을 고치면 사장님 컴퓨터에서 쓰기 불편해진다.
+Environment=BOT_SERVER=http://127.0.0.1:8080
+
+# 끊기면 계속 되살린다(서버 재시작·네트워크 흔들림에도 스스로 다시 붙는다)
+Restart=always
+RestartSec=5
+# ⚠️ 78 = 설정이 없다(열쇠 없음). 되살려도 똑같으니 사람이 고칠 때까지 놔둔다.
+RestartPreventExitStatus=78
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=livemaster-bot
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+[Install]
+WantedBy=multi-user.target

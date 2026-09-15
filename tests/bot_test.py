@@ -469,6 +469,48 @@ chk('옛 저장본에 칸이 없어도 채운다', "_ab[_sub].setdefault(_k, _v)
 
 print()
 print('=' * 74)
+print('⑬ 서버에서 혼자 돌게 — 손으로 켜지 않는다')
+print('=' * 74)
+# 예전에는 방송마다 `python bot/announce.py --live` 를 손으로 쳐야 했다.
+# 깜빡하면 봇이 조용하고, 조종실 스위치도 반쪽이 된다(눌러도 봇이 없으면 아무 일도 안 난다).
+# 투네이션 리스너와 같은 자리에 둔다 — 서버가 알아서 띄우고, 끊기면 되살린다.
+UNIT = io.open(os.path.join(ROOT, 'deploy', 'livemaster-bot.service'),
+               encoding='utf-8', errors='replace').read()
+DEP = io.open(os.path.join(ROOT, 'deploy', 'auto-deploy.sh'),
+              encoding='utf-8', errors='replace').read()
+DRM = io.open(os.path.join(ROOT, 'deploy', 'README.md'),
+              encoding='utf-8', errors='replace').read()
+
+chk('서비스 설정 파일이 있다', '[Service]' in UNIT and '[Install]' in UNIT)
+chk('진짜로 치는 모드로 띄운다', 'announce.py --live' in UNIT)
+chk('방송 서버가 떠 있어야 한다', 'Requires=livemaster.service' in UNIT)
+chk('끊기면 되살린다', 'Restart=always' in UNIT)
+# ⚠️ 서버에서는 자기 자신(8080)에 붙는다. 저장소의 config.json 은 방송 컴퓨터용이라 건드리지 않는다
+chk('서버 자신에게 붙는다', 'BOT_SERVER=http://127.0.0.1:8080' in UNIT)
+chk('열쇠는 다른 비밀들과 같은 곳에서 읽는다', 'EnvironmentFile=/etc/livemaster.env' in UNIT)
+# ⚠️ 열쇠가 없는 건 시간이 지난다고 고쳐지지 않는다. 5초마다 재시작하면 로그만 채운다
+chk('설정이 없으면 재시작 고리에 안 빠진다', 'RestartPreventExitStatus=78' in UNIT)
+chk('봇도 그 값으로 끝낸다', 'return 78' in BOT)
+
+chk('저장소 파일을 안 고치고 방송을 지정할 수 있다',
+    "os.environ.get('YT_' + _k.upper())" in BOT)
+for _k in ('YT_CHANNEL_ID', 'YT_CLIENT_ID', 'YT_REFRESH_TOKEN'):
+    if _k not in DRM:
+        chk('설치 안내에 적혀 있다: ' + _k, False)
+chk('무엇을 env 에 넣어야 하는지 적어 뒀다', True)
+# ⚠️ 열쇠 파일은 저장소에 안 올라간다. 그래서 서버에는 따로 넣어야 한다는 걸 적어야 한다
+chk('열쇠를 왜 따로 넣어야 하는지 적어 뒀다', 'token.json' in DRM and '저장소에 안 올라가' in DRM)
+chk('둘이 같이 돌면 안 된다고 적어 뒀다', '두 번 친다' in DRM)
+chk('재시작하면 기다리던 인사가 빠진다고 적어 뒀다', '기다리던 후원' in DRM)
+
+# 새 코드를 올리면 봇도 같이 새로고침돼야 한다 — 안 그러면 옛 봇이 계속 돈다
+chk('자동배포가 봇도 재시작한다', 'livemaster-bot' in DEP)
+chk('안 켜둔 서비스는 안 건드린다', 'is-enabled --quiet "$svc"' in DEP)
+chk('버전 되돌릴 때도 봇을 재시작한다', "'livemaster-bot'" in SRV)
+chk('그 권한을 안내에 넣어 뒀다', 'restart livemaster-bot' in DRM)
+
+print()
+print('=' * 74)
 print('⑨ 문구표 — 사장님이 고치다 틀려도 안 죽는다')
 print('=' * 74)
 T = A.Templates(os.path.join(ROOT, 'bot', 'messages.json'))

@@ -301,6 +301,82 @@ ALERTBOX_URL=https://toon.at/widget/alertbox/<내키> \
   전체 경로까지 시험하려면 `INCLUDE_TEST=1` 을 주면 된다.
 - 소켓 토큰은 알림창 주소에서 자동으로 뽑는다. 알림창 키를 재발급하면 자동으로 새 토큰을 쓴다.
 
+## 🤖 진행봇 (livemaster-bot)
+
+방송에서 일어난 일을 **유튜브 라이브 채팅에 대신 적어주는** 프로그램이다.
+후원 인사 · 1위 바뀜 · 후원 계좌 안내를 친다.
+
+**방송 서버와 따로 돈다.** 유튜브가 느려지거나 열쇠가 만료돼도 방송 화면은 멀쩡하고,
+봇만 껐다 켤 수 있다. (투네이션 리스너와 같은 자리다)
+
+> 💡 **무엇을 말할지는 조종실에서 정한다.** 조종실 → `그 밖에` → **🤖 진행봇** 탭.
+> 이 서비스는 "봇이 떠 있게" 하는 것뿐이다. 조종실에서 전체를 끄면 프로그램은
+> 떠 있되 한마디도 안 한다 — 그게 정상이다.
+
+### 켜는 법
+
+**① 방송 컴퓨터에서** 유튜브 계정을 연동한다 (이미 했다면 건너뛴다):
+
+```bash
+python bot/link.py
+```
+
+⚠️ **봇 계정으로 로그인해야 한다.** 본계정으로 하면 본계정 이름으로 채팅이 올라간다.
+끝나면 `bot/token.json` 이 생긴다. 그 안에 열쇠 세 개가 들어 있다.
+
+**② 그 열쇠를 서버 env 에 옮긴다.** `token.json` 은 저장소에 안 올라가므로(올리면 안 된다)
+서버에는 따로 넣어야 한다:
+
+```bash
+sudo nano /etc/livemaster.env
+#   YT_CLIENT_ID=...
+#   YT_CLIENT_SECRET=...
+#   YT_REFRESH_TOKEN=...
+#   YT_CHANNEL_ID=UC...        ← 방송하는 채널 id (봇 계정이 아니라 **방송 계정**)
+```
+
+> `YT_CHANNEL_ID` 는 방송을 봇 계정이 아닌 다른 계정으로 할 때 필요하다.
+> 없으면 봇은 자기 계정의 라이브를 찾다가 못 찾는다.
+> 채널 id 는 유튜브 스튜디오 → 설정 → 채널 → 고급 설정에 있다.
+
+**③ 켠다:**
+
+```bash
+sudo cp /opt/livemaster/deploy/livemaster-bot.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now livemaster-bot
+sudo journalctl -u livemaster-bot -f      # 채팅 올라가는 게 보인다
+```
+
+### 잘 안 될 때
+
+```bash
+systemctl status livemaster-bot           # 지금 상태
+sudo journalctl -u livemaster-bot -n 50   # 최근 기록
+```
+
+| 보이는 것 | 뜻 |
+|---|---|
+| `❌ 유튜브 준비가 안 됐습니다: 없는 값: ...` | env 에 열쇠가 빠졌다. **되살리지 않는다**(아래 참고) |
+| `라이브 채팅을 못 찾았습니다` | 방송이 안 켜져 있거나 `YT_CHANNEL_ID` 가 없다 |
+| `invalid_grant` / `expired` | 갱신 토큰 만료. ①을 다시 하고 ②의 값을 바꾼다 |
+| 아무 말도 안 함 | 조종실에서 꺼뒀거나, 방송을 아직 시작 안 했다 |
+
+> ⏳ **구글 동의 화면을 `프로덕션으로 게시` 하지 않으면 열쇠가 7일마다 만료된다.**
+> 그러면 봇이 조용해지고, 일주일 뒤라 원인을 짐작하기도 어렵다.
+
+### ⚠️ 알아둘 것
+
+- **열쇠가 없으면 서비스가 78(EX_CONFIG)로 끝나고 되살아나지 않는다.** 일부러 그렇게 했다 —
+  시간이 지난다고 고쳐지는 일이 아닌데 5초마다 재시작하면 로그만 채운다.
+  env 를 고친 뒤 `sudo systemctl start livemaster-bot` 으로 다시 켜면 된다.
+- 봇은 **방송을 시작해야만** 입을 연다. 방송 안 하는 날에도 떠 있지만 조용하다.
+- 새 코드를 올리면 자동배포가 봇도 같이 재시작한다(`auto-deploy.sh`).
+- **봇을 재시작하면 "리액션을 기다리던 후원"의 인사가 빠진다.** 그 기억은 봇 안에만 있다.
+  방송 중 재시작은 되도록 피한다.
+- 서버에서 돌리면 방송 컴퓨터가 꺼져 있어도 봇은 돈다. 대신 **방송 컴퓨터에서
+  `announce.py` 를 같이 돌리면 안 된다** — 둘이 같은 말을 두 번 친다.
+
 ## 🕹️ 조종실에서 버전 되돌리기 / 올리기
 
 조종실 → **시스템** 탭 → **버전** 에서 최근 20개 중 아무 버전으로나 오갈 수 있다.
@@ -317,8 +393,10 @@ ALERTBOX_URL=https://toon.at/widget/alertbox/<내키> \
 sudo tee /etc/sudoers.d/livemaster-restart >/dev/null <<'EOF'
 livemaster ALL=(root) NOPASSWD: /usr/bin/systemctl restart livemaster, \
                                 /usr/bin/systemctl restart toon-listener, \
+                                /usr/bin/systemctl restart livemaster-bot, \
                                 /bin/systemctl restart livemaster, \
-                                /bin/systemctl restart toon-listener
+                                /bin/systemctl restart toon-listener, \
+                                /bin/systemctl restart livemaster-bot
 EOF
 sudo chmod 440 /etc/sudoers.d/livemaster-restart
 sudo visudo -c        # 문법 확인 (parsed OK 가 나와야 한다)
