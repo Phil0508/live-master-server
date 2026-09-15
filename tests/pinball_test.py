@@ -144,7 +144,42 @@ chk('치는 중에 명단을 안 덮어쓴다', 'document.activeElement !== t' i
 
 print()
 print('=' * 74)
-print('⑦ 물리 엔진을 우리 서버에서 내보내는가')
+print('⑦ 판을 고를 수 있는가')
+print('=' * 74)
+"""🗺️ 판 넷은 원본(lazygyu/roulette, MIT)에서 가져왔다. 우리 물리(matter.js)는
+   원본(box2d)과 달라 **맵마다 걸리는 시간이 크게 다르다** — 실측 3~48초, 한 판은
+   가끔 안 끝난다. 그래서 씨앗으로 정하지 않고 **사람이 고른다.**
+   ⚠️ 화면이 여럿이어도 같은 판을 봐야 하므로 서버 상태에 적는다(씨앗과 같은 이유)."""
+chk('서버 상태에 고른 판이 있다', '"map": -1' in SRV)
+chk('범위를 벗어난 값은 우리 코스로 떨어진다', 'def _pinball_map(' in SRV and 'PINBALL_MAPS' in SRV)
+chk('시작할 때도 판을 받는다', "g['map'] = _pinball_map(body.get('map'))" in SRV)
+chk('방송판이 고른 판을 쓴다 (씨앗으로 안 정한다)',
+    'function pbStart(names, seed, mapIdx)' in OV and 'mapIdx >= 0' in OV)
+# ⚠️ 맵 파일을 못 읽었거나 -1 이면 우리 코스로 굴러야 한다. 방송이 빈 화면이 되면 안 된다.
+chk('판을 못 쓰면 우리 코스로 굴린다', 'if (!bodies) { PB_WORLD = PB_WORLD_OWN' in OV)
+chk('조종실에 고르는 칸이 있다', 'id="pb-map"' in CTL and 'pbcSetMap' in CTL)
+# ⚠️ 목록에 걸리는 시간을 적어 둔다. 모르고 고르면 방송 흐름이 끊긴다.
+chk('걸리는 시간을 적어 뒀다', '29~44초' in CTL and '21~48초' in CTL)
+chk('가끔 안 끝나는 판을 숨기지 않는다', '가끔 안 끝남' in CTL)
+
+_mj2 = os.path.join(ROOT, 'vendor', 'pinball-maps.js')
+chk('맵 파일이 있다', os.path.exists(_mj2),
+    ('%dKB' % (os.path.getsize(_mj2) // 1024)) if os.path.exists(_mj2) else '없음')
+if os.path.exists(_mj2):
+    _mh = io.open(_mj2, encoding='utf-8', errors='replace').read(2000)
+    # ⚠️ MIT 조건이다. 지우면 라이선스 위반이다.
+    chk('원저작권 표기를 남겼다', 'Copyright (c) 2022 LazyGyu' in _mh and 'MIT License' in _mh)
+    chk('출처를 적어 뒀다', 'lazygyu/roulette' in _mh)
+# ⚠️ 'Marble Roulette / 마블 룰렛' 은 원저자의 상표다. 우리 이름으로 쓰면 안 된다.
+chk('상표를 우리 이름으로 안 쓴다',
+    '마블 룰렛' not in CTL and '마블 룰렛' not in OV and 'Marble Roulette' not in CTL)
+# 🔴 구슬이 맵 배율을 따라야 한다 — 15px 고정이면 좁은 맵에서 못 사이에 낀다
+#    (실측: 틈 24px 에 지름 30px 이라 여섯 개가 모두 y≈2850 에서 멈췄다).
+chk('구슬 크기가 판 배율을 따른다', 'pbR = Math.max(' in OV and 'SC * 0.17' in OV)
+
+print()
+print('=' * 74)
+print('⑧ 물리 엔진을 우리 서버에서 내보내는가')
 print('=' * 74)
 # ⚠️ 외부 CDN 을 부르면 방송 중 그쪽이 막히는 순간 게임이 통째로 안 뜬다.
 #    컨페티를 vendor 에 둔 것과 같은 이유다.

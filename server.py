@@ -1742,6 +1742,10 @@ DEFAULT_STATE = {
         "round_id": 0,          # 판 번호. 늦게 온 보고를 가려내는 표식
         "seed": 0,              # 이 판의 씨앗 — 모든 화면이 같은 경기를 본다
         "result": [],           # 도착 순서 ["양양", "밍밍", ...]
+        # 🗺️ 어느 판에서 굴릴까. -1 = 우리가 만든 코스, 0~3 = 가져온 맵.
+        #    ⚠️ 씨앗으로 정하지 않고 **사람이 고른다.** 맵마다 걸리는 시간이 크게 달라서
+        #       (실측 3~48초) 방송 흐름에 맞는 것을 운영자가 골라야 한다.
+        "map": -1,
         "started_at": 0,        # 시작 시각(ms) — 몇 초 걸렸는지 재려고
     },
 
@@ -8013,6 +8017,21 @@ def _pinball_state(state):
     return g
 
 
+def _pinball_map(raw):
+    """고른 맵 번호를 다듬는다. -1(우리 코스) ～ PINBALL_MAPS-1 사이로만 받는다.
+
+    ⚠️ 범위를 안 지키면 방송판이 없는 맵을 찾다가 빈 화면이 된다.
+    """
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return -1
+    return v if -1 <= v < PINBALL_MAPS else -1
+
+
+PINBALL_MAPS = 4      # vendor/pinball-maps.js 에 든 맵 개수
+
+
 def _pinball_save(state, g):
     state['pinball'] = g
     save_data(state)
@@ -8053,6 +8072,8 @@ def api_pinball_setup():
                 return jsonify({'status': 'error',
                                 'message': '굴러가는 중에는 명단을 못 바꿉니다'}), 409
             g['names'] = names
+            if body.get('map') is not None:
+                g['map'] = _pinball_map(body.get('map'))
             g['result'] = []
             _pinball_save(state, g)
         return jsonify({'status': 'success', 'pinball': g})
@@ -8092,6 +8113,8 @@ def api_pinball_start():
             g = _pinball_state(state)
             if body.get('names') is not None:
                 g['names'] = _pinball_names(body.get('names'))
+            if body.get('map') is not None:
+                g['map'] = _pinball_map(body.get('map'))
             if len(g['names']) < 2:
                 return jsonify({'status': 'error',
                                 'message': '참가자가 둘 이상이어야 합니다'}), 400
