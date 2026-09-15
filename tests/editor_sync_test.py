@@ -186,20 +186,30 @@ for wid, (wl, wt, why) in WANT.items():
 
 print()
 print('=' * 74)
-print('⑥ 옛 배치 파일 막기 · 안전지대 붙잡기')
+print('⑥ 옛 배치 파일 막기 · 안전지대를 걷어낸 것이 양쪽에 반영됐는가')
 print('=' * 74)
 """⚠️ 저장소에 있던 layout.json 에는 게이지 y=1598(폰에서 안 보이는 구역),
    엑셀판 362,178(옛 크기 기준) 이 남아 있었다. 방송판이 전부 읽게 바꾼 뒤로는
    그 파일 하나가 방송을 통째로 옛 자리로 되돌릴 수 있다. 판 번호로 막는다."""
 chk('방송판이 판 번호를 본다', "(ly.__v || 0) >= 2" in ov)
 chk('편집기가 판 번호를 적는다', 'layout.__v = 2' in ad)
-# ⚠️ 예전에 룰렛이 채팅창을 39px, 슬롯이 80px 침범해 폰에서 잘렸다. 그래서 잠갔었다.
-#    이제 잠그는 대신 붙잡는다 — 붙잡기가 사라지면 그 사고가 그대로 돌아온다.
-chk('편집기에 안전지대 붙잡기가 있다', 'function holdInSafe(' in ad)
-chk('끌기와 크기조절 양쪽에서 붙잡는다', ad.count('holdInSafe(activeWidget') >= 2)
-chk("'안전지대 무시' 스위치가 있다", 'id="free-on"' in ad)
-chk('무시를 끄면 나가 있던 것을 불러들인다', 'window.reholdAll' in ad and 'onchange="reholdAll()"' in ad)
-chk('방송판도 무시 표시를 따른다', 'ly.__free' in ov)
+# 🔓 안전지대는 2026-09-15 에 걷어냈다. 사장님: "안전지대라는거 없애 자꾸 뜨네".
+#    (그전 이력: 룰렛이 댓글창을 39px, 슬롯이 80px 침범해 폰에서 잘려 잠갔었고,
+#     그 뒤 잠그는 대신 붙잡기로 바꿨었다. 이제 아무것도 안 막는다 — 잘리는지는 사람이 본다.)
+#    여기서 지키는 것은 '없앤 상태가 양쪽에 똑같이 반영됐는가' 다.
+#    ⚠️ 편집기만 풀면 안 된다. 방송판 applyLayout 의 fit() 이 세로를 115～954 로 도로
+#       끌어당겨, 편집기에서 밖에 둔 것이 방송에서는 안으로 튀어 들어온다(또 어긋난다).
+chk('편집기가 안 붙잡는다 (붙잡기가 통과다)',
+    'function holdInSafe(' in ad and re.search(r'function holdInSafe\([^)]*\)\s*\{[^}]*?return \[x, y\];\s*\}', ad, re.S) is not None)
+chk('빨간 딱지·구역 색칠이 없다',
+    'out-of-safe' not in ad and 'zone-safe' not in ad and 'markOutOfSafe' not in ad)
+chk("'안전지대 무시' 스위치도 없앴다 (늘 자유라 뜻이 없다)",
+    'id="free-on"' not in ad and 'reholdAll' not in ad)
+chk('편집기가 방송판에도 붙잡지 말라고 적는다 (저장 · 무대 양쪽)',
+    ad.count('__free: true') + ad.count('__free = true') >= 2)
+chk('방송판이 그 표시를 따른다', 'ly.__free' in ov)
+# ⚠️ 화면 밖으로 빠뜨린 것을 되찾는 길은 남아 있어야 한다(이건 안전지대가 아니라 화면 전체 기준).
+chk("'화면 안으로' 로 되찾을 수 있다", "tidy('inside')" in ad and '1080 - b.w' in ad)
 # ⚠️ layout.json 이 git 에 있으면 자동배포(git reset --hard)가 사장님이 방금 잡은
 #    자리를 통째로 되돌린다. 서버가 쓰는 파일이니 저장소가 들고 있으면 안 된다.
 gi = io.open(os.path.join(PROJ, '.gitignore'), encoding='utf-8').read()

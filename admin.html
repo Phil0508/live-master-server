@@ -97,12 +97,6 @@
            끌어도 방송이 안 듣는 위젯들이었다 — 편집기가 거짓말을 하는 셈이었다.
            이제 전부 끌 수 있으므로 표시를 없앴다. 되살리지 말 것.
            대신 안전지대 밖으로 나간 것을 빨갛게 알린다. */
-        .widget.out-of-safe { outline: 2px dashed #ff6b6b !important; }
-        .widget.out-of-safe::after {
-            content: '⚠ 폰에서 잘림'; position: absolute; left: 0; top: -22px;
-            font-size: 12px; font-weight: 800; color: #ff6b6b; letter-spacing: .3px;
-            text-shadow: 0 1px 3px #000; pointer-events: none; white-space: nowrap;
-        }
         .resize-handle { position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; background: #fff; border: 4px solid var(--accent); border-radius: 50%; cursor: nwse-resize; display: none; z-index: 100; pointer-events: auto !important; box-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
         .widget.selected .resize-handle { display: block; }
 
@@ -185,17 +179,12 @@
                border-radius: 8px !important; }
         .live-dot { width: 7px !important; height: 7px !important; }
         .guide-text { position: absolute; top: 15px; left: 30px; color: #888; font-size: 14px; font-weight: bold; pointer-events: none; }
-        /* ══ 📱 유튜브 세로 라이브 안전지대 ══
-           ⚠️ 편집기에 이 표시가 없어서, 목표 게이지가 y 1598 · 안내 전광판이 y 1680 —
-              폰에서 아예 안 보이는 자리에 놓인 채로 방송이 나갔다. 눈으로 보고 놓게 한다. */
-        .zone { position: absolute; left: 0; width: 1080px; pointer-events: none; z-index: 0; }
-        .zone > span { position: absolute; right: 10px; top: 6px; font-size: 15px; font-weight: 900;
-            letter-spacing: 1px; padding: 3px 10px; border-radius: 5px; background: rgba(8,10,14,.8); }
-        .zone-dead { background: rgba(120,130,148,.14); }  .zone-dead > span { color: #9aa3b2; }
-        .zone-safe { background: rgba(60,190,155,.07);  }  .zone-safe > span { color: #4fd6b2; }
-        .zone-chat { background: rgba(230,110,160,.15); }  .zone-chat > span { color: #f090b6; }
-        .zone-line { position: absolute; left: 0; width: 1080px; height: 2px;
-            background: rgba(255,255,255,.28); pointer-events: none; z-index: 1; }
+        /* ══ 📱 안전지대 — 2026-09-15 에 걷어냈다 ══
+           사장님: "안전지대라는거 없애 자꾸 뜨네". 구역 색칠·빨간 딱지·붙잡기를 모두 뺐다.
+           ⚠️ 되살릴 일이 생기면: 세로 115～954 가 폰에서 안 가려지는 구역이다.
+              0～115 채널줄, 960～1382 댓글창, 1382～1920 고정 버튼이 덮는다.
+              예전에 룰렛이 댓글창을 39px, 슬롯이 80px 침범해 폰에서 잘려 나간 적이 있다.
+              지금은 아무것도 안 막으므로 어디에 두든 자유이고, 잘리는지는 사람이 본다. */
         /* 게임·연출이 들어가는 자리 */
         .zone-game { position: absolute; left: 6px; top: 307px; width: 1030px; height: 649px;
             border: 2px dashed rgba(246,196,83,.40); border-radius: 10px;
@@ -499,12 +488,6 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
                     <input type="checkbox" id="stage-on" checked onchange="stageApply()" style="width:auto; margin:0; accent-color:#4dd0ff;"> 진짜 방송판 위에서 편집
                 </label>
-                <!-- ⚠️ 안전지대(세로 115~954) 밖은 시청자 폰에서 잘린다. 예전에 룰렛이
-                     채팅창을 39px, 슬롯이 80px 침범해 잘려 나간 적이 있다. 기본은
-                     경계에서 붙잡고, 일부러 빼야 할 때만 이걸 켠다. -->
-                <label style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; color:#c9cdd5; cursor:pointer;">
-                    <input type="checkbox" id="free-on" onchange="reholdAll()" style="width:auto; margin:0; accent-color:#ff6b6b;"> 안전지대 무시 (폰에서 잘릴 수 있음)
-                </label>
                 <div style="font-size:11px; color:#7d828c; margin-top:7px; line-height:1.65;">
                     끄는 중 <b style="color:#a8adb6;">Alt</b> = 잠시 자유 이동<br>
                     고른 뒤 <b style="color:#a8adb6;">화살표 키</b> = 1px씩 (Shift 10px)
@@ -596,13 +579,6 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                 <!-- 🖼️ 진짜 방송판. 베낀 그림자가 아니라 원본이다.
                      구역 안내선과 손잡이가 이 위에 겹쳐 그려진다. -->
                 <iframe id="stage-frame" src="/overlay.html" title="방송판" scrolling="no"></iframe>
-                <!-- 📱 유튜브 세로 라이브에서 가려지는 구역 (실측 1080×1920 기준) -->
-                <div class="zone zone-dead" style="top:0; height:115px;"><span>채널줄 · 가려짐</span></div>
-                <div class="zone zone-safe" style="top:115px; height:845px;"><span>안전지대 — 여기 안에 놓으세요</span></div>
-                <div class="zone zone-chat" style="top:960px; height:422px;"><span>댓글창 · 가려짐</span></div>
-                <div class="zone zone-dead" style="top:1382px; height:538px;"><span>고정 버튼 · 가려짐</span></div>
-                <div class="zone-line" style="top:115px;"></div>
-                <div class="zone-line" style="top:960px;"></div>
                 <div class="zone-game"><span>게임 자리</span></div>
                 
                 <div id="time-up-message-layer" class="time-up-message">시간 종료!</div>
@@ -964,8 +940,8 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                엑셀판 자리 다툼까지 방송과 똑같이 재현된다. */
             function pushLayoutToStage(live) {
                 const w = stageWin(); if (!w || !w.applyLayout || !stageOn()) return;
-                const free = document.getElementById('free-on');
-                const ly = { __v: 2, __free: !!(free && free.checked) };
+                // 🔓 안전지대를 걷어냈으므로 무대도 붙잡지 않는다(applyLayout 의 fit() 통과)
+                const ly = { __v: 2, __free: true };
                 document.querySelectorAll('.widget').forEach(el => {
                     ly[el.id] = { x_px: parseInt(el.style.left) || 0,
                                   y_px: parseInt(el.style.top) || 0,
@@ -1376,9 +1352,9 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                       옛 파일에 게이지 y=1598(폰에서 안 보이는 구역) 같은 값이 남아 있어서,
                       그걸 그대로 읽으면 방송이 옛 자리로 되돌아간다. */
                 layout.__v = 2;
-                try { markOutOfSafe(); } catch (e) {}
-                const free = document.getElementById('free-on');
-                layout.__free = !!(free && free.checked);
+                /* 🔓 방송판도 붙잡지 않게 한다. 편집기만 풀면 방송판 applyLayout 의 fit() 이
+                      세로를 115～954 로 도로 끌어당겨, 편집기와 방송이 또 어긋난다. */
+                layout.__free = true;
                 try { await fetch('/api/layout', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(layout) }); } catch (e) {} 
             }
 
@@ -1451,42 +1427,12 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
                   처음에 '가운데' 인 줄 알고 (w0-vw)/2 만큼 빼는 셈을 넣었다가, 배율이
                   1 이 아닐 때 엉뚱한 데서 멈췄다. 여기 고칠 땐 CSS 부터 확인할 것. */
             function holdInSafe(el, x, y) {
-                const free = document.getElementById('free-on');
-                if (free && free.checked) return [x, y];
-                const SAFE_TOP = 115, SAFE_BOT = 954, W = 1080;
-                const sc = parseFloat(el.dataset.scale) || 1;
-                const vw = el.offsetWidth * sc, vh = el.offsetHeight * sc;
-                if (!vw || !vh) {
-                    return [Math.min(Math.max(x, 0), W), Math.min(Math.max(y, SAFE_TOP), SAFE_BOT)];
-                }
-                return [Math.min(Math.max(x, 0), Math.max(0, W - vw)),
-                        Math.min(Math.max(y, SAFE_TOP), Math.max(SAFE_TOP, SAFE_BOT - vh))];
+                /* 🔓 안전지대를 걷어냈다(2026-09-15) — 어디에 두든 그대로 둔다.
+                   부르는 곳 세 군데(끌기·배율·일괄)를 그대로 두려고 함수는 남겼다.
+                   다시 막고 싶으면 위 CSS 주석의 숫자(115～954)로 되살리면 된다.
+                   화면 밖으로 빠뜨린 것은 '화면 안으로' 단추가 되찾아준다(그건 화면 전체 기준이다). */
+                return [x, y];
             }
-
-            /* '안전지대 무시' 를 껐을 때, 밖에 나가 있던 것들을 도로 불러들인다.
-               ⚠️ 안 그러면 스위치를 꺼도 이미 삐져나간 것은 그대로 남아, 껐는데도
-                  폰에서 잘리는 상태가 유지된다. */
-            window.reholdAll = function() {
-                document.querySelectorAll('.widget').forEach(el => {
-                    const [x, y] = holdInSafe(el, parseInt(el.style.left) || 0, parseInt(el.style.top) || 0);
-                    el.style.left = x + 'px'; el.style.top = y + 'px';
-                });
-                autoSaveLayout();
-            };
-
-            /* 안전지대 밖으로 나간 것을 빨갛게 알린다 ('안전지대 무시' 를 켰을 때만
-               나갈 수 있으니, 켜 두고 잊는 것을 막는 표시다). */
-            window.markOutOfSafe = function() {
-                const SAFE_TOP = 115, SAFE_BOT = 954, W = 1080;
-                document.querySelectorAll('.widget').forEach(el => {
-                    const sc = parseFloat(el.dataset.scale) || 1;
-                    const x = parseInt(el.style.left) || 0, y = parseInt(el.style.top) || 0;
-                    // transform-origin 이 top left 라 왼쪽 위 모서리가 곧 x·y 다
-                    const vw = el.offsetWidth * sc, vh = el.offsetHeight * sc;
-                    const out = x < 0 || x + vw > W || y < SAFE_TOP || y + vh > SAFE_BOT;
-                    el.classList.toggle('out-of-safe', !!out);
-                });
-            };
 
             /* 누른 자리에 겹쳐 있는 위젯 중 무엇을 고를까.
                ⚠️ 그냥 '맨 위' 를 고르면 큰 것이 다 먹는다. 고액후원 영상(1286×726)과
