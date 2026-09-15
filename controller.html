@@ -2146,23 +2146,34 @@
                 </label>
             </div>
             <div style="font-size:var(--fs-2); color:var(--text-muted); margin:8px 0 12px; line-height:1.6;">
-                구슬이 못과 레일에 튕기며 떨어져 <b>먼저 바닥에 닿는 순서</b>로 순위가 납니다.
-                보통 <b>5~10초</b>면 끝납니다.
+                구슬이 못과 레일에 튕기며 떨어져 바닥에 닿는 순서로 순위가 납니다.
+                카메라가 <b>주인공 구슬</b>을 따라다니고, 결승선 앞에서는 확대되면서 느려집니다.
             </div>
 
             <!-- 🗺️ 맵마다 걸리는 시간이 크게 다르다(실측 3~48초). 고르는 사람이 알아야
                  방송 흐름을 짤 수 있어서 시간을 그대로 적어 뒀다. -->
-            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">🗺️ 판 고르기</div>
-            <select id="pb-map" onchange="pbcSetMap(this.value)" style="width:100%; margin:0 0 6px;">
-                <option value="-1">🎱 우리 코스 — 약 13초 (가장 안정적)</option>
-                <option value="0">Wheel of fortune — 5~18초</option>
-                <option value="1">BubblePop — 29~44초</option>
-                <option value="2">Pot of greed — 3초 · ⚠️ 가끔 안 끝남</option>
-                <option value="3">Yoru ni Kakeru — 21~48초 (가장 긺)</option>
+            <!-- 🏆 규칙이 둘이다. 카메라가 누구를 따라가는지까지 이 값이 바꿈다. -->
+            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">🏆 이기는 규칙</div>
+            <select id="pb-rule" onchange="pbcSetRule(this.value)" style="width:100%; margin:0 0 6px;">
+                <option value="first">⚡ 먼저 들어온 사람이 우승 — 빠르게 끝난다</option>
+                <option value="last">🐢 끝까지 남은 사람이 우승 — 끝까지 봐야 한다</option>
             </select>
             <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
-                가져온 판 넷은 원본(lazygyu/roulette, MIT)의 것이라 우리 물리와 꼭 맞지는 않습니다.
-                <b>처음 쓰실 땐 우리 코스</b>를 권합니다.
+                <b>먼저</b>는 한 명이 들어오는 순간 끝나서 짧습니다.
+                <b>끝까지</b>는 한 명만 남을 때까지 가므로 더 길고, 카메라가 꼴짜를 따라다닙니다.
+            </div>
+
+            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">🗺️ 판 고르기</div>
+            <select id="pb-map" onchange="pbcSetMap(this.value)" style="width:100%; margin:0 0 6px;">
+                <option value="-1">🎱 우리 코스 — 먼저 10초 / 끝까지 16초</option>
+                <option value="0">Wheel of fortune — 먼저 6초 / 끝까지 22초</option>
+                <option value="1">BubblePop — 먼저 12초 / 끝까지 19초</option>
+                <option value="2">Pot of greed — 먼저 7초 / 끝까지 19초</option>
+                <option value="3">Yoru ni Kakeru — 먼저 22초 / 끝까지 29초 (가장 긺)</option>
+            </select>
+            <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
+                적어 둔 시간은 <b>6명으로 400판을 굴려 잰 중앙값</b>입니다(전부 완주).
+                가져온 판 넷은 원본(lazygyu/roulette, MIT)의 것입니다.
             </div>
 
             <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">참가자</div>
@@ -8325,12 +8336,22 @@ initFoldablePanels();
             const t = document.getElementById('pb-names');
             if (t) t.value = names.join(', ');
         }
+        function pbcRule() {
+            const el = document.getElementById('pb-rule');
+            return el ? el.value : 'first';
+        }
+        function pbcMap() {
+            const el = document.getElementById('pb-map');
+            return el ? el.value : -1;
+        }
         async function pbcSetMap(v) {
-            await pbcCall('setup', { names: pbcNames(), map: v });
+            await pbcCall('setup', { names: pbcNames(), map: v, rule: pbcRule() });
+        }
+        async function pbcSetRule(v) {
+            await pbcCall('setup', { names: pbcNames(), map: pbcMap(), rule: v });
         }
         async function pbcStart() {
-            const sel = document.getElementById('pb-map');
-            const d = await pbcCall('start', { names: pbcNames(), map: sel ? sel.value : -1 });
+            const d = await pbcCall('start', { names: pbcNames(), map: pbcMap(), rule: pbcRule() });
             if (d) acctToast('🎱 굴립니다', 'ok');
         }
         async function pbcReset() {
@@ -8358,6 +8379,12 @@ initFoldablePanels();
 
             /* ⚠️ 고른 판도 서버 값을 따라간다 — 다른 기기에서 바꿔도 여기 보이게.
                   (손이 올라가 있을 때는 안 건드린다 — 명단 칸과 같은 이유) */
+            const rs = document.getElementById('pb-rule');
+            if (rs && document.activeElement !== rs) {
+                const rw = (g.rule === 'last') ? 'last' : 'first';
+                if (rs.value !== rw) rs.value = rw;
+            }
+
             const ms = document.getElementById('pb-map');
             if (ms && document.activeElement !== ms) {
                 const want = String(g.map === undefined || g.map === null ? -1 : g.map);
@@ -8371,7 +8398,9 @@ initFoldablePanels();
             const MAPN = ['Wheel of fortune', 'BubblePop', 'Pot of greed', 'Yoru ni Kakeru'];
             const mi = (g.map === undefined || g.map === null) ? -1 : Number(g.map);
             const mname = (mi >= 0 && MAPN[mi]) ? MAPN[mi] : '우리 코스';
-            let html = '판 <b>' + escapeHTML(mname) + '</b> · 참가자 <b>' + n + '명</b>';
+            const rname = (g.rule === 'last') ? '끝까지 남기' : '먼저 골인';
+            let html = '판 <b>' + escapeHTML(mname) + '</b> · <b>' + rname
+                     + '</b> · 참가자 <b>' + n + '명</b>';
             if (g.running) {
                 html += ' · <b style="color:var(--accent);">굴러가는 중…</b>'
                      + '<br><span style="color:var(--text-muted);">방송 화면에서 구슬이 떨어지고 있습니다. '

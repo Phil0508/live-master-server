@@ -1746,6 +1746,11 @@ DEFAULT_STATE = {
         #    ⚠️ 씨앗으로 정하지 않고 **사람이 고른다.** 맵마다 걸리는 시간이 크게 달라서
         #       (실측 3~48초) 방송 흐름에 맞는 것을 운영자가 골라야 한다.
         "map": -1,
+        # 🏆 누가 이기는가.
+        #    "first" = 먼저 골인한 사람 / "last" = 끝까지 안 떨어지고 남은 사람
+        #    ⚠️ 이 값이 도착 순서의 **어느 쪽 끝**을 우승자로 읽을지를 정한다.
+        #       방송판은 이 값으로 카메라가 따라갈 구슬까지 바꾼다(원본과 같은 방식).
+        "rule": "first",
         "started_at": 0,        # 시작 시각(ms) — 몇 초 걸렸는지 재려고
     },
 
@@ -8030,6 +8035,17 @@ def _pinball_map(raw):
 
 
 PINBALL_MAPS = 4      # vendor/pinball-maps.js 에 든 맵 개수
+PINBALL_RULES = ('first', 'last')
+
+
+def _pinball_rule(raw):
+    """우승 규칙을 다듬는다. 아는 값이 아니면 '먼저 골인'으로 둔다.
+
+    ⚠️ 모르는 값을 그대로 저장하면 방송판이 'first' 로 굴리고 조종실은
+       딴 글자를 보여 준다 — 두 화면이 서로 다른 말을 하게 된다.
+    """
+    v = str(raw or '').strip().lower()
+    return v if v in PINBALL_RULES else 'first'
 
 
 def _pinball_save(state, g):
@@ -8074,6 +8090,8 @@ def api_pinball_setup():
             g['names'] = names
             if body.get('map') is not None:
                 g['map'] = _pinball_map(body.get('map'))
+            if body.get('rule') is not None:
+                g['rule'] = _pinball_rule(body.get('rule'))
             g['result'] = []
             _pinball_save(state, g)
         return jsonify({'status': 'success', 'pinball': g})
@@ -8115,6 +8133,8 @@ def api_pinball_start():
                 g['names'] = _pinball_names(body.get('names'))
             if body.get('map') is not None:
                 g['map'] = _pinball_map(body.get('map'))
+            if body.get('rule') is not None:
+                g['rule'] = _pinball_rule(body.get('rule'))
             if len(g['names']) < 2:
                 return jsonify({'status': 'error',
                                 'message': '참가자가 둘 이상이어야 합니다'}), 400

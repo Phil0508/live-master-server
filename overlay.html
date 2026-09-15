@@ -7080,15 +7080,51 @@
         const PB_MAX_MS = 180000;              // 3분이 넘으면 강제로 끝낸다(끼었을 때 대비)
         const PB_STUCK_N = 8;                  // 이만큼 살펴서 계속 굼뜨면 끼인 것으로 본다
         const PB_STUCK_V = 0.9;                // 속도가 이보다 느리면 '안 움직이는 것'
+        /* ⚠️ 속도만 보면 **항아리 안에서 쌩쌩 튀는 구슬**을 못 잡는다. 빠르니까
+              '안 움직이는 것'에 안 걸리는데, 깊이는 한 뼘도 안 는다.
+              실측(Pot of greed, 끝까지 남기): 아무도 더 못 내려간 채 31.9초를 버텼고
+              한 판은 215초를 그러고 있었다. **더 깊이 못 가면** 끼인 것으로 함께 본다. */
+        const PB_NOGAIN_PX = 4;                // 이만큼도 못 내려가면 '못 나아간 것'
+        /* ⚠️ 여기서 **구슬을 밀어주지는 않는다.** 밀어봤더니 위로 띄우게 되고,
+              튕겨 올라간 구슬이 코스를 되짚느라 판이 더 길어졌다
+              (실측, Wheel of fortune 끝까지 남기: 중앙값 20초 → 33초).
+              못 나아가면 **밀지 말고 판을 끝낸다** — 아래 PB_STALL_STEPS. */
+        /* 🚨 마지막 안전그물 — 아무도 못 나아간 채 이만큼 지나면 그 자리 순위로 끝낸다.
+           ⚠️ 정상 판의 최장 정체는 7초였다(Wheel of fortune, 끝까지 남기).
+              20초면 멀쩡한 판을 끊지 않으면서 방송이 멎는 시간을 막는다. */
+        const PB_STALL_STEPS = 60 * 20;
+        /* 🎥 카메라 — 원본을 그대로 따른다.
+           원본은 화면에 맵을 다 담지 않고 **주인공 구슬을 따라다니며** 골 근처에서 확 당긴다.
+           그래서 구슬이 커 보이고 결승 장면이 극적이다. 우리는 판 전체를 멀리서 보고 있었다. */
+        const PB_ZOOM_BASE = 1.35;             // 평소 배율 — 맵 폭의 약 3/4 를 본다
+        const PB_ZOOM_MAX = 3.2;               // 골 앞에서 최대 이만큼 당긴다
+        const PB_ZOOM_TH = 5;                  // 골까지 몇 **미터** 남으면 당기기 시작할까(원본 5)
+        const PB_SLOW_MIN = 0.25;              // 슬로모션 최저 배율(원본 0.2)
+        /* ⚠️ 중력은 원본이 **10 m/s²** 다. 픽셀로 바꾸려면 배율(px/m)을 곱해야 한다.
+              예전엔 0.0016 을 고정으로 썼는데, 이는 배율 64 기준 **원본의 2.5배**였다.
+              대표님: "너무 빨리 떨어져". 이제 맵 배율에서 계산한다. */
+        const PB_G_MPS2 = 10;
+        const PB_MAX_STEPS = 60 * 200;         // 물리 걸음 상한 — 슬로모션이 껴도 반드시 끝난다
         const PB_COLS = ['#ff4d6d', '#ffd166', '#4dd6a8', '#4da3ff', '#c77dff', '#ff9e4d',
                          '#7bed9f', '#ff6ec7', '#5ee7df', '#ffe066', '#a29bfe', '#fd79a8'];
 
         let pbEng = null, pbBalls = [], pbRAF = null, pbLast = 0, pbAcc = 0;
         let pbRound = -1, pbFinish = [], pbStartedAt = 0, pbReported = false;
         let pbTick = 0;            // 물리 걸음 수 — 몇 걸음마다 끼임을 살핀다
-        let pbCam = 0;             // 카메라가 내려온 높이 — 그릴 때만 쓴다(물리와 무관)
         let pbMapTitle = '';       // 지금 쓰는 맵 이름(가져온 맵일 때만)
         let pbSpinners = [];       // 돌아가는 바람개비들 {body, speed}
+        let pbGoalLine = 0;        // 골인선(세상 좌표). 이 아래로 내려가면 도착이다
+        let pbZoomY = 0;           // 카메라가 확대되기 시작하는 높이(원본 zoomY)
+        let pbScale = 60;          // 픽셀 / 미터 — 거리를 미터로 되돌릴 때 쓴다
+        let pbSpawn = null;        // 구슬을 어디에 놓을까(가져온 맵은 꼭대기 통로 안)
+        let pbRule = 'first';      // 'first' 먼저 골인하면 우승 / 'last' 끝까지 남으면 우승
+        let pbCamX = 0, pbCamY = 0, pbZoom = 1;    // 카메라 — 그릴 때만 쓴다
+        let pbSlowAcc = 0;         // 슬로모션 — 물리 걸음을 띄엄띄엄 민다
+        let pbSteps = 0;           // 민 물리 걸음 수(상한을 두어 안 끝나는 판을 막는다)
+        let pbOverAt = 0;          // 승부가 갈린 시각 — 잠깐 더 보여주고 보고한다
+        let pbPopQ = [];           // 이번 걸음에 깨진 것들(물리 도중엔 못 지운다)
+        let pbPops = [];           // 깨지는 모습 — 그리기용일 뿐이다
+        let pbStall = 0;           // 아무도 더 깊이 못 간 걸음 수
         let pbRandom = null;       // 이 판의 씨앗 난수 — 끼임 풀기도 이걸 써야 화면마다 같다
         let pbShowUntil = 0;       // 결과 딱지를 언제까지 띄울지
 
@@ -7141,19 +7177,26 @@
             });
             if (!isFinite(minX) || maxX <= minX) return null;
             const SC = PB_W / (maxX - minX);       // 미터 -> 픽셀
-            /* 🔴 구슬 크기도 맵 배율을 따른다. 원본은 구슬도 미터 단위라 같이 줄어든다.
-               ⚠️ 0.22 는 실측으로 고른 값이다 — 이보다 크면 좁은 맵에서 못 사이에 낀다. */
-            pbR = Math.max(6, Math.min(PB_R, SC * 0.17));
+            /* 🔴 구슬 반지름은 원본이 **0.25 미터**로 못박아 뒀다(physics-box2d 의
+                  set_m_radius(0.25)). 맵은 그 크기에 맞춰 그려진 것이므로 그대로 따른다.
+               ⚠️ 예전에 0.17 로 줄였다가 대표님께 "공이 너무 작다"는 말을 들었다. 줄이면
+                  못 사이는 잘 빠지지만 **원본이 의도한 판이 아니게 된다.** 끼는 문제는
+                  크기를 줄여서가 아니라 pbUnstick 으로 푼다. */
+            pbR = Math.max(5, SC * 0.25);
             const OX = -minX * SC;                 // 왼쪽 끝을 0 으로
             const X = function (mx) { return mx * SC + OX; };
             const Y = function (my) { return my * SC; };
 
+            /* ⚠️ 원본의 꺾은선은 **두께가 0** 인 선(box2d b2EdgeShape)이다. 우리는 그런 도형이
+                  없어 얇은 막대로 깐다. 이때 두께가 곧 **틈을 잡아먹는다** — 8px 로 고정했더니
+                  배율이 큰 맵에서 통로가 그만큼 좁아졌다. 배율에 맞춰 얇게 깐다.
+               ⚠️ 이음매에 틈이 생기면 구슬이 새므로 두께만큼 길이를 겹쳐 준다. */
+            const segT = Math.max(2.5, SC * 0.06);
             const seg = function (x1, y1, x2, y2, opt) {
-                // 선분 하나를 얇은 막대로 깐다
                 const dx = x2 - x1, dy = y2 - y1;
                 const len = Math.hypot(dx, dy);
                 if (len < 1) return null;
-                const b = W.rectangle((x1 + x2) / 2, (y1 + y2) / 2, len + 6, 8, opt);
+                const b = W.rectangle((x1 + x2) / 2, (y1 + y2) / 2, len + segT, segT, opt);
                 M.Body.setAngle(b, Math.atan2(dy, dx));
                 return b;
             };
@@ -7163,18 +7206,32 @@
                 const sh = e.shape || {};
                 const pr = e.props || {};
                 const kin = (e.type === 'kinematic');
+                /* 💥 원본의 핵심 장치 — **life 가 있는 물체는 구슬이 닿는 순간 사라진다.**
+                   (원본 physics-box2d.step: life > 0 이고 닿았으면 그 자리에서 없앤다)
+                   ⚠️ 이걸 빠뜨리면 맵이 통째로 막힌 미로가 된다. 실제로 Yoru ni Kakeru 는
+                      288개 중 **217개가 깨지는 것**이라, 단단하게 깔았더니 구슬 여섯이
+                      y=5500 에서 120초를 갇혀 있었다(47번 밀어도 못 빠져나옴).
+                   ⚠️ life 숫자는 맞는 횟수가 아니다. 0보다 크면 **한 번에** 없어진다. */
                 const opt = {
                     isStatic: true,
                     restitution: Math.min(1, (pr.restitution === undefined ? .5 : pr.restitution)),
                     friction: .01,
+                    pbPop: (Number(pr.life) || 0) > 0,
                     label: kin ? 'spin' : (sh.type === 'circle' ? 'peg' : 'rail')
                 };
                 if (sh.type === 'circle') {
                     bodies.push(W.circle(X(p.x), Y(p.y), Math.max(3, (sh.radius || .3) * SC), opt));
                 } else if (sh.type === 'box') {
+                    /* ⚠️ 원본의 width·height 는 **절반 크기**다 (box2d SetAsBox 는 반너비를
+                          받는다. 원본 그림판도 shape.width * 2 로 그린다). 우리 W.rectangle 은
+                          전체 크기를 받으므로 **두 배**로 넣어야 한다 — 예전엔 절반짜리
+                          장애물을 깔아 놓고 판이 헐렁하다고 여겼다.
+                       ⚠️ rotation 은 **라디안 그대로** 쓴다. 숫자가 30·45·90 이라 도처럼
+                          보이지만, 원본은 물리(SetAsBox 4번째 인자)에도 그림(ctx.rotate)에도
+                          그 값을 그대로 넣는다. 도로 바꾸면 우리만 다른 판이 된다. */
                     const b = W.rectangle(X(p.x), Y(p.y),
-                        Math.max(4, (sh.width || .2) * SC), Math.max(4, (sh.height || .2) * SC), opt);
-                    M.Body.setAngle(b, (sh.rotation || 0) * Math.PI / 180);   // 도 -> 라디안
+                        Math.max(3, (sh.width || .1) * 2 * SC), Math.max(3, (sh.height || .1) * 2 * SC), opt);
+                    M.Body.setAngle(b, sh.rotation || 0);
                     bodies.push(b);
                     if (kin) pbSpinners.push({ body: b, dir: (pr.angularVelocity >= 0 ? 1 : -1),
                                                speed: Math.min(.05, Math.abs(pr.angularVelocity || 1) * .012) });
@@ -7189,13 +7246,32 @@
 
             /* ⚠️ 맵 바깥으로 새어 나가지 않게 벽과 바닥을 덧댄다. 원본 맵도 꺾은선으로
                   옆벽을 그리지만, 배율을 맞추다 보면 가장자리에 틈이 생길 수 있다. */
-            const world = Y(st.goalY || 100) + 120;
+            const goal = Y(st.goalY || 100);
+            const world = goal + 140;
             const wallOpt = { isStatic: true, restitution: .3, friction: .02, label: 'wall' };
-            bodies.push(W.rectangle(-PB_WALL / 2, world / 2, PB_WALL, world * 2, wallOpt));
-            bodies.push(W.rectangle(PB_W + PB_WALL / 2, world / 2, PB_WALL, world * 2, wallOpt));
+            bodies.push(W.rectangle(-PB_WALL / 2, world / 2, PB_WALL, world * 3, wallOpt));
+            bodies.push(W.rectangle(PB_W + PB_WALL / 2, world / 2, PB_WALL, world * 3, wallOpt));
             bodies.push(W.rectangle(PB_W / 2, world + PB_WALL / 2, PB_W * 2, PB_WALL, wallOpt));
 
-            return { bodies: bodies, world: world, title: st.title || '' };
+            /* 🚿 구슬을 어디에 놓을까 — 원본이 쓰는 자리를 그대로 쓴다.
+               ⚠️ 이게 이번 고침의 **핵심**이다. 원본 맵은 꼭대기가 좁은 통로다
+                  (예: Wheel of fortune 은 x 9.25~16.5 만 열려 있고 위로 300 미터 뻗어 있다).
+                  우리는 화면 **전체 너비**에 뿌리고 있었다 — 통로 밖에서 시작한 구슬은
+                  판을 통째로 건너뛰고 바깥을 따라 바닥까지 곧장 떨어졌다.
+                  대표님: "맵 밖에 스폰되어서 그냥 냅다 쭉 떨어져서 그냥 끝나네".
+               원본 자리: x = 10.25 + (번호 % 10) * 0.6, 한 줄에 10개씩 위로 쌓는다. */
+            const spawn = {
+                at: function (slot, total) {
+                    const maxLine = Math.ceil(total / 10);
+                    const line = Math.floor(slot / 10);
+                    const lineDelta = -Math.max(0, Math.ceil(maxLine - 5));
+                    return { x: X(10.25 + (slot % 10) * 0.6), y: Y(maxLine - line + lineDelta) };
+                }
+            };
+
+            return { bodies: bodies, world: world, goal: goal, title: st.title || '',
+                     scale: SC, zoomY: Y(st.zoomY === undefined ? (st.goalY || 100) : st.zoomY),
+                     spawn: spawn };
         }
 
         /* 🧱 코스를 짓는다. 씨앗을 받아 못 자리를 조금씩 흔든다 — 판마다 달라 보이게. */
@@ -7271,23 +7347,49 @@
             const M = Matter;
             const n = names.length;
             const lane = (PB_W - 160) / Math.max(1, n);
-            // 자리 번호를 섞는다 (Fisher-Yates, 씨앗 난수)
-            const slots = names.map(function (_, i) { return i; });
-            for (let i = slots.length - 1; i > 0; i--) {
+            /* ⚖️ 어느 자리에 누가 설지 섞는다 (Fisher-Yates, 씨앗 난수).
+               who[자리] = 명단에서 몇 번째 사람인가 */
+            const who = names.map(function (_, i) { return i; });
+            for (let i = who.length - 1; i > 0; i--) {
                 const j = Math.floor(rng() * (i + 1));
-                const t = slots[i]; slots[i] = slots[j]; slots[j] = t;
+                const t = who[i]; who[i] = who[j]; who[j] = t;
             }
-            return names.map(function (nm, i) {
-                const slot = slots[i];
-                const x = 80 + lane * (slot + .5) + (rng() - .5) * (lane * .3);
-                // ⚠️ 맵 꼭대기가 어디든 화면 위에서 떨어뜨린다. 맵 안에서 시작하면 벽에 낀다.
-                const y = 40 - Math.floor(slot / 8) * 46;
+            /* ⚠️ **자리 순서대로 만든다.** 물리 엔진은 먼저 넣은 물체부터 밀어내기를
+                  푸는데, 구슬 여섯이 좁은 통로에 붙어 출발하다 보니 그 순서가 그대로
+                  유불리가 된다. 명단 순서대로 넣으면 그 유불리가 **사람에게 고정된다** —
+                  실측(300판): 명단 첫째·둘째가 62·66승인데 셋째는 37승이었다(기대 50).
+                  자리 순서로 넣으면 유불리는 자리에 붙고, 자리는 매 판 섞이므로 흩어진다. */
+            return who.map(function (i, slot) {
+                const nm = names[i];
+                let x, y;
+                if (pbSpawn) {
+                    /* 🚿 가져온 맵 — 꼭대기 통로 안에 넣는다(원본과 같은 자리).
+                       ⚠️ 여기서 흔들면 통로 밖으로 나간다. 흔들지 않는다. */
+                    const at = pbSpawn.at(slot, n);
+                    x = at.x; y = at.y;
+                } else {
+                    // 우리 코스는 판이 화면 폭 전체라 고루 뿌린다
+                    x = 80 + lane * (slot + .5) + (rng() - .5) * (lane * .3);
+                    y = 40 - Math.floor(slot / 8) * 46;
+                }
+                /* ⚠️ 구슬 자체는 **안 튄다**(restitution 0). 원본도 구슬에는 반발력을 안 주고
+                      못·레일 쪽 값만 쓴다. 우리가 .52 를 주고 있어서 어디에 부딪혀도
+                      최소 그만큼 튀었다 — 맵이 의도한 흐름이 뭉개진다. */
+                /* 🎲 무게를 구슬마다 다르게 준다 — 원본도 그렇게 한다
+                      (physics-box2d: CreateFixture(shape, 1 + Math.random()), 즉 1～2배).
+                   ⚠️ 이게 없으면 **매 판이 똑같은 경기**가 된다. 가져온 맵은 생김새가
+                      고정이고 출발 자리도 고정이라 씨앗이 바꿀 게 없기 때문이다
+                      (실측: Wheel of fortune 이 24판 내내 5.4초로 똑같았다).
+                   ⚠️ 반드시 **씨앗 난수**로 뽑는다. Math.random 을 쓰면 화면마다 다른
+                      경기가 된다.
+                   ⚠️ 자리 순서로 뽑으므로 무거운 몫이 사람에게 붙지 않는다 — 자리는 매 판 섞인다.
+                   무게는 부딪힐 때만 쓰인다(떨어지는 빠르기는 무게와 무관하다). */
                 const b = M.Bodies.circle(x, y, pbR, {
-                    restitution: .52, friction: .004, frictionAir: .0008,
-                    density: .0016, label: 'ball'
+                    restitution: pbSpawn ? 0 : .52, friction: .004, frictionAir: .0008,
+                    density: .0016 * (1 + rng()), label: 'ball'
                 });
                 b.pbName = nm;
-                b.pbColor = PB_COLS[i % PB_COLS.length];
+                b.pbColor = PB_COLS[i % PB_COLS.length];   // 색은 사람을 따라간다
                 b.pbDone = false;
                 return b;
             });
@@ -7297,6 +7399,25 @@
             if (pbRAF) { cancelAnimationFrame(pbRAF); pbRAF = null; }
             if (pbEng) { try { Matter.Engine.clear(pbEng); } catch (e) {} }
             pbEng = null; pbBalls = []; pbSpinners = [];
+            pbPopQ = []; pbPops = [];
+        }
+
+        /* 💥 깨진 것들을 실제로 치운다.
+           ⚠️ 부딪히는 **도중에** 치우면 물리가 꼬인다. 걸음이 끝난 뒤에 치운다.
+           ⚠️ 씨앗 난수도, 시계도 안 쓴다 — 부딪힘은 물리로만 정해지므로
+              어느 화면에서 보든 같은 것이 같은 순간에 깨진다. */
+        function pbPopDrain() {
+            if (!pbPopQ.length) return;
+            for (let i = 0; i < pbPopQ.length; i++) {
+                const b = pbPopQ[i];
+                if (b.pbGone) continue;
+                b.pbGone = true;
+                try { Matter.Composite.remove(pbEng.world, b); } catch (e) {}
+                pbPops.push({ x: b.position.x, y: b.position.y,
+                              r: b.circleRadius || 14, t: performance.now() });
+            }
+            pbPopQ.length = 0;
+            if (pbPops.length > 60) pbPops.splice(0, pbPops.length - 60);
         }
 
         /* ▶️ 한 판 시작. 서버가 준 씨앗으로 코스와 구슬을 짓는다. */
@@ -7306,6 +7427,7 @@
             const rng = pbRng(seed);
             pbRandom = pbRng(seed ^ 0x5bf03635);   // 끼임 풀기 전용 — 코스 난수와 섞이지 않게
             pbEng = Matter.Engine.create({ gravity: { x: 0, y: 1, scale: 0.0016 } });
+            pbSpawn = null;
 
             /* 🗺️ 어느 판에서 굴릴까 — **조종실에서 고른 값**을 쓴다(서버 상태에 있다).
                맵마다 걸리는 시간이 크게 달라(실측 3~48초) 사람이 골라야 한다.
@@ -7319,20 +7441,47 @@
                     bodies = built.bodies;
                     PB_WORLD = built.world;
                     pbMapTitle = built.title;
+                    pbGoalLine = built.goal; pbScale = built.scale;
+                    pbZoomY = built.zoomY; pbSpawn = built.spawn;
                 }
             }
-            if (!bodies) { PB_WORLD = PB_WORLD_OWN; pbMapTitle = ''; pbR = PB_R; bodies = pbBuildCourse(rng); }
+            if (!bodies) {
+                PB_WORLD = PB_WORLD_OWN; pbMapTitle = ''; pbR = PB_R; pbSpawn = null;
+                pbScale = PB_R / 0.25;                       // 우리 코스도 같은 잣대로 잰다
+                pbGoalLine = PB_WORLD_OWN - PB_GOAL_H;
+                pbZoomY = pbGoalLine;
+                bodies = pbBuildCourse(rng);
+            }
+
+            /* ⚠️ 중력을 **맵 배율에 맞춰** 다시 건다. 엔진을 만들 때는 배율을 아직 모른다.
+                  matter 는 gravity.y * gravity.scale 이 px/ms² 이므로 10 m/s² = 10*배율/1e6. */
+            pbEng.gravity.scale = PB_G_MPS2 * pbScale / 1e6;
+
+            // 💥 구슬이 '깨지는 것'에 닿으면 적어 둔다(치우는 건 걸음이 끝난 뒤)
+            pbPopQ = []; pbPops = [];
+            Matter.Events.on(pbEng, 'collisionStart', function (ev) {
+                for (let i = 0; i < ev.pairs.length; i++) {
+                    const a = ev.pairs[i].bodyA, b = ev.pairs[i].bodyB;
+                    if (a.label === 'ball' && b.pbPop && !b.pbGone) pbPopQ.push(b);
+                    else if (b.label === 'ball' && a.pbPop && !a.pbGone) pbPopQ.push(a);
+                }
+            });
 
             pbBalls = pbMakeBalls(names, rng);
             Matter.Composite.add(pbEng.world, bodies.concat(pbBalls));
-            pbFinish = []; pbReported = false;
-            pbStartedAt = performance.now(); pbLast = pbStartedAt; pbAcc = 0; pbTick = 0; pbCam = 0;
+            pbFinish = []; pbReported = false; pbOverAt = 0; pbStall = 0;
+            pbStartedAt = performance.now(); pbLast = pbStartedAt;
+            pbAcc = 0; pbTick = 0; pbSlowAcc = 0; pbSteps = 0;
+            // 카메라를 첫 구슬 자리에 맞춰 두고 시작한다(첫 프레임에 화면이 튀지 않게)
+            pbZoom = PB_ZOOM_BASE;
+            pbCamX = PB_W / 2;
+            pbCamY = pbBalls[0] ? pbBalls[0].position.y : 0;   // 아래 clamp 가 화면 안으로 넣는다
             pbLoop();
         }
 
         /* 🏁 바닥에 닿았는지 본다. 닿은 구슬은 순서에 넣고 화면 밖으로 치운다. */
         function pbCheckGoal() {
-            const line = PB_WORLD - PB_GOAL_H;
+            const line = pbGoalLine || (PB_WORLD - PB_GOAL_H);
             for (let i = 0; i < pbBalls.length; i++) {
                 const b = pbBalls[i];
                 if (b.pbDone || b.position.y < line) continue;
@@ -7358,6 +7507,7 @@
                       (실측: 20초를 굴려도 끼임수가 0~5 를 오갔다). **속도**로 본다. */
                 const v = Math.hypot(b.velocity.x, b.velocity.y);
                 b.pbStuck = (v < PB_STUCK_V) ? (b.pbStuck || 0) + 1 : 0;
+
                 if (b.pbStuck >= PB_STUCK_N) {
                     b.pbStuck = 0;
                     // 옆으로 튕겨 내려오게 한다. 갈수록 세게 민다 — 약하면 덫에서 못 빠진다.
@@ -7368,12 +7518,68 @@
             }
         }
 
+        /* 🎬 아직 안 내려온 구슬을 **앞선 순서**로 늘어놓는다(맨 앞 = 골에 가장 가까움). */
+        function pbActive() {
+            const a = [];
+            for (let i = 0; i < pbBalls.length; i++) if (!pbBalls[i].pbDone) a.push(pbBalls[i]);
+            a.sort(function (p, q) { return q.position.y - p.position.y; });
+            return a;
+        }
+
+        /* 🎯 카메라와 슬로모션이 주목할 구슬 — 원본의 계산을 그대로 가져왔다.
+
+           원본: targetIndex = 당첨등수 - 이미골인한수
+           · '먼저 골인' 이면 당첨등수 0 → 늘 **선두**를 본다.
+           · '끝까지 남기' 면 당첨등수 = 인원-1 → 늘 **꼴찌**를 본다.
+             (한 명 골인할 때마다 등수가 하나씩 당겨져 계속 꼴찌를 가리킨다)
+           이 한 줄로 규칙이 바뀌면 카메라가 알아서 주인공을 갈아탄다. */
+        function pbTargetIdx(act) {
+            const want = (pbRule === 'last') ? (pbBalls.length - 1) : 0;
+            const i = want - pbFinish.length;
+            return Math.max(0, Math.min(act.length - 1, i));
+        }
+
+        /* 🐢 슬로모션 배율 — 결승선 앞에서 경쟁자가 붙어 있을 때만 늦춘다.
+
+           ⚠️ 물리 걸음의 **크기**를 줄이지 않는다. 걸음은 그대로 두고 **띄엄띄엄** 민다.
+              크기를 바꾸면 물리가 흔들려 화면마다 결과가 갈릴 수 있다.
+           ⚠️ 혼자 굴러올 때는 늦추지 않는다 — 볼 게 없는데 판만 길어진다. */
+        function pbSlowFactor() {
+            if (!pbZoomY) return 1;
+            const act = pbActive();
+            if (act.length < 2) return 1;
+            const ti = pbTargetIdx(act);
+            const t = act[ti];
+            if (!t) return 1;
+            const d = Math.abs(pbZoomY - t.position.y) / pbScale;      // 미터
+            if (d >= PB_ZOOM_TH) return 1;
+            if (!act[ti - 1] && !act[ti + 1]) return 1;                // 붙어 있는 경쟁자가 없다
+            return Math.max(PB_SLOW_MIN, d / PB_ZOOM_TH);
+        }
+
+        /* 🚨 아무도 더 못 나아가는지 지켜본다.
+
+           ⚠️ 구슬 **저마다의 최고 깊이**로 본다. 전체 최고값으로 보면 앞선 구슬이
+              골인해 사라진 뒤로는 값이 안 늘어 늘 '정체'로 보인다. */
+        function pbStallWatch() {
+            let moved = false;
+            for (let i = 0; i < pbBalls.length; i++) {
+                const b = pbBalls[i];
+                if (b.pbDone) continue;
+                if (b.pbTop === undefined || b.position.y > b.pbTop + PB_NOGAIN_PX) {
+                    b.pbTop = b.position.y; moved = true;
+                }
+            }
+            pbStall = moved ? 0 : (pbStall + 1);
+        }
+
         /* 📤 결과를 서버에 보낸다. 먼저 보낸 화면 하나만 받아들여진다(나머지는 409). */
         function pbReport(roundId) {
             if (pbReported) return;
             pbReported = true;
             const order = pbFinish.slice();
-            pbBalls.forEach(function (b) { if (!b.pbDone) order.push(b.pbName); });  // 못 내려온 것은 뒤로
+            // 못 내려온 것은 뒤로 — 단 **앞선 순서대로** 넣는다(끝까지 남기 규칙에서 꼴찌가 곧 우승자다)
+            pbActive().forEach(function (b) { order.push(b.pbName); });
             fetch('/api/pinball/result', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ round_id: roundId, result: order })
@@ -7392,35 +7598,71 @@
                   굶어 7배 느리게 굴렀다(실측: 14초에 68px). 20이면 여유가 있다. */
             let guard = 0;
             while (pbAcc >= PB_STEP && guard++ < 20) {
+                pbAcc -= PB_STEP;
+                /* 🐢 슬로모션: 늦출 때는 이번 차례를 건너뛴다. 배율 1 이면 늘 민다. */
+                pbSlowAcc += pbSlowFactor();
+                if (pbSlowAcc < 1) continue;
+                pbSlowAcc -= 1;
                 pbSpinners.forEach(function (sp) {
                     Matter.Body.setAngle(sp.body, sp.body.angle + sp.dir * sp.speed);
                 });
                 Matter.Engine.update(pbEng, PB_STEP);
-                pbAcc -= PB_STEP;
+                pbPopDrain();
+                pbSteps++;
                 pbCheckGoal();
+                pbStallWatch();
                 if (++pbTick % 8 === 0) pbUnstick();
             }
             pbDraw();
-            const over = pbBalls.every(function (b) { return b.pbDone; });
-            if ((over || now - pbStartedAt > PB_MAX_MS) && !pbReported) pbReport(pbRound);
+
+            /* 🏁 승부가 언제 갈리나 — 원본과 같이 **필요한 등수까지만** 나오면 끝이다.
+               · '먼저 골인' : 한 명이 들어오는 순간 끝. 나머지를 기다릴 이유가 없다.
+               · '끝까지 남기' : 한 명만 남는 순간 끝. 그 한 명이 우승자다.
+               ⚠️ 이 덕분에 '가끔 안 끝나는 판'(Pot of greed) 문제도 같이 사라진다.
+               ⚠️ 갈린 즉시 보고하지 않고 잠깐 더 굴린다 — 들어가는 장면을 보여줘야 한다. */
+            const left = pbBalls.length - pbFinish.length;
+            const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= 1);
+            if (decided && !pbOverAt) pbOverAt = now;
+            /* ⚠️ 판이 멎었으면 **지금 순위 그대로** 끝낸다. 억지가 아니다 —
+                  '끝까지 남기' 의 우승자는 곧 제일 덜 내려간 구슬이고, 그건 이미 정해져 있다. */
+            const stalled = pbStall > PB_STALL_STEPS;
+            const timeout = stalled || (now - pbStartedAt > PB_MAX_MS) || (pbSteps > PB_MAX_STEPS);
+            if (!pbReported && ((pbOverAt && now - pbOverAt > 700) || timeout)) pbReport(pbRound);
         }
 
-        /* 🎥 카메라 — 아직 안 내려온 구슬 중 **가장 앞선 것**을 따라간다.
+        /* 🎥 카메라 — 원본을 그대로 따라 만들었다.
 
-           ⚠️ 평균을 따라가면 안 된다. 뒤처진 구슬 하나 때문에 화면이 위에 머물러
-              선두가 화면 밖에서 결승선을 지난다. 보는 사람은 누가 이겼는지 못 본다.
-           ⚠️ 되돌아가지 않는다(내려가기만). 구슬이 튀어 오를 때마다 화면이 출렁이면
-              어지럽다. */
+           원본은 **주인공 구슬 하나**를 화면 가운데 두고 쫓아가며, 결승선이 가까워지면
+           최대 4배까지 확 당긴다. 그래서 구슬이 커 보이고 마지막이 극적이다.
+           우리는 판 전체를 멀리서 내려다보기만 했다 — 대표님: "공 크기가 너무 작다".
+
+           ⚠️ 주인공은 규칙에 따라 다르다(pbTargetIdx). '끝까지 남기' 면 꼴찌를 따라간다.
+           ⚠️ 그리기용일 뿐이라 물리에 영향이 없다 — 화면마다 달라도 경기는 같다. */
         function pbCamera() {
-            let lead = 0;
-            for (let i = 0; i < pbBalls.length; i++) {
-                const b = pbBalls[i];
-                if (!b.pbDone && b.position.y > lead) lead = b.position.y;
+            const act = pbActive();
+            const t = act.length ? act[pbTargetIdx(act)] : null;
+
+            let wz = PB_ZOOM_BASE, wx = PB_W / 2, wy = pbCamY;
+            if (t) {
+                wx = t.position.x;
+                wy = t.position.y;
+                if (pbZoomY) {
+                    const d = Math.abs(pbZoomY - t.position.y) / pbScale;    // 골까지 몇 미터
+                    if (d < PB_ZOOM_TH) {
+                        wz = Math.max(PB_ZOOM_BASE, (1 - d / PB_ZOOM_TH) * PB_ZOOM_MAX);
+                    }
+                }
             }
-            if (!lead) lead = pbCam + PB_H * .45;
-            let want = lead - PB_H * .45;                       // 선두를 화면 가운데쯤에
-            want = Math.max(0, Math.min(want, PB_WORLD - PB_H)); // 세상 밖으로는 안 나간다
-            if (want > pbCam) pbCam += (want - pbCam) * 0.12;    // 부드럽게 따라간다
+
+            // 세상 밖(검은 여백)이 보이지 않게 가둔다
+            const hw = PB_W / (2 * wz), hh = PB_H / (2 * wz);
+            wx = (hw >= PB_W / 2) ? PB_W / 2 : Math.max(hw, Math.min(PB_W - hw, wx));
+            const loY = hh, hiY = Math.max(hh, PB_WORLD - hh);
+            wy = Math.max(loY, Math.min(hiY, wy));
+
+            pbZoom += (wz - pbZoom) * 0.08;
+            pbCamX += (wx - pbCamX) * 0.10;
+            pbCamY += (wy - pbCamY) * 0.12;
         }
 
         /* 🎨 판을 그린다. 방송판 네온 느낌에 맞춘다.
@@ -7431,19 +7673,26 @@
             const g = cv.getContext('2d');
             g.clearRect(0, 0, PB_W, PB_H);
             pbCamera();
-            const top = pbCam, bot = pbCam + PB_H;
+            /* ⚠️ 카메라가 확대·이동한다. 화면 가운데를 카메라 자리에 맞추고 배율을 건다.
+                  순서가 중요하다: 가운데로 옮기고 → 확대하고 → 세상 좌표만큼 되민다. */
+            const half = PB_H / (2 * pbZoom), halfW = PB_W / (2 * pbZoom);
+            const top = pbCamY - half, bot = pbCamY + half;
+            const lft = pbCamX - halfW, rgt = pbCamX + halfW;
+            const Z = pbZoom;
 
             g.save();
-            g.translate(0, -pbCam);
+            g.translate(PB_W / 2, PB_H / 2);
+            g.scale(Z, Z);
+            g.translate(-pbCamX, -pbCamY);
 
             // 골 구역 (세상 바닥)
-            const gy = PB_WORLD - PB_GOAL_H;
-            if (gy < bot && PB_WORLD > top) {
-                const grd = g.createLinearGradient(0, gy, 0, PB_WORLD);
+            const gy = pbGoalLine || (PB_WORLD - PB_GOAL_H);
+            if (gy < bot && gy + PB_GOAL_H * 2 > top) {
+                const grd = g.createLinearGradient(0, gy, 0, gy + PB_GOAL_H);
                 grd.addColorStop(0, 'rgba(255,207,77,.05)');
                 grd.addColorStop(1, 'rgba(255,207,77,.22)');
                 g.fillStyle = grd; g.fillRect(0, gy, PB_W, PB_GOAL_H);
-                g.strokeStyle = 'rgba(255,207,77,.75)'; g.lineWidth = 3;
+                g.strokeStyle = 'rgba(255,207,77,.75)'; g.lineWidth = 3 / Z;
                 g.beginPath(); g.moveTo(0, gy); g.lineTo(PB_W, gy); g.stroke();
             }
 
@@ -7454,12 +7703,17 @@
                 if (b.label === 'ball' || b.label === 'wall') continue;
                 const bb = b.bounds;
                 if (bb.max.y < top - 40 || bb.min.y > bot + 40) continue;
+                if (bb.max.x < lft - 40 || bb.min.x > rgt + 40) continue;
                 g.beginPath();
                 const v = b.vertices;
                 g.moveTo(v[0].x, v[0].y);
                 for (let k = 1; k < v.length; k++) g.lineTo(v[k].x, v[k].y);
                 g.closePath();
-                if (b.label === 'peg') {
+                if (b.pbPop) {
+                    // 깨지는 것은 색을 달리해 둔다 — 보는 사람이 "저건 뚫린다"를 알아야 한다
+                    g.fillStyle = 'rgba(255,120,190,.16)';
+                    g.strokeStyle = 'rgba(255,140,200,.80)';
+                } else if (b.label === 'peg') {
                     g.fillStyle = 'rgba(150,225,255,.30)';
                     g.strokeStyle = 'rgba(150,225,255,.85)';
                 } else if (b.label === 'spin') {
@@ -7469,25 +7723,51 @@
                     g.fillStyle = 'rgba(255,255,255,.16)';
                     g.strokeStyle = 'rgba(255,255,255,.80)';
                 }
-                g.lineWidth = 2.5; g.fill(); g.stroke();
+                g.lineWidth = 2.5 / Z; g.fill(); g.stroke();
             }
 
-            // 구슬 + 이름
-            g.font = '900 19px Pretendard, "Malgun Gothic", sans-serif';
+            /* 🔴 구슬 + 이름.
+               ⚠️ 글씨와 테두리는 **화면 기준** 굵기를 지킨다. 확대하면 같이 커져서
+                  구슬을 다 덮어버린다. 배율로 나눠 그린다. */
+            g.font = '900 ' + (19 / Z).toFixed(2) + 'px Pretendard, "Malgun Gothic", sans-serif';
             g.textAlign = 'center'; g.textBaseline = 'middle';
+            const act = pbActive();
+            const tgt = act.length ? act[pbTargetIdx(act)] : null;
             for (let i = 0; i < pbBalls.length; i++) {
                 const b = pbBalls[i];
                 if (b.pbDone) continue;
                 const p = b.position;
                 if (p.y < top - 40 || p.y > bot + 40) continue;
+                if (p.x < lft - 40 || p.x > rgt + 40) continue;
+                // 주인공은 한 겹 더 둘러 눈에 띄게 — 누구를 보라고 하는지 알려준다
+                if (b === tgt) {
+                    g.beginPath(); g.arc(p.x, p.y, pbR + 7 / Z, 0, Math.PI * 2);
+                    g.strokeStyle = 'rgba(255,209,102,.95)'; g.lineWidth = 3 / Z; g.stroke();
+                }
                 g.beginPath(); g.arc(p.x, p.y, pbR, 0, Math.PI * 2);
                 g.fillStyle = b.pbColor; g.shadowColor = b.pbColor; g.shadowBlur = 16;
                 g.fill(); g.shadowBlur = 0;
-                g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2; g.stroke();
-                g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
-                g.strokeText(b.pbName, p.x, p.y + pbR + 15);
+                g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2 / Z; g.stroke();
+                g.lineWidth = 4 / Z; g.strokeStyle = 'rgba(0,0,0,.92)';
+                g.strokeText(b.pbName, p.x, p.y + pbR + 15 / Z);
                 g.fillStyle = '#fff';
-                g.fillText(b.pbName, p.x, p.y + pbR + 15);
+                g.fillText(b.pbName, p.x, p.y + pbR + 15 / Z);
+            }
+
+            /* 💥 깨지는 순간 — 0.35초 동안 퍼지며 사라지는 테두리 */
+            if (pbPops.length) {
+                const nowP = performance.now();
+                for (let i = 0; i < pbPops.length; i++) {
+                    const p = pbPops[i];
+                    const k = (nowP - p.t) / 350;
+                    if (k < 0 || k > 1) continue;
+                    if (p.y < top - 60 || p.y > bot + 60) continue;
+                    g.beginPath();
+                    g.arc(p.x, p.y, p.r * (1 + k * 0.7), 0, Math.PI * 2);
+                    g.strokeStyle = 'rgba(255,150,205,' + (1 - k).toFixed(2) + ')';
+                    g.lineWidth = 3 / Z;
+                    g.stroke();
+                }
             }
 
             g.restore();
@@ -7500,7 +7780,7 @@
             for (let i = 0; i < pbBalls.length; i++) {
                 const b = pbBalls[i];
                 if (b.pbDone) continue;
-                const f = Math.max(0, Math.min(1, b.position.y / PB_WORLD));
+                const f = Math.max(0, Math.min(1, b.position.y / (pbGoalLine || PB_WORLD)));
                 g.fillStyle = b.pbColor; g.globalAlpha = .75;
                 g.fillRect(barX - 5, barTop + barH * f - 2, 10, 4);
                 g.globalAlpha = 1;
@@ -7510,22 +7790,42 @@
             if (pbFinish.length) {
                 g.textAlign = 'left';
                 g.font = '900 20px Pretendard, "Malgun Gothic", sans-serif';
+                /* ⚠️ '끝까지 남기' 규칙에서는 **먼저 들어온 사람이 진 것**이다.
+                      1등을 노랗게 칠하면 거꾸로 읽힌다 — 규칙을 보고 칠한다. */
+                const lastRule = (pbRule === 'last');
                 pbFinish.slice(0, 6).forEach(function (nm, i) {
                     const y = 26 + i * 27;
                     g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
                     g.strokeText((i + 1) + '. ' + nm, 16, y);
-                    g.fillStyle = i === 0 ? '#ffd166' : '#dfe6f2';
+                    g.fillStyle = (!lastRule && i === 0) ? '#ffd166' : '#dfe6f2';
                     g.fillText((i + 1) + '. ' + nm, 16, y);
                 });
+                if (lastRule) {
+                    g.font = '800 15px Pretendard, "Malgun Gothic", sans-serif';
+                    g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
+                    const y2 = 26 + Math.min(6, pbFinish.length) * 27 + 4;
+                    const cap = '↓ 먼저 들어온 순서 (탈락)';
+                    g.strokeText(cap, 16, y2);
+                    g.fillStyle = '#9fb0c9';
+                    g.fillText(cap, 16, y2);
+                }
             }
         }
 
-        /* 🏆 결과 딱지 */
+        /* 🏆 결과 딱지.
+           ⚠️ '끝까지 남기' 규칙이면 **맨 마지막에 들어온 사람**이 우승자다.
+              도착 순서 첫 칸을 그대로 띄우면 진 사람을 우승자로 발표하게 된다. */
+        function pbWinnerOf(order) {
+            if (!order || !order.length) return null;
+            return (pbRule === 'last') ? order[order.length - 1] : order[0];
+        }
+
         function pbShowWinner(name) {
             const el = document.getElementById('pb-winner');
             if (!el) return;
             if (!name) { el.classList.remove('show'); el.innerHTML = ''; return; }
-            el.innerHTML = '🏆 ' + escText(name) + '<span class="pb-w-sub">1등</span>';
+            const sub = (pbRule === 'last') ? '끝까지 살아남음' : '1등';
+            el.innerHTML = '🏆 ' + escText(name) + '<span class="pb-w-sub">' + sub + '</span>';
             el.classList.add('show');
         }
 
@@ -7539,6 +7839,10 @@
             box.style.visibility = on ? 'visible' : 'hidden';
             if (!on) { pbStop(); pbShowWinner(null); pbRound = -1; return; }
             if (!pbHasEngine()) return;          // 물리 파일을 못 읽었다 — 조용히 넘어간다
+
+            /* ⚠️ 규칙은 **판을 짓기 전에** 정해야 한다. 카메라가 누구를 따라갈지,
+                  언제 승부가 갈리는지가 여기서 갈린다. */
+            pbRule = (g.rule === 'last') ? 'last' : 'first';
 
             const rid = Number(g.round_id) || 0;
             if (g.running) {
@@ -7555,8 +7859,7 @@
                     if (pbRAF) { cancelAnimationFrame(pbRAF); pbRAF = null; }
                     pbDraw();
                 }
-                const r = g.result || [];
-                pbShowWinner(r.length ? r[0] : null);
+                pbShowWinner(pbWinnerOf(g.result || []));
             }
         }
 

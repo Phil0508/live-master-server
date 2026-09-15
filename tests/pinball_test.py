@@ -114,8 +114,16 @@ print('=' * 74)
 # ⚠️ 코스 생김새 때문에 어떤 자리는 유리하다. 받은 순서대로 세우면 그 유불리가
 #    사람에게 고정된다(실측: 3번 자리 0승). 매 판 섞어 아무에게도 안 붙게 한다.
 _mk = _nocomment(OV[OV.find('function pbMakeBalls('):OV.find('function pbStop(')])
-chk('출발 자리를 섞는다', 'slots' in _mk and 'slots[i] = slots[j]' in _mk)
+chk('출발 자리를 섞는다', 'who' in _mk and 'who[i] = who[j]' in _mk)
 chk('섞을 때도 씨앗 난수를 쓴다', 'rng()' in _mk and 'Math.random' not in _mk)
+# ⚠️ 자리만 섞어선 모자랐다. 물리 엔진은 **먼저 넣은 물체부터** 밀어내기를 푸는데,
+#    명단 순서대로 넣으면 그 유불리가 사람에게 고정된다
+#    (실측 300판: 명단 첫째·둘째가 62·66승인데 셋째는 37승. 기대값 50).
+#    자리 순서로 만들면 유불리가 자리에 붙고, 자리는 매 판 섞인다.
+chk('물리에 넣는 순서도 자리 기준이다', 'who.map(function (i, slot)' in _mk)
+# 🎲 가져온 맵은 생김새도 출발 자리도 고정이라, 무게를 안 흔들면 **매 판 똑같은 경기**가
+#    된다(실측: Wheel of fortune 이 24판 내내 5.4초). 원본도 구슬 무게를 1～2배로 흔든다.
+chk('구슬 무게를 매 판 다르게 준다', 'density: .0016 * (1 + rng())' in _mk)
 
 print()
 print('=' * 74)
@@ -156,11 +164,13 @@ chk('시작할 때도 판을 받는다', "g['map'] = _pinball_map(body.get('map'
 chk('방송판이 고른 판을 쓴다 (씨앗으로 안 정한다)',
     'function pbStart(names, seed, mapIdx)' in OV and 'mapIdx >= 0' in OV)
 # ⚠️ 맵 파일을 못 읽었거나 -1 이면 우리 코스로 굴러야 한다. 방송이 빈 화면이 되면 안 된다.
-chk('판을 못 쓰면 우리 코스로 굴린다', 'if (!bodies) { PB_WORLD = PB_WORLD_OWN' in OV)
+chk('판을 못 쓰면 우리 코스로 굴린다',
+    'if (!bodies) {' in OV and 'PB_WORLD = PB_WORLD_OWN; pbMapTitle' in OV)
 chk('조종실에 고르는 칸이 있다', 'id="pb-map"' in CTL and 'pbcSetMap' in CTL)
 # ⚠️ 목록에 걸리는 시간을 적어 둔다. 모르고 고르면 방송 흐름이 끊긴다.
-chk('걸리는 시간을 적어 뒀다', '29~44초' in CTL and '21~48초' in CTL)
-chk('가끔 안 끝나는 판을 숨기지 않는다', '가끔 안 끝남' in CTL)
+#    규칙마다 크게 다르므로 둘 다 적는다(실측 400판 중앙값).
+chk('걸리는 시간을 규칙별로 적어 뒀다',
+    CTL.count('먼저 ') >= 5 and CTL.count('끝까지 ') >= 5)
 
 _mj2 = os.path.join(ROOT, 'vendor', 'pinball-maps.js')
 chk('맵 파일이 있다', os.path.exists(_mj2),
@@ -173,13 +183,105 @@ if os.path.exists(_mj2):
 # ⚠️ 'Marble Roulette / 마블 룰렛' 은 원저자의 상표다. 우리 이름으로 쓰면 안 된다.
 chk('상표를 우리 이름으로 안 쓴다',
     '마블 룰렛' not in CTL and '마블 룰렛' not in OV and 'Marble Roulette' not in CTL)
-# 🔴 구슬이 맵 배율을 따라야 한다 — 15px 고정이면 좁은 맵에서 못 사이에 낀다
-#    (실측: 틈 24px 에 지름 30px 이라 여섯 개가 모두 y≈2850 에서 멈췄다).
-chk('구슬 크기가 판 배율을 따른다', 'pbR = Math.max(' in OV and 'SC * 0.17' in OV)
+# 🔴 구슬 크기는 **원본이 못박아 둔 0.25 미터**를 따른다(physics-box2d: set_m_radius(0.25)).
+#    ⚠️ 예전에 0.17 로 줄였다가 "공이 너무 작다"는 말을 들었다. 줄이면 못 사이는 잘 빠지지만
+#       원본이 의도한 판이 아니게 된다. 끼는 건 크기가 아니라 pbUnstick 으로 푼다.
+chk('구슬 크기가 원본과 같다 (배율 x 0.25)', 'pbR = Math.max(5, SC * 0.25)' in OV)
 
 print()
 print('=' * 74)
-print('⑧ 물리 엔진을 우리 서버에서 내보내는가')
+print('⑧ 가져온 판을 원본과 똑같이 짓는가')
+print('=' * 74)
+"""🗺️ 원본 맵을 옮길 때 네 군데서 틀렸었다. 전부 실측으로 드러난 것이라
+   하나씩 못을 박아 둔다 — 다시 틀리면 판이 통째로 이상해진다."""
+
+_bm = _nocomment(OV[OV.find('function pbBuildFromMap('):OV.find('function pbBuildCourse(')])
+
+# ⚠️ box2d 의 SetAsBox 는 **반너비·반높이**를 받는다. 원본 그림판도 width * 2 로 그린다.
+#    matter 의 rectangle 은 전체 크기를 받으므로 두 배로 넣어야 한다.
+#    안 그러면 장애물이 전부 절반 크기가 되어 판이 헐렁해진다.
+chk('상자를 두 배로 넣는다 (원본은 반너비)', "* 2 * SC" in _bm)
+
+# ⚠️ rotation 은 숫자가 30·45·90 이라 도처럼 보이지만 **라디안 그대로** 쓴다.
+#    원본이 물리(SetAsBox 4번째 인자)에도 그림(ctx.rotate)에도 그 값을 그대로 넣기 때문이다.
+chk('각도를 라디안 그대로 쓴다', 'Math.PI / 180' not in _bm)
+
+# 💥 **이번에 제일 크게 빠뜨렸던 것** — 원본은 life 가 있는 물체를 구슬이 닿는 순간 없앤다
+#    (physics-box2d.step). 단단하게 깔았더니 Yoru ni Kakeru 는 288개 중 217개가 벽이 되어
+#    구슬 여섯이 y≈5500 에 120초를 갇혔다. 넣고 나니 매번 20～26초에 끝난다.
+chk('닿으면 깨지는 물체를 표시한다', 'pbPop: (Number(pr.life) || 0) > 0' in _bm)
+chk('깨진 것을 걸음이 끝난 뒤 치운다', 'function pbPopDrain(' in OV and 'pbPopDrain();' in OV)
+chk('부딪힘을 지켜본다', "Matter.Events.on(pbEng, 'collisionStart'" in OV)
+
+# ⚠️ 중력은 원본이 10 m/s² 다. 0.0016 고정은 배율 64 기준 **원본의 2.5배**였다
+#    — "너무 빨리 떨어져". 배율에서 계산해야 맵마다 맞는다.
+chk('중력을 배율에서 계산한다', 'pbEng.gravity.scale = PB_G_MPS2 * pbScale / 1e6' in OV)
+chk('중력값이 원본과 같다 (10 m/s²)', 'const PB_G_MPS2 = 10' in OV)
+
+# 🚿 **맵 밖에서 출발하던 것** — 원본 맵은 꼭대기가 좁은 통로다(예: x 9.25~16.5).
+#    화면 전체에 뿌렸더니 통로 밖 구슬이 판을 건너뛰고 바깥으로 곧장 떨어졌다.
+chk('원본과 같은 자리에서 떨어뜨린다', '10.25 + (slot % 10) * 0.6' in _bm)
+chk('가져온 맵이면 통로 자리를 쓴다', 'if (pbSpawn) {' in OV and 'pbSpawn.at(slot, n)' in OV)
+
+print()
+print('=' * 74)
+print('⑨ 이기는 규칙을 고를 수 있는가')
+print('=' * 74)
+"""🏆 먼저 골인 / 끝까지 남기. 원본의 winnerRange 를 두 가지로 줄여 옮긴 것이다.
+   ⚠️ 규칙이 도착 순서의 **어느 쪽 끝**을 우승자로 읽을지를 정한다. 여기가 어긋나면
+      진 사람을 우승자로 발표한다 — 방송에서 절대 나면 안 되는 사고다."""
+chk('서버가 규칙을 들고 있다', '"rule": "first"' in SRV)
+chk('모르는 값은 먼저 골인으로 떨어진다',
+    'def _pinball_rule(' in SRV and "PINBALL_RULES = ('first', 'last')" in SRV)
+chk('시작할 때도 규칙을 받는다', "g['rule'] = _pinball_rule(body.get('rule'))" in SRV)
+chk('방송판이 서버 규칙을 읽는다', "pbRule = (g.rule === 'last') ? 'last' : 'first';" in OV)
+chk('끝까지 남기면 마지막 사람이 우승이다',
+    'function pbWinnerOf(' in OV and "order[order.length - 1]" in OV)
+chk('조종실에 규칙 고르는 칸이 있다', 'id="pb-rule"' in CTL and 'pbcSetRule' in CTL)
+chk('고른 규칙을 되비춘다', "g.rule === 'last'" in CTL)
+
+# ⚠️ 필요한 등수까지만 나오면 끝이다(원본도 같다). 안 그러면 뒤처진 구슬을 하염없이 기다린다.
+chk('승부가 갈리면 일찍 끝낸다',
+    "const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= 1);" in OV)
+# ⚠️ 갈린 즉시 끊지 않는다 — 들어가는 장면은 보여줘야 한다.
+chk('끝나는 장면을 잠깐 보여준다', 'now - pbOverAt > 700' in OV)
+
+print()
+print('=' * 74)
+print('⑩ 카메라가 주인공을 따라가는가')
+print('=' * 74)
+"""🎥 원본은 판 전체를 멀리서 보여주지 않는다. **주인공 구슬**을 쫓아가며 결승선 앞에서
+   확 당기고 느려진다. 우리는 멀리서 내려다보기만 해서 "공이 너무 작다"는 말을 들었다."""
+# ⚠️ 원본의 targetIndex = 당첨등수 - 골인한수. 이 한 줄로 규칙이 바뀌면 주인공도 바뀐다.
+chk('규칙에 따라 주인공이 바뀐다',
+    'function pbTargetIdx(' in OV and "(pbRule === 'last') ? (pbBalls.length - 1) : 0" in OV)
+chk('결승선 앞에서 확대한다', 'PB_ZOOM_MAX' in OV and 'PB_ZOOM_TH' in OV)
+chk('결승선 앞에서 느려진다', 'function pbSlowFactor(' in OV and 'PB_SLOW_MIN' in OV)
+# ⚠️ 슬로모션이 물리 걸음의 **크기**를 바꾸면 화면마다 결과가 갈릴 수 있다.
+#    걸음은 그대로 두고 띄엄띄엄 민다.
+chk('슬로모션이 물리 걸음 크기를 안 바꾼다',
+    'Matter.Engine.update(pbEng, PB_STEP)' in OV and 'pbSlowAcc' in OV)
+# ⚠️ 확대하면 글씨·테두리도 같이 커져 구슬을 덮는다. 화면 기준 굵기를 지켜야 한다.
+chk('글씨 굵기가 확대에 안 딸려간다', '(19 / Z).toFixed(2)' in OV)
+
+print()
+print('=' * 74)
+print('⑪ 어떤 판이든 반드시 끝나는가')
+print('=' * 74)
+"""🚨 방송이 한 판에 갇히면 안 된다. 실측에서 Pot of greed · 끝까지 남기 는
+   아무도 못 나아간 채 215초를 버틴 판이 있었다."""
+chk('아무도 못 나아가면 그 자리 순위로 끝낸다',
+    'function pbStallWatch(' in OV and 'const stalled = pbStall > PB_STALL_STEPS' in OV)
+# ⚠️ 구슬 **저마다의** 최고 깊이로 봐야 한다. 전체 최고값으로 보면 앞선 구슬이 골인해
+#    사라진 뒤로는 값이 안 늘어 늘 '정체'로 읽힌다.
+chk('구슬마다 따로 잰다', 'b.pbTop === undefined' in OV)
+# ⚠️ 정상 판의 최장 정체는 7초였다. 20초면 멀쩡한 판은 안 끊는다.
+chk('정상 판을 끊지 않을 만큼 넉넉하다', 'const PB_STALL_STEPS = 60 * 20;' in OV)
+chk('걸음 수 상한도 있다', 'PB_MAX_STEPS' in OV)
+
+print()
+print('=' * 74)
+print('⑫ 물리 엔진을 우리 서버에서 내보내는가')
 print('=' * 74)
 # ⚠️ 외부 CDN 을 부르면 방송 중 그쪽이 막히는 순간 게임이 통째로 안 뜬다.
 #    컨페티를 vendor 에 둔 것과 같은 이유다.
