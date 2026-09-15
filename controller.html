@@ -1320,6 +1320,7 @@
             <span class="tab-sep"></span>
             <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-mode')"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
@@ -2135,6 +2136,44 @@
     <!-- 🎰 슬롯머신 탭 -->
     <!-- 👑 특별 후원자(VIP) 탭 -->
     <!-- 🎲 주사위게임 (부루마블식) -->
+    <div id="tab-pinball" class="tab-content">
+        <div class="group-box" style="margin-bottom:15px; border-color:rgba(120,220,255,0.4); background:rgba(120,220,255,0.04);">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--accent);">🎱 구슬 핀볼</span>
+                <label class="apple-switch" title="방송 화면에 띄우거나 내립니다">
+                    <input type="checkbox" id="pb-on" onchange="pbcEnable(this.checked)">
+                    <span class="apple-slider"></span>
+                </label>
+            </div>
+            <div style="font-size:var(--fs-2); color:var(--text-muted); margin:8px 0 12px; line-height:1.6;">
+                구슬이 못과 레일에 튕기며 떨어져 <b>먼저 바닥에 닿는 순서</b>로 순위가 납니다.
+                보통 <b>5~10초</b>면 끝납니다.
+            </div>
+
+            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">참가자</div>
+            <textarea id="pb-names" rows="4" placeholder="쉼표나 줄바꿈으로 구분해서 넣어주세요&#10;예) 밍밍, 양양, 예지랑"
+                      style="width:100%; margin:0 0 8px;"></textarea>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                <button onclick="pbcFillPlayers()" style="margin:0;"><i class="fa-solid fa-users"></i> 지금 선수 넣기</button>
+                <button onclick="pbcSaveNames()" style="margin:0;">명단 저장</button>
+            </div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="pbcStart()" style="margin:0; background:var(--accent); color:#0b0d12; font-weight:900;">
+                    <i class="fa-solid fa-play"></i> 굴리기
+                </button>
+                <button onclick="pbcReset()" style="margin:0; background:transparent; border:1px solid var(--border-light);">초기화</button>
+            </div>
+
+            <!-- ⚠️ 봇·게임은 다른 프로그램(방송판)이 실제로 굴린다. 그 사실을 숨기면
+                 "굴렸는데 왜 아무 일도 없지" 로 헤맨다. 상태를 그대로 보여준다. -->
+            <div id="pb-state" style="font-size:var(--fs-2); padding:10px 12px; border-radius:var(--r-2);
+                        border:1px solid var(--border-light); background:rgba(0,0,0,0.25); margin-top:14px; line-height:1.7;">
+                불러오는 중…
+            </div>
+        </div>
+    </div>
+
     <div id="tab-dicegame" class="tab-content">
         <div class="group-box" style="margin-bottom: 15px; border-color: rgba(48, 209, 88, 0.35); background: rgba(48, 209, 88, 0.03);">
             <div class="group-title"><span style="color:#7ee2a0;"><i class="fa-solid fa-dice"></i> 🎲 주사위게임</span></div>
@@ -3379,7 +3418,8 @@
             //    깨워두기 표시가 실제 상태와 어긋난 채로 남으면 '켜둔 줄 알고' 자리를 비우게 된다.
             try { renderSelfPing(); } catch(e) {}
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
-            try { dgcSync(); } catch(e) {}       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
+            try { dgcSync(); } catch(e) {}
+            try { pbcSync(); } catch(e) {}       // 🎱 구슬 핀볼 판 갱신       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
             try { ntcSync(); } catch(e) {}       // 📣 안내 전광판 설정 반영
             try { abSync(false); } catch(e) {}   // 🤖 진행봇 설정 반영
             try { renderVipLive(false); } catch(e) {}   // 👑 이번 방송 순위 등급(탭이 보일 때만)
@@ -8236,6 +8276,93 @@ initFoldablePanels();
         let dgcSigs = null, _dgcTileSig = '', _dgcKeysFilled = false;
 
         function dgcState() { return (typeof gd !== 'undefined' && gd && gd.dicegame) || {}; }
+
+        /* 🎱 구슬 핀볼 — 조종실 쪽.
+           ⚠️ 물리는 **방송판이 굴린다.** 여기서는 명단을 넣고 시작을 알릴 뿐이다.
+              결과도 방송판이 서버에 보고하고, 우리는 그 상태를 받아 보여준다. */
+        function pbcState() { return (typeof gd !== 'undefined' && gd && gd.pinball) || {}; }
+
+        async function pbcCall(path, body) {
+            try {
+                const r = await fetch('/api/pinball/' + path, { method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); return null; }
+                if (d.pinball && typeof gd !== 'undefined' && gd) { gd.pinball = d.pinball; pbcSync(true); }
+                return d;
+            } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); return null; }
+        }
+
+        function pbcNames() {
+            const t = document.getElementById('pb-names');
+            return t ? t.value : '';
+        }
+        async function pbcSaveNames() {
+            const d = await pbcCall('setup', { names: pbcNames() });
+            if (d) acctToast('🎱 명단을 저장했습니다', 'ok');
+        }
+        function pbcFillPlayers() {
+            /* 지금 방송에 올라와 있는 선수들을 그대로 넣는다.
+               ⚠️ 번외 게임 중이면 번외 명단이 진짜 명단이다(점수도 그쪽으로 간다). */
+            const src = (typeof gd !== 'undefined' && gd && gd.extra_game_active) ? gd.extra_bjs : (gd && gd.bjs);
+            const names = (src || []).map(function (b) { return b && b.name; }).filter(Boolean);
+            if (!names.length) { acctToast('올라와 있는 선수가 없습니다', 'warn'); return; }
+            const t = document.getElementById('pb-names');
+            if (t) t.value = names.join(', ');
+        }
+        async function pbcStart() {
+            const d = await pbcCall('start', { names: pbcNames() });
+            if (d) acctToast('🎱 굴립니다', 'ok');
+        }
+        async function pbcReset() {
+            const d = await pbcCall('reset');
+            if (d) acctToast('초기화했습니다', 'ok');
+        }
+        async function pbcEnable(on) {
+            await pbcCall('enable', { enabled: !!on });
+        }
+
+        function pbcSync(force) {
+            const tab = document.getElementById('tab-pinball');
+            if (!tab) return;
+            if (!force && tab.style.display === 'none') return;   // 안 보이는 탭은 안 그린다
+            const g = pbcState();
+            const sw = document.getElementById('pb-on');
+            if (sw && sw.checked !== !!g.enabled) sw.checked = !!g.enabled;
+
+            /* ⚠️ 치는 중에 덮어쓰면 글자가 사라진다 — 손이 떠나 있을 때만 맞춘다.
+                  (진행봇 라이브 주소 칸과 같은 이유다) */
+            const t = document.getElementById('pb-names');
+            if (t && document.activeElement !== t && !t.value.trim() && (g.names || []).length) {
+                t.value = (g.names || []).join(', ');
+            }
+
+            const box = document.getElementById('pb-state');
+            if (!box) return;
+            const n = (g.names || []).length;
+            const r = g.result || [];
+            let html = '참가자 <b>' + n + '명</b>';
+            if (g.running) {
+                html += ' · <b style="color:var(--accent);">굴러가는 중…</b>'
+                     + '<br><span style="color:var(--text-muted);">방송 화면에서 구슬이 떨어지고 있습니다. '
+                     + '끝나면 여기에 순위가 뜹니다.</span>';
+            } else if (r.length) {
+                html += '<br>🏆 <b style="color:var(--gold, #ffcf4d); font-size:1.15em;">1등 ' + escapeHTML(r[0]) + '</b>';
+                if (r.length > 1) {
+                    html += '<br><span style="color:var(--text-muted);">'
+                         + r.slice(1, 5).map(function (nm, i) { return (i + 2) + '위 ' + escapeHTML(nm); }).join(' · ')
+                         + '</span>';
+                }
+            } else if (!n) {
+                html += '<br><span style="color:var(--text-muted);">참가자를 넣고 굴리기를 누르세요.</span>';
+            } else {
+                html += '<br><span style="color:var(--text-muted);">굴리기를 누르면 시작합니다.</span>';
+            }
+            if (!g.enabled) {
+                html += '<br><span style="color:#ff9f0a;">⚠️ 방송 화면에 안 떠 있습니다 — 위 스위치를 켜세요.</span>';
+            }
+            box.innerHTML = html;
+        }
 
         async function dgcCall(path, body) {
             try {

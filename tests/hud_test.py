@@ -350,7 +350,7 @@ for wid, (w, h) in SIZE.items():
 #    대신 안전지대 밖으로 못 나가게 붙잡는다.
 mm = re.search(r'const LAY_IDS = \[([\s\S]*?)\];', ov)
 _n = len(re.findall(r"'[\w-]+'", mm.group(1))) if mm else 0
-chk('편집기로 옮길 수 있는 위젯이 열아홉이다', _n == 19, '%d개' % _n)   # 🏺 모금함이 늘었다
+chk('편집기로 옮길 수 있는 위젯이 스물이다', _n == 20, '%d개' % _n)   # 🎱 구슬 핀볼이 늘었다   # 🏺 모금함이 늘었다
 
 print()
 print('=' * 74)

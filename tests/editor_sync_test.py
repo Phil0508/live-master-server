@@ -137,9 +137,11 @@ print('=' * 74)
 print('④ 그림자가 크기를 손으로 박고 있지 않은가')
 print('=' * 74)
 """hud.css 가 아무리 정확해도, 그림자가 인라인으로 크기를 박아 두면 안 걸린다.
-   ⚠️ 아래 여섯은 방송판 자체가 JS/인라인으로 그려 클래스가 없다 — 어쩔 수 없다.
-      나머지가 인라인으로 돌아가면 그건 되돌아간 것이다."""
-INLINE_OK = {'roulette', 'slot', 'siggame', 'karaoke', 'acct_video', 'dicegame', 'sig-tally'}
+   ⚠️ 아래 것들은 방송판 자체가 JS/인라인/canvas 로 그려 클래스가 없다 — 어쩔 수 없다.
+      나머지가 인라인으로 돌아가면 그건 되돌아간 것이다.
+   🎱 핀볼은 판 전체가 canvas 한 장이라 흉내낼 마크업이 아예 없다(편집기는 크기만 잡는다)."""
+INLINE_OK = {'roulette', 'slot', 'siggame', 'karaoke', 'acct_video', 'dicegame', 'sig-tally',
+             'pinball'}
 parts = re.split(r'(?=<div class="widget" id=")', ad)
 for p in parts[1:]:
     w = re.match(r'<div class="widget" id="([\w-]+)"', p)
@@ -167,6 +169,7 @@ WANT = {                       # 위젯: (왼쪽, 위, 왜)
     'ticker_top': (0,   115, '안전지대 위 끝'),
     'ticker_bottom': (0, 882, '안전지대 아래 끝'),
     'dicegame':   (6,   307, '게임 자리'),
+    'pinball':    (50,  300, '🎱 구슬 핀볼 — 게임 자리'),
     'donor-rank': (658, 387, '오른쪽 끝 1038 · 폭 380'),
     'sig-tally':  (800, 315, ''),
     'home-race':  (92,  167, '오른쪽 42 기준 · 폭 946 (판을 540→900 으로 넓혔다)'),
@@ -237,7 +240,7 @@ _after = ad.find('</div>' + _nl + ' ' * 12 + '</div>', _last)
 _end = _after if _after > 0 else len(ad)
 _starts = [m.start() for m in re.finditer(r'<div class="widget" id="', ad)
            if _board < m.start() < _end]
-chk('무대 안에서 위젯을 찾았다', len(_starts) == 19, '%d개' % len(_starts))   # 🏺 모금함이 늘었다
+chk('무대 안에서 위젯을 찾았다', len(_starts) == 20, '%d개' % len(_starts))   # 🏺 모금함이 늘었다
 
 
 def _depth(seg):

@@ -498,8 +498,11 @@ print('=' * 74)
 chk('기본 설정이 서버에 있다', "'announce_bot'" in SRV or '"announce_bot"' in SRV)
 chk('전용 주소가 있다', "@app.route('/api/announcebot'" in SRV)
 # ⚠️ /api/data 로 바꿀 수 있으면, 조종실이 낡은 사본을 통째로 보낼 때 방금 바꾼 설정이 되돌아간다
+# ⚠️ 목록의 '끝 글자 모양'으로 보면 안 된다 — 뒤에 하나만 더 붙어도 깨진다
+#    (실제로 'pinball' 을 추가하자 깨졌다). 이름이 목록 안에 있는지로 본다.
+_so = re.search(r'SERVER_OWNED = \((.*?)\)', SRV, re.S)
 chk('상태를 통째로 보내도 안 덮인다 (모금함과 같은 규칙)',
-    "'fundjar', 'announce_bot')" in SRV)
+    bool(_so) and "'announce_bot'" in _so.group(1))
 chk('말도 안 되는 간격은 거절한다', '간격은 5~600초 사이입니다' in SRV)
 chk('말도 안 되는 안내 간격도 거절한다', '안내 간격은 0~120분 사이입니다' in SRV)
 # ⚠️ 오타로 상태에 쓰레기 칸이 생기면 봇은 안 보는데 조종실에는 켜진 것처럼 남는다

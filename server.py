@@ -1055,7 +1055,7 @@ SLOT_RESULT_DELAY_SEC = 4.0
 # 🎮 방송 화면에서 게임판 넷(주사위·시그뒤집기·룰렛·슬롯)은 **같은 자리**를 쓴다.
 #    둘 이상 켜면 서로 겹쳐 아무것도 못 읽는다. 하나를 켤 때 나머지를 내린다.
 #    ⚠️ 끄는 것은 여기서 안 한다 — 켜는 쪽에서만 부른다. 그래야 '전부 꺼진 상태'가 그대로 남는다.
-BOARD_NAMES = ('dicegame', 'siggame', 'roulette', 'slot')
+BOARD_NAMES = ('dicegame', 'siggame', 'roulette', 'slot', 'pinball')
 
 
 def _solo_board(state, keep):
@@ -1069,6 +1069,10 @@ def _solo_board(state, keep):
         _g = state.get('siggame')
         if isinstance(_g, dict) and _g.get('enabled'):
             _g['enabled'] = False; off.append('시그뒤집기')
+    if keep != 'pinball':
+        _g = state.get('pinball')
+        if isinstance(_g, dict) and _g.get('enabled'):
+            _g['enabled'] = False; _g['running'] = False; off.append('핀볼')
     if keep != 'roulette' and state.get('roulette_enabled'):
         state['roulette_enabled'] = False; off.append('룰렛')
     if keep != 'slot' and state.get('slot_enabled'):
@@ -1209,6 +1213,10 @@ def require_login():
         #    큐가 비어 있으면 그걸 끄는 코드가 없어 운영자가 손으로 끌 때까지 돌아오지 않는다.
         #    streamdeck.html 자체가 이미 로그인 뒤에 있어서, 같은 출처 fetch 에 세션이 실린다.
         '/api/roulette/winner',
+        # 🎱 핀볼 결과도 **방송판이 보낸다** — 오버레이는 세션이 없다(룰렛과 같은 이유).
+        #    ⚠️ 여기서 열어도 아무나 결과를 못 심는다: 굴러가는 중(running)일 때만 받고,
+        #       판 번호(round_id)가 맞아야 하며, 받는 즉시 문을 닫는다(먼저 온 하나만 이긴다).
+        '/api/pinball/result',
         '/api/match/timeup',
         '/api/signatures',
         '/api/reaction/next',
@@ -1721,6 +1729,20 @@ DEFAULT_STATE = {
         "tiles": [],
         "keys": [],         # 황금열쇠 덱(글 목록) — 무인증에는 장수만 나간다(뽑기 전까지 비밀)
         "action": {},       # {type: PLACE|ROLL|MOVE, ts, dice, path, from, to, lap, tile, key}
+    },
+
+    # 🎱 구슬 핀볼 — 구슬이 못·레일에 튕기며 떨어져, 먼저 바닥에 닿는 순서로 순위가 난다.
+    #    ⚠️ 물리는 **방송판이 굴린다**(서버는 심판만 본다). 화면이 여럿이면 각자 굴려
+    #       결과가 갈릴 수 있으므로, 판마다 씨앗(seed)을 서버가 줘서 같은 경기를 보게 하고
+    #       결과는 **먼저 온 보고 하나만** 받는다 (룰렛 /api/roulette/winner 과 같은 방식).
+    "pinball": {
+        "enabled": False,       # 화면에 띄울지
+        "names": [],            # 참가자 ["밍밍", "양양", ...] — 조종실이 넣는다
+        "running": False,       # 굴러가는 중인가. 이게 켜져 있을 때만 결과를 받는다
+        "round_id": 0,          # 판 번호. 늦게 온 보고를 가려내는 표식
+        "seed": 0,              # 이 판의 씨앗 — 모든 화면이 같은 경기를 본다
+        "result": [],           # 도착 순서 ["양양", "밍밍", ...]
+        "started_at": 0,        # 시작 시각(ms) — 몇 초 걸렸는지 재려고
     },
 
     "siggame": {
@@ -2275,6 +2297,11 @@ def reset_session_keys(state):
             if isinstance(_p, dict):
                 _p['pos'] = 0; _p['laps'] = 0
         _dg['turn'] = 0
+    # 🎱 핀볼도 방송 1회분이다. 참가자 명단(names)은 다음에도 쓰므로 남기고,
+    #    보이기·굴러가는 중·결과만 걷는다.
+    _pb = state.get('pinball')
+    if isinstance(_pb, dict):
+        _pb.update({'enabled': False, 'running': False, 'result': [], 'started_at': 0})
     _sg = state.get('siggame')
     if isinstance(_sg, dict):
         _sg.update({'enabled': False, 'cards': [], 'action': None, 'compact': False,
@@ -4584,7 +4611,7 @@ def api_data():
             #      상금이 어긋난다(운영비 점수를 지키는 것과 똑같은 이유다).
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
-                            'fundjar', 'announce_bot')
+                            'fundjar', 'announce_bot', 'pinball')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -6584,6 +6611,8 @@ PATCH_DENY = frozenset((
     'donor_tally',
     # 🎲 주사위게임도 서버만 굴린다(전용 엔드포인트로만 바뀐다)
     'dicegame',
+    # 🎱 핀볼도 같다. 특히 round_id·running 이 밖에서 바뀌면 늦게 온 결과를 못 가려낸다.
+    'pinball',
 ))
 
 
@@ -7953,6 +7982,190 @@ def api_dicegame_board():
             print(f"🎯 [주사위 판] 기여도로 옮겼습니다 — {len(moved)}명", flush=True)
         _dicegame_save(state, g)
     return jsonify({'status': 'success', 'board': g['board'], 'moved': moved})
+
+
+# ==========================================
+# 🎱 구슬 핀볼
+# ==========================================
+#  구슬이 못·레일에 튕기며 떨어져, 먼저 바닥에 닿는 순서로 순위가 난다.
+#  ⚠️ 물리는 **방송판(overlay)이 굴린다.** 서버는 심판만 본다 — 서버에서 물리를 돌리면
+#     후원 접수까지 잠그게 되고, 굴러가는 그림을 실시간으로 내보낼 방법도 없다.
+#  ⚠️ 그래서 화면이 여럿이면(OBS + 미리보기) 각자 굴려 **다른 우승자**가 나올 수 있다.
+#     둘로 막는다:
+#       ① 판마다 서버가 씨앗(seed)을 준다 — 같은 씨앗이면 같은 경기를 본다
+#       ② 결과는 **먼저 온 보고 하나만** 받고 그 자리에서 문을 닫는다(running=False).
+#          늦게 온 것은 409. 룰렛 /api/roulette/winner 이 쓰는 바로 그 방식이다.
+
+PINBALL_MAX = 24      # 구슬이 이보다 많으면 화면에서 이름을 못 읽는다
+
+
+def _pinball_state(state):
+    """항상 온전한 모양의 핀볼 상태를 돌려준다(예전 저장본에 없던 키 보정)."""
+    g = state.get('pinball')
+    if not isinstance(g, dict):
+        g = copy.deepcopy(DEFAULT_STATE['pinball'])
+        state['pinball'] = g
+    for k, v in DEFAULT_STATE['pinball'].items():
+        g.setdefault(k, copy.deepcopy(v))
+    for k in ('names', 'result'):
+        if not isinstance(g.get(k), list):
+            g[k] = []
+    return g
+
+
+def _pinball_save(state, g):
+    state['pinball'] = g
+    save_data(state)
+    broadcast_event('update', state)
+
+
+def _pinball_names(raw):
+    """조종실이 보낸 참가자를 목록으로 다듬는다.
+
+    글 한 덩어리(쉼표·줄바꿈)로 와도 받고, 이미 목록이어도 받는다.
+    ⚠️ 같은 이름을 여러 번 넣는 것은 막지 않는다 — 여러 번 넣어 확률을 올리는
+       쓰임이 있다. 대신 빈 것만 걷고 개수와 길이를 제한한다.
+    """
+    if isinstance(raw, str):
+        items = re.split(r'[,\n\r]+', raw)
+    elif isinstance(raw, (list, tuple)):
+        items = [str(x) for x in raw]
+    else:
+        items = []
+    out = []
+    for it in items:
+        nm = str(it).strip()
+        if nm:
+            out.append(nm[:20])       # 이름이 길면 구슬 밑에 안 들어간다
+    return out[:PINBALL_MAX]
+
+
+@app.route('/api/pinball/setup', methods=['POST'])
+def api_pinball_setup():
+    """참가자 명단을 넣는다. 굴러가는 중에는 못 바꾼다."""
+    try:
+        body = request.get_json(silent=True) or {}
+        names = _pinball_names(body.get('names'))
+        with file_lock:
+            state = load_data()
+            g = _pinball_state(state)
+            if g.get('running'):
+                return jsonify({'status': 'error',
+                                'message': '굴러가는 중에는 명단을 못 바꿉니다'}), 409
+            g['names'] = names
+            g['result'] = []
+            _pinball_save(state, g)
+        return jsonify({'status': 'success', 'pinball': g})
+    except Exception as e:
+        print(f'[핀볼 명단 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/pinball/enable', methods=['POST'])
+def api_pinball_enable():
+    """화면에 띄우거나 내린다. 켤 때는 다른 게임판을 내린다(같은 자리를 쓴다)."""
+    try:
+        body = request.get_json(silent=True) or {}
+        on = bool(body.get('enabled'))
+        with file_lock:
+            state = load_data()
+            g = _pinball_state(state)
+            g['enabled'] = on
+            if on:
+                _solo_board(state, 'pinball')
+            else:
+                g['running'] = False      # 내리면 굴리던 것도 멈춘다
+            _pinball_save(state, g)
+        return jsonify({'status': 'success', 'pinball': g})
+    except Exception as e:
+        print(f'[핀볼 표시 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/pinball/start', methods=['POST'])
+def api_pinball_start():
+    """한 판 굴린다. 판 번호를 올리고 새 씨앗을 준다."""
+    try:
+        body = request.get_json(silent=True) or {}
+        with file_lock:
+            state = load_data()
+            g = _pinball_state(state)
+            if body.get('names') is not None:
+                g['names'] = _pinball_names(body.get('names'))
+            if len(g['names']) < 2:
+                return jsonify({'status': 'error',
+                                'message': '참가자가 둘 이상이어야 합니다'}), 400
+            g['enabled'] = True
+            _solo_board(state, 'pinball')
+            g['running'] = True
+            g['result'] = []
+            g['round_id'] = int(g.get('round_id') or 0) + 1
+            # 🌱 씨앗 — 모든 화면이 이걸로 같은 경기를 굴린다
+            g['seed'] = random.randint(1, 2000000000)
+            g['started_at'] = int(time.time() * 1000)
+            _pinball_save(state, g)
+        print("🎱 [핀볼] %d판 시작 — %d명" % (g['round_id'], len(g['names'])), flush=True)
+        return jsonify({'status': 'success', 'pinball': g})
+    except Exception as e:
+        print(f'[핀볼 시작 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/pinball/result', methods=['POST'])
+def api_pinball_result():
+    """방송판이 보내는 도착 순서. **먼저 온 하나만** 받는다.
+
+    ⚠️ 룰렛과 같은 문지기다. running 이 꺼져 있으면 거절한다 — 화면이 여럿이면
+       같은 판의 결과가 여러 번 들어오는데, 나중 것이 앞선 결과를 덮으면 안 된다.
+    ⚠️ 판 번호(round_id)도 본다. 늦게 도착한 **지난 판** 결과가 지금 판을 끝내면 안 된다.
+    """
+    try:
+        body = request.get_json(silent=True) or {}
+        order = _pinball_names(body.get('result'))
+        rid = body.get('round_id')
+        with file_lock:
+            state = load_data()
+            g = _pinball_state(state)
+            if not g.get('running'):
+                return jsonify({'status': 'error',
+                                'message': '지금은 핀볼이 굴러가고 있지 않습니다'}), 409
+            try:
+                if rid is not None and int(rid) != int(g.get('round_id') or 0):
+                    return jsonify({'status': 'error',
+                                    'message': '지난 판의 결과입니다'}), 409
+            except (TypeError, ValueError):
+                return jsonify({'status': 'error', 'message': '판 번호가 이상합니다'}), 400
+            if not order:
+                return jsonify({'status': 'error', 'message': '결과가 비어 있습니다'}), 400
+            g['running'] = False          # 🚪 여기서 문을 닫는다 — 다음 보고는 409
+            g['result'] = order
+            took = max(0, int(time.time() * 1000) - int(g.get('started_at') or 0))
+            logs = state.setdefault('logs', [])
+            logs.insert(0, {'time': now_hms(),
+                            'name': "🎱 핀볼 1등: %s" % order[0], 'val': 0})
+            del logs[LOG_MAX:]
+            _pinball_save(state, g)
+        print("🎱 [핀볼] %d판 끝 — 1등 %s (%.1f초)"
+              % (g['round_id'], order[0], took / 1000.0), flush=True)
+        return jsonify({'status': 'success', 'pinball': g, 'took_ms': took})
+    except Exception as e:
+        print(f'[핀볼 결과 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/pinball/reset', methods=['POST'])
+def api_pinball_reset():
+    """굴리던 것을 멈추고 결과를 지운다. 명단은 남긴다(다음 판에 또 쓴다)."""
+    try:
+        with file_lock:
+            state = load_data()
+            g = _pinball_state(state)
+            g.update({'running': False, 'result': [], 'started_at': 0})
+            _pinball_save(state, g)
+        return jsonify({'status': 'success', 'pinball': g})
+    except Exception as e:
+        print(f'[핀볼 초기화 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 # ==========================================

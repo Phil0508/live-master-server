@@ -675,6 +675,12 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 
                 <!-- 🎲 주사위게임 판 -->
                 
+                <!-- 🎱 구슬 핀볼. 방송판은 canvas 로 그리므로 여기서는 크기만 잡아둔다
+     (무대를 켜면 진짜 방송판이 이 자리에 겹쳐 보인다). -->
+<div class="widget" id="pinball" data-id="pinball" style="left:50px; top:300px; display: none;">
+    <div style="width:980px; height:840px; border:2px dashed rgba(120,220,255,.45); border-radius:18px; background:rgba(120,220,255,.05);"></div>
+</div>
+
 <div class="widget" id="dicegame" data-id="dicegame" style="left:6px; top:307px; display: none;">
                     <div style="width:1030px; height:649px; border-radius:16px; background:rgba(255,255,255,0.04); border:3px dashed rgba(255,255,255,0.35); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; color:#dfe3ea; text-shadow:0 2px 8px #000;">
                         <div style="font-size:26px; font-weight:900; letter-spacing:2px;">🎲 주사위게임 판</div>
@@ -797,7 +803,7 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'fundjar': '🏺 모금함', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'fundjar': '🏺 모금함', 'pinball': '🎱 구슬 핀볼', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
 
             // ══ 🎬 소스 목록 (OBS 방식) ══
             //    👁 = 편집 화면 전용 보이기/숨기기(방송과 무관), 🔒 = 캔버스에서 안 집히게.
