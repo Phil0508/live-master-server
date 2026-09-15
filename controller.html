@@ -2163,22 +2163,44 @@
                 <b>끝까지</b>는 한 명만 남을 때까지 가므로 더 길고, 카메라가 꼴짜를 따라다닙니다.
             </div>
 
+            <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
+                <label style="font-size:var(--fs-2); font-weight:700; margin:0;">🏅 몇 명 뽑기</label>
+                <input id="pb-picks" type="number" min="1" max="23" value="1"
+                       onchange="pbcSetPicks(this.value)"
+                       style="width:80px; margin:0; text-align:center;">
+                <label style="font-size:var(--fs-2); margin:0 0 0 auto; display:flex; gap:6px; align-items:center; cursor:pointer;">
+                    <input id="pb-skills" type="checkbox" checked onchange="pbcSetSkills(this.checked)" style="margin:0;">
+                    💢 밀어내기
+                </label>
+            </div>
+            <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
+                뽑는 수를 늘리면 그만큼이 당첨입니다(3으로 두면 — 먼저면 앞에서 3명, 끝까지면 뒤에서 3명).
+                <b>밀어내기</b>는 구슬이 가끔 주변을 확 밀쳐 순위가 뒤집히는 재미 요소입니다.
+                진지한 추첨이면 꺼 두세요.
+            </div>
+
             <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">🗺️ 판 고르기</div>
             <select id="pb-map" onchange="pbcSetMap(this.value)" style="width:100%; margin:0 0 6px;">
-                <option value="-1">🎱 우리 코스 — 먼저 10초 / 끝까지 16초</option>
-                <option value="0">Wheel of fortune — 먼저 6초 / 끝까지 22초</option>
-                <option value="1">BubblePop — 먼저 12초 / 끝까지 19초</option>
-                <option value="2">Pot of greed — 먼저 7초 / 끝까지 19초</option>
-                <option value="3">Yoru ni Kakeru — 먼저 22초 / 끝까지 29초 (가장 긺)</option>
+                <option value="-1">🎱 우리 코스 — 먼저 9초 / 끝까지 16초</option>
+                <option value="0">Wheel of fortune — 먼저 6초 / 끝까지 21초</option>
+                <option value="1">BubblePop — 먼저 8초 / 끝까지 19초</option>
+                <option value="2">Pot of greed — 먼저 6초 / 끝까지 22초 ⚠️</option>
+                <option value="3">Yoru ni Kakeru — 먼저 21초 / 끝까지 29초 (가장 긺)</option>
             </select>
             <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
                 적어 둔 시간은 <b>6명으로 400판을 굴려 잰 중앙값</b>입니다(전부 완주).
+                <b>⚠️ Pot of greed</b> 는 <b>끝까지 남기</b>로 하면 열 판에 한 번쯤
+                구슬이 항아리에 갇혀 20초쯤 멎습니다 — <b>먼저 골인</b>으로 쓰시는 게 좋습니다.
                 가져온 판 넷은 원본(lazygyu/roulette, MIT)의 것입니다.
             </div>
 
             <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">참가자</div>
-            <textarea id="pb-names" rows="4" placeholder="쉼표나 줄바꿈으로 구분해서 넣어주세요&#10;예) 밍밍, 양양, 예지랑"
+            <textarea id="pb-names" rows="4" placeholder="쉼표나 줄바꿈으로 구분해서 넣어주세요&#10;예) 밍밍, 양양*3, 예지랑"
                       style="width:100%; margin:0 0 8px;"></textarea>
+            <div style="font-size:var(--fs-1); color:var(--text-muted); margin:0 0 8px; line-height:1.6;">
+                이름 뒤에 <b>*3</b> 을 붙이면 그 사람 구슬이 <b>3개</b> 들어갑니다 —
+                많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다. (한 사람 최대 20개, 전체 24개)
+            </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
                 <button onclick="pbcFillPlayers()" style="margin:0;"><i class="fa-solid fa-users"></i> 지금 선수 넣기</button>
                 <button onclick="pbcSaveNames()" style="margin:0;">명단 저장</button>
@@ -8340,18 +8362,37 @@ initFoldablePanels();
             const el = document.getElementById('pb-rule');
             return el ? el.value : 'first';
         }
+        function pbcPicks() {
+            const el = document.getElementById('pb-picks');
+            return el ? (Number(el.value) || 1) : 1;
+        }
+        function pbcSkills() {
+            const el = document.getElementById('pb-skills');
+            return el ? !!el.checked : true;
+        }
+        async function pbcSetPicks(v) {
+            await pbcCall('setup', { names: pbcNames(), map: pbcMap(),
+                                     rule: pbcRule(), picks: v, skills: pbcSkills() });
+        }
+        async function pbcSetSkills(v) {
+            await pbcCall('setup', { names: pbcNames(), map: pbcMap(),
+                                     rule: pbcRule(), picks: pbcPicks(), skills: v });
+        }
         function pbcMap() {
             const el = document.getElementById('pb-map');
             return el ? el.value : -1;
         }
         async function pbcSetMap(v) {
-            await pbcCall('setup', { names: pbcNames(), map: v, rule: pbcRule() });
+            await pbcCall('setup', { names: pbcNames(), map: v, rule: pbcRule(),
+                                     picks: pbcPicks(), skills: pbcSkills() });
         }
         async function pbcSetRule(v) {
-            await pbcCall('setup', { names: pbcNames(), map: pbcMap(), rule: v });
+            await pbcCall('setup', { names: pbcNames(), map: pbcMap(), rule: v,
+                                     picks: pbcPicks(), skills: pbcSkills() });
         }
         async function pbcStart() {
-            const d = await pbcCall('start', { names: pbcNames(), map: pbcMap(), rule: pbcRule() });
+            const d = await pbcCall('start', { names: pbcNames(), map: pbcMap(), rule: pbcRule(),
+                                               picks: pbcPicks(), skills: pbcSkills() });
             if (d) acctToast('🎱 굴립니다', 'ok');
         }
         async function pbcReset() {
@@ -8379,6 +8420,17 @@ initFoldablePanels();
 
             /* ⚠️ 고른 판도 서버 값을 따라간다 — 다른 기기에서 바꿔도 여기 보이게.
                   (손이 올라가 있을 때는 안 건드린다 — 명단 칸과 같은 이유) */
+            const ps = document.getElementById('pb-picks');
+            if (ps && document.activeElement !== ps) {
+                const pw = String(Math.max(1, Number(g.picks) || 1));
+                if (ps.value !== pw) ps.value = pw;
+            }
+            const ks = document.getElementById('pb-skills');
+            if (ks) {
+                const kw = (g.skills === undefined || g.skills === null) ? true : !!g.skills;
+                if (ks.checked !== kw) ks.checked = kw;
+            }
+
             const rs = document.getElementById('pb-rule');
             if (rs && document.activeElement !== rs) {
                 const rw = (g.rule === 'last') ? 'last' : 'first';
@@ -8399,8 +8451,12 @@ initFoldablePanels();
             const mi = (g.map === undefined || g.map === null) ? -1 : Number(g.map);
             const mname = (mi >= 0 && MAPN[mi]) ? MAPN[mi] : '우리 코스';
             const rname = (g.rule === 'last') ? '끝까지 남기' : '먼저 골인';
+            const nb = (g.balls || []).length;
+            const picks = Math.max(1, Number(g.picks) || 1);
             let html = '판 <b>' + escapeHTML(mname) + '</b> · <b>' + rname
-                     + '</b> · 참가자 <b>' + n + '명</b>';
+                     + ' ' + picks + '명</b> · 참가자 <b>' + n + '명</b>'
+                     + (nb && nb !== n ? ' (구슬 <b>' + nb + '개</b>)' : '')
+                     + ((g.skills === false) ? ' · 밀어내기 꺼짐' : '');
             if (g.running) {
                 html += ' · <b style="color:var(--accent);">굴러가는 중…</b>'
                      + '<br><span style="color:var(--text-muted);">방송 화면에서 구슬이 떨어지고 있습니다. '

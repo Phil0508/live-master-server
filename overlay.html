@@ -7093,10 +7093,30 @@
            ⚠️ 정상 판의 최장 정체는 7초였다(Wheel of fortune, 끝까지 남기).
               20초면 멀쩡한 판을 끊지 않으면서 방송이 멎는 시간을 막는다. */
         const PB_STALL_STEPS = 60 * 20;
+
+        /* 💢 밀어내기 — 구슬이 가끔 주변 구슬을 확 밀어낸다(원본의 Impact 스킬).
+           순위가 한 번에 뒤집혀서 볼거리가 된다.
+
+           ⚠️ 원본은 Math.random 으로 굴린다. 우리는 **씨앗 난수**를 써야 한다 —
+              안 그러면 OBS 와 미리보기가 서로 다른 경기를 본다.
+           ⚠️ 원본은 사람마다 가중치를 줘서 발동 확률을 다르게 한다. 우리는 **모두 같게**
+              둔다 — 후원 많이 한 분을 우대하는 건 '여러 번 참가'(양양*3) 로 하고,
+              스킬까지 차등을 두면 어느 쪽이 유리한지 아무도 못 읽는다.
+           ⚠️ 밀리는 세기는 **무게와 무관**하게 둔다. 무게는 이미 매 판 흔들고 있어서,
+              거기에 또 걸면 가벼운 구슬만 계속 날아간다. */
+        const PB_SKILL_COOL = 60 * 4;          // 물리 걸음 — 4초마다 한 번씩 굴린다
+        const PB_SKILL_RATE = 0.25;            // 그때 터질 확률
+        const PB_SKILL_R_M = 10;               // 밀리는 범위(미터) — 원본과 같다
+        const PB_SKILL_V_MPS = 12;             // 밀려나는 빠르기(미터/초)
+        const PB_SKILL_FX_MS = 500;            // 퍼지는 고리가 사라지기까지
         /* 🎥 카메라 — 원본을 그대로 따른다.
            원본은 화면에 맵을 다 담지 않고 **주인공 구슬을 따라다니며** 골 근처에서 확 당긴다.
            그래서 구슬이 커 보이고 결승 장면이 극적이다. 우리는 판 전체를 멀리서 보고 있었다. */
         const PB_ZOOM_BASE = 1.35;             // 평소 배율 — 맵 폭의 약 3/4 를 본다
+        /* 🔍 출발 순간에만 더 당긴다 — 원본도 그렇게 한다(roulette.ts setMarbles).
+           ⚠️ 출발할 때는 구슬이 한 덩어리로 붙어 있어 이름이 서로 겹쳐 안 읽힌다.
+              떨어지기 시작하면 저절로 평소 배율로 풀린다(카메라가 부드럽게 따라간다). */
+        const PB_ZOOM_START = 3;               // 출발 때 최대 배율
         const PB_ZOOM_MAX = 3.2;               // 골 앞에서 최대 이만큼 당긴다
         const PB_ZOOM_TH = 5;                  // 골까지 몇 **미터** 남으면 당기기 시작할까(원본 5)
         const PB_SLOW_MIN = 0.25;              // 슬로모션 최저 배율(원본 0.2)
@@ -7118,6 +7138,7 @@
         let pbScale = 60;          // 픽셀 / 미터 — 거리를 미터로 되돌릴 때 쓴다
         let pbSpawn = null;        // 구슬을 어디에 놓을까(가져온 맵은 꼭대기 통로 안)
         let pbRule = 'first';      // 'first' 먼저 골인하면 우승 / 'last' 끝까지 남으면 우승
+        let pbPicks = 1;           // 몇 명 뽑을까 (1이면 한 명)
         let pbCamX = 0, pbCamY = 0, pbZoom = 1;    // 카메라 — 그릴 때만 쓴다
         let pbSlowAcc = 0;         // 슬로모션 — 물리 걸음을 띄엄띄엄 민다
         let pbSteps = 0;           // 민 물리 걸음 수(상한을 두어 안 끝나는 판을 막는다)
@@ -7125,6 +7146,8 @@
         let pbPopQ = [];           // 이번 걸음에 깨진 것들(물리 도중엔 못 지운다)
         let pbPops = [];           // 깨지는 모습 — 그리기용일 뿐이다
         let pbStall = 0;           // 아무도 더 깊이 못 간 걸음 수
+        let pbSkillOn = true;      // 밀어내기를 쓸까(조종실에서 끌 수 있다)
+        let pbFx = [];             // 밀어낸 자리에 퍼지는 고리 — 그리기용일 뿐이다
         let pbRandom = null;       // 이 판의 씨앗 난수 — 끼임 풀기도 이걸 써야 화면마다 같다
         let pbShowUntil = 0;       // 결과 딱지를 언제까지 띄울지
 
@@ -7346,7 +7369,15 @@
         function pbMakeBalls(names, rng) {
             const M = Matter;
             const n = names.length;
-            const lane = (PB_W - 160) / Math.max(1, n);
+            /* ⚠️ 우리 코스는 판이 화면 폭 전체지만, 카메라가 배율 1.35 로 보기 때문에
+                  가장자리에 뿌리면 **출발 순간 바깥 구슬이 화면 밖**에 있다.
+                  가운데로 모아 뿌린다 — 어차피 첫 못밭에서 바로 흩어진다. */
+            const lane = (PB_W - 320) / Math.max(1, n);
+            /* 🎨 같은 사람의 구슬은 같은 색 — 양양*3 처럼 여러 번 들어온 사람을
+               한눈에 알아볼 수 있어야 한다. */
+            const cmap = {};
+            let ci = 0;
+            names.forEach(function (nm) { if (cmap[nm] === undefined) cmap[nm] = ci++; });
             /* ⚖️ 어느 자리에 누가 설지 섞는다 (Fisher-Yates, 씨앗 난수).
                who[자리] = 명단에서 몇 번째 사람인가 */
             const who = names.map(function (_, i) { return i; });
@@ -7369,7 +7400,7 @@
                     x = at.x; y = at.y;
                 } else {
                     // 우리 코스는 판이 화면 폭 전체라 고루 뿌린다
-                    x = 80 + lane * (slot + .5) + (rng() - .5) * (lane * .3);
+                    x = 160 + lane * (slot + .5) + (rng() - .5) * (lane * .3);
                     y = 40 - Math.floor(slot / 8) * 46;
                 }
                 /* ⚠️ 구슬 자체는 **안 튄다**(restitution 0). 원본도 구슬에는 반발력을 안 주고
@@ -7389,8 +7420,11 @@
                     density: .0016 * (1 + rng()), label: 'ball'
                 });
                 b.pbName = nm;
-                b.pbColor = PB_COLS[i % PB_COLS.length];   // 색은 사람을 따라간다
+                b.pbColor = PB_COLS[cmap[nm] % PB_COLS.length];   // 색은 **사람**을 따라간다
                 b.pbDone = false;
+                /* ⚠️ 쿨타임 시작점을 구슬마다 어긋나게 한다. 안 그러면 4초마다 모두가
+                      동시에 굴려서, 터질 땐 우르르 터지고 나머지 시간엔 아무 일도 안 난다. */
+                b.pbCool = 1 + Math.floor(rng() * PB_SKILL_COOL);
                 return b;
             });
         }
@@ -7469,13 +7503,23 @@
 
             pbBalls = pbMakeBalls(names, rng);
             Matter.Composite.add(pbEng.world, bodies.concat(pbBalls));
-            pbFinish = []; pbReported = false; pbOverAt = 0; pbStall = 0;
+            pbFinish = []; pbReported = false; pbOverAt = 0; pbStall = 0; pbFx = [];
             pbStartedAt = performance.now(); pbLast = pbStartedAt;
             pbAcc = 0; pbTick = 0; pbSlowAcc = 0; pbSteps = 0;
             // 카메라를 첫 구슬 자리에 맞춰 두고 시작한다(첫 프레임에 화면이 튀지 않게)
-            pbZoom = PB_ZOOM_BASE;
-            pbCamX = PB_W / 2;
-            pbCamY = pbBalls[0] ? pbBalls[0].position.y : 0;   // 아래 clamp 가 화면 안으로 넣는다
+            /* 🔍 구슬 무리가 화면에 꽉 차게 시작한다. 카메라가 곧 평소 배율로 풀어 준다. */
+            let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+            pbBalls.forEach(function (b) {
+                x0 = Math.min(x0, b.position.x); x1 = Math.max(x1, b.position.x);
+                y0 = Math.min(y0, b.position.y); y1 = Math.max(y1, b.position.y);
+            });
+            if (!isFinite(x0)) { x0 = x1 = PB_W / 2; y0 = y1 = 0; }
+            const mg = pbR * 6;                       // 이름이 들어갈 여백
+            pbZoom = Math.max(PB_ZOOM_BASE, Math.min(PB_ZOOM_START,
+                Math.min(PB_W / Math.max(1, (x1 - x0) + mg * 2),
+                         PB_H / Math.max(1, (y1 - y0) + mg * 2))));
+            pbCamX = (x0 + x1) / 2;
+            pbCamY = (y0 + y1) / 2;                   // 아래 clamp 가 화면 안으로 넣는다
             pbLoop();
         }
 
@@ -7534,7 +7578,9 @@
              (한 명 골인할 때마다 등수가 하나씩 당겨져 계속 꼴찌를 가리킨다)
            이 한 줄로 규칙이 바뀌면 카메라가 알아서 주인공을 갈아탄다. */
         function pbTargetIdx(act) {
-            const want = (pbRule === 'last') ? (pbBalls.length - 1) : 0;
+            /* ⚠️ 여러 명 뽑을 때는 **당락이 걸린 구슬**을 본다. 3명 뽑기면 3등 자리다 —
+                  거기가 갈리는 자리라 제일 볼 만하다(원본도 똑같이 한다). */
+            const want = (pbRule === 'last') ? (pbBalls.length - 1) : (pbPicks - 1);
             const i = want - pbFinish.length;
             return Math.max(0, Math.min(act.length - 1, i));
         }
@@ -7555,6 +7601,38 @@
             if (d >= PB_ZOOM_TH) return 1;
             if (!act[ti - 1] && !act[ti + 1]) return 1;                // 붙어 있는 경쟁자가 없다
             return Math.max(PB_SLOW_MIN, d / PB_ZOOM_TH);
+        }
+
+        /* 💢 한 구슬이 주변을 밀어낸다. */
+        function pbImpact(src) {
+            const R = PB_SKILL_R_M * pbScale;              // 픽셀
+            const dv = PB_SKILL_V_MPS * pbScale / 60;      // 픽셀 / 걸음
+            const sp = src.position;
+            for (let i = 0; i < pbBalls.length; i++) {
+                const b = pbBalls[i];
+                if (b === src || b.pbDone) continue;
+                let dx = b.position.x - sp.x, dy = b.position.y - sp.y;
+                const d = Math.hypot(dx, dy);
+                if (d > R || d < 0.001) continue;
+                dx /= d; dy /= d;
+                Matter.Body.setVelocity(b, { x: b.velocity.x + dx * dv, y: b.velocity.y + dy * dv });
+                b.pbHit = performance.now();               // 잠깐 밝아진다(그리기용)
+            }
+            pbFx.push({ x: sp.x, y: sp.y, r: R, t: performance.now() });
+            if (pbFx.length > 24) pbFx.splice(0, pbFx.length - 24);
+        }
+
+        /* 🎲 걸음마다 굴려 본다. 쿨타임이 끝난 구슬만 확률을 뽑는다. */
+        function pbSkills() {
+            if (!pbSkillOn || !pbRandom) return;
+            for (let i = 0; i < pbBalls.length; i++) {
+                const b = pbBalls[i];
+                if (b.pbDone) continue;
+                b.pbCool = (b.pbCool || 0) - 1;
+                if (b.pbCool > 0) continue;
+                b.pbCool = PB_SKILL_COOL;
+                if (pbRandom() < PB_SKILL_RATE) pbImpact(b);
+            }
         }
 
         /* 🚨 아무도 더 못 나아가는지 지켜본다.
@@ -7606,6 +7684,7 @@
                 pbSpinners.forEach(function (sp) {
                     Matter.Body.setAngle(sp.body, sp.body.angle + sp.dir * sp.speed);
                 });
+                pbSkills();
                 Matter.Engine.update(pbEng, PB_STEP);
                 pbPopDrain();
                 pbSteps++;
@@ -7621,8 +7700,8 @@
                ⚠️ 이 덕분에 '가끔 안 끝나는 판'(Pot of greed) 문제도 같이 사라진다.
                ⚠️ 갈린 즉시 보고하지 않고 잠깐 더 굴린다 — 들어가는 장면을 보여줘야 한다. */
             const left = pbBalls.length - pbFinish.length;
-            const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= 1);
-            if (decided && !pbOverAt) pbOverAt = now;
+            const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= pbPicks);
+            if (decided && !pbOverAt) { pbOverAt = now; pbBoom(); }
             /* ⚠️ 판이 멎었으면 **지금 순위 그대로** 끝낸다. 억지가 아니다 —
                   '끝까지 남기' 의 우승자는 곧 제일 덜 내려간 구슬이고, 그건 이미 정해져 있다. */
             const stalled = pbStall > PB_STALL_STEPS;
@@ -7745,13 +7824,38 @@
                     g.strokeStyle = 'rgba(255,209,102,.95)'; g.lineWidth = 3 / Z; g.stroke();
                 }
                 g.beginPath(); g.arc(p.x, p.y, pbR, 0, Math.PI * 2);
-                g.fillStyle = b.pbColor; g.shadowColor = b.pbColor; g.shadowBlur = 16;
+                g.fillStyle = b.pbColor; g.shadowColor = b.pbColor;
+                // 방금 밀린 구슬은 잠깐 환해진다 — 누가 맞았는지 보이게
+                const hit = b.pbHit ? Math.max(0, 1 - (performance.now() - b.pbHit) / 400) : 0;
+                g.shadowBlur = 16 + hit * 26;
                 g.fill(); g.shadowBlur = 0;
+                if (hit > 0) {
+                    g.fillStyle = 'rgba(255,255,255,' + (hit * .55).toFixed(2) + ')';
+                    g.fill();
+                }
                 g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2 / Z; g.stroke();
                 g.lineWidth = 4 / Z; g.strokeStyle = 'rgba(0,0,0,.92)';
                 g.strokeText(b.pbName, p.x, p.y + pbR + 15 / Z);
                 g.fillStyle = '#fff';
                 g.fillText(b.pbName, p.x, p.y + pbR + 15 / Z);
+            }
+
+            /* 💢 밀어낸 자리 — 고리가 퍼지며 사라진다(원본 SkillEffect 와 같다) */
+            if (pbFx.length) {
+                const nowS = performance.now();
+                for (let i = 0; i < pbFx.length; i++) {
+                    const f = pbFx[i];
+                    const k = (nowS - f.t) / PB_SKILL_FX_MS;
+                    if (k < 0 || k > 1) continue;
+                    if (f.y < top - f.r || f.y > bot + f.r) continue;
+                    g.beginPath();
+                    g.arc(f.x, f.y, f.r * k, 0, Math.PI * 2);
+                    /* ⚠️ 고리가 화면을 가득 채울 만큼 크다(반지름 10미터). 진하게 그리면
+                          몇 초마다 화면이 번쩍여 어지럽다. 옅게, 금방 사라지게 둔다. */
+                    g.strokeStyle = 'rgba(255,255,255,' + ((1 - k) * 0.5).toFixed(2) + ')';
+                    g.lineWidth = 1.8 / Z;
+                    g.stroke();
+                }
             }
 
             /* 💥 깨지는 순간 — 0.35초 동안 퍼지며 사라지는 테두리 */
@@ -7797,7 +7901,8 @@
                     const y = 26 + i * 27;
                     g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
                     g.strokeText((i + 1) + '. ' + nm, 16, y);
-                    g.fillStyle = (!lastRule && i === 0) ? '#ffd166' : '#dfe6f2';
+                    // 먼저 골인 규칙에서는 **뽑는 수까지**가 당첨이다
+                    g.fillStyle = (!lastRule && i < pbPicks) ? '#ffd166' : '#dfe6f2';
                     g.fillText((i + 1) + '. ' + nm, 16, y);
                 });
                 if (lastRule) {
@@ -7815,18 +7920,44 @@
         /* 🏆 결과 딱지.
            ⚠️ '끝까지 남기' 규칙이면 **맨 마지막에 들어온 사람**이 우승자다.
               도착 순서 첫 칸을 그대로 띄우면 진 사람을 우승자로 발표하게 된다. */
-        function pbWinnerOf(order) {
-            if (!order || !order.length) return null;
-            return (pbRule === 'last') ? order[order.length - 1] : order[0];
+        function pbWinnersOf(order) {
+            if (!order || !order.length) return [];
+            const k = Math.max(1, Math.min(pbPicks, order.length));
+            // '끝까지 남기' 는 뒤에서부터 — 제일 마지막 사람이 1등이라 뒤집어 준다
+            return (pbRule === 'last') ? order.slice(order.length - k).reverse() : order.slice(0, k);
         }
 
-        function pbShowWinner(name) {
+        function pbShowWinner(list) {
             const el = document.getElementById('pb-winner');
             if (!el) return;
-            if (!name) { el.classList.remove('show'); el.innerHTML = ''; return; }
-            const sub = (pbRule === 'last') ? '끝까지 살아남음' : '1등';
-            el.innerHTML = '🏆 ' + escText(name) + '<span class="pb-w-sub">' + sub + '</span>';
+            if (!list || !list.length) { el.classList.remove('show'); el.innerHTML = ''; return; }
+            const sub = (pbRule === 'last')
+                ? (list.length > 1 ? ('끝까지 남은 ' + list.length + '명') : '끝까지 살아남음')
+                : (list.length > 1 ? ('먼저 들어온 ' + list.length + '명') : '1등');
+            el.innerHTML = '🏆 ' + list.map(escText).join(' · ')
+                         + '<span class="pb-w-sub">' + sub + '</span>';
             el.classList.add('show');
+        }
+
+        /* 🎉 우승 폭죽 — 원본도 당첨자가 나오면 입자를 쏜다(ParticleManager.shot).
+           ⚠️ 폭죽은 **화면 전체 좌표**를 쓴다(캔버스 안이 아니다). 위젯이 놓인 자리를
+              재서 그 한가운데에서 터지게 한다 — 편집기로 옮겨도 따라간다.
+           ⚠️ 폭죽 파일을 못 읽었어도 게임은 그대로 돌아가야 한다. */
+        function pbBoom() {
+            if (typeof confetti !== 'function') return;
+            const box = document.getElementById('pinball-container');
+            if (!box) return;
+            const r = box.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            try {
+                confetti({
+                    particleCount: 160, spread: 95, startVelocity: 42,
+                    origin: { x: (r.left + r.width / 2) / window.innerWidth,
+                              y: (r.top + r.height * 0.45) / window.innerHeight },
+                    colors: ['#ffd166', '#ff6ec7', '#5ee7df', '#7bed9f'],
+                    zIndex: 99999
+                });
+            } catch (e) { /* 폭죽이 안 터져도 판은 끝나야 한다 */ }
         }
 
         /* 📡 서버 상태가 올 때마다 불린다. */
@@ -7843,6 +7974,9 @@
             /* ⚠️ 규칙은 **판을 짓기 전에** 정해야 한다. 카메라가 누구를 따라갈지,
                   언제 승부가 갈리는지가 여기서 갈린다. */
             pbRule = (g.rule === 'last') ? 'last' : 'first';
+            pbPicks = Math.max(1, Number(g.picks) || 1);
+            // 옛 저장본에는 이 칸이 없다 — 없으면 켠 것으로 본다
+            pbSkillOn = (g.skills === undefined || g.skills === null) ? true : !!g.skills;
 
             const rid = Number(g.round_id) || 0;
             if (g.running) {
@@ -7850,7 +7984,10 @@
                 if (rid !== pbRound) {
                     pbRound = rid;
                     pbShowWinner(null);
-                    pbStart((g.names || []).slice(), Number(g.seed) || 1,
+                    /* ⚠️ names 가 아니라 **balls** 다. 서버가 양양*3 을 구슬 3개로 펼쳐 둔 것이다.
+                       옛 저장본에는 balls 가 없으니 그때만 names 로 떨어진다. */
+                    pbStart(((g.balls && g.balls.length) ? g.balls : (g.names || [])).slice(),
+                            Number(g.seed) || 1,
                             (g.map === undefined || g.map === null) ? -1 : Number(g.map));
                 }
             } else {
@@ -7859,7 +7996,7 @@
                     if (pbRAF) { cancelAnimationFrame(pbRAF); pbRAF = null; }
                     pbDraw();
                 }
-                pbShowWinner(pbWinnerOf(g.result || []));
+                pbShowWinner(pbWinnersOf(g.result || []));
             }
         }
 

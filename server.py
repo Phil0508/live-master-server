@@ -1751,6 +1751,16 @@ DEFAULT_STATE = {
         #    ⚠️ 이 값이 도착 순서의 **어느 쪽 끝**을 우승자로 읽을지를 정한다.
         #       방송판은 이 값으로 카메라가 따라갈 구슬까지 바꾼다(원본과 같은 방식).
         "rule": "first",
+        # 🏅 몇 명을 뽑을까. 1이면 한 명, 3이면 세 명.
+        #    "first" 면 먼저 들어온 3명, "last" 면 끝까지 남은 3명이 우승이다.
+        "picks": 1,
+        # 💢 밀어내기 스킬을 쓸까. 구슬이 가끔 주변을 확 밀어내 순위가 뒤집힌다.
+        #    ⚠️ 재미용이다. 상금이 걸린 진지한 추첨이면 꺼 두는 게 낫다.
+        "skills": True,
+        # 🎱 실제로 굴러갈 구슬 이름들. names 를 펼친 것이다 (양양*3 → 양양 3개).
+        #    ⚠️ 손으로 채우지 말 것 — _pinball_save 가 저장할 때마다 다시 센다.
+        #       두 군데서 세면 반드시 어긋난다.
+        "balls": [],
         "started_at": 0,        # 시작 시각(ms) — 몇 초 걸렸는지 재려고
     },
 
@@ -8049,9 +8059,62 @@ def _pinball_rule(raw):
 
 
 def _pinball_save(state, g):
+    # ⚠️ 구슬 목록과 뽑는 수는 **저장할 때마다 여기서만** 다시 센다.
+    #    부르는 곳마다 따로 세면 언젠가 한 군데를 빼먹어 어긋난다.
+    g['balls'] = _pinball_expand(g.get('names'))
+    g['picks'] = _pinball_picks(g.get('picks'), len(g['balls']))
     state['pinball'] = g
     save_data(state)
     broadcast_event('update', state)
+
+
+PINBALL_COUNT_MAX = 20      # 한 사람이 이보다 많이는 못 들어간다
+
+
+def _pinball_expand(names):
+    """양양*3 처럼 적은 것을 실제 구슬 목록으로 펼친다.
+
+    → ['밍밍', '양양*3'] 이면 ['밍밍', '양양', '양양', '양양']
+
+    💡 왜 필요한가: 많이 후원한 분에게 표를 더 주는 쓰임이다.
+       (원본 lazygyu/roulette 도 같은 표기를 쓴다)
+    ⚠️ 펼친 개수는 반드시 PINBALL_MAX 로 자른다. 안 자르면 양양*999 하나로
+       구슬 천 개가 생겨 방송판이 멈춘다.
+    ⚠️ 이름에서 *N 은 떼고 넣는다 — 구슬 밑에 '양양*3' 이 보이면 안 된다.
+    """
+    out = []
+    for raw in (names or []):
+        nm = str(raw).strip()
+        if not nm:
+            continue
+        cnt = 1
+        m = re.search(r'\*\s*(\d+)\s*$', nm)
+        if m:
+            nm = nm[:m.start()].strip()
+            try:
+                cnt = max(1, min(PINBALL_COUNT_MAX, int(m.group(1))))
+            except ValueError:
+                cnt = 1
+        if not nm:
+            continue
+        for _ in range(cnt):
+            out.append(nm[:20])
+            if len(out) >= PINBALL_MAX:
+                return out
+    return out
+
+
+def _pinball_picks(raw, total):
+    """몇 명 뽑을지 다듬는다. 1명 ～ (참가 구슬 수 - 1) 사이로만 받는다.
+
+    ⚠️ 사람 수만큼 다 뽑으면 경기가 아니다. 최소 한 명은 남겨 둔다.
+    """
+    try:
+        v = int(raw)
+    except (TypeError, ValueError):
+        return 1
+    hi = max(1, int(total) - 1) if total else 1
+    return max(1, min(v, hi))
 
 
 def _pinball_names(raw):
@@ -8092,6 +8155,10 @@ def api_pinball_setup():
                 g['map'] = _pinball_map(body.get('map'))
             if body.get('rule') is not None:
                 g['rule'] = _pinball_rule(body.get('rule'))
+            if body.get('picks') is not None:
+                g['picks'] = body.get('picks')        # 다듬기는 _pinball_save 가 한다
+            if body.get('skills') is not None:
+                g['skills'] = bool(body.get('skills'))
             g['result'] = []
             _pinball_save(state, g)
         return jsonify({'status': 'success', 'pinball': g})
@@ -8135,9 +8202,15 @@ def api_pinball_start():
                 g['map'] = _pinball_map(body.get('map'))
             if body.get('rule') is not None:
                 g['rule'] = _pinball_rule(body.get('rule'))
-            if len(g['names']) < 2:
+            if body.get('picks') is not None:
+                g['picks'] = body.get('picks')        # 다듬기는 _pinball_save 가 한다
+            if body.get('skills') is not None:
+                g['skills'] = bool(body.get('skills'))
+            # ⚠️ 이름 수가 아니라 **펼친 구슬 수**로 본다.
+            #    '밍밍, 양양*2' 는 이름은 둘인데 구슬은 셋이다.
+            if len(_pinball_expand(g['names'])) < 2:
                 return jsonify({'status': 'error',
-                                'message': '참가자가 둘 이상이어야 합니다'}), 400
+                                'message': '구슬이 둘 이상이어야 합니다'}), 400
             g['enabled'] = True
             _solo_board(state, 'pinball')
             g['running'] = True
@@ -8147,7 +8220,9 @@ def api_pinball_start():
             g['seed'] = random.randint(1, 2000000000)
             g['started_at'] = int(time.time() * 1000)
             _pinball_save(state, g)
-        print("🎱 [핀볼] %d판 시작 — %d명" % (g['round_id'], len(g['names'])), flush=True)
+        print("🎱 [핀볼] %d판 시작 — 구슬 %d개(%d명) · %s %d명 뽑기"
+              % (g['round_id'], len(g.get('balls') or []), len(g['names']),
+                 g.get('rule'), g.get('picks')), flush=True)
         return jsonify({'status': 'success', 'pinball': g})
     except Exception as e:
         print(f'[핀볼 시작 오류] {e}', flush=True)

@@ -88,7 +88,12 @@ chk('설정 패치로도 못 건드린다', bool(_pd) and "'pinball'" in _pd.gro
 chk('다른 게임판과 자리를 다툰다', "'pinball')" in SRV and "_solo_board(state, 'pinball')" in SRV)
 chk('옛 저장본에도 칸을 채운다', 'def _pinball_state(' in SRV and 'setdefault' in SRV)
 chk('방송 시작·종료 때 걷는다', "_pb.update({'enabled': False, 'running': False" in SRV)
-chk('참가자가 둘은 돼야 굴린다', '참가자가 둘 이상이어야 합니다' in SRV)
+# ⚠️ 이름 수가 아니라 **펼친 구슬 수**로 세야 한다.
+#    '밍밍, 양양*2' 는 이름은 둘인데 구슬은 셋이고,
+#    거꾸로 '양양' 하나만 있으면 이름은 하나라 막혀야 한다.
+chk('구슬이 둘은 돼야 굴린다',
+    "if len(_pinball_expand(g['names'])) < 2:" in SRV
+    and '구슬이 둘 이상이어야 합니다' in SRV)
 
 print()
 print('=' * 74)
@@ -236,13 +241,13 @@ chk('모르는 값은 먼저 골인으로 떨어진다',
 chk('시작할 때도 규칙을 받는다', "g['rule'] = _pinball_rule(body.get('rule'))" in SRV)
 chk('방송판이 서버 규칙을 읽는다', "pbRule = (g.rule === 'last') ? 'last' : 'first';" in OV)
 chk('끝까지 남기면 마지막 사람이 우승이다',
-    'function pbWinnerOf(' in OV and "order[order.length - 1]" in OV)
+    'function pbWinnersOf(' in OV and 'order.slice(order.length - k).reverse()' in OV)
 chk('조종실에 규칙 고르는 칸이 있다', 'id="pb-rule"' in CTL and 'pbcSetRule' in CTL)
 chk('고른 규칙을 되비춘다', "g.rule === 'last'" in CTL)
 
 # ⚠️ 필요한 등수까지만 나오면 끝이다(원본도 같다). 안 그러면 뒤처진 구슬을 하염없이 기다린다.
 chk('승부가 갈리면 일찍 끝낸다',
-    "const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= 1);" in OV)
+    "const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= pbPicks);" in OV)
 # ⚠️ 갈린 즉시 끊지 않는다 — 들어가는 장면은 보여줘야 한다.
 chk('끝나는 장면을 잠깐 보여준다', 'now - pbOverAt > 700' in OV)
 
@@ -254,7 +259,8 @@ print('=' * 74)
    확 당기고 느려진다. 우리는 멀리서 내려다보기만 해서 "공이 너무 작다"는 말을 들었다."""
 # ⚠️ 원본의 targetIndex = 당첨등수 - 골인한수. 이 한 줄로 규칙이 바뀌면 주인공도 바뀐다.
 chk('규칙에 따라 주인공이 바뀐다',
-    'function pbTargetIdx(' in OV and "(pbRule === 'last') ? (pbBalls.length - 1) : 0" in OV)
+    'function pbTargetIdx(' in OV
+    and "(pbRule === 'last') ? (pbBalls.length - 1) : (pbPicks - 1)" in OV)
 chk('결승선 앞에서 확대한다', 'PB_ZOOM_MAX' in OV and 'PB_ZOOM_TH' in OV)
 chk('결승선 앞에서 느려진다', 'function pbSlowFactor(' in OV and 'PB_SLOW_MIN' in OV)
 # ⚠️ 슬로모션이 물리 걸음의 **크기**를 바꾸면 화면마다 결과가 갈릴 수 있다.
@@ -281,7 +287,55 @@ chk('걸음 수 상한도 있다', 'PB_MAX_STEPS' in OV)
 
 print()
 print('=' * 74)
-print('⑫ 물리 엔진을 우리 서버에서 내보내는가')
+print('⑫ 원본에서 더 가져온 것들')
+print('=' * 74)
+"""📦 원본(lazygyu/roulette)을 끝까지 훑어 쓸모 있는 것만 골라 넣었다.
+   광고·영상녹화·미니맵·구슬 사진은 일부러 안 가져왔다."""
+
+# 🎱 양양*3 — 많이 후원한 분에게 표를 더 주는 쓰임이다.
+#    ⚠️ 펼치는 곳은 **서버 한 군데뿐**이어야 한다. 방송판과 서버가 따로 세면
+#       조종실에 보이는 개수와 실제 구슬 수가 어긋난다.
+chk('여러 번 참가를 펼친다 (양양*3)', 'def _pinball_expand(' in SRV)
+chk('펼치는 곳은 저장할 때 한 군데뿐',
+    "g['balls'] = _pinball_expand(g.get('names'))" in SRV
+    and SRV.count('_pinball_expand(g') <= 2)
+chk('한 사람이 무한히 넣지 못한다', 'PINBALL_COUNT_MAX' in SRV)
+chk('방송판은 펼친 목록을 굴린다', '(g.balls && g.balls.length) ? g.balls' in OV)
+chk('조종실이 *3 을 알려준다', '*3' in CTL)
+
+# 🏅 여러 명 뽑기 — 원본의 winnerRange 를 옮긴 것이다.
+# ⚠️ 사람 수만큼 다 뽑으면 경기가 아니다. 최소 한 명은 남긴다.
+chk('몇 명 뽑을지 서버가 들고 있다', '"picks": 1' in SRV and 'def _pinball_picks(' in SRV)
+chk('다 뽑아버리지 못한다', 'hi = max(1, int(total) - 1)' in SRV)
+chk('조종실에 뽑는 칸이 있다', 'id="pb-picks"' in CTL and 'pbcSetPicks' in CTL)
+
+# 🔍 출발 순간에는 더 당긴다 — 안 그러면 이름이 서로 겹쳐 안 읽힌다.
+chk('출발 때 당겨 보여준다', 'const PB_ZOOM_START = 3;' in OV and 'PB_ZOOM_START,' in OV)
+# ⚠️ 우리 코스는 판이 화면 폭 전체라, 가장자리에 뿌리면 출발 순간 화면 밖에 있다.
+chk('우리 코스도 화면 안에서 출발한다', '(PB_W - 320)' in OV)
+
+# 🎉 우승 폭죽 — 원본도 당첨자가 나오면 입자를 쏴다.
+# ⚠️ 폭죽은 방송판에 이미 들어 있는 것을 쓴다(새로 받아오지 않는다).
+chk('우승 폭죽을 터트린다', 'function pbBoom(' in OV and 'pbBoom();' in OV)
+chk('폭죽이 없어도 판은 끝난다', "typeof confetti !== 'function'" in OV)
+# ⚠️ 폭죽은 화면 전체 좌표를 쓴다. 위젯 자리를 재서 그 한가운데에서 터져야 한다.
+chk('폭죽이 위젯 자리를 따라간다', "getElementById('pinball-container')" in OV
+    and 'getBoundingClientRect()' in OV)
+
+# 💢 밀어내기 — 원본의 Impact 스킬.
+# ⚠️ 원본은 Math.random 을 쓴다. 그대로 가져오면 화면마다 다른 경기가 된다.
+_sk = _nocomment(OV[OV.find('function pbImpact('):OV.find('function pbStallWatch(')])
+chk('밀어내기가 있다', 'function pbImpact(' in OV and 'function pbSkills(' in OV)
+chk('밀어내기도 씨앗 난수를 쓴다', 'pbRandom()' in _sk and 'Math.random' not in _sk)
+chk('범위·세기가 맵 배율을 따른다',
+    'PB_SKILL_R_M * pbScale' in OV and 'PB_SKILL_V_MPS * pbScale / 60' in OV)
+# ⚠️ 상금이 걸린 추첨이면 꺼야 한다.
+chk('조종실에서 끌 수 있다', 'id="pb-skills"' in CTL and '"skills": True' in SRV)
+chk('옆 구슬이 어디서 시작하든 어긋나게 굴린다', 'b.pbCool = 1 + Math.floor(rng()' in OV)
+
+print()
+print('=' * 74)
+print('⑬ 물리 엔진을 우리 서버에서 내보내는가')
 print('=' * 74)
 # ⚠️ 외부 CDN 을 부르면 방송 중 그쪽이 막히는 순간 게임이 통째로 안 뜬다.
 #    컨페티를 vendor 에 둔 것과 같은 이유다.
