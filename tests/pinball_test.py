@@ -455,6 +455,26 @@ chk('이름을 방송판의 함수로 안전하게 넣는다',
 
 print()
 print('=' * 74)
+print('🚫 뺀 맵을 못 고르게 막는가')
+print('=' * 74)
+# ⚠️ Pot of greed(2번) 는 항아리에 구슬이 갇혀 25판 중 16판이 중간에 멎었다.
+#    속도 상한·되돌림을 달리 해도 그대로여서 조율로는 못 고친다. 대표님이 빼라고 했다(2026-09-16).
+chk('막을 맵 목록이 있다', 'PINBALL_BLOCKED = (2,)' in SRV)
+# ⚠️ 조종실 목록에서 빼는 것만으로는 옛 저장본·손으로 보낸 요청을 못 막는다.
+chk('서버가 거절한다', 'if v in PINBALL_BLOCKED:' in SRV)
+chk('옛 저장본도 스스로 고쳐진다', "g['map'] = _pinball_map(g.get('map'))" in SRV)
+# ⚠️ CTL 전체에서 value="2" 를 찾으면 주사위 개수 칸에 걸린다. 핀볼 목록만 본다.
+_mapsel = re.search(r'<select id="pb-map".*?</select>', CTL, re.S)
+chk('조종실 목록에 없다', bool(_mapsel) and 'value="2"' not in _mapsel.group(0)
+    and 'Pot of greed' not in _mapsel.group(0),
+    ('고를 수 있는 판 %d개' % _mapsel.group(0).count('<option')) if _mapsel else '목록 없음')
+# ⚠️ 맵 데이터는 지우지 않는다 — 배열에서 빼면 뒤 맵 번호가 밀려(3 Yoru → 2)
+#    저장된 3 이 어느 날 딴 맵을 가리킨다. 번호는 고정하고 '못 고르게'만 막는다.
+chk('맵 개수는 그대로다 (번호 안 밀린다)', 'PINBALL_MAPS = 4' in SRV)
+chk('조종실 이름표도 번호를 지킨다', "'BubblePop', null, 'Yoru ni Kakeru'" in CTL)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (ok, bad))
 print('=' * 74)
 sys.exit(1 if bad else 0)

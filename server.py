@@ -8029,6 +8029,9 @@ def _pinball_state(state):
     for k in ('names', 'result'):
         if not isinstance(g.get(k), list):
             g[k] = []
+    # 🚫 저장본에 막은 맵이 적혀 있으면 여기서 조용히 우리 코스로 돌린다.
+    #    읽을 때마다 보정하므로 대표님이 따로 할 일이 없다.
+    g['map'] = _pinball_map(g.get('map'))
     return g
 
 
@@ -8036,15 +8039,26 @@ def _pinball_map(raw):
     """고른 맵 번호를 다듬는다. -1(우리 코스) ～ PINBALL_MAPS-1 사이로만 받는다.
 
     ⚠️ 범위를 안 지키면 방송판이 없는 맵을 찾다가 빈 화면이 된다.
+    ⚠️ 막아 둔 맵(PINBALL_BLOCKED)도 우리 코스로 떨궄다. 조종실 목록에서 빼는 것만으로는
+       옛 저장본·손으로 보낸 요청을 못 막는다.
     """
     try:
         v = int(raw)
     except (TypeError, ValueError):
         return -1
+    if v in PINBALL_BLOCKED:
+        return -1
     return v if -1 <= v < PINBALL_MAPS else -1
 
 
 PINBALL_MAPS = 4      # vendor/pinball-maps.js 에 든 맵 개수
+# 🚫 못 고르게 막은 맵. 2 = Pot of greed — 항아리에 구슬이 갇혀 '끝까지 남기'
+#    25판 중 16판이 중간에 멈췤다(중앙값 46초). 속도 상한·되돌림을 달리 해도
+#    그대로여서 조율로는 못 고친다. 대표님: "Pot of greed 맵 빼버려" (2026-09-16)
+# ⚠️ 맵 데이터는 vendor/pinball-maps.js 에 그대로 둔다. 배열에서 지우면 뒤 맵의
+#    **번호가 밀려**(3 Yoru → 2) 저장된 3 이 어느 날 딕 맵을 가리킨다.
+#    다시 쓰려면 이 줄에서 2 만 빼면 된다.
+PINBALL_BLOCKED = (2,)
 PINBALL_RULES = ('first', 'last')
 
 

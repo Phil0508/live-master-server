@@ -2184,14 +2184,13 @@
                 <option value="-1">🎱 우리 코스 — 먼저 5초 / 끝까지 11초 (가장 짧음)</option>
                 <option value="0">Wheel of fortune — 먼저 14초 / 끝까지 25초</option>
                 <option value="1">BubblePop — 먼저 16초 / 끝까지 21초</option>
-                <option value="2">Pot of greed — 먼저 10초 / ⚠️ 끝까지는 비추</option>
                 <option value="3">Yoru ni Kakeru — 먼저 22초 / 끝까지 29초 (가장 긺)</option>
             </select>
             <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
                 적어 둔 시간은 <b>6명으로 400판을 굴려 잰 중앙값</b>입니다(전부 완주).
-                <b>⚠️ Pot of greed · 끝까지 남기</b> 조합은 피해 주세요 — 구슬이 항아리에 갇혀
-                <b>25판 중 16판</b>이 중간에 멈춥니다(중앙값 46초). 이 판은 <b>먼저 골인</b>으로만 쓰시면 10초에 깔끔합니다.
-                가져온 판 넷은 원본(lazygyu/roulette, MIT)의 것입니다.
+                <b>Pot of greed</b> 는 뺀습니다 — 항아리에 구슬이 갇혀 열 판에 여섯은 중간에 멈춥니다.
+                고쳐 보려 했지만 맵 생김 탓이라 조율로는 안 됩니다.
+                가져온 판 셋은 원본(lazygyu/roulette, MIT)의 것입니다.
             </div>
 
             <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">참가자</div>
@@ -8447,7 +8446,8 @@ initFoldablePanels();
             if (!box) return;
             const n = (g.names || []).length;
             const r = g.result || [];
-            const MAPN = ['Wheel of fortune', 'BubblePop', 'Pot of greed', 'Yoru ni Kakeru'];
+            // ⚠️ 번호는 그대로 둔다(저장된 값과 맞춰야 한다). 2번은 뺀 맵이라 서버가 못 고르게 막는다.
+            const MAPN = ['Wheel of fortune', 'BubblePop', null, 'Yoru ni Kakeru'];
             const mi = (g.map === undefined || g.map === null) ? -1 : Number(g.map);
             const mname = (mi >= 0 && MAPN[mi]) ? MAPN[mi] : '우리 코스';
             const rname = (g.rule === 'last') ? '끝까지 남기' : '먼저 골인';
