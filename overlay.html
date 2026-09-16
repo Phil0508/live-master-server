@@ -3629,6 +3629,14 @@
             catch (e) { console.error('[시그게임] 화면 갱신 실패 — 방송은 계속됩니다:', e); }
         }
 
+        /* 🔒 코드가 자리를 정하는 위젯 — 배치 파일 값을 안 읽는다.
+           전광판은 머리 줄에 맞춰 설계됐다(사장님 2026-09-09).
+           ⚠️ applyLayout **밖**에 둔다 — 편집기가 무대를 열자마자 읽어야 하는데,
+              안에 두면 한 번 그려진 뒤에야 생겨 '자리 고정' 표시가 안 붙는다.
+           ⚠️ window 에 내놓는 것도 그 때문이다. 편집기에 같은 목록을 또 적으면 언젠가 어긋난다. */
+        const LAY_CODE_OWNED = ['notice'];
+        window.LAY_CODE_OWNED = LAY_CODE_OWNED;
+
         function applyLayout(ly) {
             if (ly) lastLayoutData = ly;
             let isExtra = (currentExtraActiveState === true);
@@ -3679,7 +3687,7 @@
                   방송이 안 들었다('에디터에서 해도 안 움직여'). 편집기에 없을 때만 계좌 아래.
                ⚠️ 계좌도 같다(사장님: '어디 붙게 하지 말고 옛날같이 자유롭게') — 편집기에 있으면
                   그 자리·배율, 없을 때만 판 아래/머리 줄. 코드 소유는 전광판 하나. */
-            const CODE_OWNED = ['notice'];
+            const CODE_OWNED = LAY_CODE_OWNED;
             CODE_OWNED.forEach(id => {
                 const el = document.getElementById(id + '-container');
                 if (el) el.style.transform = '';

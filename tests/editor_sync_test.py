@@ -304,6 +304,24 @@ chk('재기 전에 규칙을 비운다', "if (st && st.textContent) { st.textCon
 
 print()
 print('=' * 74)
+print('🔒 코드가 자리를 정하는 위젯을 정직하게 보여주는가')
+print('=' * 74)
+# ⚠️ 전광판은 머리 줄에 맞춰 설계돼 방송이 배치 파일을 안 읽는다(사장님 2026-09-09).
+#    그런데 편집기는 끌리는 척하고 저장까지 돼서 "옷겼는데 왜 그대로지" 로 헤매게 됐다.
+#    방송 동작은 그대로 두고 편집기에서 그 사실만 보여준다.
+chk('방송판이 목록을 내놓는다', 'window.LAY_CODE_OWNED = LAY_CODE_OWNED;' in ov)
+# ⚠️ applyLayout **밖**에 있어야 한다 — 안에 두면 한 번 그려진 뒤에야 생겨 표시가 안 붙는다.
+chk('목록이 applyLayout 밖에 있다',
+    ov.find('const LAY_CODE_OWNED =') < ov.find('function applyLayout('))
+chk('편집기가 목록을 방송판에서 읽는다', 'stageWin().LAY_CODE_OWNED' in ad)
+# ⚠️ 편집기에 같은 목록을 또 적으면 언젠가 한쪽만 고치고 어긋난다.
+chk('편집기가 목록을 따로 적어 두지 않는다', "['notice']" not in ad)
+chk('표시를 붙인다', "el.classList.toggle('code-owned'" in ad and '.widget.code-owned' in ad)
+chk('끌기는 막되 고르기는 된다',
+    "if (widgetEl.classList.contains('code-owned')) { selectWidget(widgetEl); return; }" in ad)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (ok, bad))
 print('=' * 74)
 sys.exit(1 if bad else 0)
