@@ -13,6 +13,7 @@
      → 출발 자리를 매 판 섞는다. 고친 뒤 120판에서 16~24회(기대값 20)로 고르게 나왔다.
 """
 import io
+import json, subprocess, tempfile
 import os
 import re
 import sys
@@ -313,7 +314,7 @@ chk('조종실에 뽑는 칸이 있다', 'id="pb-picks"' in CTL and 'pbcSetPicks
 # 🔍 출발 순간에는 더 당긴다 — 안 그러면 이름이 서로 겹쳐 안 읽힌다.
 chk('출발 때 당겨 보여준다', 'const PB_ZOOM_START = 3;' in OV and 'PB_ZOOM_START,' in OV)
 # ⚠️ 우리 코스는 판이 화면 폭 전체라, 가장자리에 뿌리면 출발 순간 화면 밖에 있다.
-chk('우리 코스도 화면 안에서 출발한다', '(PB_W - 320)' in OV)
+chk('우리 코스도 화면 안에서 출발한다', 'const PB_SPAWN_BAND = PB_W - 320;' in OV)
 
 # 🎉 우승 폭죽 — 원본도 당첨자가 나오면 입자를 쏴다.
 # ⚠️ 폭죽은 방송판에 이미 들어 있는 것을 쓴다(새로 받아오지 않는다).
@@ -472,6 +473,136 @@ chk('조종실 목록에 없다', bool(_mapsel) and 'value="2"' not in _mapsel.g
 #    저장된 3 이 어느 날 딴 맵을 가리킨다. 번호는 고정하고 '못 고르게'만 막는다.
 chk('맵 개수는 그대로다 (번호 안 밀린다)', 'PINBALL_MAPS = 4' in SRV)
 chk('조종실 이름표도 번호를 지킨다', "'BubblePop', null, 'Yoru ni Kakeru'" in CTL)
+
+print()
+print('=' * 74)
+print('⓷ 구슬 200개까지 받는가')
+print('=' * 74)
+# 🎱 대표님: "최대 200개로 늘려줘" (2026-09-16).
+#    ⚠️ 숫자만 올리면 **우리 코스가 안 끝난다.** 아래 셋이 같이 지켜져야 한다.
+_mx = re.search(r'^PINBALL_MAX = (\d+)', SRV, re.M)
+chk('서버 상한이 200이다', bool(_mx) and int(_mx.group(1)) == 200,
+    ('PINBALL_MAX = %s' % (_mx.group(1) if _mx else '?')))
+# ⚠️ 한 사람 상한을 낮게 두면 '양양*50' 같은 정당한 쓰임까지 막힌다.
+chk('한 사람 상한도 전체와 같다', 'PINBALL_COUNT_MAX = PINBALL_MAX' in SRV)
+# ⚠️ 방송판이 이 숫자로 출발 줄 수와 뚜껑 높이를 정한다. 어긋나면 윗줄 구슬이
+#    뚜껑 위에서 시작해 영영 못 내려온다 — 실측으로 '끝까지 남기' 6판 전부 못 끝냈다.
+_bx = re.search(r'const PB_BALL_MAX = (\d+);', OV)
+chk('방송판 상한이 서버와 같다',
+    bool(_bx) and bool(_mx) and int(_bx.group(1)) == int(_mx.group(1)),
+    ('방송판 %s · 서버 %s' % (_bx.group(1) if _bx else '?', _mx.group(1) if _mx else '?')))
+
+# 🚿 출발 자리 — 한 줄에 몇 개가 들어가는지부터 센다.
+#    ⚠️ 예전엔 '몇 개든 한 줄에 다 뿌리고 8개마다 줄 바꾸기' 였다. 200개면 옆 칸이
+#       3px 라 구슬이 통째로 겹쳐 서로를 밀어내며 튀었다.
+chk('한 줄에 들어갈 개수를 센다', 'const PB_SPAWN_PER = Math.max(1, Math.floor(' in OV)
+chk('구슬 지름보다 넓게 벌린다', 'const PB_SPAWN_GAP = PB_R * 2 + 6;' in OV)
+chk('넘치면 줄을 쌓는다', 'Math.floor(slot / per) * PB_SPAWN_ROWH' in OV)
+chk('한 줄에 다 들어가면 예전 자리 그대로', 'const per = Math.min(n, PB_SPAWN_PER);' in OV)
+# 🧢 뚜껑 — 이게 이번 고침의 핵심이다.
+chk('뚜껑을 제일 윗줄 위로 올렸다', 'const PB_CEIL = PB_SPAWN_Y0' in OV)
+chk('뚜껑이 y=-7 에 붙어 있지 않다',
+    'W.rectangle(PB_W / 2, PB_CEIL - PB_WALL / 2' in OV
+    and 'W.rectangle(PB_W / 2, -PB_WALL / 2' not in OV)
+
+# 🧮 실제로 계산해 본다 — 상수를 고쳤을 때 조용히 어긋나지 않게.
+_num = lambda k: int(re.search(r'const %s = (\d+)' % k, OV).group(1))
+try:
+    _W = _num('PB_W'); _R = _num('PB_R'); _MAXB = _num('PB_BALL_MAX')
+    _band = _W - 320; _gap = _R * 2 + 6; _rowh = _R * 2 + 16
+    _per = max(1, _band // _gap)
+    _rows = -(-_MAXB // _per)                       # 올림
+    _ceil = 40 - (_rows - 1) * _rowh - 60
+    _top = 40 - (_rows - 1) * _rowh                 # 제일 윗줄
+    chk('제일 윗줄이 뚜껑보다 아래에 있다', _ceil < _top - _R,
+        '윗줄 y=%d · 뚜껑 y=%d · 한 줄 %d개 · %d줄' % (_top, _ceil, _per, _rows))
+    # ⚠️ 옆벽은 y = -PB_WORLD/2 까지만 내려온다. 뚜껑이 그보다 위면 구슬이 옆으로 샌다.
+    _world = 140 + 620 * 3 + 200
+    chk('쌓은 구슬이 옆벽 안에 있다', _ceil > -_world / 2,
+        '뚜껑 y=%d · 옆벽 위끝 y=%d' % (_ceil, -_world // 2))
+except Exception as _e:
+    chk('출발 자리 셈이 맞는가', False, str(_e))
+
+# 🏷️ 이름 — 200개면 글자가 겹쳐 더미가 된다. 접고, 주인공만 남긴다.
+chk('많으면 구슬 밑 이름을 접는다',
+    'const PB_NAME_MAX = 40;' in OV
+    and 'pbBalls.length > PB_NAME_MAX && b !== tgt' in OV)
+# 🏆 많이 뽑으면 딱지가 화면을 넘친다.
+chk('딱지에 쓰는 이름 수를 막았다',
+    'const PB_BANNER_MAX = 8;' in OV and 'list.slice(0, PB_BANNER_MAX)' in OV)
+chk('나머지는 수로 알린다', "' \uc678 ' + rest + '\uba85'" in OV)
+# ⚠️ 줄이기만으로는 모자랐다 — 20명 뽑기 실측에서 딱지가 **판 밖으로** 삐져나왔다
+#    (캔버스는 980px 인데 nowrap 에 폭 제한이 없어 화면 끝까지 늘어났다).
+_win = re.search(r'\.pb-winner \{.*?\}', OV, re.S)
+chk('딱지 폭을 판 안으로 가둔다',
+    bool(_win) and 'max-width:' in _win.group(0) and 'white-space: nowrap' not in _win.group(0))
+chk('이름 가운데서 안 끊는다', bool(_win) and 'word-break: keep-all' in _win.group(0))
+chk('여럿일 때 글자를 줄인다',
+    '.pb-winner.many {' in OV and "el.classList.toggle('many', list.length > 1)" in OV)
+# 🎛️ 조종실
+chk('뽑는 수를 199까지 받는다', 'id="pb-picks" type="number" min="1" max="199"' in CTL)
+chk('조종실이 200개라고 알려준다', '200\uac1c</b>\uae4c\uc9c0' in CTL)
+chk('이름이 안 붙는다는 것도 알려준다', '40\uac1c\ub97c \ub118\uc73c\uba74' in CTL)
+
+print()
+print('=' * 74)
+print('\u24f8 끝까지 남기 — 진짜 1등을 고르는가')
+print('=' * 74)
+# ⚠️ result 는 **도착 순서**다(먼저 떨어진 사람이 앞). '끝까지 남기' 면 거기서
+#    제일 뒤가 1등이다. 예전에는 서버 기록도 조종실도 규칙을 안 보고 result[0] 을
+#    1등이라 적었다 — 정확히 **반대 사람**이 나갔다. 방송판만 제대로 세고 있었다.
+chk('서버가 규칙대로 당첨자를 고른다', 'def _pinball_winners(' in SRV)
+chk('저장할 때 한 군데에서 센다',
+    "g['winners'] = _pinball_winners(g.get('result')" in SRV)
+chk('기록에 result[0] 을 안 쓴다',
+    '"\U0001F3B1 핀볼 1등: %s" % _top' in SRV and '% order[0]' not in SRV)
+chk('조종실이 서버가 고른 당첨자를 읽는다', 'g.winners && g.winners.length' in CTL)
+
+# 🧪 서버 셈을 **진짜 굴려** 본다 (server.py 를 통째로 들여오지 않고 그 함수만 떼어 쓴다)
+_fn = re.search(r'^def _pinball_winners\(.*?(?=\n\ndef )', SRV, re.S | re.M)
+_ns = {}
+if _fn:
+    exec(_fn.group(0), _ns)
+_w = _ns.get('_pinball_winners')
+_ORD = ['가', '나', '다', '라', '마']
+if _w:
+    chk('먼저 골인 1명 → 맨 앞', _w(_ORD, 'first', 1) == ['가'], _w(_ORD, 'first', 1))
+    chk('먼저 골인 3명 → 앞 셋', _w(_ORD, 'first', 3) == ['가', '나', '다'], _w(_ORD, 'first', 3))
+    chk('끝까지 남기 1명 → 맨 뒤', _w(_ORD, 'last', 1) == ['마'], _w(_ORD, 'last', 1))
+    chk('끝까지 남기 3명 → 뒤에서 셋, 늦은 순', _w(_ORD, 'last', 3) == ['마', '라', '다'],
+        _w(_ORD, 'last', 3))
+    chk('사람보다 많이 뽑아도 안 터진다', _w(_ORD, 'last', 99) == ['마', '라', '다', '나', '가'])
+    chk('빈 결과는 빈 목록', _w([], 'last', 3) == [] and _w(None, 'first', 1) == [])
+else:
+    chk('서버 당첨자 셈을 떼어 쓸 수 있다', False, '함수를 못 찾음')
+
+# 🔁 방송판(pbWinnersOf)과 **같은 답**이 나오는가 — 한쪽만 고치면 화면과 기록이 달라진다
+_js = re.search(r'function pbWinnersOf\(order\) \{.*?\n        \}', OV, re.S)
+if _js and _w:
+    _prog = ('let pbPicks = 1, pbRule = "first";\n' + _js.group(0) + '\n'
+             + 'const O = ' + json.dumps(_ORD, ensure_ascii=False) + ';\n'
+             + 'const out = [];\n'
+             + 'for (const r of ["first", "last"]) for (const k of [1, 2, 3, 99]) {\n'
+             + '  pbRule = r; pbPicks = k; out.push(pbWinnersOf(O.slice()));\n'
+             + '}\n'
+             + 'console.log(JSON.stringify(out));')
+    _tmp = os.path.join(tempfile.gettempdir(), 'pbwin_check.js')
+    io.open(_tmp, 'w', encoding='utf-8').write(_prog)
+    try:
+        _r = subprocess.run(['node', _tmp], capture_output=True, timeout=30)
+        _got = json.loads(_r.stdout.decode('utf-8').strip() or '[]')
+        _want = [_w(_ORD, r, k) for r in ('first', 'last') for k in (1, 2, 3, 99)]
+        chk('방송판과 서버가 같은 사람을 뽑는다', _got == _want,
+            ('방송판 %s / 서버 %s' % (_got, _want)) if _got != _want else ('%d가지 확인' % len(_want)))
+    except Exception as _e:
+        chk('방송판과 서버가 같은 사람을 뽑는다', False, str(_e))
+    finally:
+        try:
+            os.remove(_tmp)
+        except OSError:
+            pass
+else:
+    chk('방송판 당첨자 셈을 찾는다', False)
 
 print()
 print('=' * 74)

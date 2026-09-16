@@ -820,8 +820,13 @@
             border: 2px solid rgba(120, 220, 255, .28);
             box-shadow: 0 0 34px rgba(60, 180, 255, .18), inset 0 0 60px rgba(0, 0, 0, .6); }
         /* 🏁 결과 딱지 — 1등이 나오면 판 위에 뜬다 */
+        /* ⚠️ 예전에는 nowrap 에 폭 제한이 없어서, 여러 명 뽑으면 이름이 가로로 늘어나
+              **판 밖으로 삐져나왔다**(20명 뽑기 실측: 캔버스 980px 인데 딱지가 화면 끝까지).
+              판 안에 가두고 줄바꿈을 허락한다. 이름 가운데서 끊기지 않게 keep-all. */
         .pb-winner { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(.8);
-            padding: 18px 44px; border-radius: var(--r-l); white-space: nowrap;
+            padding: 18px 44px; border-radius: var(--r-l);
+            max-width: 860px; white-space: normal; word-break: keep-all;
+            overflow-wrap: anywhere; text-align: center; line-height: 1.24;
             background: rgba(8, 10, 16, .92); border: 3px solid var(--gold, #ffcf4d);
             color: var(--gold, #ffcf4d); font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
             font-size: 58px; font-weight: 900; letter-spacing: 1px;
@@ -832,6 +837,9 @@
         .pb-winner.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
         .pb-winner .pb-w-sub { display: block; margin-top: 6px; font-size: 26px; color: #dfe6f2;
             font-weight: 800; text-shadow: 0 2px 6px #000; }
+        /* 여럿을 뽑으면 글자를 줄인다 — 한 명일 때의 시원한 크기는 그대로 둔다 */
+        .pb-winner.many { font-size: 34px; padding: 14px 30px; }
+        .pb-winner.many .pb-w-sub { font-size: 22px; margin-top: 4px; }
 
         /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
         /* 게임판 — 배경 없이 칸만 방송 화면 위에 뜬다.
@@ -2479,7 +2487,7 @@
             <!-- 🏺 모금함 — 회사 종잣돈 + 시청자 후원. 금액이 **병 안에** 뜬다.
                  동전은 JS 가 한 번만 만들어 두고(jarBuild) 금액에 따라 몇 개까지 보일지만 바꾼다. -->
             <div id="fundjar-container" class="widget-container">
-                <div class="jar-title">🏺 오늘의 모금함</div>
+                <div class="jar-title">🏺 기여도 상금</div>
                 <div class="fundjar-box" id="fundjar-box">
                     <div class="jar-glow"></div>
                     <svg width="260" height="432" viewBox="0 0 260 432">
@@ -7090,6 +7098,28 @@
               물리적으로 통과 불가였고, 여섯 개가 모두 y≈2850 에서 영영 멈췄다.
               맵 배율에 맞춰 줄인다. 다만 이름을 읽어야 하니 너무 작아지지는 않게 막는다. */
         let pbR = PB_R;
+        /* 🚿 우리 코스의 출발 자리 — 구슬이 많아지면 여러 줄로 쌓는다.
+           ⚠️ 예전에는 **몇 개든 한 줄에 다 뿌리고** 8개마다 줄을 바꿨다. 24개까지는
+              그럭저럭 됐지만 200개가 되면 옆 칸이 3px 라 구슬이 통째로 겹쳐 서로를
+              밀어내며 튀었다(실측: 끝까지 남기 6판 전부 못 끝냄).
+              한 줄에 **몇 개가 들어가는지부터** 센다. */
+        const PB_BALL_MAX = 200;                     // ⚠️ server.py 의 PINBALL_MAX 와 같아야 한다
+        const PB_SPAWN_BAND = PB_W - 320;            // 뿌릴 수 있는 폭(카메라가 1.35배로 봐서 가운데로 모은다)
+        const PB_SPAWN_GAP = PB_R * 2 + 6;           // 옆 구슬과 안 겹칠 최소 간격
+        const PB_SPAWN_ROWH = PB_R * 2 + 16;         // 줄 사이 간격
+        const PB_SPAWN_PER = Math.max(1, Math.floor(PB_SPAWN_BAND / PB_SPAWN_GAP));   // 한 줄에 몇 개
+        const PB_SPAWN_Y0 = 40;                      // 첫 줄 높이
+        /* 🧢 뚜껑은 **제일 윗줄보다 위**에 있어야 한다.
+           ⚠️ 예전엔 y=-7 에 딱 붙어 있었다. 줄이 셋만 돼도 윗줄 구슬은 뚜껑 **위**에서
+              시작해 영영 못 내려왔다 — '끝까지 남기' 가 아예 안 끝난다. */
+        const PB_CEIL = PB_SPAWN_Y0
+            - (Math.ceil(PB_BALL_MAX / PB_SPAWN_PER) - 1) * PB_SPAWN_ROWH - 60;
+        /* 🏷️ 구슬 밑 이름은 적을 때만 붙인다. 많으면 글자가 겹쳐 더미가 되고,
+           읽히지도 않으면서 프레임만 먹는다(구슬 하나에 두 번씩 그린다).
+           많을 때는 **주인공만** 붙인다 — 누구를 보라는 정보는 남는다. */
+        const PB_NAME_MAX = 40;
+        /* 🏆 딱지에 이름을 몇까지 쓸까 — 199명을 줄짓어 쓰면 화면을 넘친다. */
+        const PB_BANNER_MAX = 8;
         const PB_STEP = 1000 / 60;             // 물리 한 걸음 — 고정이어야 결과가 같다
         const PB_MAX_MS = 180000;              // 3분이 넘으면 강제로 끝낸다(끼었을 때 대비)
         const PB_STUCK_N = 8;                  // 이만큼 살펴서 계속 굼뜨면 끼인 것으로 본다
@@ -7344,7 +7374,8 @@
             const M = Matter, W = M.Bodies, bodies = [];
             const wallOpt = { isStatic: true, restitution: .45, friction: .02, label: 'wall' };
             // 바깥 벽 — 세상 전체 높이만큼 세운다(화면이 아니라 코스 길이 기준이다)
-            bodies.push(W.rectangle(PB_W / 2, -PB_WALL / 2, PB_W, PB_WALL, wallOpt));
+            // 🧢 뚜껑은 구슬을 쌓을 수 있는 높이 **위**에 둔다(PB_CEIL). 붙여 두면 윗줄이 갇힌다.
+            bodies.push(W.rectangle(PB_W / 2, PB_CEIL - PB_WALL / 2, PB_W, PB_WALL, wallOpt));
             bodies.push(W.rectangle(-PB_WALL / 2, PB_WORLD / 2, PB_WALL, PB_WORLD * 2, wallOpt));
             bodies.push(W.rectangle(PB_W + PB_WALL / 2, PB_WORLD / 2, PB_WALL, PB_WORLD * 2, wallOpt));
             bodies.push(W.rectangle(PB_W / 2, PB_WORLD + PB_WALL / 2, PB_W * 2, PB_WALL, wallOpt));
@@ -7414,7 +7445,11 @@
             /* ⚠️ 우리 코스는 판이 화면 폭 전체지만, 카메라가 배율 1.35 로 보기 때문에
                   가장자리에 뿌리면 **출발 순간 바깥 구슬이 화면 밖**에 있다.
                   가운데로 모아 뿌린다 — 어차피 첫 못밭에서 바로 흩어진다. */
-            const lane = (PB_W - 320) / Math.max(1, n);
+            /* 한 줄에 들어갈 개수를 먼저 정하고, 넘치면 줄을 쌓는다.
+               ⚠️ 한 줄에 다 들어가면(18개 이하) 예전과 **토씨 하나 같은 자리**다 —
+                  지금까지 재 둔 판 시간이 그대로 유효하다. */
+            const per = Math.min(n, PB_SPAWN_PER);
+            const lane = PB_SPAWN_BAND / Math.max(1, per);
             /* 🎨 같은 사람의 구슬은 같은 색 — 양양*3 처럼 여러 번 들어온 사람을
                한눈에 알아볼 수 있어야 한다. */
             const cmap = {};
@@ -7442,8 +7477,8 @@
                     x = at.x; y = at.y;
                 } else {
                     // 우리 코스는 판이 화면 폭 전체라 고루 뿌린다
-                    x = 160 + lane * (slot + .5) + (rng() - .5) * (lane * .3);
-                    y = 40 - Math.floor(slot / 8) * 46;
+                    x = 160 + lane * ((slot % per) + .5) + (rng() - .5) * (lane * .3);
+                    y = PB_SPAWN_Y0 - Math.floor(slot / per) * PB_SPAWN_ROWH;
                 }
                 /* ⚠️ 구슬 자체는 **안 튄다**(restitution 0). 원본도 구슬에는 반발력을 안 주고
                       못·레일 쪽 값만 쓴다. 우리가 .52 를 주고 있어서 어디에 부딪혀도
@@ -8022,6 +8057,8 @@
                 }
                 g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2 / Z; g.stroke();
                 g.lineWidth = 4 / Z; g.strokeStyle = 'rgba(0,0,0,.92)';
+                // 🏷️ 구슬이 많으면 이름을 접는다 — 주인공은 남긴다
+                if (pbBalls.length > PB_NAME_MAX && b !== tgt) continue;
                 g.strokeText(b.pbName, p.x, p.y + pbR + 15 / Z);
                 g.fillStyle = '#fff';
                 g.fillText(b.pbName, p.x, p.y + pbR + 15 / Z);
@@ -8125,8 +8162,13 @@
                   escText 를 써 둣다가 우승 딱지를 띄울 때마다 터져 딱지가 영영 안 뗴다
                   (실측 2026-09-16: ReferenceError: escText is not defined).
                ⚠️ map 은 (값, 번호, 배열) 을 넘긴다 — 한 개만 받는 함수로 감싼다. */
-            el.innerHTML = '🏆 ' + list.map(function (n) { return escapeSlotText(n); }).join(' · ')
+            /* ⚠️ 많이 뽑으면 이름이 화면을 넘친다 — 앞에서 몇만 쓰고 나머지는 수로 알린다. */
+            const head = list.slice(0, PB_BANNER_MAX);
+            const rest = list.length - head.length;
+            el.innerHTML = '🏆 ' + head.map(function (n) { return escapeSlotText(n); }).join(' · ')
+                         + (rest > 0 ? (' 외 ' + rest + '명') : '')
                          + '<span class="pb-w-sub">' + sub + '</span>';
+            el.classList.toggle('many', list.length > 1);
             el.classList.add('show');
         }
 

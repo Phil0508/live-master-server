@@ -1742,6 +1742,11 @@ DEFAULT_STATE = {
         "round_id": 0,          # 판 번호. 늦게 온 보고를 가려내는 표식
         "seed": 0,              # 이 판의 씨앗 — 모든 화면이 같은 경기를 본다
         "result": [],           # 도착 순서 ["양양", "밍밍", ...]
+        # 🏆 실제 당첨자 — 규칙(rule)·뽑는 수(picks)로 도착 순서에서 골라낸 것.
+        #    ⚠️ result[0] 이 1등이 **아니다.** '끝까지 남기' 면 뒤에서부터가 우승자다.
+        #       조종실·기록이 예전에 result[0] 을 1등이라 적어 정확히 반대로 나갔다.
+        #    저장할 때마다 _pinball_save 가 다시 센다(한 군데에서만 센다).
+        "winners": [],
         # 🗺️ 어느 판에서 굴릴까. -1 = 우리가 만든 코스, 0~3 = 가져온 맵.
         #    ⚠️ 씨앗으로 정하지 않고 **사람이 고른다.** 맵마다 걸리는 시간이 크게 달라서
         #       (실측 3~48초) 방송 흐름에 맞는 것을 운영자가 골라야 한다.
@@ -8015,7 +8020,12 @@ def api_dicegame_board():
 #       ② 결과는 **먼저 온 보고 하나만** 받고 그 자리에서 문을 닫는다(running=False).
 #          늦게 온 것은 409. 룰렛 /api/roulette/winner 이 쓰는 바로 그 방식이다.
 
-PINBALL_MAX = 24      # 구슬이 이보다 많으면 화면에서 이름을 못 읽는다
+PINBALL_MAX = 200     # 한 판에 들어갈 수 있는 구슬 수
+#  ⚠️ 40개를 넘으면 방송판이 **구슬 밑 이름을 안 붙인다**(겹쳐서 안 읽힌다).
+#     주인공 한 명만 남긴다 — overlay.html 의 PB_NAME_MAX.
+#  ⚠️ overlay.html 의 PB_BALL_MAX 와 **같아야 한다.** 방송판은 그 숫자로 출발 줄 수와
+#     뚜껑 높이를 정한다. 틀어지면 윗줄 구슬이 뚜껑 위에서 시작해 영영 못 내려온다.
+#     검사가 둘을 맞대본다(tests/pinball_test.py).
 
 
 def _pinball_state(state):
@@ -8077,12 +8087,16 @@ def _pinball_save(state, g):
     #    부르는 곳마다 따로 세면 언젠가 한 군데를 빼먹어 어긋난다.
     g['balls'] = _pinball_expand(g.get('names'))
     g['picks'] = _pinball_picks(g.get('picks'), len(g['balls']))
+    g['winners'] = _pinball_winners(g.get('result'), g.get('rule'), g.get('picks'))
     state['pinball'] = g
     save_data(state)
     broadcast_event('update', state)
 
 
-PINBALL_COUNT_MAX = 20      # 한 사람이 이보다 많이는 못 들어간다
+# 한 사람이 *N 으로 넣을 수 있는 최대 — 전체 상한과 같다.
+# ⚠️ 어차피 펼친 개수는 PINBALL_MAX 에서 다시 잘린다. 여기를 낮게 잡으면
+#    '양양*50' 같은 정당한 쓰임까지 막힌다.
+PINBALL_COUNT_MAX = PINBALL_MAX
 
 
 def _pinball_expand(names):
@@ -8116,6 +8130,25 @@ def _pinball_expand(names):
             if len(out) >= PINBALL_MAX:
                 return out
     return out
+
+
+def _pinball_winners(order, rule, picks):
+    """도착 순서에서 **실제 당첨자**를 골라낸다.
+
+    ⚠️ '끝까지 남기'(last) 는 **뒤에서부터**다. 제일 늦게까지 안 떨어진 사람이 1등이라
+       뒤에서 picks 명을 떼어 **뒤집어서** 준다.
+    ⚠️ 방송판 overlay.html 의 pbWinnersOf 와 **같은 셈**이어야 한다.
+       한쪽만 고치면 화면에 뜬 이름과 기록에 남은 이름이 달라진다(검사가 맞대본다).
+    """
+    if not isinstance(order, list) or not order:
+        return []
+    try:
+        k = max(1, min(int(picks or 1), len(order)))
+    except (TypeError, ValueError):
+        k = 1
+    if rule == 'last':
+        return list(reversed(order[len(order) - k:]))
+    return order[:k]
 
 
 def _pinball_picks(raw, total):
@@ -8271,14 +8304,17 @@ def api_pinball_result():
                 return jsonify({'status': 'error', 'message': '결과가 비어 있습니다'}), 400
             g['running'] = False          # 🚪 여기서 문을 닫는다 — 다음 보고는 409
             g['result'] = order
+            # 🏆 규칙에 맞는 진짜 1등. ⚠️ order[0] 이 아니다 — '끝까지 남기' 면 그건 꼴찌다.
+            _win = _pinball_winners(order, g.get('rule'), g.get('picks'))
+            _top = _win[0] if _win else order[0]
             took = max(0, int(time.time() * 1000) - int(g.get('started_at') or 0))
             logs = state.setdefault('logs', [])
             logs.insert(0, {'time': now_hms(),
-                            'name': "🎱 핀볼 1등: %s" % order[0], 'val': 0})
+                            'name': "🎱 핀볼 1등: %s" % _top, 'val': 0})
             del logs[LOG_MAX:]
             _pinball_save(state, g)
         print("🎱 [핀볼] %d판 끝 — 1등 %s (%.1f초)"
-              % (g['round_id'], order[0], took / 1000.0), flush=True)
+              % (g['round_id'], _top, took / 1000.0), flush=True)
         return jsonify({'status': 'success', 'pinball': g, 'took_ms': took})
     except Exception as e:
         print(f'[핀볼 결과 오류] {e}', flush=True)

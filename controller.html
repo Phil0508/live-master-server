@@ -2165,7 +2165,7 @@
 
             <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
                 <label style="font-size:var(--fs-2); font-weight:700; margin:0;">🏅 몇 명 뽑기</label>
-                <input id="pb-picks" type="number" min="1" max="23" value="1"
+                <input id="pb-picks" type="number" min="1" max="199" value="1"
                        onchange="pbcSetPicks(this.value)"
                        style="width:80px; margin:0; text-align:center;">
                 <label style="font-size:var(--fs-2); margin:0 0 0 auto; display:flex; gap:6px; align-items:center; cursor:pointer;">
@@ -2198,7 +2198,9 @@
                       style="width:100%; margin:0 0 8px;"></textarea>
             <div style="font-size:var(--fs-1); color:var(--text-muted); margin:0 0 8px; line-height:1.6;">
                 이름 뒤에 <b>*3</b> 을 붙이면 그 사람 구슬이 <b>3개</b> 들어갑니다 —
-                많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다. (한 사람 최대 20개, 전체 24개)
+                많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다. (구슬은 모두 합쳐 <b>200개</b>까지)<br>
+                구슬이 <b>40개를 넘으면 구슬 밑 이름을 안 붙입니다</b> — 겹쳐서 어차피 안 읽힙니다.
+                카메라가 따라다니는 주인공에만 이름이 붙습니다.
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
                 <button onclick="pbcFillPlayers()" style="margin:0;"><i class="fa-solid fa-users"></i> 지금 선수 넣기</button>
@@ -8462,10 +8464,17 @@ initFoldablePanels();
                      + '<br><span style="color:var(--text-muted);">방송 화면에서 구슬이 떨어지고 있습니다. '
                      + '끝나면 여기에 순위가 뜹니다.</span>';
             } else if (r.length) {
-                html += '<br>🏆 <b style="color:var(--gold, #ffcf4d); font-size:1.15em;">1등 ' + escapeHTML(r[0]) + '</b>';
-                if (r.length > 1) {
+                /* ⚠️ result 는 **도착 순서**다. 규칙이 '끝까지 남기' 면 r[0] 은 제일 먼저
+                      떨어진 사람 — 1등이 아니라 꼴찌다. 예전엔 그걸 1등이라 적었다.
+                      서버가 규칙대로 골라 둔 winners 를 읽는다(방송판 딱지와 같은 이름). */
+                const w = (g.winners && g.winners.length) ? g.winners : r;
+                html += '<br>🏆 <b style="color:var(--gold, #ffcf4d); font-size:1.15em;">1등 ' + escapeHTML(w[0]) + '</b>';
+                if (w.length > 1) {
+                    /* 뽑은 사람은 다 보여준다(최대 20명). 그 아래는 수로만 알린다. */
+                    const show = w.slice(1, 20);
                     html += '<br><span style="color:var(--text-muted);">'
-                         + r.slice(1, 5).map(function (nm, i) { return (i + 2) + '위 ' + escapeHTML(nm); }).join(' · ')
+                         + show.map(function (nm, i) { return (i + 2) + '위 ' + escapeHTML(nm); }).join(' · ')
+                         + (w.length > 20 ? (' 외 ' + (w.length - 20) + '명') : '')
                          + '</span>';
                 }
             } else if (!n) {
