@@ -408,6 +408,33 @@ chk('모르는 사건은 막지 않는다', A.says(_st, '아직없는사건'))
 chk('사건마다 스위치 이름이 정해져 있다',
     A.SAY_OF.get('rank_close') == 'rank_close' and A.SAY_OF.get('dice_lap') == 'dice')
 chk('큐에 넣기 전에 스위치를 본다', 'says(st, e.key)' in BOT)
+# ⚠️ 큐에 넣을 때만 보면 **모자란다.** 조용할 때 질문과 되풀이 안내는 큐를 안 거치고
+#    _tick 안에서 바로 만들어진다 — 예전엔 그 길에 스위치가 안 걸려 있어서,
+#    조종실에서 '조용할 때 질문' 을 꺼도 봇이 계속 말을 걸었다
+#    (대표님 실전 2026-09-16: "후원감사랑 1위바뀜만 켜놨는데 질문도 같이 올려버리네").
+chk('꺼낸 뒤에도 스위치를 본다', 'if not says(self.state, e.key):' in BOT)
+
+
+def _run_tick(say):
+    """실제로 한 번 굴려 본다 — 정적 검사는 '부르는 자리'까지는 못 본다."""
+    b = A.Bot({'server': 'x', 'min_interval_sec': 0, 'idle_after_sec': 0,
+               'only_when_broadcasting': False,
+               'notices': {'account_every_sec': 0, 'rank_every_sec': 0,
+                           'fundjar_every_sec': 0}}, TPL)
+    b.state = S(broadcast_active=True,
+                announce_bot={'enabled': True, 'min_interval_sec': 5, 'say': say,
+                              'notices': {'account_min': 0, 'rank_min': 0, 'fundjar_min': 0}})
+    b.last_event = 0.0          # 한참 조용했다
+    b.last_sent = 0.0
+    said = []
+    b._say = lambda t: said.append(t)
+    b._tick()
+    return said
+
+
+chk('질문을 끄면 정말 조용하다', not _run_tick({'idle': False, 'donation': True}),
+    _run_tick({'idle': False, 'donation': True}))
+chk('질문을 켜면 말을 건다', bool(_run_tick({'idle': True, 'donation': True})))
 chk('전체 스위치를 끄면 한마디도 안 한다', "live.get('enabled') is False" in BOT)
 # ⚠️ 끈 동안 쌓인 소식: 후원만 남기고 버린다. '1위가 바뀌었습니다' 가 10분 늦게 나가면 거짓말이다
 chk('끈 동안 쌓인 것은 후원만 남긴다',

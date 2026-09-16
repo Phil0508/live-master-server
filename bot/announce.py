@@ -570,6 +570,13 @@ class Bot:
             e = self._notice(now) or self._idle(now)
             if e is None:
                 return
+        # 🎛️ 조종실 스위치는 **모든 길**에 건다.
+        #    ⚠️ 예전엔 says() 를 '찾아낸 사건'(후원·순위·목표·주사위)에만 걸었다.
+        #       그래서 조종실에서 '조용할 때 질문' 을 꺼도 봇이 계속 말을 걸었다
+        #       (대표님 실전 2026-09-16: "후원감사랑 1위바뀜만 켜놓았는데 질문도 같이 올려버리네").
+        #    ⚠️ 큐에서 꺼낸 사건도 다시 본다 — 큐에 들어간 뒤에 끌 수 있기 때문이다.
+        if not says(self.state, e.key):
+            return
         # 하루 예산을 넘으면 후원 감사만 남긴다 — 돈 낸 사람에게 인사는 해야 한다
         if self.sent_today >= int(self.cfg.get('daily_budget', 180)) and e.prio != P_DONATION:
             return
