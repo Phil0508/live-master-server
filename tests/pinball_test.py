@@ -557,6 +557,14 @@ chk('저장할 때 한 군데에서 센다',
 chk('기록에 result[0] 을 안 쓴다',
     '"\U0001F3B1 핀볼 1등: %s" % _top' in SRV and '% order[0]' not in SRV)
 chk('조종실이 서버가 고른 당첨자를 읽는다', 'g.winners && g.winners.length' in CTL)
+# ⚠️ 옷 저장본에는 winners 칸이 없다. 올리고 나서 판을 한 번 굴리기 전까지
+#    조종실이 옷 방식으로 보여준다 — 그 한 판 동안 거짓말을 한다. 읽을 때 채운다.
+chk('옷 저장본은 읽을 때 보정한다',
+    '_pb0["winners"] = _pinball_winners(' in SRV)
+# ⚠️ 모금함·진행봇과 같은 이유 — 칸이 아예 없으면 기본값 **객체를 그대로** 물어
+#    거기에 명단을 적으면 다음 방송이 남의 명단을 물고 시작한다.
+chk('기본값 객체를 그대로 안 물게 한다',
+    '_pb0 is DEFAULT_STATE["pinball"]' in SRV)
 
 # 🧪 서버 셈을 **진짜 굴려** 본다 (server.py 를 통째로 들여오지 않고 그 함수만 떼어 쓴다)
 _fn = re.search(r'^def _pinball_winners\(.*?(?=\n\ndef )', SRV, re.S | re.M)

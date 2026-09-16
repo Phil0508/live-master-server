@@ -2089,6 +2089,19 @@ def load_data():
             for _k, _v in DEFAULT_STATE["announce_bot"][_sub].items():
                 _ab[_sub].setdefault(_k, _v)
 
+    # 🎱 핀볼 보정 — 위 둘과 같은 이유(기본값 객체를 그대로 물면 안 된다) + 당첨자 칸.
+    #    ⚠️ 옛 저장본에는 winners 칸이 없다. 조종실이 그걸 못 읽으면 '끝까지 남기' 의
+    #       1등을 도착 순서 **맨 앞**(= 실제로는 꼴찌)으로 보여준다 — 고친 버그로 되돌아간다.
+    #       판을 한 번 굴리면 저절로 채워지지만, 그 한 판 동안 거짓말을 하게 된다.
+    _pb0 = state.get("pinball")
+    if not isinstance(_pb0, dict) or _pb0 is DEFAULT_STATE["pinball"]:
+        _pb0 = copy.deepcopy(DEFAULT_STATE["pinball"])
+        state["pinball"] = _pb0
+    for _k, _v in DEFAULT_STATE["pinball"].items():
+        _pb0.setdefault(_k, copy.deepcopy(_v))
+    if not _pb0.get("winners"):
+        _pb0["winners"] = _pinball_winners(_pb0.get("result"), _pb0.get("rule"), _pb0.get("picks"))
+
     # saved_colors 보정 (6개 -> 9개로 확장 및 하위 호환 마이그레이션)
     default_colors = ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff']
     if 'saved_colors' in state:
