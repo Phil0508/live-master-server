@@ -3868,7 +3868,13 @@
                 taken.push([t - 8, b + 8]);
             });
             const hits = y => taken.some(([t, b]) => y + half > t && y - half < b);
-            const lo = 115 + half, hi = 954 - half;   // 채널 줄 아래 · 채팅 구역 위
+            /* 📌 딱지는 **막대 안**에만 머무른다.
+               ⚠️ 예전엔 115~954 를 박아 두었다. 그건 기본 자리의 막대 구간을 숫자로 적은 것이라
+                  기본 배치에선 같은 결과다. 그러나 편집기에서 게이지를 옮기면 막대는 따라가는데
+                  딱지만 그 구간에 붙잡혀 떨어졌다 — 대표님: "게이지는 잘 움직이는데
+                  옆에 숲자가 안따라간다" (실측: 막대 기준 상대높이 651 → 521 로 밀림).
+                  막대 제 길이를 기준으로 두면 어디로 옷겨도 항상 붙어 다닌다. */
+            const lo = railTop + half, hi = railTop + railH - half;
             let y = Math.min(hi, Math.max(lo, want));
             if (hits(y)) {
                 let down = y, up = y;
