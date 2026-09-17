@@ -9891,7 +9891,9 @@
            게임마다 켜는 자리가 달라서(dgRender · showRouletteWidget · sgRenderGame · 슬롯)
            다섯 군데에 호출을 심는 대신 컨테이너의 변화를 지켜본다. */
         function syncGameOn() {
-            const on = ['dicegame', 'roulette', 'slot', 'siggame'].some(id => {
+            // ⚠️ 핀볼이 빠져 있었다 — 핀볼판(980×840)이 떴는데 후원 순위판·한 방 최고 후원이
+            //    그 위에 그대로 남아 구슬을 가렸다(2026-09-18 안내 페이지용으로 찍다가 발견).
+            const on = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball'].some(id => {
                 const el = document.getElementById(id + '-container');
                 if (!el || el.style.display === 'none') return false;
                 // ⚠️ 계산값이 아니라 인라인 값으로 본다. 보이고 숨는 데 0.4~0.5초
@@ -9901,7 +9903,7 @@
             document.body.classList.toggle('game-on', on);
         }
         (function watchGameWidgets() {
-            const els = ['dicegame', 'roulette', 'slot', 'siggame']
+            const els = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball']
                 .map(id => document.getElementById(id + '-container')).filter(Boolean);
             if (!els.length) return;
             const mo = new MutationObserver(syncGameOn);

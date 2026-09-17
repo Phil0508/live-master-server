@@ -151,6 +151,12 @@ print('=' * 74)
 chk('규칙이 있다', 'body.game-on #donor-rank-container { opacity: 0 !important' in OV)
 chk('게이지 딱지 규칙 옆에 있다 (같은 스위치)',
     abs(OV.index('body.game-on #donor-rank-container') - OV.index('body.game-on .goal-rail-tip')) < 400)
+# ⚠️ 켜진 게임판을 알아보는 목록에 게임판 **다섯이 모두** 있어야 한다. 핀볼이 빠져 있어서
+#    핀볼판이 떴는데 후원 순위판·한 방 최고 후원이 그 위에 남아 구슬을 가렸다(2026-09-18).
+_on = re.findall(r"\['dicegame'[^\]]*\]", OV)
+chk('게임판 다섯을 모두 지켜본다 (핀볼 포함)',
+    len(_on) >= 2 and all(all(("'" + g + "'") in blk for g in ('dicegame', 'roulette', 'slot', 'siggame', 'pinball'))
+                          for blk in _on), _on[:2])
 
 print()
 print('=' * 74)
