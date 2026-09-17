@@ -55,6 +55,7 @@ PREFIX = (
     'center-popup', 'takeover-popup', 'vip-badge',
     'slot-',
     'jar-', 'fundjar',        # 🏺 모금함(유리병)
+    'best-',                  # 💥 한 방 최고 후원
 )
 
 

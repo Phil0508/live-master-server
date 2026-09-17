@@ -1472,6 +1472,7 @@
                 <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-crown"></i> 1등 탈환</span><div class="apple-switch"><input type="checkbox" id="chk-takeover" onchange="toggleOption('takeover_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-ranking-star"></i> 오늘의 시그니처</span><div class="apple-switch"><input type="checkbox" id="chk-sig-tally" onchange="toggleOption('sig_tally_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1 1 170px;"><span class="toggle-label"><i class="fa-solid fa-medal"></i> 후원 순위</span><div class="apple-switch"><input type="checkbox" id="chk-donor-rank" onchange="toggleOption('donor_rank_enabled')"><span class="apple-slider"></span></div></label>
+                <label class="toggle-row" style="flex: 1 1 170px;" title="이번 방송에서 한 번에 가장 크게 보낸 후원. 기록이 깨지면 방송판에 '최고 기록 갱신!' 이 뜹니다. 대기함에서 배정하면 받은 멤버가 붙습니다."><span class="toggle-label">💥 한 방 최고 후원</span><div class="apple-switch"><input type="checkbox" id="chk-best" onchange="toggleOption('best_enabled')"><span class="apple-slider"></span></div></label>
                 <label class="toggle-row" style="flex: 1 1 170px;" title="주사위·후원·목표·1등탈환 효과음. 방송 중에 거슬리면 끄세요"><span class="toggle-label"><i class="fa-solid fa-volume-high"></i> 효과음</span><div class="apple-switch"><input type="checkbox" id="chk-sfx" onchange="toggleOption('sfx_enabled')"><span class="apple-slider"></span></div></label>
 
             </div>
@@ -3522,6 +3523,7 @@
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
             setChk('chk-sig-tally', !!gd.sig_tally_enabled);
             setChk('chk-donor-rank', !!gd.donor_rank_enabled);
+            setChk('chk-best', !!gd.best_enabled);
             setChk('chk-sfx', gd.sfx_enabled !== false);
             setChk('chk-home-race', gd.home_race_enabled || false);
             renderGoalAchievementNotice();   // 🎯 목표 달성 승인 알림 표시 여부 갱신

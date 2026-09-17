@@ -20,6 +20,24 @@
 .r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 .r-contrib { color: var(--gold); font-weight: 700; font-size: 27px; font-variant-numeric: tabular-nums; padding-left: 14px; }
 .excel-row.contrib-pop { position: relative; z-index: 5; animation: excelPop .72s var(--ease-pop) both; }
+.best-board { position: relative; box-sizing: border-box; width: 600px; padding: 14px 18px 18px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.best-board::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit; background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events: none; }
+.best-head { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900; font-size: 28px; padding: 6px 28px; border-radius: 999px; white-space: nowrap; box-shadow: var(--glow-s); }
+.best-row { width: 100%; display: grid; grid-template-columns: 1fr 200px 1fr; align-items: center; gap: 12px; }
+.best-side { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; gap: 2px; }
+.best-lab { font-size: 27px; font-weight: 700; color: var(--tx-2); white-space: nowrap; }
+.best-name, .best-member { max-width: 100%; font-size: 34px; font-weight: 900; color: #fff; text-shadow: var(--ts-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.best-member.empty { font-size: 27px; font-weight: 700; color: var(--tx-3); text-shadow: none; }
+.best-medal { position: relative; width: 200px; height: 200px; border-radius: 50%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 35%, rgba(var(--gold-rgb), .22), rgba(0, 0, 0, .55) 72%); border: 4px solid var(--gold); box-shadow: 0 0 26px var(--gold-glow), inset 0 0 18px rgba(0, 0, 0, .55); }
+.best-crown { font-size: 36px; line-height: 1; margin-bottom: 4px; }
+.best-amt { font-size: var(--best-amt-size, 46px); font-weight: 900; line-height: 1.05; letter-spacing: -1px; color: var(--gold-light); font-variant-numeric: tabular-nums; text-shadow: var(--ts-2), 0 0 20px var(--gold-glow); }
+.best-won { font-size: 27px; font-weight: 800; color: var(--tx-2); line-height: 1.1; }
+.best-board.best-pop { animation: bestPop .9s var(--ease-pop); }
+.best-flash { position: absolute; left: 50%; top: -34px; transform: translate(-50%, 0) scale(.6); opacity: 0; padding: 8px 30px; border-radius: 999px; white-space: nowrap; pointer-events: none; z-index: 8; background: linear-gradient(120deg, var(--game-red), var(--gold)); color: #fff; font-size: 34px; font-weight: 900; text-shadow: var(--ts-1); box-shadow: var(--glow-m); }
+.best-flash.show { animation: bestFlash 2.8s var(--ease-pop) forwards; }
+.excel-row.rank-moving, .dr-row.rank-moving { position: relative; z-index: 6; }
+.excel-row.rank-moving.rank-go, .dr-row.rank-moving.rank-go { transition: top var(--t-slow) var(--ease), left var(--t-slow) var(--ease); }
+.excel-row.rank-up::after, .dr-row.rank-up::after { content: ""; position: absolute; inset: -2px; border-radius: var(--r-s); pointer-events: none; animation: rankUpGlow 1.3s ease-out forwards; }
 .excel-row:nth-child(even) { background: rgba(255,255,255,0.03); }
 .excel-row.rank-1 { background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.20), transparent 70%); }
 .rank-1 .r-rank { background: var(--gold); color: var(--on-gold); }
@@ -41,6 +59,7 @@
 .goal-rail-amt { display: block; font-size: 30px; font-weight: 900; color: var(--gold); line-height: 1.1; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 body.game-on .goal-rail-tip { opacity: 0; }
 body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none; }
+body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
 .goal-rail-tip { transition: bottom var(--t-slow) var(--ease), opacity var(--t-base) ease; }
 .goal-rail.goal-flash { animation: goalRailFlash 1.1s ease-in-out 3; }
 .acc-box-v2 { display: flex; align-items: center; gap: 12px; /* ⚠️ box-sizing 이 content-box 라 테두리가 높이에 더해진다 — 48 로 적으면 50 이 되어 머리 줄 밖으로 삐져나갔다. */ box-sizing: border-box; height: 48px; padding: 0 16px 0 0; width: max-content; max-width: 640px; white-space: nowrap; border-radius: var(--r-s); overflow: hidden; }
@@ -258,28 +277,28 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .fundjar-box.jar-pop .jar-glow { opacity: 1; }
 .vip-badge-tag { display: inline-block; background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)); color: var(--vip-glow-color, var(--gold)); border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3)); /* 이름 위에 제 줄로 올린다 — 한 줄에 같이 두면 이름을 밀어낸다 */ display: block; width: max-content; margin: 0 auto 10px; /* ⚠️ 27px 밑으로 내리지 말 것 — 폰에서 2.7배 작아져 10px 밑이 된다(검사가 잡는다) */ padding: 3px 14px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; }
 #toon-popup.vip-rank-top .vip-badge-tag { background: none; border: none; padding: 0; margin: 0 auto 12px; font-size: 32px; font-weight: 900; letter-spacing: 7px; text-shadow: 0 0 16px var(--vip-glow-color-border, var(--gold-glow)); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content) { border: 4px solid transparent; background: var(--frame-fill) padding-box, var(--frame) border-box; border-radius: var(--glass-radius); box-shadow: var(--frame-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -12px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content)::before { content: none; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board) { border: 4px solid transparent; background: var(--frame-fill) padding-box, var(--frame) border-box; border-radius: var(--glass-radius); box-shadow: var(--frame-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -12px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board)::before { content: none; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2 { outline: none; overflow: visible; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-ico { border-radius: calc(var(--glass-radius) - 4px) 0 0 calc(var(--glass-radius) - 4px); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail { background: var(--rail-bg); border-color: rgba(var(--gold-rgb), .75); box-shadow: var(--sh-2), inset 0 0 12px rgba(0, 0, 0, .35), 0 0 18px var(--gold-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: 3px; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content)::after { content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none; background: var(--orn-top) left top / 44px 44px no-repeat, var(--orn-top) right top / 44px 44px no-repeat, var(--orn-bottom) left bottom / 44px 44px no-repeat, var(--orn-bottom) right bottom / 44px 44px no-repeat; filter: drop-shadow(0 3px 3px rgba(60, 0, 30, .45)); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board)::after { content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none; background: var(--orn-top) left top / 44px 44px no-repeat, var(--orn-top) right top / 44px 44px no-repeat, var(--orn-bottom) left bottom / 44px 44px no-repeat, var(--orn-bottom) right bottom / 44px 44px no-repeat; filter: drop-shadow(0 3px 3px rgba(60, 0, 30, .45)); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2::after { content: ""; position: absolute; inset: -14px; z-index: 6; pointer-events: none; /* ⚠️ 오른쪽 아래에도 달았더니 바로 밑 랭킹판의 오른쪽 위 장식과 부딪혔다 — 하나만 단다 */ background: var(--orn-top) left top / 34px 34px no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .45)); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-row.rank-1 .r-rank, .dr-row.top1 .dr-no) { position: relative; overflow: visible; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-rank::after, body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { /* ⚠️ 배지 한가운데 위에 얹었더니 왕관 밑둥이 숫자 '1' 머리를 덮어 'T' 로 읽혔다. 모서리에 비스듬히 얹는다. */ content: ""; position: absolute; left: -12px; top: -15px; width: 28px; height: 28px; transform: rotate(-22deg); pointer-events: none; background: var(--crown) center / contain no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .5)); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .sig-tally-header, .jar-title) { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: var(--label-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .sig-tally-header, .jar-title, .best-head) { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title, .best-head) { font-family: var(--face-label); font-weight: var(--label-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .jar-title { padding-inline: 30px; }
 body:is(.theme-rose, .theme-pastel, .theme-chuseok) .r-rank { border-radius: 50%; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank, body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name, .best-name, .best-member:not(.empty)) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt, .r-contrib) { font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name, .best-lab, .best-won) { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: var(--label-weight); }
@@ -287,11 +306,12 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-empty { color: var(--ink-soft); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) { color: var(--num-color); background-image: var(--num-fill); -webkit-background-clip: var(--num-clip); background-clip: var(--num-clip); text-shadow: var(--num-shadow); filter: var(--num-edge); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt) { font-family: var(--face-big); font-weight: var(--big-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt, .best-amt) { color: var(--num-color); background-image: var(--num-fill); -webkit-background-clip: var(--num-clip); background-clip: var(--num-clip); text-shadow: var(--num-shadow); filter: var(--num-edge); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .best-amt) { font-family: var(--face-big); font-weight: var(--big-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .row-bottom .b-score { font-family: var(--face-num); font-weight: var(--num-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
 body.theme-pastel .notice-board { background: var(--frame-fill); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .best-medal { border: 5px solid transparent; background: radial-gradient(circle at 50% 35%, rgba(var(--gold-rgb), .2), transparent 72%) padding-box, var(--frame-fill) padding-box, var(--frame) border-box; box-shadow: var(--frame-glow); }
 body.theme-pastel .notice-txt { color: var(--ink-name); text-shadow: none; }
 body.theme-pastel .dr-row.dr-vip { background: linear-gradient(90deg, rgba(255, 255, 255, .95), var(--skin-row) 46%) !important; }
 body.theme-pastel #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
@@ -312,4 +332,4 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-timer-pill 
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.m-card-name, .m-vs) { font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .home-race-title { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label); font-weight: var(--label-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.home-race-name, .hr-goal-name) { font-family: var(--face-name); font-weight: var(--name-weight); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-container, #donor-rank-container)::after { content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none; background: var(--spark) 0% 38% / 26px 26px no-repeat, var(--spark) 100% 12% / 22px 22px no-repeat, var(--spark) 58% 100% / 18px 18px no-repeat; animation: themeTwinkle 3.2s ease-in-out infinite; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-container, #donor-rank-container, #best-container)::after { content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none; background: var(--spark) 0% 38% / 26px 26px no-repeat, var(--spark) 100% 12% / 22px 22px no-repeat, var(--spark) 58% 100% / 18px 18px no-repeat; animation: themeTwinkle 3.2s ease-in-out infinite; }

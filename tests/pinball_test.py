@@ -168,7 +168,7 @@ chk('서버 상태에 고른 판이 있다', '"map": -1' in SRV)
 chk('범위를 벗어난 값은 우리 코스로 떨어진다', 'def _pinball_map(' in SRV and 'PINBALL_MAPS' in SRV)
 chk('시작할 때도 판을 받는다', "g['map'] = _pinball_map(body.get('map'))" in SRV)
 chk('방송판이 고른 판을 쓴다 (씨앗으로 안 정한다)',
-    'function pbStart(names, seed, mapIdx)' in OV and 'mapIdx >= 0' in OV)
+    'function pbStart(names, seed, mapIdx' in OV and 'mapIdx >= 0' in OV)
 # ⚠️ 맵 파일을 못 읽었거나 -1 이면 우리 코스로 굴러야 한다. 방송이 빈 화면이 되면 안 된다.
 chk('판을 못 쓰면 우리 코스로 굴린다',
     'if (!bodies) {' in OV and 'PB_WORLD = PB_WORLD_OWN; pbMapTitle' in OV)
@@ -611,6 +611,21 @@ if _js and _w:
             pass
 else:
     chk('방송판 당첨자 셈을 찾는다', False)
+
+print()
+print('=' * 74)
+print('🎱 굴리기 전 대기 화면')
+print('=' * 74)
+# 대표님이 고른 것(2026-09-18): 굴리기 전엔 빈 검은 상자만 떠 있었다.
+chk('굴리기 전엔 코스와 구슬을 한 장 그린다', 'pbStart(list, Number(g.seed) || 1, map, true);' in OV)
+# ⚠️ 미리보기에서 물리를 돌리면 구슬이 먼저 떨어져 버린다 — 한 장만 그리고 끝낸다
+chk('미리보기는 물리를 안 민다', 'if (previewOnly) { pbDraw(); return; }' in OV)
+# ⚠️ SSE 가 올 때마다 판을 다시 지으면 방송 컴퓨터가 쉬지 못한다 — 명단·판이 바뀔 때만
+chk('같은 명단이면 다시 안 짓는다', 'key !== pbPreviewKey' in OV and 'pbPreviewKey = key;' in OV)
+chk('굴리기 시작하면 대기 딱지를 내린다', 'pbPreviewKey = null;\n                    pbShowWinner(null);\n                    pbShowReady(0);' in OV)
+chk('대기 딱지가 있다', 'id="pb-ready"' in OV and 'function pbShowReady(' in OV)
+# ⚠️ 결과가 있으면(판이 끝났으면) 대기 화면을 안 그린다 — 1등 딱지를 덮는다
+chk('끝난 판에는 대기 화면을 안 그린다', 'if (!res.length) {' in OV)
 
 print()
 print('=' * 74)

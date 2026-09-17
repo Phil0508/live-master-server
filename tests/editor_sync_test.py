@@ -171,6 +171,7 @@ WANT = {                       # 위젯: (왼쪽, 위, 왜)
     'dicegame':   (6,   307, '게임 자리'),
     'pinball':    (50,  300, '🎱 구슬 핀볼 — 게임 자리'),
     'donor-rank': (658, 387, '오른쪽 끝 1038 · 폭 380'),
+    'best':       (40,  400, '💥 오른쪽 끝 640 — 후원 순위판(658) 앞'),
     'sig-tally':  (800, 315, ''),
     'home-race':  (92,  167, '오른쪽 42 기준 · 폭 946 (판을 540→900 으로 넓혔다)'),
     'match':      (288, 795, ''),
@@ -240,7 +241,7 @@ _after = ad.find('</div>' + _nl + ' ' * 12 + '</div>', _last)
 _end = _after if _after > 0 else len(ad)
 _starts = [m.start() for m in re.finditer(r'<div class="widget" id="', ad)
            if _board < m.start() < _end]
-chk('무대 안에서 위젯을 찾았다', len(_starts) == 20, '%d개' % len(_starts))   # 🏺 모금함이 늘었다
+chk('무대 안에서 위젯을 찾았다', len(_starts) == 21, '%d개' % len(_starts))   # 💥 한 방 최고 후원이 늘었다   # 🏺 모금함이 늘었다
 
 
 def _depth(seg):

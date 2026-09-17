@@ -1638,6 +1638,11 @@ DEFAULT_STATE = {
     # 🏅 후원 순위 위젯 — 누가 이번 방송에 얼마를 넣었나
     #    이름·순위는 항상 보이고, 금액과 익명 포함 여부는 켜고 끌 수 있다.
     "donor_rank_enabled": False,    # 기본 꺼짐 — 켜야 방송 화면에 뜬다
+    "best_enabled": False,          # 💥 한 방 최고 후원 위젯 — 켜야 방송 화면에 뜬다
+    # 💥 이번 방송 '한 방' 최고 후원. 후원이 들어올 때 서버가 적고, 조종실에서 배정하면 받은 멤버가 붙는다.
+    #    ⚠️ 방송 1회분이다(reset_session_keys). 밖에서 못 덮게 SERVER_OWNED · PATCH_DENY 에 넣었다.
+    #    ⚠️ 고칠 때는 사전을 **새로 만들어** 넣는다 — 이 기본값 객체를 그대로 고치면 다음 방송이 물고 시작한다.
+    "best_single": {"name": "", "amount": 0, "at": 0, "id": None, "member": ""},
     "donor_rank_limit": 5,          # 화면에 표시할 인원
     "donor_rank_amount": True,      # 금액도 보여줄지 (끄면 이름·순위만)
     "donor_rank_anon": False,       # 익명 후원을 순위에 넣을지
@@ -2319,6 +2324,7 @@ def reset_session_keys(state):
     state['sig_tally'] = {}            # 시그니처 신청 집계도 방송 1회분 기록이라 비운다
     state['donor_tally'] = {}          # 후원 순위도 이번 방송분만 센다
     state['notice_donors'] = []        # 전광판 소액 후원자도 이번 방송분만
+    state['best_single'] = {"name": "", "amount": 0, "at": 0, "id": None, "member": ""}   # 💥 한 방 최고 후원도 이번 방송분만
     # 💰 게이지 보정도 이번 방송 것이다.
     #    ⚠️ 방송 종료 쪽에서만 0 으로 돌리고 있었다. 그런데 load_data() 는 메모리 상태를
     #       그대로 돌려주므로, 종료를 안 거치고 다음 방송을 시작하면 지난주 보정값이
@@ -4237,6 +4243,24 @@ def receive_donation():
             except Exception as _e:
                 print(f"⚠️ [후원 순위 집계 실패] {_e}")
 
+            # 💥 한 방 최고 후원 — 이번 방송에서 **한 번에** 가장 크게 보낸 후원.
+            #    ⚠️ 순위에서 빼둔 이름(테스트 후원 등)은 기록하지 않는다.
+            #    ⚠️ 같은 금액이면 **먼저 보낸 분**이 자리를 지킨다(크다만 본다, 같거나 크다가 아니다).
+            #    ⚠️ 사전을 새로 만들어 넣는다 — 기본값 객체를 고치면 다음 방송이 이 기록을 물고 시작한다.
+            try:
+                if amount > 0 and _norm_donor(parsed_name) not in excluded_names():
+                    _bs = state.get('best_single') or {}
+                    if amount > int(_bs.get('amount') or 0):
+                        state['best_single'] = {
+                            'name': ' '.join(str(parsed_name or '').split()) or '익명',
+                            'amount': amount,
+                            'at': int(time.time() * 1000),
+                            'id': don_id,
+                            'member': '',
+                        }
+            except Exception as _e:
+                print(f"⚠️ [한 방 최고 후원 기록 실패] {_e}")
+
             # 💛 소액 후원은 전광판에 이름을 올린다 — 시그니처 대신 이걸로 고마움을 전한다.
             #    ⚠️ 순위에서 빼둔 이름(테스트 후원 등)은 여기서도 뺀다. 익명은 그대로 올린다 —
             #       익명으로 보낸 사람도 방송에서 인사를 받아야 한다.
@@ -4648,7 +4672,7 @@ def api_data():
             #      상금이 어긋난다(운영비 점수를 지키는 것과 똑같은 이유다).
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
-                            'fundjar', 'announce_bot', 'pinball')
+                            'fundjar', 'announce_bot', 'pinball', 'best_single')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -6650,6 +6674,8 @@ PATCH_DENY = frozenset((
     'dicegame',
     # 🎱 핀볼도 같다. 특히 round_id·running 이 밖에서 바뀌면 늦게 온 결과를 못 가려낸다.
     'pinball',
+    # 💥 한 방 최고 후원도 후원 접수·배정 때만 서버가 적는다
+    'best_single',
 ))
 
 
@@ -7001,6 +7027,18 @@ def api_score_add():
                         state['latest_takeover'] = {"time": int(time.time() * 1000), "name": curr}
 
             if pending_id:
+                # 💥 배정한 후원이 '한 방 최고 후원' 이면 **받은 멤버**를 붙인다
+                #    (XL 방송판처럼 '누가 · 누구에게 · 얼마' 가 한 번에 보이게)
+                try:
+                    _bs = state.get('best_single') or {}
+                    if _bs.get('id') and _bs.get('id') == pending_id:
+                        _who = [a.get('name') for a in applied if a.get('name')]
+                        _label = {'jar': '🏺 기여도 상금', 'bot': '운영비'}.get(scope)
+                        _bs = dict(_bs)
+                        _bs['member'] = _label or ' · '.join(_who[:3])
+                        state['best_single'] = _bs
+                except Exception as _e:
+                    print(f"⚠️ [한 방 최고 후원 멤버 붙이기 실패] {_e}")
                 pend = state.get('pending_donations') or []
                 state['pending_donations'] = [d for d in pend if d.get('id') != pending_id]
 
