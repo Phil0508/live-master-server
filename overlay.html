@@ -396,6 +396,19 @@
             100% { opacity: 0; transform: translate(-50%, -22px) scale(.96); }
         }
 
+        /* 🌕 추석 보름달 — 큰 후원이 오면 후원 알림 뒤에서 떠오른다(달토끼 그림은 추석 테마의 --crown).
+           ⚠️ 추석 테마가 아니면 부르지 않는다. 알림(100005) 바로 뒤에 깐다. */
+        .theme-moon { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px;
+            border-radius: 50%; pointer-events: none; z-index: 100004; opacity: 0; transform: translateY(260px) scale(.7);
+            background: var(--crown, none) center / 88% no-repeat,
+                        radial-gradient(circle, rgba(255, 231, 160, .55) 0%, rgba(255, 215, 106, .18) 46%, transparent 70%); }
+        .theme-moon.rise { animation: moonRise 3.2s var(--ease) forwards; }
+        @keyframes moonRise {
+            0%   { opacity: 0;   transform: translateY(260px) scale(.7); }
+            35%  { opacity: .95; transform: translateY(-120px) scale(1); }
+            75%  { opacity: .9;  transform: translateY(-140px) scale(1); }
+            100% { opacity: 0;   transform: translateY(-170px) scale(1.04); }
+        }
         /* 🔀 자리 바뀜 — 순위가 바뀌면 줄이 옛 자리에서 새 자리로 미끄러진다.
            ⚠️ transform 으로 옮기면 안 된다. 기여도가 오른 줄은 같은 순간에 excelPop(transform: scale)
               연출을 타는데, 애니메이션이 인라인 transform 을 덮어써서 미끄러짐이 통째로 사라진다.
@@ -2704,6 +2717,7 @@
                 <div id="acct-video-frame" style="width:100%; height:100%;"></div>
             </div>
 
+            <div id="theme-moon" class="theme-moon" aria-hidden="true"></div>
             <div id="toon-popup-container">
                 <div id="toon-popup" class="donation-popup-content">
                     <!-- 🎖️ 등급 장식 자리 (1위 훈장 · 2~3위 머리띠). 4위 이하면 비어 있다. -->
@@ -4899,6 +4913,60 @@
             }
         }
 
+        /* 🎆 테마별 후원 연출 — 테마 모양 입자를 뿌린다.
+           ⚠️ 예전에 '후원 터질 때 나오던 카지노 컨페티' 를 대표님 요청으로 뺐다(showToonPopup 기록).
+              그래서 **기본 테마에서는 아무것도 안 한다.** 테마를 입었을 때만 적게 뿌리고, 큰 후원일수록 조금 커진다.
+              조종실 '✨ 테마 연출' 을 끄면 테마를 입어도 안 뿌린다.
+           ⚠️ 폭죽 파일을 못 읽었어도 후원 알림은 그대로 떠야 한다 — 전부 try 안에서만. */
+        let themeFxOn = true;
+        const THEME_BURST = {
+            'theme-rose':    { colors: ['#ff9cc2', '#ffe0ec', '#e8a5b5', '#ffffff'], shape: 'heart', scalar: 1.7 },
+            'theme-pastel':  { colors: ['#ff8fb8', '#c9a7f2', '#ffd1e3', '#ffffff'], shape: 'bow',   scalar: 1.9 },
+            'theme-royal':   { colors: ['#e9bd5c', '#fff0b8', '#ff4f9a', '#9f76e6'], shape: 'gem',   scalar: 1.5 },
+            'theme-chuseok': { colors: ['#ffd76a', '#fff3c4', '#f2c230', '#ffe7a0'], shape: 'dust',  scalar: .75, moon: true },
+        };
+        let _burstShapes = null;
+        function burstShapes() {
+            if (_burstShapes) return _burstShapes;
+            _burstShapes = {};
+            try {
+                const P = (typeof confetti === 'function' && confetti.shapeFromPath) ? confetti.shapeFromPath : null;
+                if (P) {
+                    _burstShapes.heart = P({ path: 'M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z' });
+                    _burstShapes.gem = P({ path: 'M12 2 21 12 12 22 3 12z' });
+                    _burstShapes.bow = P({ path: 'M12 11C9 6 3 5 2.5 8.5 2 12 6 14 11.5 12.5zM12 11c3-5 9-6 9.5-2.5.5 3.5-3.5 5.5-9 4z' });
+                }
+            } catch (e) {}
+            return _burstShapes;
+        }
+        /* kind: 'donation' (후원 알림) · 'best' (한 방 기록 갱신) · 'win' (핀볼 우승) */
+        function themeBurst(anchorEl, kind, amount) {
+            if (!themeFxOn || !themeNow || typeof confetti !== 'function') return false;
+            const t = THEME_BURST[themeNow];
+            if (!t) return false;
+            try {
+                const r = anchorEl ? anchorEl.getBoundingClientRect() : null;
+                const ox = (r && r.width) ? (r.left + r.width / 2) / window.innerWidth : 0.5;
+                const oy = (r && r.height) ? (r.top + r.height * 0.4) / window.innerHeight : 0.45;
+                const amt = Number(amount) || 0;
+                const lvl = (kind === 'donation') ? (amt >= 100000 ? 3 : (amt >= 30000 ? 2 : 1)) : 3;
+                const shape = burstShapes()[t.shape];
+                confetti({
+                    particleCount: [0, 14, 30, 60][lvl] * (t.shape === 'dust' ? 2 : 1),
+                    spread: 55 + lvl * 20, startVelocity: 20 + lvl * 8,
+                    gravity: t.shape === 'dust' ? 0.45 : 0.9, ticks: 150 + lvl * 50, drift: 0,
+                    origin: { x: ox, y: oy }, colors: t.colors,
+                    shapes: shape ? [shape] : ['circle'], scalar: t.scalar, zIndex: 100006
+                });
+                // 🌕 추석 — 큰 후원(3만 원 이상)이나 기록 갱신·우승이면 보름달이 떠오른다
+                if (t.moon && lvl >= 2) {
+                    const m = document.getElementById('theme-moon');
+                    if (m) { m.classList.remove('rise'); void m.offsetWidth; m.classList.add('rise'); }
+                }
+                return true;
+            } catch (e) { return false; }
+        }
+
         /* 💥 한 방 최고 후원 — 서버가 적어 둔 기록을 그린다.
            ⚠️ 기록이 **바뀌는 순간**(at 이 달라짐)에만 '최고 기록 갱신!' 을 띄운다. 방송판을 새로 연 첫 그림에서
               띄우면 OBS 를 켤 때마다 가짜 갱신 연출이 나간다 — 첫 값은 기억만 한다(bestSeenAt === null). */
@@ -5018,6 +5086,7 @@
             /* 🎀 테마 — ⚠️ 방송 꺼짐 return 보다 **앞**에 둔다. 예전엔 뒤에 있어서 방송 시작 전에는
                   테마를 골라도 안 바뀌었다(편집기 무대·방송 준비 화면에서 확인할 수가 없었다). */
             applyTheme(d.theme);
+            themeFxOn = d.theme_fx_enabled !== false;   // ✨ 조종실 '테마 연출' (옛 저장본엔 칸이 없다 — 켠 것으로)
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
@@ -7242,6 +7311,8 @@
 
             // (후원 터질 때 나오던 카지노 컨페티는 사용자 요청으로 제거함.
             //  슬롯 당첨·목표달성 컨페티는 별도 로직이라 그대로 유지된다.)
+            // 🎆 테마를 입었을 때만 그 테마 모양 입자를 적게 뿌린다(기본 테마는 여전히 아무것도 안 한다)
+            try { themeBurst(p, 'donation', donation.amount); } catch (e) {}
             } catch (e) {
                 // ⚠️ 팝업 '그리기'가 실패해도 아래 타이머는 반드시 걸려야 한다.
                 //    안 그러면 isDonationPopupShowing 이 true 로 굳어 checkReactionQueue 가
@@ -8755,6 +8826,8 @@
             if (!box) return;
             const r = box.getBoundingClientRect();
             if (!r.width || !r.height) return;
+            // 🎆 테마를 입었으면 그 테마 모양으로 터뜨린다
+            try { if (themeBurst(box, 'win')) return; } catch (e) {}
             try {
                 confetti({
                     particleCount: 160, spread: 95, startVelocity: 42,

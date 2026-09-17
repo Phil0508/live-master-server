@@ -1478,7 +1478,7 @@
             </div>
 
             <div class="control-group" style="margin-bottom: 15px;">
-                <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-palette"></i> 테마:</label><select id="sel-theme" onchange="updateTheme()" title="방송 화면 위젯의 옷을 바꿉니다. 자리·크기는 그대로입니다."><option value="default">기본 (금색 유리판)</option><option value="rose">👑 로즈골드</option><option value="pastel">🎀 파스텔</option><option value="royal">💎 로얄</option><option value="chuseok">🌕 추석</option></select>
+                <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-palette"></i> 테마:</label><select id="sel-theme" onchange="updateTheme()" title="방송 화면 위젯의 옷을 바꿉니다. 자리·크기는 그대로입니다."><option value="default">기본 (금색 유리판)</option><option value="rose">👑 로즈골드</option><option value="pastel">🎀 파스텔</option><option value="royal">💎 로얄</option><option value="chuseok">🌕 추석</option></select><label title="테마를 입었을 때 후원 알림에 테마 모양 입자(하트·리본·보석·금가루)를 조금 뿌립니다. 기본 테마에서는 원래대로 아무것도 안 나옵니다." style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size: var(--fs-3); font-weight:600; margin:0 6px;"><input type="checkbox" id="chk-theme-fx" onchange="toggleOption('theme_fx_enabled')" style="margin:0;"> ✨ 테마 연출</label>
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-bullseye"></i> 목표치:</label><input type="number" id="in-goal" onchange="updateGoal()" style="width: 100px;">
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600; margin-left:10px;" title="막대에 뜨는 현재 금액에 이만큼 더하거나(+) 뺍니다(−). 선수 점수·운영비는 안 건드립니다. 방송을 끝내면 0 으로 돌아갑니다."><i class="fa-solid fa-sliders"></i> 게이지 보정:</label><input type="number" id="in-offset" onchange="updateOffset()" placeholder="±원" style="width: 100px;">
                 <div style="display: flex; flex: 1; align-items: center; gap: 10px; background: rgba(255, 207, 77, 0.05); padding: 8px 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255, 207, 77, 0.3); margin-left: 10px;">
@@ -3506,6 +3506,7 @@
             const setHtml = (id, val) => { let el = document.getElementById(id); if(el && el.innerHTML !== val) el.innerHTML = val; };
 
             setVal('sel-theme', (gd.theme === 'pink' ? 'rose' : gd.theme) || 'default');   // 'pink' = 뺀 옛 네온 핑크
+            setChk('chk-theme-fx', gd.theme_fx_enabled !== false);
             setVal('in-goal', gd.target_goal); commaFormat('in-goal');
             setVal('in-offset', gd.goal_offset || 0); commaFormat('in-offset');
             

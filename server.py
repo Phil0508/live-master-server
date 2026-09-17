@@ -1616,6 +1616,7 @@ DEFAULT_STATE = {
     "target_goal": 50000,
     "goal_offset": 0,          # 💰 게이지 보정(원). 막대의 현재 금액에만 ± 로 얹는다. 방송 끝나면 0
     "theme": "default",
+    "theme_fx_enabled": True,   # ✨ 테마를 입었을 때 후원 알림에 테마 모양 입자(하트·리본·보석·금가루)를 뿌릴지
     "reaction_mode": False,
     "reaction_queue": [],
     "reaction_volume": 0.5,
@@ -5679,6 +5680,14 @@ def reset_server_database():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# 방송을 시작·종료해도 DB 에서 안 지우는 설정 칸.
+# ⚠️ 물음표 개수를 손으로 세지 않는다 — 칸을 하나 더하고 물음표를 안 늘려서
+#    방송 시작·종료가 통째로 500 으로 죽을 뻔했다(2026-09-18, 테마 연출 칸).
+BROADCAST_KEEP_KEYS = ('theme', 'theme_fx_enabled', 'neon_speed', 'saved_colors', 'target_goal', 'account',
+                       'effect_rules', 'screen_effect', 'ticker_enabled', 'ticker_speed', 'ticker_text',
+                       'totp_secret')
+
+
 @app.route('/api/server/end_broadcast', methods=['POST'])
 def end_broadcast():
     try:
@@ -5716,8 +5725,8 @@ def end_broadcast():
                 cursor.execute(db_query("DELETE FROM snapshots"))
                 # Delete kv_store keys that are NOT persistent configurations
                 cursor.execute(
-                    db_query("DELETE FROM kv_store WHERE key NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"), 
-                    ('theme', 'neon_speed', 'saved_colors', 'target_goal', 'account', 'effect_rules', 'screen_effect', 'ticker_enabled', 'ticker_speed', 'ticker_text', 'totp_secret')
+                    db_query("DELETE FROM kv_store WHERE key NOT IN (%s)" % ', '.join('?' * len(BROADCAST_KEEP_KEYS))),
+                    BROADCAST_KEEP_KEYS
                 )
             
             # 초기화가 끝난 뒤에 백업 스냅샷을 넣어야 살아남는다 (되돌리기 지점)
@@ -5798,8 +5807,8 @@ def start_broadcast():
                 cursor.execute(db_query("DELETE FROM snapshots"))
                 # Delete kv_store keys that are NOT persistent configurations
                 cursor.execute(
-                    db_query("DELETE FROM kv_store WHERE key NOT IN (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"), 
-                    ('theme', 'neon_speed', 'saved_colors', 'target_goal', 'account', 'effect_rules', 'screen_effect', 'ticker_enabled', 'ticker_speed', 'ticker_text', 'totp_secret')
+                    db_query("DELETE FROM kv_store WHERE key NOT IN (%s)" % ', '.join('?' * len(BROADCAST_KEEP_KEYS))),
+                    BROADCAST_KEEP_KEYS
                 )
             
             # 2. Get current state from database (which will have only configurations preserved)
