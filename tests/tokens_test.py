@@ -136,20 +136,20 @@ print('=' * 74)
 CTL = rd('controller.html')
 _sel = re.search(r'<select id="sel-theme".*?</select>', CTL, re.S)
 _opts = re.findall(r'value="(\w+)"', _sel.group(0)) if _sel else []
-chk('조종실 테마 칸에 세 벌이 있다', _opts == ['default', 'rose', 'pastel', 'royal'], _opts)
+chk('조종실 테마 칸에 네 벌이 있다 (추석 포함)', _opts == ['default', 'rose', 'pastel', 'royal', 'chuseok'], _opts)
 chk('옛 네온 핑크는 목록에서 뺐다', 'pink' not in _opts)
 chk('옛 저장값 pink 는 로즈골드로 읽는다 (조종실)', "gd.theme === 'pink' ? 'rose'" in CTL)
 chk("옛 저장값 pink 는 로즈골드로 읽는다 (방송판)", "if (t === 'pink') t = 'rose';" in OV)
 
 _ts = CSS.index('🎀 방송판 테마 —')
 THEME = CSS[_ts:]
-_blk = {t: re.search(r'body\.theme-%s \{(.*?)\n        \}' % t, THEME, re.S) for t in ('rose', 'pastel', 'royal')}
-chk('세 벌 모두 토큰 묶음이 있다', all(_blk.values()), [t for t, b in _blk.items() if not b])
+_blk = {t: re.search(r'body\.theme-%s \{(.*?)\n        \}' % t, THEME, re.S) for t in ('rose', 'pastel', 'royal', 'chuseok')}
+chk('네 벌 모두 토큰 묶음이 있다', all(_blk.values()), [t for t, b in _blk.items() if not b])
 # 금색을 하나라도 안 덮으면 그 토큰을 쓰는 위젯은 금색으로 남는다 — 네온 핑크가 그랬다
 _GOLD = ['--gold:', '--gold-rgb:', '--gold-light:', '--gold-deep:', '--gold-glow:', '--on-gold:',
          '--silver:', '--bronze:', '--accent:', '--theme-neon:']
 _miss = ['%s %s' % (t, k) for t, b in _blk.items() if b for k in _GOLD if k not in b.group(1)]
-chk('세 벌 모두 금색 토큰을 빠짐없이 덮는다 (%d개씩)' % len(_GOLD), not _miss, _miss[:4])
+chk('네 벌 모두 금색 토큰을 빠짐없이 덮는다 (%d개씩)' % len(_GOLD), not _miss, _miss[:4])
 # ⚠️ 파스텔은 속이 밝다. --glass-bg 를 밝히면 흰 글씨를 쓰는 위젯이 전부 안 보인다.
 chk('파스텔은 유리판 배경(--glass-bg)을 통째로 밝히지 않는다',
     bool(_blk['pastel']) and '--glass-bg' not in _blk['pastel'].group(1))
@@ -186,6 +186,44 @@ chk('룰렛 테두리도 테마 금색을 따른다', "getPropertyValue('--gold'
 chk('룰렛은 그릴 때마다 스타일을 재지 않는다',
     "(typeof themeGold === 'string' && themeGold)" in OV and OV.count("getPropertyValue('--gold')") == 1)
 chk('테마가 안 바뀌면 아무것도 안 한다 (SSE 마다 불린다)', 'if (want === themeNow) return;' in OV)
+
+# 🌕 추석 (대표님 2026-09-17: "담주가 추석이라 추석테마 만들자")
+chk('추석: 조종실 · 방송판 목록에 있다', "'chuseok'" in OV and 'value="chuseok"' in CTL)
+chk('추석: 옷 입히는 규칙이 추석에도 걸린다',
+    THEME.count('body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok)') > 30
+    and 'body:is(.theme-rose, .theme-pastel, .theme-royal)' not in THEME)
+chk('추석: 색동 테두리 · 보름달 · 송편 · 달토끼가 있다',
+    bool(_blk['chuseok']) and 'repeating-linear-gradient(135deg, #e8664e' in _blk['chuseok'].group(1)
+    and _blk['chuseok'].group(1).count('data:image/svg+xml') == 4)
+chk('추석: 송명체를 받는다', 'family=Song+Myung' in OV)
+
+print()
+print('=' * 74)
+print('⑦ 🎲 게임판에도 테마 — 뜻이 있는 색은 안 건드리는가')
+print('=' * 74)
+# ⚠️ 게임판 글씨는 흰색이다. 파스텔의 밝은 속을 깔면 칸 이름 · 카드 · 릴이 안 보인다.
+_gm = ['%s %s' % (t, k) for t, b in _blk.items() if b
+       for k in ('--game-fill:', '--tile-fill:', '--tile-blank:', '--canvas-bg:', '--piece-fill:', '--race:', '--race-rgb:')
+       if k not in b.group(1)]
+chk('네 벌 모두 게임판 토큰이 있다', not _gm, _gm[:4])
+chk('게임판은 진한 속(--game-fill)을 쓴다 — 밝은 속(--frame-fill)이 아니다',
+    'background: var(--game-fill) padding-box, var(--frame) border-box' in THEME
+    and re.search(r':is\(\.sg-board, \.slot-card, \.home-race-box, \.dg-card\) \{[^}]*--frame-fill', THEME) is None)
+chk('파스텔 게임판 속은 진하다',
+    bool(_blk['pastel']) and '--game-fill: linear-gradient(165deg, rgba(109, 74, 130' in _blk['pastel'].group(1))
+for _nm, _sel in (('주사위 칸', '.dg-tile {'), ('시그뒤집기 카드 뒷면', '.sg-back {'), ('슬롯 릴', '.slot-reel {'),
+                  ('룰렛 겉판', '.roulette-wrap {'), ('핀볼 판', '#pb-canvas {'), ('대결 카드', '.m-card {'),
+                  ('퇴근빵 머리', '.home-race-title {')):
+    chk('게임판 옷: ' + _nm, _sel in THEME)
+# 룰렛 겉판은 인라인 style — !important 없이는 안 덮인다
+chk('룰렛 겉판의 인라인 모양(모서리 자르기 · 검은 사선)을 덮는다',
+    'clip-path: none !important;' in THEME and 'var(--frame) border-box !important;' in THEME)
+# 뜻이 있는 색 — 주사위 칸 종류 · 대결 팀 · 핀볼 구슬 · 시간 급함 빨강
+chk('주사위 칸 종류 색(--dg-c)을 안 바꾼다', '--dg-c' not in THEME)
+chk('대결 팀 색을 안 바꾼다', '--team-color' not in THEME and '.m-seg' not in THEME)
+chk('핀볼 구슬 색을 안 바꾼다', 'PB_COLS' not in THEME and 'pbColor' not in THEME)
+chk("시그뒤집기 '시간 급함' 빨강을 안 덮는다", '.sg-header.urgent' not in THEME and '--game-red' not in THEME)
+chk('주사위 말은 사람 색이 있으면 그걸 쓴다', 'background: var(--dg-p-bg, var(--piece-fill))' in THEME)
 
 print()
 print('=' * 74)

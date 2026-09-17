@@ -258,40 +258,57 @@ body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none
 .fundjar-box.jar-pop .jar-glow { opacity: 1; }
 .vip-badge-tag { display: inline-block; background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15)); color: var(--vip-glow-color, var(--gold)); border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3)); /* 이름 위에 제 줄로 올린다 — 한 줄에 같이 두면 이름을 밀어낸다 */ display: block; width: max-content; margin: 0 auto 10px; /* ⚠️ 27px 밑으로 내리지 말 것 — 폰에서 2.7배 작아져 10px 밑이 된다(검사가 잡는다) */ padding: 3px 14px; border-radius: var(--r-s); font-size: 27px; font-weight: 800; }
 #toon-popup.vip-rank-top .vip-badge-tag { background: none; border: none; padding: 0; margin: 0 auto 12px; font-size: 32px; font-weight: 900; letter-spacing: 7px; text-shadow: 0 0 16px var(--vip-glow-color-border, var(--gold-glow)); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content) { border: 4px solid transparent; background: var(--frame-fill) padding-box, var(--frame) border-box; border-radius: var(--glass-radius); box-shadow: var(--frame-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -12px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content)::before { content: none; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-box-v2 { outline: none; overflow: visible; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-ico { border-radius: calc(var(--glass-radius) - 4px) 0 0 calc(var(--glass-radius) - 4px); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .goal-rail { background: var(--rail-bg); border-color: rgba(var(--gold-rgb), .75); box-shadow: var(--sh-2), inset 0 0 12px rgba(0, 0, 0, .35), 0 0 18px var(--gold-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: 3px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content)::after { content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none; background: var(--orn-top) left top / 44px 44px no-repeat, var(--orn-top) right top / 44px 44px no-repeat, var(--orn-bottom) left bottom / 44px 44px no-repeat, var(--orn-bottom) right bottom / 44px 44px no-repeat; filter: drop-shadow(0 3px 3px rgba(60, 0, 30, .45)); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-box-v2::after { content: ""; position: absolute; inset: -14px; z-index: 6; pointer-events: none; /* ⚠️ 오른쪽 아래에도 달았더니 바로 밑 랭킹판의 오른쪽 위 장식과 부딪혔다 — 하나만 단다 */ background: var(--orn-top) left top / 34px 34px no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .45)); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-row.rank-1 .r-rank, .dr-row.top1 .dr-no) { position: relative; overflow: visible; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row.rank-1 .r-rank::after, body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row.top1 .dr-no::after { /* ⚠️ 배지 한가운데 위에 얹었더니 왕관 밑둥이 숫자 '1' 머리를 덮어 'T' 로 읽혔다. 모서리에 비스듬히 얹는다. */ content: ""; position: absolute; left: -12px; top: -15px; width: 28px; height: 28px; transform: rotate(-22deg); pointer-events: none; background: var(--crown) center / contain no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .5)); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.donor-rank-header, .sig-tally-header, .jar-title) { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .jar-title { padding-inline: 30px; }
-body:is(.theme-rose, .theme-pastel) .r-rank { border-radius: 50%; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank, body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-name, .dr-row .dr-name, .donator-name) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-score, .dr-row .dr-amt, .r-contrib) { font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-empty { color: var(--ink-soft); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) { color: var(--num-color); background-image: var(--num-fill); -webkit-background-clip: var(--num-clip); background-clip: var(--num-clip); text-shadow: var(--num-shadow); filter: var(--num-edge); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content) { border: 4px solid transparent; background: var(--frame-fill) padding-box, var(--frame) border-box; border-radius: var(--glass-radius); box-shadow: var(--frame-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -12px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content)::before { content: none; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2 { outline: none; overflow: visible; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-ico { border-radius: calc(var(--glass-radius) - 4px) 0 0 calc(var(--glass-radius) - 4px); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail { background: var(--rail-bg); border-color: rgba(var(--gold-rgb), .75); box-shadow: var(--sh-2), inset 0 0 12px rgba(0, 0, 0, .35), 0 0 18px var(--gold-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: 3px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content)::after { content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none; background: var(--orn-top) left top / 44px 44px no-repeat, var(--orn-top) right top / 44px 44px no-repeat, var(--orn-bottom) left bottom / 44px 44px no-repeat, var(--orn-bottom) right bottom / 44px 44px no-repeat; filter: drop-shadow(0 3px 3px rgba(60, 0, 30, .45)); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2::after { content: ""; position: absolute; inset: -14px; z-index: 6; pointer-events: none; /* ⚠️ 오른쪽 아래에도 달았더니 바로 밑 랭킹판의 오른쪽 위 장식과 부딪혔다 — 하나만 단다 */ background: var(--orn-top) left top / 34px 34px no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .45)); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-row.rank-1 .r-rank, .dr-row.top1 .dr-no) { position: relative; overflow: visible; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-rank::after, body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { /* ⚠️ 배지 한가운데 위에 얹었더니 왕관 밑둥이 숫자 '1' 머리를 덮어 'T' 로 읽혔다. 모서리에 비스듬히 얹는다. */ content: ""; position: absolute; left: -12px; top: -15px; width: 28px; height: 28px; transform: rotate(-22deg); pointer-events: none; background: var(--crown) center / contain no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .5)); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .sig-tally-header, .jar-title) { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .jar-title { padding-inline: 30px; }
+body:is(.theme-rose, .theme-pastel, .theme-chuseok) .r-rank { border-radius: 50%; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank, body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt, .r-contrib) { font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-empty { color: var(--ink-soft); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) { color: var(--num-color); background-image: var(--num-fill); -webkit-background-clip: var(--num-clip); background-clip: var(--num-clip); text-shadow: var(--num-shadow); filter: var(--num-edge); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
 body.theme-pastel .notice-board { background: var(--frame-fill); }
 body.theme-pastel .notice-txt { color: var(--ink-name); text-shadow: none; }
 body.theme-pastel .dr-row.dr-vip { background: linear-gradient(90deg, rgba(255, 255, 255, .95), var(--skin-row) 46%) !important; }
 body.theme-pastel #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
-body:is(.theme-rose, .theme-pastel, .theme-royal) :is(#ranking-container, #donor-rank-container)::after { content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none; background: var(--spark) 0% 38% / 26px 26px no-repeat, var(--spark) 100% 12% / 22px 22px no-repeat, var(--spark) 58% 100% / 18px 18px no-repeat; animation: themeTwinkle 3.2s ease-in-out infinite; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.sg-board, .slot-card, .home-race-box, .dg-card) { border: 4px solid transparent; background: var(--game-fill) padding-box, var(--frame) border-box; border-radius: var(--glass-radius); box-shadow: var(--frame-glow); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -12px; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.sg-board, .slot-card)::before { content: none; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.sg-board, .slot-card)::after { content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none; background: var(--orn-top) left top / 44px 44px no-repeat, var(--orn-top) right top / 44px 44px no-repeat, var(--orn-bottom) left bottom / 44px 44px no-repeat, var(--orn-bottom) right bottom / 44px 44px no-repeat; filter: drop-shadow(0 3px 3px rgba(20, 0, 20, .45)); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-tile { background: var(--tile-fill); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-t-blank { background: var(--tile-blank); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.dg-lbl, .dg-sum, .dg-laps) { font-family: var(--face-name); font-weight: var(--name-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-piece { background: var(--dg-p-bg, var(--piece-fill)); font-family: var(--face-name); font-weight: var(--name-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-back { background: var(--tile-fill); border-color: rgba(var(--gold-rgb), .7); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-header-title { font-family: var(--face-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-reel { background: var(--tile-fill); box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), .45); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); color: var(--game-ink-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-win { font-family: var(--face-name); font-weight: var(--name-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-card { background: var(--game-fill); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-timer-pill { background: var(--game-fill); border-color: rgba(var(--gold-rgb), .6); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.m-card-name, .m-vs) { font-family: var(--face-name); font-weight: var(--name-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .home-race-title { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.home-race-name, .hr-goal-name) { font-family: var(--face-name); font-weight: var(--name-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-container, #donor-rank-container)::after { content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none; background: var(--spark) 0% 38% / 26px 26px no-repeat, var(--spark) 100% 12% / 22px 22px no-repeat, var(--spark) 58% 100% / 18px 18px no-repeat; animation: themeTwinkle 3.2s ease-in-out infinite; }

@@ -17,7 +17,7 @@
            그래서 아래 font-family 마다 한글 대체 글꼴을 꼭 적어 뒀다 — 안 적으면 generic
            sans-serif 로 떨어져 한글이 깨져 보인다. (기능이 걸린 스크립트는 /vendor 에 두고 쓴다) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&family=Jua&family=Gowun+Batang:wght@700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&family=Jua&family=Gowun+Batang:wght@700&family=Song+Myung&display=swap');
         
         :root {
             /* ============================================================
@@ -2079,6 +2079,7 @@
         /* ══════════════════════════════════════════════════════════════════════
            🎀 방송판 테마 — 조종실 '테마' 칸에서 고른다
               body.theme-rose (👑 로즈골드) · body.theme-pastel (🎀 파스텔) · body.theme-royal (💎 로얄)
+              · body.theme-chuseok (🌕 추석 — 밤하늘 · 보름달 · 색동 · 송편, 2026-09-17 대표님: "담주가 추석이라")
 
            대표님: "그냥 색깔바꾸기 놀이급으로 별로였어 … 확실하게 바꿀수있는게 필요한데"
            그래서 색만 바꾸지 않는다. 네 가지를 같이 바꾼다.
@@ -2093,8 +2094,8 @@
            ⚠️ 파스텔은 판 속이 **밝다.** --glass-bg 를 통째로 밝히면 흰 글씨를 쓰는 다른
               위젯(룰렛 · 슬롯 · 퇴근빵 …)이 전부 안 보인다. 그래서 파스텔은 아래 '옷 입히는 판'
               에만 밝은 속(--frame-fill)을 깔고, 그 안의 글자색을 하나하나 어둡게 바꾼다.
-           ⚠️ 게임판(주사위 · 시그뒤집기 · 룰렛 · 슬롯 · 핀볼 · 대결 · 퇴근빵)은 색만 따라간다.
-              판 그림이 각자 따로라 2차로 미뤘다.
+           ⚠️ 게임판(주사위 · 시그뒤집기 · 룰렛 · 슬롯 · 핀볼 · 대결 · 퇴근빵)은 아래 ⑤ 에서 따로 입힌다.
+              게임판 글씨는 흰색이라 속을 늘 진하게 깐다(--game-fill).
            ══════════════════════════════════════════════════════════════════════ */
         body.theme-rose {
             --gold: #ff9cc2; --gold-light: #ffe0ec; --gold-deep: #d9728f;
@@ -2127,6 +2128,11 @@
             --num-edge: drop-shadow(0 3px 0 #a8355f) drop-shadow(0 0 8px rgba(255, 143, 184, .55));
             --msg-bg: rgba(255, 220, 235, .1);
             --tip-bg: rgba(42, 16, 36, .95); --rail-bg: rgba(42, 16, 36, .6);
+            /* 🎲 게임판 — 속은 늘 진하게(게임판 글씨는 흰색이다) */
+            --game-fill: var(--glass-bg); --tile-fill: linear-gradient(180deg, #4a1d3a, #2a1024); --tile-blank: rgba(42, 16, 36, .5);
+            --canvas-bg: rgba(42, 16, 36, .82); --piece-fill: linear-gradient(180deg, #ff9cc2, #b7657d);
+            --game-ink-label: #f7b6cc;
+            --race: #ff8fb8; --race-2: #c9a7f2; --race-rgb: 255, 143, 184; --race-text: #ffd3e3;
             --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff1f5'/%3E%3Cstop offset='.35' stop-color='%23f3a9c1'/%3E%3Cstop offset='.7' stop-color='%23d97b9b'/%3E%3Cstop offset='1' stop-color='%23fbe3e8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' stroke='%23fff' stroke-width='.8' d='M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff1f5'/%3E%3Cstop offset='.35' stop-color='%23f3a9c1'/%3E%3Cstop offset='.7' stop-color='%23d97b9b'/%3E%3Cstop offset='1' stop-color='%23fbe3e8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' stroke='%23fff' stroke-width='.8' d='M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E");
             --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff6d8'/%3E%3Cstop offset='.5' stop-color='%23f6c9d4'/%3E%3Cstop offset='1' stop-color='%23c7748f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%23fff' stroke-width='.5'%3E%3Cpath d='M2 17.5 3.2 7l5.3 4.6L12 4l3.5 7.6L20.8 7 22 17.5z'/%3E%3Crect x='2.6' y='18.6' width='18.8' height='2.6' rx='1.2'/%3E%3Ccircle cx='12' cy='3.4' r='1.6'/%3E%3Ccircle cx='3.1' cy='6.4' r='1.3'/%3E%3Ccircle cx='20.9' cy='6.4' r='1.3'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
         }
@@ -2157,6 +2163,13 @@
             --num-edge: none;
             --msg-bg: #ffffff;
             --tip-bg: #ffffff; --rail-bg: rgba(255, 255, 255, .75);
+            /* 🎲 게임판 — ⚠️ 파스텔도 게임판 속은 **진한 연보라**다. 게임판 글씨가 전부 흰색이라
+               밝은 속(--frame-fill)을 깔면 칸 이름 · 카드 · 릴이 안 보인다. */
+            --game-fill: linear-gradient(165deg, rgba(109, 74, 130, .95), rgba(75, 47, 99, .96));
+            --tile-fill: linear-gradient(180deg, #7a5690, #54366b); --tile-blank: rgba(75, 47, 99, .55);
+            --canvas-bg: rgba(75, 47, 99, .82); --piece-fill: linear-gradient(180deg, #c9a7f2, #8e6bc7);
+            --game-ink-label: #ffd1e3;
+            --race: #ff8fb8; --race-2: #b59cff; --race-rgb: 255, 143, 184; --race-text: #ffe0ee;
             --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23ff8fb8' stroke='%23fff' stroke-width='1.1'%3E%3Cpath d='M12 11C9 6 3 5 2.5 8.5 2 12 6 14 11.5 12.5z'/%3E%3Cpath d='M12 11c3-5 9-6 9.5-2.5.5 3.5-3.5 5.5-9 4z'/%3E%3Cpath d='M11.2 12.6 8 20.5l2.6-.8L12 21.8l.3-9z'/%3E%3Cpath d='M12.8 12.6 16 20.5l-2.6-.8L12 21.8l-.3-9z'/%3E%3Ccircle cx='12' cy='11.9' r='2'/%3E%3C/g%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff8fb8' stroke='%23fff' stroke-width='2' d='M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E");
             --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffd1e3'/%3E%3Cstop offset='1' stop-color='%23ff5f9e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%23fff' stroke-width='.9'%3E%3Cpath d='M2 17.5 3.2 7l5.3 4.6L12 4l3.5 7.6L20.8 7 22 17.5z'/%3E%3Crect x='2.6' y='18.6' width='18.8' height='2.6' rx='1.2'/%3E%3Ccircle cx='12' cy='3.4' r='1.6'/%3E%3Ccircle cx='3.1' cy='6.4' r='1.3'/%3E%3Ccircle cx='20.9' cy='6.4' r='1.3'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff9fc6' stroke='%23fff' stroke-width='.8' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
         }
@@ -2192,12 +2205,64 @@
             --num-edge: drop-shadow(0 3px 0 #1e0311) drop-shadow(0 0 8px rgba(245, 200, 110, .35));
             --msg-bg: rgba(255, 230, 160, .08);
             --tip-bg: rgba(51, 6, 31, .96); --rail-bg: rgba(51, 6, 31, .6);
+            /* 🎲 게임판 */
+            --game-fill: var(--glass-bg); --tile-fill: linear-gradient(180deg, #6d0f45, #33061f); --tile-blank: rgba(51, 6, 31, .5);
+            --canvas-bg: rgba(51, 6, 31, .82); --piece-fill: linear-gradient(180deg, #e2b454, #a8741e);
+            --game-ink-label: #f5d98a;
+            --race: #ff4f9a; --race-2: #9f76e6; --race-rgb: 255, 79, 154; --race-text: #f5d98a;
             --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffc0dc'/%3E%3Cstop offset='.5' stop-color='%23ff4f9a'/%3E%3Cstop offset='1' stop-color='%238e0f4f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cdefs%3E%3ClinearGradient id='o' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.45' stop-color='%23e2b454'/%3E%3Cstop offset='1' stop-color='%23a8741e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23p)' stroke='url(%23o)' stroke-width='1.8' d='M12 2 21 12 12 22 3 12z'/%3E%3Cpath fill='%23fff' fill-opacity='.35' d='M12 4.2 7.4 12 12 19.8 10 12z'/%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffc0dc'/%3E%3Cstop offset='.5' stop-color='%23ff4f9a'/%3E%3Cstop offset='1' stop-color='%238e0f4f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cdefs%3E%3ClinearGradient id='o' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.45' stop-color='%23e2b454'/%3E%3Cstop offset='1' stop-color='%23a8741e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23p)' stroke='url(%23o)' stroke-width='1.8' d='M12 2 21 12 12 22 3 12z'/%3E%3Cpath fill='%23fff' fill-opacity='.35' d='M12 4.2 7.4 12 12 19.8 10 12z'/%3E%3C/svg%3E");
             --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.45' stop-color='%23e2b454'/%3E%3Cstop offset='1' stop-color='%23a8741e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%235a1638' stroke-width='.5'%3E%3Cpath d='M2 17.5 3.2 7l5.3 4.6L12 4l3.5 7.6L20.8 7 22 17.5z'/%3E%3Crect x='2.6' y='18.6' width='18.8' height='2.6' rx='1.2'/%3E%3Ccircle cx='12' cy='3.4' r='1.6'/%3E%3Ccircle cx='3.1' cy='6.4' r='1.3'/%3E%3Ccircle cx='20.9' cy='6.4' r='1.3'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffe9a8' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
         }
 
+        body.theme-chuseok {
+            --gold: #ffd76a; --gold-light: #fff3c4; --gold-deep: #d99a1e;
+            --gold-rgb: 255, 215, 106; --gold-glow: rgba(255, 215, 106, .45); --on-gold: #1b2447;
+            --silver: #dfe6ff; --silver-2: #9fb0e0; --on-silver: #16204a;
+            --bronze: #e8664e; --bronze-2: #b8432f; --on-bronze: #fff6e6;
+            --accent: #ffd76a; --accent-glow: rgba(255, 215, 106, .45); --theme-neon: #ffd76a;
+            --excel-yellow: #ffd76a; --text-highlight: #ffd76a; --text-secondary: #f3e6cf;
+            --glass-bg: radial-gradient(120% 90% at 70% 0%, rgba(44, 58, 112, .95) 0%, rgba(17, 22, 48, .96) 72%);
+            --glass-border: rgba(255, 215, 106, .45);
+            --glass-top-light: rgba(255, 240, 200, .4);
+            --glass-radius: 14px;
+            --tx-2: rgba(243, 230, 207, .76);
+            --row-bg: rgba(255, 215, 106, .05); --row-border: rgba(255, 215, 106, .2);
+
+            /* 🎎 색동 — 한복 소매의 다홍 · 노랑 · 초록 · 파랑 · 분홍 줄을 비스듬히 두른다 */
+            --frame: repeating-linear-gradient(135deg, #e8664e 0 12px, #f2c230 12px 24px, #4fa36a 24px 36px,
+                                               #3f7cc4 36px 48px, #f08bb0 48px 60px, #fff6e6 60px 72px);
+            --frame-fill: var(--glass-bg);
+            --frame-glow: 0 0 0 1px rgba(255, 246, 230, .4), 0 12px 30px rgba(5, 8, 25, .55), 0 0 30px rgba(255, 215, 106, .3);
+            --pearl: rgba(255, 215, 106, .6); --pearl-style: solid;
+            --skin-row: rgba(255, 215, 106, .05); --skin-line: rgba(255, 215, 106, .22);
+            /* 한지 이름표 — 위아래에 색동 띠 */
+            --rib-bg: linear-gradient(90deg, #e8664e 0 20%, #f2c230 20% 40%, #4fa36a 40% 60%, #3f7cc4 60% 80%, #f08bb0 80% 100%) top / 100% 5px no-repeat,
+                      linear-gradient(90deg, #e8664e 0 20%, #f2c230 20% 40%, #4fa36a 40% 60%, #3f7cc4 60% 80%, #f08bb0 80% 100%) bottom / 100% 5px no-repeat,
+                      linear-gradient(180deg, #fff8e8, #f1ddb4);
+            --rib-ink: #3a2410;
+            --rib-cut: polygon(0 0, 100% 0, 97% 50%, 100% 100%, 0 100%, 3% 50%); --rib-ring: none;
+            --badge-bg: linear-gradient(180deg, #2c3a6e, #151c3d); --badge-ink: #ffd76a; --badge-ring: #ffd76a;
+            --face-name: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif; --name-weight: 700;
+            --face-num: "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
+            --face-label: "Song Myung", "Gowun Batang", "Nanum Myeongjo", serif;
+            --ink-name: #fff6e6; --ink-num: #ffe7a0; --ink-label: #ffd76a; --ink-soft: #f3e6cf;
+            --name-shadow: 0 2px 0 #0b0f22;
+            --num-color: transparent; --num-fill: linear-gradient(180deg, #fffbe8 0%, #ffe08a 48%, #e0a526 58%, #fff0b3 100%);
+            --num-clip: text; --num-shadow: none;
+            --num-edge: drop-shadow(0 3px 0 #0b0f22) drop-shadow(0 0 10px rgba(255, 215, 106, .35));
+            --msg-bg: rgba(255, 215, 106, .08);
+            --tip-bg: rgba(17, 22, 48, .96); --rail-bg: rgba(17, 22, 48, .6);
+            /* 🎲 게임판 */
+            --game-fill: var(--glass-bg); --tile-fill: linear-gradient(180deg, #2c3a6e, #151c3d); --tile-blank: rgba(17, 22, 48, .5);
+            --canvas-bg: rgba(17, 22, 48, .82); --piece-fill: linear-gradient(180deg, #e8664e, #b8432f);
+            --game-ink-label: #ffd76a;
+            --race: #e8664e; --race-2: #f2c230; --race-rgb: 232, 102, 78; --race-text: #ffe6b3;
+            --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3CradialGradient id='m' cx='.4' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fffbe8'/%3E%3Cstop offset='.55' stop-color='%23ffe08a'/%3E%3Cstop offset='1' stop-color='%23f0b43c'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='12' cy='12' r='11.4' fill='%23ffd76a' fill-opacity='.22'/%3E%3Ccircle cx='12' cy='12' r='9' fill='url(%23m)' stroke='%23fff6d0' stroke-width='.6'/%3E%3Ccircle cx='9' cy='9.6' r='1.7' fill='%23e3a93a' fill-opacity='.35'/%3E%3Ccircle cx='14.6' cy='13.8' r='1.2' fill='%23e3a93a' fill-opacity='.3'/%3E%3Ccircle cx='10.8' cy='15.2' r='.8' fill='%23e3a93a' fill-opacity='.28'/%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='s' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffe1ea'/%3E%3Cstop offset='1' stop-color='%23f29ab6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23s)' stroke='%23fff' stroke-width='.9' d='M2.6 16.2C2.6 10.4 6.8 6 12 6s9.4 4.4 9.4 10.2c0 1.2-.9 2-2.1 2H4.7c-1.2 0-2.1-.8-2.1-2z'/%3E%3Cpath fill='none' stroke='%23d9728f' stroke-opacity='.45' stroke-width='.8' stroke-linecap='round' d='M5.5 15.4c1.8-4.6 11.2-4.6 13 0'/%3E%3Cellipse cx='9' cy='10.6' rx='2.2' ry='1' fill='%23fff' fill-opacity='.55'/%3E%3Cpath fill='%237cc38a' d='M10.4 18.2c.6-1.4 2.6-1.4 3.2 0z'/%3E%3C/svg%3E");
+            --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3CradialGradient id='m' cx='.4' cy='.35' r='.7'%3E%3Cstop offset='0' stop-color='%23fffbe8'/%3E%3Cstop offset='.55' stop-color='%23ffe08a'/%3E%3Cstop offset='1' stop-color='%23f0b43c'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='12' cy='12' r='10.4' fill='url(%23m)' stroke='%23fff6d0' stroke-width='.7'/%3E%3Cg fill='%23c98a1e' fill-opacity='.78'%3E%3Cellipse cx='10.4' cy='8.2' rx='1' ry='3' transform='rotate(-12 10.4 8.2)'/%3E%3Cellipse cx='12.6' cy='8' rx='1' ry='3' transform='rotate(10 12.6 8)'/%3E%3Ccircle cx='11.6' cy='12.2' r='2.3'/%3E%3Cellipse cx='12.4' cy='16' rx='3.6' ry='2.7'/%3E%3Ccircle cx='15.6' cy='16.8' r='1.1'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffe7a0' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
+        }
+
         /* ── ① 액자 ─────────────────────────────────────────────────────────── */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content) {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content) {
             border: 4px solid transparent;
             background: var(--frame-fill) padding-box, var(--frame) border-box;
             border-radius: var(--glass-radius);
@@ -2206,21 +2271,21 @@
             outline-offset: -12px;
         }
         /* 유리판의 윗줄 하이라이트는 액자와 안 어울린다 */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content)::before { content: none; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content)::before { content: none; }
         /* 계좌는 48px 로 납작하다 — 진주 줄이 글자를 가로지르지 않게 뺀다.
            ⚠️ overflow 를 풀어야 모서리 장식이 판 밖에 걸린다. 대신 아이콘 칸 모서리를 직접 둥글린다. */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-box-v2 { outline: none; overflow: visible; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-ico { border-radius: calc(var(--glass-radius) - 4px) 0 0 calc(var(--glass-radius) - 4px); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .goal-rail {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2 { outline: none; overflow: visible; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-ico { border-radius: calc(var(--glass-radius) - 4px) 0 0 calc(var(--glass-radius) - 4px); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail {
             background: var(--rail-bg); border-color: rgba(var(--gold-rgb), .75);
             box-shadow: var(--sh-2), inset 0 0 12px rgba(0, 0, 0, .35), 0 0 18px var(--gold-glow);
             outline: 2px var(--pearl-style) var(--pearl); outline-offset: 3px;
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
 
         /* ── ② 장식 ─────────────────────────────────────────────────────────── */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content)::after {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content)::after {
             content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none;
             background:
                 var(--orn-top) left top / 44px 44px no-repeat,
@@ -2229,16 +2294,16 @@
                 var(--orn-bottom) right bottom / 44px 44px no-repeat;
             filter: drop-shadow(0 3px 3px rgba(60, 0, 30, .45));
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-box-v2::after {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2::after {
             content: ""; position: absolute; inset: -14px; z-index: 6; pointer-events: none;
             /* ⚠️ 오른쪽 아래에도 달았더니 바로 밑 랭킹판의 오른쪽 위 장식과 부딪혔다 — 하나만 단다 */
             background: var(--orn-top) left top / 34px 34px no-repeat;
             filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .45));
         }
         /* 🏆 1등 배지에 왕관 */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-row.rank-1 .r-rank, .dr-row.top1 .dr-no) { position: relative; overflow: visible; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row.rank-1 .r-rank::after,
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row.top1 .dr-no::after {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-row.rank-1 .r-rank, .dr-row.top1 .dr-no) { position: relative; overflow: visible; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-rank::after,
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after {
             /* ⚠️ 배지 한가운데 위에 얹었더니 왕관 밑둥이 숫자 '1' 머리를 덮어 'T' 로 읽혔다.
                   모서리에 비스듬히 얹는다. */
             content: ""; position: absolute; left: -12px; top: -15px; width: 28px; height: 28px;
@@ -2247,46 +2312,46 @@
             filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .5));
         }
         /* ⚠️ 후원 순위 줄 묶음은 overflow:hidden 이다(8줄 넘침 방지). 왕관을 조금 내려 안 잘리게 한다. */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
         /* 이름표 → 리본 */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.donor-rank-header, .sig-tally-header, .jar-title) {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .sig-tally-header, .jar-title) {
             background: var(--rib-bg); color: var(--rib-ink);
             clip-path: var(--rib-cut); box-shadow: var(--rib-ring);
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .jar-title { padding-inline: 30px; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .jar-title { padding-inline: 30px; }
         /* 순위 배지 — 1·2·3 은 색 토큰이 바꿔 주고, 나머지만 여기서 칠한다 */
-        body:is(.theme-rose, .theme-pastel) .r-rank { border-radius: 50%; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank,
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
+        body:is(.theme-rose, .theme-pastel, .theme-chuseok) .r-rank { border-radius: 50%; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank,
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
 
         /* ── ③ 글씨 ─────────────────────────────────────────────────────────── */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-name, .dr-row .dr-name, .donator-name) {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name) {
             font-family: var(--face-name); font-weight: var(--name-weight);
             color: var(--ink-name); text-shadow: var(--name-shadow);
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-score, .dr-row .dr-amt, .r-contrib) {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt, .r-contrib) {
             font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow);
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-empty { color: var(--ink-soft); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .donation-popup-content .donation-message { background: var(--msg-bg); color: var(--ink-soft); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .donation-amount .won { color: var(--ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-empty { color: var(--ink-soft); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .donation-popup-content .donation-message { background: var(--msg-bg); color: var(--ink-soft); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .donation-amount .won { color: var(--ink-label); }
         /* 👑 순위 높은 분(VIP)의 후원 알림 — 등급 테두리 색 · 메달 · 머리띠는 **그대로 둔다**(누가 몇 위인지
               알려주는 표시다). 속만 테마 옷으로 바꾼다. VIP 옷이 !important 라 여기서도 그렇게 쓴다.
            ⚠️ 파스텔은 속이 밝다 — VIP 이름을 흰 글씨로 칠하는 규칙(2·3위)이 있어 그대로 두면 안 보인다. */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) #toon-popup.vip-premium-card { background: var(--frame-fill) !important; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #toon-popup.vip-premium-card { background: var(--frame-fill) !important; }
         body.theme-pastel #toon-popup.vip-premium-card #toon-name { color: var(--ink-name) !important; text-shadow: none; }
         /* 🍬 볼록한 숫자 — 로즈골드는 사탕, 로얄은 금박(글자 속을 그라데이션으로), 파스텔은 흰 테두리 */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) {
             color: var(--num-color);
             background-image: var(--num-fill);
             -webkit-background-clip: var(--num-clip);
@@ -2294,11 +2359,11 @@
             text-shadow: var(--num-shadow);
             filter: var(--num-edge);
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
         /* ⚠️ 글자 속 그라데이션은 **칸 안에만** 칠해진다. 점수 칸(148px)은 오른쪽 정렬이라 긴 숫자가
               왼쪽으로 넘치는데, 넘친 부분은 칠이 없어 투명해졌다(실측: 로얄에서 '1,284,000' → ',284,000').
               칸을 왼쪽으로 늘리고 같은 만큼 안쪽 여백을 줘서 글자 자리는 그대로 두고 칠만 넓힌다. */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
         /* 파스텔 — 속이 밝은 판은 글자를 어둡게. 전광판도 같은 옷을 입는다. */
         body.theme-pastel .notice-board { background: var(--frame-fill); }
         body.theme-pastel .notice-txt { color: var(--ink-name); text-shadow: none; }
@@ -2308,8 +2373,70 @@
         /* VIP 알림의 'VVIP · 다이아' 글씨는 등급 색(금 · 하늘)이라 밝은 속에서 흐리다 — 테두리를 준다 */
         body.theme-pastel #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
 
+        /* ── ⑤ 게임판 (2차) ─────────────────────────────────────────────────
+           ⚠️ 게임판 속 글씨는 거의 **흰색**이다(칸 이름 · 카드 · 릴 · 대결 카드). 파스텔의 밝은 속을 깔면
+              안 보인다 — 그래서 게임판은 따로 **진한 속**(--game-fill)을 쓴다.
+           ⚠️ 뜻이 있는 색은 안 건드린다: 주사위 칸 종류 색(열쇠 노랑 · 뺏기 빨강 …), 대결 팀 색(빨강 · 파랑),
+              룰렛 칸 색(조종실에서 고른 색), 핀볼 구슬 색(사람마다), 시그뒤집기 '시간 급함' 빨강. */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.sg-board, .slot-card, .home-race-box, .dg-card) {
+            border: 4px solid transparent;
+            background: var(--game-fill) padding-box, var(--frame) border-box;
+            border-radius: var(--glass-radius);
+            box-shadow: var(--frame-glow);
+            outline: 2px var(--pearl-style) var(--pearl);
+            outline-offset: -12px;
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.sg-board, .slot-card)::before { content: none; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.sg-board, .slot-card)::after {
+            content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none;
+            background:
+                var(--orn-top) left top / 44px 44px no-repeat,
+                var(--orn-top) right top / 44px 44px no-repeat,
+                var(--orn-bottom) left bottom / 44px 44px no-repeat,
+                var(--orn-bottom) right bottom / 44px 44px no-repeat;
+            filter: drop-shadow(0 3px 3px rgba(20, 0, 20, .45));
+        }
+        /* 🎲 주사위판 — 판은 원래 투명(칸만 뜬다). 칸 몸통 · 빈칸 · 말 · 글씨만 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-tile { background: var(--tile-fill); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-t-blank { background: var(--tile-blank); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.dg-lbl, .dg-sum, .dg-laps) { font-family: var(--face-name); font-weight: var(--name-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-piece { background: var(--dg-p-bg, var(--piece-fill)); font-family: var(--face-name); font-weight: var(--name-weight); }
+        /* 🃏 시그 뒤집기 — 카드 뒷면 · 머리글 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-back { background: var(--tile-fill); border-color: rgba(var(--gold-rgb), .7); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-header-title { font-family: var(--face-label); }
+        /* 🎰 슬롯머신 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-reel { background: var(--tile-fill); box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), .45); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); color: var(--game-ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-win { font-family: var(--face-name); font-weight: var(--name-weight); }
+        /* 🎡 룰렛 — 겉판이 인라인 style(검은 사선 · 모서리 자르기)이라 !important 로만 덮인다.
+           ⚠️ 둥글기에는 !important 를 안 쓴다 — 인라인에 둥글기가 없어서 필요 없고, 검사가 단계 값만 받는다. */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .roulette-wrap {
+            clip-path: none !important;
+            border: 4px solid transparent;
+            background: var(--game-fill) padding-box, var(--frame) border-box !important;
+            border-radius: var(--glass-radius);
+            box-shadow: var(--frame-glow) !important;
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #roulette-title { font-family: var(--face-label) !important; font-style: normal !important; }
+        /* 🎱 핀볼 — 판(캔버스) 바탕과 테두리, 우승 딱지. 코스 · 구슬 색은 그대로 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #pb-canvas { background: var(--canvas-bg); border: 3px solid rgba(var(--gold-rgb), .6); box-shadow: var(--frame-glow); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .pb-winner {
+            background: var(--game-fill); font-family: var(--face-name); font-weight: var(--name-weight);
+            outline: 2px var(--pearl-style) var(--pearl); outline-offset: -9px;
+        }
+        /* ⚔️ 대결 — 팀 색(카드 테두리 · 게이지)은 그대로, 속과 글씨만 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-card { background: var(--game-fill); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-timer-pill { background: var(--game-fill); border-color: rgba(var(--gold-rgb), .6); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.m-card-name, .m-vs) { font-family: var(--face-name); font-weight: var(--name-weight); }
+        /* 🏃 퇴근빵 — 막대 색은 --race 토큰(테마 블록)이 바꾼다 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .home-race-title {
+            background: var(--rib-bg); color: var(--rib-ink);
+            clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label);
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.home-race-name, .hr-goal-name) { font-family: var(--face-name); font-weight: var(--name-weight); }
+
         /* ── ④ 움직임 — 반짝이 (투명도만 바뀐다) ───────────────────────────── */
-        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(#ranking-container, #donor-rank-container)::after {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-container, #donor-rank-container)::after {
             content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none;
             background:
                 var(--spark) 0% 38% / 26px 26px no-repeat,
@@ -4675,7 +4802,7 @@
         /* 🎀 조종실 '테마' 칸 → body 에 옷 이름을 붙인다. 옷 자체는 CSS 맨 아래에 있다.
            ⚠️ 모르는 이름이면 기본(금색 유리판)으로 둔다 — 오타 하나로 화면이 이상해지면 안 된다.
            ⚠️ 'pink' 는 뺀 옛 '네온 핑크' 저장값이다. 가장 가까운 로즈골드로 읽는다. */
-        const THEMES = ['rose', 'pastel', 'royal'];
+        const THEMES = ['rose', 'pastel', 'royal', 'chuseok'];
         let themeNow = null;
         let themeGold = '#f6c453';   // 🎡 룰렛(캔버스)이 테두리 색으로 쓴다
         function applyTheme(t) {
