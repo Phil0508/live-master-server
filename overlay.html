@@ -17,7 +17,9 @@
            그래서 아래 font-family 마다 한글 대체 글꼴을 꼭 적어 뒀다 — 안 적으면 generic
            sans-serif 로 떨어져 한글이 깨져 보인다. (기능이 걸린 스크립트는 /vendor 에 두고 쓴다) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&family=Jua&family=Bagel+Fat+One&family=Gaegu:wght@700&family=Sunflower:wght@700&family=Single+Day&family=Gothic+A1:wght@700;800;900&family=Yeon+Sung&family=Do+Hyeon&family=Gugi&display=swap');
+        /* 🔤 테마 글꼴은 **우리 서버**(vendor/fonts)에서 받는다 — 구글에서 받으면 OBS 를 켤 때 1~2초 기본 글씨로
+              보였다가 바뀌었다(대표님이 고른 것 2026-09-18). 새 글꼴은 그 폴더에 받아 넣고 여기 주소는 안 바꾼다. */
+        @import url('/vendor/fonts/fonts.css');
         
         :root {
             /* ============================================================

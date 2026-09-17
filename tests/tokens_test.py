@@ -209,10 +209,21 @@ _name = [v['name'] for v in _F.values()]
 chk('이름표 글꼴이 테마마다 다르다', len(set(_label)) == len(_label), _label)
 chk('이름 글꼴이 테마마다 다르다', len(set(_name)) == len(_name), _name)
 chk('붓글씨(궁서 계열)를 안 쓴다 (주석은 빼고 본다)', not re.search(r'Gowun Batang|Song Myung|Nanum Myeongjo|Batang|Gungsuh', re.sub(r'/\*.*?\*/', '', THEME, flags=re.S)))
-_imp = re.search(r"@import url\('https://fonts\.googleapis\.com/css2\?([^']+)'\)", OV)
+# 🔤 글꼴은 우리 서버(vendor/fonts)에서 받는다 — 대표님이 고른 것(2026-09-18).
+#    구글에서 받으면 OBS 를 켤 때 1~2초 기본 글씨로 보였다가 바뀌었다.
+_FC_PATH = os.path.join(PROJ, 'vendor', 'fonts', 'fonts.css')
+_FC = io.open(_FC_PATH, encoding='utf-8').read() if os.path.exists(_FC_PATH) else ''
+chk('방송판이 우리 서버의 글꼴을 부른다', "@import url('/vendor/fonts/fonts.css');" in OV)
+chk('방송판이 구글 글꼴을 직접 부르지 않는다', 'fonts.googleapis.com' not in OV)
 _need = sorted({f for v in _F.values() for f in v.values()} - {'Pretendard'})
-_miss = [f for f in _need if not _imp or ('family=' + f.replace(' ', '+')) not in _imp.group(1)]
-chk('쓰는 글꼴을 전부 받아온다', not _miss, _miss)
+_have = set(re.findall(r"font-family:\s*'([^']+)'", _FC))
+_miss = [f for f in _need if f not in _have]
+chk('테마가 쓰는 글꼴이 전부 서버에 있다', bool(_FC) and not _miss, _miss or ('%d개' % len(_need)))
+_files = re.findall(r'url\(([^)]+)\)', _FC)
+_nofile = [f for f in _files if not os.path.exists(os.path.join(PROJ, 'vendor', 'fonts', f))]
+chk('글꼴 조각 파일이 빠짐없이 있다', bool(_files) and not _nofile, _nofile[:3] or ('%d개' % len(_files)))
+# ⚠️ 한글 글꼴은 크다 — 구글처럼 글자 묶음으로 나눠 둬야 화면에 나온 글자만 받는다
+chk('글자 묶음으로 나눠 둔다 (한 번에 통째로 안 받는다)', _FC.count('unicode-range') >= len(_have) * 50)
 # ⚠️ 표 안 숫자는 점수 칸(148px)에 들어가야 한다 — 통통한 장식 글꼴은 큰 숫자·이름표에만
 chk('표 숫자에 통통한 장식 글꼴을 안 쓴다', not any(v['num'] in ('Bagel Fat One', 'Black Han Sans', 'Gugi', 'Single Day') for v in _F.values()),
     [v['num'] for v in _F.values()])
