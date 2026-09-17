@@ -169,7 +169,12 @@ chk('조종실에 켜기 스위치가 있다', "toggleOption('best_enabled')" in
 chk('첫 그림에서는 기록 갱신을 안 띄운다', 'bestSeenAt !== null && at && at !== bestSeenAt' in OV)
 chk('게임판이 뜨면 비킨다', 'body.game-on #best-container' in OV)
 chk('자릿수가 늘면 금액 글씨를 줄인다 (메달 밖으로 안 나가게)', '--best-amt-size' in OV)
-chk('테마 옷을 입는다', '.donation-popup-content, .best-board)' in OV and '.best-head) {' in OV)
+# ⚠️ 액자·장식은 여러 판이 한 줄(:is(...))을 같이 쓴다 — 줄이 길어져도(.ss-card 가 붙었다)
+#    깨지지 않게 '그 목록에 best-board 가 들어 있는가' 로 본다.
+import re as _re
+_frames = _re.findall(r'\.theme-chuseok\) :is\(([^)]*)\)', OV)
+chk('테마 옷을 입는다', any('.best-board' in g for g in _frames) and '.best-head) {' in OV,
+    len(_frames))
 
 print()
 print('=' * 74)

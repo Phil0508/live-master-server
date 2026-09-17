@@ -1477,6 +1477,7 @@
 
             </div>
 
+            <div class="control-group stage-box" style="margin-bottom: 15px; flex-wrap: wrap; align-items: center; gap: 8px;"><label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;" title="방송판 전체를 덮는 화면입니다. 기다리는 동안 들어온 후원 알림·시그니처는 그 위에 그대로 뜹니다.">🎬 시작·끝 화면:</label><input type="number" id="ss-min-live" min="0" max="180" placeholder="분" style="width: 70px;" title="시작 전 화면에 띄울 카운트다운(분). 비우거나 0 이면 카운트다운 없이 문구만 뜹니다."><input type="text" id="ss-title-live" maxlength="40" placeholder="한 줄 문구 (예: 오늘은 추석 특집!)" style="flex: 1; min-width: 180px;"><button type="button" onclick="stageScreen('start', 'live')" title="곧 시작합니다 + 카운트다운 + 멤버 이름">시작 전 화면</button><button type="button" onclick="stageScreen('end', 'live')" title="오늘도 고마워요 + 오늘의 1등 · 한 방 최고 · 후원해 주신 분">끝 화면</button><button type="button" onclick="stageScreen('off', 'live')">끄기</button><span id="ss-state-live" style="font-size: var(--fs-3); font-weight: 700; color: var(--text-muted);"></span></div>
             <div class="control-group" style="margin-bottom: 15px;">
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-palette"></i> 테마:</label><select id="sel-theme" onchange="updateTheme()" title="방송 화면 위젯의 옷을 바꿉니다. 자리·크기는 그대로입니다."><option value="default">기본 (금색 유리판)</option><option value="rose">👑 로즈골드</option><option value="pastel">🎀 파스텔</option><option value="royal">💎 로얄</option><option value="chuseok">🌕 추석</option></select><label title="테마를 입었을 때 후원 알림에 테마 모양 입자(하트·리본·보석·금가루)를 조금 뿌립니다. 기본 테마에서는 원래대로 아무것도 안 나옵니다." style="display:flex; align-items:center; gap:6px; color:var(--text-muted); font-size: var(--fs-3); font-weight:600; margin:0 6px;"><input type="checkbox" id="chk-theme-fx" onchange="toggleOption('theme_fx_enabled')" style="margin:0;"> ✨ 테마 연출</label>
                 <label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;"><i class="fa-solid fa-bullseye"></i> 목표치:</label><input type="number" id="in-goal" onchange="updateGoal()" style="width: 100px;">
@@ -2707,6 +2708,7 @@
                 </button>
             </div>
             
+            <div class="control-group stage-box" style="margin-bottom: 15px; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);"><label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;" title="방송판 전체를 덮는 화면입니다. 기다리는 동안 들어온 후원 알림·시그니처는 그 위에 그대로 뜹니다.">🎬 시작·끝 화면:</label><input type="number" id="ss-min-setup" min="0" max="180" placeholder="분" style="width: 70px;" title="시작 전 화면에 띄울 카운트다운(분). 비우거나 0 이면 카운트다운 없이 문구만 뜹니다."><input type="text" id="ss-title-setup" maxlength="40" placeholder="한 줄 문구 (예: 오늘은 추석 특집!)" style="flex: 1; min-width: 180px;"><button type="button" onclick="stageScreen('start', 'setup')" title="곧 시작합니다 + 카운트다운 + 멤버 이름">시작 전 화면</button><button type="button" onclick="stageScreen('end', 'setup')" title="오늘도 고마워요 + 오늘의 1등 · 한 방 최고 · 후원해 주신 분">끝 화면</button><button type="button" onclick="stageScreen('off', 'setup')">끄기</button><span id="ss-state-setup" style="font-size: var(--fs-3); font-weight: 700; color: var(--text-muted);"></span></div>
             <button onclick="startBroadcast()" class="primary" style="width: 100%; height: 50px; font-size: var(--fs-4); font-weight: 800; justify-content: center; box-shadow: 0 4px 15px var(--accent-glow); border-radius: var(--radius-md);">
                 <i class="fa-solid fa-circle-play"></i> 🎮 방송 시작 (Start Broadcast)
             </button>
@@ -3478,6 +3480,7 @@
             //    후원이 화면에 아예 안 나타났다(돈이 밀려 있는데 모른다).
             //    대기함은 입력칸과 아무 상관이 없으므로 반환 전에 먼저 그린다.
             try { renderPending(); } catch(e) {}
+            try { renderStageStatus(); } catch(e) {}   // 🎬 입력 중이어도 켜짐/꺼짐 표시는 맞춘다
             if(document.activeElement.tagName === "INPUT" && !document.activeElement.id.startsWith("chk") && !document.activeElement.classList.contains("setup-player-input") || document.activeElement.tagName === "TEXTAREA") return;
             
             let isActive = gd.broadcast_active || false;
@@ -7116,6 +7119,39 @@
             }
             setupPlayers = names;
             renderSetupUI();
+        }
+
+        // 🎬 방송 시작·끝 화면 — 방송판 전체를 덮는 대기·마무리 화면.
+        //    같은 칸이 두 군데 있다(방송 준비 화면 · 방송 중 설정 줄). where 로 어느 칸 값을 쓸지 고른다.
+        async function stageScreen(mode, where) {
+            const minEl = document.getElementById('ss-min-' + where);
+            const titleEl = document.getElementById('ss-title-' + where);
+            const body = { mode: mode, minutes: minEl ? (parseInt(minEl.value, 10) || 0) : 0, title: titleEl ? titleEl.value : '' };
+            // 방송 시작 전에는 선수 명단이 비어 있다 — 준비 칸에 적어 둔 이름을 대기 화면에 띄운다
+            if (mode === 'start') {
+                body.names = Array.from(document.querySelectorAll('.setup-player-input'))
+                    .map(function (i) { return i.value.trim(); }).filter(Boolean);
+            }
+            try {
+                const res = await fetch('/api/screen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+                const data = await res.json();
+                if (data.status !== 'success') throw new Error(data.message || ('HTTP ' + res.status));
+                if (gd) gd.stage_screen = data.stage_screen;
+                renderStageStatus();
+            } catch (e) {
+                await premiumAlert('화면을 못 바꿨습니다: ' + e.message, '오류', 'warning');
+            }
+        }
+        function renderStageStatus() {
+            const ss = (gd && gd.stage_screen) || {};
+            const on = ss.mode === 'start' || ss.mode === 'end';
+            const txt = ss.mode === 'start' ? '● 시작 전 화면 켜짐' : (ss.mode === 'end' ? '● 끝 화면 켜짐' : '꺼짐');
+            ['setup', 'live'].forEach(function (w) {
+                const el = document.getElementById('ss-state-' + w);
+                if (!el) return;
+                el.textContent = txt;
+                el.style.color = on ? 'var(--gold)' : 'var(--text-muted)';
+            });
         }
 
         async function startBroadcast() {

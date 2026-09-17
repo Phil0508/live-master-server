@@ -1438,6 +1438,14 @@ def state_for_client(state, authed):
     except Exception as _e:
         print(f'⚠️ [VIP 순위 계산 실패] {_e}', flush=True)
         out['vip_live'] = {}
+    # 🎬 끝 화면이 떠 있고 방송 중이면 '오늘의 기록' 을 지금 상태로 만들어 싣는다
+    #    (방송을 끝낸 뒤에는 stage_screen.last_snap 을 쓴다 — 종료가 기록을 지운다)
+    try:
+        _ss = out.get('stage_screen')
+        if isinstance(_ss, dict) and _ss.get('mode') == 'end' and out.get('broadcast_active'):
+            out['stage_live'] = _stage_snapshot(out)
+    except Exception as _e:
+        print(f'⚠️ [끝 화면 기록 계산 실패] {_e}', flush=True)
     return out
 
 
@@ -1644,6 +1652,8 @@ DEFAULT_STATE = {
     #    ⚠️ 방송 1회분이다(reset_session_keys). 밖에서 못 덮게 SERVER_OWNED · PATCH_DENY 에 넣었다.
     #    ⚠️ 고칠 때는 사전을 **새로 만들어** 넣는다 — 이 기본값 객체를 그대로 고치면 다음 방송이 물고 시작한다.
     "best_single": {"name": "", "amount": 0, "at": 0, "id": None, "member": ""},
+    # 🎬 방송 시작·끝 화면 — mode: off · start · end. last_snap 은 방송 종료 직전에 떠 둔 오늘의 기록
+    "stage_screen": {"mode": "off", "title": "", "start_at": 0, "names": [], "shown_at": 0, "last_snap": None},
     "donor_rank_limit": 5,          # 화면에 표시할 인원
     "donor_rank_amount": True,      # 금액도 보여줄지 (끄면 이름·순위만)
     "donor_rank_anon": False,       # 익명 후원을 순위에 넣을지
@@ -4673,7 +4683,7 @@ def api_data():
             #      상금이 어긋난다(운영비 점수를 지키는 것과 똑같은 이유다).
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
-                            'fundjar', 'announce_bot', 'pinball', 'best_single')
+                            'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -4681,7 +4691,8 @@ def api_data():
             #   여기서 걸러내지 않으면 그 키가 state 에 눌러앉아 DB 에 평문으로 저장되고,
             #   무인증으로 열려 있는 /api/stream 을 통해 모든 오버레이·알림창에 방송된다.
             #   그 값은 보호된 API 를 전부 통과하는 Bearer 토큰이자 세션 서명키다.
-            for _k in ('api_token', 'server_time'):
+            # 🎬 stage_live 도 응답에만 싣는 칸이다 — 받은 걸 그대로 되돌려 보내도 상태에 눌러앉지 않게
+            for _k in ('api_token', 'server_time', 'stage_live'):
                 incoming.pop(_k, None)
 
             # 🛡️ [점수 지키기] 명단(bjs·extra_bjs·bottom_fixed)이 통째로 들어오면,
@@ -5680,6 +5691,118 @@ def reset_server_database():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ==========================================
+# 🎬 방송 시작·끝 화면
+#   방송 들어가기 전 '곧 시작합니다 + 카운트다운', 끝날 때 '오늘도 고마워요 + 오늘의 기록' 을
+#   방송판 전체에 깐다. 조종실 [시작 전 화면]·[끝 화면]·[끄기] 로만 바뀐다(SERVER_OWNED · PATCH_DENY).
+#   ⚠️ 끝 화면의 '오늘의 기록' 은 두 군데서 온다 —
+#      방송 중이면 state_for_client 가 **지금 상태로 매번** 만들어 싣고(stage_live),
+#      방송을 끝낸 뒤면 종료가 지우기 직전에 떠 둔 last_snap 을 쓴다.
+#      누르는 순간에 한 장만 떠 두면, 끝 화면을 띄운 뒤 들어온 마지막 후원이 안 나온다.
+STAGE_MODES = ('off', 'start', 'end')
+STAGE_TITLE_MAX = 40        # 한 줄 문구 — 방송판 한 줄에 들어가는 만큼
+STAGE_MINUTES_MAX = 180     # 카운트다운 — 세 시간이면 충분하다
+STAGE_DONORS = 8            # 끝 화면 '후원해 주신 분' — 두 줄씩 네 칸(안전지대 안에 들어가는 만큼)
+
+
+def _stage_state(state):
+    """옛 저장본엔 칸이 없다 — 쓸 때마다 여기서 채운다."""
+    ss = state.get('stage_screen')
+    if not isinstance(ss, dict):
+        ss = {}
+        state['stage_screen'] = ss
+    for k, v in DEFAULT_STATE['stage_screen'].items():
+        ss.setdefault(k, copy.deepcopy(v))
+    if ss.get('mode') not in STAGE_MODES:
+        ss['mode'] = 'off'
+    return ss
+
+
+def _stage_snapshot(st):
+    """끝 화면에 띄울 '오늘의 기록' 한 장.
+    ⚠️ 후원 순위판이 보여주는 만큼만 담는다 — 익명 넣기·금액 보이기 설정을 그대로 따른다."""
+    st = st or {}
+
+    def _n(v):
+        try:
+            return int(float(v or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    # 🏆 오늘의 1등 — 랭킹판과 같은 순서(기여도 높은 순)
+    bjs = [b for b in (st.get('bjs') or []) if isinstance(b, dict) and str(b.get('name') or '').strip()]
+    bjs.sort(key=lambda b: -_n(b.get('contribution')))
+    members = [{'name': str(b.get('name')).strip(), 'score': _n(b.get('score')),
+                'contribution': _n(b.get('contribution'))} for b in bjs[:3]]
+
+    with_anon = bool(st.get('donor_rank_anon'))
+    show_amt = st.get('donor_rank_amount') is not False
+    rows = []
+    for who, row in (st.get('donor_tally') or {}).items():
+        if not isinstance(row, dict) or is_excluded(who):
+            continue
+        if not with_anon and who == '익명':
+            continue
+        total = _n(row.get('total'))
+        if total > 0:
+            rows.append({'name': ' '.join(str(row.get('name') or who).split()) or who, 'total': total})
+    rows.sort(key=lambda r: (-r['total'], r['name']))
+
+    b = st.get('best_single') or {}
+    best = None
+    if isinstance(b, dict) and _n(b.get('amount')) > 0:
+        best = {'name': str(b.get('name') or ''), 'amount': _n(b.get('amount')),
+                'member': str(b.get('member') or '')}
+    return {
+        'at': int(time.time() * 1000),
+        'members': members,
+        'donors': [{'name': r['name'], 'total': r['total'] if show_amt else None} for r in rows[:STAGE_DONORS]],
+        'donor_count': len(rows),
+        'show_amount': show_amt,
+        'best': best,
+    }
+
+
+@app.route('/api/screen', methods=['POST'])
+def api_stage_screen():
+    """🎬 시작 전 화면 · 끝 화면 · 끄기."""
+    try:
+        body = request.get_json(silent=True) or {}
+        mode = str(body.get('mode') or 'off')
+        if mode not in STAGE_MODES:
+            return jsonify({'status': 'error', 'message': '화면은 off · start · end 중 하나입니다.'}), 400
+        with file_lock:
+            state = load_data()
+            ss = _stage_state(state)
+            now = int(time.time() * 1000)
+            if mode != 'off':
+                ss['title'] = ' '.join(str(body.get('title') or '').split())[:STAGE_TITLE_MAX]
+                ss['shown_at'] = now
+            if mode == 'start':
+                try:
+                    minutes = int(float(body.get('minutes') or 0))
+                except (TypeError, ValueError):
+                    minutes = 0
+                minutes = max(0, min(STAGE_MINUTES_MAX, minutes))
+                # 0 분이면 카운트다운 없이 문구만 띄운다
+                ss['start_at'] = (now + minutes * 60000) if minutes else 0
+                # 방송 시작 전에는 선수 명단(bjs)이 비어 있다 — 조종실 준비 칸에 적어 둔 이름을 받아 둔다
+                names = []
+                raw = body.get('names')
+                for nm in (raw if isinstance(raw, list) else [])[:10]:
+                    nm = ' '.join(str(nm or '').split())[:20]
+                    if nm and nm not in names:
+                        names.append(nm)
+                ss['names'] = names
+            ss['mode'] = mode
+            save_data(state)
+            broadcast_event('update', state)
+        return jsonify({'status': 'success', 'stage_screen': ss})
+    except Exception as e:
+        print(f'[시작·끝 화면 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 # 방송을 시작·종료해도 DB 에서 안 지우는 설정 칸.
 # ⚠️ 물음표 개수를 손으로 세지 않는다 — 칸을 하나 더하고 물음표를 안 늘려서
 #    방송 시작·종료가 통째로 500 으로 죽을 뻔했다(2026-09-18, 테마 연출 칸).
@@ -5759,6 +5882,12 @@ def end_broadcast():
             state['logs'] = []
             state['match_logs'] = []
             reset_session_keys(state)
+            # 🎬 끝 화면에 띄울 '오늘의 기록' — 위에서 지우기 전에 떠 둔 pre_state 로 만든다.
+            #    ⚠️ 방송을 끝낸 **뒤에** [끝 화면] 을 눌러도 오늘 기록이 나와야 한다.
+            try:
+                _stage_state(state)['last_snap'] = _stage_snapshot(pre_state)
+            except Exception as _se:
+                print(f'⚠️ [끝 화면 기록 보관 실패] {_se}', flush=True)
 
             # ⚠️ is_initial=True 로 전체 키를 다시 쓴다.
             #    위에서 kv_store 행을 지웠는데 메모리 값은 그대로라, 변경분만 쓰는 평소 방식으로는
@@ -5835,6 +5964,12 @@ def start_broadcast():
             state['logs'] = []
             state['match_logs'] = []
             reset_session_keys(state)
+            # 🎬 지난 방송의 끝 화면이 새 방송 위에 남으면 안 된다.
+            #    ⚠️ 시작 전 화면은 **그대로 둔다** — 선수를 먼저 등록해 두고 기다리는 흐름이 있다
+            #       (등록하면 대기 화면에 멤버 이름이 뜬다). 방송에 들어갈 때 [끄기] 로 내린다.
+            _ss = _stage_state(state)
+            if _ss.get('mode') == 'end':
+                _ss['mode'] = 'off'
 
             # kv_store 행을 위에서 지웠으므로 전체 키를 다시 기록해야 설정이 살아남는다
             
@@ -6685,6 +6820,8 @@ PATCH_DENY = frozenset((
     'pinball',
     # 💥 한 방 최고 후원도 후원 접수·배정 때만 서버가 적는다
     'best_single',
+    # 🎬 시작·끝 화면도 /api/screen 으로만 (끝 화면 기록 last_snap 은 방송 종료만 적는다)
+    'stage_screen', 'stage_live',
 ))
 
 

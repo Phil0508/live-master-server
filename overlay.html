@@ -396,6 +396,67 @@
             100% { opacity: 0; transform: translate(-50%, -22px) scale(.96); }
         }
 
+        /* 🎬 방송 시작·끝 화면 — 방송판 전체를 덮는다. 조종실 [시작 전 화면]·[끝 화면]·[끄기].
+           ⚠️ 후원 알림(100005)·시그니처(90000)·고액 영상(88000)보다 **아래**에 깐다 —
+              기다리는 동안 들어온 후원도 알림은 떠야 한다. 대신 위젯판·게임판은 body.stage-on 이 내린다
+              (위젯판 z-index 가 이 화면보다 높아서 안 내리면 위로 비친다).
+           ⚠️ 글씨는 안전지대(115~954) 가운데에 모은다 — 폰에서는 그 아래가 채팅에 가린다. */
+        #stage-screen { position: absolute; inset: 0; z-index: 87000; pointer-events: none;
+            opacity: 0; visibility: hidden; transition: opacity var(--t-slow) ease, visibility var(--t-slow);
+            background: radial-gradient(120% 60% at 50% 26%, rgba(46, 38, 78, .97), rgba(10, 10, 18, .985) 72%); }
+        #stage-screen.show { opacity: 1; visibility: visible; }
+        /* ⚠️ 위젯판은 #ui-layer 밖에도 있다(한 방 최고 후원 · 후원 순위 …) — 처음에 ui-layer 만 내렸더니
+              그 둘이 시작 화면 위로 그대로 비쳤다. 손잡이 클래스(.widget-container)로 한 번에 내린다.
+              고액후원 영상·노래방 영상은 남긴다 — 기다리는 동안 틀어 두는 것이라 가리면 안 된다. */
+        body.stage-on #ui-layer,
+        body.stage-on #headrow,
+        body.stage-on .widget-container:not(#acct_video-container):not(#karaoke-container),
+        body.stage-on #siggame-container,
+        body.stage-on #dicegame-container,
+        body.stage-on #pinball-container,
+        body.stage-on #match-container { opacity: 0 !important; visibility: hidden !important; }
+        .ss-card { position: absolute; left: 64px; right: 64px; top: 535px; transform: translateY(-50%);
+            box-sizing: border-box; padding: 46px 52px 44px; border-radius: var(--glass-radius);
+            background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+            display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; color: var(--text-main); }
+        .ss-card:empty { display: none; }
+        #stage-screen.show .ss-card { animation: ssIn .7s var(--ease) both; }
+        @keyframes ssIn { from { opacity: 0; transform: translateY(calc(-50% + 30px)); } to { opacity: 1; transform: translateY(-50%); } }
+        .ss-eyebrow { font-size: 30px; font-weight: 800; letter-spacing: 6px; color: var(--gold); }
+        .ss-title { font-size: 84px; font-weight: 900; line-height: 1.08; letter-spacing: -2px; color: #fff;
+            text-shadow: 0 4px 0 rgba(0, 0, 0, .35), 0 0 28px rgba(var(--gold-rgb), .35); }
+        .ss-sub { font-size: 36px; font-weight: 700; color: var(--text-muted); max-width: 100%;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ss-count { font-size: 150px; font-weight: 900; line-height: 1; letter-spacing: -3px; font-variant-numeric: tabular-nums;
+            color: var(--gold-light); text-shadow: 0 6px 0 rgba(0, 0, 0, .4), 0 0 40px rgba(var(--gold-rgb), .45); }
+        .ss-count.soon { font-size: 110px; animation: ssSoon 1.2s ease-in-out infinite; }
+        @keyframes ssSoon { 50% { transform: scale(1.06); } }
+        .ss-lab { font-size: 28px; font-weight: 800; letter-spacing: 2px; color: var(--gold); }
+        .ss-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 14px; }
+        .ss-chip { font-size: 32px; font-weight: 800; padding: 8px 26px; border-radius: 999px;
+            background: rgba(255, 255, 255, .07); border: 2px solid rgba(var(--gold-rgb), .45); color: #fff; }
+        .ss-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; }
+        .ss-duo.one { grid-template-columns: 1fr; }
+        .ss-tile { min-width: 0; padding: 18px 20px 16px; border-radius: var(--r-m);
+            background: rgba(255, 255, 255, .06); border: 1px solid rgba(var(--gold-rgb), .3);
+            display: flex; flex-direction: column; gap: 4px; align-items: center; }
+        .ss-big { font-size: 46px; font-weight: 900; color: #fff; max-width: 100%;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ss-small { font-size: 31px; font-weight: 800; color: var(--gold-light); font-variant-numeric: tabular-nums;
+            max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ss-donors { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 26px; width: 100%; }
+        .ss-donor { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; min-width: 0;
+            font-size: 31px; padding: 6px 4px; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+        .ss-donor b { font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ss-donor span { flex: none; font-weight: 800; color: var(--gold-light); font-variant-numeric: tabular-nums; }
+        .ss-donors.names .ss-donor { justify-content: center; }
+        .ss-more { font-size: 28px; font-weight: 700; color: var(--text-muted); }
+        /* ⚠️ 끝 화면은 1등·한 방 최고·후원자 여덟 분까지 담는다. 시작 화면과 같은 여백으로 두면
+              아래끝이 971 이 되어 안전지대(954) 를 넘었다 — 끝 화면만 한 칸씩 조인다. */
+        #stage-screen[data-mode="end"] .ss-card { gap: 14px; padding: 38px 48px 34px; }
+        #stage-screen[data-mode="end"] .ss-title { font-size: 76px; }
+        #stage-screen[data-mode="end"] .ss-donor { padding: 3px 4px; }
+
         /* 🌕 추석 보름달 — 큰 후원이 오면 후원 알림 뒤에서 떠오른다(달토끼 그림은 추석 테마의 --crown).
            ⚠️ 추석 테마가 아니면 부르지 않는다. 알림(100005) 바로 뒤에 깐다. */
         .theme-moon { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px;
@@ -2351,7 +2412,7 @@
         }
 
         /* ── ① 액자 ─────────────────────────────────────────────────────────── */
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board) {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .ss-card) {
             border: 4px solid transparent;
             background: var(--frame-fill) padding-box, var(--frame) border-box;
             border-radius: var(--glass-radius);
@@ -2360,7 +2421,7 @@
             outline-offset: -12px;
         }
         /* 유리판의 윗줄 하이라이트는 액자와 안 어울린다 */
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board)::before { content: none; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .ss-card)::before { content: none; }
         /* 계좌는 48px 로 납작하다 — 진주 줄이 글자를 가로지르지 않게 뺀다.
            ⚠️ overflow 를 풀어야 모서리 장식이 판 밖에 걸린다. 대신 아이콘 칸 모서리를 직접 둥글린다. */
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-box-v2 { outline: none; overflow: visible; }
@@ -2374,7 +2435,7 @@
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
 
         /* ── ② 장식 ─────────────────────────────────────────────────────────── */
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board)::after {
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .ss-card)::after {
             content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none;
             background:
                 var(--orn-top) left top / 44px 44px no-repeat,
@@ -2469,6 +2530,32 @@
         body.theme-pastel .dr-row.dr-vip { background: linear-gradient(90deg, rgba(255, 255, 255, .95), var(--skin-row) 46%) !important; }
         /* VIP 알림의 'VVIP · 다이아' 글씨는 등급 색(금 · 하늘)이라 밝은 속에서 흐리다 — 테두리를 준다 */
         body.theme-pastel #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
+
+        /* ── 🎬 시작·끝 화면도 테마 옷을 입는다 ─────────────────────────────────
+           액자·모서리 장식은 위 ① 목록에 .ss-card 를 넣어 같이 입힌다. 여기선 바탕과 글씨만.
+           ⚠️ 파스텔은 속이 밝다 — 흰 글씨를 그대로 두면 안 보인다. 전부 잉크 토큰으로 칠한다. */
+        body.theme-rose #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(96, 40, 66, .97), rgba(34, 12, 24, .985) 72%); }
+        body.theme-pastel #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(255, 244, 249, .98), rgba(236, 222, 252, .985) 72%); }
+        body.theme-royal #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(52, 26, 92, .97), rgba(14, 8, 30, .985) 72%); }
+        body.theme-chuseok #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(26, 36, 78, .97), rgba(8, 11, 28, .985) 72%); }
+        /* 🌕 추석 — 화면 위쪽에 큰 보름달(달토끼) */
+        body.theme-chuseok #stage-screen::before { content: ""; position: absolute; left: 50%; top: 40px; width: 300px; height: 300px;
+            margin-left: -150px; border-radius: 50%; opacity: .9;
+            background: var(--crown) center / 92% no-repeat, radial-gradient(circle, rgba(255, 231, 160, .45) 0%, transparent 70%); }
+        body.theme-chuseok #stage-screen[data-mode="start"] .ss-card { top: 590px; }   /* 짧은 시작 화면만 달 밑으로 내린다 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .ss-title {
+            font-family: var(--face-big); font-weight: var(--big-weight); letter-spacing: 0; color: var(--ink-name); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.ss-eyebrow, .ss-lab) {
+            font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.ss-sub, .ss-more) { color: var(--ink-label); opacity: .85; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.ss-big, .ss-chip, .ss-donor b) {
+            font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.ss-count, .ss-small, .ss-donor span) {
+            font-family: var(--face-num); font-weight: var(--num-weight); color: var(--ink-num); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.ss-tile, .ss-chip) {
+            background: var(--skin-row); border: 2px var(--pearl-style) var(--skin-line); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .ss-donor { border-bottom: 1px var(--pearl-style) var(--skin-line); }
+        body.theme-pastel :is(.ss-title, .ss-count) { text-shadow: none; }
 
         /* ── ⑤ 게임판 (2차) ─────────────────────────────────────────────────
            ⚠️ 게임판 속 글씨는 거의 **흰색**이다(칸 이름 · 카드 · 릴 · 대결 카드). 파스텔의 밝은 속을 깔면
@@ -2717,6 +2804,8 @@
                 <div id="acct-video-frame" style="width:100%; height:100%;"></div>
             </div>
 
+            <!-- 🎬 방송 시작·끝 화면 — renderStageScreen 이 채운다 (알림·시그니처보다 아래, 위젯판보다 위) -->
+            <div id="stage-screen" aria-hidden="true"><div class="ss-card" id="ss-card"></div></div>
             <div id="theme-moon" class="theme-moon" aria-hidden="true"></div>
             <div id="toon-popup-container">
                 <div id="toon-popup" class="donation-popup-content">
@@ -4913,6 +5002,83 @@
             }
         }
 
+        /* 🎬 방송 시작·끝 화면 — 조종실 [시작 전 화면]·[끝 화면]·[끄기].
+           ⚠️ 방송 꺼짐 return 보다 **앞**에서 부른다 — 시작 전 화면은 방송 시작을 누르기 전에 띄우는 것이다.
+           ⚠️ 끝 화면 기록: 방송 중이면 서버가 매번 새로 만든 stage_live, 끝낸 뒤면 종료 직전에 떠 둔 last_snap.
+           ⚠️ 카운트다운은 서버 시계로 센다(serverTimeOffset) — OBS 컴퓨터 시계가 틀려도 모든 화면이 같은 초를 보인다. */
+        let ssHtml = null, ssTimer = null, ssStartAt = 0;
+        function ssEsc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
+                return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m];
+            });
+        }
+        function ssWon(n) { return Number(n || 0).toLocaleString() + '원'; }
+        function ssClock() {
+            const el = document.getElementById('ss-count');
+            if (!el || !ssStartAt) return;
+            const left = ssStartAt - (Date.now() + serverTimeOffset);
+            if (left <= 0) {
+                if (!el.classList.contains('soon')) { el.classList.add('soon'); el.textContent = '곧 시작!'; }
+                return;
+            }
+            const s = Math.ceil(left / 1000), p2 = function (x) { return String(x).padStart(2, '0'); };
+            const txt = s >= 3600 ? Math.floor(s / 3600) + ':' + p2(Math.floor(s % 3600 / 60)) + ':' + p2(s % 60)
+                                  : p2(Math.floor(s / 60)) + ':' + p2(s % 60);
+            el.classList.remove('soon');
+            if (el.textContent !== txt) el.textContent = txt;
+        }
+        function renderStageScreen(d) {
+            const box = document.getElementById('stage-screen'), card = document.getElementById('ss-card');
+            if (!box || !card) return;
+            const ss = (d && d.stage_screen) || {};
+            const mode = (ss.mode === 'start' || ss.mode === 'end') ? ss.mode : 'off';
+            box.classList.toggle('show', mode !== 'off');
+            document.body.classList.toggle('stage-on', mode !== 'off');
+            box.setAttribute('data-mode', mode);
+            ssStartAt = mode === 'start' ? (Number(ss.start_at) || 0) : 0;
+            const sub = ss.title ? '<div class="ss-sub">' + ssEsc(ss.title) + '</div>' : '';
+            let html = '';
+            if (mode === 'start') {
+                // 방송을 시작했으면 등록된 선수, 아직이면 조종실 준비 칸에서 받아 둔 이름
+                const names = ((d.bjs && d.bjs.length) ? d.bjs.map(function (b) { return b && b.name; }) : (ss.names || []))
+                    .filter(Boolean).slice(0, 10);
+                html = '<div class="ss-eyebrow">잠시 후 방송</div>'
+                     + '<div class="ss-title">곧 시작합니다</div>' + sub
+                     + (ssStartAt ? '<div class="ss-count" id="ss-count"></div>' : '')
+                     + (names.length ? '<div class="ss-lab">오늘 함께할 멤버</div><div class="ss-chips">'
+                        + names.map(function (n) { return '<span class="ss-chip">' + ssEsc(n) + '</span>'; }).join('') + '</div>' : '');
+            } else if (mode === 'end') {
+                const snap = d.stage_live || ss.last_snap || {};
+                const top = (snap.members || [])[0];
+                const best = snap.best;
+                const tiles = [];
+                if (top && (top.contribution > 0 || top.score > 0)) {
+                    tiles.push('<div class="ss-tile"><div class="ss-lab">🏆 오늘의 1등</div><div class="ss-big">' + ssEsc(top.name) + '</div>'
+                        + '<div class="ss-small">기여도 ' + Number(top.contribution || 0).toLocaleString() + '</div></div>');
+                }
+                if (best && best.amount > 0) {
+                    tiles.push('<div class="ss-tile"><div class="ss-lab">💥 한 방 최고</div><div class="ss-big">' + ssEsc(best.name) + '</div>'
+                        + '<div class="ss-small">' + ssWon(best.amount) + (best.member ? ' → ' + ssEsc(best.member) : '') + '</div></div>');
+                }
+                const donors = snap.donors || [];
+                const more = Math.max(0, (snap.donor_count || 0) - donors.length);
+                html = '<div class="ss-eyebrow">오늘 방송 끝</div>'
+                     + '<div class="ss-title">오늘도 고마워요</div>' + sub
+                     + (tiles.length ? '<div class="ss-duo' + (tiles.length === 1 ? ' one' : '') + '">' + tiles.join('') + '</div>' : '')
+                     + (donors.length ? '<div class="ss-lab">후원해 주신 분</div><div class="ss-donors' + (snap.show_amount === false ? ' names' : '') + '">'
+                        + donors.map(function (r) {
+                            return '<div class="ss-donor"><b>' + ssEsc(r.name) + '</b>'
+                                 + (r.total != null ? '<span>' + Number(r.total).toLocaleString() + '</span>' : '') + '</div>';
+                          }).join('') + '</div>'
+                        + (more ? '<div class="ss-more">외 ' + more + '분 — 모두 고맙습니다</div>' : '') : '');
+            }
+            if (html !== ssHtml) { card.innerHTML = html; ssHtml = html; }
+            if (ssStartAt) {
+                ssClock();
+                if (!ssTimer) ssTimer = setInterval(ssClock, 250);
+            } else if (ssTimer) { clearInterval(ssTimer); ssTimer = null; }
+        }
+
         /* 🎆 테마별 후원 연출 — 테마 모양 입자를 뿌린다.
            ⚠️ 예전에 '후원 터질 때 나오던 카지노 컨페티' 를 대표님 요청으로 뺐다(showToonPopup 기록).
               그래서 **기본 테마에서는 아무것도 안 한다.** 테마를 입었을 때만 적게 뿌리고, 큰 후원일수록 조금 커진다.
@@ -5086,7 +5252,8 @@
             /* 🎀 테마 — ⚠️ 방송 꺼짐 return 보다 **앞**에 둔다. 예전엔 뒤에 있어서 방송 시작 전에는
                   테마를 골라도 안 바뀌었다(편집기 무대·방송 준비 화면에서 확인할 수가 없었다). */
             applyTheme(d.theme);
-            themeFxOn = d.theme_fx_enabled !== false;   // ✨ 조종실 '테마 연출' (옛 저장본엔 칸이 없다 — 켠 것으로)
+            themeFxOn = d.theme_fx_enabled !== false;
+            renderStageScreen(d);   // 🎬 시작·끝 화면 — 방송 시작 전에 띄우는 것이라 이 자리   // ✨ 조종실 '테마 연출' (옛 저장본엔 칸이 없다 — 켠 것으로)
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
