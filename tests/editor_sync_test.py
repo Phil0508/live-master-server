@@ -334,6 +334,24 @@ chk('화면 고정 구간을 안 쓴다', 'const lo = 115 + half' not in ov)
 
 print()
 print('=' * 74)
+print('🎲 주사위판이 편집기 자리를 따르는가')
+print('=' * 74)
+# ⚠️ 대표님: "주사위판이 아직도 안전구역이 적용되는건지 밑으로 안내려가네" (2026-09-17)
+#    안전지대 탓이 아니었다. 주사위판은 **엑셀판 바로 아래에 붙는 코드**(dgSyncPos)가
+#    편집기 자리를 매번 덮어썼다 — 1100·800·307 어디에 둬도 top 380 · left 75 였다.
+#    계좌·후원 순위는 이미 '편집기에서 잡았으면 편집기가 이긴다' 였는데 주사위판만 빠졌다.
+chk('편집기에서 잡았는지 알린다', "window.__dgLaid = laid('dicegame');" in ov)
+chk('잡았으면 세로를 덮어쓰지 않는다',
+    "if (!window.__dgLaid) box.style.top = r.top + 'px';" in ov)
+chk('잡았으면 가로를 가운데로 끌지 않는다', 'if (box && !window.__dgLaid) {' in ov)
+# ⚠️ 조건 없이 top 을 쓰는 줄이 도로 생기면 같은 버그가 돌아온다
+chk('조건 없이 세로를 쓰는 줄이 없다',
+    "            box.style.top = r.top + 'px';" not in ov)
+# 편집기가 주사위판 자리를 저장한다(이게 없으면 laid 가 영영 거짓이다)
+chk('편집기에 주사위판 손잡이가 있다', 'id="dicegame" data-id="dicegame"' in ad)
+
+print()
+print('=' * 74)
 print('통과 %d · 실패 %d' % (ok, bad))
 print('=' * 74)
 sys.exit(1 if bad else 0)

@@ -3732,6 +3732,10 @@
             window.__accLaid = laid('account');
             window.__noticeLaid = false;
             window.__donorLaid = laid('donor-rank');   // 편집기에서 잡았으면 그쪽, 아니면 계좌 아래
+            /* 🎲 주사위판도 같다 — 편집기에서 잡았으면 그 자리. 예전엔 엑셀판 아래에 붙는
+                  코드(dgSyncPos)가 편집기 자리를 매번 덮어써서, 아래로 끌어도 380px 에
+                  도로 붙었다(대표님: "밑으로 안내려가네"). */
+            window.__dgLaid = laid('dicegame');
 
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
@@ -8253,7 +8257,10 @@
             const box = document.getElementById('dicegame-container');
             if (!box || box.style.visibility !== 'visible') return;
             const r = dgTopAndRoom();
-            box.style.top = r.top + 'px';
+            /* ⚠️ 편집기에서 자리를 잡았으면 **자리는 안 건드린다.** 칸 크기(room)는 예전처럼
+                  엑셀판을 보고 정한다 — 옮겼다고 판 크기까지 달라지면 편집기에서 본 것과
+                  방송이 또 어긋난다. 크기는 편집기의 배율로 조절한다. */
+            if (!window.__dgLaid) box.style.top = r.top + 'px';
             if (r.room === dgRoom) return;
             dgRoom = r.room;
             // ⚠️ 엑셀판은 주사위판보다 **늦게** 그려진다(handleData 순서). 그래서 여기서
@@ -8314,7 +8321,8 @@
             // 판이 엑셀판 아래로 내려오면서 세로에 맞춰 작아진다 — 그만큼 가로가 남으므로
             // 가운데로 모은다. 왼쪽에 붙여두면 오른쪽이 휑하다(캡처로 잡았다).
             const box = document.getElementById('dicegame-container');
-            if (box) {
+            // ⚠️ 편집기에서 자리를 잡았으면 가운데로 끌지 않는다(위 dgSyncPos 와 같은 이유)
+            if (box && !window.__dgLaid) {
                 box.style.left = '6px';
                 const w = box.offsetWidth;
                 if (w > 2) box.style.left = Math.max(6, Math.round((1080 - w) / 2)) + 'px';
