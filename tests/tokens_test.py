@@ -158,8 +158,8 @@ chk('파스텔은 유리판 배경(--glass-bg)을 통째로 밝히지 않는다'
 chk('① 액자를 두른다 (테두리 그라데이션 + 진주 줄)',
     'var(--frame-fill) padding-box, var(--frame) border-box' in THEME and 'outline: 2px var(--pearl-style) var(--pearl)' in THEME)
 chk('② 모서리 장식과 1등 왕관이 있다', '--orn-top' in THEME and 'var(--crown) center / contain' in THEME)
-chk('③ 글꼴을 바꾼다 (Jua · Gowun Batang 을 받는다)',
-    'family=Jua' in OV and 'family=Gowun+Batang' in OV and 'font-family: var(--face-name)' in THEME)
+chk('③ 글꼴을 바꾼다 (이름 · 표 숫자 · 큰 숫자 · 이름표)',
+    all('font-family: var(--face-%s)' % k in THEME for k in ('name', 'num', 'big', 'label')))
 chk('③ 숫자를 볼록하게 (글자 속 그라데이션)', 'background-clip: var(--num-clip)' in THEME)
 chk('④ 반짝이가 깜빡인다 (투명도만)', re.search(r'@keyframes themeTwinkle \{[^}]*opacity', THEME) is not None)
 
@@ -195,7 +195,29 @@ chk('추석: 옷 입히는 규칙이 추석에도 걸린다',
 chk('추석: 색동 테두리 · 보름달 · 송편 · 달토끼가 있다',
     bool(_blk['chuseok']) and 'repeating-linear-gradient(135deg, #e8664e' in _blk['chuseok'].group(1)
     and _blk['chuseok'].group(1).count('data:image/svg+xml') == 4)
-chk('추석: 송명체를 받는다', 'family=Song+Myung' in OV)
+
+# 🔤 대표님: "폰트들도 다 다르게해줘 다 궁서체잖아" (2026-09-17)
+#    예전엔 네 테마가 이름표에 붓글씨(고운바탕 · 송명)를 같이 썼다.
+def _faces(t):
+    b = _blk[t].group(1) if _blk[t] else ''
+    return {k: (re.search(r'--face-%s: "([^"]+)"' % k, b) or [None, None])[1] for k in ('name', 'num', 'big', 'label')}
+_F = {t: _faces(t) for t in _blk}
+chk('네 테마 모두 글꼴 넷(이름 · 표 숫자 · 큰 숫자 · 이름표)을 정한다',
+    all(all(v.values()) for v in _F.values()), _F)
+_label = [v['label'] for v in _F.values()]
+_name = [v['name'] for v in _F.values()]
+chk('이름표 글꼴이 테마마다 다르다', len(set(_label)) == len(_label), _label)
+chk('이름 글꼴이 테마마다 다르다', len(set(_name)) == len(_name), _name)
+chk('붓글씨(궁서 계열)를 안 쓴다 (주석은 빼고 본다)', not re.search(r'Gowun Batang|Song Myung|Nanum Myeongjo|Batang|Gungsuh', re.sub(r'/\*.*?\*/', '', THEME, flags=re.S)))
+_imp = re.search(r"@import url\('https://fonts\.googleapis\.com/css2\?([^']+)'\)", OV)
+_need = sorted({f for v in _F.values() for f in v.values()} - {'Pretendard'})
+_miss = [f for f in _need if not _imp or ('family=' + f.replace(' ', '+')) not in _imp.group(1)]
+chk('쓰는 글꼴을 전부 받아온다', not _miss, _miss)
+# ⚠️ 표 안 숫자는 점수 칸(148px)에 들어가야 한다 — 통통한 장식 글꼴은 큰 숫자·이름표에만
+chk('표 숫자에 통통한 장식 글꼴을 안 쓴다', not any(v['num'] in ('Bagel Fat One', 'Black Han Sans', 'Gugi', 'Single Day') for v in _F.values()),
+    [v['num'] for v in _F.values()])
+# ⚠️ 한 굵기뿐인 글꼴에 굵게를 박으면 번져 보인다 — 굵기도 토큰으로
+chk('이름표 굵기를 700 으로 박아 두지 않는다', 'var(--face-label); font-weight: 700' not in THEME)
 
 print()
 print('=' * 74)

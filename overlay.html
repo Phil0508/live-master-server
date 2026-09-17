@@ -17,7 +17,7 @@
            그래서 아래 font-family 마다 한글 대체 글꼴을 꼭 적어 뒀다 — 안 적으면 generic
            sans-serif 로 떨어져 한글이 깨져 보인다. (기능이 걸린 스크립트는 /vendor 에 두고 쓴다) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&family=Jua&family=Gowun+Batang:wght@700&family=Song+Myung&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&family=Jua&family=Bagel+Fat+One&family=Gaegu:wght@700&family=Sunflower:wght@700&family=Single+Day&family=Gothic+A1:wght@700;800;900&family=Yeon+Sung&family=Do+Hyeon&family=Gugi&display=swap');
         
         :root {
             /* ============================================================
@@ -2085,7 +2085,8 @@
            그래서 색만 바꾸지 않는다. 네 가지를 같이 바꾼다.
              ① 액자   — 유리판 대신 로즈골드 · 흰 레이스 · 금테 (굵은 테두리 + 안쪽 진주 줄)
              ② 장식   — 판 모서리에 하트 · 리본 · 보석, 1등 배지에 왕관
-             ③ 글씨   — 이름은 둥근 글씨(Jua)나 붓글씨(Gowun Batang), 숫자는 사탕 · 금박처럼 볼록하게
+             ③ 글씨   — 테마마다 글꼴이 다 다르다(이름 · 표 숫자 · 큰 숫자 · 이름표). 숫자는 사탕 · 금박처럼 볼록하게
+                        ⚠️ 예전엔 네 테마가 이름표에 붓글씨(고운바탕 · 송명)를 같이 써서 대표님이 '다 궁서체' 라 했다
              ④ 움직임 — 판 둘레에서 반짝이가 깜빡인다 (투명도만 바꿔 방송 컴퓨터 부담이 거의 없다)
 
            ⚠️ 위젯 뼈대(칸 · 자리 · 크기 · 글자 크기)는 안 건드린다. 겉옷만 입힌다.
@@ -2118,9 +2119,11 @@
             --rib-bg: linear-gradient(180deg, #ffe3ec, #f3a9c1 60%, #d97b9b); --rib-ink: #5a1733;
             --rib-cut: polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%); --rib-ring: none;
             --badge-bg: radial-gradient(circle at 35% 30%, #ffffff, #f3d6e1 70%); --badge-ink: #5a1733; --badge-ring: #e8a5b5;
+            /* 🔤 글꼴 — 주아(둥근) + 베이글 팻 원(말랑 통통). 사탕 숫자와 어울린다 */
             --face-name: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
             --face-num: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
-            --face-label: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif;
+            --face-big: "Bagel Fat One", "Jua", "Malgun Gothic", sans-serif; --big-weight: 400;
+            --face-label: "Bagel Fat One", "Jua", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #fff6f9; --ink-num: #ffd3e3; --ink-label: #f7b6cc; --ink-soft: rgba(255, 226, 238, .92);
             --name-shadow: 0 2px 0 #7a2447, 0 0 8px rgba(255, 143, 184, .45);
             --num-color: transparent; --num-fill: linear-gradient(180deg, #ffffff 0%, #ffe0ec 48%, #ff8fb8 100%);
@@ -2152,9 +2155,11 @@
             --rib-bg: #ffffff; --rib-ink: #d94a86;
             --rib-cut: none; --rib-ring: 0 0 0 2px #ffc2da, 0 3px 8px rgba(150, 40, 90, .25);
             --badge-bg: #ffffff; --badge-ink: #c2527f; --badge-ring: #ffc2da;
-            --face-name: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
-            --face-num: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
-            --face-label: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif;
+            /* 🔤 글꼴 — 개구(손글씨) + 해바라기(동글 깔끔) + 싱글데이(귀여운 이름표) */
+            --face-name: "Gaegu", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 700;
+            --face-num: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 700;
+            --face-big: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 700;
+            --face-label: "Single Day", "Gaegu", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #6b2150; --ink-num: #8a3a64; --ink-label: #c2527f; --ink-soft: #7a3a5e;
             --name-shadow: none;
             --num-color: #ff5f9e; --num-fill: none; --num-clip: border-box;
@@ -2195,9 +2200,11 @@
             --rib-bg: linear-gradient(180deg, #fff3c4, #e2b454 55%, #b07d24); --rib-ink: #3a0a22;
             --rib-cut: polygon(0 50%, 4% 0, 96% 0, 100% 50%, 96% 100%, 4% 100%); --rib-ring: none;
             --badge-bg: linear-gradient(180deg, #5a1638, #33061f); --badge-ink: #f5d98a; --badge-ring: #e2b454;
-            --face-name: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif; --name-weight: 700;
-            --face-num: "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;   /* ⚠️ 900 이면 1등 점수가 칸을 넘쳐 앞자리가 사라졌다 */
-            --face-label: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif;
+            /* 🔤 글꼴 — 고딕 A1(날렵한 고딕) + 검은고딕(굵은 간판 이름표). 붓글씨를 뺐다 */
+            --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 700;
+            --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;   /* ⚠️ 900 이면 1등 점수가 칸을 넘쳤다 */
+            --face-big: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 900;
+            --face-label: "Black Han Sans", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #fff3dc; --ink-num: #f5d98a; --ink-label: #f5d98a; --ink-soft: #f1dccb;
             --name-shadow: 0 2px 0 #1e0311;
             --num-color: transparent; --num-fill: linear-gradient(180deg, #fff7d6 0%, #f5d98a 45%, #c28a2c 56%, #ffe9a8 100%);
@@ -2242,9 +2249,11 @@
             --rib-ink: #3a2410;
             --rib-cut: polygon(0 0, 100% 0, 97% 50%, 100% 100%, 0 100%, 3% 50%); --rib-ring: none;
             --badge-bg: linear-gradient(180deg, #2c3a6e, #151c3d); --badge-ink: #ffd76a; --badge-ring: #ffd76a;
-            --face-name: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif; --name-weight: 700;
-            --face-num: "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
-            --face-label: "Song Myung", "Gowun Batang", "Nanum Myeongjo", serif;
+            /* 🔤 글꼴 — 연성(붓펜, 궁서 아님) + 도현(또렷한 숫자) + 구기(전통 느낌 장식체 이름표) */
+            --face-name: "Yeon Sung", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
+            --face-num: "Do Hyeon", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
+            --face-big: "Do Hyeon", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 400;
+            --face-label: "Gugi", "Do Hyeon", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #fff6e6; --ink-num: #ffe7a0; --ink-label: #ffd76a; --ink-soft: #f3e6cf;
             --name-shadow: 0 2px 0 #0b0f22;
             --num-color: transparent; --num-fill: linear-gradient(180deg, #fffbe8 0%, #ffe08a 48%, #e0a526 58%, #fff0b3 100%);
@@ -2318,7 +2327,7 @@
             background: var(--rib-bg); color: var(--rib-ink);
             clip-path: var(--rib-cut); box-shadow: var(--rib-ring);
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: var(--label-weight); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .jar-title { padding-inline: 30px; }
         /* 순위 배지 — 1·2·3 은 색 토큰이 바꿔 주고, 나머지만 여기서 칠한다 */
         body:is(.theme-rose, .theme-pastel, .theme-chuseok) .r-rank { border-radius: 50%; }
@@ -2335,11 +2344,11 @@
             font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow);
         }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: var(--label-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-holder { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-name); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-empty { color: var(--ink-soft); }
@@ -2359,7 +2368,8 @@
             text-shadow: var(--num-shadow);
             filter: var(--num-edge);
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt) { font-family: var(--face-big); font-weight: var(--big-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .row-bottom .b-score { font-family: var(--face-num); font-weight: var(--num-weight); }
         /* ⚠️ 글자 속 그라데이션은 **칸 안에만** 칠해진다. 점수 칸(148px)은 오른쪽 정렬이라 긴 숫자가
               왼쪽으로 넘치는데, 넘친 부분은 칠이 없어 투명해졌다(실측: 로얄에서 '1,284,000' → ',284,000').
               칸을 왼쪽으로 늘리고 같은 만큼 안쪽 여백을 줘서 글자 자리는 그대로 두고 칠만 넓힌다. */
@@ -2403,10 +2413,10 @@
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-piece { background: var(--dg-p-bg, var(--piece-fill)); font-family: var(--face-name); font-weight: var(--name-weight); }
         /* 🃏 시그 뒤집기 — 카드 뒷면 · 머리글 */
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-back { background: var(--tile-fill); border-color: rgba(var(--gold-rgb), .7); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-header-title { font-family: var(--face-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-header-title { font-family: var(--face-label); font-weight: var(--label-weight); }
         /* 🎰 슬롯머신 */
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-reel { background: var(--tile-fill); box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), .45); }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); color: var(--game-ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--game-ink-label); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-win { font-family: var(--face-name); font-weight: var(--name-weight); }
         /* 🎡 룰렛 — 겉판이 인라인 style(검은 사선 · 모서리 자르기)이라 !important 로만 덮인다.
            ⚠️ 둥글기에는 !important 를 안 쓴다 — 인라인에 둥글기가 없어서 필요 없고, 검사가 단계 값만 받는다. */
@@ -2417,7 +2427,7 @@
             border-radius: var(--glass-radius);
             box-shadow: var(--frame-glow) !important;
         }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #roulette-title { font-family: var(--face-label) !important; font-style: normal !important; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #roulette-title { font-family: var(--face-label) !important; font-weight: var(--label-weight) !important; font-style: normal !important; }
         /* 🎱 핀볼 — 판(캔버스) 바탕과 테두리, 우승 딱지. 코스 · 구슬 색은 그대로 */
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #pb-canvas { background: var(--canvas-bg); border: 3px solid rgba(var(--gold-rgb), .6); box-shadow: var(--frame-glow); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .pb-winner {
@@ -2431,7 +2441,7 @@
         /* 🏃 퇴근빵 — 막대 색은 --race 토큰(테마 블록)이 바꾼다 */
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .home-race-title {
             background: var(--rib-bg); color: var(--rib-ink);
-            clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label);
+            clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label); font-weight: var(--label-weight);
         }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.home-race-name, .hr-goal-name) { font-family: var(--face-name); font-weight: var(--name-weight); }
 

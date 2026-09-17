@@ -271,7 +271,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-row
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-rank::after, body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { /* ⚠️ 배지 한가운데 위에 얹었더니 왕관 밑둥이 숫자 '1' 머리를 덮어 'T' 로 읽혔다. 모서리에 비스듬히 얹는다. */ content: ""; position: absolute; left: -12px; top: -15px; width: 28px; height: 28px; transform: rotate(-22deg); pointer-events: none; background: var(--crown) center / contain no-repeat; filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .5)); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .sig-tally-header, .jar-title) { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: var(--label-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .jar-title { padding-inline: 30px; }
 body:is(.theme-rose, .theme-pastel, .theme-chuseok) .r-rank { border-radius: 50%; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
@@ -279,16 +279,17 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row:not
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt, .r-contrib) { font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: var(--label-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who .acc-holder { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-name); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-empty { color: var(--ink-soft); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) { color: var(--num-color); background-image: var(--num-fill); -webkit-background-clip: var(--num-clip); background-clip: var(--num-clip); text-shadow: var(--num-shadow); filter: var(--num-edge); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v2, .donation-amount, .goal-rail-amt) { font-family: var(--face-big); font-weight: var(--big-weight); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .row-bottom .b-score { font-family: var(--face-num); font-weight: var(--num-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
 body.theme-pastel .notice-board { background: var(--frame-fill); }
 body.theme-pastel .notice-txt { color: var(--ink-name); text-shadow: none; }
@@ -302,13 +303,13 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-t-blank { 
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.dg-lbl, .dg-sum, .dg-laps) { font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dg-piece { background: var(--dg-p-bg, var(--piece-fill)); font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-back { background: var(--tile-fill); border-color: rgba(var(--gold-rgb), .7); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-header-title { font-family: var(--face-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .sg-header-title { font-family: var(--face-label); font-weight: var(--label-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-reel { background: var(--tile-fill); box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), .45); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); color: var(--game-ink-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--game-ink-label); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-win { font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-card { background: var(--game-fill); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .m-timer-pill { background: var(--game-fill); border-color: rgba(var(--gold-rgb), .6); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.m-card-name, .m-vs) { font-family: var(--face-name); font-weight: var(--name-weight); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .home-race-title { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .home-race-title { background: var(--rib-bg); color: var(--rib-ink); clip-path: var(--rib-cut); box-shadow: var(--rib-ring); font-family: var(--face-label); font-weight: var(--label-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.home-race-name, .hr-goal-name) { font-family: var(--face-name); font-weight: var(--name-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-container, #donor-rank-container)::after { content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none; background: var(--spark) 0% 38% / 26px 26px no-repeat, var(--spark) 100% 12% / 22px 22px no-repeat, var(--spark) 58% 100% / 18px 18px no-repeat; animation: themeTwinkle 3.2s ease-in-out infinite; }
