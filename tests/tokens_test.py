@@ -28,7 +28,7 @@ PROJ = (os.environ.get('LM_PROJECT_ROOT')
 rd = lambda f: io.open(os.path.join(PROJ, f), encoding='utf-8', errors='replace').read()
 OV, AD = rd('overlay.html'), rd('admin.html')
 CSS = OV[:OV.index('</style>')]
-ROOT_END = CSS.index('body.theme-pink {')
+ROOT_END = CSS.index('/* ── 토큰 끝')   # ⚠️ 예전엔 'body.theme-pink {' 였다. 네온 핑크를 뺄 뒤 그 자리에 표시를 두었다.
 ROOT, BODY = CSS[:ROOT_END], CSS[ROOT_END:]
 
 OK, BAD = [], []
@@ -126,6 +126,66 @@ hdr = re.search(r'\.sig-tally-header \{([^}]*)\}', BODY, re.S)
 chk('28px 이다', bool(hdr) and 'font-size: 28px' in hdr.group(1))
 chk('한 줄로 못 박았다', bool(hdr) and 'white-space: nowrap' in hdr.group(1))
 chk('글자 수를 줄였다 (206px 판에 들어간다)', '>🎵 시그 집계<' in OV and '>🎵 시그 집계<' in AD)
+
+print()
+print('=' * 74)
+print('⑥ 🎀 테마 — 색깔 바꾸기 놀이로 되돌아가지 않는가')
+print('=' * 74)
+# 대표님: "그냥 색깔바꾸기 놀이급으로 별로였어 … 확실하게 바꿀수있는게 필요한데" (2026-09-17)
+# 예전 네온 핑크는 색 변수 8개만 바꿨고, 위젯이 새 금색 토큰을 쓰게 된 뒤로는 금색 약 180곳 중 20곳만 바뀌었다.
+CTL = rd('controller.html')
+_sel = re.search(r'<select id="sel-theme".*?</select>', CTL, re.S)
+_opts = re.findall(r'value="(\w+)"', _sel.group(0)) if _sel else []
+chk('조종실 테마 칸에 세 벌이 있다', _opts == ['default', 'rose', 'pastel', 'royal'], _opts)
+chk('옛 네온 핑크는 목록에서 뺐다', 'pink' not in _opts)
+chk('옛 저장값 pink 는 로즈골드로 읽는다 (조종실)', "gd.theme === 'pink' ? 'rose'" in CTL)
+chk("옛 저장값 pink 는 로즈골드로 읽는다 (방송판)", "if (t === 'pink') t = 'rose';" in OV)
+
+_ts = CSS.index('🎀 방송판 테마 —')
+THEME = CSS[_ts:]
+_blk = {t: re.search(r'body\.theme-%s \{(.*?)\n        \}' % t, THEME, re.S) for t in ('rose', 'pastel', 'royal')}
+chk('세 벌 모두 토큰 묶음이 있다', all(_blk.values()), [t for t, b in _blk.items() if not b])
+# 금색을 하나라도 안 덮으면 그 토큰을 쓰는 위젯은 금색으로 남는다 — 네온 핑크가 그랬다
+_GOLD = ['--gold:', '--gold-rgb:', '--gold-light:', '--gold-deep:', '--gold-glow:', '--on-gold:',
+         '--silver:', '--bronze:', '--accent:', '--theme-neon:']
+_miss = ['%s %s' % (t, k) for t, b in _blk.items() if b for k in _GOLD if k not in b.group(1)]
+chk('세 벌 모두 금색 토큰을 빠짐없이 덮는다 (%d개씩)' % len(_GOLD), not _miss, _miss[:4])
+# ⚠️ 파스텔은 속이 밝다. --glass-bg 를 밝히면 흰 글씨를 쓰는 위젯이 전부 안 보인다.
+chk('파스텔은 유리판 배경(--glass-bg)을 통째로 밝히지 않는다',
+    bool(_blk['pastel']) and '--glass-bg' not in _blk['pastel'].group(1))
+
+# 색만 바꾸는 게 아니라는 증거 — 액자 · 장식 · 글씨 · 움직임
+chk('① 액자를 두른다 (테두리 그라데이션 + 진주 줄)',
+    'var(--frame-fill) padding-box, var(--frame) border-box' in THEME and 'outline: 2px var(--pearl-style) var(--pearl)' in THEME)
+chk('② 모서리 장식과 1등 왕관이 있다', '--orn-top' in THEME and 'var(--crown) center / contain' in THEME)
+chk('③ 글꼴을 바꾼다 (Jua · Gowun Batang 을 받는다)',
+    'family=Jua' in OV and 'family=Gowun+Batang' in OV and 'font-family: var(--face-name)' in THEME)
+chk('③ 숫자를 볼록하게 (글자 속 그라데이션)', 'background-clip: var(--num-clip)' in THEME)
+chk('④ 반짝이가 깜빡인다 (투명도만)', re.search(r'@keyframes themeTwinkle \{[^}]*opacity', THEME) is not None)
+
+# 뼈대는 안 건드린다 — 글자 크기를 바꾸면 폰 가독성 검사와 자리 계산이 틀어진다
+chk('테마가 글자 크기를 안 바꾼다', 'font-size' not in THEME)
+chk('무늬 그림은 파일 안에만 있다 (바깥 그림을 안 부른다)',
+    'url(http' not in THEME and 'url("http' not in THEME and 'data:image/svg+xml' in THEME)
+
+# 파스텔 — 밝은 판 안에서 흰 글씨가 남으면 안 보인다
+chk('파스텔 판 안의 이름·점수를 어둡게 칠한다', '--ink-name: #6b2150' in _blk['pastel'].group(1) if _blk['pastel'] else False)
+chk('파스텔 전광판 글씨를 어둡게', 'body.theme-pastel .notice-txt { color: var(--ink-name)' in THEME)
+chk('파스텔 VIP 후원 순위 줄의 검은 바탕을 밝힌다', 'body.theme-pastel .dr-row.dr-vip' in THEME)
+chk('파스텔 VIP 알림의 흰 이름을 어둡게', 'body.theme-pastel #toon-popup.vip-premium-card #toon-name' in THEME)
+# VIP 알림은 !important 옷이라 테마가 이기려면 똑같이 써야 한다(실측: 속이 검정으로 남았다)
+chk('VIP 알림도 테마 속을 입는다', '#toon-popup.vip-premium-card { background: var(--frame-fill) !important; }' in THEME)
+# 글자 속 그라데이션은 칸 안에만 칠해진다 — 넘친 앞자리가 사라졌다(로얄 '1,284,000' → ',284,000')
+chk('칸을 넘친 1등 점수도 칠한다', '.excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }' in THEME)
+
+# 켜는 곳 — 방송 꺼짐 return 뒤에 있으면 방송 시작 전(편집기 무대)에 테마가 안 보인다
+_ap, _ret = OV.find('applyTheme(d.theme);'), OV.find('if (!isActive) {')
+chk('방송 꺼짐 return 앞에서 테마를 켠다', 0 < _ap < _ret, (_ap, _ret))
+chk('룰렛 테두리도 테마 금색을 따른다', "getPropertyValue('--gold')" in OV and "theme === 'pink'" not in OV)
+# ⚠️ 그리는 함수 안에서 재면 룰렛이 도는 동안 매 프레임 스타일을 다시 계산한다 — 바뀔 때 한 번만
+chk('룰렛은 그릴 때마다 스타일을 재지 않는다',
+    "(typeof themeGold === 'string' && themeGold)" in OV and OV.count("getPropertyValue('--gold')") == 1)
+chk('테마가 안 바뀌면 아무것도 안 한다 (SSE 마다 불린다)', 'if (want === themeNow) return;' in OV)
 
 print()
 print('=' * 74)

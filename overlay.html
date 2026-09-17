@@ -17,7 +17,7 @@
            그래서 아래 font-family 마다 한글 대체 글꼴을 꼭 적어 뒀다 — 안 적으면 generic
            sans-serif 로 떨어져 한글이 깨져 보인다. (기능이 걸린 스크립트는 /vendor 에 두고 쓴다) */
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Orbitron:wght@900&family=Jua&family=Gowun+Batang:wght@700&display=swap');
         
         :root {
             /* ============================================================
@@ -88,16 +88,11 @@
             --ease-pop: cubic-bezier(.175, .885, .32, 1.275);
         }
 
-        body.theme-pink {
-            --text-highlight: #ff85a2;
-            --text-secondary: #ffa3b1;
-            --excel-yellow: #ffb6c1;
-            --excel-border: #ffb6c1;
-            --theme-neon: #ffb6c1;
-            --excel-dark: rgba(30, 20, 25, 0.92);
-            --accent: #ff85a2;
-            --accent-glow: rgba(255, 133, 162, 0.4);
-        }
+        /* ── 토큰 끝 ─────────────────────────────────────────────────────────
+           🎀 방송판 테마(로즈골드 · 파스텔 · 로얄)는 이 CSS **맨 아래**에 있다.
+           ⚠️ 예전 '네온 핑크'(theme-pink)는 뺐다. 색 변수 여덟 개만 바꿨는데, 위젯들이 새 금색
+              토큰(--gold 등)을 쓰게 된 뒤로는 화면 금색 약 180곳 중 20곳만 바뀌었다.
+              대표님: "그냥 색깔바꾸기 놀이급으로 별로였어". 저장값 'pink' 는 로즈골드로 읽는다. */
 
         /* 🔍 [투명 배경 보장] 시스템이 다크 모드면 크롬/OBS의 CEF가 페이지 캔버스를
            투명이 아니라 '어두운 색'으로 칠해버려서 방송 화면이 가려진다.
@@ -2080,6 +2075,249 @@
             text-shadow: 0 0 14px rgba(var(--gold-rgb), 0.9);
         }
 
+
+        /* ══════════════════════════════════════════════════════════════════════
+           🎀 방송판 테마 — 조종실 '테마' 칸에서 고른다
+              body.theme-rose (👑 로즈골드) · body.theme-pastel (🎀 파스텔) · body.theme-royal (💎 로얄)
+
+           대표님: "그냥 색깔바꾸기 놀이급으로 별로였어 … 확실하게 바꿀수있는게 필요한데"
+           그래서 색만 바꾸지 않는다. 네 가지를 같이 바꾼다.
+             ① 액자   — 유리판 대신 로즈골드 · 흰 레이스 · 금테 (굵은 테두리 + 안쪽 진주 줄)
+             ② 장식   — 판 모서리에 하트 · 리본 · 보석, 1등 배지에 왕관
+             ③ 글씨   — 이름은 둥근 글씨(Jua)나 붓글씨(Gowun Batang), 숫자는 사탕 · 금박처럼 볼록하게
+             ④ 움직임 — 판 둘레에서 반짝이가 깜빡인다 (투명도만 바꿔 방송 컴퓨터 부담이 거의 없다)
+
+           ⚠️ 위젯 뼈대(칸 · 자리 · 크기 · 글자 크기)는 안 건드린다. 겉옷만 입힌다.
+              글자 크기를 바꾸면 폰 가독성 검사(27px 바닥선)와 자리 계산이 다 틀어진다.
+           ⚠️ 무늬 그림은 전부 이 파일 안의 SVG(data:) 다. 바깥 그림을 불러오지 않는다.
+           ⚠️ 파스텔은 판 속이 **밝다.** --glass-bg 를 통째로 밝히면 흰 글씨를 쓰는 다른
+              위젯(룰렛 · 슬롯 · 퇴근빵 …)이 전부 안 보인다. 그래서 파스텔은 아래 '옷 입히는 판'
+              에만 밝은 속(--frame-fill)을 깔고, 그 안의 글자색을 하나하나 어둡게 바꾼다.
+           ⚠️ 게임판(주사위 · 시그뒤집기 · 룰렛 · 슬롯 · 핀볼 · 대결 · 퇴근빵)은 색만 따라간다.
+              판 그림이 각자 따로라 2차로 미뤘다.
+           ══════════════════════════════════════════════════════════════════════ */
+        body.theme-rose {
+            --gold: #ff9cc2; --gold-light: #ffe0ec; --gold-deep: #d9728f;
+            --gold-rgb: 255, 156, 194; --gold-glow: rgba(255, 143, 184, .5); --on-gold: #4a0f2a;
+            --silver: #dcc6f7; --silver-2: #a784d8; --on-silver: #2a1242;
+            --bronze: #ffc7ad; --bronze-2: #e0906c; --on-bronze: #4a1a08;
+            --accent: #ff9cc2; --accent-glow: rgba(255, 143, 184, .45); --theme-neon: #ff9cc2;
+            --excel-yellow: #ffb6c1; --text-highlight: #ff9cc2; --text-secondary: #ffc2d6;
+            --glass-bg: radial-gradient(120% 90% at 50% 0%, rgba(82, 32, 63, .94) 0%, rgba(42, 16, 36, .95) 72%);
+            --glass-border: rgba(251, 227, 232, .55);
+            --glass-top-light: rgba(255, 240, 246, .5);
+            --tx-2: rgba(255, 222, 235, .74);
+            --row-bg: rgba(255, 220, 235, .06); --row-border: rgba(255, 220, 235, .2);
+
+            --frame: linear-gradient(135deg, #fff1f5 0%, #e8a5b5 22%, #fbe3e8 45%, #b7657d 70%, #f6c9d4 100%);
+            --frame-fill: var(--glass-bg);
+            --frame-glow: 0 0 0 1px rgba(255, 255, 255, .35), 0 12px 30px rgba(60, 0, 30, .5), 0 0 30px rgba(255, 143, 184, .35);
+            --pearl: rgba(255, 240, 246, .55); --pearl-style: dotted;
+            --skin-row: rgba(255, 220, 235, .06); --skin-line: rgba(255, 220, 235, .28);
+            --rib-bg: linear-gradient(180deg, #ffe3ec, #f3a9c1 60%, #d97b9b); --rib-ink: #5a1733;
+            --rib-cut: polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%); --rib-ring: none;
+            --badge-bg: radial-gradient(circle at 35% 30%, #ffffff, #f3d6e1 70%); --badge-ink: #5a1733; --badge-ring: #e8a5b5;
+            --face-name: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
+            --face-num: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
+            --face-label: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif;
+            --ink-name: #fff6f9; --ink-num: #ffd3e3; --ink-label: #f7b6cc; --ink-soft: rgba(255, 226, 238, .92);
+            --name-shadow: 0 2px 0 #7a2447, 0 0 8px rgba(255, 143, 184, .45);
+            --num-color: transparent; --num-fill: linear-gradient(180deg, #ffffff 0%, #ffe0ec 48%, #ff8fb8 100%);
+            --num-clip: text; --num-shadow: none;
+            --num-edge: drop-shadow(0 3px 0 #a8355f) drop-shadow(0 0 8px rgba(255, 143, 184, .55));
+            --msg-bg: rgba(255, 220, 235, .1);
+            --tip-bg: rgba(42, 16, 36, .95); --rail-bg: rgba(42, 16, 36, .6);
+            --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff1f5'/%3E%3Cstop offset='.35' stop-color='%23f3a9c1'/%3E%3Cstop offset='.7' stop-color='%23d97b9b'/%3E%3Cstop offset='1' stop-color='%23fbe3e8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' stroke='%23fff' stroke-width='.8' d='M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23fff1f5'/%3E%3Cstop offset='.35' stop-color='%23f3a9c1'/%3E%3Cstop offset='.7' stop-color='%23d97b9b'/%3E%3Cstop offset='1' stop-color='%23fbe3e8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' stroke='%23fff' stroke-width='.8' d='M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E");
+            --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff6d8'/%3E%3Cstop offset='.5' stop-color='%23f6c9d4'/%3E%3Cstop offset='1' stop-color='%23c7748f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%23fff' stroke-width='.5'%3E%3Cpath d='M2 17.5 3.2 7l5.3 4.6L12 4l3.5 7.6L20.8 7 22 17.5z'/%3E%3Crect x='2.6' y='18.6' width='18.8' height='2.6' rx='1.2'/%3E%3Ccircle cx='12' cy='3.4' r='1.6'/%3E%3Ccircle cx='3.1' cy='6.4' r='1.3'/%3E%3Ccircle cx='20.9' cy='6.4' r='1.3'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
+        }
+        body.theme-pastel {
+            --gold: #ff5f9e; --gold-light: #ffd1e3; --gold-deep: #e0467f;
+            --gold-rgb: 255, 95, 158; --gold-glow: rgba(255, 143, 184, .55); --on-gold: #ffffff;
+            --silver: #c9a7f2; --silver-2: #a07fd6; --on-silver: #ffffff;
+            --bronze: #ffb896; --bronze-2: #ec8d67; --on-bronze: #ffffff;
+            --accent: #ff8fb8; --accent-glow: rgba(255, 143, 184, .5); --theme-neon: #ff8fb8;
+            --excel-yellow: #ffb6c1; --text-highlight: #ff8fb8; --text-secondary: #ffc2da;
+
+            --frame: linear-gradient(#ffffff, #ffffff);
+            --frame-fill: linear-gradient(180deg, rgba(255, 244, 249, .96), rgba(243, 229, 255, .95));
+            --frame-glow: 0 0 0 3px #ffc2da, 0 12px 28px rgba(150, 50, 100, .35), 0 0 26px rgba(255, 194, 218, .6);
+            --pearl: rgba(255, 143, 184, .55); --pearl-style: dashed;
+            --skin-row: rgba(255, 255, 255, .72); --skin-line: rgba(255, 143, 184, .35);
+            --rib-bg: #ffffff; --rib-ink: #d94a86;
+            --rib-cut: none; --rib-ring: 0 0 0 2px #ffc2da, 0 3px 8px rgba(150, 40, 90, .25);
+            --badge-bg: #ffffff; --badge-ink: #c2527f; --badge-ring: #ffc2da;
+            --face-name: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
+            --face-num: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
+            --face-label: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif;
+            --ink-name: #6b2150; --ink-num: #8a3a64; --ink-label: #c2527f; --ink-soft: #7a3a5e;
+            --name-shadow: none;
+            --num-color: #ff5f9e; --num-fill: none; --num-clip: border-box;
+            --num-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
+                          0 -2px 0 #fff, 0 2px 0 #fff, -2px 0 0 #fff, 2px 0 0 #fff, 0 5px 8px rgba(200, 60, 120, .35);
+            --num-edge: none;
+            --msg-bg: #ffffff;
+            --tip-bg: #ffffff; --rail-bg: rgba(255, 255, 255, .75);
+            --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cg fill='%23ff8fb8' stroke='%23fff' stroke-width='1.1'%3E%3Cpath d='M12 11C9 6 3 5 2.5 8.5 2 12 6 14 11.5 12.5z'/%3E%3Cpath d='M12 11c3-5 9-6 9.5-2.5.5 3.5-3.5 5.5-9 4z'/%3E%3Cpath d='M11.2 12.6 8 20.5l2.6-.8L12 21.8l.3-9z'/%3E%3Cpath d='M12.8 12.6 16 20.5l-2.6-.8L12 21.8l-.3-9z'/%3E%3Ccircle cx='12' cy='11.9' r='2'/%3E%3C/g%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff8fb8' stroke='%23fff' stroke-width='2' d='M12 21s-7.5-4.6-10-9.3C.4 8.3 2.3 4 6.2 4c2.2 0 3.6 1.2 5.8 3.5C14.2 5.2 15.6 4 17.8 4 21.7 4 23.6 8.3 22 11.7 19.5 16.4 12 21 12 21z'/%3E%3C/svg%3E");
+            --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffd1e3'/%3E%3Cstop offset='1' stop-color='%23ff5f9e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%23fff' stroke-width='.9'%3E%3Cpath d='M2 17.5 3.2 7l5.3 4.6L12 4l3.5 7.6L20.8 7 22 17.5z'/%3E%3Crect x='2.6' y='18.6' width='18.8' height='2.6' rx='1.2'/%3E%3Ccircle cx='12' cy='3.4' r='1.6'/%3E%3Ccircle cx='3.1' cy='6.4' r='1.3'/%3E%3Ccircle cx='20.9' cy='6.4' r='1.3'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ff9fc6' stroke='%23fff' stroke-width='.8' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
+        }
+        body.theme-royal {
+            --gold: #e9bd5c; --gold-light: #fff0b8; --gold-deep: #a8741e;
+            --gold-rgb: 233, 189, 92; --gold-glow: rgba(233, 189, 92, .45); --on-gold: #3a0a22;
+            --silver: #eee4f5; --silver-2: #b9a4cf; --on-silver: #2a1242;
+            --bronze: #f0b48c; --bronze-2: #b9764c; --on-bronze: #3a1606;
+            --accent: #e9bd5c; --accent-glow: rgba(233, 189, 92, .45); --theme-neon: #e9bd5c;
+            --excel-yellow: #f5d98a; --text-highlight: #f5d98a; --text-secondary: #f1dccb;
+            --glass-bg: radial-gradient(120% 90% at 50% 0%, rgba(109, 15, 69, .95) 0%, rgba(51, 6, 31, .96) 75%);
+            --glass-border: rgba(245, 217, 138, .55);
+            --glass-top-light: rgba(255, 240, 190, .45);
+            --glass-radius: 12px;
+            --tx-2: rgba(255, 236, 210, .74);
+            --row-bg: rgba(255, 230, 160, .05); --row-border: rgba(245, 217, 138, .22);
+
+            --frame: linear-gradient(135deg, #fff3c4 0%, #d9a441 25%, #fff0b3 50%, #a8741e 75%, #f5d98a 100%);
+            --frame-fill: var(--glass-bg);
+            --frame-glow: 0 0 0 1px rgba(255, 230, 160, .45), 0 12px 30px rgba(40, 0, 20, .55), 0 0 26px rgba(217, 164, 65, .35);
+            --pearl: rgba(245, 217, 138, .6); --pearl-style: solid;
+            --skin-row: rgba(255, 230, 160, .05); --skin-line: rgba(245, 217, 138, .22);
+            --rib-bg: linear-gradient(180deg, #fff3c4, #e2b454 55%, #b07d24); --rib-ink: #3a0a22;
+            --rib-cut: polygon(0 50%, 4% 0, 96% 0, 100% 50%, 96% 100%, 4% 100%); --rib-ring: none;
+            --badge-bg: linear-gradient(180deg, #5a1638, #33061f); --badge-ink: #f5d98a; --badge-ring: #e2b454;
+            --face-name: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif; --name-weight: 700;
+            --face-num: "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;   /* ⚠️ 900 이면 1등 점수가 칸을 넘쳐 앞자리가 사라졌다 */
+            --face-label: "Gowun Batang", "Nanum Myeongjo", "Malgun Gothic", serif;
+            --ink-name: #fff3dc; --ink-num: #f5d98a; --ink-label: #f5d98a; --ink-soft: #f1dccb;
+            --name-shadow: 0 2px 0 #1e0311;
+            --num-color: transparent; --num-fill: linear-gradient(180deg, #fff7d6 0%, #f5d98a 45%, #c28a2c 56%, #ffe9a8 100%);
+            --num-clip: text; --num-shadow: none;
+            --num-edge: drop-shadow(0 3px 0 #1e0311) drop-shadow(0 0 8px rgba(245, 200, 110, .35));
+            --msg-bg: rgba(255, 230, 160, .08);
+            --tip-bg: rgba(51, 6, 31, .96); --rail-bg: rgba(51, 6, 31, .6);
+            --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffc0dc'/%3E%3Cstop offset='.5' stop-color='%23ff4f9a'/%3E%3Cstop offset='1' stop-color='%238e0f4f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cdefs%3E%3ClinearGradient id='o' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.45' stop-color='%23e2b454'/%3E%3Cstop offset='1' stop-color='%23a8741e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23p)' stroke='url(%23o)' stroke-width='1.8' d='M12 2 21 12 12 22 3 12z'/%3E%3Cpath fill='%23fff' fill-opacity='.35' d='M12 4.2 7.4 12 12 19.8 10 12z'/%3E%3C/svg%3E"); --orn-bottom: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='p' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffc0dc'/%3E%3Cstop offset='.5' stop-color='%23ff4f9a'/%3E%3Cstop offset='1' stop-color='%238e0f4f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cdefs%3E%3ClinearGradient id='o' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.45' stop-color='%23e2b454'/%3E%3Cstop offset='1' stop-color='%23a8741e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23p)' stroke='url(%23o)' stroke-width='1.8' d='M12 2 21 12 12 22 3 12z'/%3E%3Cpath fill='%23fff' fill-opacity='.35' d='M12 4.2 7.4 12 12 19.8 10 12z'/%3E%3C/svg%3E");
+            --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.45' stop-color='%23e2b454'/%3E%3Cstop offset='1' stop-color='%23a8741e'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg fill='url(%23g)' stroke='%235a1638' stroke-width='.5'%3E%3Cpath d='M2 17.5 3.2 7l5.3 4.6L12 4l3.5 7.6L20.8 7 22 17.5z'/%3E%3Crect x='2.6' y='18.6' width='18.8' height='2.6' rx='1.2'/%3E%3Ccircle cx='12' cy='3.4' r='1.6'/%3E%3Ccircle cx='3.1' cy='6.4' r='1.3'/%3E%3Ccircle cx='20.9' cy='6.4' r='1.3'/%3E%3C/g%3E%3C/svg%3E"); --spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffe9a8' d='M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z'/%3E%3C/svg%3E");
+        }
+
+        /* ── ① 액자 ─────────────────────────────────────────────────────────── */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content) {
+            border: 4px solid transparent;
+            background: var(--frame-fill) padding-box, var(--frame) border-box;
+            border-radius: var(--glass-radius);
+            box-shadow: var(--frame-glow);
+            outline: 2px var(--pearl-style) var(--pearl);
+            outline-offset: -12px;
+        }
+        /* 유리판의 윗줄 하이라이트는 액자와 안 어울린다 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .acc-box-v2, .donor-rank-board, .sig-tally-board, .donation-popup-content)::before { content: none; }
+        /* 계좌는 48px 로 납작하다 — 진주 줄이 글자를 가로지르지 않게 뺀다.
+           ⚠️ overflow 를 풀어야 모서리 장식이 판 밖에 걸린다. 대신 아이콘 칸 모서리를 직접 둥글린다. */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-box-v2 { outline: none; overflow: visible; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-ico { border-radius: calc(var(--glass-radius) - 4px) 0 0 calc(var(--glass-radius) - 4px); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .goal-rail {
+            background: var(--rail-bg); border-color: rgba(var(--gold-rgb), .75);
+            box-shadow: var(--sh-2), inset 0 0 12px rgba(0, 0, 0, .35), 0 0 18px var(--gold-glow);
+            outline: 2px var(--pearl-style) var(--pearl); outline-offset: 3px;
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
+
+        /* ── ② 장식 ─────────────────────────────────────────────────────────── */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content)::after {
+            content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none;
+            background:
+                var(--orn-top) left top / 44px 44px no-repeat,
+                var(--orn-top) right top / 44px 44px no-repeat,
+                var(--orn-bottom) left bottom / 44px 44px no-repeat,
+                var(--orn-bottom) right bottom / 44px 44px no-repeat;
+            filter: drop-shadow(0 3px 3px rgba(60, 0, 30, .45));
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-box-v2::after {
+            content: ""; position: absolute; inset: -14px; z-index: 6; pointer-events: none;
+            /* ⚠️ 오른쪽 아래에도 달았더니 바로 밑 랭킹판의 오른쪽 위 장식과 부딪혔다 — 하나만 단다 */
+            background: var(--orn-top) left top / 34px 34px no-repeat;
+            filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .45));
+        }
+        /* 🏆 1등 배지에 왕관 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-row.rank-1 .r-rank, .dr-row.top1 .dr-no) { position: relative; overflow: visible; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row.rank-1 .r-rank::after,
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row.top1 .dr-no::after {
+            /* ⚠️ 배지 한가운데 위에 얹었더니 왕관 밑둥이 숫자 '1' 머리를 덮어 'T' 로 읽혔다.
+                  모서리에 비스듬히 얹는다. */
+            content: ""; position: absolute; left: -12px; top: -15px; width: 28px; height: 28px;
+            transform: rotate(-22deg); pointer-events: none;
+            background: var(--crown) center / contain no-repeat;
+            filter: drop-shadow(0 2px 2px rgba(60, 0, 30, .5));
+        }
+        /* ⚠️ 후원 순위 줄 묶음은 overflow:hidden 이다(8줄 넘침 방지). 왕관을 조금 내려 안 잘리게 한다. */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row.top1 .dr-no::after { left: -10px; top: -8px; width: 24px; height: 24px; }
+        /* 이름표 → 리본 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.donor-rank-header, .sig-tally-header, .jar-title) {
+            background: var(--rib-bg); color: var(--rib-ink);
+            clip-path: var(--rib-cut); box-shadow: var(--rib-ring);
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.donor-rank-header, .jar-title) { font-family: var(--face-label); font-weight: 700; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .jar-title { padding-inline: 30px; }
+        /* 순위 배지 — 1·2·3 은 색 토큰이 바꿔 주고, 나머지만 여기서 칠한다 */
+        body:is(.theme-rose, .theme-pastel) .r-rank { border-radius: 50%; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank,
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
+
+        /* ── ③ 글씨 ─────────────────────────────────────────────────────────── */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-name, .dr-row .dr-name, .donator-name) {
+            font-family: var(--face-name); font-weight: var(--name-weight);
+            color: var(--ink-name); text-shadow: var(--name-shadow);
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-score, .dr-row .dr-amt, .r-contrib) {
+            font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow);
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.excel-header, .donator-text, .row-bottom .b-name) { font-family: var(--face-label); color: var(--ink-label); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-who #ui-bank { font-family: var(--face-label); font-weight: 700; }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .acc-who .acc-holder { font-family: var(--face-label); font-weight: 700; color: var(--ink-name); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .notice-txt { font-family: var(--face-name); font-weight: var(--name-weight); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-row { background: var(--skin-row); border: 1px var(--pearl-style) var(--skin-line); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .dr-empty { color: var(--ink-soft); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .donation-popup-content .donation-message { background: var(--msg-bg); color: var(--ink-soft); }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .donation-amount .won { color: var(--ink-label); }
+        /* 👑 순위 높은 분(VIP)의 후원 알림 — 등급 테두리 색 · 메달 · 머리띠는 **그대로 둔다**(누가 몇 위인지
+              알려주는 표시다). 속만 테마 옷으로 바꾼다. VIP 옷이 !important 라 여기서도 그렇게 쓴다.
+           ⚠️ 파스텔은 속이 밝다 — VIP 이름을 흰 글씨로 칠하는 규칙(2·3위)이 있어 그대로 두면 안 보인다. */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) #toon-popup.vip-premium-card { background: var(--frame-fill) !important; }
+        body.theme-pastel #toon-popup.vip-premium-card #toon-name { color: var(--ink-name) !important; text-shadow: none; }
+        /* 🍬 볼록한 숫자 — 로즈골드는 사탕, 로얄은 금박(글자 속을 그라데이션으로), 파스텔은 흰 테두리 */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.acc-num-v2, .donation-amount, .excel-row.rank-1 .r-score, .dr-row.top1 .dr-amt, .row-bottom .b-score, .goal-rail-amt) {
+            color: var(--num-color);
+            background-image: var(--num-fill);
+            -webkit-background-clip: var(--num-clip);
+            background-clip: var(--num-clip);
+            text-shadow: var(--num-shadow);
+            filter: var(--num-edge);
+        }
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(.acc-num-v2, .donation-amount, .goal-rail-amt, .row-bottom .b-score) { font-family: var(--face-num); font-weight: var(--num-weight); }
+        /* ⚠️ 글자 속 그라데이션은 **칸 안에만** 칠해진다. 점수 칸(148px)은 오른쪽 정렬이라 긴 숫자가
+              왼쪽으로 넘치는데, 넘친 부분은 칠이 없어 투명해졌다(실측: 로얄에서 '1,284,000' → ',284,000').
+              칸을 왼쪽으로 늘리고 같은 만큼 안쪽 여백을 줘서 글자 자리는 그대로 두고 칠만 넓힌다. */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
+        /* 파스텔 — 속이 밝은 판은 글자를 어둡게. 전광판도 같은 옷을 입는다. */
+        body.theme-pastel .notice-board { background: var(--frame-fill); }
+        body.theme-pastel .notice-txt { color: var(--ink-name); text-shadow: none; }
+        /* ⚠️ 후원 순위의 VIP 줄은 바탕을 인라인으로 칠한다(왼쪽 등급 띠 + 검은 그라데이션). 파스텔의 밝은 판에서
+              검은 그라데이션이 회색 얼룩이 되어 이름이 안 읽혔다. 등급 띠(box-shadow)는 그대로 두고 바탕만 밝힌다. */
+        body.theme-pastel .dr-row.dr-vip { background: linear-gradient(90deg, rgba(255, 255, 255, .95), var(--skin-row) 46%) !important; }
+        /* VIP 알림의 'VVIP · 다이아' 글씨는 등급 색(금 · 하늘)이라 밝은 속에서 흐리다 — 테두리를 준다 */
+        body.theme-pastel #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
+
+        /* ── ④ 움직임 — 반짝이 (투명도만 바뀐다) ───────────────────────────── */
+        body:is(.theme-rose, .theme-pastel, .theme-royal) :is(#ranking-container, #donor-rank-container)::after {
+            content: ""; position: absolute; inset: -8px; z-index: 9; pointer-events: none;
+            background:
+                var(--spark) 0% 38% / 26px 26px no-repeat,
+                var(--spark) 100% 12% / 22px 22px no-repeat,
+                var(--spark) 58% 100% / 18px 18px no-repeat;
+            animation: themeTwinkle 3.2s ease-in-out infinite;
+        }
+        @keyframes themeTwinkle { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -4434,6 +4672,28 @@
             }
         }
 
+        /* 🎀 조종실 '테마' 칸 → body 에 옷 이름을 붙인다. 옷 자체는 CSS 맨 아래에 있다.
+           ⚠️ 모르는 이름이면 기본(금색 유리판)으로 둔다 — 오타 하나로 화면이 이상해지면 안 된다.
+           ⚠️ 'pink' 는 뺀 옛 '네온 핑크' 저장값이다. 가장 가까운 로즈골드로 읽는다. */
+        const THEMES = ['rose', 'pastel', 'royal'];
+        let themeNow = null;
+        let themeGold = '#f6c453';   // 🎡 룰렛(캔버스)이 테두리 색으로 쓴다
+        function applyTheme(t) {
+            if (t === 'pink') t = 'rose';
+            const want = THEMES.indexOf(t) >= 0 ? 'theme-' + t : '';
+            if (want === themeNow) return;     // SSE 갱신마다 불린다 — 바뀔 때만 손댄다
+            themeNow = want;
+            const cl = document.body.classList;
+            ['theme-pink'].concat(THEMES.map(function (x) { return 'theme-' + x; })).forEach(function (c) {
+                if (c !== want && cl.contains(c)) cl.remove(c);
+            });
+            if (want && !cl.contains(want)) cl.add(want);
+            /* 🎡 룰렛은 캔버스라 CSS 색을 못 쓴다 — 테마가 바뀔 때 **한 번만** 재 둔다.
+               ⚠️ 그리는 함수 안에서 getComputedStyle 을 불렀더니 룰렛이 도는 동안 매 프레임 스타일을
+                  다시 계산하게 됐다(검사 '룰렛 상시부담' 이 잡았다). */
+            themeGold = (getComputedStyle(document.body).getPropertyValue('--gold') || '').trim() || '#f6c453';
+        }
+
         function handleData(d) {
             if (d && d.server_time) {
                 serverTimeOffset = d.server_time - Date.now();
@@ -4454,6 +4714,9 @@
             dgUpdate(d.dicegame);   // 🎲 주사위판 — 시그게임과 같은 이유로 이 자리
             pbUpdate(d.pinball);    // 🎱 구슬 핀볼 — 같은 이유로 이 자리
             noticeUpdate(d);        // 📣 안내 전광판
+            /* 🎀 테마 — ⚠️ 방송 꺼짐 return 보다 **앞**에 둔다. 예전엔 뒤에 있어서 방송 시작 전에는
+                  테마를 골라도 안 바뀌었다(편집기 무대·방송 준비 화면에서 확인할 수가 없었다). */
+            applyTheme(d.theme);
 
             // 🎬 [리액션 위젯 크기/위치 실시간 연동] admin 에디터 값 → CSS 변수.
             //    방송 OFF 조기 반환보다 앞에 둬야, 방송 시작 전에도(시그니처는 방송무관 재생) 적용된다.
@@ -4484,13 +4747,6 @@
             }
 
             try {
-                // 🎨 실시간 테마 스위칭
-                if (d.theme === 'pink') {
-                    document.body.classList.add('theme-pink');
-                } else {
-                    document.body.classList.remove('theme-pink');
-                }
-
                 // 💡 [실시간 조명 속도 슬라이더 연동]
                 let neonSpeedSec = d.neon_speed || 1.5;
                 document.documentElement.style.setProperty('--neon-speed', `${neonSpeedSec}s`);
@@ -5217,7 +5473,8 @@
                 ctx.fillRect(0, 0, w, h);
 
                 // 테마 감지 색상 스위칭 (리뉴얼: 기본은 엔젤 골드)
-                let strokeCol = (globalData && globalData.theme === 'pink') ? '#ff85a2' : '#f6c453';
+                // 🎀 테마가 정한 금색(--gold) — applyTheme 이 바뀔 때 재 둔 값을 쓴다(매 프레임 재지 않는다)
+                let strokeCol = (typeof themeGold === 'string' && themeGold) || '#f6c453';
                 
                 // 원형 배경 드로잉
                 ctx.save();
