@@ -226,18 +226,13 @@
 .r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 .r-contrib { color: var(--gold); font-weight: 700; font-size: 27px; font-variant-numeric: tabular-nums; padding-left: 14px; }
 .excel-row.contrib-pop { position: relative; z-index: 5; animation: excelPop .72s var(--ease-pop) both; }
-.best-board { position: relative; box-sizing: border-box; width: 600px; padding: 14px 18px 18px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.best-board { position: relative; box-sizing: border-box; width: 340px; padding: 12px 18px 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .best-board::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit; background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events: none; }
-.best-head { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900; font-size: 28px; padding: 6px 28px; border-radius: 999px; white-space: nowrap; box-shadow: var(--glow-s); }
-.best-row { width: 100%; display: grid; grid-template-columns: 1fr 200px 1fr; align-items: center; gap: 12px; }
-.best-side { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 0; gap: 2px; }
-.best-lab { font-size: 27px; font-weight: 700; color: var(--tx-2); white-space: nowrap; }
-.best-name, .best-member { max-width: 100%; font-size: 34px; font-weight: 900; color: #fff; text-shadow: var(--ts-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.best-member.empty { font-size: 27px; font-weight: 700; color: var(--tx-3); text-shadow: none; }
-.best-medal { position: relative; width: 200px; height: 200px; border-radius: 50%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 35%, rgba(var(--gold-rgb), .22), rgba(0, 0, 0, .55) 72%); border: 4px solid var(--gold); box-shadow: 0 0 26px var(--gold-glow), inset 0 0 18px rgba(0, 0, 0, .55); }
-.best-crown { font-size: 36px; line-height: 1; margin-bottom: 4px; }
-.best-amt { font-size: var(--best-amt-size, 46px); font-weight: 900; line-height: 1.05; letter-spacing: -1px; color: var(--gold-light); font-variant-numeric: tabular-nums; text-shadow: var(--ts-2), 0 0 20px var(--gold-glow); }
-.best-won { font-size: 27px; font-weight: 800; color: var(--tx-2); line-height: 1.1; }
+.best-head { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900; font-size: 27px; padding: 5px 20px; border-radius: 999px; white-space: nowrap; box-shadow: var(--glow-s); }
+.best-amt-row { display: flex; align-items: baseline; justify-content: center; gap: 4px; max-width: 100%; }
+.best-amt { font-size: var(--best-amt-size, 58px); font-weight: 900; line-height: 1.02; letter-spacing: -1px; color: var(--gold-light); font-variant-numeric: tabular-nums; text-shadow: var(--ts-2), 0 0 20px var(--gold-glow); }
+.best-won { font-size: 30px; font-weight: 800; color: var(--tx-2); line-height: 1.1; }
+.best-name { max-width: 100%; font-size: var(--best-name-size, 38px); font-weight: 900; color: #fff; text-shadow: var(--ts-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .best-board.best-pop { animation: bestPop .9s var(--ease-pop); }
 .best-flash { position: absolute; left: 50%; top: -34px; transform: translate(-50%, 0) scale(.6); opacity: 0; padding: 8px 30px; border-radius: 999px; white-space: nowrap; pointer-events: none; z-index: 8; background: linear-gradient(120deg, var(--game-red), var(--gold)); color: #fff; font-size: 34px; font-weight: 900; text-shadow: var(--ts-1); box-shadow: var(--glow-m); }
 .best-flash.show { animation: bestFlash 2.8s var(--ease-pop) forwards; }
@@ -501,10 +496,10 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .jar-title { p
 body:is(.theme-rose, .theme-pastel, .theme-chuseok) .r-rank { border-radius: 50%; }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-rank, .dr-row .dr-no) { box-shadow: 0 0 0 2px var(--badge-ring); font-family: var(--face-num); font-weight: var(--num-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank, body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .dr-row:not(.top1):not(.top2):not(.top3) .dr-no { background: var(--badge-bg); color: var(--badge-ink); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name, .best-name, .best-member:not(.empty)) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-name, .dr-row .dr-name, .donator-name, .best-name) { font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); text-shadow: var(--name-shadow); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt, .r-contrib) { font-family: var(--face-num); font-weight: var(--num-weight); text-shadow: var(--name-shadow); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.r-score, .dr-row .dr-amt) { color: var(--ink-num); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name, .best-lab, .best-won) { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
+body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.excel-header, .donator-text, .row-bottom .b-name, .best-won) { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-header { border-bottom: 2px var(--pearl-style) var(--pearl); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row { border-bottom-style: var(--pearl-style); border-bottom-color: var(--skin-line); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .acc-who #ui-bank { font-family: var(--face-label); font-weight: var(--label-weight); }
@@ -517,7 +512,6 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.acc-num-v
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .row-bottom .b-score { font-family: var(--face-num); font-weight: var(--num-weight); }
 body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .excel-row.rank-1 .r-score { margin-left: -48px; padding-left: 48px; }
 body.theme-pastel .notice-board { background: var(--frame-fill); }
-body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .best-medal { border: 5px solid transparent; background: radial-gradient(circle at 50% 35%, rgba(var(--gold-rgb), .2), transparent 72%) padding-box, var(--frame-fill) padding-box, var(--frame) border-box; box-shadow: var(--frame-glow); }
 body.theme-pastel .notice-txt { color: var(--ink-name); text-shadow: none; }
 body.theme-pastel .dr-row.dr-vip { background: linear-gradient(90deg, rgba(255, 255, 255, .95), var(--skin-row) 46%) !important; }
 body.theme-pastel #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
@@ -795,11 +789,8 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 <div class="widget" id="best" data-id="best" style="left:40px; top:400px; display: none;">
                     <div class="best-board">
                         <div class="best-head">💥 한 방 최고 후원</div>
-                        <div class="best-row">
-                            <div class="best-side"><span class="best-lab">보낸 분</span><span class="best-name">별빛요정</span></div>
-                            <div class="best-medal"><span class="best-crown">👑</span><span class="best-amt">300,000</span><span class="best-won">원</span></div>
-                            <div class="best-side"><span class="best-lab">받은 멤버</span><span class="best-member">하율</span></div>
-                        </div>
+                        <div class="best-amt-row"><span class="best-amt">300,000</span><span class="best-won">원</span></div>
+                        <div class="best-name">별빛요정</div>
                     </div>
                 </div>
                 <div class="widget" id="donor-rank" data-id="donor-rank" style="left:658px; top:387px; display: none;">
