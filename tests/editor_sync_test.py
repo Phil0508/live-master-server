@@ -272,9 +272,52 @@ print('=' * 74)
 #    '맨 위' 를 고르는 기본 규칙이면 어디를 눌러도 그 둘만 잡혀서, 사장님이
 #    "아무것도 안 움직여져" 라고 했다. 겹친 것 중 작은 것부터 고르게 했다.
 chk('겹친 위젯 중 작은 것을 고른다', 'function pickUnder(' in ad and 'elementsFromPoint' in ad)
-chk('끌기가 그 고르기를 쓴다', 'pickUnder(_p.clientX, _p.clientY' in ad)
+chk('끌기가 그 고르기를 쓴다', 'pickUnder(e.clientX, e.clientY' in ad)
 chk('같은 자리를 다시 누르면 다음 것으로 넘어간다',
     'list.indexOf(activeWidget)' in ad and '(i + 1) % list.length' in ad)
+# ⚠️ 대표님 2026-09-18 "에디터 조작감이 별로" — 엑셀판을 골라 놓고 끌려고 다시 누르면
+#    '다시 누르기' 로 쳐서 밑에 깔린 고액후원 영상 상자가 끌려갔다(샌드박스에서 그대로 재현).
+#    고른 것이 손 밑에 있으면 그것을 잡고, 다음 것은 '누르기만 하고 뗐을 때' 로 미룬다.
+chk('고른 것 위를 누르면 그것을 끈다 (딴 게 끌리지 않는다)',
+    'if (i >= 0) return { el: activeWidget, next:' in ad)
+chk('다음 것으로 넘어가는 건 안 끌고 뗐을 때뿐이다',
+    "} else if (p && p.next && e && e.type === 'pointerup') {" in ad and 'selectWidget(p.next);' in ad)
+# ⚠️ 누를 때 손이 조금만 떨려도 끈 것으로 쳐서, 고르기만 했는데 격자로 반올림되며 밀렸다
+chk('4px 안에서 뗀 것은 고르기다 (위젯이 안 밀린다)',
+    'const DRAG_DEAD = 4;' in ad and 'Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_DEAD' in ad)
+# ⚠️ 창 밖에서 놓으면 끌리는 채로 남았다 — 포인터를 붙잡는다
+chk('끄는 동안 포인터를 붙잡는다 (창 밖에서 놓아도 놓은 것)',
+    'widgetEl.setPointerCapture(e.pointerId)' in ad and "document.addEventListener('pointercancel', dragEnd);" in ad)
+chk('마우스·터치를 따로 받지 않는다 (포인터 하나로)',
+    "addEventListener('mousedown', dragStart)" not in ad and "addEventListener('touchstart', dragStart" not in ad)
+chk('끄는 중 Esc 면 원래 자리로', 'function cancelDrag()' in ad and 'function cancelResize()' in ad)
+# ⚠️ 모서리를 아래로 끌면 아무 일도 안 일어났다(가로만 셌다)
+# ⚠️ 예전엔 가로로 끈 거리만 셌다 — 모서리를 아래로 끌면 아무 일도 안 일어났다
+chk('크기 손잡이는 어느 방향으로 끌어도 된다 (기준점에서 모서리까지 거리 비율)',
+    'const d0 = Math.hypot(W, H), d1 = Math.hypot(W + dx, H + dy);' in ad and 'startScale * (d1 / (d0 || 1))' in ad)
+chk('크기 손잡이도 화면 박자(rAF)에 맞춰 그린다', 'rzRAF = requestAnimationFrame(resizeFrame)' in ad)
+# ⚠️ 캔버스를 0.45배쯤으로 줄여 보니 손잡이가 화면에서 10px, 이름표 글씨가 5px 이었다
+chk('손잡이·이름표는 화면에서 늘 같은 크기다',
+    'width: calc(18px * var(--k, 1))' in ad and 'font: 700 calc(12px * var(--k, 1))' in ad
+    and 'refreshHandleSize(); }' in ad)
+# ⚠️ 고를 때 요소를 떼었다 붙이면 잡아 둔 포인터가 풀린다
+chk('고를 때 위젯을 옮겨 붙이지 않는다', 'activeWidget.parentNode.appendChild(activeWidget)' not in ad)
+chk('화살표로 옮기면 무대도 바로 따라온다',
+    "pushLayoutToStage();   // 🖼️ 진짜 위젯도 바로 따라온다" in ad)
+
+print()
+print('=' * 74)
+print('🔇 편집기 무대는 소리를 안 낸다')
+print('=' * 74)
+# ⚠️ 대표님 2026-09-18 "에디터로 화면을 가져오니까 에디터에서도 소리가 나네".
+#    무대가 그냥 /overlay.html 이라 '누가 소리를 낼까' 다툼에 끼어 소리 담당을 맡았다(실측 isAudioLeader() true).
+#    OBS 보다 먼저 떠 있으면 OBS 의 소리를 뺏어 올 수도 있었다. 폰 미리보기와 같은 ?monitor=1 로 띄운다.
+chk('무대를 모니터 모드로 띄운다', 'src="/overlay.html?monitor=1"' in ad and 'src="/overlay.html"' not in ad)
+_ovs = io.open(os.path.join(PROJ, 'overlay.html'), encoding='utf-8', errors='replace').read()
+# 대결 타이머 삑·펑만 소리 담당 검사를 안 거쳐서 모니터 모드에서도 울렸다
+for _fn in ('function playBeep(', 'function playExplosion('):
+    _body = _ovs.split(_fn)[1][:260]
+    chk('%s) 도 소리 담당 창에서만 낸다' % _fn[9:-1], "!isAudioLeader()) return;" in _body)
 # ⚠️ 창이 좁으면 (폭-80) 이 음수라 배율이 음수가 된다. 무대가 뒤집혀 아주 작게
 #    그려지고 클릭 자리가 통째로 어긋난다 — 실제로 scale(-0.0185) 를 봤다.
 chk('무대 배율이 0 이하로 안 내려간다', 'Math.max(0.08, Math.min(availableW / 1080' in ad)
@@ -319,7 +362,8 @@ chk('편집기가 목록을 방송판에서 읽는다', 'stageWin().LAY_CODE_OWN
 chk('편집기가 목록을 따로 적어 두지 않는다', "['notice']" not in ad)
 chk('표시를 붙인다', "el.classList.toggle('code-owned'" in ad and '.widget.code-owned' in ad)
 chk('끌기는 막되 고르기는 된다',
-    "if (widgetEl.classList.contains('code-owned')) { selectWidget(widgetEl); return; }" in ad)
+    "locked: widgetEl.classList.contains('code-owned')" in ad and 'if (press.locked || !activeWidget) return;' in ad
+    and ad.index('selectWidget(widgetEl);') < ad.index("locked: widgetEl.classList.contains('code-owned')"))
 
 print()
 print('=' * 74)

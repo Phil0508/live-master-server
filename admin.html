@@ -64,7 +64,11 @@
         .property-box { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 10px; padding: 15px; margin-bottom: 25px; display: none; } .property-box.active { display: block; animation: fadeIn 0.3s ease; } @keyframes fadeIn { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } } .prop-name { font-size: 16px; font-weight: 800; color: var(--accent); margin-bottom: 15px; display: flex; align-items: center; gap: 8px; } .prop-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 13px; color: #ccc; } .prop-row input[type="range"] { flex: 1; margin-left: 10px; accent-color: var(--accent); } .prop-row span { width: 40px; text-align: right; font-weight: bold; color: #fff; }
         .main-area { flex: 1; padding: 30px; display: flex; align-items: center; justify-content: center; position: relative; background: radial-gradient(circle at center, #222 0%, var(--bg-body) 100%); overflow: hidden; } .canvas-wrapper { position: relative; background: var(--bg-canvas); border: 2px solid #333; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05); overflow: hidden; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; } .canvas-board { position: absolute; top: 0; left: 0; width: 1080px; height: 1920px; transform-origin: top left; }
         
-        .widget { position: absolute; display: flex; align-items: flex-start; justify-content: flex-start; outline: 2px solid transparent; outline-offset: 2px; border-radius: 6px; cursor: grab; user-select: none; width: max-content; height: max-content; transform-origin: top left; transition: outline-color 0.1s; } 
+        /* 📐 --k = 1 ÷ (캔버스 배율 × 위젯 배율). 손잡이·이름표·테두리에 곱하면 캔버스를 얼마나 줄여 보든
+              **화면에서는 늘 같은 크기**다(refreshHandleSize 가 넣는다).
+              ⚠️ 예전엔 캔버스가 약 0.45배로 줄면 크기 손잡이가 화면에서 10px, 이름표 글씨가 5px 이 되어
+                 잡기도 읽기도 어려웠다. touch-action:none — 터치로 끌 때 화면이 대신 움직이지 않게. */
+        .widget { position: absolute; display: flex; align-items: flex-start; justify-content: flex-start; outline: calc(2px * var(--k, 1)) solid transparent; outline-offset: calc(2px * var(--k, 1)); border-radius: 6px; cursor: grab; user-select: none; touch-action: none; width: max-content; height: max-content; transform-origin: top left; transition: outline-color 0.1s; } 
         .widget:active { cursor: grabbing; } .widget:hover { outline-color: rgba(255, 255, 255, 0.3); } .widget.selected { outline-color: var(--accent); z-index: 1000 !important; }
         .widget > div { pointer-events: none; }
 
@@ -86,9 +90,9 @@
               그나마 참값에 가깝다. */
         .stage-on .widget:not(.no-stage) > *:not(.resize-handle) { display: none !important; }
         .stage-on .widget { background: rgba(120,200,255,.05); outline-color: rgba(140,210,255,.28); }
-        .stage-on .widget::before { content: attr(data-label); position: absolute; left: 0; top: -21px;
-            font: 700 12px 'Malgun Gothic', sans-serif; color: #9fe8ff; background: rgba(0,0,0,.65);
-            padding: 1px 6px; border-radius: 4px; white-space: nowrap; opacity: 0;
+        .stage-on .widget::before { content: attr(data-label); position: absolute; left: 0; top: calc(-21px * var(--k, 1));
+            font: 700 calc(12px * var(--k, 1)) 'Malgun Gothic', sans-serif; color: #9fe8ff; background: rgba(0,0,0,.65);
+            padding: calc(1px * var(--k, 1)) calc(6px * var(--k, 1)); border-radius: calc(4px * var(--k, 1)); white-space: nowrap; opacity: 0;
             transition: opacity .12s; pointer-events: none; }
         .stage-on .widget:hover::before, .stage-on .widget.selected::before { opacity: 1; }
         /* 지금 방송판에 안 그려지는 것 — 크기를 잴 수 없으니 그렇다고 알린다 */
@@ -100,15 +104,16 @@
         .widget.code-owned::after {
             content: '\1F512  자리 고정'; position: absolute; left: 50%; top: 50%;
             transform: translate(-50%, -50%); white-space: nowrap;
-            font-size: 12px; font-weight: 800; color: #ffd166;
+            font-size: calc(12px * var(--k, 1)); font-weight: 800; color: #ffd166;
             background: rgba(10,10,14,.85); border: 1px solid rgba(255,209,102,.5);
-            border-radius: var(--r-s, 6px); padding: 3px 8px; pointer-events: none;
+            border-radius: var(--r-s, 6px); padding: calc(3px * var(--k, 1)) calc(8px * var(--k, 1)); pointer-events: none;
         }
         /* ⚠️ 예전에는 여기에 '🔒 고정' 표시가 있었다. 오버레이가 자리를 못 박아
            끌어도 방송이 안 듣는 위젯들이었다 — 편집기가 거짓말을 하는 셈이었다.
            이제 전부 끌 수 있으므로 표시를 없앴다. 되살리지 말 것.
            대신 안전지대 밖으로 나간 것을 빨갛게 알린다. */
-        .resize-handle { position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; background: #fff; border: 4px solid var(--accent); border-radius: 50%; cursor: nwse-resize; display: none; z-index: 100; pointer-events: auto !important; box-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
+        /* ↘️ 크기 손잡이 — 화면에서 늘 18px. 캔버스를 줄여 봐도 손가락·마우스로 잡힌다. */
+        .resize-handle { position: absolute; bottom: calc(-9px * var(--k, 1)); right: calc(-9px * var(--k, 1)); width: calc(18px * var(--k, 1)); height: calc(18px * var(--k, 1)); box-sizing: border-box; background: #fff; border: calc(3px * var(--k, 1)) solid var(--accent); border-radius: 50%; cursor: nwse-resize; display: none; z-index: 100; pointer-events: auto !important; touch-action: none; box-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
         .widget.selected .resize-handle { display: block; }
 
         .admin-input { width: 100%; box-sizing: border-box; margin-bottom: 8px; background: #111; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 6px; font-family: 'Pretendard'; font-size: 13px; } .admin-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.2); }
@@ -658,7 +663,11 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
             <div class="canvas-board" id="canvas-board">
                 <!-- 🖼️ 진짜 방송판. 베낀 그림자가 아니라 원본이다.
                      구역 안내선과 손잡이가 이 위에 겹쳐 그려진다. -->
-                <iframe id="stage-frame" src="/overlay.html" title="방송판" scrolling="no"></iframe>
+                <!-- 🔇 ?monitor=1 — 들여다보기 전용 방송판. 소리를 안 내고, 시그니처 순서도 안 넘기고,
+                     "누가 소리를 낼까" 다툼에도 안 낀다. 예전엔 그냥 /overlay.html 이라 편집기가 소리 담당을
+                     맡아 효과음·시그니처가 편집기에서 났다(대표님 2026-09-18). OBS 보다 먼저 떠 있으면
+                     OBS 의 소리를 뺏어 올 수도 있었다. 폰 미리보기(mobile.html)와 같은 방식이다. -->
+                <iframe id="stage-frame" src="/overlay.html?monitor=1" title="방송판" scrolling="no"></iframe>
                 <div class="zone-game"><span>게임 자리</span></div>
                 
                 <div id="time-up-message-layer" class="time-up-message">시간 종료!</div>
@@ -980,7 +989,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; /* ⚠️ 창이 좁으면 (폭-80) 이 음수가 되어 배율이 음수가 된다. 무대가 뒤집혀
                    아주 작게 그려지고 클릭 자리가 통째로 어긋나 아무것도 안 잡힌다.
                    실제로 좁은 창에서 scale(-0.0185) 가 나왔다. 최소값을 둔다. */
-                scaleRatio = Math.max(0.08, Math.min(availableW / 1080, availableH / 1920)); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; }
+                scaleRatio = Math.max(0.08, Math.min(availableW / 1080, availableH / 1920)); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; refreshHandleSize(); }
             window.addEventListener('resize', resizeCanvas); resizeCanvas();
             
             let layout = {}; let activeWidget = null; let isDragging = false; let isResizing = false; let startX, startY, initialX, initialY; let startScale = 1.0; let baseWidth = 100;
@@ -1118,7 +1127,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                    setTimeout(0) 으로 dragEnd→autoSaveLayout→pushLayoutToStage(마지막 자리)가 끝난 뒤로
                    미루고, 거기서 한 프레임 더 쉬고 푼다. 바로 풀면 마지막 한 걸음이 0.8초 미끄러진다. */
                 const off = () => {
-                    document.removeEventListener('mouseup', off); document.removeEventListener('touchend', off);
+                    document.removeEventListener('pointerup', off); document.removeEventListener('pointercancel', off);
                     /* ⚠️ rAF 로 미루면 안 된다 — 탭이 가려지면 rAF 가 영영 안 와서 전환이 꺼진 채 남는다
                        (실측: 가려진 창에서 rAF 0회). 대신 offsetWidth 를 읽어 지금 자리를 강제로 확정(reflow)한
                        뒤 클래스를 뺀다. 이미 확정된 자리라 전환이 돌아와도 미끄러질 거리가 없다. */
@@ -1128,7 +1137,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                         _stageDragOn = false;
                     }, 0);
                 };
-                document.addEventListener('mouseup', off); document.addEventListener('touchend', off);
+                document.addEventListener('pointerup', off); document.addEventListener('pointercancel', off);
             }
             function stagePushLive(x, y, scale) {
                 if (!activeWidget || !stageOn()) return;
@@ -1483,9 +1492,11 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                                        y_px: parseInt(el.style.top) || 0, scale: 1.0 };
                     }
                     el.style.left = layout[id].x_px + 'px'; el.style.top = layout[id].y_px + 'px'; el.style.transform = `scale(${layout[id].scale})`; el.dataset.scale = layout[id].scale;
-                    const handle = document.createElement('div'); handle.className = 'resize-handle'; handle.addEventListener('mousedown', resizeStart); handle.addEventListener('touchstart', resizeStart, {passive: false}); el.appendChild(handle);
-                    el.addEventListener('mousedown', dragStart); el.addEventListener('touchstart', dragStart, {passive: false});
+                    const handle = document.createElement('div'); handle.className = 'resize-handle'; handle.addEventListener('pointerdown', resizeStart); el.appendChild(handle);
+                    // 🖐️ 마우스·터치·펜을 포인터 이벤트 하나로 받는다(아래 dragStart 설명)
+                    el.addEventListener('pointerdown', dragStart);
                 });
+                refreshHandleSize();
             }
 
             window.autoSaveLayout = async function() {
@@ -1506,12 +1517,14 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 if(!confirm("모든 위젯을 기본 위치로 돌릴까요?")) return;
                 document.querySelectorAll('.widget').forEach((el, index) => {
                     el.style.left = '50px'; el.style.top = `${index * 120 + 50}px`; el.style.transform = `scale(1.0)`; el.dataset.scale = 1.0; });
-                closePropertyPanel(); autoSaveLayout(); 
+                refreshHandleSize(); closePropertyPanel(); autoSaveLayout(); 
             }
 
             function selectWidget(el) { try { setTimeout(srcApply, 0); } catch (e) {} 
                 if (activeWidget) activeWidget.classList.remove('selected'); 
-                activeWidget = el; activeWidget.classList.add('selected'); activeWidget.parentNode.appendChild(activeWidget); 
+                /* ⚠️ 예전엔 고를 때마다 위젯을 맨 뒤로 옮겨 붙였다(맨 앞으로 올리려고). 그런데 누르는 순간 요소를 떼었다
+                   붙이면 잡아 둔 포인터가 풀린다 — 고른 것은 CSS(z-index 1000)가 이미 맨 앞에 올린다. */
+                activeWidget = el; activeWidget.classList.add('selected'); 
                 const panel = document.getElementById('property-panel'); panel.classList.add('active'); 
                 document.getElementById('prop-title').innerHTML = `<i class="fa-solid fa-cube"></i> ${widgetNames[el.id]}`; 
                 const scaleSlider = document.getElementById('prop-scale'); const currentScale = parseFloat(el.dataset.scale) || 1.0; scaleSlider.value = currentScale; document.getElementById('prop-scale-val').innerText = currentScale.toFixed(2); 
@@ -1521,7 +1534,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
             }
             
             function closePropertyPanel() { if (activeWidget) activeWidget.classList.remove('selected'); activeWidget = null; document.getElementById('property-panel').classList.remove('active'); document.getElementById('prop-account-edit').style.display = 'none'; try { srcApply(); } catch (e) {} }
-            document.getElementById('prop-scale').addEventListener('input', (e) => { if (!activeWidget) return; const val = parseFloat(e.target.value).toFixed(2); activeWidget.style.transform = `scale(${val})`; activeWidget.dataset.scale = val; document.getElementById('prop-scale-val').innerText = val; }); document.getElementById('prop-scale').addEventListener('change', autoSaveLayout); canvasBoard.addEventListener('mousedown', (e) => { if(e.target === canvasBoard) closePropertyPanel(); });
+            document.getElementById('prop-scale').addEventListener('input', (e) => { if (!activeWidget) return; const val = parseFloat(e.target.value).toFixed(2); activeWidget.style.transform = `scale(${val})`; activeWidget.dataset.scale = val; setK(activeWidget); document.getElementById('prop-scale-val').innerText = val; stagePushLive(null, null, parseFloat(val)); }); document.getElementById('prop-scale').addEventListener('change', autoSaveLayout); canvasBoard.addEventListener('pointerdown', (e) => { if(e.target === canvasBoard) closePropertyPanel(); });
 
             /* ══ 🖱️ 드래그 — 물 흐르듯 ══
                ⚠️ 예전에는 움직일 때마다 left/top 을 바꿨다. 그러면 브라우저가 그때마다
@@ -1578,45 +1591,79 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 return [x, y];
             }
 
+            /* 📐 손잡이·이름표를 화면에서 늘 같은 크기로 — CSS 의 --k 를 넣는다(위 .widget 설명). */
+            function setK(el) {
+                const s = parseFloat(el.dataset.scale) || 1;
+                el.style.setProperty('--k', (1 / Math.max(0.05, (scaleRatio || 1) * s)).toFixed(3));
+            }
+            function refreshHandleSize() { document.querySelectorAll('.widget').forEach(setK); }
+
             /* 누른 자리에 겹쳐 있는 위젯 중 무엇을 고를까.
                ⚠️ 그냥 '맨 위' 를 고르면 큰 것이 다 먹는다. 고액후원 영상(1286×726)과
                   노래방(1006×569)이 캔버스 거의 전체를 덮어서, 어디를 눌러도 그 둘만
                   잡혔다 — 엑셀판도 게이지도 그 밑에 깔려 손이 안 닿았다.
-               그래서 작은 것부터 고른다. 같은 자리를 다시 누르면 다음(더 큰) 것으로
-               넘어가므로, 큰 것도 못 고르는 일이 없다. */
+               그래서 작은 것부터 고른다.
+               ⚠️ 예전엔 '같은 자리를 다시 누르면 다음 것' 이었다. 그런데 골라 놓고 **끌려고** 다시 누르는 것도
+                  '다시 누르기' 라서, 엑셀판을 골라 끌면 고액후원 영상 상자가 끌려갔다
+                  (대표님 2026-09-18 "에디터 조작감이 별로" — 샌드박스에서 그대로 재현했다).
+                  이제 고른 것이 손 밑에 있으면 **그것을 잡는다.** 다음 것은 적어만 두고,
+                  '누르기만 하고 안 끌고 뗐을 때' 넘어간다 — 밑에 깔린 큰 것도 여전히 고를 수 있다. */
             function pickUnder(cx, cy, fallback) {
                 const seen = new Set(), list = [];
                 document.elementsFromPoint(cx, cy).forEach(n => {
                     const w = n.closest && n.closest('.widget');
                     if (w && !seen.has(w)) { seen.add(w); list.push(w); }
                 });
-                if (!list.length) return fallback;
+                if (!list.length) return { el: fallback, next: null };
                 const area = w => {
                     const s = parseFloat(w.dataset.scale) || 1;
                     return w.offsetWidth * w.offsetHeight * s * s;
                 };
                 list.sort((a, b) => area(a) - area(b));
                 const i = list.indexOf(activeWidget);
-                return i >= 0 ? list[(i + 1) % list.length] : list[0];
+                if (i >= 0) return { el: activeWidget, next: list.length > 1 ? list[(i + 1) % list.length] : null };
+                return { el: list[0], next: null };
             }
 
+            /* 🖐️ 누르기 → (4px 넘게 움직이면) 끌기 → 놓기.
+               ⚠️ 마우스·터치를 따로 받던 것을 포인터 이벤트 하나로 합쳤다. 누른 위젯이 포인터를
+                  붙잡는다(setPointerCapture) — 끌다가 손이 창 밖으로 나가도 끝까지 따라오고, 밖에서 놓아도
+                  놓은 것으로 안다(예전엔 창 밖에서 놓으면 끌리는 채로 남았다).
+               ⚠️ 4px 안에서 뗀 것은 '고르기' 다. 예전엔 누를 때 손이 조금만 떨려도 끈 것으로 쳐서,
+                  고르기만 했는데 격자(10px)로 반올림되며 위젯이 밀렸다.
+               ⚠️ 끄는 중 Esc — 누르기 전 자리로 되돌린다. */
+            const DRAG_DEAD = 4;        // 화면 px
+            let press = null;           // 누르고 있는 동안: { el, next, x, y, id, locked }
+
             function dragStart(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;   // 오른쪽 단추는 무시
                 if (e.target.classList.contains('resize-handle')) return;
-                const _p = e.type.includes('mouse') ? e : e.touches[0];
-                const widgetEl = pickUnder(_p.clientX, _p.clientY, e.target.closest('.widget'));
+                if (isResizing) return;
+                // 놓기를 못 받은 채 남은 것이 있으면(다른 창으로 넘어갔다 오는 등) 정리하고 새로 시작한다.
+                // ⚠️ 두 번째 손가락은 무시한다 — 끄는 손은 하나다.
+                if (press || isDragging) { if (press && e.pointerId !== press.id) return; dragEnd(); }
+                const pick = pickUnder(e.clientX, e.clientY, e.target.closest('.widget'));
+                const widgetEl = pick.el;
                 if (!widgetEl) return;
-                // (예전엔 여기서 못 박은 위젯을 걸렀다. 이제 전부 끌 수 있다 —
-                //  대신 안전지대 밖으로 못 나가게 dragEnd 에서 붙잡는다.)
-                /* 🔒 단, 코드가 자리를 정하는 위젯(전광판)은 끌어도 방송이 안 든다
+                e.preventDefault();
+                /* 🔒 코드가 자리를 정하는 위젯(전광판)은 끌어도 방송이 안 든다
                    (overlay 의 CODE_OWNED — 머리 줄에 맞춰 설계됐다, 사장님 2026-09-09).
-                   끌리는 척하고 저장까지 되면 "옵겼는데 왜 그대로지" 로 헤매게 된다.
+                   끌리는 척하고 저장까지 되면 "옮겼는데 왜 그대로지" 로 헤매게 된다.
                    고르는 것까지 막진 않는다 — 눈·배율은 그대로 쓸 수 있다. */
-                if (widgetEl.classList.contains('code-owned')) { selectWidget(widgetEl); return; }
                 selectWidget(widgetEl);
+                press = { el: widgetEl, next: pick.next, x: e.clientX, y: e.clientY, id: e.pointerId,
+                          locked: widgetEl.classList.contains('code-owned') };
+                try { widgetEl.setPointerCapture(e.pointerId); } catch (err) {}
+                document.addEventListener('pointermove', dragging);
+                document.addEventListener('pointerup', dragEnd);
+                document.addEventListener('pointercancel', dragEnd);
+            }
+
+            // 4px 를 넘기는 순간 끌기를 시작한다. 기준점은 '누른 자리' — 그동안 간 만큼 바로 따라붙는다.
+            function beginDrag() {
                 isDragging = true; dragMoved = false;
                 stageDragBegin();   // 🖼️ 끄는 동안 무대의 0.8초 미끄러짐을 끈다
-                startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-                startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                startX = press.x; startY = press.y;
                 initialX = parseInt(activeWidget.style.left) || 0;
                 initialY = parseInt(activeWidget.style.top) || 0;
                 activeWidget.classList.add('dragging');
@@ -1627,17 +1674,17 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 dragW = activeWidget.offsetWidth * _sc;
                 dragH = activeWidget.offsetHeight * _sc;
                 collectSnapTargets(activeWidget);
-                document.addEventListener('mousemove', dragging);
-                document.addEventListener('touchmove', dragging, {passive: false});
-                document.addEventListener('mouseup', dragEnd);
-                document.addEventListener('touchend', dragEnd);
             }
 
             function dragging(e) {
-                if (!isDragging || !activeWidget) return;
+                if (!press || e.pointerId !== press.id) return;
+                if (!isDragging) {
+                    if (press.locked || !activeWidget) return;
+                    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_DEAD) return;
+                    beginDrag();
+                }
                 e.preventDefault();
-                const t = e.type.includes('mouse') ? e : e.touches[0];
-                lastPt = { x: t.clientX, y: t.clientY, alt: !!e.altKey };
+                lastPt = { x: e.clientX, y: e.clientY, alt: !!e.altKey };
                 if (!dragRAF) dragRAF = requestAnimationFrame(dragFrame);
             }
 
@@ -1682,25 +1729,28 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 stagePushLive(nx, ny, null);   // 🖼️ 진짜 위젯도 손을 따라온다 (이 함수는 rAF 로 프레임당 한 번 돈다)
             }
 
-            function dragEnd() {
+            function dragEnd(e) {
+                if (e && press && e.pointerId !== press.id) return;
+                const p = press; press = null;
+                document.removeEventListener('pointermove', dragging);
+                document.removeEventListener('pointerup', dragEnd);
+                document.removeEventListener('pointercancel', dragEnd);
                 if (isDragging) {
                     isDragging = false;
-                    if (dragRAF) { cancelAnimationFrame(dragRAF); dragRAF = null; }
+                    // 마지막 한 걸음이 아직 안 그려졌으면 지금 그린다 — 안 그러면 놓은 자리보다 한 프레임 앞에 선다
+                    if (dragRAF) { cancelAnimationFrame(dragRAF); dragRAF = null; isDragging = true; dragFrame(); isDragging = false; }
                     // 여기서 한 번만 left/top 으로 확정한다 (저장 형식은 예전 그대로)
                     const dx = parseFloat(activeWidget.dataset.dx) || 0;
                     const dy = parseFloat(activeWidget.dataset.dy) || 0;
                     let fx = initialX + dx, fy = initialY + dy;
                     // 격자 맞춤은 여기서. 끄는 내내 반올림하면 움직임이 계단이 된다.
                     //    안내선에 붙어 있던 자리는 그대로 둔다 — 그건 일부러 맞춘 자리다.
-                    //    ⚠️ 실제로 끈 경우에만 맞춘다. 고르려고 한 번 누르기만 해도 맞추면
-                    //       손대지도 않은 위젯이 몇 px 씩 밀려난다.
                     const gridOn = document.getElementById('snap-on').checked && dragMoved;
                     if (gridOn && !dragSnappedX) fx = Math.round(fx / GRID) * GRID;
                     if (gridOn && !dragSnappedY) fy = Math.round(fy / GRID) * GRID;
-                    // 🛟 안전지대 밖으로는 안 나가게 여기서 붙잡는다 ('안전지대 무시' 면 통과)
                     [fx, fy] = holdInSafe(activeWidget, fx, fy);
-                    activeWidget.style.left = fx + 'px';
-                    activeWidget.style.top = fy + 'px';
+                    activeWidget.style.left = Math.round(fx) + 'px';
+                    activeWidget.style.top = Math.round(fy) + 'px';
                     activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
                     delete activeWidget.dataset.dx; delete activeWidget.dataset.dy;
                     activeWidget.classList.remove('dragging');
@@ -1708,12 +1758,33 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                     document.getElementById('guide-h').style.display = 'none';
                     if (dragMoved) autoSaveLayout();
                     flushPendingState();   // 끄는 동안 미뤄둔 갱신을 이제 그린다
+                } else if (p && p.next && e && e.type === 'pointerup') {
+                    // 누르기만 하고 뗐다 — 고른 것 밑(또는 위)에 겹친 다음 위젯으로 넘어간다
+                    selectWidget(p.next);
                 }
-                document.removeEventListener('mousemove', dragging);
-                document.removeEventListener('touchmove', dragging);
-                document.removeEventListener('mouseup', dragEnd);
-                document.removeEventListener('touchend', dragEnd);
             }
+
+            // ⎋ 끄는 중에 Esc — 누르기 전 자리로 되돌리고 저장하지 않는다(크기 손잡이도 같다)
+            function cancelDrag() {
+                if (!isDragging || !activeWidget) return;
+                isDragging = false; press = null;
+                if (dragRAF) { cancelAnimationFrame(dragRAF); dragRAF = null; }
+                document.removeEventListener('pointermove', dragging);
+                document.removeEventListener('pointerup', dragEnd);
+                document.removeEventListener('pointercancel', dragEnd);
+                activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
+                delete activeWidget.dataset.dx; delete activeWidget.dataset.dy;
+                activeWidget.classList.remove('dragging');
+                document.getElementById('guide-v').style.display = 'none';
+                document.getElementById('guide-h').style.display = 'none';
+                pushLayoutToStage();   // 무대도 원래 자리로
+                flushPendingState();
+            }
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                if (isDragging) { e.preventDefault(); cancelDrag(); }
+                else if (isResizing) { e.preventDefault(); cancelResize(); }
+            });
 
             /* ══ 📐 위젯 정리 ══
                보이는 위젯만 건드린다 — 숨겨둔 것까지 옮기면 나중에 켤 때 엉뚱한 데 있다. */
@@ -1775,18 +1846,82 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 e.preventDefault();
                 activeWidget.style.left = ((parseInt(activeWidget.style.left) || 0) + dx) + 'px';
                 activeWidget.style.top = ((parseInt(activeWidget.style.top) || 0) + dy) + 'px';
+                pushLayoutToStage();   // 🖼️ 진짜 위젯도 바로 따라온다(예전엔 0.4초 뒤 저장할 때에야 움직였다)
                 clearTimeout(window._nudgeT);
                 window._nudgeT = setTimeout(autoSaveLayout, 400);   // 연타할 때 저장을 몰아서 한 번만
             });
-            function resizeStart(e) { e.stopPropagation(); isResizing = true; stageDragBegin(); startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; startScale = parseFloat(activeWidget.dataset.scale) || 1.0; baseWidth = activeWidget.offsetWidth; document.addEventListener('mousemove', resizing); document.addEventListener('touchmove', resizing, {passive: false}); document.addEventListener('mouseup', resizeEnd); document.addEventListener('touchend', resizeEnd); }
-            function resizing(e) { if (!isResizing || !activeWidget) return; e.preventDefault(); const clientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; const dx = (clientX - startX) / scaleRatio; let newScale = startScale + (dx / baseWidth); newScale = Math.max(0.3, Math.min(newScale, 3.0)); activeWidget.style.transform = `scale(${newScale})`; activeWidget.dataset.scale = newScale; stagePushLive(null, null, newScale); const scaleSlider = document.getElementById('prop-scale'); if(scaleSlider) { scaleSlider.value = newScale; document.getElementById('prop-scale-val').innerText = newScale.toFixed(2); } }
-            function resizeEnd() { if(isResizing) { isResizing = false;
-                /* ⚠️ 배율을 키우면 상자가 커져 안전지대를 삐져나갈 수 있다.
-                      끌 때만 붙잡으면 '크게만 하면 빠져나가는' 구멍이 남는다. */
-                const [rx, ry] = holdInSafe(activeWidget, parseInt(activeWidget.style.left) || 0,
-                                                          parseInt(activeWidget.style.top) || 0);
-                activeWidget.style.left = rx + 'px'; activeWidget.style.top = ry + 'px';
-                autoSaveLayout(); flushPendingState(); } document.removeEventListener('mousemove', resizing); document.removeEventListener('touchmove', resizing); document.removeEventListener('mouseup', resizeEnd); document.removeEventListener('touchend', resizeEnd); }
+            /* ↘️ 크기 손잡이 — 모서리를 끄는 방향 그대로 커지고 작아진다.
+               ⚠️ 예전엔 가로로 끈 거리만 셌다. 모서리를 아래로 끌면 아무 일도 안 일어났다.
+                  이제 끈 거리를 위젯의 대각선 방향으로 재서 배율로 바꾼다(오른쪽 아래로 = 커짐).
+               ⚠️ 포인터를 붙잡고, 화면 박자(rAF)에 맞춰 한 번만 그린다(예전엔 마우스가 움직일 때마다
+                  무대까지 다시 그렸다). 끄는 중 Esc 면 원래 배율로. */
+            let rzRAF = null, rzPt = null, rzId = null, baseHeight = 100;
+            function setWidgetScale(el, s) {
+                s = Math.round(Math.max(0.3, Math.min(s, 3.0)) * 100) / 100;
+                el.style.transform = `scale(${s})`; el.dataset.scale = s; setK(el);
+                stagePushLive(null, null, s);
+                const slider = document.getElementById('prop-scale');
+                if (slider) { slider.value = s; document.getElementById('prop-scale-val').innerText = s.toFixed(2); }
+            }
+            function resizeStart(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                e.stopPropagation(); e.preventDefault();
+                if (!activeWidget || isDragging || isResizing) return;
+                isResizing = true; stageDragBegin();
+                startX = e.clientX; startY = e.clientY; rzId = e.pointerId; rzPt = null;
+                startScale = parseFloat(activeWidget.dataset.scale) || 1.0;
+                baseWidth = activeWidget.offsetWidth || 100; baseHeight = activeWidget.offsetHeight || 100;
+                try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+                document.addEventListener('pointermove', resizing);
+                document.addEventListener('pointerup', resizeEnd);
+                document.addEventListener('pointercancel', resizeEnd);
+            }
+            function resizing(e) {
+                if (!isResizing || !activeWidget || e.pointerId !== rzId) return;
+                e.preventDefault();
+                rzPt = { x: e.clientX, y: e.clientY };
+                if (!rzRAF) rzRAF = requestAnimationFrame(resizeFrame);
+            }
+            function resizeFrame() {
+                rzRAF = null;
+                if (!isResizing || !activeWidget || !rzPt) return;
+                const dx = (rzPt.x - startX) / scaleRatio, dy = (rzPt.y - startY) / scaleRatio;
+                const W = baseWidth * startScale, H = baseHeight * startScale;
+                /* 위젯 왼쪽 위(기준점)에서 모서리까지의 거리가 늘어난 만큼 키운다 — 바깥으로 끌면 커지고
+                   안으로 끌면 작아진다. 어느 방향으로 끌어도 되고, 튀지 않는다.
+                   ⚠️ '더 많이 당긴 쪽을 따르기' 도 해 봤는데 납작한 판(계좌 48px)은 아래로 40px 만 끌어도
+                      2.7배가 됐다(샌드박스 실측) — 너무 튄다. 거리 비율이 가장 고르다. */
+                const d0 = Math.hypot(W, H), d1 = Math.hypot(W + dx, H + dy);
+                setWidgetScale(activeWidget, startScale * (d1 / (d0 || 1)));
+            }
+            function resizeListenersOff() {
+                document.removeEventListener('pointermove', resizing);
+                document.removeEventListener('pointerup', resizeEnd);
+                document.removeEventListener('pointercancel', resizeEnd);
+            }
+            function resizeEnd(e) {
+                if (e && rzId != null && e.pointerId !== rzId) return;
+                resizeListenersOff();
+                if (isResizing) {
+                    if (rzRAF) { cancelAnimationFrame(rzRAF); rzRAF = null; resizeFrame(); }   // 마지막 한 걸음
+                    isResizing = false;
+                    /* ⚠️ 배율을 키우면 상자가 커져 안전지대를 삐져나갈 수 있다.
+                          끌 때만 붙잡으면 '크게만 하면 빠져나가는' 구멍이 남는다. */
+                    const [rx, ry] = holdInSafe(activeWidget, parseInt(activeWidget.style.left) || 0,
+                                                              parseInt(activeWidget.style.top) || 0);
+                    activeWidget.style.left = rx + 'px'; activeWidget.style.top = ry + 'px';
+                    autoSaveLayout(); flushPendingState();
+                }
+                rzPt = null; rzId = null;
+            }
+            function cancelResize() {
+                if (!isResizing || !activeWidget) return;
+                resizeListenersOff();
+                if (rzRAF) { cancelAnimationFrame(rzRAF); rzRAF = null; }
+                isResizing = false; rzPt = null; rzId = null;
+                setWidgetScale(activeWidget, startScale);
+                pushLayoutToStage(); flushPendingState();
+            }
 
             // 화면이 그려지지 않는 환경(자동 점검 등)에서는 requestAnimationFrame 이 멈춰 있어
             // 드래그 계산을 확인할 방법이 없다. 한 프레임을 손으로 돌릴 수 있게 열어둔다.

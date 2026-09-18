@@ -3188,8 +3188,11 @@
         }
         document.addEventListener('click', initAudio, { once: true });
 
+        /* ⚠️ 대결 타이머 삑·펑 소리도 '소리 담당 창' 에서만 낸다. 예전엔 이 둘만 검사를 안 해서
+              폰 미리보기·편집기(모니터 모드)에서도 울리고, 방송판을 둘 띄우면 두 번 울렸다. */
         function playBeep(freq, type, dur, vol) {
             try {
+                if (typeof isAudioLeader === 'function' && !isAudioLeader()) return;
                 if(!audioCtx) return; if(audioCtx.state === 'suspended') audioCtx.resume();
                 let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();
                 osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
@@ -3202,6 +3205,7 @@
         
         function playExplosion() {
             try {
+                if (typeof isAudioLeader === 'function' && !isAudioLeader()) return;
                 if(!audioCtx) return; if(audioCtx.state === 'suspended') audioCtx.resume();
                 let bufferSize = audioCtx.sampleRate * 2.0; let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
                 let data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
