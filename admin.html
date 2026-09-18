@@ -115,6 +115,35 @@
         /* ↘️ 크기 손잡이 — 화면에서 늘 18px. 캔버스를 줄여 봐도 손가락·마우스로 잡힌다. */
         .resize-handle { position: absolute; bottom: calc(-9px * var(--k, 1)); right: calc(-9px * var(--k, 1)); width: calc(18px * var(--k, 1)); height: calc(18px * var(--k, 1)); box-sizing: border-box; background: #fff; border: calc(3px * var(--k, 1)) solid var(--accent); border-radius: 50%; cursor: nwse-resize; display: none; z-index: 100; pointer-events: auto !important; touch-action: none; box-shadow: 0 2px 5px rgba(0,0,0,0.5); } 
         .widget.selected .resize-handle { display: block; }
+        /* ══ 🖐️ 진짜 방송판을 바로 잡는다 (무대가 켜져 있을 때) ══
+           대표님(2026-09-18): "지금처럼 가상의 박스를 만들지말고 그냥 정말 오버레이를 끌어서".
+           손잡이 상자는 눈에도 안 보이고 손에도 안 걸린다 — 자리·배율을 적어 두는 장부로만 남는다.
+           누르면 그 자리에 **실제로 그려진** 위젯을 그 순간 재서 잡는다(inPlacePress).
+           ⚠️ 무대에 안 그려지는 것(no-stage — 빈 영상 상자 등)은 잡을 그림이 없으니 점선 자리표로 남긴다. */
+        .stage-on .widget:not(.no-stage) { opacity: 0 !important; pointer-events: none !important; }
+        /* ⚠️ 손잡이 상자의 크기 동그라미는 pointer-events:auto !important 라 상자를 안 보이게 해도 손에 걸린다 — 아예 뺀다 */
+        .stage-on .widget:not(.no-stage) .resize-handle { display: none !important; }
+        .stage-on .canvas-board.hovering { cursor: grab; }
+        .stage-on .canvas-board.grabbing, .stage-on .canvas-board.grabbing * { cursor: grabbing !important; }
+        /* 테두리는 둘만 — 가리키는 것(hover-frame)과 고른 것(sel-frame). 진짜 위젯이 차지한 네모에 딱 맞춘다.
+           --kb = 1 ÷ 캔버스 배율 — 캔버스를 얼마나 줄여 보든 선 굵기·이름표·동그라미가 화면에서 같은 크기다. */
+        .ed-frame { position: absolute; display: none; pointer-events: none; z-index: 99990; box-sizing: border-box; }
+        #hover-frame { border: calc(1.5px * var(--kb, 1)) solid rgba(140, 210, 255, .85); }
+        #sel-frame { border: calc(2px * var(--kb, 1)) solid var(--accent);
+                     box-shadow: 0 0 0 calc(1px * var(--kb, 1)) rgba(0, 0, 0, .55); }
+        #sel-frame.locked { border-color: #ffd166; }
+        .ed-frame .ed-tag { position: absolute; left: calc(-2px * var(--kb, 1)); bottom: 100%; margin-bottom: calc(4px * var(--kb, 1));
+            font: 700 calc(12px * var(--kb, 1)) 'Malgun Gothic', sans-serif; color: #0b0d12; background: #9fe8ff;
+            padding: calc(2px * var(--kb, 1)) calc(7px * var(--kb, 1)); border-radius: calc(4px * var(--kb, 1)); white-space: nowrap; }
+        #sel-frame .ed-tag { background: var(--accent); }
+        #sel-frame.locked .ed-tag { background: #ffd166; }
+        /* 위가 캔버스 끝에 닿으면 이름표가 잘린다 — 그때는 테두리 안쪽 위에 붙인다 */
+        .ed-frame.tag-in .ed-tag { bottom: auto; top: 0; margin: 0; }
+        #sel-frame .sel-handle { position: absolute; right: calc(-9px * var(--kb, 1)); bottom: calc(-9px * var(--kb, 1));
+            width: calc(18px * var(--kb, 1)); height: calc(18px * var(--kb, 1)); box-sizing: border-box; background: #fff;
+            border: calc(3px * var(--kb, 1)) solid var(--accent); border-radius: 50%; cursor: nwse-resize;
+            pointer-events: auto; touch-action: none; box-shadow: 0 2px 5px rgba(0, 0, 0, .5); }
+        #sel-frame.locked .sel-handle { display: none; }
 
         .admin-input { width: 100%; box-sizing: border-box; margin-bottom: 8px; background: #111; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 6px; font-family: 'Pretendard'; font-size: 13px; } .admin-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.2); }
 
@@ -674,6 +703,9 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 <!-- 📏 정렬 안내선 — 다른 위젯과 줄이 맞으면 나타난다 -->
                 <div class="align-guide" id="guide-v"></div>
                 <div class="align-guide" id="guide-h"></div>
+                <!-- 🖐️ 진짜 위젯 테두리 — 가리키면 얇은 선, 고르면 초록 선 + 크기 동그라미(무대가 켜져 있을 때) -->
+                <div class="ed-frame" id="hover-frame"><span class="ed-tag"></span></div>
+                <div class="ed-frame" id="sel-frame"><span class="ed-tag"></span><div class="sel-handle" title="끌어서 크기 바꾸기"></div></div>
 
                 <div class="widget" id="ranking" data-id="ranking" style="left:48px; top:167px;">
                     <div class="excel-board">
@@ -989,7 +1021,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
             function resizeCanvas() { if (!mainArea || !canvasWrapper || !canvasBoard) return; const pad = 80; const availableW = mainArea.clientWidth - pad; const availableH = mainArea.clientHeight - pad; /* ⚠️ 창이 좁으면 (폭-80) 이 음수가 되어 배율이 음수가 된다. 무대가 뒤집혀
                    아주 작게 그려지고 클릭 자리가 통째로 어긋나 아무것도 안 잡힌다.
                    실제로 좁은 창에서 scale(-0.0185) 가 나왔다. 최소값을 둔다. */
-                scaleRatio = Math.max(0.08, Math.min(availableW / 1080, availableH / 1920)); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; refreshHandleSize(); }
+                scaleRatio = Math.max(0.08, Math.min(availableW / 1080, availableH / 1920)); canvasWrapper.style.width = `${1080 * scaleRatio}px`; canvasWrapper.style.height = `${1920 * scaleRatio}px`; canvasBoard.style.transform = `scale(${scaleRatio})`; canvasBoard.style.setProperty('--kb', (1 / scaleRatio).toFixed(3)); refreshHandleSize(); try { drawSel(); } catch (e) {} }
             window.addEventListener('resize', resizeCanvas); resizeCanvas();
             
             let layout = {}; let activeWidget = null; let isDragging = false; let isResizing = false; let startX, startY, initialX, initialY; let startScale = 1.0; let baseWidth = 100;
@@ -1053,6 +1085,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 const d = stageDoc(); if (!d || !stageOn()) return;
                 stageForceVisible();                     // 방송 상태가 바뀌어 다시 감춰져도 도로 보이게
                 if (isDragging || isResizing) return;   // 끄는 중에 크기가 바뀌면 손이 걸린다
+                drawSel();
                 const codeOwned = (stageWin() && stageWin().LAY_CODE_OWNED) || [];
                 document.querySelectorAll('.widget').forEach(el => {
                     el.dataset.label = el.dataset.label || (typeof widgetNames !== 'undefined' && widgetNames[el.id]) || el.id;
@@ -1102,6 +1135,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                     if (live.scale != null) ly[live.id].scale = live.scale;
                 }
                 try { w.applyLayout(ly); } catch (e) {}
+                drawSel();   // 🖐️ 고른 테두리가 진짜 위젯을 따라온다
                 if (!live) requestAnimationFrame(syncHandles);
             }
 
@@ -1211,6 +1245,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                     });
                 }
                 try { localStorage.setItem('edstage', on ? '1' : '0'); } catch (e) {}
+                try { hideHover(); drawSel(); } catch (e) {}
             };
 
             if (stageFrame) {
@@ -1531,10 +1566,138 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 
                 if(el.id === 'account') document.getElementById('prop-account-edit').style.display = 'block';
                 else document.getElementById('prop-account-edit').style.display = 'none';
+                drawSel();
             }
             
-            function closePropertyPanel() { if (activeWidget) activeWidget.classList.remove('selected'); activeWidget = null; document.getElementById('property-panel').classList.remove('active'); document.getElementById('prop-account-edit').style.display = 'none'; try { srcApply(); } catch (e) {} }
-            document.getElementById('prop-scale').addEventListener('input', (e) => { if (!activeWidget) return; const val = parseFloat(e.target.value).toFixed(2); activeWidget.style.transform = `scale(${val})`; activeWidget.dataset.scale = val; setK(activeWidget); document.getElementById('prop-scale-val').innerText = val; stagePushLive(null, null, parseFloat(val)); }); document.getElementById('prop-scale').addEventListener('change', autoSaveLayout); canvasBoard.addEventListener('pointerdown', (e) => { if(e.target === canvasBoard) closePropertyPanel(); });
+            function closePropertyPanel() { if (activeWidget) activeWidget.classList.remove('selected'); activeWidget = null; document.getElementById('property-panel').classList.remove('active'); document.getElementById('prop-account-edit').style.display = 'none'; try { srcApply(); } catch (e) {} try { drawSel(); } catch (e) {} }
+            document.getElementById('prop-scale').addEventListener('input', (e) => { if (!activeWidget) return; const val = parseFloat(e.target.value).toFixed(2); activeWidget.style.transform = `scale(${val})`; activeWidget.dataset.scale = val; setK(activeWidget); document.getElementById('prop-scale-val').innerText = val; stagePushLive(null, null, parseFloat(val)); }); document.getElementById('prop-scale').addEventListener('change', autoSaveLayout);   // (빈 곳 누르면 고르기 풀기는 아래 '진짜 방송판을 바로 잡기' 가 맡는다)
+
+            /* ══ 🖐️ 진짜 방송판을 바로 잡기 ══ (무대가 켜져 있을 때 — 위 CSS 설명)
+               ⚠️ 손잡이 상자는 700ms 마다 진짜 크기에 맞췄다. 그 사이에 위젯 크기가 바뀌면(후원 순위 줄이 늘면)
+                  잡히는 자리와 보이는 자리가 어긋났다. 이제 누르는 순간·가리키는 순간 진짜 위젯을 잰다. */
+            // ⚠️ const·let 으로 두면 안 된다 — 이 덩어리보다 먼저 도는 초기화(stageApply → pushLayoutToStage → drawSel)가
+            //    부르는 순간 '아직 선언 전' 오류가 나고, 그 뒤 편집기 준비가 통째로 멈춘다(샌드박스에서 실제로 멈췄다 —
+            //    화살표 함수를 const 에 담아도 마찬가지다). 끌어올려지는 function 선언으로만 둔다.
+            function hoverFrameEl() { return document.getElementById('hover-frame'); }
+            function selFrameEl() { return document.getElementById('sel-frame'); }
+            function inPlace() { return stageOn() && !!stageDoc(); }
+
+            // 진짜 위젯이 실제로 그려진 네모 — 무대 좌표(= 캔버스 좌표, 무대 iframe 이 캔버스와 같은 1080×1920 이다)
+            function stageRect(real, d) {
+                if (!real) return null;
+                const V = d.defaultView || window, c0 = V.getComputedStyle(real);
+                if (c0.display === 'none' || c0.visibility === 'hidden' || parseFloat(c0.opacity) === 0) return null;
+                const rr = real.getBoundingClientRect();
+                if (!rr.width && !rr.height) return null;
+                let l = rr.left, t = rr.top, r = rr.right, b = rr.bottom;
+                const kids = real.querySelectorAll('*');
+                for (let i = 0; i < kids.length; i++) {
+                    const e = kids[i], c = V.getComputedStyle(e);
+                    if (c.display === 'none' || c.visibility === 'hidden'
+                        || parseFloat(c.opacity) === 0 || c.position === 'fixed') continue;
+                    const x = e.getBoundingClientRect();
+                    if (!x.width && !x.height) continue;
+                    if (x.left < l) l = x.left;
+                    if (x.top < t) t = x.top;
+                    if (x.right > r) r = x.right;
+                    if (x.bottom > b) b = x.bottom;
+                }
+                return { l: l, t: t, r: r, b: b, w: r - l, h: b - t };
+            }
+            function realRectOf(el) {
+                const d = stageDoc(); if (!d || !el || el.style.display === 'none' || el.classList.contains('no-stage')) return null;
+                return stageRect(d.getElementById(el.id + '-container'), d);
+            }
+            // 그 자리에 그려진 진짜 위젯들 — 작은 것부터(pickUnder 와 같은 까닭: 큰 영상 상자가 다 먹지 않게)
+            function realHits(sx, sy) {
+                const out = [];
+                document.querySelectorAll('.widget').forEach(el => {
+                    const r = realRectOf(el);
+                    if (r && sx >= r.l && sx <= r.r && sy >= r.t && sy <= r.b) out.push({ el: el, area: r.w * r.h });
+                });
+                out.sort((a, b) => a.area - b.area);
+                return out.map(o => o.el);
+            }
+            // 고른 것이 손 밑에 있으면 그것을 잡는다 — pickUnder 와 같은 규칙
+            function pickReal(sx, sy) {
+                const list = realHits(sx, sy);
+                if (!list.length) return { el: null, next: null };
+                const i = list.indexOf(activeWidget);
+                if (i >= 0) return { el: activeWidget, next: list.length > 1 ? list[(i + 1) % list.length] : null };
+                return { el: list[0], next: null };
+            }
+            function toStagePt(e) {
+                const r = canvasBoard.getBoundingClientRect();
+                return { x: (e.clientX - r.left) / scaleRatio, y: (e.clientY - r.top) / scaleRatio };
+            }
+            function placeFrame(fr, el, r) {
+                if (!el || !r) { fr.style.display = 'none'; return; }
+                fr.style.display = 'block';
+                fr.style.left = r.l + 'px'; fr.style.top = r.t + 'px';
+                fr.style.width = Math.max(1, r.w) + 'px'; fr.style.height = Math.max(1, r.h) + 'px';
+                const locked = el.classList.contains('code-owned');
+                const name = (typeof widgetNames !== 'undefined' && widgetNames[el.id]) || el.id;
+                const tag = fr.querySelector('.ed-tag'), txt = locked ? '🔒 ' + name + ' · 자리 고정' : name;
+                if (tag.textContent !== txt) tag.textContent = txt;
+                fr.classList.toggle('locked', locked);
+                fr.classList.toggle('tag-in', r.t < 26 / (scaleRatio || 1));
+            }
+            // 고른 것 테두리를 진짜 위젯 자리에 다시 맞춘다 — 무대에 자리를 먹일 때마다 부른다(pushLayoutToStage)
+            function drawSel() {
+                const fr = selFrameEl(); if (!fr) return;
+                stageFront(inPlace() ? activeWidget : null);
+                if (!inPlace() || !activeWidget) { fr.style.display = 'none'; return; }
+                placeFrame(fr, activeWidget, realRectOf(activeWidget));
+            }
+            /* ⬆️ 고른 위젯은 무대에서 맨 앞으로 — 편집기 무대 안에서만(방송은 그대로).
+               ⚠️ 편집기는 눈을 켠 게임판(룰렛·대결·노래방…)을 전부 보이게 깔아 둔다. 그 검은 판들이 엑셀판보다
+                  앞에 있어서, 엑셀판을 끌면 그 밑으로 들어가 **끄는 것이 안 보였다**(샌드박스 실측). */
+            function stageFront(el) {
+                const d = stageDoc(); if (!d) return;
+                let st = d.getElementById('ed-front');
+                const css = el ? 'html.ed-stage body #' + el.id + '-container{z-index:2147483000 !important}' : '';
+                if (!st) { if (!css) return; st = d.createElement('style'); st.id = 'ed-front'; (d.head || d.documentElement).appendChild(st); }
+                if (st.textContent !== css) st.textContent = css;
+            }
+            function hideHover() {
+                const fr = hoverFrameEl(); if (fr) fr.style.display = 'none';
+                canvasBoard.classList.remove('hovering');
+            }
+
+            // 가리키기 — 화면 박자(rAF)에 맞춰 한 번만 잰다
+            let hoverRAF = null, hoverPt = null;
+            canvasBoard.addEventListener('pointermove', (e) => {
+                if (!inPlace()) return;
+                if (press || isDragging || isResizing) { hideHover(); return; }
+                hoverPt = toStagePt(e);
+                if (hoverRAF) return;
+                hoverRAF = requestAnimationFrame(() => {
+                    hoverRAF = null;
+                    if (!hoverPt || press || isDragging || isResizing) return;
+                    const list = realHits(hoverPt.x, hoverPt.y);
+                    const el = list.length ? (list.indexOf(activeWidget) >= 0 ? activeWidget : list[0]) : null;
+                    canvasBoard.classList.toggle('hovering', !!el && !el.classList.contains('code-owned'));
+                    const fr = hoverFrameEl(); if (!fr) return;
+                    if (!el || el === activeWidget) { fr.style.display = 'none'; return; }
+                    placeFrame(fr, el, realRectOf(el));
+                });
+            });
+            canvasBoard.addEventListener('pointerleave', () => { hoverPt = null; hideHover(); });
+
+            // 누르기 — 진짜 위젯을 잡는다. 빈 곳이면 고르기를 푼다.
+            canvasBoard.addEventListener('pointerdown', (e) => {
+                if (e.target.closest && (e.target.closest('.sel-handle') || e.target.closest('.resize-handle'))) return;
+                if (inPlace() && !(e.target.closest && e.target.closest('.widget'))) {
+                    const p = toStagePt(e);
+                    const pick = pickReal(p.x, p.y);
+                    hideHover();
+                    if (pick.el) { startPress(e, pick, canvasBoard); return; }
+                    closePropertyPanel();
+                    return;
+                }
+                if (e.target === canvasBoard) closePropertyPanel();
+            });
+            if (selFrameEl()) selFrameEl().querySelector('.sel-handle').addEventListener('pointerdown', resizeStart);
 
             /* ══ 🖱️ 드래그 — 물 흐르듯 ══
                ⚠️ 예전에는 움직일 때마다 left/top 을 바꿨다. 그러면 브라우저가 그때마다
@@ -1635,14 +1798,19 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
             const DRAG_DEAD = 4;        // 화면 px
             let press = null;           // 누르고 있는 동안: { el, next, x, y, id, locked }
 
+            // 손잡이 상자를 누른 경우 — 무대를 끈 흉내 모드, 또는 무대에 안 그려지는 것(no-stage)
             function dragStart(e) {
-                if (e.pointerType === 'mouse' && e.button !== 0) return;   // 오른쪽 단추는 무시
                 if (e.target.classList.contains('resize-handle')) return;
+                startPress(e, pickUnder(e.clientX, e.clientY, e.target.closest('.widget')), null);
+            }
+            // 누르기 — 손잡이 상자로 눌렀든(dragStart) 진짜 위젯을 눌렀든(캔버스) 여기서 같이 받는다.
+            // cap: 포인터를 붙잡을 요소(진짜 위젯은 캔버스가 붙잡는다 — 손잡이 상자는 손에 안 걸리니까)
+            function startPress(e, pick, cap) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;   // 오른쪽 단추는 무시
                 if (isResizing) return;
                 // 놓기를 못 받은 채 남은 것이 있으면(다른 창으로 넘어갔다 오는 등) 정리하고 새로 시작한다.
                 // ⚠️ 두 번째 손가락은 무시한다 — 끄는 손은 하나다.
                 if (press || isDragging) { if (press && e.pointerId !== press.id) return; dragEnd(); }
-                const pick = pickUnder(e.clientX, e.clientY, e.target.closest('.widget'));
                 const widgetEl = pick.el;
                 if (!widgetEl) return;
                 e.preventDefault();
@@ -1653,7 +1821,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 selectWidget(widgetEl);
                 press = { el: widgetEl, next: pick.next, x: e.clientX, y: e.clientY, id: e.pointerId,
                           locked: widgetEl.classList.contains('code-owned') };
-                try { widgetEl.setPointerCapture(e.pointerId); } catch (err) {}
+                try { (cap || widgetEl).setPointerCapture(e.pointerId); } catch (err) {}
                 document.addEventListener('pointermove', dragging);
                 document.addEventListener('pointerup', dragEnd);
                 document.addEventListener('pointercancel', dragEnd);
@@ -1666,7 +1834,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 startX = press.x; startY = press.y;
                 initialX = parseInt(activeWidget.style.left) || 0;
                 initialY = parseInt(activeWidget.style.top) || 0;
-                activeWidget.classList.add('dragging');
+                activeWidget.classList.add('dragging'); canvasBoard.classList.add('grabbing');
                 // ⚠️ 크기는 여기서 딱 한 번만 잰다. 매 프레임 offsetWidth 를 읽으면
                 //    그 순간 브라우저가 배치를 통째로 다시 계산해서(강제 reflow),
                 //    transform 으로 바꾼 보람이 사라진다. 끄는 동안 크기는 안 변한다.
@@ -1753,10 +1921,10 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                     activeWidget.style.top = Math.round(fy) + 'px';
                     activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
                     delete activeWidget.dataset.dx; delete activeWidget.dataset.dy;
-                    activeWidget.classList.remove('dragging');
+                    activeWidget.classList.remove('dragging'); canvasBoard.classList.remove('grabbing');
                     document.getElementById('guide-v').style.display = 'none';
                     document.getElementById('guide-h').style.display = 'none';
-                    if (dragMoved) autoSaveLayout();
+                    if (dragMoved) autoSaveLayout(); else drawSel();
                     flushPendingState();   // 끄는 동안 미뤄둔 갱신을 이제 그린다
                 } else if (p && p.next && e && e.type === 'pointerup') {
                     // 누르기만 하고 뗐다 — 고른 것 밑(또는 위)에 겹친 다음 위젯으로 넘어간다
@@ -1774,7 +1942,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 document.removeEventListener('pointercancel', dragEnd);
                 activeWidget.style.transform = `scale(${activeWidget.dataset.scale || 1})`;
                 delete activeWidget.dataset.dx; delete activeWidget.dataset.dy;
-                activeWidget.classList.remove('dragging');
+                activeWidget.classList.remove('dragging'); canvasBoard.classList.remove('grabbing');
                 document.getElementById('guide-v').style.display = 'none';
                 document.getElementById('guide-h').style.display = 'none';
                 pushLayoutToStage();   // 무대도 원래 자리로

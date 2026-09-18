@@ -287,7 +287,7 @@ chk('4px 안에서 뗀 것은 고르기다 (위젯이 안 밀린다)',
     'const DRAG_DEAD = 4;' in ad and 'Math.hypot(e.clientX - press.x, e.clientY - press.y) < DRAG_DEAD' in ad)
 # ⚠️ 창 밖에서 놓으면 끌리는 채로 남았다 — 포인터를 붙잡는다
 chk('끄는 동안 포인터를 붙잡는다 (창 밖에서 놓아도 놓은 것)',
-    'widgetEl.setPointerCapture(e.pointerId)' in ad and "document.addEventListener('pointercancel', dragEnd);" in ad)
+    '(cap || widgetEl).setPointerCapture(e.pointerId)' in ad and "document.addEventListener('pointercancel', dragEnd);" in ad)
 chk('마우스·터치를 따로 받지 않는다 (포인터 하나로)',
     "addEventListener('mousedown', dragStart)" not in ad and "addEventListener('touchstart', dragStart" not in ad)
 chk('끄는 중 Esc 면 원래 자리로', 'function cancelDrag()' in ad and 'function cancelResize()' in ad)
@@ -299,11 +299,41 @@ chk('크기 손잡이도 화면 박자(rAF)에 맞춰 그린다', 'rzRAF = reque
 # ⚠️ 캔버스를 0.45배쯤으로 줄여 보니 손잡이가 화면에서 10px, 이름표 글씨가 5px 이었다
 chk('손잡이·이름표는 화면에서 늘 같은 크기다',
     'width: calc(18px * var(--k, 1))' in ad and 'font: 700 calc(12px * var(--k, 1))' in ad
-    and 'refreshHandleSize(); }' in ad)
+    and 'refreshHandleSize(); try { drawSel(); } catch (e) {} }' in ad)
 # ⚠️ 고를 때 요소를 떼었다 붙이면 잡아 둔 포인터가 풀린다
 chk('고를 때 위젯을 옮겨 붙이지 않는다', 'activeWidget.parentNode.appendChild(activeWidget)' not in ad)
 chk('화살표로 옮기면 무대도 바로 따라온다',
     "pushLayoutToStage();   // 🖼️ 진짜 위젯도 바로 따라온다" in ad)
+
+print()
+print('=' * 74)
+print('🖐️ 진짜 방송판을 바로 잡는다 (가상의 상자 없이)')
+print('=' * 74)
+# 대표님 2026-09-18: "지금처럼 가상의 박스를 만들지말고 그냥 정말 오버레이를 끌어서 위치나 크기를 수정하는"
+#   무대가 켜져 있으면 손잡이 상자는 장부로만 남고(안 보이고 손에도 안 걸린다), 누르는 순간 진짜 위젯을 재서 잡는다.
+chk('무대가 켜져 있으면 손잡이 상자는 안 보이고 손에도 안 걸린다',
+    '.stage-on .widget:not(.no-stage) { opacity: 0 !important; pointer-events: none !important; }' in ad)
+# ⚠️ 상자의 크기 동그라미는 pointer-events:auto !important 라 상자를 투명하게 해도 손에 걸린다
+chk('안 보이는 상자의 크기 동그라미도 뺀다', '.stage-on .widget:not(.no-stage) .resize-handle { display: none !important; }' in ad)
+chk('누르는 순간 진짜 위젯을 재서 잡는다',
+    'function realHits(' in ad and 'function pickReal(' in ad and 'startPress(e, pick, canvasBoard)' in ad)
+chk('진짜 위젯에서도 고른 것을 먼저 잡는다 (딴 게 끌리지 않는다)',
+    ad.count('if (i >= 0) return { el: activeWidget, next:') >= 2)
+chk('가리키면 얇은 선 · 고르면 초록 선 + 크기 동그라미', 'id="hover-frame"' in ad and 'id="sel-frame"' in ad
+    and 'class="sel-handle"' in ad and "querySelector('.sel-handle').addEventListener('pointerdown', resizeStart)" in ad)
+chk('고른 테두리가 진짜 위젯을 따라온다 (무대에 자리를 먹일 때마다)',
+    'drawSel();   // 🖐️ 고른 테두리가 진짜 위젯을 따라온다' in ad)
+chk('테두리·이름표·동그라미도 화면에서 늘 같은 크기다', "canvasBoard.style.setProperty('--kb'" in ad and 'calc(18px * var(--kb, 1))' in ad)
+# ⚠️ 테두리 요소를 const 로 잡아 뒀더니, 먼저 도는 초기화(stageApply → pushLayoutToStage → drawSel)가 '선언 전' 오류로
+#    멈추고 편집기 준비가 통째로 끊겼다(샌드박스에서 실제로 아무것도 안 잡혔다). function 선언이어야 한다.
+chk('테두리 찾기는 function 선언이다 (먼저 도는 초기화에서 안 멈춘다)',
+    'function selFrameEl()' in ad and 'function hoverFrameEl()' in ad
+    and 'const selFrameEl' not in ad and 'let selFrameEl' not in ad)
+# ⚠️ 편집기는 눈을 켠 게임판을 전부 깔아 둔다 — 엑셀판을 끌면 그 검은 판들 밑으로 들어가 안 보였다
+chk('고른 위젯은 편집기 무대에서 맨 앞으로 온다 (방송은 그대로)',
+    'function stageFront(el)' in ad and "'html.ed-stage body #' + el.id + '-container{z-index:2147483000 !important}'" in ad)
+chk('무대를 끄면(흉내 모드) 예전처럼 상자를 잡는다', "if (inPlace() && !(e.target.closest && e.target.closest('.widget')))" in ad
+    and 'function dragStart(e)' in ad)
 
 print()
 print('=' * 74)
