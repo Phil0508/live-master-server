@@ -332,6 +332,14 @@ chk('테두리 찾기는 function 선언이다 (먼저 도는 초기화에서 �
 # ⚠️ 편집기는 눈을 켠 게임판을 전부 깔아 둔다 — 엑셀판을 끌면 그 검은 판들 밑으로 들어가 안 보였다
 chk('고른 위젯은 편집기 무대에서 맨 앞으로 온다 (방송은 그대로)',
     'function stageFront(el)' in ad and "'html.ed-stage body #' + el.id + '-container{z-index:2147483000 !important}'" in ad)
+# ⚠️ 손잡이가 display:none 으로 시작하는 위젯은 시작값이 '방송 꺼짐' 이다. 방송 상태로 고쳐 주는 edLive 가
+#    없으면 방송에 떠 있는데도 편집기가 숨긴 채로 둔다 — 한 방 최고·모금함·핀볼이 그랬다(2026-09-19).
+_hidden0 = re.findall(r'<div class="widget" id="([\w-]+)" data-id="[\w-]+"\s+style="[^"]*display:\s*none', ad)
+_nolive = [w for w in _hidden0 if ("edLive('%s'" % w) not in ad]
+chk('숨은 채 시작하는 위젯은 전부 방송 상태를 따라간다 (edLive)', bool(_hidden0) and not _nolive,
+    _nolive or ('%d개' % len(_hidden0)))
+chk('👁 를 꺼 둔 것도 무대에 보이면 잡힌다', "if (el.style.display !== 'none' && el.classList.contains('no-stage')) return null;" in ad
+    and "localStorage.setItem('edvis:' + pick.el.id, '1');" in ad)
 chk('무대를 끄면(흉내 모드) 예전처럼 상자를 잡는다', "if (inPlace() && !(e.target.closest && e.target.closest('.widget')))" in ad
     and 'function dragStart(e)' in ad)
 
