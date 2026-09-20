@@ -8,17 +8,18 @@
 .excel-board { padding: 18px; width: max-content; display: flex; flex-direction: column; gap: 8px; }
 .excel-grid-container { display: flex; gap: 20px; }
 .excel-col { display: flex; flex-direction: column; width: 466px; }
-.excel-header { color: var(--gold); font-weight: 700; font-size: 27px; letter-spacing: 0.04em; display: grid; grid-template-columns: 60px 1fr 148px 92px; padding: 0 6px 9px; margin-bottom: 4px; border-bottom: 2px solid rgba(var(--gold-rgb), 0.5); }
+.excel-header { color: var(--gold); font-weight: 700; font-size: 27px; letter-spacing: 0.04em; display: grid; grid-template-columns: 48px 1fr 140px 112px; padding: 0 6px 9px; margin-bottom: 4px; border-bottom: 2px solid rgba(var(--gold-rgb), 0.5); }
 .excel-header div { display: flex; align-items: center; }
 .excel-header div:nth-child(3), .excel-header div:nth-child(4) { justify-content: flex-end; }
-.excel-row { display: grid; grid-template-columns: 60px 1fr 148px 92px; height: 58px; border-bottom: 1px solid rgba(255,255,255,0.07); font-weight: 800; align-items: center; padding: 0 6px; }
+.excel-row { display: grid; grid-template-columns: 48px 1fr 140px 112px; height: 58px; border-bottom: 1px solid rgba(255,255,255,0.07); font-weight: 800; align-items: center; padding: 0 6px; }
 .excel-row > div { display: flex; align-items: center; min-width: 0; }
+.excel-board.big-num .excel-header, .excel-board.big-num .excel-row { grid-template-columns: 48px 1fr 134px 140px; }
 .excel-row > div:nth-child(3), .excel-row > div:nth-child(4) { justify-content: flex-end; }
 .excel-col .excel-row:last-child { border-bottom: none; }
 .r-rank { width: 38px; height: 38px; border-radius: var(--r-s); flex: none; justify-content: center; background: rgba(255,255,255,0.07); color: var(--tx-2); font-size: 27px; font-weight: 800; }
 .r-name { color: #fff; font-weight: 800; font-size: 31px; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 10px; text-shadow: var(--ts-1); }
 .r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
-.r-contrib { color: var(--gold); font-weight: 700; font-size: 27px; font-variant-numeric: tabular-nums; padding-left: 14px; }
+.r-contrib { color: var(--gold); font-weight: 700; font-size: 27px; font-variant-numeric: tabular-nums; padding-left: 10px; }
 .excel-row.contrib-pop { position: relative; z-index: 5; animation: excelPop .72s var(--ease-pop) both; }
 .best-board { position: relative; box-sizing: border-box; width: 340px; padding: 12px 18px 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .best-board::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit; background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events: none; }

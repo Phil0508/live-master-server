@@ -320,18 +320,23 @@
            ⚠️ 번외 점수판은 인라인 style 로 흰 글자를 덮어쓴다(색 배경이라) — 그쪽은 그대로다. */
         .excel-header {
             color: var(--gold); font-weight: 700; font-size: 27px; letter-spacing: 0.04em;
-            display: grid; grid-template-columns: 60px 1fr 148px 92px;
+            display: grid; grid-template-columns: 48px 1fr 140px 112px;
             padding: 0 6px 9px; margin-bottom: 4px;
             border-bottom: 2px solid rgba(var(--gold-rgb), 0.5);
         }
         .excel-header div { display: flex; align-items: center; }
         .excel-header div:nth-child(3), .excel-header div:nth-child(4) { justify-content: flex-end; }
         .excel-row {
-            display: grid; grid-template-columns: 60px 1fr 148px 92px; height: 58px;
+            display: grid; grid-template-columns: 48px 1fr 140px 112px; height: 58px;
             border-bottom: 1px solid rgba(255,255,255,0.07);
             font-weight: 800; align-items: center; padding: 0 6px;
         }
         .excel-row > div { display: flex; align-items: center; min-width: 0; }
+        /* ⚠️ 기여도 칸이 92px 였다 — '540,000'(27px, 약 98px) 부터 점수 칸으로 넘쳐 '540,000540,000' 으로 붙어 보였다.
+              대표님 "가독성이 떨어진달까"(2026-09-20)의 큰 몫이 이것이었다. 순위 칸 60→48(배지는 38), 점수 148→140,
+              기여도 92→112 로 옮겨 이름 칸(154px)은 그대로 둔다. 기여도가 100만을 넘는 줄이 있으면
+              판 전체에 big-num 을 붙여 숫자 두 칸을 더 넓힌다(renderer) — 이름은 그때만 136px. */
+        .excel-board.big-num .excel-header, .excel-board.big-num .excel-row { grid-template-columns: 48px 1fr 134px 140px; }
         .excel-row > div:nth-child(3), .excel-row > div:nth-child(4) { justify-content: flex-end; }
         .excel-col .excel-row:last-child { border-bottom: none; }
         /* 순위 — 1·2·3 을 같은 규칙(색 배지)으로. 예전엔 1등만 배경이라 규칙이 없었다. */
@@ -347,7 +352,7 @@
                    text-shadow: var(--ts-1); }
         /* 기여도는 점수의 조연이다 — 금색은 남기되 글로우를 빼고 한 단계 작게. */
         .r-contrib { color: var(--gold); font-weight: 700; font-size: 27px;
-                     font-variant-numeric: tabular-nums; padding-left: 14px; }
+                     font-variant-numeric: tabular-nums; padding-left: 10px; }
         /* 🔎 기여도가 오른 줄만 잠깐 커진다.
            숫자만 바뀌면 어느 선수가 받았는지 눈이 못 따라간다 — 특히 주사위게임처럼
            네 명이 번갈아 받을 때. 줄이 격자 안에 있어 키우면 위아래와 겹치므로
@@ -2259,8 +2264,10 @@
             --rib-cut: polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%); --rib-ring: none;
             --badge-bg: radial-gradient(circle at 35% 30%, #ffffff, #f3d6e1 70%); --badge-ink: #5a1733; --badge-ring: #e8a5b5;
             /* 🔤 글꼴 — 주아(둥근) + 베이글 팻 원(말랑 통통). 사탕 숫자와 어울린다 */
+            /* 🔤 가독성 손질(대표님 2026-09-20 "폰트들이 별로야 가독성이 떨어진달까") —
+                  표 숫자는 고딕 A1 로. 주아 숫자는 0·6·8 이 뭉쳐 폰에서 헷갈렸다. 이름·이름표는 그대로. */
             --face-name: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
-            --face-num: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
+            --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
             --face-big: "Bagel Fat One", "Jua", "Malgun Gothic", sans-serif; --big-weight: 400;
             --face-label: "Bagel Fat One", "Jua", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #fff6f9; --ink-num: #ffd3e3; --ink-label: #f7b6cc; --ink-soft: rgba(255, 226, 238, .92);
@@ -2295,10 +2302,12 @@
             --rib-cut: none; --rib-ring: 0 0 0 2px #ffc2da, 0 3px 8px rgba(150, 40, 90, .25);
             --badge-bg: #ffffff; --badge-ink: #c2527f; --badge-ring: #ffc2da;
             /* 🔤 글꼴 — 개구(손글씨) + 해바라기(동글 깔끔) + 싱글데이(귀여운 이름표) */
-            --face-name: "Gaegu", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 700;
+            /* 🔤 가독성 손질(2026-09-20) — 손글씨 '개구' 는 획이 가늘고 삐뚤어 이름이 잘 안 읽혔고,
+                  이름표 '싱글데이' 는 분홍 바탕에 가늘어 '플레이어·점수' 가 묻혔다. 둘 다 해바라기(둥근 고딕)로. */
+            --face-name: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 700;
             --face-num: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 700;
             --face-big: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 700;
-            --face-label: "Single Day", "Gaegu", "Malgun Gothic", sans-serif; --label-weight: 400;
+            --face-label: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 700;
             --ink-name: #6b2150; --ink-num: #8a3a64; --ink-label: #c2527f; --ink-soft: #7a3a5e;
             --name-shadow: none;
             --num-color: #ff5f9e; --num-fill: none; --num-clip: border-box;
@@ -2340,7 +2349,7 @@
             --rib-cut: polygon(0 50%, 4% 0, 96% 0, 100% 50%, 96% 100%, 4% 100%); --rib-ring: none;
             --badge-bg: linear-gradient(180deg, #5a1638, #33061f); --badge-ink: #f5d98a; --badge-ring: #e2b454;
             /* 🔤 글꼴 — 고딕 A1(날렵한 고딕) + 검은고딕(굵은 간판 이름표). 붓글씨를 뺐다 */
-            --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 700;
+            --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 800;   /* 700 은 자주 바탕에서 가늘어 보였다(2026-09-20) */
             --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;   /* ⚠️ 900 이면 1등 점수가 칸을 넘쳤다 */
             --face-big: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 900;
             --face-label: "Black Han Sans", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 400;
@@ -2389,10 +2398,13 @@
             --rib-cut: polygon(0 0, 100% 0, 97% 50%, 100% 100%, 0 100%, 3% 50%); --rib-ring: none;
             --badge-bg: linear-gradient(180deg, #2c3a6e, #151c3d); --badge-ink: #ffd76a; --badge-ring: #ffd76a;
             /* 🔤 글꼴 — 연성(붓펜, 궁서 아님) + 도현(또렷한 숫자) + 구기(전통 느낌 장식체 이름표) */
-            --face-name: "Yeon Sung", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
+            /* 🔤 가독성 손질(2026-09-20 "제일 심한게 추석테마") — 붓펜 '연성' 은 이름이 흔들려 폰에서 안 읽히고,
+                  장식체 '구기' 이름표도 획이 끊겨 흐렸다. 이름·숫자·이름표를 전부 '도현'(단단한 고딕)으로,
+                  큰 숫자만 '검은고딕' 으로. 한가위 느낌은 색동·보름달·달토끼 장식이 맡는다. */
+            --face-name: "Do Hyeon", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
             --face-num: "Do Hyeon", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 400;
-            --face-big: "Do Hyeon", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 400;
-            --face-label: "Gugi", "Do Hyeon", "Malgun Gothic", sans-serif; --label-weight: 400;
+            --face-big: "Black Han Sans", "Do Hyeon", "Malgun Gothic", sans-serif; --big-weight: 400;
+            --face-label: "Do Hyeon", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #fff6e6; --ink-num: #ffe7a0; --ink-label: #ffd76a; --ink-soft: #f3e6cf;
             --name-shadow: 0 2px 0 #0b0f22;
             --num-color: transparent; --num-fill: linear-gradient(180deg, #fffbe8 0%, #ffe08a 48%, #e0a526 58%, #fff0b3 100%);
@@ -5312,6 +5324,10 @@
                 // ==========================================
                 let extraBjs = d.extra_bjs || [];
                 let extraRosterStr = extraBjs.map(b => b.name).join('|');
+                try {
+                    const _xb = document.getElementById('extra-excel-board');
+                    if (_xb) _xb.classList.toggle('big-num', extraBjs.some(b => (Number(b.contribution) || 0) >= 1000000));
+                } catch (e) {}
                 
                 if (lastExtraRosterStr !== extraRosterStr) {
                     lastExtraRosterStr = extraRosterStr;
@@ -5555,6 +5571,11 @@
                 }
 
                 let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = d.target_goal || 1; 
+                // 🔢 기여도가 100만을 넘는 줄이 하나라도 있으면 숫자 칸을 넓힌다(CSS .big-num)
+                try {
+                    const _eb = document.getElementById('excel-board');
+                    if (_eb) _eb.classList.toggle('big-num', bjs.some(b => (Number(b.contribution) || 0) >= 1000000));
+                } catch (e) {}
                 
                 let currentRosterStr = bjs.map(b => b.name).join('|');
                 if (lastRosterStr !== currentRosterStr) {
