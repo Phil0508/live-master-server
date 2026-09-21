@@ -193,7 +193,12 @@ chk('후원 알림·시그니처·고액 영상보다 아래에 깐다', _z is n
 chk('위젯판·게임판은 내린다 (z-index 가 더 높아 위로 비친다)',
     all(('body.stage-on ' + s) in OV for s in ('#ui-layer', '#headrow', '#siggame-container', '#dicegame-container', '#pinball-container')))
 chk('카운트다운은 서버 시계로 센다', 'ssStartAt - (Date.now() + serverTimeOffset)' in OV)
-chk('이름·문구는 글자로만 넣는다 (태그 주입 막기)', 'ssEsc(ss.title)' in OV and 'ssEsc(n)' in OV and 'ssEsc(r.name)' in OV)
+chk('이름·문구는 글자로만 넣는다 (태그 주입 막기)', 'ssEsc(ss.title)' in OV and 'ssEsc(r.name)' in OV and 'lab.textContent = labTxt' in OV)
+# 🌸 시작 전 화면 = 엔젤 오락실 그림 (대표님 2026-09-22 확정) — 그림이 움직이고 알약에 카운트다운
+chk('시작 화면은 엔젤 오락실 그림', '/vendor/stage/start_bg.jpg' in OV and os.path.exists(os.path.join(PROJ, 'vendor', 'stage', 'start_bg.jpg')))
+chk('그림이 움직인다 (시작 화면일 때만)', 'const StageArt = {' in OV and "StageArt.set(mode === 'start')" in OV)
+chk('제목 · 문구 상자는 안 움직인다 (가림막)', 'float still=max(box(p,' in OV)
+chk('카운트다운은 알약에, 0 이 되면 곧 시작해요!', "document.getElementById('sa-num')" in OV and '곧 시작해요!' in OV)
 chk('테마 액자·모서리 장식을 입는다', '.best-board, .ss-card) {' in OV and '.best-board, .ss-card)::after {' in OV)
 chk('파스텔 밝은 속에서도 읽히게 잉크 토큰으로 칠한다', ':is(.ss-big, .ss-chip, .ss-donor b) {' in OV)
 chk('조종실 두 군데(방송 준비 · 방송 중)에 칸이 있다',

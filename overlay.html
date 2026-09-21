@@ -456,6 +456,52 @@
         .ss-more { font-size: 28px; font-weight: 700; color: var(--text-muted); }
         /* ⚠️ 끝 화면은 1등·한 방 최고·후원자 여덟 분까지 담는다. 시작 화면과 같은 여백으로 두면
               아래끝이 971 이 되어 안전지대(954) 를 넘었다 — 끝 화면만 한 칸씩 조인다. */
+
+        /* 🌸 시작 전 화면 — 엔젤 오락실 그림 (대표님 2026-09-22 A 시안 확정)
+           · 그림: vendor/stage/start_bg.jpg (받은 그림에서 시계를 지운 것 — 원본을 받으면 바꿔 끼운다)
+           · 움직임: 리본 물결 · 하트 보석 둥실 · 그림 속 반짝이 · 아주 천천히 줌 (StageArt, WebGL)
+             위에 얹는 것: 천사 링 빛 · 제목 위 빛줄기 · 반짝이 · 떠오르는 하트 (CSS)
+           · 카운트다운은 그림 속 '곧 방송이 시작됩니다' 상자 바로 아래 알약. 0 이 되면 '곧 시작해요!'
+           ⚠️ 테마 옷을 안 입는다 — 그림이 곧 옷이다.
+           ⚠️ WebGL 을 못 쓰면 그림만 가만히 깔린다(배경 그림). */
+        #ss-art { position: absolute; inset: 0; display: none; overflow: hidden; z-index: 1;
+                  background: #f6d6e6 url("/vendor/stage/start_bg.jpg") center / cover no-repeat; }
+        #stage-screen[data-mode="start"] #ss-art { display: block; }
+        #stage-screen[data-mode="start"] .ss-card { display: none; }
+        #ss-art > * { position: absolute; }
+        #sa-photo { inset: 0; width: 100%; height: 100%; }
+        .sa-halo { left: 50%; top: 18.5%; width: 367px; height: 130px; transform: translate(-50%, -50%); border-radius: 50%;
+                   background: radial-gradient(closest-side, rgba(255, 240, 200, .75), rgba(255, 210, 150, 0)); mix-blend-mode: screen;
+                   animation: saHalo 2.8s ease-in-out infinite alternate; }
+        @keyframes saHalo { from { opacity: .25; transform: translate(-50%, -50%) scale(.9); } to { opacity: .9; transform: translate(-50%, -50%) scale(1.1); } }
+        .sa-sweep { left: 8%; top: 28%; width: 84%; height: 36%; overflow: hidden; mix-blend-mode: screen; }
+        .sa-sweep::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 22%; left: -30%;
+                            background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-18deg);
+                            animation: saSweep 5.5s ease-in-out infinite; }
+        @keyframes saSweep { 0%, 55% { left: -30%; } 85%, 100% { left: 115%; } }
+        .sa-spark { width: var(--s); height: var(--s); left: var(--x); top: var(--y); background: #fff; opacity: 0;
+                    clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+                    filter: drop-shadow(0 0 16px #fff3c4); animation: saTwinkle var(--d) ease-in-out infinite; animation-delay: var(--dl); }
+        @keyframes saTwinkle { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(30deg); } }
+        .sa-heart { left: var(--x); bottom: -6%; width: var(--s); height: var(--s); opacity: 0; animation: saRise var(--d) linear infinite; animation-delay: var(--dl); }
+        .sa-heart::before { content: '♥'; position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--s);
+                            color: #ff8fc3; text-shadow: 0 0 22px rgba(255, 143, 195, .8); }
+        @keyframes saRise { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: .85; } 50% { transform: translate(32px, -594px); }
+                            90% { opacity: .7; } 100% { transform: translate(-22px, -1296px); opacity: 0; } }
+        .sa-glow { left: 0; right: 0; bottom: 0; height: 12%; background: linear-gradient(to top, rgba(255, 214, 234, .9), rgba(255, 214, 234, 0)); }
+        .sa-pill { left: 50%; top: 88%; transform: translate(-50%, -50%); width: 626px; padding: 19px 0 24px; border-radius: 999px; text-align: center;
+                   background: linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(255, 228, 242, .78)); border: 6px solid rgba(255, 255, 255, .95);
+                   box-shadow: 0 0 0 5px rgba(255, 143, 195, .45), 0 22px 65px rgba(214, 70, 140, .35); animation: saBreathe 2.4s ease-in-out infinite alternate; }
+        .sa-pill:not(.on) { display: none; }
+        @keyframes saBreathe { from { box-shadow: 0 0 0 5px rgba(255, 143, 195, .35), 0 22px 65px rgba(214, 70, 140, .25); }
+                               to { box-shadow: 0 0 0 13px rgba(255, 143, 195, .55), 0 22px 86px rgba(214, 70, 140, .45); } }
+        .sa-lab { display: block; margin-bottom: 11px; font-family: 'Jua', sans-serif; font-weight: 400; font-size: 35px;
+                  letter-spacing: 3px; color: #b0417a; max-width: 90%; margin-inline: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sa-num { display: inline-block; font-family: 'Jua', sans-serif; font-size: 119px; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .02em;
+                  background: linear-gradient(180deg, #ff5fa2 10%, #b57cf5 95%); -webkit-background-clip: text; background-clip: text; color: transparent;
+                  filter: drop-shadow(0 4px 0 #fff) drop-shadow(0 0 17px rgba(255, 111, 174, .55)); }
+        .sa-num.soon { font-size: 93px; animation: ssSoon 1.2s ease-in-out infinite; }
+        .sa-num:empty { display: none; }
         #stage-screen[data-mode="end"] .ss-card { gap: 14px; padding: 38px 48px 34px; }
         #stage-screen[data-mode="end"] .ss-title { font-size: 76px; }
         #stage-screen[data-mode="end"] .ss-donor { padding: 3px 4px; }
@@ -2985,7 +3031,16 @@
             </div>
 
             <!-- 🎬 방송 시작·끝 화면 — renderStageScreen 이 채운다 (알림·시그니처보다 아래, 위젯판보다 위) -->
-            <div id="stage-screen" aria-hidden="true"><div class="ss-card" id="ss-card"></div></div>
+            <div id="stage-screen" aria-hidden="true">
+                <!-- 🌸 시작 전 화면 그림 (엔젤 오락실) — 시작 화면일 때만 보인다. 그림은 StageArt 가 매 순간 살짝 일렁이게 다시 그린다 -->
+                <div id="ss-art">
+                    <canvas id="sa-photo"></canvas>
+                    <div class="sa-halo"></div><div class="sa-sweep"></div><i class="sa-spark" style="--x:14%;--y:9%;--s:43px;--d:2.4s;--dl:-0s"></i><i class="sa-spark" style="--x:82%;--y:11%;--s:54px;--d:3.1s;--dl:-0.8s"></i><i class="sa-spark" style="--x:9%;--y:40%;--s:38px;--d:2.8s;--dl:-1.4s"></i><i class="sa-spark" style="--x:90%;--y:44%;--s:49px;--d:2.2s;--dl:-0.3s"></i><i class="sa-spark" style="--x:20%;--y:64%;--s:32px;--d:3.4s;--dl:-2.0s"></i><i class="sa-spark" style="--x:78%;--y:66%;--s:43px;--d:2.6s;--dl:-1.1s"></i><i class="sa-spark" style="--x:50%;--y:6%;--s:32px;--d:2.9s;--dl:-1.7s"></i><i class="sa-spark" style="--x:66%;--y:30%;--s:32px;--d:3.2s;--dl:-0.5s"></i><i class="sa-heart" style="--x:12%;--s:65px;--d:10s;--dl:-0s"></i><i class="sa-heart" style="--x:30%;--s:43px;--d:12s;--dl:-4s"></i><i class="sa-heart" style="--x:55%;--s:54px;--d:11s;--dl:-7s"></i><i class="sa-heart" style="--x:72%;--s:65px;--d:9s;--dl:-2s"></i><i class="sa-heart" style="--x:88%;--s:43px;--d:13s;--dl:-5.5s"></i>
+                    <div class="sa-glow"></div>
+                    <div class="sa-pill" id="sa-pill"><span class="sa-lab" id="sa-lab">방송 시작까지</span><span class="sa-num" id="sa-num"></span></div>
+                </div>
+                <div class="ss-card" id="ss-card"></div>
+            </div>
             <div id="theme-moon" class="theme-moon" aria-hidden="true"></div>
             <div id="toon-popup-container">
                 <div id="toon-popup" class="donation-popup-content">
@@ -5222,11 +5277,12 @@
         }
         function ssWon(n) { return Number(n || 0).toLocaleString() + '원'; }
         function ssClock() {
-            const el = document.getElementById('ss-count');
+            const el = document.getElementById('ss-count') || document.getElementById('sa-num');
             if (!el || !ssStartAt) return;
             const left = ssStartAt - (Date.now() + serverTimeOffset);
             if (left <= 0) {
-                if (!el.classList.contains('soon')) { el.classList.add('soon'); el.textContent = '곧 시작!'; }
+                const soonTxt = el.id === 'sa-num' ? '곧 시작해요!' : '곧 시작!';
+                if (!el.classList.contains('soon')) { el.classList.add('soon'); el.textContent = soonTxt; }
                 return;
             }
             const s = Math.ceil(left / 1000), p2 = function (x) { return String(x).padStart(2, '0'); };
@@ -5235,6 +5291,99 @@
             el.classList.remove('soon');
             if (el.textContent !== txt) el.textContent = txt;
         }
+        /* 🌸 시작 화면 그림을 살아 있게 — 그림 한 장을 매 순간 살짝 일그러뜨려 다시 그린다 (대표님 2026-09-22 확정)
+           · 가장자리(리본)만 크게 물결 — 제목 · 날개 · 문구 상자는 가림막(still)으로 꼼짝 못 하게(글씨가 안 깨진다)
+           · 하트 보석 자리만 둥실 + 옆으로 흔들 · 그림 속 제일 밝은 점만 부드럽게 깜빡 · 전체는 아주 천천히 줌
+           · 시작 화면이 떠 있을 때만 돈다(초당 30장). 내리면 멈춘다.
+           ⚠️ 반짝이를 칸(floor)으로 나눠 깜빡이게 했더니 밝은 하늘에 네모 얼룩이 번쩍였다 — 부드러운 잡음으로.
+           ⚠️ WebGL 을 못 쓰면 조용히 빠진다 — 그림은 #ss-art 배경으로 가만히 깔려 있다. */
+        const StageArt = {
+            on: false, gl: null, u: null, raf: 0, last: 0, t0: 0, broken: false, ready: false, K: 0.75,
+            VS: 'attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x*.5+.5,.5-a.y*.5);gl_Position=vec4(a,0.,1.);}',
+            FS: [
+                'precision mediump float;',
+                'uniform sampler2D img; uniform float T; varying vec2 v;',
+                'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+                'float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h(i),h(i+vec2(1.,0.)),f.x),mix(h(i+vec2(0.,1.)),h(i+vec2(1.,1.)),f.x),f.y);}',
+                'float fbm(vec2 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*n(p);p=p*2.1+3.7;a*=.5;}return s;}',
+                'float box(vec2 p,vec4 r,float f){vec2 a=smoothstep(r.xy-f,r.xy+f,p)*(1.-smoothstep(r.zw-f,r.zw+f,p));return a.x*a.y;}',
+                'float gem(vec2 p,vec2 c,float r){return 1.-smoothstep(r*.55,r,length((p-c)*vec2(.56,1.)));}',
+                'void main(){',
+                ' vec2 p=v; float m;',
+                ' float z=1.+.05*(.5-.5*cos(T*.26));',
+                ' p=vec2(.5,.45)+(p-vec2(.5,.45))/z;',
+                ' float still=max(box(p,vec4(.13,.09,.87,.67),.035),box(p,vec4(.19,.69,.81,.87),.03));',
+                ' vec2 q=p*vec2(2.6,4.2);',
+                ' vec2 d=vec2(fbm(q+vec2(T*.24,T*.09))-.5,fbm(q+vec2(5.2-T*.17,1.3+T*.2))-.5);',
+                ' p+=d*.045*(1.-still);',
+                ' m=gem(p,vec2(.925,.227),.075); p+=vec2(cos(T*.9)*.006,sin(T*1.25)*.014)*m;',
+                ' m=gem(p,vec2(.11,.805),.075);  p+=vec2(cos(T*.8+1.)*.006,sin(T*1.05+1.7)*.014)*m;',
+                ' m=gem(p,vec2(.86,.868),.08);   p+=vec2(cos(T*.85+2.)*.006,sin(T*1.15+3.1)*.014)*m;',
+                ' m=gem(p,vec2(.14,.172),.055);  p+=vec2(cos(T*1.1+.5)*.005,sin(T*.95+4.4)*.012)*m;',
+                ' m=gem(p,vec2(.06,.315),.05);   p+=vec2(cos(T*1.2+3.)*.004,sin(T*1.35+2.2)*.011)*m;',
+                ' vec4 c=texture2D(img,clamp(p,.001,.999));',
+                ' float l=dot(c.rgb,vec3(.299,.587,.114));',
+                ' c.rgb+=smoothstep(.95,.995,l)*smoothstep(.35,.85,n(p*vec2(38.,68.)+vec2(T*.35,-T*.25)))*.34;',
+                ' gl_FragColor=vec4(c.rgb,1.);',
+                '}'].join('\n'),
+            set(on) {
+                on = !!on && !this.broken;
+                if (on === this.on) return;
+                this.on = on;
+                if (on) { if (!this.gl && !this.init()) { this.on = false; return; } this.t0 = performance.now(); this.tick(); }
+                else if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
+            },
+            init() {
+                try {
+                    const cv = document.getElementById('sa-photo');
+                    if (!cv) return false;
+                    const gl = cv.getContext('webgl', { antialias: false });   // 투명 — 그림이 준비되기 전엔 뒤 배경 그림이 보인다
+                    if (!gl) { this.broken = true; return false; }
+                    const sh = (ty, src) => { const x = gl.createShader(ty); gl.shaderSource(x, src); gl.compileShader(x);
+                        if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(x)); return x; };
+                    const pr = gl.createProgram();
+                    gl.attachShader(pr, sh(gl.VERTEX_SHADER, this.VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, this.FS));
+                    gl.linkProgram(pr);
+                    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+                    gl.useProgram(pr);
+                    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+                    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+                    const loc = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+                    this.u = { T: gl.getUniformLocation(pr, 'T') };
+                    this.gl = gl; this.cv = cv;
+                    const img = new Image();
+                    img.onload = () => {
+                        const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, img);
+                        [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR));
+                        [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE));
+                        this.ready = true;
+                    };
+                    img.onerror = () => { this.broken = true; this.set(false); };
+                    img.src = '/vendor/stage/start_bg.jpg';
+                    return true;
+                } catch (e) {
+                    console.warn('시작 화면 움직임(WebGL) 못 켬 — 그림만 가만히:', e);
+                    this.broken = true;
+                    return false;
+                }
+            },
+            tick() {
+                this.raf = requestAnimationFrame((now) => {
+                    this.raf = 0;
+                    if (!this.on) return;
+                    if (this.ready && now - this.last >= 33) {
+                        this.last = now;
+                        const cv = this.cv, w = Math.round(cv.offsetWidth * this.K), h = Math.round(cv.offsetHeight * this.K);
+                        if (w && (cv.width !== w || cv.height !== h)) { cv.width = w; cv.height = h; this.gl.viewport(0, 0, w, h); }
+                        this.gl.uniform1f(this.u.T, ((now - this.t0) / 1000) % 3600);
+                        this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+                    }
+                    this.tick();
+                });
+            }
+        };
+
         function renderStageScreen(d) {
             const box = document.getElementById('stage-screen'), card = document.getElementById('ss-card');
             if (!box || !card) return;
@@ -5246,15 +5395,21 @@
             ssStartAt = mode === 'start' ? (Number(ss.start_at) || 0) : 0;
             const sub = ss.title ? '<div class="ss-sub">' + ssEsc(ss.title) + '</div>' : '';
             let html = '';
+            // 🌸 시작 화면은 엔젤 오락실 그림이 맡는다 — 알약에 카운트다운(없으면 한 줄 문구만), 그림은 움직인다.
+            //    예전 카드(곧 시작합니다 · 오늘 함께할 멤버)는 그림이 대신해 비운다.
+            const pill = document.getElementById('sa-pill');
+            if (pill) {
+                const hasCount = mode === 'start' && !!ssStartAt;
+                const hasTitle = mode === 'start' && !!ss.title;
+                pill.classList.toggle('on', hasCount || hasTitle);
+                const lab = document.getElementById('sa-lab'), num = document.getElementById('sa-num');
+                const labTxt = ss.title ? String(ss.title) : '방송 시작까지';
+                if (lab && lab.textContent !== labTxt) lab.textContent = labTxt;
+                if (num && !hasCount && num.textContent) { num.textContent = ''; num.classList.remove('soon'); }
+            }
+            try { StageArt.set(mode === 'start'); } catch (e) {}
             if (mode === 'start') {
-                // 방송을 시작했으면 등록된 선수, 아직이면 조종실 준비 칸에서 받아 둔 이름
-                const names = ((d.bjs && d.bjs.length) ? d.bjs.map(function (b) { return b && b.name; }) : (ss.names || []))
-                    .filter(Boolean).slice(0, 10);
-                html = '<div class="ss-eyebrow">잠시 후 방송</div>'
-                     + '<div class="ss-title">곧 시작합니다</div>' + sub
-                     + (ssStartAt ? '<div class="ss-count" id="ss-count"></div>' : '')
-                     + (names.length ? '<div class="ss-lab">오늘 함께할 멤버</div><div class="ss-chips">'
-                        + names.map(function (n) { return '<span class="ss-chip">' + ssEsc(n) + '</span>'; }).join('') + '</div>' : '');
+                html = '';
             } else if (mode === 'end') {
                 const snap = d.stage_live || ss.last_snap || {};
                 const top = (snap.members || [])[0];
