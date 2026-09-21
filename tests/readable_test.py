@@ -147,6 +147,14 @@ chk('오른쪽 끝이 목표 막대(1046) 앞이다', m and int(m.group(1)) + 38
 chk('줄 상한을 7 로 조였다 (예전 20)',
     'Math.min(7, parseInt(d.donor_rank_limit)' in ov)
 chk('상한을 우회해도 안 넘게 못을 박았다', 'max-height:466px; overflow:hidden' in ov)
+# ⚠️ 이름이 잘렸다 — '1 딸기… 12,500,000'(2026-09-21). 판 폭(380)은 그대로 두고 줄 안쪽을 조였다.
+#    샌드박스 실측(다섯 테마 × 이름 1~7자 × 금액 5천~1,250만): 잘린 이름 15 → 1.
+chk('이름이 잘리기 전에 글씨를 줄인다 (그린 뒤 실제 폭을 잰다)',
+    'function drFit(root)' in ov and 'rowsEl.innerHTML = html; lastDonorRankHtml = html;' + chr(10) + '                drFit(rowsEl);' in ov)
+chk('줄여도 폰 바닥선(27px) 밑으로는 안 간다', "while (n.scrollWidth > n.clientWidth + 1 && size > 27)" in ov)
+chk('긴 금액(1,000,000~)은 한 단계 작게', '.dr-row .dr-amt.long { font-size: 27px;' in css)
+chk('글꼴이 늦게 받아지면 다시 맞춘다', "document.fonts.addEventListener('loadingdone'" in ov)
+chk('테마가 바뀌면 다시 그려 맞춘다', "try { lastDonorRankHtml = ''; } catch (e) {}" in ov)
 
 print()
 print('=' * 74)

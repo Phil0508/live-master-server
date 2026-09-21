@@ -424,13 +424,14 @@ body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
 .donor-rank-board { /* ⚠️ box-sizing 을 안 주면 380 은 '안쪽 폭' 이라 여백 26 + 테두리 2 가 붙어 겉이 408 이 된다. 그러면 오른쪽 끝이 1066 — 목표 막대(1046) 를 파고든다. */ position: relative; box-sizing: border-box; width: 380px; padding: 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; gap: 8px; }
 .donor-rank-board::before { content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit; background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events:none; }
 .donor-rank-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px; padding: 8px 0; border-radius: var(--r-m); box-shadow: var(--glow-s); }
-.dr-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r-m); border: 1px solid var(--row-border); background: var(--row-bg); }
-.dr-row .dr-no { flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 900; color: var(--tx-2); background: rgba(255,255,255,0.10); }
+.dr-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--r-m); border: 1px solid var(--row-border); background: var(--row-bg); }
+.dr-row .dr-no { flex: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 900; color: var(--tx-2); background: rgba(255,255,255,0.10); }
 .dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); }
 .dr-row.top2 .dr-no { background: linear-gradient(120deg, var(--silver), var(--silver-2)); color: var(--on-silver); }
 .dr-row.top3 .dr-no { background: linear-gradient(120deg, var(--bronze), var(--bronze-2)); color: var(--on-bronze); }
-.dr-row .dr-name { flex: 1; min-width: 0; font-size: 32px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: var(--ts-1); }
+.dr-row .dr-name { flex: 1; min-width: 0; font-size: var(--dr-name-size, 32px); font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: var(--ts-1); }
 .dr-row .dr-amt { flex: none; font-size: 30px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+.dr-row .dr-amt.long { font-size: 27px; letter-spacing: -0.5px; }
 .dr-row.dr-vip { border-color: rgba(255,255,255,0.20); }
 .dr-empty { text-align:center; color: var(--tx-3); font-size: 27px; padding: 16px 0; }
 .sig-tally-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); /* ⚠️ 판이 206px 이라 28px 로는 '오늘의 시그니처' 가 두 줄로 꺾였다. 글씨를 줄이면 폰에서 못 읽는다(바닥선 27px) — 글자 수를 줄여 '시그 집계' 로 부른다. */ color: var(--on-gold); font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px; white-space: nowrap; padding: 8px 0; border-radius: var(--r-m); box-shadow: var(--glow-s); }
@@ -1197,6 +1198,9 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                   iframe 안에서만 도는 규칙이고 overlay.html 은 안 건드린다.
                ⚠️ 방송판에 body.reaction-mode #x {opacity:0 !important} 가 있다(특이도 1,1,1).
                   그걸 이기려고 html.ed-stage body #x 로 쓴다(1,1,2). */
+            // 👻 지금 방송에 안 떠 있어서 흐리게 깐 위젯들 — 이름표에 '지금 꺼짐' 을 붙인다(placeFrame).
+            // ⚠️ var 로 둔다 — stageForceVisible 은 이 줄보다 먼저 불릴 수 있다(let 이면 '선언 전' 오류).
+            var _ghost = new Set();
             function stageForceVisible(enable) {
                 const d = stageDoc(); if (!d) return;
                 const root = d.documentElement;
@@ -1214,14 +1218,22 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                       규칙을 빼버려 도로 숨고, 그 다음번엔 다시 박고 — 0.7초마다 깜빡인다.
                       실측: 목표 게이지가 보였다 안 보였다를 반복했다(2026-09-16).
                       비우고 배치를 한 번 확정시킨 뒤 재면 항상 본모습 기준으로 재게 된다. */
+                _ghost = new Set();   // 매번 새로 잰다 — 켜진 게임판이 꺼지면 흐려지고, 켜지면 진해진다
                 if (st && st.textContent) { st.textContent = ''; void root.offsetWidth; }
                 document.querySelectorAll('.widget').forEach(el => {
                     if (el.style.display === 'none') return;             // 눈을 끈 것은 무대에서도 감춘 채 둔다
                     const real = d.getElementById(el.id + '-container'); if (!real) return;
                     /* transition 도 끈다 — 방송판은 opacity 에 0.4초 전환을 걸어 두어 눈을 켜도 서서히 나타난다.
                        편집기에서는 즉시 보여야 하고, 창이 가려지면 전환이 얼어 영영 안 나타난다(실측: CSSTransition running 고정). */
-                    let r = 'html.ed-stage body #' + el.id + '-container{opacity:1 !important;visibility:visible !important;transition:none !important;';
-                    if (cs(real).display === 'none') r += 'display:block !important;';
+                    /* 👻 지금 방송에 **안 떠 있는** 것(노래방·고액후원 영상·꺼진 게임판…)은 흐리게만 깐다.
+                       ⚠️ 전부 진하게 깔았더니 검은 판들이 엑셀판·후원 순위를 덮어 편집 화면이 어수선했다
+                          (대표님 2026-09-21 손볼 것 목록). 자리를 잡아야 하니 숨기지는 않는다 — 고르면 진하게(stageFront).
+                       ⚠️ 위에서 규칙을 비운 뒤 재므로 방송판 본래 상태(인라인 opacity·display)를 잰다. */
+                    const c = cs(real);
+                    const live = c.display !== 'none' && c.visibility !== 'hidden' && parseFloat(c.opacity) > 0.01;
+                    if (!live) _ghost.add(el.id);
+                    let r = 'html.ed-stage body #' + el.id + '-container{opacity:' + (live ? '1' : '.32') + ' !important;visibility:visible !important;transition:none !important;';
+                    if (c.display === 'none') r += 'display:block !important;';
                     rules.push(r + '}');
                 });
                 const css = rules.join('\n');
@@ -1649,7 +1661,8 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 fr.style.width = Math.max(1, r.w) + 'px'; fr.style.height = Math.max(1, r.h) + 'px';
                 const locked = el.classList.contains('code-owned');
                 const name = (typeof widgetNames !== 'undefined' && widgetNames[el.id]) || el.id;
-                const tag = fr.querySelector('.ed-tag'), txt = locked ? '🔒 ' + name + ' · 자리 고정' : name;
+                const tag = fr.querySelector('.ed-tag');
+                const txt = locked ? '🔒 ' + name + ' · 자리 고정' : (_ghost.has(el.id) ? name + ' · 지금 꺼짐' : name);
                 if (tag.textContent !== txt) tag.textContent = txt;
                 fr.classList.toggle('locked', locked);
                 fr.classList.toggle('tag-in', r.t < 26 / (scaleRatio || 1));
@@ -1667,7 +1680,7 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
             function stageFront(el) {
                 const d = stageDoc(); if (!d) return;
                 let st = d.getElementById('ed-front');
-                const css = el ? 'html.ed-stage body #' + el.id + '-container{z-index:2147483000 !important}' : '';
+                const css = el ? 'html.ed-stage body div#' + el.id + '-container{z-index:2147483000 !important;opacity:1 !important}' : '';
                 if (!st) { if (!css) return; st = d.createElement('style'); st.id = 'ed-front'; (d.head || d.documentElement).appendChild(st); }
                 if (st.textContent !== css) st.textContent = css;
             }

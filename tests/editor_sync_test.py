@@ -330,8 +330,11 @@ chk('테두리 찾기는 function 선언이다 (먼저 도는 초기화에서 �
     'function selFrameEl()' in ad and 'function hoverFrameEl()' in ad
     and 'const selFrameEl' not in ad and 'let selFrameEl' not in ad)
 # ⚠️ 편집기는 눈을 켠 게임판을 전부 깔아 둔다 — 엑셀판을 끌면 그 검은 판들 밑으로 들어가 안 보였다
-chk('고른 위젯은 편집기 무대에서 맨 앞으로 온다 (방송은 그대로)',
-    'function stageFront(el)' in ad and "'html.ed-stage body #' + el.id + '-container{z-index:2147483000 !important}'" in ad)
+chk('고른 위젯은 편집기 무대에서 맨 앞으로 · 진하게 온다 (방송은 그대로)',
+    'function stageFront(el)' in ad and "'html.ed-stage body div#' + el.id + '-container{z-index:2147483000 !important;opacity:1 !important}'" in ad)
+# ⚠️ 그때만 뜨는 것(노래방·고액후원 영상·꺼진 게임판)을 전부 진하게 깔았더니 검은 판들이 다른 위젯을 덮었다(2026-09-21)
+chk('지금 방송에 안 떠 있는 것은 흐리게 깐다', "(live ? '1' : '.32')" in ad and 'var _ghost = new Set();' in ad)
+chk('흐린 것은 이름표에 지금 꺼짐', "name + ' · 지금 꺼짐'" in ad)
 # ⚠️ 손잡이가 display:none 으로 시작하는 위젯은 시작값이 '방송 꺼짐' 이다. 방송 상태로 고쳐 주는 edLive 가
 #    없으면 방송에 떠 있는데도 편집기가 숨긴 채로 둔다 — 한 방 최고·모금함·핀볼이 그랬다(2026-09-19).
 _hidden0 = re.findall(r'<div class="widget" id="([\w-]+)" data-id="[\w-]+"\s+style="[^"]*display:\s*none', ad)

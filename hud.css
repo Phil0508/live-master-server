@@ -184,13 +184,14 @@ body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
 .donor-rank-board { /* ⚠️ box-sizing 을 안 주면 380 은 '안쪽 폭' 이라 여백 26 + 테두리 2 가 붙어 겉이 408 이 된다. 그러면 오른쪽 끝이 1066 — 목표 막대(1046) 를 파고든다. */ position: relative; box-sizing: border-box; width: 380px; padding: 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); display: flex; flex-direction: column; gap: 8px; }
 .donor-rank-board::before { content:''; position:absolute; inset:0 0 auto 0; height:1px; border-radius: inherit; background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events:none; }
 .donor-rank-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px; padding: 8px 0; border-radius: var(--r-m); box-shadow: var(--glow-s); }
-.dr-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--r-m); border: 1px solid var(--row-border); background: var(--row-bg); }
-.dr-row .dr-no { flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 900; color: var(--tx-2); background: rgba(255,255,255,0.10); }
+.dr-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--r-m); border: 1px solid var(--row-border); background: var(--row-bg); }
+.dr-row .dr-no { flex: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 27px; font-weight: 900; color: var(--tx-2); background: rgba(255,255,255,0.10); }
 .dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); }
 .dr-row.top2 .dr-no { background: linear-gradient(120deg, var(--silver), var(--silver-2)); color: var(--on-silver); }
 .dr-row.top3 .dr-no { background: linear-gradient(120deg, var(--bronze), var(--bronze-2)); color: var(--on-bronze); }
-.dr-row .dr-name { flex: 1; min-width: 0; font-size: 32px; font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: var(--ts-1); }
+.dr-row .dr-name { flex: 1; min-width: 0; font-size: var(--dr-name-size, 32px); font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: var(--ts-1); }
 .dr-row .dr-amt { flex: none; font-size: 30px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+.dr-row .dr-amt.long { font-size: 27px; letter-spacing: -0.5px; }
 .dr-row.dr-vip { border-color: rgba(255,255,255,0.20); }
 .dr-empty { text-align:center; color: var(--tx-3); font-size: 27px; padding: 16px 0; }
 .sig-tally-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); /* ⚠️ 판이 206px 이라 28px 로는 '오늘의 시그니처' 가 두 줄로 꺾였다. 글씨를 줄이면 폰에서 못 읽는다(바닥선 27px) — 글자 수를 줄여 '시그 집계' 로 부른다. */ color: var(--on-gold); font-weight: 900; font-size: 28px; text-align: center; letter-spacing: -0.3px; white-space: nowrap; padding: 8px 0; border-radius: var(--r-m); box-shadow: var(--glow-s); }
