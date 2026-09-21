@@ -1859,6 +1859,7 @@ DEFAULT_STATE = {
     "neon_speed": 1.5,        # 조명 속도 슬라이더(초). 방송 종료 시 보존 대상 목록에도 들어 있는 '설정값'이다
     "effect_trigger": None,   # 조명 상태 {time, color, infinite}. 일회성 연출이 아니라 '켜 둔 상태'라 유지해야 한다
     "broadcast_active": False,
+    "broadcast_started_at": 0,   # 📊 이번 방송을 시작한 시각(ms) — 조종실 클릭 기록을 방송별로 나눈다
     "saved_colors": ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff'],
     "version": 1,
     "roulette": {
@@ -2026,6 +2027,17 @@ def init_db():
 
         # 📚 [영구 보관 장부] 방송 종료 시 donation_history는 초기화되지만,
         # 여기로 먼저 복사해 두므로 지난 방송 기록이 영구히 남는다. (append-only, 절대 삭제하지 않음)
+        # 📊 조종실 클릭 기록 — 방송(session)마다 '무엇을 몇 번' 만. 누가·언제·무슨 값은 안 적는다.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS ui_clicks (
+                session TEXT NOT NULL,
+                key TEXT NOT NULL,
+                label TEXT,
+                tab TEXT,
+                n INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (session, key)
+            )
+        """)
         cursor.execute(f"""
             CREATE TABLE IF NOT EXISTS donation_archive (
                 id {pk},
@@ -4695,7 +4707,8 @@ def api_data():
             #      상금이 어긋난다(운영비 점수를 지키는 것과 똑같은 이유다).
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
-                            'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen', 'hell')
+                            'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen', 'hell',
+                            'broadcast_started_at')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -4993,7 +5006,7 @@ def api_hell_start():
             # 점수 높은 순. 같으면 지금 줄 순서(랭킹판에 보이는 순서)를 따른다
             ranked = sorted(enumerate(bjs), key=lambda t: (-int(t[1].get('score') or 0), t[0]))
             h = _hell_state(state)
-            h.update({'on': True, 'ended': False, 'started_at': int(time.time() * 1000),
+            h.update({'on': True, 'started_at': int(time.time() * 1000),
                       'base': {}, 'goals': {}, 'escaped': []})
             for rank, (_, b) in enumerate(ranked):
                 n = b['name']
@@ -5044,6 +5057,77 @@ def api_hell_off():
         h['on'] = False
         _hell_save(state, h)
     return jsonify({'status': 'success', 'hell': h})
+
+
+# ==========================================
+# 📊 조종실에서 무엇을 많이 누르나 (대표님 2026-09-22)
+#    조종실이 20초마다 '무엇을 몇 번' 만 묶어 보낸다 → 방송별로 더해 쌓는다.
+#    추석 방송 뒤 이걸 보고 탭 정리를 확정한다(자주 누르는 건 앞으로, 안 누르는 건 접기).
+#    ⚠️ 방송 흐름에 끼면 안 된다 — 실패해도 조용히 넘어가고, 한 번에 받는 양을 자른다.
+# ==========================================
+UI_CLICK_MAX_KEYS = 200
+
+
+def _ui_session(state):
+    """지금 클릭이 어느 방송 것인지. 방송 중이면 시작 시각, 아니면 '방송 밖 + 날짜'."""
+    shift = _bc_shift_hours() * 3600
+    started = int(state.get('broadcast_started_at') or 0)
+    if state.get('broadcast_active') and started:
+        return time.strftime('%Y-%m-%d %H:%M 방송', time.localtime(started / 1000 + shift))
+    return time.strftime('%Y-%m-%d 방송 밖', time.localtime(time.time() + shift))
+
+
+@app.route('/api/uistats', methods=['POST'])
+def api_uistats_add():
+    try:
+        body = request.get_json(silent=True, force=True) or {}
+        rows = body.get('counts') or []
+        if not isinstance(rows, list):
+            return jsonify({'status': 'error', 'message': 'counts'}), 400
+        clean = []
+        for r in rows[:UI_CLICK_MAX_KEYS]:
+            if not isinstance(r, dict):
+                continue
+            key = str(r.get('key') or '').strip()[:80]
+            try:
+                n = int(r.get('n') or 0)
+            except (TypeError, ValueError):
+                n = 0
+            if not key or n <= 0:
+                continue
+            clean.append((key, str(r.get('label') or '')[:60], str(r.get('tab') or '')[:30], min(n, 5000)))
+        if not clean:
+            return jsonify({'status': 'success', 'saved': 0})
+        session = _ui_session(load_data())
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            for key, label, tab, n in clean:
+                cur.execute(db_query(
+                    "INSERT INTO ui_clicks (session, key, label, tab, n) VALUES (?, ?, ?, ?, ?) "
+                    "ON CONFLICT (session, key) DO UPDATE SET n = ui_clicks.n + excluded.n, "
+                    "label = excluded.label, tab = excluded.tab"), (session, key, label, tab, n))
+        return jsonify({'status': 'success', 'saved': len(clean), 'session': session})
+    except Exception as e:
+        print(f'[클릭 기록 오류] {e}', flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/api/uistats', methods=['GET'])
+def api_uistats_get():
+    """?session= 없으면 방송 목록(최근 순), 있으면 그 방송의 순위."""
+    try:
+        session = (request.args.get('session') or '').strip()
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            if not session:
+                cur.execute(db_query("SELECT session, SUM(n), COUNT(*) FROM ui_clicks GROUP BY session ORDER BY session DESC"))
+                out = [{'session': r[0], 'total': int(r[1] or 0), 'kinds': int(r[2] or 0)} for r in cur.fetchall()]
+                return jsonify({'status': 'success', 'sessions': out, 'now': _ui_session(load_data())})
+            cur.execute(db_query("SELECT key, label, tab, n FROM ui_clicks WHERE session = ? ORDER BY n DESC, key"), (session,))
+            rows = [{'key': r[0], 'label': r[1], 'tab': r[2], 'n': int(r[3] or 0)} for r in cur.fetchall()]
+            return jsonify({'status': 'success', 'session': session, 'rows': rows})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @app.route('/api/match/timeup', methods=['POST'])
@@ -6087,6 +6171,7 @@ def start_broadcast():
             
             # 3. Set broadcast_active to True and initialize players
             state['broadcast_active'] = True
+            state['broadcast_started_at'] = int(time.time() * 1000)
             state['bjs'] = [{"name": name.strip(), "score": 0, "contribution": 0} for name in names if name.strip()]
             state['bottom_fixed']['score'] = 0
             state.setdefault('fundjar', {})['score'] = 0     # 🏺 종잣돈은 그대로, 후원분만 0
@@ -6965,7 +7050,7 @@ PATCH_DENY = frozenset((
     # 🎬 시작·끝 화면도 /api/screen 으로만 (끝 화면 기록 last_snap 은 방송 종료만 적는다)
     'stage_screen', 'stage_live',
     # 🔥 지옥탈출 — 시작 순간 점수(base)가 밖에서 바뀌면 '받은 돈' 이 통째로 틀어진다
-    'hell',
+    'hell', 'broadcast_started_at',
 ))
 
 

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>많이 누른 것</title>
+<style>
+    /* 📊 조종실에서 무엇을 많이 눌렀나 — 방송별 순위 (대표님 2026-09-22)
+       조종실 로그 탭 [많이 누른 것 보기] 에서 연다. 폰으로도 본다. 로그인한 사람만 열린다. */
+    :root { --bg: #111216; --panel: #1b1d23; --line: #2c2f38; --ink: #f2f3f6; --muted: #9aa0ad; --bar: #4f7cff; --bar2: #8b5cf6; --hot: #ffcf4d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 16px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+    h1 { margin: 0; font-size: 24px; }
+    .sub { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .bar-top { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    select { font: inherit; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; max-width: 100%; }
+    select:focus-visible, button:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip { font: inherit; font-size: 14px; background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+    .chip[aria-pressed="true"] { color: #fff; border-color: var(--bar); background: #1f2b52; }
+    .sum { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+    ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+    .rk { font-weight: 800; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+    li:nth-child(-n+3) .rk { color: var(--hot); }
+    .nm { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+    .nm b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .nm small { color: var(--muted); font-size: 12px; }
+    .track { height: 6px; border-radius: 999px; background: #262a33; overflow: hidden; }
+    .track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--bar), var(--bar2)); }
+    .n { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 18px; }
+    .empty { color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>📊 많이 누른 것</h1>
+        <p class="sub">조종실에서 방송 중에 무엇을 몇 번 눌렀는지예요. 이름 · 금액 · 입력한 글자는 안 적어요.<br>자주 누르는 건 앞으로, 거의 안 누르는 건 접어 두는 데 씁니다.</p>
+    </header>
+    <div class="bar-top">
+        <label for="sess" class="sum">방송</label>
+        <select id="sess"></select>
+        <span class="sum" id="sum"></span>
+    </div>
+    <div class="chips" id="chips" role="group" aria-label="탭으로 거르기"></div>
+    <ol id="list"></ol>
+</div>
+<script>
+    const TABS = { top: '위쪽(탭 줄 · 후원 대기함)', ranking: '기본(랭킹)', logs: '로그', match: '대결', roulette: '룰렛', siggame: '시그뒤집기', dicegame: '주사위', pinball: '핀볼',
+                   slot: '슬롯머신', mode: '진행판', system: '시스템', neon: '이펙트/전광판', youtube: 'BGM', vip: '특별 후원자', bot: '진행봇' };
+    let rows = [], filt = '';
+    const $ = (id) => document.getElementById(id);
+    const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    async function j(url) { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }
+    function draw() {
+        const list = filt ? rows.filter((r) => r.tab === filt) : rows;
+        const max = Math.max(1, ...list.map((r) => r.n));
+        const total = list.reduce((a, r) => a + r.n, 0);
+        $('sum').textContent = total ? '모두 ' + total.toLocaleString() + '번 · ' + list.length + '가지' : '';
+        $('list').innerHTML = list.length ? list.map((r, i) => `<li><span class="rk">${i + 1}</span>
+            <span class="nm"><b>${esc(r.label || r.key)}</b><small>${esc(TABS[r.tab] || r.tab || '')}</small><span class="track"><i style="width:${(r.n / max * 100).toFixed(1)}%"></i></span></span>
+            <span class="n">${r.n.toLocaleString()}</span></li>`).join('')
+            : '<li class="empty" style="display:block">아직 기록이 없어요. 조종실에서 버튼을 누르면 20초 안에 쌓이기 시작해요.</li>';
+        const tabs = [...new Set(rows.map((r) => r.tab).filter(Boolean))];
+        $('chips').innerHTML = rows.length ? ['<button type="button" class="chip" data-t="" aria-pressed="' + (!filt) + '">전체</button>']
+            .concat(tabs.map((t) => `<button type="button" class="chip" data-t="${esc(t)}" aria-pressed="${filt === t}">${esc(TABS[t] || t)}</button>`)).join('') : '';
+    }
+    $('chips').addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (!b) return; filt = b.dataset.t || ''; draw(); });
+    async function load(session) {
+        try { rows = (await j('/api/uistats?session=' + encodeURIComponent(session))).rows || []; } catch (e) { rows = []; }
+        filt = ''; draw();
+    }
+    (async () => {
+        let d;
+        try { d = await j('/api/uistats'); } catch (e) {
+            $('list').innerHTML = '<li class="empty" style="display:block">불러오지 못했어요. 조종실에 로그인한 브라우저에서 열어 주세요.</li>'; return;
+        }
+        const ss = d.sessions || [];
+        if (!ss.length) { $('sess').innerHTML = '<option>' + esc(d.now) + '</option>'; rows = []; draw(); return; }
+        $('sess').innerHTML = ss.map((s) => `<option value="${esc(s.session)}">${esc(s.session)} · ${s.total.toLocaleString()}번</option>`).join('');
+        const pick = (ss.find((s) => !/방송 밖/.test(s.session)) || ss[0]).session;
+        $('sess').value = pick;
+        $('sess').onchange = () => load($('sess').value);
+        load(pick);
+    })();
+</script>
+</body>
+</html>

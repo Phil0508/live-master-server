@@ -1874,6 +1874,10 @@
         </div>
     </div>
     <div id="tab-logs" class="tab-content">
+        <div class="group-box" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <span style="font-size:var(--fs-3); color:var(--text-muted);">📊 방송 중에 <b style="color:#fff;">무엇을 많이 눌렀는지</b> 방송별로 볼 수 있어요 (탭 정리에 씁니다)</span>
+            <a href="/uistats.html" target="_blank" style="text-decoration:none;"><button type="button"><i class="fa-solid fa-chart-simple"></i> 많이 누른 것 보기</button></a>
+        </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             <div class="group-box" style="margin-bottom: 0;"><div class="group-title"><i class="fa-solid fa-list-ol"></i> 랭킹 로그</div><div id="log-box-ranking" class="log-box" style="margin-bottom: 15px;"></div><button style="width: 100%; justify-content: center;" onclick="clearLogs('rank')"><i class="fa-solid fa-trash-can"></i> 비우기</button></div>
             <div class="group-box" style="margin-bottom: 0;"><div class="group-title"><i class="fa-solid fa-swords"></i> 대결 로그</div><div id="log-box-match" class="log-box" style="margin-bottom: 15px;"></div><button style="width: 100%; justify-content: center;" onclick="clearLogs('match')"><i class="fa-solid fa-trash-can"></i> 비우기</button></div>
@@ -9447,5 +9451,81 @@ document.addEventListener("keydown", (e) => {
     }
 });
 </script>
+    <script>
+    /* 📊 방송 중에 무엇을 많이 누르나 (대표님 2026-09-22) — 추석 방송 뒤 탭 정리를 이 기록으로 정한다.
+       · 버튼 · 탭 · 스위치를 누르면 '무엇' 만 센다. 이름 · 금액 · 입력한 글자는 안 적는다.
+       · 20초마다 묶어서 서버로(창을 닫을 때도 한 번). 실패하면 다음에 같이 보낸다.
+       · 이름이 박힌 버튼(후원 배정: 멤버 이름)은 함수 이름으로 하나로 묶는다.
+       ⚠️ 방송 조작을 절대 막으면 안 된다 — 전부 try 안, 이벤트는 '지켜보기(capture, passive)' 만. */
+    (function () {
+        const pend = {};
+        let dirty = 0;
+        const NICE = {
+            assignPending: '후원 배정 (멤버 버튼)', assignPendingToJar: '후원 → 모금함', deletePending: '대기함 삭제',
+            broadcastOffWorkCardById: '퇴근·탈출 카드 송출', toggleTabsMore: '그 밖에 펴기/접기',
+        };
+        // 버튼이 '들어 있는' 탭 — 위쪽 탭 줄 · 후원 대기함처럼 탭 밖에 있는 건 'top'
+        function tabOf(el) {
+            const t = el.closest('.tab-content');
+            return t ? t.id.replace(/^tab-/, '') : 'top';
+        }
+        function textOf(el) {
+            let t = el.getAttribute('aria-label') || el.innerText || el.value || el.title || '';
+            t = String(t).replace(/\s+/g, ' ').trim();
+            return t.slice(0, 40);
+        }
+        function keyOf(el, attr) {
+            const code = el.getAttribute(attr) || '';
+            // 함수 이름 + 괄호 안 첫 '짧은 글자' 인자 (openTab(event, 'tab-roulette') → openTab:tab-roulette).
+            // 숫자가 섞인 인자(후원 번호 등)는 안 붙인다 — 붙이면 누를 때마다 다른 칸이 된다.
+            const m = code.match(/([A-Za-z_$][\w$]*)\s*\(([^)]*)\)/);
+            if (m && !/^(stopPropagation|preventDefault|event)$/.test(m[1])) {
+                const q = m[2].match(/['"]([A-Za-z_\-]{2,30})['"]/);
+                const fn = m[1], arg = q ? q[1] : '';
+                return { key: arg ? fn + ':' + arg : fn, fn: fn };
+            }
+            if (el.id) return { key: '#' + el.id };
+            const a = el.closest('a[href]');
+            if (a) return { key: 'link:' + a.getAttribute('href') };
+            return null;
+        }
+        function count(el, attr) {
+            try {
+                const k = keyOf(el, attr);
+                if (!k) return;
+                let label = (k.fn && NICE[k.fn]) || textOf(el) || k.key;
+                if (k.fn === 'openTab') label = '탭: ' + label;
+                const row = pend[k.key] || (pend[k.key] = { key: k.key, label: label, tab: tabOf(el), n: 0 });
+                row.n++; dirty++;
+            } catch (e) {}
+        }
+        document.addEventListener('click', function (e) {
+            const el = e.target && e.target.closest && e.target.closest('button, a[href], [onclick]');
+            if (!el || el.matches('input, select, textarea, label')) return;
+            count(el, 'onclick');
+        }, { capture: true, passive: true });
+        document.addEventListener('change', function (e) {
+            const el = e.target;
+            if (!el || !el.matches || !el.matches('input[type=checkbox], select')) return;
+            const lab = el.closest('label, .toggle-row, .group-title');
+            if (lab && !el.getAttribute('aria-label')) el.setAttribute('aria-label', (lab.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 40));
+            count(el, 'onchange');
+        }, { capture: true, passive: true });
+        function payload() { return JSON.stringify({ counts: Object.values(pend) }); }
+        function flush() {
+            if (!dirty) return;
+            const body = payload(), sent = JSON.parse(body).counts;
+            fetch('/api/uistats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true })
+                .then(function (r) { if (r.ok) { sent.forEach(function (s) { const p = pend[s.key]; if (p) { p.n -= s.n; if (p.n <= 0) delete pend[s.key]; } }); dirty = Object.keys(pend).length; } })
+                .catch(function () {});
+        }
+        setInterval(flush, 20000);
+        document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'hidden' && dirty && navigator.sendBeacon) {
+                try { if (navigator.sendBeacon('/api/uistats', new Blob([payload()], { type: 'application/json' }))) { for (const k in pend) delete pend[k]; dirty = 0; } } catch (e) {}
+            }
+        });
+    })();
+    </script>
 </body>
 </html>
