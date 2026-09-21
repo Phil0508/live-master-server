@@ -508,9 +508,18 @@ body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
 #home-race-container.hell .home-race-goal-tag.escaped { background: linear-gradient(120deg, #2fd17a, #9be15d); border-color: transparent; color: #0d2a17; }
 #home-race-container.hell .home-race-goal-tag.failed { background: linear-gradient(120deg, #7a1020, #c01f36); border-color: #ff5b6e; color: #fff; }
 #home-race-container.hell .home-race-row.failed .home-race-name { color: #ff9aa6; }
-#home-race-container.hell .home-race-box { border: 4px solid transparent; background: var(--game-fill, var(--glass-bg)) padding-box, linear-gradient(180deg, #ffd23f 0%, #ff7a1c 38%, #e0241c 72%, #7a0d0d 100%) border-box; outline-color: rgba(255, 170, 60, .55); }
+#home-race-container.hell .home-race-box { border: 3px solid transparent; background: radial-gradient(130% 90% at 50% 115%, #4a0a04 0%, #220503 42%, #0c0202 100%) padding-box, linear-gradient(180deg, #3a0c06 0%, #120302 55%, #ff4a12 100%) border-box; box-shadow: inset 0 0 36px rgba(255, 50, 0, .28), inset 0 -40px 60px -30px rgba(255, 80, 10, .45), 0 0 0 1px #000; outline: none; }
 #home-race-container.hell .home-race-box > :not(.hell-fx):not(.hf-glow) { position: relative; z-index: 1; }
-#home-race-container.hell .hf-glow { display: block; position: absolute; inset: -34px -30px -70px; z-index: -1; pointer-events: none; border-radius: var(--glass-radius); background: radial-gradient(70% 45% at 50% 100%, rgba(255, 110, 20, .95), rgba(255, 40, 10, .5) 55%, transparent 80%), radial-gradient(35% 60% at 0% 60%, rgba(255, 70, 20, .7), transparent 70%), radial-gradient(35% 60% at 100% 60%, rgba(255, 70, 20, .7), transparent 70%); filter: blur(16px); animation: hfHeat 1.3s ease-in-out infinite alternate; }
+#home-race-container.hell .home-race-title { clip-path: none; border-radius: var(--r-s); background: linear-gradient(180deg, #2a0603, #0e0201); border: 2px solid #ff4a12; box-shadow: 0 0 18px rgba(255, 60, 10, .75), inset 0 0 12px rgba(255, 60, 10, .4); font-family: 'Black Han Sans', var(--face-label); font-weight: 400; letter-spacing: 3px; color: #ffd9a0; text-shadow: 0 0 8px #ff3d0a, 0 0 18px #ff3d0a, 0 2px 0 #000; }
+#home-race-container.hell :is(.home-race-name, .hr-goal-name) { font-family: 'Gothic A1', var(--face-name); font-weight: 800; color: #f6dccd; }
+#home-race-container.hell :is(.home-race-name, .home-race-nums, .hr-goal-name, .hr-goal-remain) { text-shadow: 0 2px 6px #000, 0 0 2px #000; }
+#home-race-container.hell .home-race-nums .cur { color: #ffe2b0; }
+#home-race-container.hell .home-race-row { border-bottom-color: rgba(255, 70, 20, .12); }
+#home-race-container.hell .home-race-bar-bg { background: rgba(0, 0, 0, .6); border-color: rgba(255, 70, 20, .3); }
+#home-race-container.hell .home-race-bar-fill:not(.goal-reached) { background: linear-gradient(90deg, #4a0802 0%, #b3160a 35%, #ff5a12 72%, #ffb347 92%, #fff1b8 100%); box-shadow: 0 0 14px rgba(255, 70, 10, .8); }
+#home-race-container.hell .home-race-goal-tag:not(.escaped):not(.failed) { background: rgba(0, 0, 0, .55); border-color: rgba(255, 74, 18, .7); color: #ffcf9a; }
+#home-race-container.hell .home-race-goal-line { background: rgba(8, 1, 0, .72); border-color: rgba(255, 74, 18, .35); }
+#home-race-container.hell .hf-glow { display: block; position: absolute; inset: -20px -40px -70px; z-index: -1; pointer-events: none; border-radius: var(--glass-radius); background: radial-gradient(70% 50% at 50% 100%, rgba(255, 70, 0, .8), rgba(160, 10, 0, .45) 55%, transparent 80%), radial-gradient(30% 60% at 0% 70%, rgba(200, 30, 0, .6), transparent 70%), radial-gradient(30% 60% at 100% 70%, rgba(200, 30, 0, .6), transparent 70%); filter: blur(18px); animation: hfHeat 1.6s ease-in-out infinite alternate; }
 #home-race-container.hell .hell-fx { display: block; position: absolute; inset: 0; z-index: 0; pointer-events: none; border-radius: inherit; }
 .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 #fundjar-container { position: absolute; left: 40px; top: 470px; z-index: 60; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
