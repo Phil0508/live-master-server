@@ -85,13 +85,10 @@ def pending_of(name, amount):
 print('=' * 74)
 print('① 더 큰 후원만 기록을 바꾼다')
 print('=' * 74)
-# ⚠️ 새로 띄운 연습용 서버는 보관용 표(donation_archive)가 없어 '방송 시작' 이 500 으로 실패한다
-#    (boot_sig.py 가 init_db 를 안 부른다 — 이 검사와 무관한 원래 사정). 선수는 직접 넣는다.
+# (예전엔 연습용 서버가 init_db 를 안 불러 '방송 시작' 이 500 이었다 — 2026-09-21 boot_sig.py 에서 고쳤다.
+#  이제 진짜로 방송을 시작해 본다. 안 되면 그 자체가 실패다.)
 _c, _r = post('/api/server/start_broadcast', {'names': ['하율', '서아']})
-_st = get()
-if not any(b.get('name') == '하율' for b in (_st.get('bjs') or [])):
-    _st['bjs'] = [{'name': '하율', 'score': 0, 'contribution': 0}, {'name': '서아', 'score': 0, 'contribution': 0}]
-    post('/api/data', _st)
+chk('방송 시작이 된다', _c == 200, (_c, _r))
 chk('선수가 준비됐다', {'하율', '서아'} <= {b.get('name') for b in (get().get('bjs') or [])})
 chk('처음엔 비어 있다', int(best().get('amount') or 0) == 0, best())
 
@@ -146,14 +143,8 @@ print('=' * 74)
 print('④ 방송 1회분이다')
 print('=' * 74)
 _c, _r = post('/api/server/start_broadcast', {'names': ['하율', '서아']})
-if _c == 200:
-    chk('방송을 새로 시작하면 비워진다', int(best().get('amount') or 0) == 0 and not best().get('name'), best())
-else:
-    # 연습용 서버에서 방송 시작이 안 되면 — 비우는 줄이 방송 시작·종료가 부르는 곳에 있는지 본다
-    _SV = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8').read()
-    _rs = _SV.split('def reset_session_keys(')[1].split('\ndef ')[0]
-    chk('방송을 새로 시작하면 비워진다 (reset_session_keys 에 있다)',
-        "state['best_single'] = {\"name\": \"\", \"amount\": 0" in _rs, (_c, _r))
+chk('방송을 새로 시작하면 비워진다', _c == 200 and int(best().get('amount') or 0) == 0 and not best().get('name'),
+    (_c, best()))
 
 print()
 print('=' * 74)

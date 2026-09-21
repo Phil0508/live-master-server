@@ -122,12 +122,9 @@ print()
 print('=' * 74)
 print('③ 끝 화면 기록 — 방송 중이면 지금 상태로')
 print('=' * 74)
-_st = get()
-if not _st.get('broadcast_active') or not any(b.get('name') == '하율' for b in (_st.get('bjs') or [])):
-    # ⚠️ 연습용 서버(boot_sig.py)는 init_db 를 안 불러 '방송 시작' 이 500 이다 — 직접 넣는다
-    _st['broadcast_active'] = True
-    _st['bjs'] = [{'name': '서아', 'score': 0, 'contribution': 0}, {'name': '하율', 'score': 0, 'contribution': 0}]
-    post('/api/data', _st)
+# (예전엔 연습용 서버가 init_db 를 안 불러 '방송 시작' 이 500 이었다 — 2026-09-21 boot_sig.py 에서 고쳤다)
+_c0, _r0 = post('/api/server/start_broadcast', {'names': ['서아', '하율']})
+chk('방송 시작이 된다', _c0 == 200, (_c0, _r0))
 chk('방송 중이다', get().get('broadcast_active') is True)
 donate('별빛요정', 30000)
 donate('딸기우유', 50000)
@@ -167,22 +164,20 @@ print('=' * 74)
 print('④ 방송 종료는 기록을 떠 두고, 방송 시작은 지난 끝 화면을 내린다')
 print('=' * 74)
 _c, _r = post('/api/server/end_broadcast', {})
-if _c == 200:
-    snap = ss().get('last_snap') or {}
-    chk('방송을 끝내도 오늘 기록이 남는다', any(r.get('name') == '딸기우유' for r in (snap.get('donors') or [])), snap)
-    post('/api/screen', {'mode': 'end'})
-    d = get()
-    chk('끝낸 뒤 끝 화면은 떠 둔 기록을 쓴다 (stage_live 없음)', 'stage_live' not in d
-        and (d.get('stage_screen') or {}).get('last_snap'))
-else:
-    # 연습용 서버에서 방송 종료가 안 되면 — 떠 두는 줄이 '지우기 전 상태(pre_state)' 로 만드는지 본다
-    _eb = SV.split("def end_broadcast(")[1].split("\n@app.route")[0]
-    chk('방송을 끝내도 오늘 기록이 남는다 (end_broadcast 가 pre_state 로 떠 둔다)',
-        "_stage_state(state)['last_snap'] = _stage_snapshot(pre_state)" in _eb
-        and _eb.index('pre_state = copy.deepcopy(load_data())') < _eb.index('_stage_snapshot(pre_state)'), (_c, _r))
-_sb = SV.split("def start_broadcast(")[1].split("\n@app.route")[0]
-chk('방송 시작은 지난 끝 화면을 내린다', "if _ss.get('mode') == 'end':" in _sb and "_ss['mode'] = 'off'" in _sb)
-chk('방송 시작은 시작 전 화면을 그대로 둔다 (선수 먼저 등록하고 기다리는 흐름)', "== 'start'" not in _sb)
+chk('방송 종료가 된다', _c == 200, (_c, _r))
+snap = ss().get('last_snap') or {}
+chk('방송을 끝내도 오늘 기록이 남는다', any(r.get('name') == '딸기우유' for r in (snap.get('donors') or [])), snap)
+post('/api/screen', {'mode': 'end'})
+d = get()
+chk('끝낸 뒤 끝 화면은 떠 둔 기록을 쓴다 (stage_live 없음)', 'stage_live' not in d
+    and (d.get('stage_screen') or {}).get('last_snap'))
+# 방송 시작 — 지난 끝 화면은 내리고, 시작 전 화면은 그대로 둔다 (진짜로 시작해 본다)
+post('/api/server/start_broadcast', {'names': ['서아', '하율']})
+chk('방송 시작은 지난 끝 화면을 내린다', ss().get('mode') == 'off', ss().get('mode'))
+post('/api/screen', {'mode': 'start', 'minutes': 5})
+post('/api/server/start_broadcast', {'names': ['서아', '하율']})
+chk('방송 시작은 시작 전 화면을 그대로 둔다 (선수 먼저 등록하고 기다리는 흐름)', ss().get('mode') == 'start', ss().get('mode'))
+post('/api/screen', {'mode': 'off'})
 _rs = SV.split('def reset_session_keys(')[1].split('\ndef ')[0]
 chk('방송 1회분 초기화가 끝 화면 기록을 안 지운다 (종료 뒤에 띄우는 것이다)', 'stage_screen' not in _rs)
 

@@ -36,5 +36,11 @@ server.supabase_match_signature = _match
 server.supabase_get_signature = lambda sid: next((x for x in FAKE if x['id'] == int(sid)), None)
 server._supabase_ready = lambda: True
 
+# ⚠️ 진짜 서버는 __main__ 에서 init_db() 부터 부른다. 여기서 빠뜨려서, 새로 띄운 연습 서버에서는
+#    '방송 시작' 이 가장 먼저 donation_archive 표에 쓰다가 "no such table" 로 500 이 났다.
+#    그래서 best_test·stage_test 가 방송 시작·종료를 못 해 보고 코드 글자만 확인하는 우회를 탔다
+#    (2026-09-21 고침 — 검사 도구는 실물과 같아야 한다).
+server.init_db()
+
 print("[래퍼] 가짜 시그니처 %d개로 기동합니다." % len(FAKE), flush=True)
 server.app.run(host='127.0.0.1', port=int(os.environ['PORT']), debug=False, use_reloader=False)
