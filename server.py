@@ -1849,10 +1849,11 @@ DEFAULT_STATE = {
     "home_race_notified": [], # 이미 퇴근 카드를 띄운 사람 (송출 후 다시 생기는 것 방지)
     # 🔥 지옥탈출 (2026-09-21 추석 방송): 퇴근빵 대신 마지막에 한다.
     #    '시작' 을 누르는 순간의 등수로 목표가 정해지고(1등 50·2등 40·3등 30·4등 20, 단위 점=만원),
-    #    **그 뒤에 받은 점수만** 센다(base = 시작 순간 점수). 못 채우면 벌칙 룰렛.
+    #    **그 뒤에 받은 점수만** 센다(base = 시작 순간 점수). 채우면 그 사람은 탈출 — 끝.
     #    퇴근빵(home_goals)과 따로 둔다 — 대표님이 방송 전에 넣어 둔 퇴근빵 목표를 덮지 않게.
     #    서버만 바꾼다(/api/hell/*) — SERVER_OWNED·PATCH_DENY 에 들어 있다.
-    "hell": {"on": False, "ended": False, "started_at": 0, "base": {}, "goals": {}, "escaped": [], "final": {}},
+    #    ⚠️ 못 채웠다고 벌칙이 생기지 않는다(대표님 2026-09-22: "퇴근빵처럼 채우면 끝, 벌칙 룰렛은 따로").
+    "hell": {"on": False, "started_at": 0, "base": {}, "goals": {}, "escaped": []},
     "logs": [],               # 점수/기여도 지급 로그 [{time, name, val}] — DEFAULT_STATE에 있어야 재로드 시 유지된다
     "match_logs": [],         # 대결(임시게임) 전용 지급 로그. logs 와 같은 이유로 여기 있어야 살아남는다
     "neon_speed": 1.5,        # 조명 속도 슬라이더(초). 방송 종료 시 보존 대상 목록에도 들어 있는 '설정값'이다
@@ -1869,8 +1870,7 @@ DEFAULT_STATE = {
         "winner_name": None,
         "is_spinning": False,
         "item_source": "bj",
-        "custom_items": ["벌칙 1", "벌칙 2", "벌칙 3", "벌칙 4", "벌칙 5"],
-        "for_name": ""            # 😈 지옥탈출 벌칙 — 누구의 벌칙인지(제목에 이름이 붙는다). 비우면 그냥 '벌칙 룰렛'
+        "custom_items": ["벌칙 1", "벌칙 2", "벌칙 3", "벌칙 4", "벌칙 5"]
     }
 }
 
@@ -2345,8 +2345,6 @@ def reset_session_keys(state):
     state['best_single'] = {"name": "", "amount": 0, "at": 0, "id": None, "member": ""}   # 💥 한 방 최고 후원도 이번 방송분만
     # 🔥 지옥탈출도 이번 방송분이다 — 시작 순간 점수(base)는 지난 방송 점수라 남으면 '받은 돈' 이 틀어진다
     state['hell'] = copy.deepcopy(DEFAULT_STATE['hell'])
-    if isinstance(state.get('roulette'), dict):
-        state['roulette']['for_name'] = ''
     # 💰 게이지 보정도 이번 방송 것이다.
     #    ⚠️ 방송 종료 쪽에서만 0 으로 돌리고 있었다. 그런데 load_data() 는 메모리 상태를
     #       그대로 돌려주므로, 종료를 안 거치고 다음 방송을 시작하면 지난주 보정값이
@@ -4400,7 +4398,7 @@ def game_context(state):
         if state.get('home_race_enabled'):
             out.append('퇴근전쟁 진행 중')
         if (state.get('hell') or {}).get('on'):
-            out.append('지옥탈출 ' + ('결과 발표' if state['hell'].get('ended') else '진행 중'))
+            out.append('지옥탈출 진행 중')
     except Exception:
         pass
     return out
@@ -4906,7 +4904,7 @@ def api_offwork_pending():
         pend = state.setdefault('pending_donations', [])
         if kind == 'hell':
             h = _hell_state(state)
-            if not h.get('on') or h.get('ended') or name not in (h.get('goals') or {}):
+            if not h.get('on') or name not in (h.get('goals') or {}):
                 return jsonify({"status": "error", "message": "지옥탈출 중이 아닙니다"}), 409
             notified = h['escaped']
         else:
@@ -4934,7 +4932,8 @@ def api_offwork_pending():
 # 🔥 지옥탈출 (2026-09-21 추석 방송 — 퇴근빵 대신 마지막에)
 #    시작 순간 등수로 목표(점=만원)를 정하고, 그 뒤 받은 점수만 센다.
 #    목표를 채우면 조종실이 /api/offwork/pending(kind=hell) 로 '탈출 성공' 카드를 만든다(퇴근빵과 같은 길).
-#    끝내면 그 순간 받은 점수를 final 에 굳힌다 — 못 채운 사람은 벌칙 룰렛.
+#    ⚠️ 판정·벌칙은 없다. 채우면 탈출이고 끝이다. 벌칙 룰렛은 조종실 룰렛 탭에서 따로, 원할 때마다 돌린다.
+#       (2026-09-21 에 '끝내기 → 못 채운 사람 벌칙' 으로 잘못 묶었다가 걷었다 — 대표님 2026-09-22)
 # ==========================================
 HELL_TARGETS = (50, 40, 30, 20)
 
@@ -4947,11 +4946,13 @@ def _hell_state(state):
         state['hell'] = h
     for k, v in DEFAULT_STATE['hell'].items():
         h.setdefault(k, copy.deepcopy(v))
-    for k in ('base', 'goals', 'final'):
+    for k in ('base', 'goals'):
         if not isinstance(h.get(k), dict):
             h[k] = {}
     if not isinstance(h.get('escaped'), list):
         h['escaped'] = []
+    for k in ('ended', 'final'):      # 옛 '끝내기(판정)' 칸 — 이제 안 쓴다
+        h.pop(k, None)
     return h
 
 
@@ -4993,7 +4994,7 @@ def api_hell_start():
             ranked = sorted(enumerate(bjs), key=lambda t: (-int(t[1].get('score') or 0), t[0]))
             h = _hell_state(state)
             h.update({'on': True, 'ended': False, 'started_at': int(time.time() * 1000),
-                      'base': {}, 'goals': {}, 'escaped': [], 'final': {}})
+                      'base': {}, 'goals': {}, 'escaped': []})
             for rank, (_, b) in enumerate(ranked):
                 n = b['name']
                 h['base'][n] = int(b.get('score') or 0)
@@ -5030,25 +5031,6 @@ def api_hell_goal():
                 h['escaped'].remove(name)
             _hell_save(state, h)
         return jsonify({'status': 'success', 'hell': h})
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-@app.route('/api/hell/end', methods=['POST'])
-def api_hell_end():
-    """끝 — 그 순간 받은 점수를 굳힌다(final). 이 뒤로 들어온 후원은 판정에 안 들어간다."""
-    try:
-        with file_lock:
-            state = load_data()
-            h = _hell_state(state)
-            if not h.get('on'):
-                return jsonify({'status': 'error', 'message': '지옥탈출을 먼저 시작해주세요'}), 409
-            h['final'] = _hell_got(state, h)
-            h['ended'] = True
-            _hell_save(state, h)
-        fail = [n for n, g in h['goals'].items() if h['final'].get(n, 0) < g]
-        print(f"  🔥 [지옥탈출 끝] 벌칙: {fail}", flush=True)
-        return jsonify({'status': 'success', 'hell': h, 'failed': fail})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 

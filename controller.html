@@ -1448,7 +1448,8 @@
             </div>
             <p style="color: var(--text-muted); font-size: var(--fs-3); margin: 10px 0 12px; line-height: 1.6;">
                 <b>시작</b>을 누르는 순간의 <b>등수</b>로 목표가 정해지고, <b>그 뒤에 받은 후원만</b> 셉니다 (1점 = 1만원).<br>
-                목표를 채우면 승인 대기함에 <b>🔥 탈출 성공</b> 카드가 뜹니다. <b>끝내기</b>를 누르면 못 채운 사람 옆에 <b>😈 벌칙 룰렛</b> 버튼이 생깁니다.
+                퇴근빵처럼 목표를 채우면 그 사람은 <b>탈출</b> — 승인 대기함에 <b>🔥 탈출 성공</b> 카드가 뜹니다(송출하면 축하 팝업).<br>
+                벌칙은 따로 없습니다. <b>😈 벌칙 룰렛</b>은 <b>룰렛 탭</b>에서 원할 때마다 돌리세요.
             </p>
             <div class="control-group" style="flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px;">
                 <label style="color: var(--text-muted); font-size: var(--fs-3); font-weight: 600;">목표(만원):</label>
@@ -1460,7 +1461,6 @@
             </div>
             <div class="control-group" style="flex-wrap: wrap; gap: 8px;">
                 <button type="button" class="primary" onclick="hellStart()" style="background: linear-gradient(90deg, #e0241c, #ff8a1c); color: #fff; border: none; font-weight: 900;">🔥 지옥탈출 시작</button>
-                <button type="button" class="danger" onclick="hellEnd()">⏹ 끝내기 (판정)</button>
                 <button type="button" onclick="hellOff()">화면에서 내리기</button>
             </div>
             <div id="hell-rows" style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;"></div>
@@ -5008,17 +5008,16 @@
             const g = h.goals || {};
             return Object.keys(g).sort((a, b) => (g[b] || 0) - (g[a] || 0));
         }
-        // 시작 뒤 받은 점수(=만원). 끝냈으면 굳힌 값
+        // 시작 뒤 받은 점수(=만원)
         function hellGot(name) {
             const h = gd && gd.hell;
             if (!h) return 0;
-            if (h.ended) return parseInt((h.final || {})[name]) || 0;
             const b = (gd.bjs || []).find(x => x.name === name);
             return Math.max(0, ((b && b.score) || 0) - (parseInt((h.base || {})[name]) || 0));
         }
         async function hellStart() {
             const h = gd && gd.hell;
-            const again = h && h.on && !h.ended;
+            const again = h && h.on;
             const t = hellTargets();
             if (!await premiumConfirm(
                     (again ? '이미 지옥탈출 중입니다. 지금 등수로 처음부터 다시 잴까요?\n\n' : '지금 등수로 목표를 정하고 시작할까요?\n\n') +
@@ -5026,12 +5025,6 @@
                     '· 이 순간부터 받은 후원만 셉니다', '🔥 지옥탈출 시작', 'warning')) return;
             const d = await hellCall('start', { targets: t });
             if (d) { hellRequested.clear(); acctToast('🔥 지옥탈출 시작!', 'ok'); }
-        }
-        async function hellEnd() {
-            if (!await premiumConfirm('지옥탈출을 끝내고 판정할까요?\n\n· 이 뒤로 들어온 후원은 판정에 안 들어갑니다\n· 못 채운 사람 옆에 😈 벌칙 룰렛 버튼이 생깁니다',
-                    '⏹ 지옥탈출 끝내기', 'warning')) return;
-            const d = await hellCall('end');
-            if (d) acctToast((d.failed && d.failed.length) ? ('😈 벌칙: ' + d.failed.join(', ')) : '🎉 전원 탈출!', 'ok');
         }
         async function hellOff() {
             const d = await hellCall('off');
@@ -5042,30 +5035,14 @@
             const n = hellNames()[i];
             if (n) await hellCall('goal', { name: n, goal: v });
         }
-        // 😈 못 채운 사람의 벌칙 룰렛 — 벌칙 목록으로 바꾸고, 제목에 이름을 달고, 방송판에 띄운다
-        function hellRoulette(i) {
-            const n = hellNames()[i];
-            if (!n || !gd) return;
-            if (!gd.roulette) gd.roulette = {};
-            gd.roulette.item_source = 'custom';
-            gd.roulette.weight_type = 'equal';
-            gd.roulette.for_name = n;
-            gd.roulette.select_index = -1;
-            gd.roulette.select_name = '';
-            gd.roulette_enabled = true;
-            pushAPI();
-            const tabBtn = document.querySelector('.tab-btn[onclick*="tab-roulette"]');
-            if (tabBtn) tabBtn.click();
-            acctToast(`😈 ${n} 벌칙 룰렛을 띄웠습니다 — [룰렛 회전 시작] → [정지!!]`, 'ok');
-        }
         function renderHellPanel() {
             const box = document.getElementById('hell-rows');
             const st = document.getElementById('hell-state');
             if (!box || !gd) return;
             const h = gd.hell || {};
             if (st) {
-                st.textContent = !h.on ? '꺼짐' : (h.ended ? '결과 발표 중' : '진행 중');
-                st.style.color = !h.on ? 'var(--text-muted)' : (h.ended ? '#ff6b81' : '#ff8a5c');
+                st.textContent = !h.on ? '꺼짐' : '진행 중';
+                st.style.color = !h.on ? 'var(--text-muted)' : '#ff8a5c';
             }
             const names = hellNames();
             if (!h.on || !names.length) {
@@ -5079,9 +5056,7 @@
                 const goal = parseInt((h.goals || {})[n]) || 0;
                 const got = hellGot(n);
                 const ok = goal > 0 && got >= goal;
-                const fail = h.ended && !ok;
                 const state = ok ? '<span style="color:#3ddc84; font-weight:900;">탈출! 😇</span>'
-                            : fail ? `<button type="button" onclick="hellRoulette(${i})" style="height:32px; padding:0 12px; background:linear-gradient(90deg,#7a1020,#c01f36); color:#fff; border:none; font-weight:900;">😈 벌칙 룰렛</button>`
                             : `<span style="color:var(--text-muted);">남은 ${Math.max(0, goal - got)}만</span>`;
                 return `<div style="display:flex; align-items:center; gap:10px;">
                     <span style="width:34px; font-size:var(--fs-3); font-weight:900; color:#ff8a5c;">${i + 1}등</span>
@@ -5101,7 +5076,7 @@
         var hellRequested = new Set();   // var — 초기 갱신이 이 줄보다 먼저 와도 터지지 않게(TDZ)
         function checkHellGoals() {
             const h = gd && gd.hell;
-            if (!h || !h.on || h.ended) return;
+            if (!h || !h.on) return;
             Object.keys(h.goals || {}).forEach(n => {
                 const goal = parseInt(h.goals[n]) || 0;
                 if (goal > 0 && hellGot(n) >= goal && !(h.escaped || []).includes(n)) addHellEscapeCard(n);

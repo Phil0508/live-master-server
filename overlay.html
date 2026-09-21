@@ -1745,8 +1745,6 @@
         #home-race-container.hell { --race: #ff3b2f; --race-2: #ff9f1c; --race-rgb: 255, 72, 40; --race-text: #ffd2b8; }
         #home-race-container.hell .home-race-title { background: linear-gradient(100deg, #e0241c, #ff8a1c); color: #fff; }
         #home-race-container.hell .home-race-goal-tag.escaped { background: linear-gradient(120deg, #2fd17a, #9be15d); border-color: transparent; color: #0d2a17; }
-        #home-race-container.hell .home-race-goal-tag.failed { background: linear-gradient(120deg, #7a1020, #c01f36); border-color: #ff5b6e; color: #fff; }
-        #home-race-container.hell .home-race-row.failed .home-race-name { color: #ff9aa6; }
         /* 🔥 지옥탈출 — 진짜 지옥 (대표님 2026-09-21: "애니메이션형 불 말고, 어떤 테마든 진짜 지옥 컨셉")
            · 불: 그래픽카드(WebGL)가 매 순간 새로 그리는 진짜 불 — 판 아래와 양옆에서 솟는다 (HellFire)
            · 판: 그을린 검붉은 바닥 + 숨 쉬듯 달아오르는 용암 균열 + 쇠 테두리 · 막대는 녹은 쇳물
@@ -1780,7 +1778,7 @@
             background: linear-gradient(90deg, #4a0802 0%, #b3160a 35%, #ff5a12 72%, #ffb347 92%, #fff1b8 100%);
             box-shadow: 0 0 14px rgba(255, 70, 10, .8);
         }
-        #home-race-container.hell .home-race-goal-tag:not(.escaped):not(.failed) { background: rgba(0, 0, 0, .55); border-color: rgba(255, 74, 18, .7); color: #ffcf9a; }
+        #home-race-container.hell .home-race-goal-tag:not(.escaped) { background: rgba(0, 0, 0, .55); border-color: rgba(255, 74, 18, .7); color: #ffcf9a; }
         /* 지옥탈출 판은 퇴근빵보다 짧아야 한다 — 랭킹판(4줄 ≈ 210px) 자리에 뜨는데, 길면 바로 밑 계좌 띠를 넘어 삐져나온다.
            · GOAL 줄은 뺀다(줄마다 '받은 돈 / 목표' 가 이미 보인다) · 줄 간격을 조금 좁힌다 */
         #home-race-container.hell .home-race-goal-line { display: none !important; }
@@ -3132,7 +3130,8 @@
             
             <!-- 🎡 룰렛 — 게임 자리 가운데. 660×740 이라 그대로면 649 높이를 넘어 채팅에 잠긴다.
                  배율 0.866 으로 572×641 이 된다 (ROULETTE_FIT). -->
-            <div id="roulette-container" class="widget-container" style="position: absolute; left: 234px; top: 311px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease), visibility var(--t-base), left var(--t-slow) var(--ease), top var(--t-slow) var(--ease); pointer-events: auto;">
+            <!-- ⚠️ z-index 100001: 계좌 띠(headrow 100000)가 뒤에 적혀 있어 같은 층이면 원판 위를 덮었다(바늘이 가려졌다) -->
+            <div id="roulette-container" class="widget-container" style="position: absolute; left: 234px; top: 311px; z-index: 100001; opacity: 0; visibility: hidden; transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease), visibility var(--t-base), left var(--t-slow) var(--ease), top var(--t-slow) var(--ease); pointer-events: auto;">
                 <div class="roulette-wrap">
                     <h1 id="roulette-title" class="rw-title">🎡 행운의 돌림판</h1>
                     <div class="rw-stage" id="rw-stage">
@@ -6483,11 +6482,9 @@
             }
             RouletteWidget.updateRoster(roster, rState.weight_type);
 
-            // 제목 — 지옥탈출에서 '누구의 벌칙' 인지 조종실이 정해 주면(for_name) 그 이름을 단다
+            // 제목 — 직접 입력(벌칙 등)이면 '벌칙 룰렛', 멤버로 돌리면 '행운의 돌림판'. 모양은 둘 다 같은 금테 판이다
             const titleEl = document.getElementById('roulette-title');
-            const forName = String(rState.for_name || '').trim();
-            const title = forName ? `😈 ${forName} 벌칙 룰렛`
-                        : (itemSource === 'custom' ? '😈 벌칙 룰렛' : '🎡 행운의 돌림판');
+            const title = itemSource === 'custom' ? '😈 벌칙 룰렛' : '🎡 행운의 돌림판';
             if (titleEl && titleEl.textContent !== title) titleEl.textContent = title;
             
             // 2. 수동 토글 감지 (ON/OFF)
@@ -10199,7 +10196,12 @@
             }
             const on = (!!d.home_race_enabled || !!hell) && bjs.length > 0;
             const titleEl = raceEl.querySelector('.home-race-title');
-            const titleTxt = hell ? (hell.ended ? '🔥 지옥탈출 결과' : '🔥 지옥탈출') : '🏃 퇴근빵';
+            // 모두 채우면 '전원 탈출!' — 판정 · 벌칙은 없다(퇴근빵처럼 채우면 끝)
+            const allOut = !!hell && bjs.length > 0 && bjs.every(b => {
+                const g = parseInt((hell.goals || {})[b.name]) || 0;
+                return g > 0 && Math.max(0, (b.score || 0) - (parseInt((hell.base || {})[b.name]) || 0)) >= g;
+            });
+            const titleTxt = hell ? (allOut ? '😇 전원 탈출!' : '🔥 지옥탈출') : '🏃 퇴근빵';
             if (titleEl && titleEl.textContent !== titleTxt) titleEl.textContent = titleTxt;
 
             raceEl.style.opacity = on ? '1' : '0';
@@ -10211,10 +10213,7 @@
             if (!on) { stopHomeRaceCycle(); return; }
 
             const goals = hell ? (hell.goals || {}) : (d.home_goals || {});
-            const hellCur = (b) => {
-                if (hell.ended) return parseInt((hell.final || {})[b.name]) || 0;
-                return Math.max(0, (b.score || 0) - (parseInt((hell.base || {})[b.name]) || 0));
-            };
+            const hellCur = (b) => Math.max(0, (b.score || 0) - (parseInt((hell.base || {})[b.name]) || 0));
             const rowsEl = document.getElementById('home-race-rows');
             const goalLineEl = document.getElementById('home-race-goal-line');
             const goalTextEl = document.getElementById('home-race-goal-text');
@@ -10256,11 +10255,9 @@
                 // 🔥 지옥탈출은 점=만원이라 '만' 을 붙여 돈으로 읽히게 한다 (1등 목표 50 → 50만)
                 const curTxt = hell ? formatNum(cur) + '만' : formatNum(cur);
                 if (curEl.textContent !== curTxt) curEl.textContent = curTxt;
-                const failed = !!hell && !!hell.ended && !reached;
-                const tagTxt = hell ? (reached ? '탈출!' : (hell.ended ? '벌칙' : goal + '만')) : manLabel(goal);
+                const tagTxt = hell ? (reached ? '탈출!' : goal + '만') : manLabel(goal);
                 if (tagEl && tagEl.textContent !== tagTxt) tagEl.textContent = tagTxt;
-                if (tagEl) { tagEl.classList.toggle('escaped', !!hell && reached); tagEl.classList.toggle('failed', failed); }
-                row.classList.toggle('failed', failed);
+                if (tagEl) tagEl.classList.toggle('escaped', !!hell && reached);
             });
 
             // 하단 GOAL 바: 플레이어별 '남은 점수'를 5초마다 순서대로 순환 표시
@@ -10303,9 +10300,8 @@
             if (lblEl && lblEl.textContent !== lblTxt) lblEl.textContent = lblTxt;
             if (remEl) {
                 if (hl) {
-                    // 🔥 지옥탈출: 끝났으면 결과, 아니면 '남은 ○만원'
+                    // 🔥 지옥탈출: 채웠으면 '탈출 성공', 아니면 '남은 ○만원'
                     remEl.innerHTML = (p.goal > 0 && remain === 0) ? '탈출 성공 🔥'
-                        : hl.ended ? '탈출 실패 😈'
                         : (formatNum(remain) + '<span style="font-size:15px;color:var(--tx-2);margin-left:2px;">만원</span>');
                 } else {
                     remEl.innerHTML = (p.goal > 0 && remain === 0)

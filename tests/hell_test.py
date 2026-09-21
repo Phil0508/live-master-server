@@ -9,7 +9,7 @@
   ① 시작 순간 등수로 목표가 정해진다 (점수 높은 순)
   ② 시작 전 점수는 안 센다 — 시작 뒤 받은 것만
   ③ 목표를 채우면 '탈출 성공' 카드가 한 번만 생긴다 (퇴근빵 카드와 섞이지 않는다)
-  ④ 끝내면 그 순간 값으로 굳고, 뒤에 들어온 점수는 판정에 안 들어간다
+  ④ 판정·벌칙은 없다 — 퇴근빵처럼 채우면 탈출이고 끝 (대표님 2026-09-22). 벌칙 룰렛은 룰렛 탭에서 따로
   ⑤ 조종실이 상태를 통째로 보내도 안 덮인다 · 방송을 새로 시작하면 비워진다
   ⑥ 방송판 · 조종실에 판과 버튼이 있다
 
@@ -106,18 +106,15 @@ chk('명단에 없는 이름은 거절', c == 409, c)
 
 print()
 print('=' * 74)
-print('④ 끝내면 굳는다')
+print('④ 판정 · 벌칙은 없다 — 채우면 탈출, 끝')
 print('=' * 74)
-add('서아', 50)
 c, r = post('/api/hell/end')
-chk('끝난다', c == 200 and (r.get('hell') or {}).get('ended'), (c, r))
-chk('벌칙 = 하율 · 채원 (서아 50 · 유나 40 은 탈출)', sorted(r.get('failed') or []) == ['채원', '하율'], r.get('failed'))
-chk('받은 값이 굳는다', (r.get('hell') or {}).get('final') == {'서아': 50, '하율': 0, '채원': 0, '유나': 40},
-    (r.get('hell') or {}).get('final'))
-add('하율', 99)
-chk('끝난 뒤 들어온 점수는 판정에 안 들어간다', (get().get('hell') or {}).get('final', {}).get('하율') == 0)
-c, r = post('/api/offwork/pending', {'name': '하율', 'kind': 'hell'})
-chk('끝난 뒤에는 탈출 카드를 안 만든다', c == 409, c)
+chk("'끝내기(판정)' 길이 없다", c in (404, 405), c)
+h = get().get('hell') or {}
+chk('판정 칸(ended · final)이 상태에 없다', 'ended' not in h and 'final' not in h, list(h))
+add('서아', 50)
+c, r = post('/api/offwork/pending', {'name': '서아', 'kind': 'hell'})
+chk('채우면 언제든 탈출 카드 (끝내기 없이)', c == 200 and '서아' in ((get().get('hell') or {}).get('escaped') or []), (c, r))
 c, r = post('/api/hell/goal', {'name': '채원', 'goal': 0})
 chk('목표를 고칠 수 있다', c == 200 and (r.get('hell') or {}).get('goals', {}).get('채원') == 0, (c, r))
 c, r = post('/api/hell/off')
@@ -141,10 +138,22 @@ OV, CTL = rd('overlay.html'), rd('controller.html')
 chk('방송판이 퇴근빵 판을 빌려 불색으로 그린다', "raceEl.classList.toggle('hell', !!hell);" in OV and '#home-race-container.hell {' in OV)
 chk('방송판은 시작 뒤 받은 점수로 막대를 채운다', 'hellCur(b)' in OV and "(hell.base || {})[b.name]" in OV)
 chk('탈출 팝업 문구', "kind === 'hell'" in OV and '지옥 탈출!' in OV)
-chk('조종실에 시작 · 끝 · 벌칙 룰렛 버튼', all(k in CTL for k in ('onclick="hellStart()"', 'onclick="hellEnd()"', 'hellRoulette(')))
-chk('벌칙 룰렛은 이름을 달고 벌칙 목록으로 띄운다',
-    "gd.roulette.for_name = n;" in CTL and "gd.roulette.item_source = 'custom';" in CTL)
-chk('룰렛 제목에 이름이 붙는다', '벌칙 룰렛' in OV and 'rState.for_name' in OV)
+chk('조종실에는 시작 · 내리기만 (끝내기 · 사람별 벌칙 버튼 없음)',
+    'onclick="hellStart()"' in CTL and 'onclick="hellOff()"' in CTL and 'hellEnd' not in CTL and 'hellRoulette' not in CTL)
+chk("방송판에 '벌칙' · '결과' 표시가 없다", "hell.ended" not in OV and '지옥탈출 결과' not in OV and '.failed' not in OV)
+chk("모두 채우면 '전원 탈출!'", '전원 탈출!' in OV)
+
+print()
+print('=' * 74)
+print('⑦ 룰렛 디자인 고정 — 모든 룰렛이 대표님이 준 금테 판 (대표님 2026-09-22)')
+print('=' * 74)
+_rw = OV[OV.index('<div id="roulette-container"'):OV.index('<!-- 🎰 슬롯머신 위젯 레이어 -->')]
+chk('금테 · 바늘 그림을 쓴다', '/vendor/roulette/frame.webp' in _rw and '/vendor/roulette/pointer.webp' in _rw)
+chk('예전 검은 사선 겉판으로 안 돌아갔다', 'repeating-linear-gradient(115deg' not in _rw and 'clip-path' not in _rw)
+chk('그림 파일이 있다', all(os.path.exists(os.path.join(PROJ, 'vendor', 'roulette', f)) for f in ('frame.webp', 'pointer.webp')))
+chk('멤버 룰렛 · 벌칙 룰렛이 같은 판 (제목만 다르다)',
+    "itemSource === 'custom' ? '😈 벌칙 룰렛' : '🎡 행운의 돌림판'" in OV and OV.count('const RouletteWidget = {') == 1)
+chk('테마가 룰렛 겉모양을 안 바꾼다', '.roulette-wrap {' not in OV[OV.index('body:is(.theme-rose'):] if 'body:is(.theme-rose' in OV else True)
 
 print()
 print('=' * 74)
