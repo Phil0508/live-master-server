@@ -181,10 +181,10 @@ chk('칸을 넘친 1등 점수도 칠한다', '.excel-row.rank-1 .r-score { marg
 # 켜는 곳 — 방송 꺼짐 return 뒤에 있으면 방송 시작 전(편집기 무대)에 테마가 안 보인다
 _ap, _ret = OV.find('applyTheme(d.theme);'), OV.find('if (!isActive) {')
 chk('방송 꺼짐 return 앞에서 테마를 켠다', 0 < _ap < _ret, (_ap, _ret))
-chk('룰렛 테두리도 테마 금색을 따른다', "getPropertyValue('--gold')" in OV and "theme === 'pink'" not in OV)
-# ⚠️ 그리는 함수 안에서 재면 룰렛이 도는 동안 매 프레임 스타일을 다시 계산한다 — 바뀔 때 한 번만
-chk('룰렛은 그릴 때마다 스타일을 재지 않는다',
-    "(typeof themeGold === 'string' && themeGold)" in OV and OV.count("getPropertyValue('--gold')") == 1)
+# 🎡 룰렛은 2026-09-21 부터 귀여운 금테 그림(vendor/roulette)을 쓴다 — 테마 금색을 안 따른다.
+#    ⚠️ 그리는 함수 안에서 스타일을 재면 도는 동안 매 프레임 다시 계산한다 — 아예 안 잰다
+chk('룰렛은 스타일을 재지 않는다 (금테 그림이 옷)',
+    "getPropertyValue('--gold')" not in OV and 'themeGold' not in OV and "theme === 'pink'" not in OV)
 chk('테마가 안 바뀌면 아무것도 안 한다 (SSE 마다 불린다)', 'if (want === themeNow) return;' in OV)
 
 # 🌕 추석 (대표님 2026-09-17: "담주가 추석이라 추석테마 만들자")
@@ -245,12 +245,11 @@ chk('게임판은 진한 속(--game-fill)을 쓴다 — 밝은 속(--frame-fill)
 chk('파스텔 게임판 속은 진하다',
     bool(_blk['pastel']) and '--game-fill: linear-gradient(165deg, rgba(109, 74, 130' in _blk['pastel'].group(1))
 for _nm, _sel in (('주사위 칸', '.dg-tile {'), ('시그뒤집기 카드 뒷면', '.sg-back {'), ('슬롯 릴', '.slot-reel {'),
-                  ('룰렛 겉판', '.roulette-wrap {'), ('핀볼 판', '#pb-canvas {'), ('대결 카드', '.m-card {'),
+                  ('핀볼 판', '#pb-canvas {'), ('대결 카드', '.m-card {'),
                   ('퇴근빵 머리', '.home-race-title {')):
     chk('게임판 옷: ' + _nm, _sel in THEME)
-# 룰렛 겉판은 인라인 style — !important 없이는 안 덮인다
-chk('룰렛 겉판의 인라인 모양(모서리 자르기 · 검은 사선)을 덮는다',
-    'clip-path: none !important;' in THEME and 'var(--frame) border-box !important;' in THEME)
+# 룰렛에는 테마 액자를 안 씌운다 — 씌우면 금테가 상자 안에 갇혀 보인다
+chk('룰렛에는 테마 액자를 안 씌운다', '.roulette-wrap {' not in THEME and '#roulette-title {' not in THEME)
 # 뜻이 있는 색 — 주사위 칸 종류 · 대결 팀 · 핀볼 구슬 · 시간 급함 빨강
 chk('주사위 칸 종류 색(--dg-c)을 안 바꾼다', '--dg-c' not in THEME)
 chk('대결 팀 색을 안 바꾼다', '--team-color' not in THEME and '.m-seg' not in THEME)

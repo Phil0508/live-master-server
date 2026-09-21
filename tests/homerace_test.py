@@ -134,7 +134,8 @@ print('=' * 74)
 """⚠️ 한 곳만 어긋나면 '막대는 안 찼는데 퇴근 카드가 뜨는' 꼴이 난다."""
 ov = io.open(os.path.join(PROJ, 'overlay.html'), encoding='utf-8', errors='replace').read()
 ctl = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8', errors='replace').read()
-chk('① 방송 화면 막대 — 점수', "const cur = b.score || 0;   // 진행 기준은 점수(score)" in ov)
+# (2026-09-21 지옥탈출이 같은 판을 빌려 쓴다 — 퇴근빵 쪽 기준은 여전히 b.score 여야 한다)
+chk('① 방송 화면 막대 — 점수', "const cur = hell ? hellCur(b) : (b.score || 0);" in ov)
 chk('② 조종실 현재값 — 점수', 'const cur = b.score || 0;' in ctl)
 chk('③ 퇴근 카드 판정 — 점수',
     "if (goal > 0 && (b.score || 0) >= goal) addOffWorkPendingCard(b.name);" in ctl)

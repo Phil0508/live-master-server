@@ -1581,6 +1581,95 @@
 
         .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
         /* --------------------------------------------------
+            🎡 룰렛 — 귀여운 금테 판 (대표님이 준 Cute X-Punch 룰렛의 그림만 가져왔다)
+            금테·전구·바늘은 그림 파일(vendor/roulette), 원판은 캔버스에 직접 그린다
+            — 칸에 벌칙 이름이 들어가야 해서 원래 원판 그림(1X·2X·3X)은 못 쓴다.
+            판 크기 660×740 은 그대로다(게임 자리 · ROULETTE_FIT 이 이 크기를 기준으로 잡혀 있다).
+        -------------------------------------------------- */
+        .roulette-wrap { position: relative; width: 660px; height: 740px; }
+        /* 무대 740×740 — 원본 그림 1024px 기준 좌표를 % 로 옮겼다. 금테 바깥 지름은 740×840/1024 ≈ 607px */
+        .rw-stage { position: absolute; left: -40px; top: 56px; width: 740px; height: 740px; pointer-events: none; isolation: isolate; }
+        .rw-stage > * { position: absolute; }
+        /* 원판: 원본 원판이 1024 중 반지름 374, 가운데 (512, 510) */
+        #roulette-canvas { left: calc(50% - 36.72%); top: calc(49.8% - 36.72%); width: 73.44%; height: 73.44%; z-index: 1; border-radius: 50%; will-change: transform; filter: drop-shadow(0 10px 10px rgba(35, 15, 5, 0.22)); }
+        .rw-frame, .rw-frame-glow, #rw-bulbs { inset: 0; width: 100%; height: 100%; }
+        .rw-frame { z-index: 3; filter: drop-shadow(0 12px 12px rgba(35, 15, 5, 0.25)); }
+        .rw-frame-glow { z-index: 2; opacity: 0; filter: brightness(1.35) saturate(1.25) drop-shadow(0 0 8px rgba(255, 244, 160, 0.65)) drop-shadow(0 0 24px rgba(255, 190, 25, 0.34)); }
+        #rw-bulbs { z-index: 4; overflow: visible; opacity: 0; mix-blend-mode: screen; }
+        .rw-bulb { opacity: 0; transform-box: fill-box; transform-origin: center; }
+        .rw-bulb-spark { fill: none; stroke: rgba(255, 255, 243, 0.96); stroke-width: 2.1; stroke-linecap: round; opacity: .88; }
+        .rw-stage.rw-running .rw-frame-glow { opacity: .34; animation: rwFramePulse 620ms ease-in-out infinite alternate; }
+        .rw-stage.rw-running #rw-bulbs { opacity: 1; }
+        .rw-stage.rw-running .rw-bulb { animation: rwBulbChase 1296ms linear infinite; animation-delay: var(--delay); }
+        .rw-stage.rw-win .rw-frame-glow { animation: rwRingBurst 1000ms ease-out both; }
+        .rw-stage.rw-win #rw-bulbs { opacity: 1; }
+        .rw-stage.rw-win .rw-bulb { animation: rwBulbWin 760ms cubic-bezier(.16, .84, .24, 1) both; animation-delay: var(--burst-delay); }
+        .rw-stage.rw-win .rw-frame, .rw-stage.rw-win #rw-pointer { animation: rwWinGlow 950ms ease-out; }
+        /* 바늘: 바깥은 칸 경계(못)에 걸려 밀리고, 안쪽은 못을 넘는 순간 튕긴다 */
+        #rw-pointer { z-index: 5; left: 40.82%; top: 1.07%; width: 18.36%; transform-origin: 50% 22%; will-change: transform; }
+        #rw-pointer-spring { width: 100%; transform-origin: 50% 22%; }
+        #rw-pointer-spring.snap { animation: rwPointerRelease var(--snap-duration, 160ms) cubic-bezier(.17, .82, .24, 1) both; }
+        #rw-pointer img { display: block; width: 100%; height: auto; }
+        /* 제목: 원본 가운데 띠(갈색 나무 + 금테)를 본떴다 */
+        .rw-title {
+            position: absolute; z-index: 6; left: 50%; top: 0; transform: translateX(-50%);
+            margin: 0; padding: 8px 30px 11px; white-space: nowrap; max-width: 640px; overflow: hidden; text-overflow: ellipsis;
+            font-family: 'Bagel Fat One', 'Jua', 'Black Han Sans', sans-serif; font-size: 34px; font-weight: 400; line-height: 1.15; letter-spacing: 0.5px;
+            color: #fff6e0; background: linear-gradient(180deg, #b97a4c 0%, #8d522e 100%);
+            border: 4px solid #f2c461; border-radius: var(--r-l);
+            box-shadow: 0 5px 0 #5e3219, 0 10px 20px rgba(0, 0, 0, .35);
+            text-shadow: 0 3px 0 #5a2d14, 2px 0 0 #5a2d14, -2px 0 0 #5a2d14, 0 -2px 0 #5a2d14;
+        }
+        /* 바늘이 가리키는 칸 이름 — 원판 아래 알약. 돌 때 계속 바뀌고, 서면 분홍으로 굳는다 */
+        .rw-now {
+            position: absolute; z-index: 7; left: 50%; bottom: -14px; transform: translateX(-50%);
+            min-width: 180px; max-width: 600px; padding: 6px 26px 8px; box-sizing: border-box; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-family: 'Jua', 'Black Han Sans', sans-serif; font-size: 32px; line-height: 1.2; color: #5a2d14;
+            background: #fff6e0; border: 4px solid #f2c461; border-radius: 999px;
+            box-shadow: 0 5px 0 #b07a2a, 0 10px 18px rgba(0, 0, 0, .3);
+            transition: background var(--t-fast) ease, color var(--t-fast) ease;
+        }
+        .rw-now:empty { display: none; }
+        .rw-now.won { background: linear-gradient(180deg, #ff8fa3, #e9536c); color: #fff; text-shadow: 0 2px 0 rgba(90, 20, 30, .55); }
+        @keyframes rwPointerRelease {
+            0% { transform: rotate(var(--snap-from, -3deg)) translateY(var(--snap-down, 1px)); }
+            20% { transform: rotate(var(--snap-kick, 2.5deg)) translateY(-.45px); }
+            43% { transform: rotate(var(--snap-rebound, -1.15deg)); }
+            66% { transform: rotate(var(--snap-kick-small, .48deg)); }
+            83% { transform: rotate(var(--snap-rebound-small, -.18deg)); }
+            100% { transform: rotate(0deg) translateY(0); }
+        }
+        @keyframes rwBulbChase {
+            0%, 100% { opacity: 0; transform: scale(.62); }
+            4% { opacity: .34; transform: scale(.82); }
+            8% { opacity: 1; transform: scale(1.48); }
+            13% { opacity: .96; transform: scale(1.22); }
+            22% { opacity: .24; transform: scale(.92); }
+            34%, 96% { opacity: 0; transform: scale(.68); }
+        }
+        @keyframes rwBulbWin {
+            0% { opacity: 0; transform: scale(.5); }
+            24% { opacity: 1; transform: scale(1.62); }
+            48% { opacity: .86; transform: scale(1.14); }
+            100% { opacity: 0; transform: scale(.78); }
+        }
+        @keyframes rwFramePulse {
+            0% { opacity: .18; filter: brightness(1.16) saturate(1.16) drop-shadow(0 0 5px rgba(255, 248, 186, .48)) drop-shadow(0 0 14px rgba(255, 190, 25, .20)); }
+            100% { opacity: .52; filter: brightness(1.62) saturate(1.34) drop-shadow(0 0 12px rgba(255, 251, 205, .88)) drop-shadow(0 0 34px rgba(255, 190, 25, .52)); }
+        }
+        @keyframes rwRingBurst {
+            0% { opacity: 0; filter: brightness(1.2); }
+            30% { opacity: .86; filter: brightness(1.95) saturate(1.45) drop-shadow(0 0 22px rgba(255, 252, 218, .96)) drop-shadow(0 0 52px rgba(255, 184, 20, .72)); }
+            100% { opacity: 0; filter: brightness(1.25); }
+        }
+        @keyframes rwWinGlow {
+            0% { filter: drop-shadow(0 0 0 rgba(255, 236, 126, 0)); }
+            35% { filter: drop-shadow(0 0 26px rgba(255, 236, 126, .95)); }
+            100% { filter: drop-shadow(0 0 0 rgba(255, 236, 126, 0)); }
+        }
+
+        /* --------------------------------------------------
             🏃 퇴근전쟁(퇴근빵) 목표 달성 레이스 위젯
         -------------------------------------------------- */
         /* 🏃 퇴근빵 — 계좌 위젯과 같은 유리 카드.
@@ -1651,6 +1740,13 @@
         .hr-goal-remain { color: #fff; font-weight: 900; font-size: 32px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
         .hr-goal-target { background: rgba(var(--race-rgb), 0.14); border: 1.5px solid rgba(var(--race-rgb), 0.55); color: var(--race-text); font-weight: 900; font-size: 27px; padding: 4px 12px; border-radius: var(--r-s); }
         .hr-goal-count  { margin-left: auto; color: var(--tx-2); font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
+        /* 🔥 지옥탈출 — 퇴근빵 판을 빌려 쓰고 색만 불로 바꾼다 (2026-09-21 추석 방송).
+           ⚠️ 테마를 입으면 제목이 리본색(--rib-bg)이 된다 — 아이디로 한 단계 더 세게 잡아 불색을 지킨다 */
+        #home-race-container.hell { --race: #ff3b2f; --race-2: #ff9f1c; --race-rgb: 255, 72, 40; --race-text: #ffd2b8; }
+        #home-race-container.hell .home-race-title { background: linear-gradient(100deg, #e0241c, #ff8a1c); color: #fff; }
+        #home-race-container.hell .home-race-goal-tag.escaped { background: linear-gradient(120deg, #2fd17a, #9be15d); border-color: transparent; color: #0d2a17; }
+        #home-race-container.hell .home-race-goal-tag.failed { background: linear-gradient(120deg, #7a1020, #c01f36); border-color: #ff5b6e; color: #fff; }
+        #home-race-container.hell .home-race-row.failed .home-race-name { color: #ff9aa6; }
         /* GOAL 바 순환 전환: 빠르고 부드럽게(서서히) 슬라이드-페이드 */
         @keyframes hrGoalSwap { 0% { opacity: 0; transform: translateY(9px); } 100% { opacity: 1; transform: translateY(0); } }
         .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -2599,16 +2695,8 @@
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-reel { background: var(--tile-fill); box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), .45); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-ttl { font-family: var(--face-label); font-weight: var(--label-weight); color: var(--game-ink-label); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .slot-win { font-family: var(--face-name); font-weight: var(--name-weight); }
-        /* 🎡 룰렛 — 겉판이 인라인 style(검은 사선 · 모서리 자르기)이라 !important 로만 덮인다.
-           ⚠️ 둥글기에는 !important 를 안 쓴다 — 인라인에 둥글기가 없어서 필요 없고, 검사가 단계 값만 받는다. */
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) .roulette-wrap {
-            clip-path: none !important;
-            border: 4px solid transparent;
-            background: var(--game-fill) padding-box, var(--frame) border-box !important;
-            border-radius: var(--glass-radius);
-            box-shadow: var(--frame-glow) !important;
-        }
-        body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #roulette-title { font-family: var(--face-label) !important; font-weight: var(--label-weight) !important; font-style: normal !important; }
+        /* 🎡 룰렛 — 테마 옷을 안 입힌다. 금테·전구·바늘 그림이 그 자체로 옷이다(2026-09-21 귀여운 판으로 바꿈).
+           예전 검은 겉판 위에 테마 액자를 씌우던 규칙은 걷었다. 겉에 상자가 생기면 금테가 상자 안에 갇혀 보인다. */
         /* 🎱 핀볼 — 판(캔버스) 바탕과 테두리, 우승 딱지. 코스 · 구슬 색은 그대로 */
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) #pb-canvas { background: var(--canvas-bg); border: 3px solid rgba(var(--gold-rgb), .6); box-shadow: var(--frame-glow); }
         body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(.pb-winner, .pb-ready) { font-family: var(--face-label); font-weight: var(--label-weight); }
@@ -2647,7 +2735,7 @@
     <!-- 🏆 퇴근 성공 초대형 팝업 (화면 상단 1/5 지점) -->
     <div id="offwork-popup-layer" style="position: fixed; inset: 0; top: 20vh; z-index: 999999; display: flex; align-items: flex-start; justify-content: center; pointer-events: none; opacity: 0; visibility: hidden; transition: all var(--t-base) var(--ease-pop);">
         <div id="offwork-popup-box" style="background: var(--glass-bg); border: 3px solid var(--gold); border-radius: var(--r-l); padding: 28px 56px; box-shadow: var(--sh-4), var(--glow-l); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-width: 440px; text-align: center; transform: scale(0.6); transition: transform var(--t-base) var(--ease-pop);">
-            <div style="font-size: 24px; font-weight: 800; color: var(--gold); letter-spacing: -0.5px; text-shadow: var(--ts-1);">🎉 퇴근을 축하합니다! 🥳</div>
+            <div id="offwork-popup-sub" style="font-size: 24px; font-weight: 800; color: var(--gold); letter-spacing: -0.5px; text-shadow: var(--ts-1);">🎉 퇴근을 축하합니다! 🥳</div>
             <div id="offwork-player-name" style="font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: var(--ts-1), 0 0 28px var(--gold-glow); word-break: keep-all;">🎉 플레이어 퇴근! 🏆</div>
         </div>
     </div>
@@ -2747,7 +2835,8 @@
         <div id="master-container"> 
             <div id="up-message-layer" class="up-message">UP!</div>
             <div id="time-up-message-layer" class="time-up-message">시간 종료!</div>
-            <div id="roulette-winner-message-layer" class="time-up-message" style="color: var(--accent); text-shadow: 0 0 15px var(--accent), 4px 4px 0px #000;">당첨!</div>
+            <!-- ⚠️ z-index 를 룰렛판(100000)보다 위로 — 판이 선 뒤 4초 더 떠 있어서, 같으면 판 뒤에 깔린다 -->
+            <div id="roulette-winner-message-layer" class="time-up-message" style="z-index: 100002; color: var(--accent); text-shadow: 0 0 15px var(--accent), 4px 4px 0px #000;">당첨!</div>
 
             <!-- 📢 전광판 쌍 — 안전지대 위·아래 끝에 못 박는다 (115~187 / 882~954).
                  ⚠️ 합치면 안 된다. 시그니처 연출에서 큰 배너가 가운데 떴다가 위·아래로
@@ -2955,9 +3044,32 @@
             <!-- 🎡 룰렛 — 게임 자리 가운데. 660×740 이라 그대로면 649 높이를 넘어 채팅에 잠긴다.
                  배율 0.866 으로 572×641 이 된다 (ROULETTE_FIT). -->
             <div id="roulette-container" class="widget-container" style="position: absolute; left: 234px; top: 311px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease), visibility var(--t-base), left var(--t-slow) var(--ease), top var(--t-slow) var(--ease); pointer-events: auto;">
-                <div class="roulette-wrap" style="position: relative; width: 660px; height: 740px; background: repeating-linear-gradient(115deg, rgba(255,255,255,0.022) 0 2px, transparent 2px 9px), linear-gradient(165deg, #16161f 0%, #0d0d14 100%); clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px); padding: 24px; box-shadow: var(--sh-3); display: flex; flex-direction: column; align-items: center; justify-content: center; box-sizing: border-box;">
-                    <h1 id="roulette-title" style="font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; font-size: 28px; font-weight: 900; font-style: italic; color: var(--on-gold); margin: 0 0 20px 0; text-align: center; display: inline-block; padding: 5px 28px; letter-spacing: 1px; background: linear-gradient(100deg, var(--gold), var(--gold-deep)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); box-shadow: var(--glow-s);">🎡 행운의 돌림판</h1>
-                    <canvas id="roulette-canvas" width="600" height="600" style="display: block; width: 600px; height: 600px; border-radius: 50%;"></canvas>
+                <div class="roulette-wrap">
+                    <h1 id="roulette-title" class="rw-title">🎡 행운의 돌림판</h1>
+                    <div class="rw-stage" id="rw-stage">
+                        <canvas id="roulette-canvas" width="640" height="640"></canvas>
+                        <img class="rw-frame-glow" src="/vendor/roulette/frame.webp" alt="" aria-hidden="true">
+                        <img class="rw-frame" src="/vendor/roulette/frame.webp" alt="">
+                        <svg id="rw-bulbs" viewBox="0 0 1024 1024" aria-hidden="true" focusable="false">
+                            <defs>
+                                <radialGradient id="rwBulbHalo" cx="50%" cy="50%" r="50%">
+                                    <stop offset="0%" stop-color="#fffef1" stop-opacity="1"></stop>
+                                    <stop offset="24%" stop-color="#fff9bd" stop-opacity=".98"></stop>
+                                    <stop offset="52%" stop-color="#ffd84d" stop-opacity=".78"></stop>
+                                    <stop offset="78%" stop-color="#ffb300" stop-opacity=".28"></stop>
+                                    <stop offset="100%" stop-color="#ff9d00" stop-opacity="0"></stop>
+                                </radialGradient>
+                                <radialGradient id="rwBulbCore" cx="42%" cy="35%" r="68%">
+                                    <stop offset="0%" stop-color="#ffffff"></stop>
+                                    <stop offset="44%" stop-color="#fffbd9"></stop>
+                                    <stop offset="100%" stop-color="#ffd84b"></stop>
+                                </radialGradient>
+                            </defs>
+                            <g id="rw-bulb-g"></g>
+                        </svg>
+                        <div id="rw-pointer"><div id="rw-pointer-spring"><img src="/vendor/roulette/pointer.webp" alt=""></div></div>
+                    </div>
+                    <div class="rw-now" id="rw-now"></div>
                 </div>
             </div>
 
@@ -5220,7 +5332,6 @@
            ⚠️ 'pink' 는 뺀 옛 '네온 핑크' 저장값이다. 가장 가까운 로즈골드로 읽는다. */
         const THEMES = ['rose', 'pastel', 'royal', 'chuseok'];
         let themeNow = null;
-        let themeGold = '#f6c453';   // 🎡 룰렛(캔버스)이 테두리 색으로 쓴다
         function applyTheme(t) {
             if (t === 'pink') t = 'rose';
             const want = THEMES.indexOf(t) >= 0 ? 'theme-' + t : '';
@@ -5233,10 +5344,7 @@
             if (want && !cl.contains(want)) cl.add(want);
             // 🔤 글꼴이 바뀌면 이름 폭도 바뀐다 — 후원 순위를 처음부터 다시 그려 맞추게 한다(drFit)
             try { lastDonorRankHtml = ''; } catch (e) {}
-            /* 🎡 룰렛은 캔버스라 CSS 색을 못 쓴다 — 테마가 바뀔 때 **한 번만** 재 둔다.
-               ⚠️ 그리는 함수 안에서 getComputedStyle 을 불렀더니 룰렛이 도는 동안 매 프레임 스타일을
-                  다시 계산하게 됐다(검사 '룰렛 상시부담' 이 잡았다). */
-            themeGold = (getComputedStyle(document.body).getPropertyValue('--gold') || '').trim() || '#f6c453';
+            // 🎡 룰렛은 테마를 안 따른다 — 금테 그림 자체가 옷이다(2026-09-21). 예전 테두리 색 재기는 걷었다.
         }
 
         function handleData(d) {
@@ -5804,344 +5912,430 @@
 
 
         // ==========================================
-        // 🎡 바닐라 JS 기반 경량 룰렛 위젯 엔진 및 SSE 연동
+        // 🎡 룰렛 — 귀여운 금테 판 (2026-09-21)
+        //    그림(금테·전구·바늘)과 움직임(빨라졌다 → 정지 누르면 4초 남짓 감속해 서기,
+        //    바늘이 칸 경계의 못에 걸렸다 튕기기)은 대표님이 준 Cute X-Punch 룰렛에서 가져왔다.
+        //    조종실 쪽(돌리기·정지·결과 정하기·당첨 보고)은 예전 그대로다.
+        //
+        //    ⚠️ 원판은 칸이 바뀔 때만 캔버스에 한 번 그리고, 돌 때는 캔버스를 CSS 로 돌리기만 한다.
+        //       예전에는 매 프레임 칸과 글씨를 다시 그렸다(3~4시간 방송의 상시 부담이었다).
+        //    ⚠️ 정지 위치는 '정지' 명령 시각(command_time)을 씨앗으로 뽑는다. 방송판이 여러 개
+        //       (OBS · 미리보기 · 편집기) 열려 있어도 모두 같은 칸에 선다. 예전에는 창마다 따로
+        //       뽑아서, 먼저 보고한 창의 결과가 OBS 화면과 다를 수 있었다.
         // ==========================================
         const RouletteWidget = {
             canvas: null,
             ctx: null,
-            bufferCanvas: null,
-            bufferCtx: null,
-            size: { width: 600, height: 600 },
-            center: { x: 300, y: 300 },
-            radius: 240,
-            rotation: 0,
-            angularVelocity: 0,
-            angularDamping: 0,
+            S: 640,                 // 캔버스 한 변(px). 화면에서는 CSS 로 544px 쯤에 맞춘다
+            rotation: 0,            // 원판이 시계 방향으로 돈 각도(도). 도는 동안은 360 을 넘겨 계속 는다
+            angularVelocity: 0,     // 지금 속도(도/초)
             isRolling: false,
             launched: false,
             stopping: null,
             selectAngle: 0,
-            needStopAngularVelocity: 10,
+            mode: 'idle',           // idle | accelerating | spinning | stopping | stopped
             items: [],
-            current: "",
-            currentColor: "",
-            lastTimestamp: 0,
-            animationFrameId: null,
+            ticks: [0, 90, 180, 270],
+            current: '',
+            currentColor: '',
+            MAX_SPEED: 660,         // 초당 약 1.8바퀴 (원본과 같다)
+            ACCEL_SEC: 0.9,
+            _sig: null,
+            _raf: 0, _lastT: 0, _accelAt: 0, _accelFrom: 0, _plan: null,
+            _drag: 0, _snapTimer: 0, _winTimer: 0, _tickAt: 0,
+            holdUntil: 0,
 
             init() {
                 this.canvas = document.getElementById('roulette-canvas');
                 if (!this.canvas) return;
                 this.ctx = this.canvas.getContext('2d');
-                
-                this.bufferCanvas = document.createElement('canvas');
-                this.bufferCanvas.width = this.size.width;
-                this.bufferCanvas.height = this.size.height;
-                this.bufferCtx = this.bufferCanvas.getContext('2d');
-                this.bufferCtx.textAlign = "center";
-                
-                this.lastTimestamp = performance.now();
-                this.wake();       // 한 번 그리고 잠든다
+                this.stage = document.getElementById('rw-stage');
+                this.pointer = document.getElementById('rw-pointer');
+                this.spring = document.getElementById('rw-pointer-spring');
+                this.nowEl = document.getElementById('rw-now');
+                this.buildBulbs();
+                this.drawDisc();
+                this.applyRotation();
+                // 글꼴이 늦게 오면 칸 글씨가 기본 글꼴로 그려진 채 남는다 — 도착하면 한 번 더 그린다
+                try {
+                    document.fonts.load("40px 'Jua'", '벌칙').then(() => this.drawDisc()).catch(() => {});
+                } catch (e) {}
+            },
+
+            /* 전구 47개 — 원본 좌표(1024 기준) 그대로. 바늘 밑 큰 전구 하나는 그림에 가려 뺀다 */
+            buildBulbs() {
+                const root = document.getElementById('rw-bulb-g');
+                if (!root || root.childElementCount) return;
+                const NS = 'http://www.w3.org/2000/svg';
+                const mk = (name, at) => { const el = document.createElementNS(NS, name); for (const k in at) el.setAttribute(k, String(at[k])); return el; };
+                let vis = 0;
+                for (let slot = 0; slot < 48; slot++) {
+                    const big = slot % 2 === 0;
+                    if (big && slot === 0) continue;
+                    const rad = slot * 7.5 * Math.PI / 180;
+                    const x = 512 + 398.5 * Math.sin(rad), y = 512 - 398.5 * Math.cos(rad);
+                    const g = mk('g', { class: 'rw-bulb' });
+                    g.style.setProperty('--delay', `${-(slot * 27)}ms`);
+                    g.style.setProperty('--burst-delay', `${vis * 4}ms`);
+                    g.appendChild(mk('circle', { fill: 'url(#rwBulbHalo)', cx: x.toFixed(2), cy: y.toFixed(2), r: big ? 31 : 18 }));
+                    g.appendChild(mk('circle', { fill: 'url(#rwBulbCore)', cx: x.toFixed(2), cy: y.toFixed(2), r: big ? 10.8 : 5.8 }));
+                    if (big) g.appendChild(mk('path', { class: 'rw-bulb-spark', d: `M ${x - 17} ${y} L ${x + 17} ${y} M ${x} ${y - 17} L ${x} ${y + 17}` }));
+                    root.appendChild(g);
+                    vis++;
+                }
             },
 
             updateRoster(roster, weightType) {
-                if (this.isRolling) return; // 회전 중에는 원판 레이아웃 변동 잠금
-                
-                let items = [];
+                if (this.isRolling) return; // 도는 중에는 칸을 안 바꾼다
+                const list = roster || [];
+                const w = list.map(bj => weightType === 'contrib' ? Math.max(1, bj.contribution || 0) : 1);
+                const sum = w.reduce((a, b) => a + b, 0);
                 let angleSum = 0;
-                let weightSum = 0;
-                
-                if (weightType === 'contrib') {
-                    roster.forEach(bj => {
-                        weightSum += Math.max(1, bj.contribution || 0);
-                    });
-                } else {
-                    weightSum = roster.length;
-                }
-                
-                roster.forEach((bj, i) => {
-                    let weight = (weightType === 'contrib') ? Math.max(1, bj.contribution || 0) : 1;
-                    let chance = weightSum > 0 ? (weight / weightSum) : 0;
-                    let angle = 360 * chance;
+                const items = list.map((bj, i) => {
+                    const angle = sum > 0 ? 360 * w[i] / sum : 0;
                     angleSum += angle;
-                    
-                    let color = this.getColor(i);
-                    items.push({
-                        name: bj.name,
-                        angle: angle,
-                        angleSum: angleSum,
-                        color: color
-                    });
+                    return { name: String(bj.name == null ? '' : bj.name), angle, angleSum, color: this.getColor(i, list.length) };
                 });
-                
+                const sig = items.map(it => it.name + ':' + it.angle.toFixed(3)).join('|');
+                if (sig === this._sig) return;
+                this._sig = sig;
                 this.items = items;
-                this.wake();       // 명단이 바뀌었으니 한 번 다시 그린다
+                // 바늘이 걸리는 못 — 칸 경계마다, 넓은 칸은 30° 안쪽 간격으로 더 박는다
+                const t = [];
+                items.forEach(it => {
+                    const sub = Math.max(1, Math.ceil(it.angle / 30 - 1e-6));
+                    for (let k = 0; k < sub; k++) t.push(it.angleSum - it.angle + k * it.angle / sub);
+                });
+                this.ticks = t.length ? t : [0, 90, 180, 270];
+                this.drawDisc();
+                this.updateCurrent();
             },
 
-            getColor(i) {
-                const palette = [
-                    "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5",
-                    "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50",
-                    "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800",
-                    "#ff5722", "#795548", "#607d8b"
-                ];
-                // ⚠️ !this.startColorIdx 로 보면 안 된다. 뽑힌 값이 0 이면 참이라 다음 호출에서
-                //    또 뽑아, 한 판을 그리는 동안 칸마다 다른 기준으로 색이 정해진다.
-                //    (0 번 색은 시작 색으로 영영 안 나오기도 했다)
-                if (this.startColorIdx === undefined) {
-                    this.startColorIdx = Math.floor(Math.random() * palette.length);
+            /* 원본 판의 파스텔(분홍·하늘·노랑)에 몇 색을 더했다. 이웃 칸이 같은 색이 안 되게 한다 */
+            getColor(i, n) {
+                const pal = ['#f4807f', '#86c1ec', '#f8d56b', '#9ed8ad', '#c4a6ea', '#f9ae7c', '#f59bc1', '#7fd2cf'];
+                let c = i % pal.length;
+                if (n > 1 && i === n - 1 && c === 0) c = 2;   // 마지막 칸이 첫 칸과 붙어 같은 색이 되는 것 방지
+                return pal[c];
+            },
+
+            drawDisc() {
+                if (!this.ctx) return;
+                const ctx = this.ctx, S = this.S, c = S / 2, R = c - 1, D = Math.PI / 180;
+                ctx.clearRect(0, 0, S, S);
+                ctx.save();
+                ctx.translate(c, c);
+                const items = this.items;
+                if (!items.length) {
+                    ctx.beginPath(); ctx.arc(0, 0, R, 0, 2 * Math.PI); ctx.fillStyle = '#fbe9c8'; ctx.fill();
                 }
-                if (i === 0) return palette[this.startColorIdx];
-                return palette[(this.startColorIdx + 4 * i) % palette.length];
+                let a0 = -90;
+                items.forEach(it => {
+                    ctx.beginPath(); ctx.moveTo(0, 0);
+                    ctx.arc(0, 0, R, a0 * D, (a0 + it.angle) * D);
+                    ctx.closePath(); ctx.fillStyle = it.color; ctx.fill();
+                    a0 += it.angle;
+                });
+                // 입체감 — 가운데는 살짝 밝게, 가장자리는 금테 밑 그늘
+                const g = ctx.createRadialGradient(0, 0, R * 0.2, 0, 0, R);
+                g.addColorStop(0, 'rgba(255,255,255,0.24)');
+                g.addColorStop(0.6, 'rgba(255,255,255,0)');
+                g.addColorStop(0.88, 'rgba(120,60,20,0.06)');
+                g.addColorStop(1, 'rgba(90,40,10,0.30)');
+                ctx.beginPath(); ctx.arc(0, 0, R, 0, 2 * Math.PI); ctx.fillStyle = g; ctx.fill();
+                // 칸 경계 — 갈색 테 위에 금선
+                if (items.length > 1) {
+                    [['#9a6224', 9], ['#f6cf6a', 4]].forEach(([col, lw]) => {
+                        ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.lineCap = 'round';
+                        let a = -90;
+                        items.forEach(it => {
+                            const r = a * D;
+                            ctx.beginPath(); ctx.moveTo(Math.cos(r) * R * 0.25, Math.sin(r) * R * 0.25);
+                            ctx.lineTo(Math.cos(r) * R, Math.sin(r) * R); ctx.stroke();
+                            a += it.angle;
+                        });
+                    });
+                }
+                a0 = -90;
+                items.forEach(it => { this.drawLabel(ctx, it.name, a0 + it.angle / 2, it.angle, R); a0 += it.angle; });
+                this.drawHub(ctx, R);
+                ctx.restore();
+            },
+
+            /* 칸 이름 — 가운데에서 바깥으로 읽는 방향. 칸이 좁거나 이름이 길면 줄이고, 그래도 안 되면 … */
+            drawLabel(ctx, text, midDeg, spanDeg, R) {
+                if (!text) return;
+                const r0 = R * 0.30, r1 = R * 0.93, L = r1 - r0;
+                const span = Math.min(spanDeg, 170) * Math.PI / 180;
+                const room = 2 * (r0 + L * 0.3) * Math.sin(span / 2) * 0.82;   // 칸 두께(글씨 높이 한도)
+                const FACE = "'Jua', 'Black Han Sans', 'Pretendard', sans-serif";
+                let s = Math.max(16, Math.min(50, room));
+                ctx.font = `${s}px ${FACE}`;
+                let w = ctx.measureText(text).width;
+                if (w > L) { s = Math.max(18, Math.floor(s * L / w)); ctx.font = `${s}px ${FACE}`; w = ctx.measureText(text).width; }
+                let t = text;
+                if (w > L) {
+                    while (t.length > 1 && ctx.measureText(t + '…').width > L) t = t.slice(0, -1);
+                    t += '…';
+                }
+                ctx.save();
+                ctx.rotate(midDeg * Math.PI / 180);
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+                const x = (r0 + r1) / 2;
+                ctx.lineWidth = Math.max(5, s * 0.26); ctx.strokeStyle = '#5a2d14';
+                ctx.strokeText(t, x, 1);
+                ctx.fillStyle = '#fff9ec';
+                ctx.fillText(t, x, 1);
+                ctx.restore();
+            },
+
+            /* 가운데 메달 — 금테 + 분홍 + 별 (바늘 그림과 한 벌) */
+            drawHub(ctx, R) {
+                const r1 = R * 0.24, r2 = R * 0.18;
+                ctx.save();
+                ctx.shadowColor = 'rgba(60,25,5,.4)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 5;
+                const gold = ctx.createLinearGradient(-r1, -r1, r1, r1);
+                gold.addColorStop(0, '#fff0b5'); gold.addColorStop(0.45, '#f2c461'); gold.addColorStop(1, '#c0802a');
+                ctx.beginPath(); ctx.arc(0, 0, r1, 0, 2 * Math.PI); ctx.fillStyle = gold; ctx.fill();
+                ctx.restore();
+                ctx.lineWidth = 5; ctx.strokeStyle = '#8a5a1c';
+                ctx.beginPath(); ctx.arc(0, 0, r1, 0, 2 * Math.PI); ctx.stroke();
+                const pink = ctx.createRadialGradient(-r2 * 0.3, -r2 * 0.4, r2 * 0.1, 0, 0, r2);
+                pink.addColorStop(0, '#ffb3c0'); pink.addColorStop(0.55, '#f2687f'); pink.addColorStop(1, '#cf3f58');
+                ctx.beginPath(); ctx.arc(0, 0, r2, 0, 2 * Math.PI); ctx.fillStyle = pink; ctx.fill();
+                ctx.lineWidth = 3.5; ctx.strokeStyle = '#8a3444'; ctx.stroke();
+                ctx.beginPath();
+                for (let k = 0; k < 10; k++) {
+                    const r = k % 2 ? r2 * 0.28 : r2 * 0.66, a = (-90 + k * 36) * Math.PI / 180;
+                    if (k) ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+                }
+                ctx.closePath();
+                const star = ctx.createLinearGradient(0, -r2 * 0.66, 0, r2 * 0.6);
+                star.addColorStop(0, '#fff6c8'); star.addColorStop(1, '#f7c948');
+                ctx.fillStyle = star; ctx.fill();
+                ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = '#a8661c'; ctx.stroke();
+                ctx.beginPath(); ctx.arc(0, 0, r1 - 6, -2.6, -1.6);
+                ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.stroke();
+            },
+
+            applyRotation() {
+                if (this.canvas) this.canvas.style.transform = `rotate(${this.rotation.toFixed(3)}deg)`;
+            },
+
+            /* 바늘 밑 칸 = 원판 기준 (360 - 돈 각도) 자리 */
+            updateCurrent() {
+                let p = (360 - this.rotation) % 360; if (p < 0) p += 360;
+                let cur = null;
+                for (const it of this.items) { if (p >= it.angleSum - it.angle && p < it.angleSum) { cur = it; break; } }
+                if (!cur && this.items.length) cur = this.items[this.items.length - 1];
+                this.current = cur ? cur.name : '';
+                this.currentColor = cur ? cur.color : '';
+                if (this.nowEl) {
+                    const txt = this.mode === 'idle' ? '' : this.current;
+                    if (this.nowEl.textContent !== txt) this.nowEl.textContent = txt;
+                }
+            },
+
+            setRunning(on) {
+                if (!this.stage) return;
+                this.stage.classList.toggle('rw-running', on);
+                if (on) this.stage.classList.remove('rw-win');
+                if (this.nowEl) this.nowEl.classList.remove('won');
             },
 
             launch() {
-                this.wake();
+                if (this.mode === 'stopping') return;   // 서는 중에 다시 돌리면 결과가 꼬인다
+                this._plan = null;
+                this.clearPointer();
                 this.launched = true;
                 this.isRolling = true;
-                this.angularVelocity = 2 * 360; // 초당 2회전
-                this.angularDamping = 0;
                 this.stopping = null;
-                this.selectAngle = 0;
-                this.needStopAngularVelocity = 10;
+                this.holdUntil = 0;
+                this._accelFrom = Math.max(0, this.angularVelocity);
+                this._accelAt = performance.now();
+                this.mode = 'accelerating';
+                this.setRunning(true);
+                this.schedule();
             },
 
-            stop(riggedIndex) {
-                this.wake();
-                this.stopping = Date.now();
-                
+            /* riggedIndex: 조종실이 정한 칸(-1 이면 무작위). seed: 정지 명령 시각 — 창마다 같은 곳에 서게 */
+            stop(riggedIndex, seed) {
+                if (!this.items.length) return;
+                if (this.mode === 'stopping') return;   // 같은 정지를 두 번 받으면 다시 계산하지 않는다
+                if (!this.isRolling) {
+                    // 새로고침 뒤 '정지' 만 받은 창 — 돌던 것처럼 이어서 같은 자리에 세운다
+                    this.launched = true; this.isRolling = true;
+                    this.angularVelocity = this.MAX_SPEED;
+                    this.setRunning(true);
+                }
+                let s = (Number(seed) || Date.now()) >>> 0;
+                const rnd = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+                let it = null;
                 if (riggedIndex > -1 && riggedIndex < this.items.length) {
-                    let item = this.items[riggedIndex];
-                    let angle = item.angle;
-                    let angleSum = item.angleSum;
-                    
-                    let min = angleSum - angle;
-                    let max = angleSum;
-                    
-                    // 해당 영역 이내 무작위 타깃 각 설정
-                    this.selectAngle = (max - min) * Math.random() + min;
-                    
-                    let addAngle = 360 - this.selectAngle - this.rotation;
-                    if (addAngle < 0) addAngle += 360;
-                    
-                    let startDp = 132.94;
-                    let endDp = 110.08;
-                    let capDp = (startDp - endDp) / 360;
-                    
-                    let fixDp = 0.375;
-                    if (addAngle > 180) {
-                        fixDp = ((360 - addAngle) / 180) * fixDp;
-                    } else {
-                        fixDp = (addAngle / 180) * fixDp;
-                    }
-                    
-                    this.angularDamping = startDp - addAngle * capDp - fixDp;
+                    it = this.items[riggedIndex];
                 } else {
-                    this.angularDamping = 110 + 23 * Math.random();
+                    const r = rnd() * 360;   // 칸 넓이(=가중치)에 비례해 뽑힌다
+                    it = this.items.find(x => r < x.angleSum) || this.items[this.items.length - 1];
                 }
+                // 칸 경계에 딱 걸치면 눈으로 헷갈린다 — 칸 안쪽 여유를 두고 선다
+                const m = Math.min(it.angle * 0.18, 6);
+                this.selectAngle = it.angleSum - it.angle + m + rnd() * Math.max(0, it.angle - 2 * m);
+                const target = ((360 - this.selectAngle) % 360 + 360) % 360;
+                const nowNorm = ((this.rotation % 360) + 360) % 360;
+                const delta = ((target - nowNorm) % 360 + 360) % 360;
+                const duration = 3.85 + rnd() * 0.5;   // 정지 누른 뒤 4초 남짓 (원본 3.85~4.35초)
+                const entry = Math.max(this.angularVelocity, this.MAX_SPEED * 0.78);
+                let best = null;
+                for (const turns of [3, 4]) {
+                    const dist = delta + turns * 360, v0 = 2 * dist / duration;
+                    const score = Math.abs(v0 - entry);
+                    if (!best || score < best.score) best = { dist, v0, score };
+                }
+                this._plan = { start: this.rotation, dist: best.dist, v0: best.v0, duration, at: performance.now() };
+                this.angularVelocity = best.v0;
+                this.stopping = Date.now();
+                this.mode = 'stopping';
+                this.schedule();
             },
 
-            /* ⚠️ 다음 프레임은 '움직이는 중이거나 다시 그릴 것이 있을 때만' 예약한다.
-               예전에는 첫 줄에서 무조건 예약했다. init() 은 페이지가 열릴 때 한 번
-               부르므로 그 뒤로 영영 멈추지 않았다 — 룰렛이 서 있어도, 화면에 안
-               보여도, 룰렛을 안 쓰는 방송이어도 60fps 로 원판을 다시 그렸다.
-               칸이 24개면 한 프레임에 48번 그리고 캔버스를 통째로 복사한다
-               (초당 2,880번). 3~4시간 방송에서 이게 가장 큰 상시 부담이었다. */
-            loop(timestamp) {
-                this.animationFrameId = null;
-
-                let deltaTime = timestamp - this.lastTimestamp;
-                this.lastTimestamp = timestamp;
-                
-                if (deltaTime <= 0) { this.schedule(); return; }
-                
-                if (this.stopping) {
-                    if (Date.now() - this.stopping > 15 * 1000) {
-                        this.angularVelocity = 0;
-                        this.stopping = null;
-                    }
-                }
-                
-                if (this.angularDamping) {
-                    if (this.selectAngle === 0) {
-                        this.angularVelocity -= Math.max(20, Math.min(this.angularVelocity * 0.5, this.angularDamping)) * (33 / 1000);
-                    } else if (this.selectAngle > 0 && this.angularVelocity > 2) {
-                        this.angularVelocity -= Math.max(20, Math.min(this.angularVelocity * 0.5, this.angularDamping)) * (33 / 1000);
-                    }
-                }
-                
-                if (this.angularVelocity <= 0) {
-                    this.angularVelocity = 0;
-                    // ⚠️ 이걸 안 지우면 영영 '멈추는 중' 으로 남아 루프가 안 잠든다.
-                    //    stop() 이 찍은 시각은 15초 뒤에만 지워지는데, 속도가 0 이
-                    //    되는 이 길에서는 지워지지 않았다.
-                    this.stopping = null;
-                    if (this.launched) {
-                        this.launched = false;
-                        this.isRolling = false;
-                        // ⚠️ 여기서 터지면 루프가 그대로 끝난다(예약이 뒤에 있다).
-                        //    onStop 은 confetti·fetch·DOM 을 건드려 터질 구석이 많다.
-                        try { this.onStop(); }
-                        catch (e) { console.warn('룰렛 마무리 실패 — 원판은 그대로 섭니다:', e); }
-                    }
-                }
-                
-                if (this.angularVelocity > 0) {
-                    let cap = this.angularVelocity * (33 / 1000);
-                    
-                    if (this.angularVelocity < this.needStopAngularVelocity) {
-                        let s_cap_r = 360 - this.selectAngle - this.rotation;
-                        if (s_cap_r < 0) s_cap_r = 360 - s_cap_r;
-                        
-                        if (cap > s_cap_r) {
-                            cap = s_cap_r;
-                            this.angularVelocity = 0;
-                        }
-                    }
-                    
-                    this.rotation += cap;
-                    while (this.rotation < 0) this.rotation += 360;
-                    while (this.rotation >= 360) this.rotation -= 360;
-                }
-                
-                this.render();
-                this._dirty = false;
-
-                // 아직 움직이거나 다시 그릴 것이 있을 때만 이어간다
-                if (this.angularVelocity > 0 || this.stopping || this._dirty) this.schedule();
+            reset() {
+                if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; }
+                this._plan = null;
+                this.rotation = 0; this.angularVelocity = 0;
+                this.isRolling = false; this.launched = false; this.stopping = null;
+                this.mode = 'idle';
+                this.holdUntil = 0;
+                if (this.stage) this.stage.classList.remove('rw-running', 'rw-win');
+                if (this.nowEl) this.nowEl.classList.remove('won');
+                this.clearPointer();
+                this.applyRotation();
+                this.updateCurrent();
             },
 
             schedule() {
-                if (this.animationFrameId == null) {
-                    this.animationFrameId = requestAnimationFrame((ts) => this.loop(ts));
+                if (!this._raf) {
+                    this._lastT = performance.now();
+                    this._raf = requestAnimationFrame(t => this.loop(t));
                 }
             },
 
-            /* 원판 내용이 바뀌었을 때 한 번 더 그리게 깨운다 */
-            wake() {
-                this._dirty = true;
-                if (this.animationFrameId == null) {
-                    this.lastTimestamp = performance.now() - 16;
-                    this.schedule();
+            loop(now) {
+                this._raf = 0;
+                const dt = Math.min(Math.max(0, now - this._lastT) / 1000, 0.05);
+                this._lastT = now;
+                const prev = this.rotation;
+                let done = false;
+                if (this.mode === 'accelerating') {
+                    const t = Math.min(1, (now - this._accelAt) / 1000 / this.ACCEL_SEC);
+                    const e = t * t * (3 - 2 * t);
+                    this.angularVelocity = this._accelFrom + (this.MAX_SPEED - this._accelFrom) * e;
+                    this.rotation += this.angularVelocity * dt;
+                    if (t >= 1) { this.angularVelocity = this.MAX_SPEED; this.mode = 'spinning'; }
+                } else if (this.mode === 'spinning') {
+                    this.angularVelocity = this.MAX_SPEED;
+                    this.rotation += this.angularVelocity * dt;
+                } else if (this.mode === 'stopping' && this._plan) {
+                    // 일정하게 감속 — 시작 속도를 남은 거리로 정했으니 정확히 목표 칸에 선다
+                    const p = this._plan, n = Math.min(1, (now - p.at) / 1000 / p.duration);
+                    this.rotation = p.start + p.dist * (2 * n - n * n);
+                    this.angularVelocity = p.v0 * (1 - n);
+                    if (n >= 1) { this.rotation = p.start + p.dist; this.angularVelocity = 0; done = true; }
                 }
+                this.movePointer(prev, this.rotation);
+                this.applyRotation();
+                this.updateCurrent();
+                if (done) { this.finish(); return; }
+                if (this.mode === 'spinning' && this.rotation > 1e7) this.rotation %= 360;
+                if (this.mode === 'accelerating' || this.mode === 'spinning' || this.mode === 'stopping') this.schedule();
             },
 
-            render() {
-                if (!this.ctx) return;
-                const ctx = this.bufferCtx;
-                const w = this.size.width;
-                const h = this.size.height;
-                
-                ctx.fillStyle = "rgba(16, 16, 22, 0.96)";
-                ctx.fillRect(0, 0, w, h);
+            finish() {
+                this._plan = null;
+                this.rotation = ((this.rotation % 360) + 360) % 360;
+                this.applyRotation();
+                this.updateCurrent();
+                this.mode = 'stopped';
+                this.isRolling = false; this.launched = false; this.stopping = null;
+                this.holdUntil = Date.now() + 4000;   // 선 자리를 잠깐 보여준 뒤 내린다
+                this.snapPointer(0, this._drag, true);
+                if (this.stage) {
+                    this.stage.classList.remove('rw-running', 'rw-win');
+                    void this.stage.offsetWidth;
+                    this.stage.classList.add('rw-win');
+                    clearTimeout(this._winTimer);
+                    this._winTimer = setTimeout(() => this.stage.classList.remove('rw-win'), 1300);
+                }
+                if (this.nowEl) this.nowEl.classList.add('won');
+                // ⚠️ 여기서 터지면 당첨 보고가 안 나간다. onStop 은 confetti·fetch·DOM 을 건드려 터질 구석이 많다.
+                try { this.onStop(); }
+                catch (e) { console.warn('룰렛 마무리 실패 — 원판은 그대로 섭니다:', e); }
+            },
 
-                // 테마 감지 색상 스위칭 (리뉴얼: 기본은 엔젤 골드)
-                // 🎀 테마가 정한 금색(--gold) — applyTheme 이 바뀔 때 재 둔 값을 쓴다(매 프레임 재지 않는다)
-                let strokeCol = (typeof themeGold === 'string' && themeGold) || '#f6c453';
-                
-                // 원형 배경 드로잉
-                ctx.save();
-                ctx.translate(this.center.x, this.center.y);
-                ctx.beginPath();
-                ctx.arc(0, 0, this.radius, 0, 2 * Math.PI);
-                ctx.fillStyle = "rgba(10, 10, 15, 0.98)";
-                ctx.fill();
-                ctx.lineWidth = 15;
-                ctx.strokeStyle = strokeCol;
-                ctx.shadowBlur = 20;
-                ctx.shadowColor = strokeCol;
-                ctx.stroke();
-                ctx.restore();
-                
-                this.current = null;
-                this.currentColor = null;
-                
-                if (this.items && this.items.length > 0) {
-                    let lastAngle = 0;
-                    
-                    // 슬롯 그리기
-                    this.items.forEach((item) => {
-                        ctx.save();
-                        ctx.translate(this.center.x, this.center.y);
-                        ctx.rotate((this.rotation + lastAngle - 90) * Math.PI / 180);
-                        
-                        ctx.beginPath();
-                        ctx.moveTo(0, 0);
-                        ctx.arc(0, 0, this.radius - 8, 0, item.angle * Math.PI / 180);
-                        ctx.closePath();
-                        ctx.fillStyle = item.color;
-                        ctx.fill();
-                        
-                        ctx.beginPath();
-                        ctx.arc(0, 0, this.radius - 8, 0, item.angle * Math.PI / 180);
-                        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-                        
-                        ctx.restore();
-                        lastAngle += item.angle;
-                    });
-                    
-                    // 텍스트 기입 및 타깃팅 판정
-                    lastAngle = 0;
-                    let currentAngle = 360 - this.rotation;
-                    while (currentAngle < 0) currentAngle += 360;
-                    while (currentAngle >= 360) currentAngle -= 360;
-                    
-                    this.items.forEach((item) => {
-                        if (item.angleSum - item.angle <= currentAngle && currentAngle <= item.angleSum) {
-                            this.current = item.name;
-                            this.currentColor = item.color;
-                        }
-                        
-                        ctx.save();
-                        ctx.translate(this.center.x, this.center.y);
-                        ctx.rotate((this.rotation + lastAngle - 90 + item.angle / 2) * Math.PI / 180);
-                        
-                        ctx.beginPath();
-                        ctx.font = "bold 22px 'Pretendard', sans-serif";
-                        ctx.strokeStyle = "#111113";
-                        ctx.lineWidth = 5;
-                        ctx.strokeText(item.name, this.radius / 2 + 10, 8);
-                        ctx.fillStyle = "white";
-                        ctx.fillText(item.name, this.radius / 2 + 10, 8);
-                        
-                        ctx.restore();
-                        lastAngle += item.angle;
-                    });
+            /* ── 바늘: 못에 걸려 밀리다가(drag) 넘는 순간 튕긴다(snap) — 원본 계산 그대로 ── */
+            maxDeflect(v) { const slow = 1 - Math.min(1, Math.max(0, v / this.MAX_SPEED)); return 1.7 + slow * 9.6; },
+            setDrag(d) {
+                this._drag = Number.isFinite(d) ? d : 0;
+                if (this.pointer) this.pointer.style.transform = `rotate(${this._drag.toFixed(3)}deg)`;
+            },
+            clearPointer() {
+                clearTimeout(this._snapTimer);
+                if (this.spring) { this.spring.classList.remove('snap'); this.spring.style.transform = 'rotate(0deg)'; }
+                this.setDrag(0);
+            },
+            snapPointer(v, from, final) {
+                if (!this.spring) return;
+                const slow = 1 - Math.min(1, Math.max(0, v / this.MAX_SPEED));
+                const max = this.maxDeflect(v);
+                const start = Math.min(Number.isFinite(from) ? from : 0, -(max * (final ? 0.92 : 0.68)));
+                const kick = final ? 6.1 : 1.25 + slow * 4.65;
+                const dur = final ? 430 : Math.round(Math.min(317, Math.max(62, 62 + slow * 255)));
+                const st = this.spring.style;
+                st.setProperty('--snap-from', `${start.toFixed(3)}deg`);
+                st.setProperty('--snap-kick', `${kick.toFixed(3)}deg`);
+                st.setProperty('--snap-rebound', `${(-kick * 0.47).toFixed(3)}deg`);
+                st.setProperty('--snap-kick-small', `${(kick * 0.2).toFixed(3)}deg`);
+                st.setProperty('--snap-rebound-small', `${(-kick * 0.075).toFixed(3)}deg`);
+                st.setProperty('--snap-down', `${(0.35 + slow * 1.25).toFixed(3)}px`);
+                st.setProperty('--snap-duration', `${dur}ms`);
+                this.spring.classList.remove('snap'); void this.spring.offsetWidth; this.spring.classList.add('snap');
+                clearTimeout(this._snapTimer);
+                this._snapTimer = setTimeout(() => { this.spring.classList.remove('snap'); this.spring.style.transform = 'rotate(0deg)'; }, dur + 24);
+                this.setDrag(0);
+            },
+            movePointer(prevRot, nextRot) {
+                const d = nextRot - prevRot;
+                if (!(d > 0)) { this.setDrag(0); return; }
+                const mod = x => ((x % 360) + 360) % 360;
+                const p0 = mod(360 - prevRot), p1 = mod(360 - nextRot);
+                let crossed = false, remain = 360, gap = 360;
+                const T = this.ticks;
+                for (let i = 0; i < T.length; i++) {
+                    const a = mod(p0 - T[i]);
+                    if (a > 0 && a <= d) crossed = true;
+                    const r = mod(p1 - T[i]);
+                    if (r > 0 && r < remain) remain = r;
+                    if (T.length > 1) { const g = mod(T[(i + 1) % T.length] - T[i]); if (g > 0 && g < gap) gap = g; }
                 }
-                
-                // 화살표 바늘 그리기
-                ctx.beginPath();
-                ctx.moveTo(w / 2, this.center.y - this.radius + 15);
-                ctx.lineTo(w / 2 - 12, this.center.y - this.radius - 10);
-                ctx.lineTo(w / 2 + 12, this.center.y - this.radius - 10);
-                ctx.closePath();
-                ctx.fillStyle = "#ff453a";
-                ctx.fill();
-                ctx.strokeStyle = "white";
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                
-                // 센터 피벗 캡 드로잉
-                ctx.beginPath();
-                ctx.arc(this.center.x, this.center.y, 15, 0, 2 * Math.PI);
-                ctx.fillStyle = "white";
-                ctx.fill();
-                ctx.strokeStyle = "#111";
-                ctx.lineWidth = 4;
-                ctx.stroke();
-                
-                // 지시 바늘 당첨 후보 렌더링
-                if (this.current) {
-                    ctx.font = "bold 26px 'Pretendard', sans-serif";
-                    ctx.strokeStyle = "#111";
-                    ctx.lineWidth = 5;
-                    ctx.strokeText(this.current, w / 2, this.center.y - this.radius - 25);
-                    ctx.fillStyle = strokeCol;
-                    ctx.fillText(this.current, w / 2, this.center.y - this.radius - 25);
+                const v = this.angularVelocity;
+                if (crossed) {
+                    this.snapPointer(v, Math.min(this._drag, -this.maxDeflect(v) * 0.7), false);
+                    this.tickSound(v);
+                    return;
                 }
-                
-                this.ctx.drawImage(this.bufferCanvas, 0, 0);
+                const slow = 1 - Math.min(1, Math.max(0, v / this.MAX_SPEED));
+                const arc = Math.min(7.5 + slow * 7.5, gap * 0.8);
+                if (remain > arc) { this.setDrag(0); return; }
+                const prog = Math.min(1, Math.max(0, 1 - remain / arc));
+                this.setDrag(-this.maxDeflect(v) * Math.pow(prog, 1.45));
+            },
+            /* 서는 중에만 '딸깍' — 최고 속도에서는 초당 20번이 넘어 시끄럽다 */
+            tickSound(v) {
+                if (this.mode !== 'stopping' || v > 420) return;
+                if (window.sfxEnabled === false || typeof playBeep !== 'function') return;
+                const now = performance.now();
+                if (now - this._tickAt < 45) return;
+                this._tickAt = now;
+                playBeep(1500, 'triangle', 0.035, 0.05);
             },
 
             onStop() {
@@ -6152,7 +6346,7 @@
                         origin: { y: 0.6 }
                     });
                 }
-                
+
                 if (this.current) {
                     fetch('/api/roulette/winner', {
                         method: 'POST',
@@ -6160,18 +6354,21 @@
                         body: JSON.stringify({ name: this.current })
                     }).catch(e => console.error("Error reporting winner:", e));
                 }
-                
+
                 // 대결모드 시간종료처럼 결과를 가운데 크게 띄우기 (이모지 제외)
                 const winMsgEl = document.getElementById('roulette-winner-message-layer');
                 if (winMsgEl && this.current) {
                     winMsgEl.innerText = `${this.current} 당첨!`;
+                    // 벌칙 이름은 길다('팔굽혀펴기 20개 당첨!' = 130px 이면 1,400px) — 화면 폭에 맞춰 줄인다
+                    winMsgEl.style.fontSize = Math.max(56, Math.min(130, Math.floor(980 / Math.max(1, winMsgEl.innerText.length)))) + 'px';
                     winMsgEl.classList.remove('show');
                     void winMsgEl.offsetWidth;
                     winMsgEl.classList.add('show');
                     setTimeout(() => { winMsgEl.classList.remove('show'); }, 4000);
                 }
-                
-                // 당첨 시 즉시 룰렛위젯 꺼짐 처리 (로컬 상태만 업데이트, 실제 비활성화는 winner API 완료 시 SSE로 자동 동기화)
+
+                // 당첨 시 룰렛위젯 꺼짐 처리 (로컬 상태만. 실제 비활성화는 winner API 완료 시 SSE로 자동 동기화)
+                // ⚠️ 바로 내리지는 않는다 — holdUntil 까지 선 자리를 보여준다 (handleRouletteState)
                 if (globalData) {
                     globalData.roulette_enabled = false;
                 }
@@ -6180,6 +6377,7 @@
 
         let lastRouletteCommandTime = 0;
         let isRouletteWidgetShown = false;
+        let rouletteHideTimer = null;
 
         function handleRouletteState(d) {
             const rState = d.roulette;
@@ -6195,6 +6393,13 @@
                 roster = isExtra ? d.extra_bjs : d.bjs;
             }
             RouletteWidget.updateRoster(roster, rState.weight_type);
+
+            // 제목 — 지옥탈출에서 '누구의 벌칙' 인지 조종실이 정해 주면(for_name) 그 이름을 단다
+            const titleEl = document.getElementById('roulette-title');
+            const forName = String(rState.for_name || '').trim();
+            const title = forName ? `😈 ${forName} 벌칙 룰렛`
+                        : (itemSource === 'custom' ? '😈 벌칙 룰렛' : '🎡 행운의 돌림판');
+            if (titleEl && titleEl.textContent !== title) titleEl.textContent = title;
             
             // 2. 수동 토글 감지 (ON/OFF)
             if (d.roulette_enabled) {
@@ -6202,9 +6407,19 @@
                     showRouletteWidget();
                 }
             } else {
-                // 토글이 꺼졌는데 회전 중이 아니라면 화면에서 즉시 내림
+                // 토글이 꺼졌는데 회전 중이 아니라면 화면에서 내린다.
+                // ⚠️ 방금 섰으면 선 자리를 4초 보여준 뒤 내린다. 예전에는 서자마자(당첨 보고가
+                //    돌아오는 순간) 판이 사라져, 시청자는 바늘이 어디에 섰는지 못 봤다.
                 if (isRouletteWidgetShown && !RouletteWidget.isRolling) {
-                    hideRouletteWidget();
+                    const wait = RouletteWidget.holdUntil - Date.now();
+                    if (wait > 0) {
+                        clearTimeout(rouletteHideTimer);
+                        rouletteHideTimer = setTimeout(() => {
+                            if (globalData && !globalData.roulette_enabled && !RouletteWidget.isRolling) hideRouletteWidget();
+                        }, wait);
+                    } else {
+                        hideRouletteWidget();
+                    }
                 }
             }
             
@@ -6224,13 +6439,9 @@
                     if (rState.select_name) {
                         targetIndex = roster.findIndex(bj => bj.name === rState.select_name);
                     }
-                    RouletteWidget.stop(targetIndex);
+                    RouletteWidget.stop(targetIndex, cmdTime);   // 정지 시각이 씨앗 — 모든 창이 같은 칸에 선다
                 } else if (cmd === 'reset') {
-                    RouletteWidget.rotation = 0;
-                    RouletteWidget.angularVelocity = 0;
-                    RouletteWidget.isRolling = false;
-                    RouletteWidget.launched = false;
-                    RouletteWidget.stopping = null;
+                    RouletteWidget.reset();
                     if (!d.roulette_enabled) {
                         hideRouletteWidget();
                     }
@@ -6246,6 +6457,7 @@
         const ROULETTE_FIT = 0.87;
         function showRouletteWidget() {
             isRouletteWidgetShown = true;
+            clearTimeout(rouletteHideTimer);   // 선 자리 보여주던 중에 다시 켜면 내리지 않는다
             const container = document.getElementById('roulette-container');
             const backdrop = document.getElementById('roulette-overlay-backdrop');
             if (container) {
@@ -7644,7 +7856,7 @@
                     const data = e.data ? JSON.parse(e.data) : {};
                     const name = data.name || '선수';
                     console.log(`🏃 [퇴근 성공 연출 수신] ${name}`);
-                    showOffWorkPopup(name);
+                    showOffWorkPopup(name, data.kind);
                 } catch (err) {
                     console.error("off_work_event 처리 오류:", err);
                 }
@@ -7673,13 +7885,17 @@
 
         // 🏃 [퇴근전쟁] 퇴근 성공 초대형 팝업
         let offWorkTimer = null;
-        function showOffWorkPopup(name) {
+        function showOffWorkPopup(name, kind) {
             const layer = document.getElementById('offwork-popup-layer');
             const box = document.getElementById('offwork-popup-box');
             const nameEl = document.getElementById('offwork-player-name');
+            const subEl = document.getElementById('offwork-popup-sub');
             if (!layer || !nameEl) return;
 
-            nameEl.innerText = `🎉 ${name} 퇴근! 🏆`;
+            // 🔥 지옥탈출 성공도 같은 팝업을 쓴다 — 문구만 바꾼다
+            const hellWin = kind === 'hell';
+            nameEl.innerText = hellWin ? `🔥 ${name} 지옥 탈출! 🔥` : `🎉 ${name} 퇴근! 🏆`;
+            if (subEl) subEl.innerText = hellWin ? '😇 지옥에서 살아 돌아왔습니다!' : '🎉 퇴근을 축하합니다! 🥳';
             layer.style.opacity = '1';
             layer.style.visibility = 'visible';
             if (box) box.style.transform = 'scale(1)';
@@ -9772,8 +9988,22 @@
             const raceEl = document.getElementById('home-race-container');
             if (!raceEl) return;
 
-            const bjs = d.bjs || [];
-            const on = !!d.home_race_enabled && bjs.length > 0;
+            // 🔥 지옥탈출이 켜져 있으면 이 판을 빌려 쓴다(퇴근빵보다 먼저). 명단은 지옥탈출을 시작한 사람들,
+            //    목표 큰 순(= 시작 순간 1등부터). 진행은 '시작 뒤 받은 점수'(끝냈으면 굳힌 값)다.
+            const hell = (d.hell && d.hell.on) ? d.hell : null;
+            homeRaceHell = hell;
+            raceEl.classList.toggle('hell', !!hell);
+            let bjs = d.bjs || [];
+            if (hell) {
+                const hg = hell.goals || {};
+                // 시작 순간 등수 순(서버가 1등부터 적었다) — 목표가 같은 5등 아래도 등수대로 (조종실과 같은 순서)
+                const order = Object.keys(hg).sort((x, y) => (hg[y] || 0) - (hg[x] || 0));
+                bjs = order.map(n => bjs.find(b => b.name === n)).filter(Boolean);
+            }
+            const on = (!!d.home_race_enabled || !!hell) && bjs.length > 0;
+            const titleEl = raceEl.querySelector('.home-race-title');
+            const titleTxt = hell ? (hell.ended ? '🔥 지옥탈출 결과' : '🔥 지옥탈출') : '🏃 퇴근빵';
+            if (titleEl && titleEl.textContent !== titleTxt) titleEl.textContent = titleTxt;
 
             raceEl.style.opacity = on ? '1' : '0';
             raceEl.style.visibility = on ? 'visible' : 'hidden';
@@ -9782,7 +10012,11 @@
             syncRankVisible();
             if (!on) { stopHomeRaceCycle(); return; }
 
-            const goals = d.home_goals || {};
+            const goals = hell ? (hell.goals || {}) : (d.home_goals || {});
+            const hellCur = (b) => {
+                if (hell.ended) return parseInt((hell.final || {})[b.name]) || 0;
+                return Math.max(0, (b.score || 0) - (parseInt((hell.base || {})[b.name]) || 0));
+            };
             const rowsEl = document.getElementById('home-race-rows');
             const goalLineEl = document.getElementById('home-race-goal-line');
             const goalTextEl = document.getElementById('home-race-goal-text');
@@ -9809,7 +10043,7 @@
                 const row = rows[i];
                 if (!row) return;
                 const goal = parseInt(goals[b.name]) || 0;
-                const cur = b.score || 0;   // 진행 기준은 점수(score)
+                const cur = hell ? hellCur(b) : (b.score || 0);   // 진행 기준은 점수(score). 지옥탈출은 시작 뒤 받은 점수
                 const pct = goal > 0 ? Math.min(100, (cur / goal) * 100) : 0;
                 const reached = goal > 0 && cur >= goal;
                 if (reached && !firstReached) firstReached = b.name;
@@ -9821,16 +10055,20 @@
                 if (nameEl.textContent !== b.name) nameEl.textContent = b.name;
                 fillEl.style.width = pct + '%';
                 fillEl.classList.toggle('goal-reached', reached);
-                const curTxt = formatNum(cur);
+                // 🔥 지옥탈출은 점=만원이라 '만' 을 붙여 돈으로 읽히게 한다 (1등 목표 50 → 50만)
+                const curTxt = hell ? formatNum(cur) + '만' : formatNum(cur);
                 if (curEl.textContent !== curTxt) curEl.textContent = curTxt;
-                const tagTxt = manLabel(goal);
+                const failed = !!hell && !!hell.ended && !reached;
+                const tagTxt = hell ? (reached ? '탈출!' : (hell.ended ? '벌칙' : goal + '만')) : manLabel(goal);
                 if (tagEl && tagEl.textContent !== tagTxt) tagEl.textContent = tagTxt;
+                if (tagEl) { tagEl.classList.toggle('escaped', !!hell && reached); tagEl.classList.toggle('failed', failed); }
+                row.classList.toggle('failed', failed);
             });
 
             // 하단 GOAL 바: 플레이어별 '남은 점수'를 5초마다 순서대로 순환 표시
             //   ⚠️ 여기 값은 b.score — 원이 아니라 '점'이다(10,000원당 1점).
             //      단위를 '원'으로 적어두었다가 방송 중에 잘못 안내된 적이 있다.
-            homeRaceCycleData = bjs.map(b => ({ name: b.name, cur: b.score || 0, goal: parseInt(goals[b.name]) || 0 }));
+            homeRaceCycleData = bjs.map(b => ({ name: b.name, cur: hell ? hellCur(b) : (b.score || 0), goal: parseInt(goals[b.name]) || 0 }));
             startHomeRaceCycle();
         }
 
@@ -9844,6 +10082,7 @@
 
         // 🏃 퇴근빵 하단 GOAL 바 순환 (5초마다 다음 플레이어의 '남은 금액')
         let homeRaceCycleData = [];
+        let homeRaceHell = null;   // 🔥 지옥탈출 중이면 그 상태 — 아래 GOAL 바 문구가 '만원' 으로 바뀐다
         let homeRaceCycleTimer = null;
         let homeRaceCycleIdx = 0;
         function updateHomeRaceGoalBar(animate) {
@@ -9860,10 +10099,23 @@
             const tgtEl = document.getElementById('hr-goal-target');
             const cntEl = document.getElementById('hr-goal-count');
             if (nameEl) nameEl.textContent = p.name;
-            if (remEl) remEl.innerHTML = (p.goal > 0 && remain === 0)
-                ? '퇴근 완료 🎉'
-                : (formatNum(remain) + '<span style="font-size:15px;color:var(--tx-2);margin-left:2px;">점</span>');
-            if (tgtEl) tgtEl.textContent = '목표 ' + manLabel(p.goal) + '점';
+            const hl = homeRaceHell;
+            const lblEl = line.querySelector('.hr-goal-label');
+            const lblTxt = hl ? '남은 금액' : '남은 점수';
+            if (lblEl && lblEl.textContent !== lblTxt) lblEl.textContent = lblTxt;
+            if (remEl) {
+                if (hl) {
+                    // 🔥 지옥탈출: 끝났으면 결과, 아니면 '남은 ○만원'
+                    remEl.innerHTML = (p.goal > 0 && remain === 0) ? '탈출 성공 🔥'
+                        : hl.ended ? '탈출 실패 😈'
+                        : (formatNum(remain) + '<span style="font-size:15px;color:var(--tx-2);margin-left:2px;">만원</span>');
+                } else {
+                    remEl.innerHTML = (p.goal > 0 && remain === 0)
+                        ? '퇴근 완료 🎉'
+                        : (formatNum(remain) + '<span style="font-size:15px;color:var(--tx-2);margin-left:2px;">점</span>');
+                }
+            }
+            if (tgtEl) tgtEl.textContent = hl ? ('목표 ' + p.goal + '만원') : ('목표 ' + manLabel(p.goal) + '점');
             if (cntEl) cntEl.textContent = (homeRaceCycleIdx + 1) + '/' + data.length;   // 예: 1/6
             // 순환으로 사람이 바뀔 때만 부드러운 스왑(같은 사람 금액 갱신은 애니메이션 없이)
             if (animate) { line.classList.remove('swap'); void line.offsetWidth; line.classList.add('swap'); }

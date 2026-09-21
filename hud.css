@@ -263,6 +263,11 @@ body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
 .hr-goal-remain { color: #fff; font-weight: 900; font-size: 32px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 .hr-goal-target { background: rgba(var(--race-rgb), 0.14); border: 1.5px solid rgba(var(--race-rgb), 0.55); color: var(--race-text); font-weight: 900; font-size: 27px; padding: 4px 12px; border-radius: var(--r-s); }
 .hr-goal-count { margin-left: auto; color: var(--tx-2); font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
+#home-race-container.hell { --race: #ff3b2f; --race-2: #ff9f1c; --race-rgb: 255, 72, 40; --race-text: #ffd2b8; }
+#home-race-container.hell .home-race-title { background: linear-gradient(100deg, #e0241c, #ff8a1c); color: #fff; }
+#home-race-container.hell .home-race-goal-tag.escaped { background: linear-gradient(120deg, #2fd17a, #9be15d); border-color: transparent; color: #0d2a17; }
+#home-race-container.hell .home-race-goal-tag.failed { background: linear-gradient(120deg, #7a1020, #c01f36); border-color: #ff5b6e; color: #fff; }
+#home-race-container.hell .home-race-row.failed .home-race-name { color: #ff9aa6; }
 .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 #fundjar-container { position: absolute; left: 40px; top: 470px; z-index: 60; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
 .jar-title { display: block; width: max-content; margin: 0 auto 4px; background: linear-gradient(180deg, var(--gold-light), var(--gold-deep)); color: var(--on-gold); font-size: 27px; font-weight: 900; padding: 3px 18px; border-radius: var(--r-s); white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.6), inset 0 2px 0 rgba(255,255,255,.5); }
