@@ -1035,13 +1035,16 @@
         .pb-winner.many .pb-w-sub { font-size: 22px; margin-top: 4px; }
         /* 🎱 대기 딱지 — 굴리기 전 판 위쪽에 '참가 N명 · 곧 굴러갑니다' */
         .pb-ready { position: absolute; left: 50%; top: 22px; transform: translateX(-50%);
-            padding: 10px 30px; border-radius: 999px; white-space: nowrap;
+            padding: 10px 30px; border-radius: 999px; white-space: nowrap; text-align: center;
             background: rgba(8, 10, 16, .88); border: 2px solid rgba(var(--gold-rgb), .7);
             color: var(--gold); font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
             font-size: 34px; font-weight: 900; text-shadow: var(--ts-1); box-shadow: var(--sh-2);
             opacity: 0; visibility: hidden; pointer-events: none;
             transition: opacity var(--t-base) ease, visibility var(--t-base); }
         .pb-ready.show { opacity: 1; visibility: visible; animation: pbReadyPulse 1.8s ease-in-out infinite; }
+        /* 같은 이름은 '밍밍 ×80' 으로 묶어 둘째 줄에 — 줄이 길면 접는다 */
+        .pb-ready-who { display: block; max-width: 860px; margin-top: 4px; white-space: normal;
+            font-size: 24px; font-weight: 800; color: var(--text-main); line-height: 1.35; }
         @keyframes pbReadyPulse { 0%, 100% { box-shadow: var(--sh-2); } 50% { box-shadow: var(--sh-2), 0 0 24px var(--gold-glow); } }
 
         /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
@@ -9241,19 +9244,36 @@
                 /* ⚠️ '끝까지 남기' 규칙에서는 **먼저 들어온 사람이 진 것**이다.
                       1등을 노랗게 칠하면 거꾸로 읽힌다 — 규칙을 보고 칠한다. */
                 const lastRule = (pbRule === 'last');
-                pbFinish.slice(0, 6).forEach(function (nm, i) {
-                    const y = 26 + i * 27;
-                    g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
-                    g.strokeText((i + 1) + '. ' + nm, 16, y);
-                    // 먼저 골인 규칙에서는 **뽑는 수까지**가 당첨이다
-                    g.fillStyle = (!lastRule && i < pbPicks) ? '#ffd166' : '#dfe6f2';
-                    g.fillText((i + 1) + '. ' + nm, 16, y);
-                });
-                if (lastRule) {
+                if (!lastRule) {
+                    pbFinish.slice(0, 6).forEach(function (nm, i) {
+                        const y = 26 + i * 27;
+                        g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
+                        g.strokeText((i + 1) + '. ' + nm, 16, y);
+                        // 먼저 골인 규칙에서는 **뽑는 수까지**가 당첨이다
+                        g.fillStyle = (i < pbPicks) ? '#ffd166' : '#dfe6f2';
+                        g.fillText((i + 1) + '. ' + nm, 16, y);
+                    });
+                } else {
+                    /* 🎱 대표님: "첫 번째로 떨어진 사람부터 말고, 누구 몇 개가 떨어졌는지로".
+                          이름별 '떨어진 수/전체' — 아직 남은 사람이 위(많이 떨어진 순), 다 떨어진 사람(탈락)은 아래. */
+                    const tot = {};
+                    pbTally(pbBalls.map(function (b) { return b.pbName; })).forEach(function (e) { tot[e[0]] = e[1]; });
+                    const rows = pbTally(pbFinish).map(function (e) { return [e[0], e[1], tot[e[0]] || e[1]]; });
+                    rows.sort(function (x, y) { return (x[1] >= x[2]) - (y[1] >= y[2]) || y[1] - x[1]; });
+                    const shown = rows.slice(0, 6);
+                    shown.forEach(function (r, i) {
+                        const y = 26 + i * 27;
+                        const out = r[1] >= r[2];
+                        const txt = r[0] + '  ' + r[1] + '/' + r[2] + (out ? ' 탈락' : '');
+                        g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
+                        g.strokeText(txt, 16, y);
+                        g.fillStyle = out ? '#8a93a6' : '#dfe6f2';
+                        g.fillText(txt, 16, y);
+                    });
                     g.font = '800 15px Pretendard, "Malgun Gothic", sans-serif';
                     g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
-                    const y2 = 26 + Math.min(6, pbFinish.length) * 27 + 4;
-                    const cap = '↓ 먼저 들어온 순서 (탈락)';
+                    const y2 = 26 + shown.length * 27 + 4;
+                    const cap = '↑ 떨어진 구슬 수' + (rows.length > 6 ? ' (외 ' + (rows.length - 6) + '명)' : '');
                     g.strokeText(cap, 16, y2);
                     g.fillStyle = '#9fb0c9';
                     g.fillText(cap, 16, y2);
@@ -9366,7 +9386,7 @@
                         pbRound = -1;
                         pbStart(list, Number(g.seed) || 1, map, true);
                     }
-                    pbShowReady(list.length);
+                    pbShowReady(list);
                 } else {
                     pbShowReady(0);
                 }
@@ -9374,12 +9394,33 @@
             }
         }
 
-        /* 🎱 대기 딱지 — n 이 0 이면 내린다 */
-        function pbShowReady(n) {
+        /* 🎱 이름별 구슬 수 — [[이름, 개수], …] 처음 나온 순서대로 */
+        function pbTally(names) {
+            const at = {}, out = [];
+            (names || []).forEach(function (nm) {
+                if (at[nm] === undefined) { at[nm] = out.length; out.push([nm, 0]); }
+                out[at[nm]][1]++;
+            });
+            return out;
+        }
+
+        /* 🎱 대기 딱지 — 구슬 목록을 받는다(비었거나 0 이면 내린다).
+           대표님: "참가 83명 말고 밍밍 ×80 처럼" — 같은 이름은 묶어 보여준다. */
+        const PB_READY_NAMES = 8;
+        function pbShowReady(list) {
             const el = document.getElementById('pb-ready');
             if (!el) return;
-            if (!n) { el.classList.remove('show'); return; }
-            el.textContent = '🎱 참가 ' + n + '명 · 곧 굴러갑니다';
+            if (!list || !list.length) { el.classList.remove('show'); return; }
+            const t = pbTally(list);
+            let who = t.slice(0, PB_READY_NAMES).map(function (e) {
+                return e[1] > 1 ? e[0] + ' ×' + e[1] : e[0];
+            }).join(' · ');
+            if (t.length > PB_READY_NAMES) who += ' 외 ' + (t.length - PB_READY_NAMES) + '명';
+            el.textContent = '🎱 구슬 ' + list.length + '개 · 곧 굴러갑니다';
+            const sub = document.createElement('span');
+            sub.className = 'pb-ready-who';
+            sub.textContent = who;            // 이름은 글자로만 넣는다(태그 안 먹게)
+            el.appendChild(sub);
             el.classList.add('show');
         }
 
