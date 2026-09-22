@@ -100,12 +100,11 @@ print()
 print('=' * 74)
 print('④ 굴러가다 멈추지 않는가')
 print('=' * 74)
-chk('끼임 풀기가 있다', 'function pbUnstick(' in OV)
-# ⚠️ '얼마나 내려갔나(dy)'로 보면 안 된다. 덫에 걸린 구슬은 제자리에서 떨리는데
-#    그 떨림이 셈을 0으로 되돌려 영영 안 걸린다(실측: 20초를 굴려도 0~5 를 오갔다).
-chk('속도로 본다 (내려간 거리로 보면 안 걸린다)', 'PB_STUCK_V' in OV and 'b.velocity' in OV)
-chk('갈수록 세게 민다', 'pbKicks' in OV)
-chk('고리에서 주기적으로 살핀다', 'pbUnstick()' in OV and 'pbTick' in OV)
+# 🩹 2026-09-22 원본과 같은 엔진(box2d)으로 갈아타며 원본(marble.update)의 흔들기를 그대로 쓴다:
+#    5초 동안 거의 안 움직이면(한 걸음 이동² < 0.00001) 아무 쪽으로 툭 친다.
+chk('끼인 구슬을 흔든다 (원본 흔들기)', 'function pbShake(' in OV and 'pbShake();' in OV)
+chk('5초 거의 안 움직이면 (원본 STUCK_DELAY)', 'const PB_STUCK_MS = 5000' in OV and 'dx * dx + dy * dy < 0.00001' in OV)
+chk('흔드는 방향도 씨앗 난수', 'pbRandom() * 10 - 5' in OV)
 # ⚠️ 그래도 안 끝나면 강제로 끝낸다. 안 그러면 방송이 그 판에 갇힌다.
 chk('아무리 오래 걸려도 끝난다', 'PB_MAX_MS' in OV)
 # ⚠️ 화면이 드물게 그려지면 따라잡기 한도에 막혀 물리가 굶는다(실측: 8로 뒀더니 14초에 68px).
@@ -129,7 +128,7 @@ chk('섞을 때도 씨앗 난수를 쓴다', 'rng()' in _mk and 'Math.random' no
 chk('물리에 넣는 순서도 자리 기준이다', 'who.map(function (i, slot)' in _mk)
 # 🎲 가져온 맵은 생김새도 출발 자리도 고정이라, 무게를 안 흔들면 **매 판 똑같은 경기**가
 #    된다(실측: Wheel of fortune 이 24판 내내 5.4초). 원본도 구슬 무게를 1～2배로 흔든다.
-chk('구슬 무게를 매 판 다르게 준다', 'density: .0016 * (1 + rng())' in _mk)
+chk('구슬 무게를 매 판 다르게 준다 (원본: 1~2배)', 'body.CreateFixture(cs, 1 + rng())' in _mk)
 
 print()
 print('=' * 74)
@@ -170,8 +169,7 @@ chk('시작할 때도 판을 받는다', "g['map'] = _pinball_map(body.get('map'
 chk('방송판이 고른 판을 쓴다 (씨앗으로 안 정한다)',
     'function pbStart(names, seed, mapIdx' in OV and 'mapIdx >= 0' in OV)
 # ⚠️ 맵 파일을 못 읽었거나 -1 이면 우리 코스로 굴러야 한다. 방송이 빈 화면이 되면 안 된다.
-chk('판을 못 쓰면 우리 코스로 굴린다',
-    'if (!bodies) {' in OV and 'PB_WORLD = PB_WORLD_OWN; pbMapTitle' in OV)
+chk('판을 못 쓰면 우리 코스로 굴린다', 'if (!st) st = pbStageOwn(rng);' in OV)
 chk('조종실에 고르는 칸이 있다', 'id="pb-map"' in CTL and 'pbcSetMap' in CTL)
 # ⚠️ 목록에 걸리는 시간을 적어 둔다. 모르고 고르면 방송 흐름이 끊긴다.
 #    규칙마다 크게 다르므로 둘 다 적는다(실측 400판 중앙값).
@@ -191,8 +189,8 @@ chk('상표를 우리 이름으로 안 쓴다',
     '마블 룰렛' not in CTL and '마블 룰렛' not in OV and 'Marble Roulette' not in CTL)
 # 🔴 구슬 크기는 **원본이 못박아 둔 0.25 미터**를 따른다(physics-box2d: set_m_radius(0.25)).
 #    ⚠️ 예전에 0.17 로 줄였다가 "공이 너무 작다"는 말을 들었다. 줄이면 못 사이는 잘 빠지지만
-#       원본이 의도한 판이 아니게 된다. 끼는 건 크기가 아니라 pbUnstick 으로 푼다.
-chk('구슬 크기가 원본과 같다 (배율 x 0.25)', 'pbR = Math.max(5, SC * 0.25)' in OV)
+#       원본이 의도한 판이 아니게 된다. 끼는 건 크기가 아니라 pbShake 로 푼다.
+chk('구슬 크기가 원본과 같다 (0.25m)', 'pbR = 0.25 * pbSC;' in OV)
 
 print()
 print('=' * 74)
@@ -201,33 +199,23 @@ print('=' * 74)
 """🗺️ 원본 맵을 옮길 때 네 군데서 틀렸었다. 전부 실측으로 드러난 것이라
    하나씩 못을 박아 둔다 — 다시 틀리면 판이 통째로 이상해진다."""
 
-_bm = _nocomment(OV[OV.find('function pbBuildFromMap('):OV.find('function pbBuildCourse(')])
-
-# ⚠️ box2d 의 SetAsBox 는 **반너비·반높이**를 받는다. 원본 그림판도 width * 2 로 그린다.
-#    matter 의 rectangle 은 전체 크기를 받으므로 두 배로 넣어야 한다.
-#    안 그러면 장애물이 전부 절반 크기가 되어 판이 헐렁해진다.
-chk('상자를 두 배로 넣는다 (원본은 반너비)', "* 2 * SC" in _bm)
-
+_bm = _nocomment(OV[OV.find('function pbBuildStage('):OV.find('function pbStageFromMap(')])
+# 2026-09-22 부터 원본과 **같은 엔진(box2d)** 이다. 원본 physics-box2d.createEntities 를 그대로 옮긴다.
+# ⚠️ box2d 의 SetAsBox 는 **반너비·반높이**를 받는다 — 원본 값 그대로 넣는다(matter 때는 두 배로 넣었다).
+chk('상자는 반너비 그대로 넣는다 (SetAsBox)', 's.SetAsBox(sh.width || .1, sh.height || .1, c, sh.rotation || 0)' in _bm)
 # ⚠️ rotation 은 숫자가 30·45·90 이라 도처럼 보이지만 **라디안 그대로** 쓴다.
-#    원본이 물리(SetAsBox 4번째 인자)에도 그림(ctx.rotate)에도 그 값을 그대로 넣기 때문이다.
 chk('각도를 라디안 그대로 쓴다', 'Math.PI / 180' not in _bm)
-
-# 💥 **이번에 제일 크게 빠뜨렸던 것** — 원본은 life 가 있는 물체를 구슬이 닿는 순간 없앤다
-#    (physics-box2d.step). 단단하게 깔았더니 Yoru ni Kakeru 는 288개 중 217개가 벽이 되어
-#    구슬 여섯이 y≈5500 에 120초를 갇혔다. 넣고 나니 매번 20～26초에 끝난다.
-chk('닿으면 깨지는 물체를 표시한다', 'pbPop: (Number(pr.life) || 0) > 0' in _bm)
-chk('깨진 것을 걸음이 끝난 뒤 치운다', 'function pbPopDrain(' in OV and 'pbPopDrain();' in OV)
-chk('부딪힘을 지켜본다', "Matter.Events.on(pbEng, 'collisionStart'" in OV)
-
-# ⚠️ 중력은 원본이 10 m/s² 다. 0.0016 고정은 배율 64 기준 **원본의 2.5배**였다
-#    — "너무 빨리 떨어져". 배율에서 계산해야 맵마다 맞는다.
-chk('중력을 배율에서 계산한다', 'pbEng.gravity.scale = PB_G_MPS2 * pbScale / 1e6' in OV)
-chk('중력값이 원본과 같다 (10 m/s²)', 'const PB_G_MPS2 = 10' in OV)
-
-# 🚿 **맵 밖에서 출발하던 것** — 원본 맵은 꼭대기가 좁은 통로다(예: x 9.25~16.5).
-#    화면 전체에 뿌렸더니 통로 밖 구슬이 판을 건너뛰고 바깥으로 곧장 떨어졌다.
-chk('원본과 같은 자리에서 떨어뜨린다', '10.25 + (slot % 10) * 0.6' in _bm)
-chk('가져온 맵이면 통로 자리를 쓴다', 'if (pbSpawn) {' in OV and 'pbSpawn.at(slot, n)' in OV)
+chk('꺾은선은 두께 0 선으로 — 원본과 같다', 'edge.SetTwoSided(v1, v2)' in _bm)
+# 💥 원본은 life 가 있는 물체를 구슬이 닿는 순간 없앤다(physics-box2d.step).
+#    단단하게 깔았더니 Yoru ni Kakeru 는 구슬이 120초를 갇혔었다.
+chk('닿으면 깨지는 물체를 표시한다', 'pop: (Number(pr.life) || 0) > 0' in _bm)
+chk('깨진 것을 걸음이 끝난 뒤 치운다', 'function pbPopCheck(' in OV and 'pbPopCheck();' in OV)
+chk('닿아 있는지 본다 (원본 IsTouching)', 'c.IsTouching()' in OV)
+chk('중력값이 원본과 같다 (10 m/s²)', 'const PB_G_MPS2 = 10' in OV and 'new B.b2World(pbVec(0, PB_G_MPS2))' in OV)
+chk('도는 장애물은 box2d 가 돌린다 (kinematic)', 'B.b2_kinematicBody' in _bm and 'body.SetAngularVelocity(' in _bm)
+# 🚿 원본 맵은 꼭대기가 좁은 통로다 — 원본과 같은 자리에서 떨어뜨린다.
+chk('원본과 같은 자리에서 떨어뜨린다', 'mx = 10.25 + (slot % 10) * 0.6' in OV)
+chk('가져온 맵이면 통로 자리를 쓴다', 'if (pbSpawn) {' in OV)
 
 print()
 print('=' * 74)
@@ -267,8 +255,7 @@ chk('결승선 앞에서 느려진다', 'function pbSlowFactor(' in OV and 'PB_S
 # ⚠️ 슬로모션이 물리 걸음의 **크기**를 바꾸면 화면마다 결과가 갈릴 수 있다.
 #    걸음은 그대로 두고 띄엄띄엄 민다.
 chk('슬로모션이 물리 걸음 크기를 안 바꾼다',
-    'Matter.Engine.update(pbEng, PB_STEP / PB_SUB)' in OV and 'pbSlowAcc' in OV
-    and 'PB_STEP * ' not in _nocomment(OV[OV.find('function pbStepOnce('):OV.find('function pbCapSpeed(')]))
+    'pbWorld.Step(PB_STEP / 1000, 6, 2)' in OV and 'pbAcc += dt * pbSlowFactor();' in OV)
 # ⚠️ 확대하면 글씨·테두리도 같이 커져 구슬을 덮는다. 화면 기준 굵기를 지켜야 한다.
 chk('글씨 굵기가 확대에 안 딸려간다', '(19 / Z).toFixed(2)' in OV)
 
@@ -283,8 +270,8 @@ chk('아무도 못 나아가면 그 자리 순위로 끝낸다',
 # ⚠️ 구슬 **저마다의** 최고 깊이로 봐야 한다. 전체 최고값으로 보면 앞선 구슬이 골인해
 #    사라진 뒤로는 값이 안 늘어 늘 '정체'로 읽힌다.
 chk('구슬마다 따로 잰다', 'b.pbTop === undefined' in OV)
-# ⚠️ 정상 판의 최장 정체는 7초였다. 20초면 멀쩡한 판은 안 끊는다.
-chk('정상 판을 끊지 않을 만큼 넉넉하다', 'const PB_STALL_STEPS = 60 * 20;' in OV)
+# ⚠️ 정상 판의 최장 정체는 7초였다. 20초면 멀쩡한 판은 안 끊는다(한 걸음 10ms).
+chk('정상 판을 끊지 않을 만큼 넉넉하다', 'const PB_STALL_STEPS = 100 * 20;' in OV)
 chk('걸음 수 상한도 있다', 'PB_MAX_STEPS' in OV)
 
 print()
@@ -329,11 +316,10 @@ chk('폭죽이 위젯 자리를 따라간다', "getElementById('pinball-containe
 _sk = _nocomment(OV[OV.find('function pbImpact('):OV.find('function pbStallWatch(')])
 chk('밀어내기가 있다', 'function pbImpact(' in OV and 'function pbSkills(' in OV)
 chk('밀어내기도 씨앗 난수를 쓴다', 'pbRandom()' in _sk and 'Math.random' not in _sk)
-chk('범위·세기가 맵 배율을 따른다',
-    'PB_SKILL_R_M * pbScale' in OV and 'PB_SKILL_V_MPS * pbScale / 60' in OV)
+chk('범위·세기가 원본과 같다 (10m · 0.81×5)', 'PB_SKILL_R_M * PB_SKILL_R_M' in OV and 'const k = 0.81 * 5;' in OV)
 # ⚠️ 상금이 걸린 추첨이면 꺼야 한다.
 chk('조종실에서 끌 수 있다', 'id="pb-skills"' in CTL and '"skills": True' in SRV)
-chk('옆 구슬이 어디서 시작하든 어긋나게 굴린다', 'b.pbCool = 1 + Math.floor(rng()' in OV)
+chk('옆 구슬이 어디서 시작하든 어긋나게 굴린다', 'pbCool: 1 + Math.floor(rng() * PB_SKILL_COOL)' in OV)
 
 print()
 print('=' * 74)
@@ -342,48 +328,20 @@ print('=' * 74)
 """대표님 실전 테스트: ① 벽을 뻐고 밖으로 튵겨나감 ② 줌될 때 프레임이 떨어짐
    ③ 카메라가 엉뛱한 구슬을 따라감. 세 개 다 재현해서 고쳤다."""
 
-# 🚧 벽 뻐기 — 실측: 한 걸음에 최대 35～49px 움직이는데 벽은 2.5～3.9px 였다.
-#    matter.js 는 걸음 사이를 되짚지 않는다(box2d 는 CCD 가 기본이라 원본은 멀슝했다).
-#    세 가지를 같이 건다: 조각내기 + 속도 상한 + 벽 두께. 조각당 최대 이동 < 벽 두께 여야 한다.
-_sub = re.search(r'const PB_SUB = (\d+);', OV)
-_vmax = re.search(r'const PB_VMAX = ([\d.]+);', OV)
-_segt = re.search(r'const segT = Math\.max\(([\d.]+),', OV)
-# ❌ 조각내기(PB_SUB=8)는 접었다 — 뻐림은 막았지만 판이 2.5배 느려졌다(Wheel 6.6→16초).
-#    matter 는 작은 조각에서 충돌마다 힘을 조금씩 먹어 구슬이 못을 튵기지 못한다.
-chk('조각내기는 안 쓴다 (PB_SUB=1)', bool(_sub) and int(_sub.group(1)) == 1,
-    ('PB_SUB=%s' % _sub.group(1)) if _sub else '없음')
-chk('속도 상한이 있다', bool(_vmax) and 'function pbCapSpeed(' in OV and 'pbCapSpeed();' in OV)
-# 🚧 뻐림은 **훑기**가 막는다 — 걸음이 끝난 뒤 직전→지금 선분이 벽 속을 지났는지 본다.
-#    ⚠️ "지금 닿아 있으면 정상"으로 보면 안 된다(관통해 반대편에 살짝 닿은 경우를 놓쳤다).
-#       선분 위 표본을 찍어 "안쪽을 지나 다시 밖"이면 관통이다. 정상 충돌은 마지막 표본이 안쪽.
-_sw = _nocomment(OV[OV.find('function pbSweep('):OV.find('function pbCapSpeed(')])
-chk('걸음마다 경로를 훑는다 (pbSweep)', 'function pbSweep(' in OV and 'pbSweep();' in OV)
-chk('폭 0 선분으로 거른다', 'M.Query.ray(pbStatics, p0, p1)' in _sw)
-chk('안쪽을 지나 다시 밖으로 나가면 관통이다', 'if (seen && !lastIn) crossed = true;' in _sw)
-chk('관통했으면 직전 자리로 되돌린다', 'M.Body.setPosition(b, p0);' in _sw)
-# 🔒 그래도 판 밖으로는 절대 못 나간다 — 대표님 1번 증상을 확실히 막는 마지막 잠금.
-chk('판 좌우 밖으로는 못 나간다', 'if (cx < pbR) { cx = pbR; out = true; }' in _sw
-    and 'else if (cx > PB_W - pbR)' in _sw)
-# 🌀 바람개비는 훑기에서 빼고(회전체는 지난 경로를 지금 모양으로 판정하면 오판), 삼켜진 공은 따로 빼낸다.
-chk('바람개비는 훑기 대상에서 빼다', "b.isStatic && b.label !== 'spin'" in OV)
-# ❌ 팔에 삼켜진 공을 손으로 빼내는 장치(pbEject)도 해 봤다가 접었다 — setPosition 으로
-#    억지로 옮기면 솔버와 싸워 속도가 180px 까지 튀고 벽속 걸음이 67→288 로 나뻐졌다.
-#    솔버에 맡기고, 오래 끼면 pbUnstick 이 밀어 준다.
+# 🚧 벽 뚫기 — matter 때 실전에서 벽을 뚫고 튕겨 나갔다. 2026-09-22 원본과 같은 box2d 로 갈아탔다.
+#    box2d 는 연속 충돌 검사가 기본이라 안 뚫는다. 옛 대책(속도 상한 · 조각내기 · 훑기)은 걷었다 —
+#    구슬이 '턱' 멈칫하던 원인이었다(대표님: "부드럽지 않게 흘러간다").
+chk('원본과 같은 엔진(box2d)', 'new B.b2World(' in OV and 'Matter.' not in OV)
+chk('옛 뚫림 대책을 걷었다', 'function pbSweep(' not in OV and 'function pbCapSpeed(' not in OV and 'PB_SUB' not in OV)
+chk('원본과 같은 걸음 (10ms · 6/2)', 'const PB_STEP = 10;' in OV and 'pbWorld.Step(PB_STEP / 1000, 6, 2)' in OV)
 chk('손으로 빼내는 장치는 안 쓴다', 'function pbEject(' not in OV and 'pbEject();' not in OV)
-# ⚠️ 조각을 내면 body.velocity 는 조각 기준이 된다. 직접 읽으면 문턱과 단위가 안 맞는다.
-_phys = _nocomment(OV[OV.find('function pbUnstick('):OV.find('function pbShowWinner(')])
-chk('속도를 getVelocity 로만 읽는다', '.velocity.x' not in _phys and '.velocity.y' not in _phys)
-# 🌀 바람개비 — 회전 속도 없이 각도만 바꾸면 팔이 구슬을 삼킨다
-#    (실측 Pot of greed: 20판 중 18판이 팔 속에 갇힘 → 0판).
-chk('바람개비가 회전 속도를 가진다', 'sp.speed / PB_SUB, true)' in OV)
-chk('각도만 바꾸는 예전 방식이 없다', 'sp.dir * sp.speed);' not in OV)
 
 # 🎬 끊김 — 슬로모션은 걸음을 건너뛰어 만든다. 0.25배면 4프레임에 한 번만 움직여 뛝뛝 끊겼다.
 #    물리는 그대로 두고 **그림만** 사이를 채운다 — 결과는 한 치도 안 바뀜다.
-chk('그릴 때 걸음 사이를 채운다 (보간)', 'function pbPos(' in OV and 'b.pbPx = b.position.x' in OV)
+chk('그릴 때 걸음 사이를 채운다 (보간)', 'function pbPos(' in OV and 'b.pbPx = b.position.x' in OV and 'pbAlpha = pbAcc / PB_STEP;' in OV)
 chk('구슬과 카메라 모두 보간된 자리를 쓴다', OV.count('pbPos(') >= 3)
 _pos = _nocomment(OV[OV.find('function pbPos('):OV.find('function pbTarget(')])
-chk('보간은 물리를 안 건드린다', 'setPosition' not in _pos and 'setVelocity' not in _pos)
+chk('보간은 물리를 안 건드린다', 'SetTransform' not in _pos and 'SetLinearVelocity' not in _pos)
 # ⚠️ 그림자 번짐은 확대를 그대로 타서 3배면 48px — 비싸고 번들거린다.
 chk('그림자 번짐이 확대에 안 따라간다', '(16 + hit * 26) / Z' in OV)
 
@@ -395,7 +353,7 @@ chk('카메라·슬로모션·표시가 같은 주인공을 본다',
 # ⚠️ pbLoop 과 검사 도구가 같은 걸음 함수를 써야 한다. 도구가 루프를 베껴 쓰다 한 줄을
 #    빠뜨려 "고쳐도 안 고쳐진다"고 잘못 읽은 적이 있다.
 chk('물리 한 걸음이 함수 하나다', 'function pbStepOnce(' in OV and 'pbStepOnce();' in OV
-    and 'Matter.Engine.update(' not in _nocomment(OV[OV.find('function pbLoop('):OV.find('function pbCamera(')]))
+    and 'pbWorld.Step(' not in _nocomment(OV[OV.find('function pbLoop('):OV.find('function pbCamera(')]))
 
 print()
 print('=' * 74)
@@ -403,14 +361,19 @@ print('⑭ 물리 엔진을 우리 서버에서 내보내는가')
 print('=' * 74)
 # ⚠️ 외부 CDN 을 부르면 방송 중 그쪽이 막히는 순간 게임이 통째로 안 뜬다.
 #    컨페티를 vendor 에 둔 것과 같은 이유다.
-chk('vendor 에서 부른다', '/vendor/matter.min.js' in OV)
+chk('vendor 에서 부른다', '/vendor/box2d/Box2D.js' in OV and "return '/vendor/box2d/' + f;" in OV)
 chk('바깥 주소를 안 부른다', 'cdnjs' not in OV.split('<style>')[0] and 'unpkg' not in OV)
-_mj = os.path.join(ROOT, 'vendor', 'matter.min.js')
-chk('파일이 실제로 있다', os.path.exists(_mj),
-    ('%dKB' % (os.path.getsize(_mj) // 1024)) if os.path.exists(_mj) else '없음')
-if os.path.exists(_mj):
-    _head = io.open(_mj, encoding='utf-8', errors='replace').read(400)
-    chk('MIT 표기를 지운 적 없다', 'MIT' in _head and 'matter-js' in _head)
+_bj = os.path.join(ROOT, 'vendor', 'box2d', 'Box2D.js')
+_bw = os.path.join(ROOT, 'vendor', 'box2d', 'Box2D.wasm')
+chk('파일이 실제로 있다', os.path.exists(_bj) and os.path.exists(_bw),
+    ('%dKB + %dKB' % (os.path.getsize(_bj) // 1024, os.path.getsize(_bw) // 1024))
+    if os.path.exists(_bj) and os.path.exists(_bw) else '없음')
+_lz = os.path.join(ROOT, 'vendor', 'box2d', 'LICENSE.zlib.txt')
+chk('라이선스(Zlib) 표기를 같이 둔다', os.path.exists(_lz)
+    and 'zlib' in io.open(_lz, encoding='utf-8', errors='replace').read().lower())
+# ⚠️ .wasm 은 방송판(OBS)이 로그인 없이 받아야 하고, 종류(application/wasm)가 맞아야 한다.
+#    안 그러면 핀볼만 조용히 안 뜬다.
+chk('.wasm 을 로그인 없이 내보낸다', SRV.count("'.wasm'") >= 2 and "'application/wasm'" in SRV)
 chk('없어도 방송은 계속된다', 'function pbHasEngine(' in OV and '!pbHasEngine()' in OV)
 
 print()
@@ -433,7 +396,7 @@ _BUILTIN = set([
     'rgba',            # CSS 글자 안의 rgba( — 함수가 아니다
 ])
 # vendor 가 실어오는 전역 — 없을 때 대비가 있어야 통과시킨다
-_VENDOR = {'confetti': "typeof confetti !== 'function'", 'Matter': 'pbHasEngine'}
+_VENDOR = {'confetti': "typeof confetti !== 'function'", 'Box2D': "typeof Box2D === 'function'"}
 _missing = []
 for _c in sorted(_calls):
     if _c in _BUILTIN or _c.startswith('pb'):
@@ -502,8 +465,8 @@ chk('한 줄에 다 들어가면 예전 자리 그대로', 'const per = Math.min
 # 🧢 뚜껑 — 이게 이번 고침의 핵심이다.
 chk('뚜껑을 제일 윗줄 위로 올렸다', 'const PB_CEIL = PB_SPAWN_Y0' in OV)
 chk('뚜껑이 y=-7 에 붙어 있지 않다',
-    'W.rectangle(PB_W / 2, PB_CEIL - PB_WALL / 2' in OV
-    and 'W.rectangle(PB_W / 2, -PB_WALL / 2' not in OV)
+    'box(PB_W / 2, PB_CEIL - PB_WALL / 2' in OV
+    and 'box(PB_W / 2, -PB_WALL / 2' not in OV)
 
 # 🧮 실제로 계산해 본다 — 상수를 고쳤을 때 조용히 어긋나지 않게.
 _num = lambda k: int(re.search(r'const %s = (\d+)' % k, OV).group(1))

@@ -23,6 +23,10 @@ else:
 
 import json
 import copy
+import mimetypes
+# 🎱 .wasm 을 제 종류(application/wasm)로 내보낸다 — 윈도우 · 일부 리눅스는 이 이름을 모른다.
+#    모르면 브라우저가 빠른 길(스트리밍 컴파일)을 못 쓰고 경고를 띄운다(그래도 돌아가긴 한다).
+mimetypes.add_type('application/wasm', '.wasm')
 import re       # 후원 메시지에서 별명 후보 토막내기
 import random   # 시그게임 카드 배치·섞기, 슬롯 당첨 뽑기
 import math     # 시그게임 판을 정사각형에 가깝게 잡을 때
@@ -1154,7 +1158,7 @@ def add_header(r):
 # 파일 서빙 허용목록(SERVABLE_EXTS)과 따로 놓면 한쪽에만 추가하고 빠뜨려
 # '허용된 것이 로그인으로 튐기는' 사고가 난다. 그림·글꼴·스크립트만 여기 넣는다.
 STATIC_FREE_EXTS = {
-    '.css', '.js', '.mjs', '.map',
+    '.css', '.js', '.mjs', '.map', '.wasm',   # 🎱 .wasm — 핀볼 물리 엔진(box2d). 방송판(OBS)은 로그인이 없다
     '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.avif',
     '.woff', '.woff2', '.ttf', '.otf', '.eot',
 }
@@ -3940,7 +3944,7 @@ def serve_upload():
 # 그래서 화면이 실제로 부르는 확장자만 통과시킨다. 목록에 없는 것은
 # 로그인한 사람에게도 주지 않는다 — 조종실도 이 파일들을 주소로 꺼내 쓰지 않는다.
 SERVABLE_EXTS = {
-    '.html', '.htm', '.css', '.js', '.mjs', '.map',
+    '.html', '.htm', '.css', '.js', '.mjs', '.map', '.wasm',
     '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.avif',
     '.woff', '.woff2', '.ttf', '.otf', '.eot',
     '.mp3', '.m4a', '.aac', '.ogg', '.wav', '.webm', '.mp4',
