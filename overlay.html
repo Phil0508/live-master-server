@@ -1045,6 +1045,11 @@
         /* 같은 이름은 '밍밍 ×80' 으로 묶어 둘째 줄에 — 줄이 길면 접는다 */
         .pb-ready-who { display: block; max-width: 860px; margin-top: 4px; white-space: normal;
             font-size: 24px; font-weight: 800; color: var(--text-main); line-height: 1.35; }
+        /* 🎨 누가 무슨 색인지 — 이름 앞 작은 구슬 */
+        .pb-ready-who .pb-dot { display: inline-block; width: .72em; height: .72em; margin: 0 .28em .08em 0;
+            border-radius: 50%; vertical-align: middle; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); }
+        .pb-ready-who .pb-one { white-space: nowrap; }
+        .pb-ready-who .pb-sep { opacity: .5; margin-left: .35em; }
         @keyframes pbReadyPulse { 0%, 100% { box-shadow: var(--sh-2); } 50% { box-shadow: var(--sh-2), 0 0 24px var(--gold-glow); } }
 
         /* ── 🎲 주사위게임 — 테두리를 도는 고리 보드 ── */
@@ -9244,14 +9249,16 @@
                 /* ⚠️ '끝까지 남기' 규칙에서는 **먼저 들어온 사람이 진 것**이다.
                       1등을 노랗게 칠하면 거꾸로 읽힌다 — 규칙을 보고 칠한다. */
                 const lastRule = (pbRule === 'last');
+                const col = pbColorOf();          // 🎨 이름 앞에 그 사람 구슬 색
                 if (!lastRule) {
                     pbFinish.slice(0, 6).forEach(function (nm, i) {
                         const y = 26 + i * 27;
+                        pbDot(g, 23, y, col[nm]);
                         g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
-                        g.strokeText((i + 1) + '. ' + nm, 16, y);
+                        g.strokeText((i + 1) + '. ' + nm, 36, y);
                         // 먼저 골인 규칙에서는 **뽑는 수까지**가 당첨이다
                         g.fillStyle = (i < pbPicks) ? '#ffd166' : '#dfe6f2';
-                        g.fillText((i + 1) + '. ' + nm, 16, y);
+                        g.fillText((i + 1) + '. ' + nm, 36, y);
                     });
                 } else {
                     /* 🎱 대표님: "첫 번째로 떨어진 사람부터 말고, 누구 몇 개가 떨어졌는지로".
@@ -9265,10 +9272,13 @@
                         const y = 26 + i * 27;
                         const out = r[1] >= r[2];
                         const txt = r[0] + '  ' + r[1] + '/' + r[2] + (out ? ' 탈락' : '');
+                        g.globalAlpha = out ? .45 : 1;
+                        pbDot(g, 23, y, col[r[0]]);
+                        g.globalAlpha = 1;
                         g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
-                        g.strokeText(txt, 16, y);
+                        g.strokeText(txt, 36, y);
                         g.fillStyle = out ? '#8a93a6' : '#dfe6f2';
-                        g.fillText(txt, 16, y);
+                        g.fillText(txt, 36, y);
                     });
                     g.font = '800 15px Pretendard, "Malgun Gothic", sans-serif';
                     g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.92)';
@@ -9404,6 +9414,19 @@
             return out;
         }
 
+        /* 🎨 이름 → 구슬 색 (지금 판의 구슬에서 읽는다 — 그리는 색과 반드시 같게) */
+        function pbColorOf() {
+            const m = {};
+            pbBalls.forEach(function (b) { if (m[b.pbName] === undefined) m[b.pbName] = b.pbColor; });
+            return m;
+        }
+        /* 캔버스에 이름 앞 색 구슬을 찍는다 */
+        function pbDot(g, x, y, col) {
+            g.beginPath(); g.arc(x, y - 7, 7, 0, Math.PI * 2);
+            g.fillStyle = col || '#dfe6f2'; g.fill();
+            g.lineWidth = 2; g.strokeStyle = 'rgba(0,0,0,.9)'; g.stroke();
+        }
+
         /* 🎱 대기 딱지 — 구슬 목록을 받는다(비었거나 0 이면 내린다).
            대표님: "참가 83명 말고 밍밍 ×80 처럼" — 같은 이름은 묶어 보여준다. */
         const PB_READY_NAMES = 8;
@@ -9411,15 +9434,26 @@
             const el = document.getElementById('pb-ready');
             if (!el) return;
             if (!list || !list.length) { el.classList.remove('show'); return; }
-            const t = pbTally(list);
-            let who = t.slice(0, PB_READY_NAMES).map(function (e) {
-                return e[1] > 1 ? e[0] + ' ×' + e[1] : e[0];
-            }).join(' · ');
-            if (t.length > PB_READY_NAMES) who += ' 외 ' + (t.length - PB_READY_NAMES) + '명';
+            const t = pbTally(list), col = pbColorOf();
             el.textContent = '🎱 구슬 ' + list.length + '개 · 곧 굴러갑니다';
             const sub = document.createElement('span');
             sub.className = 'pb-ready-who';
-            sub.textContent = who;            // 이름은 글자로만 넣는다(태그 안 먹게)
+            // 🎨 대표님: "무슨 색이 누구" — 이름 앞에 그 사람 구슬 색을 찍는다
+            const shown = t.slice(0, PB_READY_NAMES);
+            shown.forEach(function (e, i) {
+                // 한 사람 = 한 덩어리(점·이름·구분점이 줄바꿈에 안 갈라지게) — 구분점은 뒤에 붙인다
+                const one = document.createElement('span');
+                one.className = 'pb-one';
+                const dot = document.createElement('i');
+                dot.className = 'pb-dot';
+                if (col[e[0]]) dot.style.background = col[e[0]];
+                one.appendChild(dot);
+                one.appendChild(document.createTextNode(e[1] > 1 ? e[0] + ' ×' + e[1] : e[0]));
+                if (i < shown.length - 1) { const sp = document.createElement('span'); sp.className = 'pb-sep'; sp.textContent = '·'; one.appendChild(sp); }
+                sub.appendChild(one);
+                sub.appendChild(document.createTextNode(' '));   // 글자로만(태그 안 먹게)
+            });
+            if (t.length > PB_READY_NAMES) sub.appendChild(document.createTextNode(' 외 ' + (t.length - PB_READY_NAMES) + '명'));
             el.appendChild(sub);
             el.classList.add('show');
         }
