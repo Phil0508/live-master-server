@@ -1858,6 +1858,13 @@ DEFAULT_STATE = {
     #    서버만 바꾼다(/api/hell/*) — SERVER_OWNED·PATCH_DENY 에 들어 있다.
     #    ⚠️ 못 채웠다고 벌칙이 생기지 않는다(대표님 2026-09-22: "퇴근빵처럼 채우면 끝, 벌칙 룰렛은 따로").
     "hell": {"on": False, "started_at": 0, "base": {}, "goals": {}, "escaped": []},
+    # 💾 세이브 슬롯 (대표님 2026-09-22: "말 그대로 세이브 파일") — 누르면 저장해 둔 그대로 바뀐다.
+    #    한 칸 = {id, name, layout(위젯 자리·크기), switches(위젯 켜기/끄기), board(떠 있던 게임판), saved_at}
+    #    ⚠️ 게임 속 내용(룰렛 칸·핀볼 명단·점수)은 안 담는다 — 누르는 순간의 내용을 그대로 쓴다.
+    #    ⚠️ 진행 기록이 있는 지옥탈출·퇴근빵·대결은 불러와도 켜지도 꺼지지도 않는다.
+    #    방송이 바뀌어도 남는다(reset_session_keys 에 안 넣는다). 서버만 바꾼다(/api/presets/*).
+    "layout_presets": [],
+    "layout_rev": 0,          # 슬롯을 불러올 때마다 +1 — 열려 있는 편집기가 보고 자리를 다시 읽는다
     "logs": [],               # 점수/기여도 지급 로그 [{time, name, val}] — DEFAULT_STATE에 있어야 재로드 시 유지된다
     "match_logs": [],         # 대결(임시게임) 전용 지급 로그. logs 와 같은 이유로 여기 있어야 살아남는다
     "neon_speed": 1.5,        # 조명 속도 슬라이더(초). 방송 종료 시 보존 대상 목록에도 들어 있는 '설정값'이다
@@ -4712,7 +4719,7 @@ def api_data():
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
                             'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen', 'hell',
-                            'broadcast_started_at')
+                            'broadcast_started_at', 'layout_presets', 'layout_rev')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -5688,20 +5695,269 @@ def api_layout():
         if not isinstance(data, dict):
             return jsonify({"status": "error",
                             "message": "레이아웃 내용(JSON 사전)이 필요합니다"}), 400
-        # ② 임시 파일에 다 쓴 뒤 갈아끼운다. 쓰는 도중에 서버가 죽어도
-        #    예전 배치가 그대로 남는다(반쯤 쓰인 파일은 읽을 수 없다).
-        tmp = LAYOUT_FILE + '.tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp, LAYOUT_FILE)
-        broadcast_event('layout', data)
+        data.pop('__scenes', None)          # 옛 '모드별 배치' 칸 — 세이브 슬롯으로 옮겼다
+        _layout_write(data)
         return jsonify({"status": "success"})
-    if os.path.exists(LAYOUT_FILE):
-        with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
-            return jsonify(json.load(f))
-    return jsonify({})
+    return jsonify(_layout_read())
+
+
+def _layout_read():
+    """배치 파일을 읽는다. 없거나 깨졌으면 빈 사전."""
+    try:
+        if os.path.exists(LAYOUT_FILE):
+            with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
+    except Exception as e:
+        print(f'[배치 읽기 오류] {e}', flush=True)
+    return {}
+
+
+def _layout_write(data):
+    # ② 임시 파일에 다 쓴 뒤 갈아끼운다. 쓰는 도중에 서버가 죽어도
+    #    예전 배치가 그대로 남는다(반쯤 쓰인 파일은 읽을 수 없다).
+    tmp = LAYOUT_FILE + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, LAYOUT_FILE)
+    broadcast_event('layout', data)
+
+
+# ==========================================
+# 💾 세이브 슬롯 (대표님 2026-09-22)
+#    "모드 1번에 룰렛 켜고 엑셀판 밑으로 내린 걸 저장해 두면, 1번 누르면 그대로 바뀌는 것".
+#    담는 것: 위젯 자리·크기 + 위젯 켜기/끄기 + 떠 있던 게임판(하나).
+#    ⚠️ 안 담는 것: 게임 속 내용(룰렛 칸·핀볼 명단)·점수·테마.
+#    ⚠️ 지옥탈출·퇴근빵·대결은 진행 기록이 있어 불러와도 건드리지 않는다.
+# ==========================================
+PRESET_FLAGS = ('sig_tally_enabled', 'donor_rank_enabled', 'best_enabled',
+                'notice_enabled', 'ticker_enabled')
+PRESET_MAX = 60                  # 제한 없이 — 다만 실수로 끝없이 쌓이지 않게 넉넉한 뚜껑만
+PRESET_NAME_MAX = 30
+_SCENE_LABEL = {'roulette': '🎡 룰렛', 'slot': '🎰 슬롯머신', 'siggame': '🃏 시그뒤집기',
+                'dicegame': '🎲 주사위', 'pinball': '🎱 핀볼', 'match': '⚔️ 대결',
+                'race': '🔥 지옥탈출 · 퇴근빵', 'extra': '🎮 번외 게임판'}
+
+
+def _preset_board_now(state):
+    """지금 떠 있는 게임판 이름(BOARD_NAMES 중 하나) — 없으면 ''."""
+    if state.get('roulette_enabled'):
+        return 'roulette'
+    if state.get('slot_enabled') is True:
+        return 'slot'
+    for k in ('siggame', 'dicegame', 'pinball'):
+        g = state.get(k)
+        if isinstance(g, dict) and g.get('enabled'):
+            return k
+    return ''
+
+
+def _preset_switches_now(state):
+    sw = {k: bool(state.get(k)) for k in PRESET_FLAGS}
+    fj = state.get('fundjar')
+    sw['fundjar'] = bool(isinstance(fj, dict) and fj.get('enabled'))
+    return sw
+
+
+def _preset_layout_of(ly):
+    """배치에서 위젯 자리만 떠 낸다(옛 모드 칸·다른 표시는 뺀다)."""
+    out = {'__v': 2, '__free': bool(ly.get('__free', True))}
+    for k, v in ly.items():
+        if k.startswith('__'):
+            continue
+        if isinstance(v, dict) and 'x_px' in v:
+            out[k] = {'x_px': v.get('x_px', 0), 'y_px': v.get('y_px', 0), 'scale': v.get('scale', 1.0)}
+    return out
+
+
+def _presets(state):
+    ps = state.get('layout_presets')
+    if not isinstance(ps, list):
+        ps = []
+    state['layout_presets'] = [p for p in ps if isinstance(p, dict) and p.get('id')]
+    return state['layout_presets']
+
+
+def _preset_new_id():
+    return 'p' + uuid.uuid4().hex[:10]
+
+
+def _presets_migrate(state):
+    """옛 '모드별 배치'(배치 파일의 __scenes)를 슬롯으로 옮긴다 — 한 번만(옮긴 뒤 파일에서 지운다).
+       ⚠️ 지운 뒤 쓰기는 file_lock 안에서 부른다."""
+    ly = _layout_read()
+    sc = ly.get('__scenes')
+    if not isinstance(sc, dict) or not sc:
+        if '__scenes' in ly:
+            ly.pop('__scenes', None); _layout_write(ly)
+        return False
+    ps = _presets(state)
+    base = _preset_layout_of(ly)
+    for key, over in sc.items():
+        if not isinstance(over, dict) or not over or len(ps) >= PRESET_MAX:
+            continue
+        merged = dict(base)
+        for wid, pos in over.items():
+            if isinstance(pos, dict) and 'x_px' in pos:
+                merged[wid] = {'x_px': pos.get('x_px', 0), 'y_px': pos.get('y_px', 0), 'scale': pos.get('scale', 1.0)}
+        ps.append({'id': _preset_new_id(), 'name': _SCENE_LABEL.get(key, key) + ' (옮겨 옴)',
+                   'layout': merged, 'switches': _preset_switches_now(state),
+                   'board': key if key in BOARD_NAMES else '', 'saved_at': int(time.time())})
+    ly.pop('__scenes', None)
+    _layout_write(ly)
+    print('  💾 [세이브 슬롯] 옛 모드별 배치 %d개를 슬롯으로 옮겼습니다' % len(sc), flush=True)
+    return True
+
+
+def _presets_save_state(state):
+    save_data(state)
+    broadcast_event('update', state)
+
+
+@app.route('/api/presets', methods=['GET'])
+def api_presets():
+    with file_lock:
+        state = load_data()
+        if _presets_migrate(state):
+            _presets_save_state(state)
+        return jsonify({'status': 'success', 'presets': _presets(state)})
+
+
+@app.route('/api/presets/save', methods=['POST'])
+def api_presets_save():
+    """지금 상태를 슬롯에 적는다. id 가 있으면 그 칸을 덮고, 없으면 새 칸."""
+    body = request.get_json(silent=True) or {}
+    pid = str(body.get('id') or '')
+    name = str(body.get('name') or '').strip()[:PRESET_NAME_MAX]
+    with file_lock:
+        state = load_data()
+        _presets_migrate(state)
+        ps = _presets(state)
+        snap = {'layout': _preset_layout_of(_layout_read()),
+                'switches': _preset_switches_now(state),
+                'board': _preset_board_now(state),
+                'saved_at': int(time.time())}
+        hit = next((x for x in ps if x.get('id') == pid), None) if pid else None
+        if hit:
+            hit.update(snap)
+            if name:
+                hit['name'] = name
+        else:
+            if len(ps) >= PRESET_MAX:
+                return jsonify({'status': 'error', 'message': '슬롯이 너무 많습니다(%d개). 안 쓰는 걸 지워 주세요' % PRESET_MAX}), 400
+            hit = dict(snap, id=_preset_new_id(), name=name or ('슬롯 %d' % (len(ps) + 1)))
+            ps.append(hit)
+        _presets_save_state(state)
+    return jsonify({'status': 'success', 'preset': hit, 'presets': ps})
+
+
+@app.route('/api/presets/rename', methods=['POST'])
+def api_presets_rename():
+    body = request.get_json(silent=True) or {}
+    pid = str(body.get('id') or '')
+    name = str(body.get('name') or '').strip()[:PRESET_NAME_MAX]
+    if not name:
+        return jsonify({'status': 'error', 'message': '이름을 적어 주세요'}), 400
+    with file_lock:
+        state = load_data()
+        ps = _presets(state)
+        hit = next((x for x in ps if x.get('id') == pid), None)
+        if not hit:
+            return jsonify({'status': 'error', 'message': '없는 슬롯입니다'}), 404
+        hit['name'] = name
+        _presets_save_state(state)
+    return jsonify({'status': 'success', 'presets': ps})
+
+
+@app.route('/api/presets/move', methods=['POST'])
+def api_presets_move():
+    """순서 바꾸기 — dir -1 이면 앞으로, +1 이면 뒤로."""
+    body = request.get_json(silent=True) or {}
+    pid = str(body.get('id') or '')
+    try:
+        d = -1 if int(body.get('dir')) < 0 else 1
+    except (TypeError, ValueError):
+        d = 1
+    with file_lock:
+        state = load_data()
+        ps = _presets(state)
+        i = next((k for k, x in enumerate(ps) if x.get('id') == pid), -1)
+        j = i + d
+        if i >= 0 and 0 <= j < len(ps):
+            ps[i], ps[j] = ps[j], ps[i]
+            _presets_save_state(state)
+    return jsonify({'status': 'success', 'presets': ps})
+
+
+@app.route('/api/presets/delete', methods=['POST'])
+def api_presets_delete():
+    body = request.get_json(silent=True) or {}
+    pid = str(body.get('id') or '')
+    with file_lock:
+        state = load_data()
+        ps = _presets(state)
+        n = len(ps)
+        state['layout_presets'] = [x for x in ps if x.get('id') != pid]
+        if len(state['layout_presets']) == n:
+            return jsonify({'status': 'error', 'message': '없는 슬롯입니다'}), 404
+        _presets_save_state(state)
+    return jsonify({'status': 'success', 'presets': state['layout_presets']})
+
+
+def _preset_apply_board(state, board):
+    """게임판을 슬롯대로. 켤 것이 있으면 켜고(나머지는 _solo_board 가 내린다), 없으면 전부 내린다."""
+    if board not in BOARD_NAMES:
+        board = ''
+    if board == 'roulette':
+        state['roulette_enabled'] = True
+    elif board == 'slot':
+        state['slot_enabled'] = True
+    elif board == 'siggame':
+        _siggame_state(state)['enabled'] = True
+    elif board == 'dicegame':
+        _dicegame_state(state)['enabled'] = True
+    elif board == 'pinball':
+        _pinball_state(state)['enabled'] = True
+    return _solo_board(state, board or '__none__')
+
+
+@app.route('/api/presets/apply', methods=['POST'])
+def api_presets_apply():
+    """슬롯을 불러온다 — 자리 · 켜기/끄기 · 게임판을 저장한 그대로."""
+    body = request.get_json(silent=True) or {}
+    pid = str(body.get('id') or '')
+    with file_lock:
+        state = load_data()
+        _presets_migrate(state)
+        ps = _presets(state)
+        hit = next((x for x in ps if x.get('id') == pid), None)
+        if not hit:
+            return jsonify({'status': 'error', 'message': '없는 슬롯입니다'}), 404
+        # ① 자리 — 슬롯에 없는 위젯(슬롯을 만든 뒤 새로 생긴 것)은 지금 자리 그대로 둔다
+        ly = _layout_read()
+        ly.pop('__scenes', None)
+        for k, v in (hit.get('layout') or {}).items():
+            ly[k] = v
+        ly['__v'] = 2
+        _layout_write(ly)
+        # ② 위젯 켜기/끄기
+        sw = hit.get('switches') or {}
+        for k in PRESET_FLAGS:
+            if k in sw:
+                state[k] = bool(sw[k])
+        if 'fundjar' in sw and isinstance(state.get('fundjar'), dict):
+            state['fundjar']['enabled'] = bool(sw['fundjar'])
+        # ③ 게임판
+        off = _preset_apply_board(state, hit.get('board') or '')
+        try:
+            state['layout_rev'] = int(state.get('layout_rev') or 0) + 1
+        except (TypeError, ValueError):
+            state['layout_rev'] = 1
+        _presets_save_state(state)
+        print('  💾 [세이브 슬롯] "%s" 불러옴 (게임판: %s)' % (hit.get('name'), hit.get('board') or '없음'), flush=True)
+    return jsonify({'status': 'success', 'preset': hit, 'off': off, 'layout': ly})
 
 # ==========================================
 # 🎮 번외 게임 모드 제어 API
@@ -7055,6 +7311,8 @@ PATCH_DENY = frozenset((
     'stage_screen', 'stage_live',
     # 🔥 지옥탈출 — 시작 순간 점수(base)가 밖에서 바뀌면 '받은 돈' 이 통째로 틀어진다
     'hell', 'broadcast_started_at',
+    # 💾 세이브 슬롯도 /api/presets/* 로만 — 낡은 조종실이 통째로 보내면 방금 저장한 칸이 사라진다
+    'layout_presets', 'layout_rev',
 ))
 
 

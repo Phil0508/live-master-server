@@ -4490,48 +4490,10 @@
         const LAY_CODE_OWNED = ['notice'];
         window.LAY_CODE_OWNED = LAY_CODE_OWNED;
 
-        /* 🎬 모드별 배치 (대표님 2026-09-22) — 배치 파일의 __scenes[모드] 에 적힌 위젯만 그 자리로 바꿔 끼운다.
-           모드는 지금 떠 있는 게임으로 정한다. 둘이 같이 떠 있으면 아래 순서가 앞선 쪽(룰렛·슬롯은 잠깐 위에 뜨는 판이라 먼저).
-           ⚠️ 그 모드에 저장한 게 없으면 기본 배치 그대로다 — 저장하기 전까지는 아무것도 안 바뀐다.
-           ⚠️ 편집기는 이미 합친 자리를 넘긴다(__scenes 없음) — 그때는 합칠 것이 없다. */
-        const LAY_SCENES = ['roulette', 'slot', 'siggame', 'dicegame', 'pinball', 'match', 'race', 'extra'];
-        window.LAY_SCENES = LAY_SCENES;
-        let layScene = '';
-        function layoutSceneOf(d) {
-            if (!d) return '';
-            const on = {
-                roulette: !!d.roulette_enabled,
-                slot: d.slot_enabled === true,
-                siggame: !!(d.siggame && d.siggame.enabled),
-                dicegame: !!(d.dicegame && d.dicegame.enabled),
-                pinball: !!(d.pinball && d.pinball.enabled),
-                match: !!(d.match_data && d.match_data.active),
-                race: !!((d.hell && d.hell.on) || d.home_race_enabled),
-                extra: !!d.extra_game_active,
-            };
-            return LAY_SCENES.find(k => on[k]) || '';
-        }
-        function layoutWithScene(ly, scene) {
-            const sc = ly && ly.__scenes && scene ? ly.__scenes[scene] : null;
-            if (!sc || typeof sc !== 'object') return ly;
-            const out = Object.assign({}, ly);
-            Object.keys(sc).forEach(id => { if (sc[id] && typeof sc[id] === 'object') out[id] = sc[id]; });
-            return out;
-        }
-
-        /* 편집기 무대(?monitor=1)는 '편집 중인 모드' 를 따른다 — 방송 상태의 모드가 아니라.
-           안 그러면 편집기가 저장할 때마다 서버가 돌려준 배치가 기본 모드로 그려져 편집 화면과 어긋난다. */
-        let layForced = null;
-        window.setLayoutSceneForced = function (s) {
-            s = s || '';
-            if (layForced === s) return;
-            layForced = s;
-            if (lastLayoutData) applyLayout(lastLayoutData);
-        };
-
+        /* 💾 게임을 켰다고 자리가 저절로 바뀌지 않는다 — 세이브 슬롯을 누를 때만 바뀐다(서버가 배치 파일을 갈아 끼운다).
+              예전 '모드별 배치'(__scenes)는 대표님이 원한 게 아니어서 걷었다(2026-09-22). */
         function applyLayout(ly) {
             if (ly) lastLayoutData = ly;
-            ly = layoutWithScene(ly, layForced !== null ? layForced : layScene);   // 🎬 지금 모드 전용 자리를 덮어 끼운다
             let isExtra = (currentExtraActiveState === true);
             
             /* 📐 편집기에서 잡은 자리·크기를 그대로 쓴다.
@@ -5720,12 +5682,6 @@
                     const audio = document.getElementById('reaction-audio');
                     if (audio) audio.volume = d.reaction_volume;
                 }
-
-                // 🎬 모드가 바뀌면(게임이 켜지고 꺼지면) 그 모드 전용 자리로 — 위젯은 0.8초 미끄러져 옮겨 간다
-                try {
-                    const sc = layoutSceneOf(d);
-                    if (sc !== layScene) { layScene = sc; if (lastLayoutData) applyLayout(lastLayoutData); }
-                } catch (e) { console.warn('[모드별 배치] 건너뜀:', e); }
 
                 // 💡 [번외 게임 활성화 상태 동적 체킹 및 슬라이딩 트리거]
                 let extraActive = d.extra_game_active || false;
