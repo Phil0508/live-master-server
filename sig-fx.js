@@ -649,10 +649,12 @@ class SigEngine {
     xs.forEach((x, i) => {
       const s = this.mk(fx, 'left:' + x + 'px;top:600px;width:80px;height:520px;opacity:0;');
       const rod = document.createElement('div');
-      rod.style.cssText = this.mapCss('position:absolute;left:50%;bottom:0;width:38px;height:460px;border-radius:19px;' +
-        'transform-origin:50% 92%;transform:translateX(-50%);' +
-        'background:linear-gradient(to top,#161616 0,#2a2a2a 15%,#ff2a12 16%,#ff5a1e 45%,#ff9a3a 80%,#ffe0b0 100%);' +
-        'box-shadow:0 0 22px 4px rgba(255,70,20,.9),0 0 70px 14px rgba(255,60,10,.55);', true);
+      /* 🚨 진짜 경광봉 사진(vendor/sigfx/baton.webp, 배경 지운 것). 대표님: "css 로 그리지 말고 진짜 경광봉".
+            빛 번짐은 사진 둘레에 붉은 그림자로 얹는다 — 사진 속 봉이 켜진 것처럼 보이게. */
+      rod.style.cssText = this.mapCss('position:absolute;left:50%;bottom:0;width:60px;height:580px;' +
+        'transform-origin:50% 88%;transform:translateX(-50%);' +
+        'background:url(/vendor/sigfx/baton.webp) center/100% 100% no-repeat;' +
+        'filter:drop-shadow(0 0 10px rgba(255,60,20,.95)) drop-shadow(0 0 34px rgba(255,50,10,.7));', true);
       s.appendChild(rod);
       const lift = [260, 150, 60, 0];            // 한 발짝마다 올라온다(설계 px)
       const T = v => 'translateX(-50%) translateY(' + v + 'px)';   // 가운데 정렬을 매 프레임 같이 적는다
@@ -670,7 +672,7 @@ class SigEngine {
                    { transform: R(20), offset: .7 }, { transform: R(-8), offset: .88 }, { transform: R(0) }],
              900, 700 + i * 25, 'ease-in-out');
       // 번쩍임 — 경광봉은 깜빡인다
-      this.a(rod, [{ opacity: 1 }, { opacity: .55, offset: .25 }, { opacity: 1, offset: .5 }, { opacity: .6, offset: .75 }, { opacity: 1 }],
+      this.a(rod, [{ opacity: 1 }, { opacity: .72, offset: .25 }, { opacity: 1, offset: .5 }, { opacity: .75, offset: .75 }, { opacity: 1 }],
              640, 320 + i * 40, 'steps(1,end)');
       // 흔들고 나면 아래로 빠진다
       this.a(s, [{ transform: T(0), opacity: 1 }, { transform: T(0), opacity: 1, offset: .4 },
