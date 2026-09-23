@@ -140,7 +140,7 @@ class SigEngine {
   /* cardAt = 연출이 카드를 올릴 시점(ms). 연출 안에서 cardIn() 을 부르면 그게 우선한다.
      dur 은 실제 연출 길이 — play() 가 이 값으로 정리 시점을 잡으니 반드시 맞춰 둔다. */
   ITEMS = [
-    { key: 'jinap',  tier: '10만',    name: '진압해',        note: '진압 작전',   dur: 2.4, cardAt: 1000, detail: '경광등이 번쩍이고 방패벽이 쿵쿵 전진, 폴리스라인 뒤에 진압! 도장이 찍힙니다' },
+    { key: 'jinap',  tier: '10만',    name: '진압해',        note: '진압 작전',   dur: 2.4, cardAt: 1000, detail: '경광등이 번쩍이고 경광봉이 쿵쿵 올라와 흔들고, 폴리스라인이 가로지릅니다' },
     { key: 'gazua',  tier: '10만',    name: '가즈아',        note: '화염 분출',   dur: 1.8, cardAt: 620,  detail: '흰 컷이 때리고 빠지며 불기둥이 치솟습니다' },
     { key: 'lambada',tier: '13만',    name: '람바다',        note: '선셋 탱고',   dur: 2.2, cardAt: 700,  detail: '레트로 선셋이 떠오르고 야자 실루엣이 펼쳐집니다' },
     { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '간판 점등',   dur: 2.6, cardAt: 1050, detail: '암전 뒤 호텔 간판이 지지직거리다 탁 켜지고 별 다섯이 박힙니다' },
@@ -600,11 +600,11 @@ class SigEngine {
      대표님 2026-09-23: 100,009 가즈아는 있는데 100,000 진압해가 없었다.
      사진은 '흰 대리석 + 금 글자' 명패라 사진에서 따올 모양이 없다 — 이름(진압)으로 간다.
      ⚠️ 계엄령(25만)의 붉은 비상경보 · 방패(50만)의 방패 하나 내려찍기와 겹치지 않게
-        '경광등 → 방패벽이 쿵쿵 전진 → 폴리스라인 → 진압! 도장' 네 박자로 간다.
-     ⚠️ 세로 방송은 아래 절반에 채팅이 깔린다 — 방패벽은 안전지대 바닥(설계 1080)에 세운다.
-     박자: 경광등 0–320 · 방패 쿵 320/470/620 · 테이프 700 · 도장 IMP=860 */
+        '경광등 → 경광봉이 쿵쿵 전진·흔들기 → 폴리스라인 → 쾅' 네 박자로 간다(가운데 글자 없음).
+     ⚠️ 세로 방송은 아래 절반에 채팅이 깔린다 — 경광봉은 안전지대 바닥(설계 1080)에 세운다.
+     박자: 경광등 0–320 · 경광봉 쿵 320/470/620 · 테이프 700 · 도장 IMP=860 */
   fx_jinap(fx, shake) {
-    const CY = 330;                     // 도장 자리(설계 좌표) — 테이프 두 줄 사이, 방패벽 위
+    const CY = 330;                     // 충격파 자리(설계 좌표) — 테이프 두 줄 사이
     const IMP = 860;
     const RED = '#ff2340', BLUE = '#2f74ff';
     const STEEL = this.col(0, '#7fb2ff');
@@ -636,24 +636,24 @@ class SigEngine {
              1300, 60 + i * 180, 'cubic-bezier(.45,0,.55,1)');
     });
     /* ⚠️ 빛·입자 레이어(캔버스)는 play() 가 맨 먼저 붙여서 맨 아래에 깔린다.
-          그 위에 어둠막을 덮으면 GL 로 그린 '진압!' 이 회색으로 죽는다(실측).
-          바탕(사진·어둠·경광등)을 깐 뒤 캔버스를 그 위로 올린다. 방패·테이프는 그 위. */
+          그 위에 어둠막을 덮으면 GL 로 그린 빛·충격파가 회색으로 죽는다(실측).
+          바탕(사진·어둠·경광등)을 깐 뒤 캔버스를 그 위로 올린다. 경광봉·테이프는 그 위. */
     try { if (this.gl && this.gl.cv && this.gl.cv.parentNode === fx) fx.appendChild(this.gl.cv); } catch (e) {}
 
-    /* ② 방패벽 전진 320·470·620 — 세 번 '쿵'. 한 번 디딜 때마다 화면이 흔들리고 먼지가 인다.
-          방패 다섯 장이 아래에서 올라와 한 칸씩 전진한다. */
+    /* ② 경광봉 전진 320·470·620 — 세 번 '쿵'. 대표님: "방패 말고 경광봉으로".
+          빨간 경광봉 다섯 개가 아래에서 한 걸음씩 올라오고, 다 서면 좌우로 흔들며 통제한다.
+          ⚠️ 올라오기(바깥 틀)와 흔들기(안쪽 봉)를 나눈다 — 한 요소에 둘 다 걸면 나중 것이
+             transform 을 통째로 덮어 올라온 자리가 날아간다. */
     const STEPS = [320, 470, 620];
     const xs = [300, 630, 960, 1290, 1620];
     xs.forEach((x, i) => {
-      const s = this.mk(fx, 'left:' + x + 'px;top:650px;width:260px;height:470px;border-radius:26px 26px 18px 18px;' +
-        'background:linear-gradient(170deg,rgba(220,235,255,.55),rgba(120,150,200,.32) 45%,rgba(40,60,100,.55));' +
-        'box-shadow:inset 0 0 0 5px rgba(220,235,255,.65),inset 0 -40px 60px rgba(0,0,0,.35);opacity:0;');
-      // 방패 가운데 띠 + 글자
-      const band = document.createElement('div');
-      band.style.cssText = this.mapCss('position:absolute;left:0;right:0;top:120px;height:64px;background:rgba(10,20,40,.78);' +
-        'display:flex;align-items:center;justify-content:center;font-family:\'Black Han Sans\',sans-serif;font-size:40px;letter-spacing:.18em;color:#e8f0ff;', true);
-      band.textContent = '진압';
-      s.appendChild(band);
+      const s = this.mk(fx, 'left:' + x + 'px;top:600px;width:80px;height:520px;opacity:0;');
+      const rod = document.createElement('div');
+      rod.style.cssText = this.mapCss('position:absolute;left:50%;bottom:0;width:38px;height:460px;border-radius:19px;' +
+        'transform-origin:50% 92%;transform:translateX(-50%);' +
+        'background:linear-gradient(to top,#161616 0,#2a2a2a 15%,#ff2a12 16%,#ff5a1e 45%,#ff9a3a 80%,#ffe0b0 100%);' +
+        'box-shadow:0 0 22px 4px rgba(255,70,20,.9),0 0 70px 14px rgba(255,60,10,.55);', true);
+      s.appendChild(rod);
       const lift = [260, 150, 60, 0];            // 한 발짝마다 올라온다(설계 px)
       const T = v => 'translateX(-50%) translateY(' + v + 'px)';   // 가운데 정렬을 매 프레임 같이 적는다
       const fr = [{ transform: T(lift[0]), opacity: 0 }];
@@ -663,9 +663,18 @@ class SigEngine {
       });
       fr.push({ transform: T(0), opacity: 1 });
       this.a(s, fr, 700, 300 + (i % 2) * 18, 'cubic-bezier(.2,.8,.3,1)');
-      // 도장이 찍히면 방패는 아래로 빠진다
-      this.a(s, [{ transform: T(0), opacity: 1 }, { transform: T(0), opacity: 1, offset: .5 },
-                 { transform: T(420), opacity: 0 }], 900, 1060 + i * 30, 'cubic-bezier(.5,0,.8,.4)');
+      // 다 서면 좌우로 흔든다 — 옆 봉과 반대 방향으로(통제하는 손짓)
+      const d = (i % 2) ? -1 : 1;
+      const R = v => 'translateX(-50%) rotate(' + (v * d) + 'deg)';
+      this.a(rod, [{ transform: R(0) }, { transform: R(24), offset: .2 }, { transform: R(-22), offset: .45 },
+                   { transform: R(20), offset: .7 }, { transform: R(-8), offset: .88 }, { transform: R(0) }],
+             900, 700 + i * 25, 'ease-in-out');
+      // 번쩍임 — 경광봉은 깜빡인다
+      this.a(rod, [{ opacity: 1 }, { opacity: .55, offset: .25 }, { opacity: 1, offset: .5 }, { opacity: .6, offset: .75 }, { opacity: 1 }],
+             640, 320 + i * 40, 'steps(1,end)');
+      // 흔들고 나면 아래로 빠진다
+      this.a(s, [{ transform: T(0), opacity: 1 }, { transform: T(0), opacity: 1, offset: .4 },
+                 { transform: T(420), opacity: 0 }], 700, 1580 + i * 30, 'cubic-bezier(.5,0,.8,.4)');
     });
     STEPS.forEach((t, k) => {
       this.shake(shake, 14 + k * 8, 160, t + 40);
@@ -691,7 +700,7 @@ class SigEngine {
              1500, at, 'cubic-bezier(.16,1,.3,1)');
     });
 
-    /* ④ 도장 IMP=860 — '진압!' 이 강철 글자로 내리꽂히고 파란 충격파 */
+    /* ④ 쾅 IMP=860 — 파란 충격파. 가운데 글자는 없다(대표님: "가운데 진압! 뜨지 않게") */
     this.flash(fx, '#dfe9ff', .9, 40, IMP);
     this.gImpact(960, CY, { scale: 1.0, color: '#5f9cff', hot: '#eaf2ff' });
     this.gGlow(960, CY, { r: 560, life: 0.5, power: 1.2, color: STEEL, delay: IMP - 20 });
@@ -703,30 +712,6 @@ class SigEngine {
                     { transform: 'translate(-50%,-50%) scale(' + (4.6 + i) + ')', opacity: 0 }],
              700 + i * 120, IMP + d, 'cubic-bezier(.12,.92,.28,1)');
     });
-
-    const JN = this.gl && this.gText('진압!', { size: 230, skew: -0.06,
-      colors: ['#ffffff', '#dbe7ff', '#8fb0e8', '#3a5285', '#d6e6ff'],
-      edge: 'rgba(4,10,26,.94)', edge2: 'rgba(40,70,130,.9)' });
-    if (JN) {
-      const SHATTER = 1900;
-      this.gSprite(JN, {
-        x: 960, y: CY, w: 1000, life: 1.5, delay: IMP - 60,
-        from: { y: -60, scale: 1.7, alpha: 0 }, to: { y: 0, scale: 1, alpha: 1 },
-        ease: 'back', moveK: 0.06, in_: 0.06, out_: 0.001,
-        rim: 1.2, rimColor: '#cfe0ff', sheen: 0.5
-      });
-      this.gShatter(JN, { x: 960, y: CY, w: 1000, step: 4, delay: SHATTER,
-                          life: 1.2, up: 240, spread: 300, gravity: 520, size: 2.6 });
-      this.gSparkle(960, CY, { n: 1600, r: 460, speed: 200, life: 1.2, gravity: 260,
-                               color: '#dce8ff', delay: SHATTER + 30 });
-    } else {
-      const t = this.txt(fx, '진압!', "font-family:'Black Han Sans',sans-serif;font-size:230px;line-height:.9;color:#eef4ff;letter-spacing:.02em;text-shadow:0 0 30px rgba(90,150,255,.9),0 8px 0 #1b2d55;", 215);   // CY-115 — 검사가 숫자로 읽는다
-      this.a(t.w, [{ transform: 'scale(1.7)', opacity: 0 },
-                   { transform: 'scale(.92)', opacity: 1, offset: .5 },
-                   { transform: 'scale(1)',   opacity: 1 }], 220, IMP - 60, 'cubic-bezier(.2,.9,.3,1)');
-      this.a(t.w, [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1)', opacity: 1, offset: .8 },
-                   { transform: 'scale(1.04)', opacity: 0 }], 1300, IMP + 180, 'cubic-bezier(.4,0,.3,1)');
-    }
   }
 
   /* ══ 13만 람바다 — 선셋 탱고 (2.2s) ══ */
