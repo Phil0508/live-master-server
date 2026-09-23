@@ -56,15 +56,15 @@ function done(r) { SigFX.stop(r.st); }
 const ITEMS = SigFX.ITEMS;
 
 /* ══════════════════════════════════════════════════════════════════ */
-hr('① 17개 연출이 예외 없이 도는가');
+hr('① 18개 연출이 예외 없이 도는가');
 const allWarn = [];
 ITEMS.forEach(function (it) {
   const r = run(it.key);
   if (r.warns.length) allWarn.push(it.key + ': ' + r.warns[0]);
   done(r);
 });
-chk('17개 전부 예외 없이 그려진다', allWarn.length === 0, allWarn[0] || '');
-chk('ITEMS 가 17개다', ITEMS.length === 17, ITEMS.length);
+chk('18개 전부 예외 없이 그려진다', allWarn.length === 0, allWarn[0] || '');
+chk('ITEMS 가 18개다 (진압해 추가 2026-09-23)', ITEMS.length === 18, ITEMS.length);
 
 /* ══════════════════════════════════════════════════════════════════ */
 console.log();

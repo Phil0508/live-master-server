@@ -140,6 +140,7 @@ class SigEngine {
   /* cardAt = 연출이 카드를 올릴 시점(ms). 연출 안에서 cardIn() 을 부르면 그게 우선한다.
      dur 은 실제 연출 길이 — play() 가 이 값으로 정리 시점을 잡으니 반드시 맞춰 둔다. */
   ITEMS = [
+    { key: 'jinap',  tier: '10만',    name: '진압해',        note: '진압 작전',   dur: 2.4, cardAt: 1000, detail: '경광등이 번쩍이고 방패벽이 쿵쿵 전진, 폴리스라인 뒤에 진압! 도장이 찍힙니다' },
     { key: 'gazua',  tier: '10만',    name: '가즈아',        note: '화염 분출',   dur: 1.8, cardAt: 620,  detail: '흰 컷이 때리고 빠지며 불기둥이 치솟습니다' },
     { key: 'lambada',tier: '13만',    name: '람바다',        note: '선셋 탱고',   dur: 2.2, cardAt: 700,  detail: '레트로 선셋이 떠오르고 야자 실루엣이 펼쳐집니다' },
     { key: 'hotel',  tier: '15만',    name: '부티호텔',      note: '간판 점등',   dur: 2.6, cardAt: 1050, detail: '암전 뒤 호텔 간판이 지지직거리다 탁 켜지고 별 다섯이 박힙니다' },
@@ -592,6 +593,139 @@ class SigEngine {
                    { transform: 'translateY(-190px) scale(1.04,1)', opacity: 0 }],
              1220, IMP + 390, 'cubic-bezier(.4,0,.3,1)');
       this.a(t.d, [{ color: '#14110c' }, { color: '#fdfaf2' }], 1, 560);
+    }
+  }
+
+  /* ══ 10만 진압해 — 진압 작전 (2.4s) ══
+     대표님 2026-09-23: 100,009 가즈아는 있는데 100,000 진압해가 없었다.
+     사진은 '흰 대리석 + 금 글자' 명패라 사진에서 따올 모양이 없다 — 이름(진압)으로 간다.
+     ⚠️ 계엄령(25만)의 붉은 비상경보 · 방패(50만)의 방패 하나 내려찍기와 겹치지 않게
+        '경광등 → 방패벽이 쿵쿵 전진 → 폴리스라인 → 진압! 도장' 네 박자로 간다.
+     ⚠️ 세로 방송은 아래 절반에 채팅이 깔린다 — 방패벽은 안전지대 바닥(설계 1080)에 세운다.
+     박자: 경광등 0–320 · 방패 쿵 320/470/620 · 테이프 700 · 도장 IMP=860 */
+  fx_jinap(fx, shake) {
+    const CY = 330;                     // 도장 자리(설계 좌표) — 테이프 두 줄 사이, 방패벽 위
+    const IMP = 860;
+    const RED = '#ff2340', BLUE = '#2f74ff';
+    const STEEL = this.col(0, '#7fb2ff');
+    this.gAmbient(2400, { color: '#6f8fd8', density: 0.10 });
+    this.cardGlow(STEEL);
+    this.photoBg(fx, { delay: 900, dur: 1500, blur: 26, bright: .36, max: .78, from: 1.3, to: 1.1 });
+
+    /* ① 경광등 0–1900 — 화면이 어두워지고 양쪽에서 빨강·파랑이 번갈아 친다 */
+    const dim = this.mk(fx, 'inset:0;background:rgba(3,5,12,.62);opacity:0;');
+    this.a(dim, [{ opacity: 0 }, { opacity: 1, offset: .06 }, { opacity: 1, offset: .82 }, { opacity: 0 }], 2380, 0);
+    [[RED, '0% 50%'], [BLUE, '100% 50%']].forEach((v, i) => {
+      const l = this.mk(fx, 'inset:0;opacity:0;mix-blend-mode:screen;background:radial-gradient(60% 75% at ' + v[1] + ',' + v[0] + ' 0%,rgba(0,0,0,0) 70%);');
+      const fr = [];
+      for (let k = 0; k < 12; k++) {             // 0.16초 간격으로 번갈아 — 진짜 경광등 박자
+        const on = (k % 2) === i;
+        fr.push({ opacity: on ? (k < 4 ? .95 : .55) : 0, offset: k / 12 });
+      }
+      fr.push({ opacity: 0, offset: 1 });
+      this.a(l, fr, 1900, 0, 'steps(1,end)');
+    });
+    // 위에서 도는 경광등 빛줄기 두 가닥
+    [RED, BLUE].forEach((c, i) => {
+      const beam = this.mk(fx, 'left:50%;top:-40px;width:180px;height:1500px;transform-origin:50% 0%;' +
+        'background:linear-gradient(to bottom,' + c + ',rgba(0,0,0,0) 85%);mix-blend-mode:screen;opacity:0;filter:blur(18px);');
+      const r0 = i ? 35 : -35;
+      this.a(beam, [{ transform: 'translateX(-50%) rotate(' + r0 + 'deg)', opacity: 0 },
+                    { transform: 'translateX(-50%) rotate(' + (r0 * -0.2).toFixed(0) + 'deg)', opacity: .55, offset: .35 },
+                    { transform: 'translateX(-50%) rotate(' + (-r0).toFixed(0) + 'deg)', opacity: 0 }],
+             1300, 60 + i * 180, 'cubic-bezier(.45,0,.55,1)');
+    });
+    /* ⚠️ 빛·입자 레이어(캔버스)는 play() 가 맨 먼저 붙여서 맨 아래에 깔린다.
+          그 위에 어둠막을 덮으면 GL 로 그린 '진압!' 이 회색으로 죽는다(실측).
+          바탕(사진·어둠·경광등)을 깐 뒤 캔버스를 그 위로 올린다. 방패·테이프는 그 위. */
+    try { if (this.gl && this.gl.cv && this.gl.cv.parentNode === fx) fx.appendChild(this.gl.cv); } catch (e) {}
+
+    /* ② 방패벽 전진 320·470·620 — 세 번 '쿵'. 한 번 디딜 때마다 화면이 흔들리고 먼지가 인다.
+          방패 다섯 장이 아래에서 올라와 한 칸씩 전진한다. */
+    const STEPS = [320, 470, 620];
+    const xs = [300, 630, 960, 1290, 1620];
+    xs.forEach((x, i) => {
+      const s = this.mk(fx, 'left:' + x + 'px;top:650px;width:260px;height:470px;border-radius:26px 26px 18px 18px;' +
+        'background:linear-gradient(170deg,rgba(220,235,255,.55),rgba(120,150,200,.32) 45%,rgba(40,60,100,.55));' +
+        'box-shadow:inset 0 0 0 5px rgba(220,235,255,.65),inset 0 -40px 60px rgba(0,0,0,.35);opacity:0;');
+      // 방패 가운데 띠 + 글자
+      const band = document.createElement('div');
+      band.style.cssText = this.mapCss('position:absolute;left:0;right:0;top:120px;height:64px;background:rgba(10,20,40,.78);' +
+        'display:flex;align-items:center;justify-content:center;font-family:\'Black Han Sans\',sans-serif;font-size:40px;letter-spacing:.18em;color:#e8f0ff;', true);
+      band.textContent = '진압';
+      s.appendChild(band);
+      const lift = [260, 150, 60, 0];            // 한 발짝마다 올라온다(설계 px)
+      const T = v => 'translateX(-50%) translateY(' + v + 'px)';   // 가운데 정렬을 매 프레임 같이 적는다
+      const fr = [{ transform: T(lift[0]), opacity: 0 }];
+      STEPS.forEach((t, k) => {
+        fr.push({ transform: T(lift[k + 1] - 14), opacity: 1, offset: (t - 300 + 60) / 700 });
+        fr.push({ transform: T(lift[k + 1]), opacity: 1, offset: Math.min(.99, (t - 300 + 110) / 700) });
+      });
+      fr.push({ transform: T(0), opacity: 1 });
+      this.a(s, fr, 700, 300 + (i % 2) * 18, 'cubic-bezier(.2,.8,.3,1)');
+      // 도장이 찍히면 방패는 아래로 빠진다
+      this.a(s, [{ transform: T(0), opacity: 1 }, { transform: T(0), opacity: 1, offset: .5 },
+                 { transform: T(420), opacity: 0 }], 900, 1060 + i * 30, 'cubic-bezier(.5,0,.8,.4)');
+    });
+    STEPS.forEach((t, k) => {
+      this.shake(shake, 14 + k * 8, 160, t + 40);
+      this.gPlume(960, 1040, { scale: 0.7 + k * 0.15, life: 1.2, density: 0.28, rise: 120, color: '#9aa8c6', delay: t + 30, n: 2 });
+    });
+
+    /* ③ 폴리스라인 700 — 노랑·검정 테이프 두 줄이 X 로 휙 가로지른다 */
+    [[-6, 700, 120], [5, 780, 520]].forEach((v) => {
+      const rot = v[0], at = v[1], y = v[2];
+      const tape = this.mk(fx, 'left:50%;top:' + y + 'px;width:2600px;height:74px;' +
+        'background:repeating-linear-gradient(-45deg,#ffd400 0 38px,#111 38px 76px);' +
+        'box-shadow:0 6px 18px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;opacity:0;');
+      const lab = document.createElement('div');
+      lab.style.cssText = this.mapCss('padding:0 30px;background:#ffd400;color:#111;font-family:\'Black Han Sans\',sans-serif;' +
+        'font-size:46px;letter-spacing:.12em;white-space:nowrap;', true);
+      lab.textContent = 'POLICE LINE · 진압 중 · 접근 금지';
+      tape.appendChild(lab);
+      const from = rot < 0 ? 1400 : -1400;
+      this.a(tape, [{ transform: 'translateX(-50%) translateX(' + from + 'px) rotate(' + rot + 'deg)', opacity: 1 },
+                    { transform: 'translateX(-50%) translateX(0px) rotate(' + rot + 'deg)', opacity: 1, offset: .18 },
+                    { transform: 'translateX(-50%) translateX(' + (-from * 0.03).toFixed(0) + 'px) rotate(' + rot + 'deg)', opacity: 1, offset: .82 },
+                    { transform: 'translateX(-50%) translateX(' + (-from * 0.05).toFixed(0) + 'px) rotate(' + rot + 'deg)', opacity: 0 }],
+             1500, at, 'cubic-bezier(.16,1,.3,1)');
+    });
+
+    /* ④ 도장 IMP=860 — '진압!' 이 강철 글자로 내리꽂히고 파란 충격파 */
+    this.flash(fx, '#dfe9ff', .9, 40, IMP);
+    this.gImpact(960, CY, { scale: 1.0, color: '#5f9cff', hot: '#eaf2ff' });
+    this.gGlow(960, CY, { r: 560, life: 0.5, power: 1.2, color: STEEL, delay: IMP - 20 });
+    this.shake(shake, 46, 320, IMP);
+    this.shake(shake, 10, 200, IMP + 340);
+    [0, 80].forEach((d, i) => {
+      const ring = this.mk(fx, 'left:50%;top:' + CY + 'px;width:340px;height:340px;border-radius:50%;border:' + (12 - i * 4) + 'px solid rgba(120,170,255,' + (.8 - i * .25) + ');transform:translate(-50%,-50%) scale(.2);opacity:0;');
+      this.a(ring, [{ transform: 'translate(-50%,-50%) scale(.2)', opacity: 1 },
+                    { transform: 'translate(-50%,-50%) scale(' + (4.6 + i) + ')', opacity: 0 }],
+             700 + i * 120, IMP + d, 'cubic-bezier(.12,.92,.28,1)');
+    });
+
+    const JN = this.gl && this.gText('진압!', { size: 230, skew: -0.06,
+      colors: ['#ffffff', '#dbe7ff', '#8fb0e8', '#3a5285', '#d6e6ff'],
+      edge: 'rgba(4,10,26,.94)', edge2: 'rgba(40,70,130,.9)' });
+    if (JN) {
+      const SHATTER = 1900;
+      this.gSprite(JN, {
+        x: 960, y: CY, w: 1000, life: 1.5, delay: IMP - 60,
+        from: { y: -60, scale: 1.7, alpha: 0 }, to: { y: 0, scale: 1, alpha: 1 },
+        ease: 'back', moveK: 0.06, in_: 0.06, out_: 0.001,
+        rim: 1.2, rimColor: '#cfe0ff', sheen: 0.5
+      });
+      this.gShatter(JN, { x: 960, y: CY, w: 1000, step: 4, delay: SHATTER,
+                          life: 1.2, up: 240, spread: 300, gravity: 520, size: 2.6 });
+      this.gSparkle(960, CY, { n: 1600, r: 460, speed: 200, life: 1.2, gravity: 260,
+                               color: '#dce8ff', delay: SHATTER + 30 });
+    } else {
+      const t = this.txt(fx, '진압!', "font-family:'Black Han Sans',sans-serif;font-size:230px;line-height:.9;color:#eef4ff;letter-spacing:.02em;text-shadow:0 0 30px rgba(90,150,255,.9),0 8px 0 #1b2d55;", 215);   // CY-115 — 검사가 숫자로 읽는다
+      this.a(t.w, [{ transform: 'scale(1.7)', opacity: 0 },
+                   { transform: 'scale(.92)', opacity: 1, offset: .5 },
+                   { transform: 'scale(1)',   opacity: 1 }], 220, IMP - 60, 'cubic-bezier(.2,.9,.3,1)');
+      this.a(t.w, [{ transform: 'scale(1)', opacity: 1 }, { transform: 'scale(1)', opacity: 1, offset: .8 },
+                   { transform: 'scale(1.04)', opacity: 0 }], 1300, IMP + 180, 'cubic-bezier(.4,0,.3,1)');
     }
   }
 
