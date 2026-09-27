@@ -243,6 +243,112 @@
             .lg-row .k, .lg-row .w { display: none; }
             .lg-q { width: 100%; }
         }
+
+        /* 🎨 시안 A 모양 (대표님 2026-09-28: "사진처럼 안 되어 있는데?") — 색만이 아니라 판·줄·단추 모양까지.
+           ⚠️ 동작은 그대로다. 대부분 넓은 화면(한 창)에만 걸고, 반쪽 화면은 예전 짜임을 지킨다. */
+        /* 판 — 흐림·그림자·그라데이션을 걷고 납작하게 */
+        .group-box { background: var(--bg-panel) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+                     box-shadow: none !important; border: 1px solid var(--border-light) !important; }
+        /* 맨 윗줄 */
+        .header { border-bottom: 1px solid var(--border-light); padding-bottom: 12px; }
+        #ios-mini-media-panel { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+        #btn-editor { background: transparent !important; color: var(--text-muted) !important; border: 1px solid var(--border-light) !important; }
+        #skip-reaction-btn-main { background: var(--bg-card) !important; color: var(--text-main) !important; border: 1px solid var(--border-light) !important; }
+        .hdr-timer { display: flex; align-items: center; gap: 8px; padding: 0 14px; border-left: 1px solid var(--border-light); border-right: 1px solid var(--border-light); }
+        .hdr-timer b { font-size: var(--fs-7); font-weight: 800; letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+        .hdr-timer small { color: var(--text-muted); font-size: var(--fs-2); margin-right: 4px; }
+        .hdr-timer button { margin: 0; height: 32px; padding: 0 12px; font-weight: 700; }
+        .hdr-timer .hdr-go { background: var(--accent); border-color: var(--accent); color: #1b1404; }
+        @media (min-width: 1280px) {
+            /* 탭 — 한 줄, 금색 밑줄. 가끔 쓰는 탭은 오른쪽에 작게, 나머지는 ⋯ 뒤로 */
+            .tabs.tabs-2row { flex-wrap: nowrap; background: transparent; border: 0; border-bottom: 1px solid var(--border-light);
+                              border-radius: 0; box-shadow: none; padding: 0; backdrop-filter: none; -webkit-backdrop-filter: none; align-items: flex-end; }
+            .tabs-2row .tab-row2 { flex: 1 1 auto; flex-basis: auto; justify-content: flex-end; flex-wrap: nowrap; min-width: 0; }
+            .tabs-2row .tab-row2 .tab-glabel { display: none; }
+            .tabs-2row .tab-btn { padding: 10px 14px; border-radius: 0; }
+            .tabs-2row .tab-btn.tab-minor { padding: 10px 9px; font-size: var(--fs-2); }
+            body:not(.tabs-open) .tabs-2row .tab-x { display: none !important; }
+            body.tabs-open .tabs-2row .tab-row2 { flex-wrap: wrap; }
+            body.tabs-open .tabs-2row .tab-dots { color: var(--accent); }
+            /* 세이브 슬롯 — 칩 한 줄 */
+            #ps-box { background: transparent !important; border: 0 !important; padding: 10px 0 !important; margin-bottom: 4px !important;
+                      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+            #ps-box > .group-title { margin: 0; padding: 0; border: 0; font-size: var(--fs-2); color: var(--text-muted); font-weight: 700; }
+            #ps-box > .group-title span, #ps-box > .group-title i { display: none; }
+            #ps-btns { display: contents !important; }
+            #ps-btns button, #ps-box .ps-new { margin: 0 !important; height: 30px; padding: 0 13px; border-radius: var(--r-full); font-size: var(--fs-3); }
+            #ps-box .ps-new { background: transparent; border-style: dashed; color: var(--text-muted); }
+        }
+        @media (min-width: 1280px) {
+            /* 맨 윗줄 — 한 줄로(연결 · 타이머 · 음악 · 단추들). 예전엔 줄이 넘쳐 단추가 아랫줄로 떨어졌다 */
+            .header { flex-wrap: nowrap; gap: 14px; margin-bottom: 16px; }
+            .header > h1 { flex: none; }
+            .header .header-buttons { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap !important; justify-content: flex-end; gap: 8px !important; }
+            #ios-mini-media-panel { flex: 1 1 auto; min-width: 0; }
+            #yt-video-title { max-width: 130px !important; }
+            .header button, .header .toggle-label, .hdr-timer small { white-space: nowrap; }
+            #yt-time-display, #ios-mini-media-panel button[onclick^="skipYtVideo"] { display: none !important; }   /* 좁은 한 줄에선 시간·10초 건너뛰기는 접는다(BGM 탭에 다 있다) */
+            #lbl-reaction-wrapper { padding: 0 10px !important; gap: 8px; }
+            #yt-progress-bar { flex: 1 1 auto; min-width: 60px; }
+            /* ⚠️ 앞(두 줄 탭) 규칙이 뒤에 있어 같은 무게면 진다 — 한 단계 무겁게 쓴다 */
+            .tabs.tabs-2row .tab-row2 { flex: 1 1 auto; flex-basis: auto; justify-content: flex-end; flex-wrap: nowrap; min-width: 0; }
+            body.tabs-open .tabs.tabs-2row .tab-row2 { flex-wrap: wrap; }
+        }
+        .rk-table td input[type="number"] { max-width: 150px; }
+        .tabs .tab-btn.tab-dots { display: none; }   /* ⋯ 는 넓은 화면(탭을 접어 둘 때)에만 */
+        @media (min-width: 1280px) { .tabs .tab-btn.tab-dots { display: inline-flex; } }
+        /* 점수표 */
+        .rk-table th { text-align: left; font-size: var(--fs-2); color: var(--text-muted); font-weight: 700; }
+        .rk-table th.num { text-align: right; }
+        .rk-table td { padding-top: 8px !important; padding-bottom: 8px !important; }
+        .rk-table td > div { justify-content: flex-start !important; }
+        .rk-table .rank-badge { border-radius: 6px; width: 24px; height: 24px; box-shadow: none; background: var(--surface-2); color: var(--text-muted); }
+        .rk-table .rank-badge.badge-1st { background: var(--accent); color: #1b1404; }
+        .rk-nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+        .rk-nm input { background: transparent !important; border-color: transparent !important; font-weight: 700; font-size: var(--fs-4);
+                       padding-left: 4px !important; height: 30px; }
+        .rk-nm input:hover { border-color: var(--border-light) !important; }
+        .rk-nm input:focus { border-color: var(--accent) !important; background: var(--bg-input) !important; }
+        .rk-meter { height: 3px; background: var(--border-light); border-radius: 2px; margin-left: 4px; max-width: 220px; overflow: hidden; }
+        .rk-meter i { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+        .rk-table .score-display { text-align: right; }
+        .rk-table td input[type="number"] { height: 32px; }
+        .rk-table td:last-child button { background: transparent; border-color: transparent; color: var(--text-dim); }
+        .rk-table td:last-child button:hover { color: var(--danger); border-color: var(--border-light); }
+        /* 오른쪽 칸 */
+        @media (min-width: 1280px) {
+            .shell-rail > .group-box, .shell-rail > #recent-strip { background: var(--bg-card) !important; border: 0 !important; border-radius: var(--r-3); }
+            .shell-rail #pending-box { background: rgba(226, 182, 75, 0.10) !important; border: 0 !important; }
+            .shell-rail #pending-box .group-title { color: var(--accent) !important; border: 0 !important; padding-bottom: 0 !important; margin-bottom: 8px; }
+            .shell-rail .pending-item { background: transparent !important; border: 0 !important; padding: 6px 0 !important; margin: 0 !important; }
+            .shell-rail .pending-item + .pending-item { border-top: 1px solid rgba(226, 182, 75, 0.2) !important; padding-top: 10px !important; }
+            .shell-rail .pending-info { font-size: var(--fs-3); }
+            .shell-rail .pending-info b { font-size: var(--fs-4); }
+            .shell-rail .bj-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+            .shell-rail .bj-buttons > span:first-child { display: none; }
+            .shell-rail .bj-btn { margin: 0; height: 36px; justify-content: center; border-color: rgba(226, 182, 75, 0.35); background: var(--bg-card); font-weight: 700; }
+            .shell-rail .bj-buttons > button[onclick^="assignSplitEqual"], .shell-rail .bj-buttons .delete-btn {
+                grid-column: span 2; height: 26px; background: none !important; border: 0 !important; color: var(--text-muted) !important;
+                font-weight: 600; font-size: var(--fs-2); padding: 0; }
+            .shell-rail .bj-buttons > button[onclick^="assignSplitEqual"] { justify-content: flex-start; }
+            .shell-rail .bj-buttons .delete-btn { justify-content: flex-end; }
+            .shell-rail .bj-buttons .delete-btn:hover { color: var(--danger) !important; }
+            /* 🆕 줄 — 목록으로 */
+            .shell-rail #recent-strip { position: relative; flex-direction: column; align-items: stretch; gap: 2px; padding: 12px 14px; }
+            .shell-rail #recent-strip .rs-cap { margin-bottom: 6px; font-size: var(--fs-2); }
+            .shell-rail #recent-strip .rs-chip { display: flex; align-items: baseline; gap: 6px; border: 0; background: none; padding: 3px 0; border-radius: 0; }
+            .shell-rail #recent-strip .rs-chip .rs-n { order: 1; font-weight: 700; }
+            .shell-rail #recent-strip .rs-chip .rs-t { order: 2; margin: 0; }
+            .shell-rail #recent-strip .rs-chip b { order: 3; margin-left: auto; color: var(--accent); }
+            .shell-rail #recent-strip .rs-more { position: absolute; top: 9px; right: 10px; height: 24px; background: none; border: 0; color: var(--text-muted); }
+            /* 재생 대기열 — 지금 것은 크게, 다음 것은 번호 줄 */
+            .rq-row:not(.first) { grid-template-columns: minmax(0, 1fr) auto 26px; padding: 5px 0; }
+            .rq-row:not(.first) .rq-th { display: none; }
+            .rq-row:not(.first) b { font-weight: 600; }
+            .rq-row.first { grid-template-columns: 48px minmax(0, 1fr) auto 26px; padding-bottom: 10px; }
+            .rq-row.first .rq-th { width: 48px; height: 48px; }
+            .rq-row.first b { font-size: var(--fs-4); }
+        }
         /* 🪟 한 창 조종실 (대표님 2026-09-28 · 시안 1) — 후원 콘솔을 따로 안 띄워도 되게 오른쪽 칸에 작게 넣는다.
            넓은 화면(1280px 이상)에서만. 좁으면 예전처럼 대기함·🆕 줄이 탭 밑(상단 고정)으로 돌아간다(railPlace).
            ⚠️ 오른쪽 칸은 따로 스크롤된다 — 점수표를 내려도 대기함이 늘 보여야 한다. */
@@ -1408,6 +1514,8 @@
                 <span style="width: 7px; height: 7px; background: var(--success); border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite;"></span> 연결됨 · <span id="latency-val">--ms</span>
             </span>
         </h1>
+        <!-- ⏱ 대결 타이머 — 대결 중에만 뜬다(시안 A·B: 제일 많이 누른 ▶ 시작 56번 · +1분 46번) -->
+        <div id="hdr-timer" class="hdr-timer" style="display:none;"></div>
         <div class="header-buttons" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
             <!-- ☕ 깨워두기 버튼은 없앴다 — Render 무료 서버를 안 재우려던 유물이다.
                  지금은 Vultr 유료 서버라 잠들지 않는다. (서버 쪽 기능은 Render 폴백용으로 남아 있다) -->
@@ -1505,13 +1613,15 @@
             <span class="tab-glabel">가끔</span>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
-            <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-logs'); renderLogFeed(true);"><i class="fa-solid fa-list-ul"></i> 로그</button>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
-            <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn tab-minor"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
+            <!-- ⋯ 뒤 — 넓은 화면(한 창)에서는 접어 둔다. 후원 콘솔은 오른쪽 칸이 대신하므로 여기로 -->
+            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
+            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
+            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
+            <a class="tab-x" href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
+            <a class="tab-x" href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn tab-minor"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
+            <button type="button" class="tab-btn tab-minor tab-dots" onclick="document.body.classList.toggle('tabs-open')" title="나머지 탭 펴기/접기">⋯</button>
             </div>
         </div>
         <!-- 후원 결재 대기함 (탭과 무관하게 항상 보인다) -->
@@ -1680,7 +1790,7 @@
             <div class="group-title"><i class="fa-solid fa-floppy-disk"></i> 세이브 슬롯
                 <span style="font-size: var(--fs-1); color: var(--text-muted); font-weight: 600; margin-left: 6px;">누르면 그 화면으로 바로 바뀝니다 · 이름·덮어쓰기·지우기는 편집기에서</span></div>
             <div id="ps-btns" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-            <button type="button" onclick="psSaveNew()" style="margin-top:10px;" title="지금 화면(위젯 자리 · 켜고 끈 위젯 · 떠 있는 게임판)을 새 슬롯으로 저장합니다"><i class="fa-solid fa-plus"></i> 지금 상태를 새 슬롯으로 저장</button>
+            <button type="button" class="ps-new" onclick="psSaveNew()" title="지금 화면(위젯 자리 · 켜고 끈 위젯 · 떠 있는 게임판)을 새 슬롯으로 저장합니다"><i class="fa-solid fa-plus"></i> 지금 상태를 새 슬롯으로 저장</button>
         </div>
 
 
@@ -1712,7 +1822,7 @@
         </div>
 
         <div class="table-responsive">
-            <table>
+            <table class="rk-table">
                 <thead id="ranking-thead"></thead>
                 <tbody id="ranking-tbody"></tbody>
             </table>
@@ -3802,26 +3912,29 @@
             let tHeadHtml = '';
             if (isExtra) {
                 tHeadHtml = `<tr>
-                    <th>이름</th>
-                    <th>현재 점수</th>
-                    <th>🔥 기여도 (클릭 시 수정)</th>
-                    <th>점수/기여 추가 (Enter)</th>
+                    <th>순위 · 이름</th>
+                    <th class="num">점수</th>
+                    <th class="num" title="숫자를 누르면 고칠 수 있어요">기여도</th>
+                    <th>점수/기여 추가</th>
                     <th><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);" disabled><i class="fa-solid fa-plus"></i></button></th>
                 </tr>`;
             } else {
                 tHeadHtml = `<tr>
-                    <th>이름</th>
-                    <th>현재 점수</th>
-                    <th>🔥 기여도 (클릭 시 수정)</th>
-                    <th>점수 추가 (Enter)</th>
+                    <th>순위 · 이름</th>
+                    <th class="num">점수</th>
+                    <th class="num" title="숫자를 누르면 고칠 수 있어요">기여도</th>
+                    <th>점수 추가</th>
                     <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: var(--fs-2); background: rgba(226, 182, 75, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);"><i class="fa-solid fa-plus"></i></button></th>
                 </tr>`;
             }
             document.getElementById('ranking-thead').innerHTML = tHeadHtml;
 
             // 2. 바디 동적 렌더링
+            // 📊 이름 밑 막대 — 1등을 100 으로 두고 얼마나 따라왔나(시안 A)
+            const _rkMax = Math.max(1, ...targetList.map(b => Number(b.score) || 0));
             let rHtml = '';
             targetList.forEach((bj, i) => { 
+                const _rkPct = Math.max(0, Math.min(100, Math.round((Number(bj.score) || 0) / _rkMax * 100)));
                 let badgeClass = '';
                 if (i === 0) badgeClass = 'badge-1st';
                 else if (i === 1) badgeClass = 'badge-2nd';
@@ -3835,7 +3948,7 @@
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" disabled style="flex: 1; text-align: left; padding-left: 10px;">
+                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" disabled style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
@@ -3848,7 +3961,7 @@
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" style="flex: 1; text-align: left; padding-left: 10px;">
+                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
@@ -8451,7 +8564,7 @@ const FOLD_DEFAULT = ['기본 설정', '기본 대결 화면 설정', '투네이
                       'OTP 보안 설정', '클라우드 영구 저장소', '오프라인 비상 백업'];
 function initFoldablePanels() {
     document.querySelectorAll('.group-box').forEach(box => {
-        if (box.id === 'pending-box') return;              // 대기함은 자기 접기가 따로 있다
+        if (box.id === 'pending-box' || box.id === 'ps-box') return;   // 대기함은 자기 접기가 · 세이브 슬롯은 칩 한 줄이라 접을 게 없다
         const t = box.querySelector('.group-title');
         if (!t || t.parentElement !== box) return;         // 제목이 바로 아래 있을 때만
         // ⚠️ 제목이 이미 자기 여닫기를 갖고 있으면 건드리지 않는다.
@@ -8741,7 +8854,7 @@ initFoldablePanels();
 
         /* 🪟 한 창 조종실 — 넓으면 대기함·🆕 줄·되돌리기를 오른쪽 칸으로, 좁으면 탭 밑(상단 고정)으로 되돌린다.
               ⚠️ 요소를 **옮긴다**(복사 아님) — id·버튼이 그대로라 다른 코드는 아무것도 몰라도 된다. */
-        var RAIL_MQ = window.matchMedia('(min-width: 1280px)');
+        var RAIL_MQ = window.RAIL_MQ = window.matchMedia('(min-width: 1280px)');
         function railPlace() {
             const rail = document.getElementById('shell-rail'), top = document.getElementById('sticky-top');
             const anchor = document.getElementById('context-strip');
@@ -8835,11 +8948,11 @@ initFoldablePanels();
             list.innerHTML = '';
             q.slice(0, 6).forEach(function (it, i) {
                 const row = document.createElement('div');
-                row.className = 'rq-row' + (i === 0 && !paused ? ' now' : '');
+                row.className = 'rq-row' + (i === 0 ? ' first' : '') + (i === 0 && !paused ? ' now' : '');
                 const th = document.createElement('div'); th.className = 'rq-th';
                 if (it.image_url) th.style.backgroundImage = 'url("' + String(it.image_url).replace(/"/g, '%22') + '")';
                 const mid = document.createElement('div');
-                const b = document.createElement('b'); b.textContent = it.title || '시그니처';
+                const b = document.createElement('b'); b.textContent = (i > 0 ? (i + 1) + '. ' : '') + (it.title || '시그니처');
                 const sm = document.createElement('small'); sm.textContent = (i === 0 ? (paused ? '다음 차례 · ' : '재생 중 · ') : '') + (it.donator || '익명');
                 mid.appendChild(b); mid.appendChild(sm);
                 const am = document.createElement('span'); am.className = 'rq-a'; am.textContent = Number(it.amount || 0).toLocaleString();
@@ -8898,7 +9011,7 @@ initFoldablePanels();
                 const amt = (l.val > 0 ? '+' : '') + Number(l.val || 0).toLocaleString() + (c ? ' 기여도' : '점');
                 return '<span class="rs-chip' + (c ? ' rs-c' : '') + (i === 0 && fresh ? ' rs-new' : '') + '">'
                     + '<span class="rs-t">' + escapeHTML(hm(l.time)) + '</span>'
-                    + escapeHTML(String(l.name || '')) + ' <b>' + amt + '</b></span>';
+                    + '<span class="rs-n">' + escapeHTML(String(l.name || '')) + '</span> <b>' + amt + '</b></span>';
             }).join('') + '<button type="button" class="rs-more" onclick="openTabById(\'tab-logs\')" title="로그 탭에서 전부 보기">전체 ▸</button>';
             if (box.style.display === 'none') box.style.display = '';
             if (fresh) setTimeout(() => { try { renderRecentStrip(); } catch (e) {} }, 8200);   // 테두리 걷기
@@ -9817,6 +9930,7 @@ function openTabById(tid) {
     if (!btn) return;
     // [그 밖에] 뒤에 접힌 탭이면 먼저 편다 — 안 그러면 눌린 탭이 어디 있는지 안 보인다
     if (btn.classList.contains('tab-extra') && !document.body.classList.contains('tabs-more')) toggleTabsMore();
+    if (btn.closest('.tab-x') || btn.classList.contains('tab-x')) document.body.classList.add('tabs-open');
     btn.click();
 }
 function cxTimerText(md) {
@@ -9830,7 +9944,19 @@ function renderContextStrip() {
     if (!el || typeof gd === 'undefined' || !gd) return;
     const parts = [];
     const md = gd.match_data;
-    if (md && md.active) {
+    /* ⏱ 넓은 화면(한 창)이면 대결 타이머는 맨 윗줄(#hdr-timer)에 크게 — 아래 칩은 안 만든다 */
+    const _hdr = document.getElementById('hdr-timer');
+    const _wideT = !!(_hdr && window.RAIL_MQ && RAIL_MQ.matches);
+    if (_hdr) {
+        const hh = (md && md.active && _wideT)
+            ? '<b id="hdr-mt">' + cxTimerText(md) + '</b><small>대결 남음</small>'
+              + '<button type="button" class="hdr-go" onclick="toggleTimer()">' + (md.is_running ? '⏸ 정지' : '▶ 시작') + '</button>'
+              + '<button type="button" onclick="modifyTimer(1, \'min\')">+1분</button>'
+            : '';
+        if (_hdr.dataset.sig !== hh) { _hdr.dataset.sig = hh; _hdr.innerHTML = hh; }
+        _hdr.style.display = hh ? 'flex' : 'none';
+    }
+    if (md && md.active && !_wideT) {
         parts.push('<span class="cx-chip">⚔ 대결 <span class="cx-num" id="cx-mt">' + cxTimerText(md) + '</span>'
             + '<button onclick="toggleTimer()">' + (md.is_running ? '⏸ 정지' : '▶ 시작') + '</button>'
             + '<button onclick="modifyTimer(1, \'min\')">+1분</button>'
@@ -9851,7 +9977,7 @@ function renderContextStrip() {
             + '<button onclick="openTabById(\'tab-dicegame\')">탭 열기</button></span>');
     }
     const q = (gd.reaction_queue || []).length;
-    if (q > 0) {
+    if (q > 0 && !_wideT) {   // 넓은 화면이면 오른쪽 칸 '재생 대기열' 이 대신한다
         parts.push('<span class="cx-chip">🎵 재생 대기 <span class="cx-num">' + q + '</span>'
             + '<button onclick="skipCurrentReaction()">건너뛰기</button></span>');
     }
@@ -9861,8 +9987,8 @@ function renderContextStrip() {
 }
 // 대결 시간은 초마다 흐른다 — 숫자만 갱신 (통째로 다시 그리면 클릭이 끊긴다)
 setInterval(() => {
-    const t = document.getElementById("cx-mt");
-    if (t && typeof gd !== 'undefined' && gd && gd.match_data && gd.match_data.active) t.textContent = cxTimerText(gd.match_data);
+    if (typeof gd === 'undefined' || !gd || !gd.match_data || !gd.match_data.active) return;
+    ['cx-mt', 'hdr-mt'].forEach(function (id) { const t = document.getElementById(id); if (t) t.textContent = cxTimerText(gd.match_data); });
 }, 1000);
 setInterval(renderContextStrip, 1500);
 
