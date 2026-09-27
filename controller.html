@@ -181,6 +181,16 @@
         .sys-danger { border-color: rgba(255, 69, 58, 0.45); background: rgba(255, 69, 58, 0.04); }
         .sys-danger .sys-head { color: var(--danger); }
         .sys-soft-danger { height: 42px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); display: inline-flex; align-items: center; gap: 8px; }
+        /* 🎱 핀볼 참가자 표 — 이름 칸 + 구슬 개수 칸 (대표님 2026-09-27: "양양*2 말고 칸으로") */
+        .pb-rows { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; margin-bottom: 8px; }
+        .pb-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 6px; align-items: center; }
+        .pb-row input { margin: 0; min-width: 0; }
+        .pb-row .pb-rc { width: 72px; text-align: center; font-variant-numeric: tabular-nums; }
+        .pb-row button { margin: 0; height: 36px; min-width: 36px; padding: 0 8px; justify-content: center; }
+        .pb-row .pb-rx { color: var(--danger); border-color: rgba(255, 69, 58, 0.3); background: rgba(255, 69, 58, 0.06); }
+        .pb-rows-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+        #pb-total { font-size: var(--fs-2); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        #pb-total.over { color: var(--danger); font-weight: 800; }
         /* 🗂️ 탭 두 줄 (2026-09-27 시안 B) — 윗줄 자주, 아랫줄 가끔.
            ⚠️ 아랫줄은 .tab-row2 한 덩어리다. 폭이 모자라면 각 줄 안에서만 접힌다(폰에선 아랫줄은 옆으로 민다). */
         .tabs.tabs-2row { flex-wrap: wrap; overflow-x: visible; white-space: normal; row-gap: 4px; }
@@ -2180,7 +2190,7 @@
 
             <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
                 <label style="font-size:var(--fs-2); font-weight:700; margin:0;">🏅 몇 명 뽑기</label>
-                <input id="pb-picks" type="number" min="1" max="199" value="1"
+                <input id="pb-picks" type="number" min="1" max="799" value="1"
                        onchange="pbcSetPicks(this.value)"
                        style="width:80px; margin:0; text-align:center;">
                 <label style="font-size:var(--fs-2); margin:0 0 0 auto; display:flex; gap:6px; align-items:center; cursor:pointer;">
@@ -2209,11 +2219,23 @@
             </div>
 
             <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">참가자</div>
-            <textarea id="pb-names" rows="4" placeholder="쉼표나 줄바꿈으로 구분해서 넣어주세요&#10;예) 밍밍, 양양*3, 예지랑"
-                      style="width:100%; margin:0 0 8px;"></textarea>
+            <!-- 🎱 한 줄 = 한 사람. 오른쪽 칸이 그 사람 구슬 수 (예전의 '양양*3' 을 칸으로 바꿨다).
+                 ⚠️ 서버에는 예전과 같은 글(밍밍, 양양*3)로 보낸다 — 서버·방송판은 그대로다. -->
+            <div id="pb-rows" class="pb-rows"></div>
+            <div class="pb-rows-foot">
+                <button type="button" onclick="pbcAddRow()" style="margin:0;"><i class="fa-solid fa-plus"></i> 사람 추가</button>
+                <span id="pb-total">구슬 0개 / 800개</span>
+            </div>
+            <details style="margin:0 0 8px;">
+                <summary style="cursor:pointer; font-size:var(--fs-2); color:var(--text-muted);">글로 한꺼번에 넣기 (쉼표·줄바꿈, 양양*3 도 됩니다)</summary>
+                <textarea id="pb-names" rows="3" placeholder="예) 밍밍, 양양*3, 예지랑" style="width:100%; margin:6px 0;"></textarea>
+                <button type="button" onclick="pbcRowsFromText()" style="margin:0;">표로 옮기기</button>
+            </details>
             <div style="font-size:var(--fs-1); color:var(--text-muted); margin:0 0 8px; line-height:1.6;">
-                이름 뒤에 <b>*3</b> 을 붙이면 그 사람 구슬이 <b>3개</b> 들어갑니다 —
-                많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다. (구슬은 모두 합쳐 <b>200개</b>까지)<br>
+                오른쪽 칸에 적은 수만큼 그 사람 구슬이 들어갑니다 — 많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다.
+                (구슬은 모두 합쳐 <b>800개</b>까지 · 예전처럼 양양*3 으로 적어도 됩니다)<br>
+                구슬이 <b>수백 개</b>면 <b>끝까지 남기</b>는 오래 걸립니다 — 800개 실측: Yoru 49초 · 우리 코스 1분 · BubblePop 2분 반,
+                Wheel of fortune 은 구슬이 엉겨 시간 제한으로 끝납니다.<br>
                 구슬이 <b>40개를 넘으면 구슬 밑 이름을 안 붙입니다</b> — 겹쳐서 어차피 안 읽힙니다.
                 카메라가 따라다니는 주인공에만 이름이 붙습니다.
             </div>
@@ -8588,9 +8610,76 @@ initFoldablePanels();
             } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); return null; }
         }
 
-        function pbcNames() {
+        /* 🎱 참가자 표 — 한 줄 = [이름][개수]. 서버에는 '밍밍, 양양*3' 글로 보낸다(서버가 펼친다). */
+        const PB_ROW_MAX = 800;
+        function pbcRowsBox() { return document.getElementById('pb-rows'); }
+        function pbcReadRows() {
+            const box = pbcRowsBox(); if (!box) return [];
+            return [...box.querySelectorAll('.pb-row')].map(r => ({
+                name: (r.querySelector('.pb-rn').value || '').replace(/[,\n\r*]+/g, ' ').trim().slice(0, 20),
+                count: Math.max(1, Math.min(PB_ROW_MAX, parseInt(r.querySelector('.pb-rc').value, 10) || 1)),
+            })).filter(x => x.name);
+        }
+        function pbcTotal() {
+            const n = pbcReadRows().reduce((a, x) => a + x.count, 0);
+            const el = document.getElementById('pb-total');
+            if (el) {
+                el.textContent = '구슬 ' + n.toLocaleString() + '개 / ' + PB_ROW_MAX + '개' + (n > PB_ROW_MAX ? ' — 넘는 것은 빠집니다' : '');
+                el.classList.toggle('over', n > PB_ROW_MAX);
+            }
+            return n;
+        }
+        function pbcAddRow(name, count, focus) {
+            const box = pbcRowsBox(); if (!box) return;
+            const row = document.createElement('div');
+            row.className = 'pb-row';
+            row.innerHTML = '<input class="pb-rn" type="text" maxlength="20" placeholder="이름">'
+                + '<button type="button" class="pb-rm" title="하나 빼기">−</button>'
+                + '<input class="pb-rc" type="number" min="1" max="' + PB_ROW_MAX + '" title="구슬 개수">'
+                + '<button type="button" class="pb-rp" title="하나 더">+</button>'
+                + '<button type="button" class="pb-rx" title="이 사람 빼기">✕</button>';
+            row.querySelector('.pb-rn').value = name || '';          // 이름은 글자로만 넣는다(태그 안 먹게)
+            const rc = row.querySelector('.pb-rc');
+            rc.value = String(count || 1);
+            row.querySelector('.pb-rm').onclick = () => { rc.value = String(Math.max(1, (parseInt(rc.value, 10) || 1) - 1)); pbcTotal(); };
+            row.querySelector('.pb-rp').onclick = () => { rc.value = String(Math.min(PB_ROW_MAX, (parseInt(rc.value, 10) || 1) + 1)); pbcTotal(); };
+            row.querySelector('.pb-rx').onclick = () => { row.remove(); pbcTotal(); };
+            row.querySelectorAll('input').forEach(i => i.addEventListener('input', pbcTotal));
+            box.appendChild(row);
+            if (focus) row.querySelector('.pb-rn').focus();
+            pbcTotal();
+        }
+        // '밍밍, 양양*3, 밍밍' → [{밍밍,2},{양양,3}] — 같은 이름은 합친다
+        function pbcParseNames(list) {
+            const out = [], at = {};
+            (list || []).forEach(raw => {
+                let nm = String(raw || '').trim(), c = 1;
+                const m = nm.match(/\*\s*(\d+)\s*$/);
+                if (m) { nm = nm.slice(0, m.index).trim(); c = parseInt(m[1], 10) || 1; }
+                if (!nm) return;
+                if (at[nm] === undefined) { at[nm] = out.length; out.push({ name: nm, count: 0 }); }
+                out[at[nm]].count = Math.min(PB_ROW_MAX, out[at[nm]].count + c);
+            });
+            return out;
+        }
+        function pbcSetRows(items) {
+            const box = pbcRowsBox(); if (!box) return;
+            box.innerHTML = '';
+            (items || []).forEach(x => pbcAddRow(x.name, x.count));
+            if (!items || !items.length) pbcAddRow();
+            pbcTotal();
+        }
+        function pbcRowsFromText() {
             const t = document.getElementById('pb-names');
-            return t ? t.value : '';
+            const items = pbcParseNames(String(t ? t.value : '').split(/[,\n\r]+/));
+            if (!items.length) { acctToast('옮길 이름이 없습니다', 'warn'); return; }
+            pbcSetRows(items);
+            if (t) t.value = '';
+            acctToast('🎱 표로 옮겼습니다 — 명단 저장을 눌러 주세요', 'ok');
+        }
+        function pbcNames() {
+            // 서버가 알아듣는 글로 — 1개면 이름만, 여럿이면 이름*개수
+            return pbcReadRows().map(x => x.count > 1 ? x.name + '*' + x.count : x.name).join(', ');
         }
         async function pbcSaveNames() {
             const d = await pbcCall('setup', { names: pbcNames() });
@@ -8602,8 +8691,7 @@ initFoldablePanels();
             const src = (typeof gd !== 'undefined' && gd && gd.extra_game_active) ? gd.extra_bjs : (gd && gd.bjs);
             const names = (src || []).map(function (b) { return b && b.name; }).filter(Boolean);
             if (!names.length) { acctToast('올라와 있는 선수가 없습니다', 'warn'); return; }
-            const t = document.getElementById('pb-names');
-            if (t) t.value = names.join(', ');
+            pbcSetRows(names.map(function (n) { return { name: n, count: 1 }; }));
         }
         function pbcRule() {
             const el = document.getElementById('pb-rule');
@@ -8660,9 +8748,9 @@ initFoldablePanels();
 
             /* ⚠️ 치는 중에 덮어쓰면 글자가 사라진다 — 손이 떠나 있을 때만 맞춘다.
                   (진행봇 라이브 주소 칸과 같은 이유다) */
-            const t = document.getElementById('pb-names');
-            if (t && document.activeElement !== t && !t.value.trim() && (g.names || []).length) {
-                t.value = (g.names || []).join(', ');
+            const t = pbcRowsBox();
+            if (t && !t.contains(document.activeElement) && document.activeElement !== t && !pbcReadRows().length) {
+                pbcSetRows(pbcParseNames(g.names || []));
             }
 
             /* ⚠️ 고른 판도 서버 값을 따라간다 — 다른 기기에서 바꿔도 여기 보이게.

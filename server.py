@@ -8708,7 +8708,7 @@ def api_dicegame_board():
 #       ② 결과는 **먼저 온 보고 하나만** 받고 그 자리에서 문을 닫는다(running=False).
 #          늦게 온 것은 409. 룰렛 /api/roulette/winner 이 쓰는 바로 그 방식이다.
 
-PINBALL_MAX = 200     # 한 판에 들어갈 수 있는 구슬 수
+PINBALL_MAX = 800     # 한 판에 들어갈 수 있는 구슬 수 (대표님 2026-09-27: 200 → 800)
 #  ⚠️ 40개를 넘으면 방송판이 **구슬 밑 이름을 안 붙인다**(겹쳐서 안 읽힌다).
 #     주인공 한 명만 남긴다 — overlay.html 의 PB_NAME_MAX.
 #  ⚠️ overlay.html 의 PB_BALL_MAX 와 **같아야 한다.** 방송판은 그 숫자로 출발 줄 수와

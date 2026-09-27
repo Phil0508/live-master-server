@@ -153,7 +153,7 @@ chk('주기 갱신에 물려 있다', 'pbcSync()' in CTL)
 # ⚠️ 조종실에는 escText 가 없다(escapeHTML 이다). 만들 때 실제로 이걸로 한 번 깨졌다.
 chk('이름을 안전하게 넣는다', 'escText(' not in CTL)
 # ⚠️ 1초마다 다시 그리므로, 치는 중에 덮으면 글자가 사라진다(진행봇 주소 칸과 같은 이유).
-chk('치는 중에 명단을 안 덮어쓴다', 'document.activeElement !== t' in CTL)
+chk('치는 중에 명단을 안 덮어쓴다', '!t.contains(document.activeElement)' in CTL)
 
 print()
 print('=' * 74)
@@ -290,7 +290,11 @@ chk('펼치는 곳은 저장할 때 한 군데뿐',
     and SRV.count('_pinball_expand(g') <= 2)
 chk('한 사람이 무한히 넣지 못한다', 'PINBALL_COUNT_MAX' in SRV)
 chk('방송판은 펼친 목록을 굴린다', '(g.balls && g.balls.length) ? g.balls' in OV)
-chk('조종실이 *3 을 알려준다', '*3' in CTL)
+# 🎛️ 대표님 2026-09-27: '양양*2' 말고 칸으로 — 한 줄에 이름 칸 + 개수 칸
+chk('조종실에 이름·개수 칸이 있다', 'id="pb-rows"' in CTL and 'class="pb-rc" type="number"' in CTL)
+chk('칸을 서버가 알아듣는 글로 보낸다 (이름*개수)', "x.count > 1 ? x.name + '*' + x.count : x.name" in CTL)
+chk('예전 저장본(양양*3)도 칸으로 읽는다', 'function pbcParseNames(' in CTL)
+chk('이름에 쉼표·별표가 섞여도 안 깨진다', ".replace(/[,\\n\\r*]+/g, ' ')" in CTL)
 
 # 🏅 여러 명 뽑기 — 원본의 winnerRange 를 옮긴 것이다.
 # ⚠️ 사람 수만큼 다 뽑으면 경기가 아니다. 최소 한 명은 남긴다.
@@ -439,12 +443,13 @@ chk('조종실 이름표도 번호를 지킨다', "'BubblePop', null, 'Yoru ni K
 
 print()
 print('=' * 74)
-print('⓷ 구슬 200개까지 받는가')
+print('⓷ 구슬 800개까지 받는가')
 print('=' * 74)
 # 🎱 대표님: "최대 200개로 늘려줘" (2026-09-16).
 #    ⚠️ 숫자만 올리면 **우리 코스가 안 끝난다.** 아래 셋이 같이 지켜져야 한다.
 _mx = re.search(r'^PINBALL_MAX = (\d+)', SRV, re.M)
-chk('서버 상한이 200이다', bool(_mx) and int(_mx.group(1)) == 200,
+# 🎱 대표님 2026-09-27: "800개까지 늘릴 수 있나" — 실측 걸음당 최대 2ms, 800알도 끝난다.
+chk('서버 상한이 800이다', bool(_mx) and int(_mx.group(1)) == 800,
     ('PINBALL_MAX = %s' % (_mx.group(1) if _mx else '?')))
 # ⚠️ 한 사람 상한을 낮게 두면 '양양*50' 같은 정당한 쓰임까지 막힌다.
 chk('한 사람 상한도 전체와 같다', 'PINBALL_COUNT_MAX = PINBALL_MAX' in SRV)
@@ -479,10 +484,12 @@ try:
     _top = 40 - (_rows - 1) * _rowh                 # 제일 윗줄
     chk('제일 윗줄이 뚜껑보다 아래에 있다', _ceil < _top - _R,
         '윗줄 y=%d · 뚜껑 y=%d · 한 줄 %d개 · %d줄' % (_top, _ceil, _per, _rows))
-    # ⚠️ 옆벽은 y = -PB_WORLD/2 까지만 내려온다. 뚜껑이 그보다 위면 구슬이 옆으로 샌다.
-    _world = 140 + 620 * 3 + 200
-    chk('쌓은 구슬이 옆벽 안에 있다', _ceil > -_world / 2,
-        '뚜껑 y=%d · 옆벽 위끝 y=%d' % (_ceil, -_world // 2))
+    # ⚠️ 옆벽이 뚜껑보다 낮으면 윗줄 구슬이 벽을 넘어 판 밖으로 곧장 떨어진다(800알 실측).
+    #    그래서 옆벽을 뚜껑부터 세운다 — 식을 확인한다.
+    chk('옆벽이 뚜껑부터 선다',
+        'const wallH = PB_WORLD_OWN - PB_CEIL + PB_WALL * 4, wallY = (PB_CEIL + PB_WORLD_OWN) / 2;' in OV
+        and 'box(-PB_WALL / 2, wallY, PB_WALL, wallH' in OV and 'box(PB_W + PB_WALL / 2, wallY, PB_WALL, wallH' in OV,
+        '뚜껑 y=%d' % _ceil)
 except Exception as _e:
     chk('출발 자리 셈이 맞는가', False, str(_e))
 
@@ -503,8 +510,11 @@ chk('이름 가운데서 안 끊는다', bool(_win) and 'word-break: keep-all' i
 chk('여럿일 때 글자를 줄인다',
     '.pb-winner.many {' in OV and "el.classList.toggle('many', list.length > 1)" in OV)
 # 🎛️ 조종실
-chk('뽑는 수를 199까지 받는다', 'id="pb-picks" type="number" min="1" max="199"' in CTL)
-chk('조종실이 200개라고 알려준다', '200\uac1c</b>\uae4c\uc9c0' in CTL)
+chk('뽑는 수를 799까지 받는다', 'id="pb-picks" type="number" min="1" max="799"' in CTL)
+chk('조종실이 800개라고 알려준다', '800\uac1c</b>\uae4c\uc9c0' in CTL)
+# 👥 구슬이 많으면 밀어내기 확률을 나눈다 — 200알이면 초당 열 번 넘게 터져 구슬이 골로 튕겨 들어갔다
+chk('구슬이 많으면 밀어내기를 나눈다', 'const PB_SKILL_CROWD = 30;' in OV
+    and 'PB_SKILL_RATE * Math.min(1, PB_SKILL_CROWD / Math.max(1, pbBalls.length))' in OV)
 chk('이름이 안 붙는다는 것도 알려준다', '40\uac1c\ub97c \ub118\uc73c\uba74' in CTL)
 
 print()
