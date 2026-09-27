@@ -10,27 +10,29 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { 
-            --bg-body: #141519; 
-            --bg-panel: #191b20; 
-            --bg-card: #1e2127; 
-            --bg-input: #101216; 
-            --border-light: #262a31; 
-            --text-main: #e8e8ec; 
-            --text-muted: #8b909a; 
-            --accent: #6db3ff; 
-            --accent-glow: rgba(109, 179, 255, 0.22); 
+            /* 🎨 2026-09-28 시안 A 옷 — 푸른 회색 → 따뜻한 회색, 강조색은 금색 하나(파랑 걷음).
+                  대표님이 고른 '조종실 한 창' 시안. 빨강(위험)·초록(연결됨)만 따로 남긴다. */
+            --bg-body: #131315;
+            --bg-panel: #18181b;
+            --bg-card: #1d1d20;
+            --bg-input: #0f0f11;
+            --border-light: #26262a;
+            --text-main: #ecebe6;
+            --text-muted: #8d8c86;
+            --accent: #e2b64b;
+            --accent-glow: rgba(226, 182, 75, 0.22);
             --danger: #ff453a; 
             --danger-glow: rgba(255, 69, 58, 0.25);
-            --gold: #ffcf4d;
+            --gold: #e8bd55;
             --gold-glow: rgba(255, 207, 77, 0.22);
             --success: #35d07f;
 
             /* ===== 회색 계단 =====
                예전엔 var(--text-dim) var(--text-dim) var(--text-muted) var(--text-muted) var(--line) var(--line) var(--surface-2) var(--line) 이 뒤섞여
                '조금씩 다른 회색'이 화면 곳곳에서 부딪혔다. 역할별로 하나씩만 둔다. */
-            --text-dim: #6f7480;    /* 가장 흐린 보조 텍스트 */
-            --line: #343943;        /* 테두리·구분선 */
-            --surface-2: #22252c;   /* 한 단계 떠 있는 표면 */
+            --text-dim: #6f6e69;    /* 가장 흐린 보조 텍스트 */
+            --line: #34343a;        /* 테두리·구분선 */
+            --surface-2: #232326;   /* 한 단계 떠 있는 표면 */
             /* ===== 모서리: 4종만 쓴다 (예전엔 25종이 섞여 있었다) ===== */
             --r-1: 5px;      /* 배지·태그 */
             --r-2: 7px;     /* 버튼·입력칸 */
@@ -177,7 +179,7 @@
         .sys-dim { font-size: var(--fs-2); color: var(--text-muted); }
         .sys-table { max-height: 380px; overflow: auto; border: 1px solid var(--border-light); border-radius: var(--r-2); }
         .sys-link { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--r-2); text-decoration: none; font-weight: 700;
-                    background: rgba(109, 179, 255, 0.1); border: 1px solid rgba(109, 179, 255, 0.35); color: var(--accent); }
+                    background: rgba(226, 182, 75, 0.1); border: 1px solid rgba(226, 182, 75, 0.35); color: var(--accent); }
         .sys-danger { border-color: rgba(255, 69, 58, 0.45); background: rgba(255, 69, 58, 0.04); }
         .sys-danger .sys-head { color: var(--danger); }
         .sys-soft-danger { height: 42px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); display: inline-flex; align-items: center; gap: 8px; }
@@ -191,6 +193,65 @@
         .pb-rows-foot { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
         #pb-total { font-size: var(--fs-2); color: var(--text-muted); font-variant-numeric: tabular-nums; }
         #pb-total.over { color: var(--danger); font-weight: 800; }
+
+        /* 🪟 한 창 조종실 (대표님 2026-09-28 · 시안 1) — 후원 콘솔을 따로 안 띄워도 되게 오른쪽 칸에 작게 넣는다.
+           넓은 화면(1280px 이상)에서만. 좁으면 예전처럼 대기함·🆕 줄이 탭 밑(상단 고정)으로 돌아간다(railPlace).
+           ⚠️ 오른쪽 칸은 따로 스크롤된다 — 점수표를 내려도 대기함이 늘 보여야 한다. */
+        .shell-rail { display: none; }
+        @media (min-width: 1280px) {
+            .shell { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+            .shell-main { min-width: 0; }
+            .shell-rail { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 12px;
+                          max-height: calc(100vh - 24px); overflow-y: auto; scrollbar-width: thin;
+                          padding-bottom: 72px; }   /* ⚠️ 오른쪽 아래 떠 있는 [백업] 단추에 대기열 단추가 가리지 않게 */
+            .shell-rail > .group-box { margin-bottom: 0; padding: 14px; }
+            .shell-rail #recent-strip { flex-wrap: wrap; white-space: normal; overflow: visible; }
+            .shell-rail #pending-box .group-title { font-size: var(--fs-3); }
+        }
+        /* 💾 떠 있는 [백업] 단추가 오른쪽 칸(대기열 단추)을 가렸다 — 넓은 화면에선 기본 자리를 칸 왼쪽으로.
+              ⚠️ 대표님이 끌어서 옮긴 적이 있으면(right:auto 로 바뀐다) 그 자리를 그대로 둔다 */
+        @media (min-width: 1280px) {
+            #float-backup-btn[style*="right:22px"], #float-backup-btn[style*="right: 22px"] { right: 420px !important; }
+        }
+        .rail-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;
+                  font-size: var(--fs-2); font-weight: 800; color: var(--text-muted); letter-spacing: 0.02em; }
+        .rail-h a { color: var(--text-muted); text-decoration: none; font-weight: 600; }
+        .rail-h a:hover { color: var(--accent); }
+        /* 시그니처 송출 */
+        .rs2 { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: center; margin-bottom: 8px; }
+        .rs2-thumb { width: 64px; height: 64px; border-radius: var(--r-3); background: var(--bg-input) center / cover no-repeat;
+                     border: 1px solid var(--border-light); display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
+        .rs2-thumb span { font-size: 10px; font-weight: 800; color: #fff; background: rgba(0, 0, 0, 0.55); width: 100%; text-align: center;
+                          padding: 1px 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rs2-amt { display: flex; align-items: center; gap: 6px; }
+        .rs2-amt input { margin: 0; flex: 1; min-width: 0; width: 100%; box-sizing: border-box; font-size: var(--fs-5); font-weight: 800; font-variant-numeric: tabular-nums; }
+        .rs2-amt span { color: var(--text-muted); font-size: var(--fs-2); }
+        .rs2-match { font-size: var(--fs-2); color: var(--accent); margin-top: 4px; min-height: 18px; }
+        .rs2-match.up { color: var(--text-muted); }
+        #rail-send > input { width: 100%; margin: 0 0 8px; box-sizing: border-box; }
+        .rs2-row { display: flex; align-items: center; gap: 8px; }
+        .rs2-chk { flex: 1; display: flex; align-items: center; gap: 6px; font-size: var(--fs-2); color: var(--text-muted); cursor: pointer; }
+        .rs2-chk input { margin: 0; accent-color: var(--accent); }
+        #rs-send { margin: 0; height: 36px; padding: 0 18px; background: var(--accent); border-color: var(--accent); color: #1b1404; font-weight: 800; }
+        #rs-send:disabled { opacity: 0.5; }
+        .rs2-quick { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; scrollbar-width: thin; }
+        .rs2-quick button { flex: none; margin: 0; height: 28px; padding: 0 10px; border-radius: var(--r-full); font-size: var(--fs-2); }
+        .rs2-quick button b { margin-right: 4px; }
+        /* 재생 대기열 */
+        .rq-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto 26px; gap: 8px; align-items: center;
+                  padding: 6px 0; border-bottom: 1px solid var(--border-light); font-size: var(--fs-3); }
+        .rq-row:last-child { border-bottom: 0; }
+        .rq-th { width: 40px; height: 40px; border-radius: var(--r-2); background: var(--bg-input) center / cover no-repeat; }
+        .rq-row b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rq-row small { display: block; color: var(--text-muted); font-size: var(--fs-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .rq-row .rq-a { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .rq-row .rq-x { margin: 0; width: 26px; height: 26px; min-height: 0; padding: 0; justify-content: center; color: var(--text-muted); }
+        .rq-row.now b::before { content: '▶ '; color: var(--accent); }
+        .rq-empty { font-size: var(--fs-2); color: var(--text-muted); padding: 6px 0; }
+        .rq-ctl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 10px; }
+        .rq-ctl button { margin: 0; height: 32px; font-size: var(--fs-2); justify-content: center; padding: 0 6px; }
+        .rq-ctl .danger-soft { color: var(--danger); border-color: rgba(255, 69, 58, 0.35); }
+        .rq-ctl .on { color: var(--success); border-color: rgba(53, 208, 127, 0.45); }
         /* 🗂️ 탭 두 줄 (2026-09-27 시안 B) — 윗줄 자주, 아랫줄 가끔.
            ⚠️ 아랫줄은 .tab-row2 한 덩어리다. 폭이 모자라면 각 줄 안에서만 접힌다(폰에선 아랫줄은 옆으로 민다). */
         .tabs.tabs-2row { flex-wrap: wrap; overflow-x: visible; white-space: normal; row-gap: 4px; }
@@ -205,16 +266,16 @@
         .tab-btn.tab-minor.active { padding: 5px 11px; }
         /* 🆕 방금 들어온 후원 줄 */
         #recent-strip { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap;
-                        padding: 6px 10px; border-radius: var(--r-2); border: 1px solid rgba(67, 189, 157, 0.35);
-                        background: rgba(67, 189, 157, 0.06); scrollbar-width: thin; }
-        #recent-strip .rs-cap { font-size: var(--fs-1); font-weight: 800; color: #43bd9d; flex: none; }
+                        padding: 6px 10px; border-radius: var(--r-2); border: 1px solid var(--border-light);
+                        background: var(--bg-card); scrollbar-width: thin; }
+        #recent-strip .rs-cap { font-size: var(--fs-1); font-weight: 800; color: var(--text-muted); flex: none; }
         #recent-strip .rs-chip { flex: none; font-size: var(--fs-2); padding: 3px 10px; border-radius: 999px;
                                  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-light); color: var(--text-main); }
         #recent-strip .rs-chip .rs-t { color: var(--text-muted); margin-right: 4px; font-variant-numeric: tabular-nums; }
         #recent-strip .rs-chip b { color: var(--accent); }
         #recent-strip .rs-chip.rs-c b { color: #c99bff; }
         #recent-strip .rs-more { flex: none; height: 26px; padding: 0 10px; font-size: var(--fs-1); border-radius: var(--r-1); }
-        #recent-strip .rs-chip.rs-new { border-color: rgba(67, 189, 157, 0.7); }
+        #recent-strip .rs-chip.rs-new { border-color: var(--accent); }
         /* 🎮 게임 탭 묶음 — 줄바꿈이 묶음 안에서 안 일어나게(통째로 다음 줄) */
         .tab-group { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: inherit; flex: 0 0 auto; }
         /* 그룹 사이 세로 구분선 */
@@ -246,11 +307,12 @@
             gap: 8px; 
             letter-spacing: -0.2px;
         } 
-        .tab-btn.active { 
-            background: rgba(255, 255, 255, 0.05); 
-            color: var(--accent); 
-            border-color: rgba(109, 179, 255, 0.4);
-            box-shadow: inset 0 1px 1px rgba(255,255,255,0.05);
+        .tab-btn.active {
+            background: transparent;
+            color: var(--text-main);
+            border-color: transparent;
+            box-shadow: inset 0 -2px 0 var(--accent);
+            border-radius: var(--r-1) var(--r-1) 0 0;
         }
         body.theme-pink .tab-btn.active {
             color: var(--accent);
@@ -513,7 +575,7 @@
             line-height: 1.7;
             box-shadow: inset 0 2px 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.25);
         }
-        .ml-filter-btn { padding: 6px 14px; font-size: var(--fs-2); font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: var(--r-1); cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(109, 179, 255, 0.15) !important; color: var(--accent) !important; }
+        .ml-filter-btn { padding: 6px 14px; font-size: var(--fs-2); font-weight: 600; background: transparent; border: none; color: var(--text-muted); border-radius: var(--r-1); cursor: pointer; transition: all 0.2s; } .ml-filter-btn:hover { background: rgba(255,255,255,0.06); color: #fff; } .ml-filter-active { background: rgba(226, 182, 75, 0.15) !important; color: var(--accent) !important; }
         .ml-row { transition: background 0.15s; } .ml-row:hover { background: rgba(255,255,255,0.04) !important; } .ml-row td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); } .ml-amount-plus { color: #4caf50; font-weight: 700; } .ml-amount-minus { color: #ff5252; font-weight: 700; } .ml-source-mobile { background: rgba(255, 152, 0, 0.12); color: #ff9800; padding: 3px 8px; border-radius: var(--r-1); font-size: var(--fs-1); font-weight: 600; } .ml-source-toonation { background: rgba(0, 191, 255, 0.12); color: #00bfff; padding: 3px 8px; border-radius: var(--r-1); font-size: var(--fs-1); font-weight: 600; }
         
         /* 보관함 전용 CSS */
@@ -662,7 +724,7 @@
         }
         .noti-item:hover {
             background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(109, 179, 255, 0.4);
+            border-color: rgba(226, 182, 75, 0.4);
             transform: translateY(-1px);
         }
         .noti-item-del {
@@ -726,8 +788,8 @@
             background: rgba(10, 10, 15, 0.88);
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border: 2px solid rgba(109, 179, 255, 0.5);
-            box-shadow: 0 0 25px rgba(109, 179, 255, 0.25), inset 0 10px 10px rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(226, 182, 75, 0.5);
+            box-shadow: 0 0 25px rgba(226, 182, 75, 0.25), inset 0 10px 10px rgba(255, 255, 255, 0.1);
             border-radius: var(--r-3);
             padding: 12px 28px;
             display: flex;
@@ -905,10 +967,10 @@
             50% { opacity: 0.65; }
         }
         .roulette-winner-arcade {
-            background: rgba(109, 179, 255, 0.05) !important;
+            background: rgba(226, 182, 75, 0.05) !important;
             border: 1.5px solid var(--accent) !important;
             border-radius: var(--radius-md) !important;
-            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(109, 179, 255, 0.1) !important;
+            box-shadow: 0 0 15px var(--accent-glow), inset 0 0 10px rgba(226, 182, 75, 0.1) !important;
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: var(--fs-3);
             font-weight: 900 !important;
@@ -1280,12 +1342,12 @@
     <!-- ↩ 점수 되돌리기 토스트: 점수를 줄 때마다 잠깐 떴다가, '취소'를 누르면 방금 준 점수를 되돌린다 -->
     <div id="score-undo-toast" style="position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); z-index:99998; display:none; opacity:0; transition:all .25s ease; align-items:center; gap:14px; background:rgba(20,20,22,0.97); border:1px solid var(--border-light); border-left:4px solid var(--accent); padding:12px 16px 12px 18px; border-radius:var(--r-2); box-shadow:0 10px 30px rgba(0,0,0,0.55);">
         <span id="score-undo-text" style="color:#f5f5f7; font-size:var(--fs-3); font-weight:700;"></span>
-        <button onclick="undoLastScore()" style="background:var(--accent); color:#04203f; font-weight:800; border:none; padding:8px 14px; border-radius:var(--r-1); cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-3);"><i class="fa-solid fa-rotate-left"></i> 취소</button>
+        <button onclick="undoLastScore()" style="background:var(--accent); color:#1b1404; font-weight:800; border:none; padding:8px 14px; border-radius:var(--r-1); cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-3);"><i class="fa-solid fa-rotate-left"></i> 취소</button>
     </div>
 
     <!-- 💾 떠다니는 비상 백업 다운로드 버튼 — 항상 우하단에 떠 있고, 누르면 현재 데이터를 즉시 파일로 저장 -->
     <button id="float-backup-btn" title="오프라인 비상 백업 — 클릭하면 즉시 다운로드 · 드래그해서 위치 이동"
-        style="position:fixed; right:22px; bottom:22px; z-index:9500; height:52px; padding:0 18px 0 16px; border-radius:var(--r-3); background:var(--accent); color:#04203f; border:none; cursor:grab; box-shadow:0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08); display:inline-flex; align-items:center; gap:9px; font-size:var(--fs-3); font-weight:800; user-select:none; touch-action:none;">
+        style="position:fixed; right:22px; bottom:22px; z-index:9500; height:52px; padding:0 18px 0 16px; border-radius:var(--r-3); background:var(--accent); color:#1b1404; border:none; cursor:grab; box-shadow:0 6px 20px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08); display:inline-flex; align-items:center; gap:9px; font-size:var(--fs-3); font-weight:800; user-select:none; touch-action:none;">
         <i class="fa-solid fa-download" style="font-size:var(--fs-5);"></i> 백업
     </button>
     <div class="header">
@@ -1371,6 +1433,9 @@
             게임을 돌리는 중에도 후원은 계속 들어오므로, 탭이 뭐든 항상 보여야 한다.
          ⚠️ 버튼 배치는 그대로 둔다 — 손에 익은 자리가 바뀌면 방송 중에 그게 더 위험하다.
             자리만 옮기고 항상 보이게 했다. -->
+    <!-- 🪟 한 창 틀 — 왼쪽(.shell-main): 탭·탭 내용 / 오른쪽(.shell-rail): 대기함·🆕·시그 송출·재생 대기열 -->
+    <div class="shell">
+    <div class="shell-main">
     <div id="sticky-top">
         <!-- 🗂️ 탭 — 두 줄 (대표님 2026-09-27, 시안 B).
              추석 방송(2026-09-22) 클릭 기록 1,073번을 보고 **많이 연 순서**로 세웠다.
@@ -1762,7 +1827,7 @@
                     <div class="group-title" style="justify-content: center;"><i class="fa-solid fa-music"></i> 오디오 플레이어 (BGM)</div>
                     
                     <!-- Modern dashed dropzone file input wrapper -->
-                    <div style="position: relative; border: 2px dashed rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); padding: 15px 10px; background: rgba(255, 255, 255, 0.01); transition: var(--transition-smooth); cursor: pointer;" onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(109, 179, 255, 0.02)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.background='rgba(255, 255, 255, 0.01)';" onclick="document.getElementById('bgm-file').click()">
+                    <div style="position: relative; border: 2px dashed rgba(255, 255, 255, 0.12); border-radius: var(--radius-lg); padding: 15px 10px; background: rgba(255, 255, 255, 0.01); transition: var(--transition-smooth); cursor: pointer;" onmouseover="this.style.borderColor='var(--accent)'; this.style.background='rgba(226, 182, 75, 0.02)';" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.12)'; this.style.background='rgba(255, 255, 255, 0.01)';" onclick="document.getElementById('bgm-file').click()">
                         <i class="fa-solid fa-cloud-arrow-up" style="font-size: var(--fs-7); color: var(--text-muted); margin-bottom: 6px; display: block;"></i>
                         <span style="font-size: var(--fs-3); font-weight: bold; color: #fff; display: block; margin-bottom: 2px;">클릭하여 음악 파일 업로드</span>
                         <span style="font-size: var(--fs-1); color: var(--text-muted); display: block;">MP3, WAV, M4A 등 오디오 파일 지원</span>
@@ -1801,7 +1866,7 @@
 
     <!-- 🤖 진행봇 -->
     <div id="tab-bot" class="tab-content">
-        <div class="group-box" style="margin-bottom:15px; border-color:rgba(109,179,255,0.4); background:rgba(109,179,255,0.04);">
+        <div class="group-box" style="margin-bottom:15px; border-color:rgba(226, 182, 75,0.4); background:rgba(226, 182, 75,0.04);">
             <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="color:var(--accent);"><i class="fa-solid fa-robot"></i> 🤖 진행봇 — 유튜브 라이브 채팅</span>
                 <label class="apple-switch" title="끄면 봇이 한마디도 안 합니다">
@@ -1964,7 +2029,7 @@
                     <button onclick="exportManualLogs()" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(76, 175, 80, 0.12); border: 1px solid #4caf50; border-radius: var(--r-1); color: #4caf50; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(76,175,80,0.25)';" onmouseout="this.style.background='rgba(76,175,80,0.12)';">
                         <i class="fa-solid fa-file-csv"></i> CSV 다운로드
                     </button>
-                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(109, 179, 255, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(109, 179, 255,0.25)';" onmouseout="this.style.background='rgba(109, 179, 255,0.1)';">
+                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(226, 182, 75, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(226, 182, 75,0.25)';" onmouseout="this.style.background='rgba(226, 182, 75,0.1)';">
                         <i class="fa-solid fa-arrows-rotate"></i> 새로고침
                     </button>
                 </div>
@@ -1979,7 +2044,7 @@
                 </div>
                 <div style="flex: 1; display: flex; gap: 8px; align-items: center;">
                     <input type="text" id="ml-search-name" placeholder="🔍 이름 검색..." style="flex: 1; min-width: 120px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); padding: 8px 14px; border-radius: var(--r-1); color: #fff; font-size: var(--fs-3); outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--accent)';" onblur="this.style.borderColor='var(--border-light)';" onkeydown="if(event.key==='Enter') loadManualLogs(1)">
-                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-3); flex-shrink: 0;">
+                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(226, 182, 75, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-3); flex-shrink: 0;">
                         <i class="fa-solid fa-magnifying-glass"></i> 검색
                     </button>
                 </div>
@@ -2590,11 +2655,43 @@
             </div>
 
             <!-- 메인 돌리기 버튼 -->
-            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, var(--accent), #00bfff); color: #000; font-size: var(--fs-7); font-weight: 900; padding: 22px 55px; border: none; border-radius: var(--r-3); cursor: pointer; box-shadow: 0 0 35px rgba(109, 179, 255, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
+            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, var(--accent), #00bfff); color: #000; font-size: var(--fs-7); font-weight: 900; padding: 22px 55px; border: none; border-radius: var(--r-3); cursor: pointer; box-shadow: 0 0 35px rgba(226, 182, 75, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
                 <i class="fa-solid fa-play"></i> 🎰 슬롯머신 돌리기!
             </button>
         </div>
     </div>
+    </div><!-- /.shell-main -->
+    <aside class="shell-rail" id="shell-rail">
+        <!-- 대기함 · 🆕 줄 · 되돌리기는 넓은 화면이면 railPlace() 가 여기로 옮겨 온다 -->
+        <div class="group-box rail-only" id="rail-send">
+            <div class="rail-h"><span>🎵 시그니처 송출</span><a href="/manual" target="_blank" title="후원 콘솔 전체 열기">후원 콘솔 ▸</a></div>
+            <div class="rs2">
+                <div class="rs2-thumb" id="rs-thumb"><span id="rs-thumb-t" style="display:none;"></span></div>
+                <div>
+                    <div class="rs2-amt"><input type="text" id="rs-amount" inputmode="numeric" placeholder="금액" autocomplete="off"
+                           oninput="railPreview()" onkeydown="if(event.key==='Enter')railSend()"><span>원</span></div>
+                    <div class="rs2-match" id="rs-match"></div>
+                </div>
+            </div>
+            <input type="text" id="rs-donor" placeholder="후원자명 (비우면 '수동송출')" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter')railSend()">
+            <div class="rs2-row">
+                <label class="rs2-chk" title="체크하면 실제 후원처럼 장부·대기함·후원 순위에 들어갑니다. 안 하면 화면에만 나갑니다."><input type="checkbox" id="rs-ledger"> 정산 장부에 기록</label>
+                <button type="button" id="rs-send" onclick="railSend()">송출</button>
+            </div>
+            <div class="rs2-quick" id="rs-quick"></div>
+        </div>
+        <div class="group-box rail-only" id="rail-queue">
+            <div class="rail-h"><span>▶ 재생 대기열</span><span id="rq-count"></span></div>
+            <div id="rq-list"><div class="rq-empty">대기 중인 시그니처가 없습니다</div></div>
+            <div class="rq-ctl">
+                <button type="button" id="rq-pause" onclick="railPause()" title="다음 알림을 잠시 멈춥니다. 재생 중인 것은 끝까지 나갑니다.">알림 멈춤</button>
+                <button type="button" onclick="railSkip()">건너뛰기</button>
+                <button type="button" class="danger-soft" onclick="railClear()">전체 비우기</button>
+            </div>
+        </div>
+    </aside>
+    </div><!-- /.shell -->
+
 
     <script>
         // 슬롯 후보 선택 (이번 방송에 돌릴 시그니처 목록)
@@ -2642,7 +2739,7 @@
                     ? `<div style="width:100%;height:64px;background:url('${s.image_url}') center/cover no-repeat;border-radius:var(--r-1);"></div>`
                     : `<div style="width:100%;height:64px;background:rgba(0,0,0,0.35);border-radius:var(--r-1);display:flex;align-items:center;justify-content:center;"><i class="fa-solid fa-image" style="color:var(--line);"></i></div>`;
                 return `
-                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(109, 179, 255,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:var(--r-2);font-size:var(--fs-2);display:flex;flex-direction:column;gap:6px;transition:all .15s;">
+                    <div onclick="slotPoolToggle(${s.id})" style="cursor:pointer;background:${on ? 'rgba(226, 182, 75,0.10)' : 'rgba(255,255,255,0.03)'};border:2px solid ${on ? 'var(--accent)' : 'var(--border-light)'};padding:8px;border-radius:var(--r-2);font-size:var(--fs-2);display:flex;flex-direction:column;gap:6px;transition:all .15s;">
                         ${thumb}
                         <div style="display:flex;align-items:center;gap:6px;">
                             <i class="fa-solid ${on ? 'fa-circle-check' : 'fa-circle'}" style="color:${on ? 'var(--accent)' : 'var(--line)'};font-size:var(--fs-3);flex-shrink:0;"></i>
@@ -2738,7 +2835,7 @@
                 <button type="button" onclick="addSetupPlayerField()" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); flex: 1; justify-content: center; height: 42px;">
                     <i class="fa-solid fa-plus"></i> 플레이어 추가
                 </button>
-                <button type="button" onclick="setupBulkImportBJs()" style="background: rgba(109, 179, 255, 0.15); border-color: var(--accent); color: var(--accent); flex: 1; justify-content: center; height: 42px;">
+                <button type="button" onclick="setupBulkImportBJs()" style="background: rgba(226, 182, 75, 0.15); border-color: var(--accent); color: var(--accent); flex: 1; justify-content: center; height: 42px;">
                     <i class="fa-solid fa-file-import"></i> 일괄 가져오기
                 </button>
             </div>
@@ -3488,7 +3585,7 @@
                     const _jarBtn = (!_isC && gd.fundjar && gd.fundjar.enabled)
                         ? `<button class="bj-btn" style="background:rgba(246,196,83,0.15); color:var(--gold); border-color:var(--gold);" onclick="assignPendingToJar('${don.id}')">🏺 모금함</button>`
                         : '';
-                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}${_jarBtn}<button class="bj-btn" style="background:rgba(0, 191, 255, 0.15); color:#00bfff; border-color:#00bfff;" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> <b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}${_jarBtn}<button class="bj-btn" style="background:transparent; color:var(--text-main); border-color:var(--line);" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -3571,6 +3668,7 @@
             try { renderHellPanel(); checkHellGoals(); } catch (e) {}   // 🔥 지옥탈출 판 · 탈출 확인
             try { psRender(); } catch (e) {}                             // 💾 세이브 슬롯 단추
             try { renderRecentStrip(); } catch (e) {}                    // 🆕 방금 들어온 후원 줄
+            try { railQueue(); } catch (e) {}                            // ▶ 오른쪽 칸 재생 대기열
             if (document.getElementById('home-race-panel-body')?.style.display !== 'none') {
                 renderHomeGoalInputs();
             }
@@ -3638,7 +3736,7 @@
                 statusBadge.style.boxShadow = "none";
                 desc.innerHTML = `메인 엑셀판 점수를 완벽하게 수호하며, 임시 0점부터 번외 매치 한 게임만 깔끔하게 정산하고 싶을 때 가동하는 안전한 샌드박스입니다.`;
                 btnArea.innerHTML = `
-                    <button class="primary" style="background:rgba(109, 179, 255, 0.15); border-color:var(--accent); color:var(--accent); font-weight:800;" onclick="startExtraGame()"><i class="fa-solid fa-play"></i> 🟢 새 번외 게임 개시</button>
+                    <button class="primary" style="background:rgba(226, 182, 75, 0.15); border-color:var(--accent); color:var(--accent); font-weight:800;" onclick="startExtraGame()"><i class="fa-solid fa-play"></i> 🟢 새 번외 게임 개시</button>
                 `;
             }
 
@@ -3663,7 +3761,7 @@
                     <th>현재 점수</th>
                     <th>🔥 기여도 (클릭 시 수정)</th>
                     <th>점수 추가 (Enter)</th>
-                    <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: var(--fs-2); background: rgba(109, 179, 255, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);"><i class="fa-solid fa-plus"></i></button></th>
+                    <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: var(--fs-2); background: rgba(226, 182, 75, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);"><i class="fa-solid fa-plus"></i></button></th>
                 </tr>`;
             }
             document.getElementById('ranking-thead').innerHTML = tHeadHtml;
@@ -3711,7 +3809,7 @@
                 rHtml += `<tr style="background:rgba(255,255,255,0.035);">
                     <td>
                         <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-                            <span class="rank-badge badge-normal" style="background:rgba(109, 179, 255, 0.1); color:var(--accent); border: 1px dashed rgba(109, 179, 255, 0.3);"><i class="fa-solid fa-anchor" style="font-size:var(--fs-1);"></i></span>
+                            <span class="rank-badge badge-normal" style="background:rgba(226, 182, 75, 0.1); color:var(--accent); border: 1px dashed rgba(226, 182, 75, 0.3);"><i class="fa-solid fa-anchor" style="font-size:var(--fs-1);"></i></span>
                             <input type="text" value="${gd.bottom_fixed.name}" onchange="gd.bottom_fixed.name=this.value; pushAPI({include:['bottom_fixed']});" style="flex: 1; text-align: left; padding-left: 10px;">
                         </div>
                     </td>
@@ -3856,7 +3954,7 @@
             if (itemSource === 'custom') {
                 roster = (gd.roulette.custom_items || []).map(name => ({ name: name, contribution: 0 }));
                 statusText = "⚙️ 사용자 정의 벌칙/항목 연동 중 ⚙️";
-                statusColor = "#6db3ff";
+                statusColor = "#e2b64b";
             } else {
                 roster = isExtra ? gd.extra_bjs : gd.bjs;
                 statusText = isExtra ? "⚡ 번외 임시 게임판 연동 중 🔴" : "🟢 메인 랭킹 점수판 연동 중 🟢";
@@ -3905,7 +4003,7 @@
             let isRandomChecked = (gd.roulette.select_index === -1) ? 'checked' : '';
             let randomBorder = (gd.roulette.select_index === -1) ? 'var(--accent)' : 'rgba(255, 255, 255, 0.08)';
             let randomText = (gd.roulette.select_index === -1) ? 'var(--accent)' : '#aaa';
-            let randomBg = (gd.roulette.select_index === -1) ? 'rgba(109, 179, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+            let randomBg = (gd.roulette.select_index === -1) ? 'rgba(226, 182, 75, 0.1)' : 'rgba(255, 255, 255, 0.02)';
             let randomShadow = (gd.roulette.select_index === -1) ? '0 0 10px var(--accent-glow)' : 'none';
             
             targetListHtml += `
@@ -3933,7 +4031,7 @@
                 
                 let borderCol = (gd.roulette.select_index === idx) ? 'var(--accent)' : 'rgba(255, 255, 255, 0.08)';
                 let textCol = (gd.roulette.select_index === idx) ? 'var(--accent)' : '#fff';
-                let itemBg = (gd.roulette.select_index === idx) ? 'rgba(109, 179, 255, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+                let itemBg = (gd.roulette.select_index === idx) ? 'rgba(226, 182, 75, 0.1)' : 'rgba(255, 255, 255, 0.02)';
                 let itemShadow = (gd.roulette.select_index === idx) ? '0 0 10px var(--accent-glow)' : 'none';
                 
                 targetListHtml += `
@@ -4757,7 +4855,7 @@
                 <input type="number" id="edit-contrib-popover-input" value="${currentVal}" style="width: 110px; text-align: center; color: var(--gold); border: 1px solid var(--border-light); padding: 6px; font-size: var(--fs-4); font-weight: 800; background: rgba(0,0,0,0.4); border-radius: var(--radius-sm); outline: none;" onkeydown="if(event.key==='Enter') confirmContribChange(${idx})">
                 <div style="display: flex; gap: 6px; justify-content: center; width: 100%;">
                     <button type="button" onclick="adjustContrib(${idx}, -50)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(255, 69, 58, 0.15); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(255, 69, 58, 0.3)'" onmouseout="this.style.background='rgba(255, 69, 58, 0.15)'">-50</button>
-                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(109, 179, 255, 0.15); border: 1px solid var(--accent-glow); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(109, 179, 255, 0.3)'" onmouseout="this.style.background='rgba(109, 179, 255, 0.15)'">+50</button>
+                    <button type="button" onclick="adjustContrib(${idx}, 50)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(226, 182, 75, 0.15); border: 1px solid var(--accent-glow); color: var(--accent); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(226, 182, 75, 0.3)'" onmouseout="this.style.background='rgba(226, 182, 75, 0.15)'">+50</button>
                     <button type="button" onclick="adjustContrib(${idx}, 100)" style="flex: 1; padding: 6px 0; font-size: var(--fs-2); background: rgba(255, 207, 77, 0.15); border: 1px solid rgba(255, 207, 77, 0.3); color: var(--gold); border-radius: var(--radius-sm); cursor: pointer; font-weight: bold; transition: all 0.2s; justify-content: center;" onmouseover="this.style.background='rgba(255, 207, 77, 0.3)'" onmouseout="this.style.background='rgba(255, 207, 77, 0.15)'">+100</button>
                 </div>
                 <div style="display: flex; gap: 6px; width: 100%; justify-content: center; margin-top: 4px;">
@@ -5873,7 +5971,7 @@
                     style="display:inline-block; margin:3px 4px 0 0; padding:3px 9px; border-radius:999px; cursor:pointer;
                            font-size:12px; font-weight:700; user-select:none;
                            border:1px solid ${on ? 'var(--accent)' : 'var(--border-light)'};
-                           background:${on ? 'rgba(109, 179, 255,0.16)' : 'transparent'};
+                           background:${on ? 'rgba(226, 182, 75,0.16)' : 'transparent'};
                            color:${on ? 'var(--accent)' : 'var(--text-muted)'};">${on ? '✓ ' : ''}${escapeHtml(nm)}</span>`;
             }).join('');
             // 점수판에서 이름이 바뀌었거나 빠진 팀원 — 그대로 두면 합산이 조용히 멈추므로 눈에 보이게 한다
@@ -6378,7 +6476,7 @@
                     btnConfirm.style.color = '#fff';
                 } else {
                     iconEl.innerHTML = `<i class="fa-solid fa-circle-info"></i>`;
-                    iconEl.style.background = 'rgba(109, 179, 255, 0.15)';
+                    iconEl.style.background = 'rgba(226, 182, 75, 0.15)';
                     iconEl.style.color = 'var(--accent)';
                     btnConfirm.style.background = 'var(--accent)';
                     btnConfirm.style.borderColor = 'var(--accent)';
@@ -7115,7 +7213,7 @@
                     const dbModeEl = document.getElementById('sys-db-mode');
                     if (dbModeEl) {
                         dbModeEl.innerText = data.is_postgres ? '클라우드 (PostgreSQL)' : '로컬 (SQLite)';
-                        dbModeEl.style.color = data.is_postgres ? 'var(--accent)' : '#6db3ff';
+                        dbModeEl.style.color = data.is_postgres ? 'var(--accent)' : '#e2b64b';
                     }
                     
                     // Update player count
@@ -7148,7 +7246,7 @@
                                 logText += `[${log.timestamp}] [${log.source.toUpperCase()}] ${log.name} -> 수취: ${log.amount.toLocaleString()}원 (누적: ${log.current_total.toLocaleString()}원) | 메시지: ${log.message}\n`;
                             });
                             consoleLogsEl.innerText = logText;
-                            consoleLogsEl.style.color = '#6db3ff';
+                            consoleLogsEl.style.color = '#e2b64b';
                         }
                     }
                 }
@@ -7625,7 +7723,7 @@
             
             container.innerHTML = queue.map((item, idx) => {
                 const isPlaying = (idx === 0);
-                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(109, 179, 255, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
+                const borderStyle = isPlaying ? 'border: 1px solid var(--accent); background: rgba(226, 182, 75, 0.05);' : 'border: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.15);';
                 const badge = isPlaying ? '<span style="font-size:var(--fs-1); background:var(--accent); color:#000; padding:1px 4px; border-radius:var(--r-1); font-weight:bold; margin-right:5px; vertical-align:middle;">재생중</span>' : `<span style="font-size:var(--fs-1); background:var(--line); color:#ccc; padding:1px 4px; border-radius:var(--r-1); font-weight:bold; margin-right:5px; vertical-align:middle;">대기 ${idx}</span>`;
                 
                 return `
@@ -7976,7 +8074,7 @@
                 const on = sgPicks.has(s.id);
                 return '<div onclick="sgTogglePick(' + s.id + ')" style="position:relative; border-radius:10px; overflow:hidden; cursor:pointer;' +
                     ' border:2px solid ' + (on ? 'var(--accent)' : 'transparent') + ';' +
-                    ' box-shadow:' + (on ? '0 0 14px rgba(109, 179, 255,.5)' : 'none') + ';">' +
+                    ' box-shadow:' + (on ? '0 0 14px rgba(226, 182, 75,.5)' : 'none') + ';">' +
                     '<img src="' + String(s.image_url).replace(/"/g, '&quot;') + '"' +
                         ' style="width:100%; aspect-ratio:16/9; object-fit:cover; display:block; opacity:' + (on ? 1 : .38) + ';">' +
                     '<div style="padding:5px 6px; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.6); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">' +
@@ -8174,7 +8272,7 @@
                 const open = c.state === 'REVEALED';
                 const done = !!c.doneAt;
                 const border = done ? '#2ecc71' : open ? 'var(--accent)' : 'rgba(255,255,255,0.35)';
-                const bg = done ? 'rgba(46,204,113,0.16)' : open ? 'rgba(109, 179, 255,0.14)' : 'rgba(255,255,255,0.07)';
+                const bg = done ? 'rgba(46,204,113,0.16)' : open ? 'rgba(226, 182, 75,0.14)' : 'rgba(255,255,255,0.07)';
                 return '<button onclick="sgFlip(' + c.id + ', ' + (open ? 'true' : 'false') + ')"' +
                     ' title="' + (open ? '이미 뒤집힘' : '뒤집기') + '"' +
                     ' style="aspect-ratio:16/9; border-radius: var(--r-2); cursor:' + (open ? 'default' : 'pointer') + '; font-weight:900; font-size: var(--fs-5);' +
@@ -8527,6 +8625,145 @@ initFoldablePanels();
            ⚠️ 물리는 **방송판이 굴린다.** 여기서는 명단을 넣고 시작을 알릴 뿐이다.
               결과도 방송판이 서버에 보고하고, 우리는 그 상태를 받아 보여준다. */
         function pbcState() { return (typeof gd !== 'undefined' && gd && gd.pinball) || {}; }
+
+
+        /* 🪟 한 창 조종실 — 넓으면 대기함·🆕 줄·되돌리기를 오른쪽 칸으로, 좁으면 탭 밑(상단 고정)으로 되돌린다.
+              ⚠️ 요소를 **옮긴다**(복사 아님) — id·버튼이 그대로라 다른 코드는 아무것도 몰라도 된다. */
+        var RAIL_MQ = window.matchMedia('(min-width: 1280px)');
+        function railPlace() {
+            const rail = document.getElementById('shell-rail'), top = document.getElementById('sticky-top');
+            const anchor = document.getElementById('context-strip');
+            if (!rail || !top || !anchor) return;
+            const first = rail.querySelector('.rail-only');
+            ['pending-box', 'recent-strip', 'undo-strip'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (RAIL_MQ.matches) { if (el.parentElement !== rail) rail.insertBefore(el, first); }
+                else if (el.parentElement !== top) top.insertBefore(el, anchor);
+            });
+        }
+        try { RAIL_MQ.addEventListener('change', railPlace); } catch (e) { try { RAIL_MQ.addListener(railPlace); } catch (e2) {} }
+
+        /* 🎵 시그니처 송출 — 후원 콘솔(manual_send.html)의 수동 송출과 같은 길(/api/signature/play · 장부면 /api/donation) */
+        var RS_SIGS = [];
+        async function railLoadSigs() {
+            try {
+                const d = await (await fetch('/api/signatures')).json();
+                RS_SIGS = (d.signatures || []).slice().sort((a, b) => (a.amount || 0) - (b.amount || 0));
+                railRenderQuick(); railPreview();
+            } catch (e) {}
+        }
+        function rsAmount() { const el = document.getElementById('rs-amount'); return parseInt(String(el ? el.value : '').replace(/[^\d]/g, ''), 10) || 0; }
+        // 금액보다 크거나 같은 첫 시그니처(후원 콘솔과 같은 올림 매칭)
+        function rsMatch(a) {
+            if (!RS_SIGS.length || a <= 0) return null;
+            for (const s of RS_SIGS) if ((s.amount || 0) >= a) return s;
+            return RS_SIGS[RS_SIGS.length - 1];
+        }
+        function railPreview() {
+            const el = document.getElementById('rs-amount'); if (!el) return;
+            const a = rsAmount();
+            if (a && el.value !== a.toLocaleString()) el.value = a.toLocaleString();   // 쉼표를 붙여 보여준다
+            const sig = rsMatch(a), m = document.getElementById('rs-match'), th = document.getElementById('rs-thumb'), tt = document.getElementById('rs-thumb-t');
+            if (!sig) { m.textContent = a > 0 ? '맞는 시그니처가 없습니다' : ''; m.className = 'rs2-match'; th.style.backgroundImage = ''; tt.style.display = 'none'; return; }
+            const exact = (sig.amount || 0) === a;
+            m.textContent = (exact ? '✓ ' : '↑ 올림 → ') + (sig.title || '시그니처') + ' · ' + Number(sig.amount || 0).toLocaleString() + '원';
+            m.className = 'rs2-match' + (exact ? '' : ' up');
+            th.style.backgroundImage = sig.image_url ? 'url("' + String(sig.image_url).replace(/"/g, '%22') + '")' : '';
+            tt.textContent = sig.title || ''; tt.style.display = sig.title ? '' : 'none';
+        }
+        function railRenderQuick() {
+            const box = document.getElementById('rs-quick'); if (!box) return;
+            // 전용 연출이 있는 10만 원 이상만 빠른 단추로(전부 두면 백 개가 넘는다)
+            const list = RS_SIGS.filter(s => (s.amount || 0) >= 100000);
+            box.innerHTML = '';
+            list.forEach(function (s) {
+                const b = document.createElement('button');
+                b.type = 'button';
+                const t = document.createElement('b'); t.textContent = s.title || '';
+                b.appendChild(t);
+                b.appendChild(document.createTextNode(manWon(s.amount || 0) + '만'));   // 만원 셈은 manWon 하나로(검사가 지킨다)
+                b.title = Number(s.amount || 0).toLocaleString() + '원';
+                b.onclick = function () { document.getElementById('rs-amount').value = String(s.amount || 0); railPreview(); document.getElementById('rs-amount').focus(); };
+                box.appendChild(b);
+            });
+        }
+        async function railSend() {
+            const a = rsAmount();
+            if (a <= 0) { acctToast('금액을 넣어 주세요', 'warn'); document.getElementById('rs-amount').focus(); return; }
+            const name = (document.getElementById('rs-donor').value || '').trim() || '수동송출';
+            const ledger = document.getElementById('rs-ledger').checked;
+            const btn = document.getElementById('rs-send'); btn.disabled = true;
+            const url = ledger ? '/api/donation' : '/api/signature/play';
+            const body = ledger ? { name: name, amount: a, message: '', tx_id: 'manual_' + Date.now() } : { name: name, amount: a, message: '' };
+            try {
+                const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const d = await r.json().catch(() => ({}));
+                if (r.ok && d.status === 'success') {
+                    acctToast('🎵 송출했습니다' + (ledger ? ' (장부 기록)' : ''), 'ok');
+                    document.getElementById('rs-amount').value = ''; document.getElementById('rs-donor').value = ''; railPreview();
+                } else acctToast('송출 실패: ' + (d.message || r.status), 'warn');
+            } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); }
+            finally { btn.disabled = false; }
+        }
+
+        /* ▶ 재생 대기열 — gd.reaction_queue 를 그린다(주기 갱신에 물려 있다). 바뀔 때만 다시 그린다. */
+        var rqSig = '';
+        function railQueue() {
+            const list = document.getElementById('rq-list'); if (!list || typeof gd === 'undefined' || !gd) return;
+            const q = Array.isArray(gd.reaction_queue) ? gd.reaction_queue : [];
+            const paused = !!gd.reaction_paused;
+            const sig = JSON.stringify([q.map(x => [x.id, x.title, x.donator, x.amount]), paused]);
+            if (sig === rqSig) return;
+            rqSig = sig;
+            document.getElementById('rq-count').textContent = q.length ? q.length + '개' : '';
+            const pb = document.getElementById('rq-pause');
+            if (pb) { pb.textContent = paused ? '알림 재개' : '알림 멈춤'; pb.classList.toggle('on', paused); }
+            if (!q.length) { list.innerHTML = '<div class="rq-empty">' + (paused ? '멈춰 있어요 — 새 후원은 쌓이기만 합니다' : '대기 중인 시그니처가 없습니다') + '</div>'; return; }
+            list.innerHTML = '';
+            q.slice(0, 6).forEach(function (it, i) {
+                const row = document.createElement('div');
+                row.className = 'rq-row' + (i === 0 && !paused ? ' now' : '');
+                const th = document.createElement('div'); th.className = 'rq-th';
+                if (it.image_url) th.style.backgroundImage = 'url("' + String(it.image_url).replace(/"/g, '%22') + '")';
+                const mid = document.createElement('div');
+                const b = document.createElement('b'); b.textContent = it.title || '시그니처';
+                const sm = document.createElement('small'); sm.textContent = (i === 0 ? (paused ? '다음 차례 · ' : '재생 중 · ') : '') + (it.donator || '익명');
+                mid.appendChild(b); mid.appendChild(sm);
+                const am = document.createElement('span'); am.className = 'rq-a'; am.textContent = Number(it.amount || 0).toLocaleString();
+                const x = document.createElement('button'); x.type = 'button'; x.className = 'rq-x'; x.title = '목록에서 빼기'; x.textContent = '✕';
+                x.onclick = function () { railRemove(it.id); };
+                row.appendChild(th); row.appendChild(mid); row.appendChild(am); row.appendChild(x);
+                list.appendChild(row);
+            });
+            if (q.length > 6) { const more = document.createElement('div'); more.className = 'rq-empty'; more.textContent = '외 ' + (q.length - 6) + '개'; list.appendChild(more); }
+        }
+        async function railPost(url, body) {
+            const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json().catch(() => ({}));
+        }
+        async function railPause() {
+            try { const d = await railPost('/api/reaction/pause'); acctToast(d.paused ? '알림을 멈췄습니다 — 재생 중인 것은 끝까지 나갑니다' : '알림을 다시 내보냅니다', 'ok'); }
+            catch (e) { acctToast('실패: ' + e.message, 'warn'); }
+        }
+        async function railSkip() {
+            try { await railPost('/api/reaction/next'); acctToast('다음으로 넘겼습니다', 'ok'); }
+            catch (e) { acctToast('넘기기 실패: ' + e.message, 'warn'); }
+        }
+        async function railClear() {
+            const ok = await premiumConfirm('대기 중인 시그니처를 모두 지울까요?\n재생 중인 것도 멈춥니다.', '재생 대기열 비우기', 'warning');
+            if (!ok) return;
+            try { await railPost('/api/reaction/stop'); acctToast('대기열을 비웠습니다', 'ok'); }
+            catch (e) { acctToast('실패: ' + e.message, 'warn'); }
+        }
+        async function railRemove(id) {
+            if (!id) return;
+            try { await railPost('/api/reaction/queue/remove/' + encodeURIComponent(id)); acctToast('목록에서 뺐습니다', 'ok'); }
+            catch (e) { acctToast('빼기 실패: ' + e.message, 'warn'); }
+        }
+        document.addEventListener('DOMContentLoaded', function () { try { railPlace(); } catch (e) {} railLoadSigs(); });
+        setInterval(railLoadSigs, 10 * 60 * 1000);   // 시그니처를 새로 올렸을 때 10분 안에 따라온다
 
         /* 🆕 방금 들어온 후원 — 랭킹 로그(gd.logs, 최신이 앞) 에서 6줄.
               ⚠️ 바뀔 때만 다시 그린다(1초마다 갈면 옆으로 민 자리가 튄다). ⚠️ var: 주기 갱신이 먼저 부를 수 있다 */
