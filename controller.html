@@ -181,6 +181,30 @@
         .sys-danger { border-color: rgba(255, 69, 58, 0.45); background: rgba(255, 69, 58, 0.04); }
         .sys-danger .sys-head { color: var(--danger); }
         .sys-soft-danger { height: 42px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); display: inline-flex; align-items: center; gap: 8px; }
+        /* 🗂️ 탭 두 줄 (2026-09-27 시안 B) — 윗줄 자주, 아랫줄 가끔.
+           ⚠️ 아랫줄은 .tab-row2 한 덩어리다. 폭이 모자라면 각 줄 안에서만 접힌다(폰에선 아랫줄은 옆으로 민다). */
+        .tabs.tabs-2row { flex-wrap: wrap; overflow-x: visible; white-space: normal; row-gap: 4px; }
+        .tabs-2row .tab-row2 { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: inherit; }
+        /* 📱 폰 폭 — 아랫줄(가끔)은 한 줄로 두고 옆으로 민다. 접으면 탭만 다섯 줄이 되어 화면 위를 다 먹었다(실측 420px) */
+        @media (max-width: 600px) {
+            .tabs-2row .tab-row2 { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+            .tabs-2row .tab-row2::-webkit-scrollbar { display: none; }
+            .tabs-2row .tab-row2 .tab-btn, .tabs-2row .tab-row2 > a { flex: none; }
+        }
+        .tab-btn.tab-minor { padding: 5px 11px; font-size: var(--fs-2); }
+        .tab-btn.tab-minor.active { padding: 5px 11px; }
+        /* 🆕 방금 들어온 후원 줄 */
+        #recent-strip { display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap;
+                        padding: 6px 10px; border-radius: var(--r-2); border: 1px solid rgba(67, 189, 157, 0.35);
+                        background: rgba(67, 189, 157, 0.06); scrollbar-width: thin; }
+        #recent-strip .rs-cap { font-size: var(--fs-1); font-weight: 800; color: #43bd9d; flex: none; }
+        #recent-strip .rs-chip { flex: none; font-size: var(--fs-2); padding: 3px 10px; border-radius: 999px;
+                                 background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-light); color: var(--text-main); }
+        #recent-strip .rs-chip .rs-t { color: var(--text-muted); margin-right: 4px; font-variant-numeric: tabular-nums; }
+        #recent-strip .rs-chip b { color: var(--accent); }
+        #recent-strip .rs-chip.rs-c b { color: #c99bff; }
+        #recent-strip .rs-more { flex: none; height: 26px; padding: 0 10px; font-size: var(--fs-1); border-radius: var(--r-1); }
+        #recent-strip .rs-chip.rs-new { border-color: rgba(67, 189, 157, 0.7); }
         /* 🎮 게임 탭 묶음 — 줄바꿈이 묶음 안에서 안 일어나게(통째로 다음 줄) */
         .tab-group { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: inherit; flex: 0 0 auto; }
         /* 그룹 사이 세로 구분선 */
@@ -1338,35 +1362,33 @@
          ⚠️ 버튼 배치는 그대로 둔다 — 손에 익은 자리가 바뀌면 방송 중에 그게 더 위험하다.
             자리만 옮기고 항상 보이게 했다. -->
     <div id="sticky-top">
-        <!-- 🗂️ 탭 — 기본(랭킹·후원 콘솔·로그·시스템·그 밖에) 다음에 🎮 게임 묶음.
-             ⚠️ 게임 묶음은 한 덩어리(.tab-group)다 — 폭이 모자라면 통째로 다음 줄로 내려간다.
-                탭 사이에서 줄이 바뀌면 게임이 두 줄로 찢어져 보였다(956px 반쪽 화면).
-             ⚠️ 게임은 게임끼리 모은다 (대표님 2026-09-22). 예전엔 대결은 맨 앞, 룰렛은 [그 밖에] 속에
-                숨어 있어서 벌칙 룰렛을 돌리려면 [그 밖에]부터 펴야 했다.
-             ⚠️ 이름표는 '게임' 하나만 단다 — 탭마다 이름표를 달면 자리만 차지한다(폰 폭에서는 접힌다).
-             펼친 상태([그 밖에])는 브라우저가 기억한다. -->
-        <div class="tabs">
+        <!-- 🗂️ 탭 — 두 줄 (대표님 2026-09-27, 시안 B).
+             추석 방송(2026-09-22) 클릭 기록 1,073번을 보고 **많이 연 순서**로 세웠다.
+               윗줄(자주): 랭킹 79 · BGM 28 · 대결 25 · 룰렛 18 · 슬롯 16 · 주사위 14 · 시그뒤집기 12
+               아랫줄(가끔): 지옥탈출·퇴근빵 9 · 시스템 8 · 이펙트 6 · 핀볼 5 · 진행봇 4 · 특별 후원자 3 …
+             ⚠️ 예전 [그 밖에] 는 걷었다 — BGM 이 그 안에 숨어 있어 방송 중 21번을 펴고 들어갔다.
+             ⚠️ 로그 탭은 '방금 들어온 후원' 을 보러 48번 오갔다 → 대기함 밑 🆕 줄(#recent-strip)이 대신한다.
+             ⚠️ 아랫줄은 .tab-row2 한 덩어리다(두 줄이 섞이지 않게). -->
+        <div class="tabs tabs-2row">
             <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
-            <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-key" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
-            <button class="tab-btn tab-key" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
-            <button class="tab-btn" id="tabs-more-btn" onclick="toggleTabsMore()" title="자주 안 쓰는 탭 펴기/접기"><i class="fa-solid fa-ellipsis"></i> 그 밖에</button>
-            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
-            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM / 유튜브</button>
-            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-            <button class="tab-btn tab-extra" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
-            <a href="/signature-display" target="_blank" class="tab-extra" style="text-decoration: none;"><button class="tab-btn"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
-            <span class="tab-sep"></span>
-            <span class="tab-group" role="group" aria-label="게임">
-                <span class="tab-glabel accent">🎮 게임</span>
-                <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
-                <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
-                <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
-                <button class="tab-btn" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
-                <button class="tab-btn" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
-                <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
-                <button class="tab-btn" onclick="openTab(event, 'tab-mode')" title="퇴근빵 · 🔥 지옥탈출 · 임시게임판"><i class="fa-solid fa-toggle-on"></i> 진행판</button>
-            </span>
+            <button class="tab-btn tab-key" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
+            <div class="tab-row2">
+            <span class="tab-glabel">가끔</span>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
+            <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
+            <a href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn tab-minor"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
+            </div>
         </div>
         <!-- 후원 결재 대기함 (탭과 무관하게 항상 보인다) -->
             <div class="group-box" id="pending-box" style="display: none; border-color: rgba(255, 204, 0, 0.5); background: rgba(255, 204, 0, 0.03);">
@@ -1387,6 +1409,10 @@
                 </div>
                 <div id="pending-list"></div>
             </div>
+        <!-- 🆕 방금 들어온 후원 — 누구에게 몇 점이 들어갔나(랭킹 로그 최근 6줄).
+             대표님: 로그 탭은 '방금 들어온 후원 확인용' 이었다 — 방송 중 48번을 들어갔다 나왔다.
+             탭이 뭐든 늘 보이게 여기 둔다. 한 줄이고, 넘치면 옆으로 민다. -->
+        <div id="recent-strip" style="display:none;"></div>
         <!-- ↩ 방금 배정한 것 되돌리기. 여기 없으면, 잘못 준 걸 알아채도
              로그 탭으로 건너가야 하고 그동안 대기함이 안 보인다.
              "실수할 수 있다"보다 "실수를 알아챘는데 고칠 수 없다"가 더 나쁘다. -->
@@ -3522,6 +3548,7 @@
             checkHomeRaceGoals();            // 🏃 퇴근 목표 도달 확인
             try { renderHellPanel(); checkHellGoals(); } catch (e) {}   // 🔥 지옥탈출 판 · 탈출 확인
             try { psRender(); } catch (e) {}                             // 💾 세이브 슬롯 단추
+            try { renderRecentStrip(); } catch (e) {}                    // 🆕 방금 들어온 후원 줄
             if (document.getElementById('home-race-panel-body')?.style.display !== 'none') {
                 renderHomeGoalInputs();
             }
@@ -3950,6 +3977,12 @@
             if (cmd === 'spin') {
                 gd.roulette.is_spinning = true;
                 gd.roulette.winner_name = null;
+                /* 🎡 안 떠 있으면 같이 띄운다 — 방송에선 [표시]를 누르고 [회전]을 눌렀다(표시 22번 · 회전 12번).
+                      다른 게임판은 서버가 내린다(꺼짐→켜짐을 보고 _solo_board). 결과가 나오면 서버가 다시 내린다. */
+                if (!gd.roulette_enabled) {
+                    gd.roulette_enabled = true;
+                    try { const c = document.getElementById('chk-roulette-enabled'); if (c) c.checked = true; } catch (e) {}
+                }
             } else if (cmd === 'reset') {
                 gd.roulette.is_spinning = false;
                 gd.roulette.winner_name = null;
@@ -8473,6 +8506,33 @@ initFoldablePanels();
               결과도 방송판이 서버에 보고하고, 우리는 그 상태를 받아 보여준다. */
         function pbcState() { return (typeof gd !== 'undefined' && gd && gd.pinball) || {}; }
 
+        /* 🆕 방금 들어온 후원 — 랭킹 로그(gd.logs, 최신이 앞) 에서 6줄.
+              ⚠️ 바뀔 때만 다시 그린다(1초마다 갈면 옆으로 민 자리가 튄다). ⚠️ var: 주기 갱신이 먼저 부를 수 있다 */
+        var rsSig = '', rsSeenTop = null, rsNewUntil = 0;
+        function renderRecentStrip() {
+            const box = document.getElementById('recent-strip');
+            if (!box || typeof gd === 'undefined' || !gd) return;
+            const logs = (Array.isArray(gd.logs) ? gd.logs : []).slice(0, 6);
+            if (!logs.length) { if (box.style.display !== 'none') box.style.display = 'none'; rsSig = ''; return; }
+            const top = JSON.stringify(logs[0]);
+            if (rsSeenTop !== null && top !== rsSeenTop) rsNewUntil = Date.now() + 8000;   // 새로 들어온 첫 줄은 8초 동안 테두리
+            rsSeenTop = top;
+            const fresh = Date.now() < rsNewUntil;
+            const sig = JSON.stringify([logs, fresh]);
+            if (sig === rsSig) return;
+            rsSig = sig;
+            const hm = t => { const m = String(t || '').match(/(\d{1,2}:\d{2})/); return m ? m[1] : ''; };
+            box.innerHTML = '<span class="rs-cap">🆕 방금 들어온 후원</span>' + logs.map((l, i) => {
+                const c = l.kind === 'contrib';
+                const amt = (l.val > 0 ? '+' : '') + Number(l.val || 0).toLocaleString() + (c ? ' 기여도' : '점');
+                return '<span class="rs-chip' + (c ? ' rs-c' : '') + (i === 0 && fresh ? ' rs-new' : '') + '">'
+                    + '<span class="rs-t">' + escapeHTML(hm(l.time)) + '</span>'
+                    + escapeHTML(String(l.name || '')) + ' <b>' + amt + '</b></span>';
+            }).join('') + '<button type="button" class="rs-more" onclick="openTabById(\'tab-logs\')" title="로그 탭에서 전부 보기">전체 ▸</button>';
+            if (box.style.display === 'none') box.style.display = '';
+            if (fresh) setTimeout(() => { try { renderRecentStrip(); } catch (e) {} }, 8200);   // 테두리 걷기
+        }
+
         /* 💾 세이브 슬롯 — 단추만 그린다(서버 상태 gd.layout_presets). ⚠️ var: 주기 갱신이 이 줄보다 먼저 부를 수 있다 */
         var psSig = '', psLast = '';
         var PS_BOARD_NAME = { roulette: '🎡 룰렛', slot: '🎰 슬롯', siggame: '🃏 시그뒤집기', dicegame: '🎲 주사위', pinball: '🎱 핀볼' };
@@ -9397,7 +9457,7 @@ function cmdkCommands() {
         { k: '대결 탭', t: '📑 대결 탭', h: '이동', run: () => openTabById('tab-match') },
         { k: '시그뒤집기', t: '📑 시그뒤집기 탭', h: '이동', run: () => openTabById('tab-siggame') },
         { k: '슬롯머신 탭', t: '📑 슬롯머신 탭', h: '이동', run: () => openTabById('tab-slot') },
-        { k: '진행판', t: '📑 진행판 탭', h: '이동', run: () => openTabById('tab-mode') },
+        { k: '진행판 지옥탈출 퇴근빵', t: '📑 지옥탈출·퇴근빵 탭', h: '이동', run: () => openTabById('tab-mode') },
         { k: '주사위', t: '🎲 주사위게임 탭', h: '이동', run: () => { openTabById('tab-dicegame'); dgcSync(true); } },
         { k: '굴려', t: '🎲 주사위 굴리기', h: '실행', run: () => dgcRoll() },
         { k: '시스템 버전', t: '📑 시스템 탭 (버전·백업)', h: '이동', run: () => openTabById('tab-system') },
@@ -9405,6 +9465,7 @@ function cmdkCommands() {
         { k: '유튜브 bgm 음악', t: '📑 BGM/유튜브 탭', h: '이동', run: () => openTabById('tab-youtube') },
         { k: '특별 후원자', t: '📑 특별 후원자 탭', h: '이동', run: () => openTabById('tab-vip') },
         { k: '룰렛 탭', t: '📑 룰렛 탭', h: '이동', run: () => openTabById('tab-roulette') },
+        { k: '핀볼 구슬', t: '📑 핀볼 탭', h: '이동', run: () => { openTabById('tab-pinball'); pbcSync(true); } },
         { k: '후원 콘솔', t: '📤 후원 콘솔 열기', h: '창', run: () => window.open('/manual', '_blank') },
     ];
     const ql = q.toLowerCase();
@@ -9479,6 +9540,11 @@ document.addEventListener("keydown", (e) => {
                 const fn = m[1], arg = q ? q[1] : '';
                 return { key: arg ? fn + ':' + arg : fn, fn: fn };
             }
+            /* 🔎 확인 창 — 추석 방송 때 '확인' 이 65번이었는데 어떤 창인지 몰랐다. 창 제목을 붙인다 */
+            if (el.id === 'dialog-btn-confirm' || el.id === 'dialog-btn-cancel') {
+                const t = ((document.getElementById('dialog-title') || {}).innerText || '').replace(/\s+/g, ' ').trim().slice(0, 30);
+                return { key: '#' + el.id + (t ? ':' + t : ''), dlg: t };
+            }
             if (el.id) return { key: '#' + el.id };
             const a = el.closest('a[href]');
             if (a) return { key: 'link:' + a.getAttribute('href') };
@@ -9490,6 +9556,7 @@ document.addEventListener("keydown", (e) => {
                 if (!k) return;
                 let label = (k.fn && NICE[k.fn]) || textOf(el) || k.key;
                 if (k.fn === 'openTab') label = '탭: ' + label;
+                if (k.dlg) label = label + ' — ' + k.dlg;
                 const row = pend[k.key] || (pend[k.key] = { key: k.key, label: label, tab: tabOf(el), n: 0 });
                 row.n++; dirty++;
             } catch (e) {}
