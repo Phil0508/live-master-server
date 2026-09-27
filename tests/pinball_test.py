@@ -294,6 +294,14 @@ chk('방송판은 펼친 목록을 굴린다', '(g.balls && g.balls.length) ? g.
 chk('조종실에 이름·개수 칸이 있다', 'id="pb-rows"' in CTL and 'class="pb-rc" type="number"' in CTL)
 chk('칸을 서버가 알아듣는 글로 보낸다 (이름*개수)', "x.count > 1 ? x.name + '*' + x.count : x.name" in CTL)
 chk('예전 저장본(양양*3)도 칸으로 읽는다', 'function pbcParseNames(' in CTL)
+# 🎨 시안 A(2026-09-28) — 줄 앞 색 점이 방송판 구슬 색이다. 두 곳 팔레트가 어긋나면 색이 거짓말을 한다.
+_pc_ov = re.search(r"const PB_COLS = \[(.*?)\];", OV, re.S)
+_pc_ct = re.search(r"const PB_COLS = \[(.*?)\];", CTL, re.S)
+chk('조종실 색 점 = 방송판 구슬 색', bool(_pc_ov and _pc_ct)
+    and re.sub(r'\s', '', _pc_ov.group(1)) == re.sub(r'\s', '', _pc_ct.group(1)))
+chk('명단은 고치면 바로 저장된다 (굴러가는 중엔 조용히 넘김)',
+    'function pbcQueueSave(' in CTL and 'if (pbcState().running)' in CTL)
+chk('규칙·판 버튼은 숨긴 목록을 바꾼다', 'function pbcPick(' in CTL and "el.dispatchEvent(new Event('change'))" in CTL)
 chk('이름에 쉼표·별표가 섞여도 안 깨진다', ".replace(/[,\\n\\r*]+/g, ' ')" in CTL)
 
 # 🏅 여러 명 뽑기 — 원본의 winnerRange 를 옮긴 것이다.

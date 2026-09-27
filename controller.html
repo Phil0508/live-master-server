@@ -184,8 +184,100 @@
         .sys-danger .sys-head { color: var(--danger); }
         .sys-soft-danger { height: 42px; background: rgba(255, 69, 58, 0.1); border: 1px solid rgba(255, 69, 58, 0.3); color: var(--danger); font-weight: bold; padding: 0 18px; border-radius: var(--r-2); display: inline-flex; align-items: center; gap: 8px; }
         /* 🎱 핀볼 참가자 표 — 이름 칸 + 구슬 개수 칸 (대표님 2026-09-27: "양양*2 말고 칸으로") */
+        /* 🎮 게임 탭 공통 틀 (시안 A, 2026-09-28) — 핀볼 · 주사위 · 슬롯 · 시그뒤집기가 같은 자리를 쓴다.
+           맨 윗줄: 제목 · (상태 알약) · 방송에 띄우기 스위치(늘 오른쪽 끝)
+           그 밑:   실행 줄(큰 금색 버튼 + 지금 상태) → 설정 → 접힌 칸들 */
+        .gx-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .gx-title { font-size: var(--fs-5); font-weight: 800; color: var(--text-main); display: inline-flex; align-items: center; gap: 8px; }
+        .gx-title i { color: var(--accent); }
+        .gx-pill { font-size: var(--fs-1); font-weight: 800; padding: 3px 10px; border-radius: var(--r-full); background: rgba(255,255,255,.06); color: var(--text-muted); }
+        .gx-air { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+                  font-size: var(--fs-2); font-weight: 700; color: var(--text-muted); }
+        .gx-air .gx-on { display: none; align-items: center; gap: 6px; }
+        .gx-air .gx-on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        .gx-air:has(input:checked) { color: #ff8a80; }
+        .gx-air:has(input:checked) .gx-on { display: inline-flex; }
+        .gx-air:has(input:checked) .gx-off { display: none; }
+        .gx-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; margin-bottom: 14px;
+                  background: var(--bg-input); border: 1px solid var(--border-light); border-radius: var(--r-3); }
+        .gx-act > button { margin: 0; }
+        button.gx-go { height: 48px; padding: 0 24px; font-size: var(--fs-5); font-weight: 900; border-radius: var(--r-2);
+                       background: var(--accent); border: 1px solid var(--accent); color: #17140b; }
+        button.gx-go:hover { background: #ecc463; border-color: #ecc463; color: #17140b; }
+        button.gx-go:disabled { opacity: .45; cursor: not-allowed; }
+        .gx-state { flex: 1; min-width: 220px; font-size: var(--fs-2); color: var(--text-muted); line-height: 1.6; }
+        .gx-state b { color: var(--text-main); }
+        .gx-grid { display: grid; gap: 14px; margin-bottom: 14px; align-items: start; }
+        .gx-inline { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+        .gx-sub { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+        .gx-lbl { display: block; font-size: var(--fs-1); font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+        .gx-info { font-size: var(--fs-1); color: var(--text-dim); font-weight: 500; line-height: 1.6; }
+        .gx-note { font-size: var(--fs-2); color: var(--text-muted); line-height: 1.75; }
+        .gx-hide { display: none !important; }
+        button.gx-sm { height: 30px; padding: 0 11px; margin: 0; font-size: var(--fs-2); border-radius: var(--r-1); }
+        .gx-seg { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--bg-input); border: 1px solid var(--line); border-radius: var(--r-2); }
+        .gx-seg button { margin: 0; height: 32px; padding: 0 13px; border: 0; border-radius: 5px; background: transparent; color: var(--text-muted); font-size: var(--fs-2); }
+        .gx-seg button:hover { background: rgba(255,255,255,.04); color: var(--text-main); }
+        .gx-seg button.on { background: var(--bg-card); color: var(--text-main); box-shadow: inset 0 0 0 1px var(--accent); }
+        .gx-step { display: inline-flex; align-items: stretch; height: 34px; border: 1px solid var(--line); border-radius: var(--r-2); overflow: hidden; }
+        .gx-step button { margin: 0; width: 32px; min-width: 32px; height: auto; padding: 0; justify-content: center; border: 0; border-radius: 0; background: var(--bg-card); color: var(--text-muted); }
+        .gx-step input { width: 58px; height: auto; margin: 0; border: 0; border-radius: 0; text-align: center; font-family: var(--font-num); font-weight: 700; background: var(--bg-input); }
+        .gx-tg { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-2); font-weight: 700; cursor: pointer; margin: 0 0 7px; }
+        .gx-tg input { margin: 0; }
+        .gx-maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-bottom: 16px; }
+        button.gx-map { margin: 0; height: auto; display: block; text-align: left; padding: 8px 11px; border: 1px solid var(--line); border-radius: var(--r-2); background: var(--bg-input); }
+        button.gx-map b { display: block; font-size: var(--fs-2); color: var(--text-main); font-weight: 800; }
+        button.gx-map span { display: block; font-size: var(--fs-1); color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+        button.gx-map:hover { border-color: #454b57; background: var(--bg-input); }
+        button.gx-map.on { border-color: var(--accent); background: rgba(226, 182, 75, .10); }
+        .gx-fold { border: 1px solid var(--border-light); border-radius: var(--r-2); background: var(--bg-panel); }
+        .gx-fold + .gx-fold { margin-top: 6px; }
+        .gx-fold > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+                             font-size: var(--fs-3); font-weight: 700; color: var(--text-main); user-select: none; }
+        .gx-fold > summary::-webkit-details-marker { display: none; }
+        .gx-fold > summary::before { content: "▸"; color: var(--accent); transition: transform var(--d-fast) var(--ease); }
+        .gx-fold[open] > summary::before { transform: rotate(90deg); }
+        .gx-fold > summary small { margin-left: auto; font-size: var(--fs-2); font-weight: 500; color: var(--text-muted); }
+        .gx-fold-body { padding: 2px 14px 14px; }
+        /* 🎲 주사위 — 차례 단추 · 눈 · 방금 굴린 것 */
+        .dgc-players { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        button.dgc-pl { margin: 0; height: auto; min-width: 104px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+                        padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-2); background: var(--bg-card); }
+        button.dgc-pl b { font-size: var(--fs-4); color: var(--text-main); }
+        button.dgc-pl span { font-size: var(--fs-1); color: var(--text-muted); font-family: var(--font-num); font-weight: 500; }
+        button.dgc-pl.next { border-color: rgba(226, 182, 75, .6); }
+        button.dgc-pl.on { border-color: var(--accent); background: rgba(226, 182, 75, .12); box-shadow: inset 0 0 0 1px var(--accent); }
+        button.dgc-pl.on span, button.dgc-pl.next span { color: var(--accent); }
+        .dgc-eyes { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        button.dgc-eye { margin: 0; width: 34px; min-width: 34px; height: 34px; padding: 0; justify-content: center; font-family: var(--font-num); font-weight: 800; font-size: var(--fs-3); }
+        .dgc-log { display: flex; flex-direction: column; }
+        .dgc-log div.l { display: flex; gap: 8px; font-size: var(--fs-2); padding: 5px 0; border-bottom: 1px solid var(--border-light); line-height: 1.5; }
+        .dgc-log div.l time { flex: none; font-family: var(--font-num); color: var(--text-dim); font-size: var(--fs-1); padding-top: 1px; }
+        /* 🎰 슬롯 — 고른 후보 칩 */
+        .slot-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .slot-chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 4px 4px 4px; border: 1px solid var(--line); border-radius: var(--r-2);
+                     background: var(--bg-card); font-size: var(--fs-2); font-weight: 700; }
+        .slot-chip .th { width: 40px; height: 22px; border-radius: 4px; background: var(--bg-input) center / cover no-repeat; flex: none; }
+        .slot-chip em { font-style: normal; font-family: var(--font-num); color: var(--text-muted); font-size: var(--fs-1); font-weight: 500; }
+        .slot-chip button { margin: 0; height: 22px; min-width: 22px; padding: 0 5px; border: 0; background: transparent; color: var(--text-dim); font-size: var(--fs-2); }
+        .slot-chip button:hover { color: var(--danger); background: transparent; }
+        #slot-picker { margin-bottom: 4px; }
+        /* 🃏 시그 뒤집기 — 타이머 · 올클리어 · 아랫줄 도구 */
+        .sg-timer { font-family: var(--font-num); font-size: 40px; font-weight: 800; color: var(--accent); line-height: 1; min-width: 124px; letter-spacing: -1px; }
+        button.sg-allclear { margin: 0 0 0 auto; height: 42px; padding: 0 18px; border: 0; border-radius: var(--r-2); font-weight: 900; color: #fff;
+                             background: linear-gradient(120deg, #2ecc71, #12a05a); }
+        button.sg-allclear:hover { background: linear-gradient(120deg, #3bd97e, #16b064); color: #fff; }
+        button.sg-allclear:disabled { opacity: .35; cursor: not-allowed; }
+        .sg-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .sg-tools button { margin: 0; height: 34px; padding: 0 12px; font-size: var(--fs-2); }
+        .sg-tools button.sg-danger { margin-left: auto; color: var(--danger); border-color: rgba(255, 69, 58, .35); background: transparent; }
+        @media (max-width: 760px) { .gx-grid { grid-template-columns: 1fr !important; } }
+
         .pb-rows { display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; margin-bottom: 8px; }
-        .pb-row { display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 6px; align-items: center; }
+        .pb-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) 90px auto auto auto auto; gap: 6px; align-items: center; }
+        .pb-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+        .pb-share { height: 6px; border-radius: 3px; background: var(--bg-input); overflow: hidden; }
+        .pb-share i { display: block; height: 100%; width: 0; border-radius: 3px; }
         .pb-row input { margin: 0; min-width: 0; }
         .pb-row .pb-rc { width: 72px; text-align: center; font-variant-numeric: tabular-nums; }
         .pb-row button { margin: 0; height: 36px; min-width: 36px; padding: 0 8px; justify-content: center; }
@@ -2393,257 +2485,263 @@
     <!-- 👑 특별 후원자(VIP) 탭 -->
     <!-- 🎲 주사위게임 (부루마블식) -->
     <div id="tab-pinball" class="tab-content">
-        <div class="group-box" style="margin-bottom:15px; border-color:rgba(120,220,255,0.4); background:rgba(120,220,255,0.04);">
-            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="color:var(--accent);">🎱 구슬 핀볼</span>
-                <label class="apple-switch" title="방송 화면에 띄우거나 내립니다">
-                    <input type="checkbox" id="pb-on" onchange="pbcEnable(this.checked)">
-                    <span class="apple-slider"></span>
-                </label>
+        <!-- 🎮 게임 탭 공통 틀(시안 A, 2026-09-28) — 맨 윗줄 제목 · 방송에 띄우기, 그 밑 실행 줄, 그 밑 설정.
+             ⚠️ 규칙 · 판 목록은 숨긴 <select> 가 진짜 값이다(검사와 옛 함수가 이걸 읽는다).
+                눈에 보이는 두 칸 버튼 · 판 카드는 그 select 를 바꾸고 onchange 를 부를 뿐이다. -->
+        <div class="group-box gx">
+            <div class="gx-head">
+                <span class="gx-title">🎱 구슬 핀볼</span>
+                <label class="gx-air" title="방송 화면에 띄우거나 내립니다 — 굴리면 저절로 켜집니다"><span class="gx-off">방송에 띄우기</span><span class="gx-on">방송 중</span><span class="apple-switch"><input type="checkbox" id="pb-on" onchange="pbcEnable(this.checked)"><span class="apple-slider"></span></span></label>
             </div>
-            <div style="font-size:var(--fs-2); color:var(--text-muted); margin:8px 0 12px; line-height:1.6;">
-                구슬이 못과 레일에 튕기며 떨어져 바닥에 닿는 순서로 순위가 납니다.
-                카메라가 <b>주인공 구슬</b>을 따라다니고, 결승선 앞에서는 확대되면서 느려집니다.
+
+            <div class="gx-act">
+                <button type="button" class="gx-go" onclick="pbcStart()"><i class="fa-solid fa-play"></i> 굴리기</button>
+                <button type="button" onclick="pbcReset()">초기화</button>
+                <!-- ⚠️ 봇·게임은 다른 프로그램(방송판)이 실제로 굴린다. 그 사실을 숨기면
+                     "굴렸는데 왜 아무 일도 없지" 로 헤맨다. 상태를 그대로 보여준다. -->
+                <div id="pb-state" class="gx-state">불러오는 중…</div>
+            </div>
+
+            <div class="gx-grid" style="grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);">
+                <div>
+                    <span class="gx-lbl">🏆 이기는 규칙</span>
+                    <div class="gx-seg" id="pb-rule-seg">
+                        <button type="button" data-v="first" onclick="pbcPick('pb-rule', 'first')">⚡ 먼저 들어온 사람</button>
+                        <button type="button" data-v="last" onclick="pbcPick('pb-rule', 'last')">🐢 끝까지 남은 사람</button>
+                    </div>
+                    <select id="pb-rule" class="gx-hide" onchange="pbcSetRule(this.value)" aria-hidden="true" tabindex="-1">
+                        <option value="first">⚡ 먼저 들어온 사람이 우승 — 빠르게 끝난다</option>
+                        <option value="last">🐢 끝까지 남은 사람이 우승 — 끝까지 봐야 한다</option>
+                    </select>
+                </div>
+                <div class="gx-inline">
+                    <div>
+                        <span class="gx-lbl">🏅 몇 명 뽑기</span>
+                        <div class="gx-step">
+                            <button type="button" onclick="pbcPicksStep(-1)" title="하나 줄이기">−</button>
+                            <input id="pb-picks" type="number" min="1" max="799" value="1"
+                                   onchange="pbcSetPicks(this.value)">
+                            <button type="button" onclick="pbcPicksStep(1)" title="하나 늘리기">+</button>
+                        </div>
+                    </div>
+                    <label class="gx-tg" title="구슬이 가끔 주변을 확 밀쳐 순위가 뒤집힙니다. 진지한 추첨이면 꺼 두세요.">
+                        <input id="pb-skills" type="checkbox" checked onchange="pbcSetSkills(this.checked)"> 💢 밀어내기
+                    </label>
+                </div>
             </div>
 
             <!-- 🗺️ 맵마다 걸리는 시간이 크게 다르다(실측 3~48초). 고르는 사람이 알아야
-                 방송 흐름을 짤 수 있어서 시간을 그대로 적어 뒀다. -->
-            <!-- 🏆 규칙이 둘이다. 카메라가 누구를 따라가는지까지 이 값이 바꿈다. -->
-            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">🏆 이기는 규칙</div>
-            <select id="pb-rule" onchange="pbcSetRule(this.value)" style="width:100%; margin:0 0 6px;">
-                <option value="first">⚡ 먼저 들어온 사람이 우승 — 빠르게 끝난다</option>
-                <option value="last">🐢 끝까지 남은 사람이 우승 — 끝까지 봐야 한다</option>
-            </select>
-            <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
-                <b>먼저</b>는 한 명이 들어오는 순간 끝나서 짧습니다.
-                <b>끝까지</b>는 한 명만 남을 때까지 가므로 더 길고, 카메라가 꼴짜를 따라다닙니다.
-            </div>
-
-            <div style="display:flex; gap:10px; align-items:center; margin-bottom:6px; flex-wrap:wrap;">
-                <label style="font-size:var(--fs-2); font-weight:700; margin:0;">🏅 몇 명 뽑기</label>
-                <input id="pb-picks" type="number" min="1" max="799" value="1"
-                       onchange="pbcSetPicks(this.value)"
-                       style="width:80px; margin:0; text-align:center;">
-                <label style="font-size:var(--fs-2); margin:0 0 0 auto; display:flex; gap:6px; align-items:center; cursor:pointer;">
-                    <input id="pb-skills" type="checkbox" checked onchange="pbcSetSkills(this.checked)" style="margin:0;">
-                    💢 밀어내기
-                </label>
-            </div>
-            <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
-                뽑는 수를 늘리면 그만큼이 당첨입니다(3으로 두면 — 먼저면 앞에서 3명, 끝까지면 뒤에서 3명).
-                <b>밀어내기</b>는 구슬이 가끔 주변을 확 밀쳐 순위가 뒤집히는 재미 요소입니다.
-                진지한 추첨이면 꺼 두세요.
-            </div>
-
-            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">🗺️ 판 고르기</div>
-            <select id="pb-map" onchange="pbcSetMap(this.value)" style="width:100%; margin:0 0 6px;">
+                 방송 흐름을 짤 수 있어서 시간을 그대로 적어 뒀다. 카드는 아래 목록 글로 그린다. -->
+            <span class="gx-lbl">🗺️ 판 고르기 <span class="gx-info">6명 · 5판 실측</span></span>
+            <div class="gx-maps" id="pb-map-cards"></div>
+            <select id="pb-map" class="gx-hide" onchange="pbcSetMap(this.value)" aria-hidden="true" tabindex="-1">
                 <option value="-1">🎱 우리 코스 — 먼저 6~11초 / 끝까지 14~21초 (가장 짧음)</option>
                 <option value="0">Wheel of fortune — 먼저 10~17초 / 끝까지 17~31초</option>
                 <option value="1">BubblePop — 먼저 17~21초 / 끝까지 23~27초</option>
                 <option value="3">Yoru ni Kakeru — 먼저 31~45초 / 끝까지 41~61초 (가장 긺)</option>
             </select>
-            <div style="font-size:var(--fs-1); color:var(--text-muted); margin-bottom:12px; line-height:1.6;">
-                적어 둔 시간은 <b>원본과 같은 엔진으로 6명 · 5판 굴려 잰 범위</b>입니다(전부 완주, 2026-09-22).
-                <b>Pot of greed</b> 는 뺀습니다 — 항아리에 구슬이 갇혀 열 판에 여섯은 중간에 멈춥니다.
-                고쳐 보려 했지만 맵 생김 탓이라 조율로는 안 됩니다.
-                가져온 판 셋은 원본(lazygyu/roulette, MIT)의 것입니다.
-            </div>
 
-            <div style="font-size:var(--fs-2); font-weight:700; margin-bottom:6px;">참가자</div>
             <!-- 🎱 한 줄 = 한 사람. 오른쪽 칸이 그 사람 구슬 수 (예전의 '양양*3' 을 칸으로 바꿨다).
-                 ⚠️ 서버에는 예전과 같은 글(밍밍, 양양*3)로 보낸다 — 서버·방송판은 그대로다. -->
-            <div id="pb-rows" class="pb-rows"></div>
-            <div class="pb-rows-foot">
-                <button type="button" onclick="pbcAddRow()" style="margin:0;"><i class="fa-solid fa-plus"></i> 사람 추가</button>
+                 ⚠️ 서버에는 예전과 같은 글(밍밍, 양양*3)로 보낸다 — 서버·방송판은 그대로다.
+                 줄 앞 색 점은 방송판 구슬 색과 같다(PB_COLS · 이름이 처음 나온 순서). -->
+            <div class="gx-sub">
+                <span class="gx-lbl" style="margin:0;">참가자</span>
                 <span id="pb-total">구슬 0개 / 800개</span>
             </div>
-            <details style="margin:0 0 8px;">
-                <summary style="cursor:pointer; font-size:var(--fs-2); color:var(--text-muted);">글로 한꺼번에 넣기 (쉼표·줄바꿈, 양양*3 도 됩니다)</summary>
-                <textarea id="pb-names" rows="3" placeholder="예) 밍밍, 양양*3, 예지랑" style="width:100%; margin:6px 0;"></textarea>
-                <button type="button" onclick="pbcRowsFromText()" style="margin:0;">표로 옮기기</button>
+            <div id="pb-rows" class="pb-rows"></div>
+            <div class="pb-rows-foot">
+                <button type="button" onclick="pbcAddRow(null, null, true)"><i class="fa-solid fa-plus"></i> 사람 추가</button>
+                <button type="button" onclick="pbcFillPlayers()"><i class="fa-solid fa-users"></i> 지금 선수 넣기</button>
+                <span id="pb-saved" class="gx-info" style="margin-left:auto;">고치면 바로 저장돼요</span>
+            </div>
+
+            <details class="gx-fold">
+                <summary>글로 한꺼번에 넣기 <small>쉼표 · 줄바꿈, 양양*3 도 됩니다</small></summary>
+                <div class="gx-fold-body">
+                    <textarea id="pb-names" rows="3" placeholder="예) 밍밍, 양양*3, 예지랑" style="width:100%; margin:0 0 6px;"></textarea>
+                    <button type="button" onclick="pbcRowsFromText()" style="margin:0;">표로 옮기기</button>
+                </div>
             </details>
-            <div style="font-size:var(--fs-1); color:var(--text-muted); margin:0 0 8px; line-height:1.6;">
-                오른쪽 칸에 적은 수만큼 그 사람 구슬이 들어갑니다 — 많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다.
-                (구슬은 모두 합쳐 <b>800개</b>까지 · 예전처럼 양양*3 으로 적어도 됩니다)<br>
-                구슬이 <b>수백 개</b>면 <b>끝까지 남기</b>는 오래 걸립니다 — 800개 실측: Yoru 49초 · 우리 코스 1분 · BubblePop 2분 반,
-                Wheel of fortune 은 구슬이 엉겨 시간 제한으로 끝납니다.<br>
-                구슬이 <b>40개를 넘으면 구슬 밑 이름을 안 붙입니다</b> — 겹쳐서 어차피 안 읽힙니다.
-                카메라가 따라다니는 주인공에만 이름이 붙습니다.
-            </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-                <button onclick="pbcFillPlayers()" style="margin:0;"><i class="fa-solid fa-users"></i> 지금 선수 넣기</button>
-                <button onclick="pbcSaveNames()" style="margin:0;">명단 저장</button>
-            </div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button onclick="pbcStart()" style="margin:0; background:var(--accent); color:#0b0d12; font-weight:900;">
-                    <i class="fa-solid fa-play"></i> 굴리기
-                </button>
-                <button onclick="pbcReset()" style="margin:0; background:transparent; border:1px solid var(--border-light);">초기화</button>
-            </div>
-
-            <!-- ⚠️ 봇·게임은 다른 프로그램(방송판)이 실제로 굴린다. 그 사실을 숨기면
-                 "굴렸는데 왜 아무 일도 없지" 로 헤맨다. 상태를 그대로 보여준다. -->
-            <div id="pb-state" style="font-size:var(--fs-2); padding:10px 12px; border-radius:var(--r-2);
-                        border:1px solid var(--border-light); background:rgba(0,0,0,0.25); margin-top:14px; line-height:1.7;">
-                불러오는 중…
-            </div>
+            <details class="gx-fold">
+                <summary>자세한 설명 <small>규칙 · 판 시간 · 구슬이 많을 때</small></summary>
+                <div class="gx-fold-body gx-note">
+                    구슬이 못과 레일에 튕기며 떨어져 바닥에 닿는 순서로 순위가 납니다.
+                    카메라가 <b>주인공 구슬</b>을 따라다니고, 결승선 앞에서는 확대되면서 느려집니다.<br>
+                    <b>먼저</b>는 한 명이 들어오는 순간 끝나서 짧습니다.
+                    <b>끝까지</b>는 한 명만 남을 때까지 가므로 더 길고, 카메라가 꼴찌를 따라다닙니다.<br>
+                    뽑는 수를 늘리면 그만큼이 당첨입니다(3으로 두면 — 먼저면 앞에서 3명, 끝까지면 뒤에서 3명).
+                    <b>밀어내기</b>는 구슬이 가끔 주변을 확 밀쳐 순위가 뒤집히는 재미 요소입니다. 진지한 추첨이면 꺼 두세요.<br>
+                    판 시간은 <b>원본과 같은 엔진으로 6명 · 5판 굴려 잰 범위</b>입니다(전부 완주, 2026-09-22).
+                    <b>Pot of greed</b> 는 뺐습니다 — 항아리에 구슬이 갇혀 열 판에 여섯은 중간에 멈춥니다.
+                    가져온 판 셋은 원본(lazygyu/roulette, MIT)의 것입니다.<br>
+                    오른쪽 칸에 적은 수만큼 그 사람 구슬이 들어갑니다 — 많이 후원하신 분께 표를 더 드리는 식으로 쓰시면 됩니다.
+                    (구슬은 모두 합쳐 <b>800개</b>까지 · 예전처럼 양양*3 으로 적어도 됩니다)<br>
+                    구슬이 <b>수백 개</b>면 <b>끝까지 남기</b>는 오래 걸립니다 — 800개 실측: Yoru 49초 · 우리 코스 1분 · BubblePop 2분 반,
+                    Wheel of fortune 은 구슬이 엉겨 시간 제한으로 끝납니다.
+                    구슬이 <b>40개를 넘으면 구슬 밑 이름을 안 붙입니다</b> — 카메라가 따라다니는 주인공에만 붙습니다.
+                </div>
+            </details>
         </div>
     </div>
 
     <div id="tab-dicegame" class="tab-content">
-        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(48, 209, 88, 0.35); background: rgba(48, 209, 88, 0.03);">
-            <div class="group-title"><span style="color:#7ee2a0;"><i class="fa-solid fa-dice"></i> 🎲 주사위게임</span></div>
-            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 12px; line-height: 1.6;">
-                부루마블처럼 테두리를 도는 판입니다. 주사위 눈도 황금열쇠 뽑기도 <b>서버가 정해서</b> 화면 몇 개가 떠 있어도 같은 결과가 나갑니다.<br>
-                점수 칸은 <b>누구 차례인지 골라뒀을 때만</b> 자동으로 들어갑니다 — 안 골랐으면 표시만 하고 손으로 주세요.
+        <div class="group-box gx">
+            <div class="gx-head">
+                <span class="gx-title"><i class="fa-solid fa-dice"></i> 🎲 주사위게임</span>
+                <label class="gx-air" title="방송 화면에 올리거나 내립니다"><span class="gx-off">방송에 띄우기</span><span class="gx-on">방송 중</span><span class="apple-switch"><input type="checkbox" id="dgc-on" onchange="dgcToggleShow()"><span class="apple-slider"></span></span></label>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
-                <select id="dgc-player" style="height:44px; min-width:140px;"><option value="">(누구 차례?)</option></select>
-                <!-- 🎲 현실에서 굴린 눈을 넣는다 — 사장님: "주사위는 현실에서 굴리기로 했어"
-                     ⚠️ 무작위 굴리기(🎲 굴리기)도 남긴다. 주사위를 놓고 왔을 때 쓴다. -->
-                <span style="display:inline-flex; gap:5px; align-items:center;">
-                    <span style="font-size:var(--fs-2); color:var(--text-muted); font-weight:700; margin-right:2px;">나온 눈</span>
-                    <button onclick="dgcRollValue(1)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">1</button>
-                    <button onclick="dgcRollValue(2)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">2</button>
-                    <button onclick="dgcRollValue(3)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">3</button>
-                    <button onclick="dgcRollValue(4)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">4</button>
-                    <button onclick="dgcRollValue(5)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">5</button>
-                    <button onclick="dgcRollValue(6)" class="dgc-eye" style="width:44px; height:44px; font-size:var(--fs-4); font-weight:900; background:rgba(255,255,255,0.06); color:#fff; border:1px solid var(--border-light); border-radius:var(--r-2); cursor:pointer;">6</button>
+
+            <!-- 👥 누구 차례 — 예전엔 드롭다운(클릭 22번). 이름 단추로 바꿨다.
+                 ⚠️ 숨긴 <select id="dgc-player"> 가 진짜 값이다 — 굴리기 · 말 옮기기가 이걸 읽는다. -->
+            <span class="gx-lbl">누구 차례? <span class="gx-info">안 고르면 금색 테두리 사람이 굴려요 · 굴리고 나면 다음 사람으로 넘어가요</span></span>
+            <div id="dgc-players" class="dgc-players"></div>
+            <select id="dgc-player" class="gx-hide" aria-hidden="true" tabindex="-1"><option value="">(누구 차례?)</option></select>
+
+            <div class="gx-act">
+                <button type="button" onclick="dgcRoll()" id="dgc-roll-btn" class="gx-go" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다">🎲 굴리기</button>
+                <!-- 🎲 현실에서 굴린 눈을 넣는다 — 사장님: "주사위는 현실에서 굴리기로 했어" -->
+                <span class="dgc-eyes">
+                    <span class="gx-info" style="margin-right:2px;">직접 굴렸으면</span>
+                    <button type="button" onclick="dgcRollValue(1)" class="dgc-eye">1</button>
+                    <button type="button" onclick="dgcRollValue(2)" class="dgc-eye">2</button>
+                    <button type="button" onclick="dgcRollValue(3)" class="dgc-eye">3</button>
+                    <button type="button" onclick="dgcRollValue(4)" class="dgc-eye">4</button>
+                    <button type="button" onclick="dgcRollValue(5)" class="dgc-eye">5</button>
+                    <button type="button" onclick="dgcRollValue(6)" class="dgc-eye">6</button>
                 </span>
-                <button onclick="dgcRoll()" id="dgc-roll-btn" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다" style="height:44px; padding:0 18px; font-size:var(--fs-3); font-weight:800; background:linear-gradient(120deg,#30d158,#1d7a35); color:#fff; border:none; border-radius:var(--r-2); cursor:pointer;">🎲 무작위</button>
-                <span id="dgc-status" style="font-size:var(--fs-3); color:var(--text-dim); font-weight:700;"></span>
-                <button class="secondary" onclick="dgcToggleShow()" id="dgc-show-btn" style="height:38px; padding:0 14px; border-radius:var(--r-2); margin-left:auto;">화면에 보이기</button>
+                <span id="dgc-status" class="gx-state" style="flex-basis:100%;"></span>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:var(--fs-2); color:var(--text-muted);">
-                가로 <select id="dgc-cols" style="height:34px;"><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select>
-                세로 <select id="dgc-rows" style="height:34px;"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select>
-                주사위 <select id="dgc-dice" style="height:34px;"><option value="1" selected>1개 (1~6칸)</option><option value="2">2개 (2~12칸)</option></select>
-                <button class="secondary" onclick="dgcSetup()" style="height:34px; padding:0 14px; border-radius:var(--r-2);">판 만들기</button>
-                <button class="secondary" onclick="dgcPreset22()" title="8×5 테두리 22칸 — 출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
-                        style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 기본판</button>
-                <button class="secondary" onclick="dgcPreset22Draw()" title="8×5 테두리 22칸 — 종이에 그린 판 그대로. 기여도 칸 9개·분장/고팍/코끼리코·싱크홀·블랙홀·황금열쇠 2개와 열쇠 10장을 한 번에 깝니다"
-                        style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 손그림판</button>
-                <button class="secondary" onclick="dgcPreset22DrawTilesOnly()" title="칸 내용만 손그림판 기준으로 다시 깝니다. 판을 새로 만들지 않으므로 말 위치와 점수가 그대로입니다"
-                        style="height:34px; padding:0 14px; border-radius:var(--r-2); border-color:rgba(120,200,255,.45); color:#8ecbff;">🔧 칸만 다시 깔기</button>
-                <span style="width:14px;"></span>
-                말 위치 <input id="dgc-pos" type="number" min="0" value="0" style="width:70px; height:34px;">
-                <button class="secondary" onclick="dgcMove()" style="height:34px; padding:0 12px; border-radius:var(--r-2);">이동</button>
-                <button class="secondary" onclick="dgcReset()" style="height:34px; padding:0 12px; border-radius:var(--r-2); color:var(--danger); border-color:rgba(255,69,58,.4);">말 출발로(내리기)</button>
-            </div>
-        </div>
 
-        <div class="group-box" style="margin-bottom: 15px;">
-            <div class="group-title"><span><i class="fa-solid fa-table-cells"></i> 칸 편집</span></div>
-            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px;">종류를 고르고 내용을 적으면 바로 저장됩니다. 크기를 바꿔 판을 다시 만들어도 같은 번호 칸의 내용은 남아요.</div>
-            <div id="dgc-tiles" style="display:flex; flex-direction:column; gap:6px; max-height:420px; overflow:auto;"></div>
-        </div>
-
-        <!-- 🏆 주사위 **전용** 점수판. 엑셀판(진짜 기여도)과 따로 논다. -->
-        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(255, 214, 10, 0.35);">
-            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <span style="color:var(--gold);"><i class="fa-solid fa-trophy"></i> 🏆 주사위 전용 점수판</span>
-                <span style="display:flex; gap:6px;">
-                    <button class="secondary" onclick="dgcBoard('reset')" title="전원 0점으로 되돌립니다. 엑셀판 기여도는 안 건드립니다"
-                            style="height:30px; padding:0 12px; border-radius:var(--r-2); font-size:var(--fs-2);">전원 0점</button>
-                    <button class="primary" onclick="dgcBoard('apply')" title="이 판의 점수를 엑셀판 기여도에 더하고 판을 비웁니다"
-                            style="height:30px; padding:0 12px; border-radius:var(--r-2); font-size:var(--fs-2);">엑셀판으로 옮기기</button>
-                </span>
+            <div class="gx-grid" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-bottom:12px;">
+                <!-- 🏆 주사위 **전용** 점수판. 엑셀판(진짜 기여도)과 따로 논다. -->
+                <div>
+                    <div class="gx-sub">
+                        <span class="gx-lbl" style="margin:0; color:var(--gold);">🏆 주사위 점수판</span>
+                        <span style="display:flex; gap:6px;">
+                            <button class="secondary gx-sm" onclick="dgcBoard('reset')" title="전원 0점으로 되돌립니다. 엑셀판 기여도는 안 건드립니다">전원 0점</button>
+                            <button class="primary gx-sm" onclick="dgcBoard('apply')" title="이 판의 점수를 엑셀판 기여도에 더하고 판을 비웁니다">엑셀판으로 옮기기</button>
+                        </span>
+                    </div>
+                    <div id="dgc-board" style="display:flex; flex-direction:column; gap:2px;"></div>
+                    <div class="gx-info" style="margin-top:6px;">칸 · 황금열쇠 점수는 이 판에만 쌓여요. 게임이 끝나면 [엑셀판으로 옮기기]를 눌러야 진짜 기여도가 됩니다 (마이너스도 그대로).</div>
+                </div>
+                <div>
+                    <div class="gx-sub"><span class="gx-lbl" style="margin:0;">방금 굴린 것</span><span class="gx-info">이 창에서 굴린 것만 · 새로고침하면 비워져요</span></div>
+                    <div id="dgc-log" class="dgc-log"><div class="gx-info">아직 굴린 게 없어요.</div></div>
+                </div>
             </div>
-            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px; line-height:1.6;">
-                주사위 칸·황금열쇠 점수는 <b style="color:var(--gold);">전부 이 판에만</b> 쌓입니다 — 엑셀판 기여도는 안 건드려요.
-                게임이 끝나면 <b>[엑셀판으로 옮기기]</b> 를 눌러야 진짜 기여도가 됩니다. 마이너스도 그대로 옮겨집니다.
-            </div>
-            <div id="dgc-board" style="display:flex; flex-direction:column; gap:4px;"></div>
-        </div>
 
-        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(255, 214, 10, 0.35);">
-            <div class="group-title"><span style="color:var(--gold);"><i class="fa-solid fa-key"></i> 🔑 황금열쇠 덱</span></div>
-            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 10px;">줄마다 한 장. 열쇠 칸에 도착하면 서버가 이 중 하나를 무작위로 뽑아 화면에 띄웁니다. 뽑기 전에는 시청자에게 보이지 않아요.</div>
-            <textarea id="dgc-keys" rows="5" placeholder="물 한 컵 원샷&#10;애교 한 번&#10;다음 미션 면제" style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:var(--r-2); color:#fff; padding:10px; font-size:var(--fs-3);"></textarea>
-            <button class="secondary" onclick="dgcSaveKeys()" style="height:36px; padding:0 16px; border-radius:var(--r-2); margin-top:8px;">덱 저장</button>
+            <details class="gx-fold">
+                <summary>판 만들기 <small id="dgc-setup-sum"></small></summary>
+                <div class="gx-fold-body">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:var(--fs-2); color:var(--text-muted); margin-bottom:10px;">
+                        <select id="dgc-cols" style="height:34px;"><option>4</option><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select>
+                                        세로 <select id="dgc-rows" style="height:34px;"><option>3</option><option>4</option><option selected>5</option><option>6</option><option>7</option><option>8</option></select>
+                                        주사위 <select id="dgc-dice" style="height:34px;"><option value="1" selected>1개 (1~6칸)</option><option value="2">2개 (2~12칸)</option></select>
+                        <button class="secondary gx-sm" onclick="dgcSetup()">판 만들기</button>
+                    </div>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button class="secondary gx-sm" onclick="dgcPreset22()" title="8×5 테두리 22칸 — 출발·시그5·꽝2·코끼리코3·기여도20/10·5점3·고수2·완력기3 을 한 번에 깝니다"
+                                style="border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 기본판</button>
+                        <button class="secondary gx-sm" onclick="dgcPreset22Draw()" title="8×5 테두리 22칸 — 종이에 그린 판 그대로. 기여도 칸 9개·분장/고팍/코끼리코·싱크홀·블랙홀·황금열쇠 2개와 열쇠 10장을 한 번에 깝니다"
+                                style="border-color:rgba(246,196,83,.45); color:var(--gold);">🎲 22칸 손그림판</button>
+                        <button class="secondary gx-sm" onclick="dgcPreset22DrawTilesOnly()" title="칸 내용만 손그림판 기준으로 다시 깝니다. 판을 새로 만들지 않으므로 말 위치와 점수가 그대로입니다">🔧 칸만 다시 깔기</button>
+                    </div>
+                </div>
+            </details>
+            <details class="gx-fold">
+                <summary>칸 편집 <small id="dgc-tiles-sum"></small></summary>
+                <div class="gx-fold-body">
+                    <div class="gx-info" style="margin-bottom:8px;">종류를 고르고 내용을 적으면 바로 저장됩니다. 크기를 바꿔 판을 다시 만들어도 같은 번호 칸의 내용은 남아요.</div>
+                    <div id="dgc-tiles" style="display:flex; flex-direction:column; gap:6px; max-height:420px; overflow:auto;"></div>
+                </div>
+            </details>
+            <details class="gx-fold">
+                <summary>🔑 황금열쇠 덱 <small id="dgc-keys-sum"></small></summary>
+                <div class="gx-fold-body">
+                    <div class="gx-info" style="margin-bottom:8px;">줄마다 한 장. 열쇠 칸에 도착하면 서버가 이 중 하나를 무작위로 뽑아 화면에 띄웁니다. 뽑기 전에는 시청자에게 보이지 않아요.</div>
+                    <textarea id="dgc-keys" rows="5" placeholder="물 한 컵 원샷&#10;애교 한 번&#10;다음 미션 면제" style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:var(--r-2); color:#fff; padding:10px; font-size:var(--fs-3);"></textarea>
+                    <button class="secondary gx-sm" onclick="dgcSaveKeys()" style="margin-top:8px;">덱 저장</button>
+                </div>
+            </details>
+            <details class="gx-fold">
+                <summary>말 직접 옮기기 · 출발로 내리기 <small>틀렸을 때만</small></summary>
+                <div class="gx-fold-body" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:var(--fs-2); color:var(--text-muted);">
+                    차례 말을 <input id="dgc-pos" type="number" min="0" value="0" style="width:70px; height:34px; margin:0;"> 번 칸으로
+                    <button class="secondary gx-sm" onclick="dgcMove()">이동</button>
+                    <button class="secondary gx-sm" onclick="dgcReset()" style="margin-left:auto; color:var(--danger); border-color:rgba(255,69,58,.4);">말 출발로(내리기)</button>
+                </div>
+            </details>
         </div>
     </div>
 
     <div id="tab-siggame" class="tab-content">
-        <div class="group-box">
-            <div class="group-title" style="color: var(--accent); font-size: var(--fs-6); display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-                <span><i class="fa-solid fa-clone"></i> 시그 뒤집기</span>
-                <span id="sg-phase" style="font-size: var(--fs-2); font-weight:800; padding:4px 12px; border-radius:999px; background:rgba(255,255,255,.06); color:var(--text-muted);">준비 안 됨</span>
-                <label class="toggle-row" style="margin-left:auto; background: rgba(0,0,0,0.25); border:1px solid var(--border-light); padding:6px 14px; border-radius: var(--r-2); gap:10px; width:auto;">
-                    <span class="toggle-label" style="font-size: var(--fs-2); font-weight:bold; color:#fff;">방송에 표시</span>
-                    <div class="apple-switch">
-                        <input type="checkbox" id="sg-enabled" onchange="sgToggle(this.checked)">
-                        <span class="apple-slider"></span>
-                    </div>
-                </label>
+        <div class="group-box gx">
+            <div class="gx-head">
+                <span class="gx-title"><i class="fa-solid fa-clone"></i> 시그 뒤집기</span>
+                <span id="sg-phase" class="gx-pill">준비 안 됨</span>
+                <label class="gx-air" title="방송 화면에 카드판을 띄우거나 내립니다"><span class="gx-off">방송에 띄우기</span><span class="gx-on">방송 중</span><span class="apple-switch"><input type="checkbox" id="sg-enabled" onchange="sgToggle(this.checked)"><span class="apple-slider"></span></span></label>
             </div>
 
             <div id="sg-why-hidden" style="display:none; margin-bottom:12px; padding:10px 14px; border-radius: var(--r-2);
                  background: rgba(245,165,36,0.12); border:1px solid rgba(245,165,36,0.45); color:#f5a524; font-weight:700; font-size: var(--fs-2);"></div>
 
-            <!-- ── 조작 줄: 타이머 + 판 버튼을 한 줄에 ── -->
-            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; background: rgba(0,0,0,0.3);
-                        border:1px solid var(--border-light); border-radius: var(--r-3); padding:14px 16px; margin-bottom:14px;">
-                <div id="sg-timer-view" style="font-size:44px; font-weight:900; color: var(--accent); font-variant-numeric: tabular-nums; min-width:120px; line-height:1;">10:00</div>
-                <div style="display:flex; gap:6px;">
-                    <button onclick="sgTimer('START')" class="primary" style="height:38px; padding:0 16px; border-radius: var(--r-2); cursor:pointer;" title="시작"><i class="fa-solid fa-play"></i></button>
-                    <button onclick="sgTimer('PAUSE')" class="secondary" style="height:38px; padding:0 16px; border-radius: var(--r-2); cursor:pointer;" title="일시정지"><i class="fa-solid fa-pause"></i></button>
-                    <button onclick="sgTimer('STOP')" class="secondary" style="height:38px; padding:0 16px; border-radius: var(--r-2); cursor:pointer;" title="되돌리기"><i class="fa-solid fa-rotate-left"></i></button>
-                </div>
-                <div style="width:1px; height:34px; background: var(--border-light);"></div>
-                <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-                    <div>
-                        <label style="display:block; font-size:11px; color: var(--text-muted); margin-bottom:2px;">뒤집을 장수</label>
-                        <input type="number" id="sg-target" value="5" min="1" max="36" style="width:78px; height:38px;">
-                    </div>
-                    <div>
-                        <label style="display:block; font-size:11px; color: var(--text-muted); margin-bottom:2px;">시간(분)</label>
-                        <input type="number" id="sg-min" value="10" min="0" max="180" style="width:78px; height:38px;">
-                    </div>
-                    <button onclick="sgDeal()" class="primary" style="height:38px; padding:0 18px; border-radius: var(--r-2); cursor:pointer; font-weight:800;"><i class="fa-solid fa-layer-group"></i> 카드 깔기</button>
-                    <button onclick="sgShuffle()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="자리를 다시 섞습니다(달성 초기화)"><i class="fa-solid fa-shuffle"></i></button>
-                    <button onclick="sgLift()" id="sg-lift-btn" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="목표만 한 줄로 올립니다 (다시 누르면 판 전체로)"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> 목표만 올리기</button>
-                    <button onclick="sgPeek()" id="sg-peek-btn" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="안 뽑힌 카드가 뭐였는지 몇 초 보여줍니다"><i class="fa-solid fa-magnifying-glass"></i> 나머지 까보기</button>
-                    <button onclick="sgRevealAll()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="남은 카드를 전부 공개(게임 끝)"><i class="fa-solid fa-eye"></i></button>
-                    <button onclick="sgClear()" class="secondary" style="height:38px; padding:0 14px; border-radius: var(--r-2); cursor:pointer;" title="판 치우기"><i class="fa-solid fa-trash-can"></i></button>
-                </div>
+            <!-- ── 실행 줄: 타이머 · 올클리어. 게임 중에 누르는 것만 ── -->
+            <div class="gx-act">
+                <div id="sg-timer-view" class="sg-timer">10:00</div>
+                <button type="button" onclick="sgTimer('START')" title="시작"><i class="fa-solid fa-play"></i> 시작</button>
+                <button type="button" onclick="sgTimer('PAUSE')" title="일시정지"><i class="fa-solid fa-pause"></i> 멈춤</button>
+                <button type="button" onclick="sgTimer('STOP')" title="되돌리기 — 새 판 준비에 적어 둔 시간으로"><i class="fa-solid fa-rotate-left"></i> 처음 시간으로</button>
+                <button type="button" id="sg-allclear-btn" class="sg-allclear" onclick="sgAllClear()" disabled>🎉 올클리어</button>
             </div>
 
             <!-- ── 카드판 + 목표를 좌우로 ── -->
-            <div style="display:grid; grid-template-columns: minmax(320px, 1fr) minmax(300px, 1fr); gap:14px; align-items:start;">
-                <div style="background: rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius: var(--r-3); padding:16px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                        <span style="font-size: var(--fs-3); font-weight:800; color:#fff;"><i class="fa-solid fa-hand-pointer" style="color: var(--accent);"></i> 카드판</span>
+            <div class="gx-grid" style="grid-template-columns: minmax(300px, 1.15fr) minmax(280px, 1fr);">
+                <div>
+                    <div class="gx-sub">
+                        <span class="gx-lbl" style="margin:0;"><i class="fa-solid fa-hand-pointer" style="color: var(--accent);"></i> 카드판 · 눌러서 뒤집기</span>
                         <span id="sg-remain" style="font-size: var(--fs-2); color: var(--accent); font-weight:900;"></span>
                     </div>
                     <div id="sg-board" style="display:grid; gap:6px;">
                         <div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:26px;">카드를 깔면 여기에 번호가 나옵니다.</div>
                     </div>
                 </div>
-
-                <div style="background: rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius: var(--r-3); padding:16px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-                        <span style="font-size: var(--fs-3); font-weight:800; color:#fff;"><i class="fa-solid fa-list-check" style="color: var(--accent);"></i> 받아야 할 시그니처</span>
+                <div>
+                    <div class="gx-sub">
+                        <span class="gx-lbl" style="margin:0;"><i class="fa-solid fa-list-check" style="color: var(--accent);"></i> 받아야 할 시그니처</span>
                         <span id="sg-goal-count" style="font-size: var(--fs-2); color: var(--accent); font-weight:900;"></span>
                     </div>
-                    <button id="sg-allclear-btn" onclick="sgAllClear()" disabled
-                            style="width:100%; height:44px; margin-bottom:10px; border-radius: var(--r-2); cursor:pointer;
-                                   font-weight:900; font-size: var(--fs-3); border:none; color:#fff;
-                                   background: linear-gradient(120deg, #2ecc71, #12a05a); opacity:.35;">
-                        🎉 ALL CLEAR 터뜨리기
-                    </button>
-                    <div style="font-size:11px; color: var(--text-muted); margin-bottom:10px;">
-                        시그니처가 <b>실제로 재생되는 순간</b> 아래 «받음»을 눌러주세요. 그때 방송 화면에 도장이 찍힙니다.
-                    </div>
+                    <div class="gx-info" style="margin-bottom:8px;">시그니처가 <b>실제로 재생되는 순간</b> «받음»을 눌러주세요. 그때 방송 화면에 도장이 찍힙니다.</div>
                     <div id="sg-goals" style="display:flex; flex-direction:column; gap:6px;">
                         <div style="color:var(--text-muted); text-align:center; padding:26px;">아직 뒤집은 카드가 없습니다.</div>
                     </div>
                 </div>
             </div>
 
-            <!-- ── 설정: 평소엔 접어둔다 ── -->
-            <div style="margin-top:14px; background: rgba(0,0,0,0.3); border:1px solid var(--border-light); border-radius: var(--r-3); overflow:hidden;">
+            <div class="sg-tools">
+                <button type="button" onclick="sgLift()" id="sg-lift-btn" title="목표만 한 줄로 올립니다 (다시 누르면 판 전체로)"><i class="fa-solid fa-up-right-and-down-left-from-center"></i> 목표만 올리기</button>
+                <button type="button" onclick="sgPeek()" id="sg-peek-btn" title="안 뽑힌 카드가 뭐였는지 몇 초 보여줍니다"><i class="fa-solid fa-magnifying-glass"></i> 나머지 까보기</button>
+                <button type="button" onclick="sgRevealAll()" title="남은 카드를 전부 공개(게임 끝)"><i class="fa-solid fa-eye"></i> 남은 카드 전부 공개</button>
+                <button type="button" onclick="sgClear()" class="sg-danger" title="판 치우기"><i class="fa-solid fa-trash-can"></i> 판 치우기</button>
+            </div>
+
+            <!-- ── 새 판 준비: 게임 중엔 접어 둔다. 카드가 없으면 저절로 펼친다 ── -->
+            <details class="gx-fold" id="sg-prep">
+                <summary>새 판 준비 <small id="sg-prep-sum"></small></summary>
+                <div class="gx-fold-body">
+                    <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-bottom:12px;">
+                        <div>
+                            <label style="display:block; font-size:11px; color: var(--text-muted); margin-bottom:2px;">뒤집을 장수</label>
+                            <input type="number" id="sg-target" value="5" min="1" max="36" style="width:78px; height:38px; margin:0;">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:11px; color: var(--text-muted); margin-bottom:2px;">시간(분)</label>
+                            <input type="number" id="sg-min" value="10" min="0" max="180" style="width:78px; height:38px; margin:0;">
+                        </div>
+                        <button type="button" onclick="sgDeal()" class="primary" style="height:38px; padding:0 18px; margin:0; font-weight:800;"><i class="fa-solid fa-layer-group"></i> 카드 깔기</button>
+                        <button type="button" onclick="sgShuffle()" style="height:38px; padding:0 14px; margin:0;" title="자리를 다시 섞습니다(달성 초기화)"><i class="fa-solid fa-shuffle"></i> 섞기</button>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.2); border:1px solid var(--border-light); border-radius: var(--r-2); overflow:hidden;">
                 <div onclick="sgTogglePicker()" style="display:flex; align-items:center; gap:10px; padding:14px 16px; cursor:pointer; user-select:none;">
                     <i id="sg-picker-caret" class="fa-solid fa-chevron-right" style="color: var(--accent); transition: transform .2s;"></i>
                     <span style="font-size: var(--fs-3); font-weight:800; color:#fff;">깔 시그니처 고르기</span>
@@ -2660,7 +2758,9 @@
                         <div style="grid-column:1/-1; color: var(--text-muted); text-align:center; padding:20px;">불러오는 중...</div>
                     </div>
                 </div>
-            </div>
+                    </div>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -2781,49 +2881,41 @@
     </div>
 
     <div id="tab-slot" class="tab-content">
-        <div class="group-box" style="text-align: center; padding: 40px 20px;">
-            <div class="group-title" style="color: var(--accent); font-size: var(--fs-6); justify-content: center; margin-bottom: 25px;">
-                <i class="fa-solid fa-gem"></i> 랜덤 시그니처 슬롯머신
+        <div class="group-box gx">
+            <div class="gx-head">
+                <span class="gx-title"><i class="fa-solid fa-gem"></i> 시그니처 슬롯머신</span>
+                <label class="gx-air" title="돌리면 저절로 켜지고, 당첨이 나오면 저절로 내려갑니다"><span class="gx-off">방송에 띄우기</span><span class="gx-on">방송 중</span><span class="apple-switch"><input type="checkbox" id="chk-slot-enabled" onchange="toggleOption('slot_enabled')" checked><span class="apple-slider"></span></span></label>
             </div>
 
-            <!-- 이번 방송에 돌릴 시그니처 고르기 -->
-            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); border-radius: var(--r-3); padding: 20px; margin-bottom: 25px; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 10px;">
-                    <span style="font-size: var(--fs-3); font-weight: 800; color: #fff;">
-                        <i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 이번 방송에 돌릴 시그니처
-                        <span style="font-size: var(--fs-3); color: var(--accent); font-weight: 900; margin-left: 6px;">선택 <span id="slot-pool-count">0</span></span>
-                        <span style="font-size: var(--fs-2); color: var(--text-muted);"> / <span id="slot-linked-count">0</span>개</span>
+            <div class="gx-act">
+                <button type="button" class="gx-go" onclick="triggerSlotSpin()"><i class="fa-solid fa-play"></i> 🎰 돌리기</button>
+                <div class="gx-state" id="slot-state">후보 <b id="slot-pool-count">0</b>개 중에서 뽑아요</div>
+            </div>
+
+            <!-- 🎰 고른 후보만 칩으로 보여준다. 전체 목록(사진)은 [후보 고르기] 를 눌렀을 때만 편다.
+                 선택한 것들 중에서만 당첨된다. 하나도 안 고르면 전체에서 뽑힌다. 선택은 자동 저장. -->
+            <div class="gx-sub">
+                <span class="gx-lbl" style="margin:0;"><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 이번 방송 후보</span>
+                <span style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button type="button" class="gx-sm" id="slot-pick-btn" onclick="slotPickerToggle()">＋ 후보 고르기</button>
+                    <button type="button" class="gx-sm" onclick="slotPoolPickRandom(20)"><i class="fa-solid fa-shuffle"></i> 무작위 20개</button>
+                    <button type="button" class="gx-sm" onclick="slotPoolSelectAll(false)">전부 빼기</button>
+                </span>
+            </div>
+            <div id="slot-chips" class="slot-chips"></div>
+            <div id="slot-picker" hidden>
+                <div class="gx-sub">
+                    <span class="gx-info">사진을 눌러 넣고 빼요 · 전체 <span id="slot-linked-count">0</span>개</span>
+                    <span style="display:flex; gap:6px;">
+                        <button type="button" class="gx-sm" onclick="slotPoolSelectAll(true)">전체 선택</button>
+                        <button type="button" class="gx-sm" onclick="loadSlotCandidates()"><i class="fa-solid fa-rotate"></i> 새로고침</button>
                     </span>
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-                        <button onclick="slotPoolPickRandom(20)" class="primary" style="height: 28px; font-size: var(--fs-1); padding: 0 12px; border-radius: var(--r-1); cursor: pointer;"><i class="fa-solid fa-shuffle"></i> 랜덤 20개</button>
-                        <button onclick="slotPoolSelectAll(true)" class="secondary" style="height: 28px; font-size: var(--fs-1); padding: 0 10px; border-radius: var(--r-1); cursor: pointer;">전체 선택</button>
-                        <button onclick="slotPoolSelectAll(false)" class="secondary" style="height: 28px; font-size: var(--fs-1); padding: 0 10px; border-radius: var(--r-1); cursor: pointer;">전체 해제</button>
-                        <button onclick="loadSlotCandidates()" class="secondary" style="height: 28px; font-size: var(--fs-1); padding: 0 10px; border-radius: var(--r-1); cursor: pointer;"><i class="fa-solid fa-rotate"></i> 새로고침</button>
-                    </div>
-                </div>
-                <div style="font-size: var(--fs-1); color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-                    선택한 것들 중에서만 당첨돼요. <b>하나도 안 고르면 전체</b>에서 뽑혀요. 선택은 자동 저장됩니다.
                 </div>
                 <div id="slot-linked-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 320px; overflow-y: auto; padding-right: 4px;">
                     <div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">시그니처 목록을 불러오는 중...</div>
                 </div>
             </div>
-
-            <!-- 슬롯머신 위젯 켜기/끄기 스위치 -->
-            <div style="margin-bottom: 25px; display: flex; justify-content: center;">
-                <label class="toggle-row" style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); padding: 10px 20px; border-radius: var(--r-3); gap: 15px; width: auto;">
-                    <span class="toggle-label" style="font-size: var(--fs-3); font-weight: bold; color: #fff;"><i class="fa-solid fa-power-off" style="color: var(--accent);"></i> 슬롯머신 위젯 활성화 (오버레이)</span>
-                    <div class="apple-switch">
-                        <input type="checkbox" id="chk-slot-enabled" onchange="toggleOption('slot_enabled')" checked>
-                        <span class="apple-slider"></span>
-                    </div>
-                </label>
-            </div>
-
-            <!-- 메인 돌리기 버튼 -->
-            <button onclick="triggerSlotSpin()" style="background: linear-gradient(135deg, var(--accent), #00bfff); color: #000; font-size: var(--fs-7); font-weight: 900; padding: 22px 55px; border: none; border-radius: var(--r-3); cursor: pointer; box-shadow: 0 0 35px rgba(226, 182, 75, 0.5); transition: all 0.2s; display: inline-flex; align-items: center; gap: 12px;">
-                <i class="fa-solid fa-play"></i> 🎰 슬롯머신 돌리기!
-            </button>
+            <div class="gx-info" style="margin-top:12px;">돌리면 저절로 방송에 뜨고, 당첨이 나오면 저절로 내려가요. 돌리기 전에 기계를 미리 보여 주고 싶을 때만 스위치를 켜세요.</div>
         </div>
     </div>
     </div><!-- /.shell-main -->
@@ -2874,6 +2966,7 @@
                 .then(data => {
                     if (data && data.status === 'success' && data.signatures) {
                         slotAllSignatures = data.signatures;
+                        slotSigsLoaded = true;
                         renderSlotCandidates();
                     }
                 })
@@ -2893,6 +2986,7 @@
             const pool = new Set(getSlotPool().map(Number));
             if (totalSpan) totalSpan.innerText = slotAllSignatures.length;
             if (poolSpan) poolSpan.innerText = pool.size;
+            slotPaintChips();
 
             if (slotAllSignatures.length === 0) {
                 grid.innerHTML = `<div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">등록된 시그니처가 없습니다.</div>`;
@@ -2915,6 +3009,38 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        /* 🎰 고른 후보 칩 + 실행 줄 글. 전체 목록(사진)은 [후보 고르기] 를 눌렀을 때만 편다. */
+        let slotLast = null;   // 이 창에서 방금 돌려 나온 것
+        let slotSigsLoaded = false;   // 목록을 한 번이라도 받았나 — '불러오는 중' 과 '하나도 없음' 을 가른다
+        function slotPaintChips() {
+            const box = document.getElementById('slot-chips');
+            const st = document.getElementById('slot-state');
+            const pool = new Set(getSlotPool().map(Number));
+            const picked = slotAllSignatures.filter(s => pool.has(Number(s.id)));
+            const all = slotAllSignatures.length;
+            if (box) box.innerHTML = picked.length ? picked.map(s => {
+                const img = s.image_url ? ' style="background-image:url(\'' + String(s.image_url).replace(/'/g, '%27').replace(/"/g, '%22') + '\')"' : '';
+                return '<span class="slot-chip"><span class="th"' + img + '></span>' + escapeHTML(s.title || '시그니처')
+                     + ' <em>' + (s.amount || 0).toLocaleString() + '</em>'
+                     + '<button type="button" title="후보에서 빼기" onclick="slotPoolToggle(' + Number(s.id) + ')">✕</button></span>';
+            }).join('') : '<span class="gx-info">' + (all ? '고른 후보가 없어요 — 전체 ' + all + '개에서 뽑아요.'
+                          : slotSigsLoaded ? '등록된 시그니처가 없어요.' : '시그니처 목록을 불러오는 중…') + '</span>';
+            if (st) {
+                let h = picked.length ? ('후보 <b>' + picked.length + '개</b> 중에서 뽑아요')
+                      : (all ? '후보를 안 골라서 <b>전체 ' + all + '개</b>에서 뽑아요'
+                             : slotSigsLoaded ? '등록된 시그니처가 없어요' : '시그니처 목록을 불러오는 중…');
+                if (slotLast) h += ' · 방금 <b>' + escapeHTML(slotLast.title || '시그니처') + '</b> ' + (slotLast.amount || 0).toLocaleString() + '원';
+                st.innerHTML = h;
+            }
+        }
+        function slotPickerToggle(force) {
+            const p = document.getElementById('slot-picker'), b = document.getElementById('slot-pick-btn');
+            if (!p) return;
+            p.hidden = (typeof force === 'boolean') ? !force : !p.hidden;
+            if (b) b.textContent = p.hidden ? '＋ 후보 고르기' : '고르기 닫기';
+            if (!p.hidden && !slotAllSignatures.length) loadSlotCandidates();
         }
 
         function slotPoolSave(ids) {
@@ -2972,6 +3098,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     console.log("Slot spin triggered:", data);
+                    if (data.winner) { slotLast = data.winner; slotPaintChips(); }
                 } else {
                     alert("슬롯 실행 오류: " + data.message);
                 }
@@ -8409,13 +8536,23 @@
                 let msg = '';
                 if (g && g.enabled && !cards.length) {
                     msg = picks.length
-                        ? '⚠️ 표시는 켜져 있지만 깔린 카드가 없습니다 — 위쪽 «카드 깔기» 를 눌러주세요.'
-                        : '⚠️ 아직 아무것도 고르지 않았습니다 — 맨 아래 «깔 시그니처 고르기» 를 펼쳐 고르고 «저장», 그 다음 «카드 깔기» 입니다.';
+                        ? '⚠️ 표시는 켜져 있지만 깔린 카드가 없습니다 — 아래 «새 판 준비» 에서 «카드 깔기» 를 눌러주세요.'
+                        : '⚠️ 아직 아무것도 고르지 않았습니다 — 아래 «새 판 준비» 의 «깔 시그니처 고르기» 에서 고르고 «저장», 그 다음 «카드 깔기» 입니다.';
                 } else if (g && !g.enabled && cards.length) {
                     msg = '카드는 깔려 있지만 <b>표시가 꺼져 있어</b> 방송 화면에는 안 보입니다.';
                 }
                 why.innerHTML = msg;
                 why.style.display = msg ? 'block' : 'none';
+            }
+
+            // 🗂️ 새 판 준비 — 카드가 없으면 펼치고, 카드를 깔면 접는다(게임 중엔 필요 없다).
+            //    ⚠️ 상태가 바뀔 때만 여닫는다. 매번 맞추면 게임 중에 펼쳐 본 것이 바로 닫힌다.
+            const prep = document.getElementById('sg-prep');
+            if (prep) {
+                const empty = String(!cards.length);
+                if (prep.dataset.empty !== empty) { prep.dataset.empty = empty; prep.open = !cards.length; }
+                const ps = document.getElementById('sg-prep-sum');
+                if (ps) ps.textContent = ((g && g.picks) || []).length + '장 골라둠 · 뒤집을 ' + target + '장 · ' + sgNum('sg-min', 10) + '분';
             }
 
             // ⚠️ compact(목표만 올림) 도 이 기준에 있어야 한다. 빠뜨리면 올리기/내리기를 해도
@@ -8433,7 +8570,7 @@
         function sgRenderBoard(board, cards, cols, target) {
             if (!cards.length) {
                 board.style.gridTemplateColumns = '1fr';
-                board.innerHTML = '<div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:30px;">아직 카드가 없습니다. 위에서 <b>카드 깔기</b>를 눌러주세요.</div>';
+                board.innerHTML = '<div style="grid-column:1/-1; color:var(--text-muted); text-align:center; padding:30px;">아직 카드가 없습니다. 아래 <b>새 판 준비</b>에서 <b>카드 깔기</b>를 눌러주세요.</div>';
                 const r = document.getElementById('sg-remain'); if (r) r.textContent = '';
                 return;
             }
@@ -8499,9 +8636,10 @@
                 acb.disabled = !ready;
                 acb.style.opacity = ready ? '1' : '.35';
                 acb.style.cursor = ready ? 'pointer' : 'not-allowed';
-                acb.textContent = !ready ? '🎉 ALL CLEAR (카드를 먼저 뒤집어주세요)'
-                                : leftN > 0 ? '🎉 ALL CLEAR (남은 ' + leftN + '장 한 번에 달성)'
-                                            : '🎉 ALL CLEAR 터뜨리기';
+                acb.textContent = !ready ? '🎉 올클리어'
+                                : leftN > 0 ? '🎉 올클리어 (남은 ' + leftN + '장 한 번에)'
+                                            : '🎉 올클리어 터뜨리기';
+                acb.title = ready ? '' : '카드를 먼저 뒤집어주세요';
             }
             if (!goals.length) {
                 box.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px;">아직 뒤집은 카드가 없습니다.</div>';
@@ -9078,6 +9216,10 @@ initFoldablePanels();
 
         /* 🎱 참가자 표 — 한 줄 = [이름][개수]. 서버에는 '밍밍, 양양*3' 글로 보낸다(서버가 펼친다). */
         const PB_ROW_MAX = 800;
+        /* 🎨 방송판(overlay.html)의 PB_COLS 와 같아야 한다 — 줄 앞 색 점이 방송판 구슬 색이다.
+              색은 이름이 처음 나온 순서대로 돈다(방송판 cmap 과 같은 셈). */
+        const PB_COLS = ['#ff4d6d', '#ffd166', '#4dd6a8', '#4da3ff', '#c77dff', '#ff9e4d',
+                         '#7bed9f', '#ff6ec7', '#5ee7df', '#ffe066', '#a29bfe', '#fd79a8'];
         function pbcRowsBox() { return document.getElementById('pb-rows'); }
         function pbcReadRows() {
             const box = pbcRowsBox(); if (!box) return [];
@@ -9093,13 +9235,30 @@ initFoldablePanels();
                 el.textContent = '구슬 ' + n.toLocaleString() + '개 / ' + PB_ROW_MAX + '개' + (n > PB_ROW_MAX ? ' — 넘는 것은 빠집니다' : '');
                 el.classList.toggle('over', n > PB_ROW_MAX);
             }
+            // 🎨 색 점 · 몫 막대
+            const box = pbcRowsBox();
+            if (box) {
+                const at = {}; let ci = 0;
+                box.querySelectorAll('.pb-row').forEach(function (r) {
+                    const nm = (r.querySelector('.pb-rn').value || '').replace(/[,\n\r*]+/g, ' ').trim().slice(0, 20);
+                    const c = Math.max(1, Math.min(PB_ROW_MAX, parseInt(r.querySelector('.pb-rc').value, 10) || 1));
+                    let col = '';
+                    if (nm) { if (at[nm] === undefined) at[nm] = ci++; col = PB_COLS[at[nm] % PB_COLS.length]; }
+                    const d = r.querySelector('.pb-dot');
+                    if (d) d.style.background = col;
+                    const s = r.querySelector('.pb-share i');
+                    if (s) { s.style.width = (nm && n ? Math.min(100, c / n * 100) : 0) + '%'; s.style.background = col; }
+                });
+            }
             return n;
         }
         function pbcAddRow(name, count, focus) {
             const box = pbcRowsBox(); if (!box) return;
             const row = document.createElement('div');
             row.className = 'pb-row';
-            row.innerHTML = '<input class="pb-rn" type="text" maxlength="20" placeholder="이름">'
+            row.innerHTML = '<span class="pb-dot" title="방송판 구슬 색"></span>'
+                + '<input class="pb-rn" type="text" maxlength="20" placeholder="이름">'
+                + '<span class="pb-share" title="전체 구슬 중 이 사람 몫"><i></i></span>'
                 + '<button type="button" class="pb-rm" title="하나 빼기">−</button>'
                 + '<input class="pb-rc" type="number" min="1" max="' + PB_ROW_MAX + '" title="구슬 개수">'
                 + '<button type="button" class="pb-rp" title="하나 더">+</button>'
@@ -9107,10 +9266,10 @@ initFoldablePanels();
             row.querySelector('.pb-rn').value = name || '';          // 이름은 글자로만 넣는다(태그 안 먹게)
             const rc = row.querySelector('.pb-rc');
             rc.value = String(count || 1);
-            row.querySelector('.pb-rm').onclick = () => { rc.value = String(Math.max(1, (parseInt(rc.value, 10) || 1) - 1)); pbcTotal(); };
-            row.querySelector('.pb-rp').onclick = () => { rc.value = String(Math.min(PB_ROW_MAX, (parseInt(rc.value, 10) || 1) + 1)); pbcTotal(); };
-            row.querySelector('.pb-rx').onclick = () => { row.remove(); pbcTotal(); };
-            row.querySelectorAll('input').forEach(i => i.addEventListener('input', pbcTotal));
+            row.querySelector('.pb-rm').onclick = () => { rc.value = String(Math.max(1, (parseInt(rc.value, 10) || 1) - 1)); pbcTotal(); pbcQueueSave(); };
+            row.querySelector('.pb-rp').onclick = () => { rc.value = String(Math.min(PB_ROW_MAX, (parseInt(rc.value, 10) || 1) + 1)); pbcTotal(); pbcQueueSave(); };
+            row.querySelector('.pb-rx').onclick = () => { row.remove(); pbcTotal(); pbcQueueSave(); };
+            row.querySelectorAll('input').forEach(i => i.addEventListener('input', () => { pbcTotal(); pbcQueueSave(); }));
             box.appendChild(row);
             if (focus) row.querySelector('.pb-rn').focus();
             pbcTotal();
@@ -9141,15 +9300,27 @@ initFoldablePanels();
             if (!items.length) { acctToast('옮길 이름이 없습니다', 'warn'); return; }
             pbcSetRows(items);
             if (t) t.value = '';
-            acctToast('🎱 표로 옮겼습니다 — 명단 저장을 눌러 주세요', 'ok');
+            pbcQueueSave();
+            acctToast('🎱 표로 옮겼습니다', 'ok');
         }
         function pbcNames() {
             // 서버가 알아듣는 글로 — 1개면 이름만, 여럿이면 이름*개수
             return pbcReadRows().map(x => x.count > 1 ? x.name + '*' + x.count : x.name).join(', ');
         }
-        async function pbcSaveNames() {
-            const d = await pbcCall('setup', { names: pbcNames() });
-            if (d) acctToast('🎱 명단을 저장했습니다', 'ok');
+        /* 💾 명단은 고치면 바로 저장한다 — 예전 [명단 저장] 단추는 뺐다(굴리기만 누르고 저장을 잊는 일이 없게).
+           ⚠️ 굴러가는 중에는 서버가 명단 변경을 막는다(409). 그때는 조용히 넘긴다 — 다음 굴리기가 명단을 같이 보낸다.
+           ⚠️ 서버 명단을 받아 표를 다시 채울 때(pbcSync)는 부르지 않는다. 부르면 저장 → 동기화 → 저장으로 돈다. */
+        let _pbcSaveT = null;
+        function pbcQueueSave() {
+            clearTimeout(_pbcSaveT);
+            const s = document.getElementById('pb-saved');
+            if (s) s.textContent = '저장하는 중…';
+            _pbcSaveT = setTimeout(async function () {
+                if (pbcState().running) { if (s) s.textContent = '굴러가는 중 — 다음 굴리기 때 같이 들어가요'; return; }
+                const d = await pbcCall('setup', { names: pbcNames(), map: pbcMap(), rule: pbcRule(),
+                                                   picks: pbcPicks(), skills: pbcSkills() });
+                if (s) s.textContent = d ? '저장됨 ✓' : '저장 못 함 — 한 번 더 고쳐 보세요';
+            }, 900);
         }
         function pbcFillPlayers() {
             /* 지금 방송에 올라와 있는 선수들을 그대로 넣는다.
@@ -9158,6 +9329,7 @@ initFoldablePanels();
             const names = (src || []).map(function (b) { return b && b.name; }).filter(Boolean);
             if (!names.length) { acctToast('올라와 있는 선수가 없습니다', 'warn'); return; }
             pbcSetRows(names.map(function (n) { return { name: n, count: 1 }; }));
+            pbcQueueSave();
         }
         function pbcRule() {
             const el = document.getElementById('pb-rule');
@@ -9186,6 +9358,40 @@ initFoldablePanels();
         async function pbcSetMap(v) {
             await pbcCall('setup', { names: pbcNames(), map: v, rule: pbcRule(),
                                      picks: pbcPicks(), skills: pbcSkills() });
+        }
+        /* 🔘 두 칸 버튼 · 판 카드 → 숨긴 select 를 바꾸고 원래 onchange 를 부른다(값의 주인은 select) */
+        function pbcPick(id, v) {
+            const el = document.getElementById(id);
+            if (!el || el.value === String(v)) return;
+            el.value = String(v);
+            pbcPaintChoices();
+            el.dispatchEvent(new Event('change'));
+        }
+        function pbcPicksStep(d) {
+            const el = document.getElementById('pb-picks');
+            if (!el) return;
+            const v = Math.max(1, Math.min(799, (parseInt(el.value, 10) || 1) + d));
+            if (String(v) === el.value) return;
+            el.value = String(v);
+            pbcSetPicks(v);
+        }
+        function pbcPaintChoices() {
+            const rs = document.getElementById('pb-rule');
+            document.querySelectorAll('#pb-rule-seg button').forEach(function (b) {
+                b.classList.toggle('on', !!rs && b.dataset.v === rs.value);
+            });
+            const ms = document.getElementById('pb-map'), box = document.getElementById('pb-map-cards');
+            if (!ms || !box) return;
+            if (!box.children.length) {
+                // 카드 글은 목록 글에서 가른다('이름 — 시간') — 시간을 두 곳에 적으면 한쪽만 고쳐진다
+                box.innerHTML = [...ms.options].map(function (o) {
+                    const t = o.textContent, i = t.indexOf(' — ');
+                    const nm = i < 0 ? t : t.slice(0, i), sub = i < 0 ? '' : t.slice(i + 3);
+                    return '<button type="button" class="gx-map" data-v="' + escapeHTML(o.value) + '"'
+                         + ' onclick="pbcPick(\'pb-map\', this.dataset.v)"><b>' + escapeHTML(nm) + '</b><span>' + escapeHTML(sub) + '</span></button>';
+                }).join('');
+            }
+            box.querySelectorAll('.gx-map').forEach(function (b) { b.classList.toggle('on', b.dataset.v === ms.value); });
         }
         async function pbcSetRule(v) {
             await pbcCall('setup', { names: pbcNames(), map: pbcMap(), rule: v,
@@ -9243,6 +9449,7 @@ initFoldablePanels();
                 const want = String(g.map === undefined || g.map === null ? -1 : g.map);
                 if (ms.value !== want) ms.value = want;
             }
+            pbcPaintChoices();
 
             const box = document.getElementById('pb-state');
             if (!box) return;
@@ -9283,7 +9490,7 @@ initFoldablePanels();
                 html += '<br><span style="color:var(--text-muted);">굴리기를 누르면 시작합니다.</span>';
             }
             if (!g.enabled) {
-                html += '<br><span style="color:#ff9f0a;">⚠️ 방송 화면에 안 떠 있습니다 — 위 스위치를 켜세요.</span>';
+                html += '<br><span style="color:var(--text-dim);">방송 화면에 안 떠 있어요 — 굴리면 저절로 뜹니다.</span>';
             }
             box.innerHTML = html;
         }
@@ -9331,11 +9538,57 @@ initFoldablePanels();
             if (d.shield_used) m += ' · 🛡️ 실드로 막음';
             if (d.again) m += ' · 한 번 더!';
             acctToast(m, 'ok');
+            dgcLogAdd(m.replace(/^🎲 /, ''));
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');
             // 고른 사람은 이번 굴림에만 쓴다 — 남겨 두면 다음 굴림도 그 사람 말이 가고
             // 그 사람이 받는다. 차례대로 돌아가야 한다.
             const sel = document.getElementById('dgc-player');
             if (sel) sel.value = '';
+            dgcPaintPlayers();
+        }
+
+        /* 📝 방금 굴린 것 — 이 창에서 굴린 결과만 적는다(서버에 기록이 없다). 새로고침하면 비워진다. */
+        const dgcLog = [];
+        function dgcLogAdd(m) {
+            const t = new Date();
+            dgcLog.unshift({ t: String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'), m: String(m || '') });
+            if (dgcLog.length > 8) dgcLog.length = 8;
+            const box = document.getElementById('dgc-log');
+            if (box) box.innerHTML = dgcLog.map(function (x) {
+                return '<div class="l"><time>' + x.t + '</time><span>' + escapeHTML(x.m) + '</span></div>';
+            }).join('');
+        }
+
+        /* 👥 차례 단추 — 숨긴 select(dgc-player) 를 바꾼다. 굴리기 · 말 옮기기가 그 값을 읽는다.
+           안 골랐으면 서버가 정한 다음 차례(pieces[turn])에 금색 테두리를 두른다. */
+        function dgcPaintPlayers() {
+            const box = document.getElementById('dgc-players');
+            const sel = document.getElementById('dgc-player');
+            if (!box || !sel) return;
+            const g = dgcState();
+            const names = (typeof currentPlayerNames === 'function') ? currentPlayerNames() : [];
+            const pos = {}, pts = {};
+            (g.pieces || []).forEach(function (p) { pos[p.name] = p.pos; });
+            (g.board || []).forEach(function (r) { pts[r.name] = Number(r.pts) || 0; });
+            const nx = ((g.pieces || [])[g.turn | 0] || {}).name || '';
+            const pick = sel.value;
+            const html = names.length ? names.map(function (n) {
+                const cls = n === pick ? ' on' : (!pick && n === nx ? ' next' : '');
+                const p = pts[n] || 0;
+                return '<button type="button" class="dgc-pl' + cls + '" data-n="' + escapeHTML(n) + '" onclick="dgcPick(this.dataset.n)">'
+                     + '<b>' + escapeHTML(n) + '</b><span>' + (pos[n] != null ? pos[n] + '번 칸 · ' : '')
+                     + (p > 0 ? '+' : '') + p + '점</span></button>';
+            }).join('') : '<span class="gx-info">엑셀판에 선수를 넣으면 여기에 이름이 나옵니다.</span>';
+            if (box.dataset.h !== html) { box.innerHTML = html; box.dataset.h = html; }
+            const rb = document.getElementById('dgc-roll-btn');
+            const who = pick || nx;
+            if (rb) rb.textContent = '🎲 ' + (who ? who + ' ' : '') + '굴리기';
+        }
+        function dgcPick(n) {
+            const sel = document.getElementById('dgc-player');
+            if (!sel) return;
+            sel.value = (sel.value === n) ? '' : n;
+            dgcPaintPlayers();
         }
 
         // 🎲 현실에서 굴린 눈을 그대로 넣는다 — 사장님이 주사위를 현실에서 굴리기로 정했다.
@@ -9358,6 +9611,7 @@ initFoldablePanels();
             const on = !dgcState().enabled;
             const d = await dgcCall('enable', { on });
             if (d) acctToast(on ? '🎲 방송 화면에 올렸습니다' : '🎲 방송 화면에서 내렸습니다', 'ok');
+            else dgcSync(true);   // 실패하면 스위치를 서버 값으로 되돌린다
         }
 
         async function dgcReset() {
@@ -9375,6 +9629,7 @@ initFoldablePanels();
             const d = await dgcCall('move', { pos, piece: sel ? sel.value : '' });
             if (!d) return;
             let m = '[' + (d.piece || '?') + '] 말을 ' + pos + '번 칸으로 옮겼습니다';
+            setTimeout(function () { dgcLogAdd(m); }, 0);
             if (d.choose) m += ' · 🎯 원하는 곳으로';
             if (d.scored) m += ' · ' + d.scored.name + ' 기여도 ' + (d.scored.points > 0 ? '+' : '') + d.scored.points;
             if (d.giveall) m += ' · 전원 기여도 +' + d.giveall.points;
@@ -9725,17 +9980,16 @@ initFoldablePanels();
             if (!panel) return;
             // ⚠️ 입력 중에는 다시 그리지 않는다 — 적던 글이 날아간다
             const ae = document.activeElement;
+            // ⚠️ 방송 스위치(체크박스)는 누른 뒤에도 초점이 남는다 — 그걸 '입력 중' 으로 치면 화면이 안 바뀐다
             if (!force && ae && panel.contains(ae)
-                && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
+                && ((ae.tagName === 'INPUT' && ae.type !== 'checkbox') || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return;
             const g = dgcState();
             const st = document.getElementById('dgc-status');
             if (st) {
                 const dice = ((g.action || {}).dice || []).join('+');
-                st.textContent = (g.tiles || []).length
-                    ? ('말 ' + (g.pos || 0) + '번 칸 · 출발 ' + (g.laps || 0) + '번'
-                       + ' · 주사위 ' + (g.dice || 1) + '개'
-                       + (dice ? ' · 마지막 눈 ' + dice : ''))
-                    : '판 없음';
+                st.textContent = !(g.tiles || []).length ? '판이 없어요 — 아래 «판 만들기» 에서 깔아 주세요'
+                    : !g.enabled ? '방송에 안 떠 있어서 굴릴 수 없어요 — 오른쪽 위 스위치를 켜세요'
+                    : ((dice ? '마지막 눈 ' + dice : '판 ' + g.tiles.length + '칸') + ' · 주사위 ' + (g.dice || 1) + '개');
             }
 
             /* ⚠️ 판 만들기 칸을 서버가 쓰는 실제 값으로 맞춘다.
@@ -9747,8 +10001,16 @@ initFoldablePanels();
                 const el = document.getElementById(id);
                 if (el && el !== ae && v != null) el.value = String(v);
             });
-            const sb = document.getElementById('dgc-show-btn');
-            if (sb) sb.textContent = g.enabled ? '화면에서 내리기' : '화면에 보이기';
+            const on = document.getElementById('dgc-on');
+            if (on && on.checked !== !!g.enabled) on.checked = !!g.enabled;
+            const ss = document.getElementById('dgc-setup-sum');
+            if (ss) ss.textContent = (g.tiles || []).length
+                ? ((g.cols || '?') + '×' + (g.rows || '?') + ' · 테두리 ' + g.tiles.length + '칸 · 주사위 ' + (g.dice || 1) + '개')
+                : '아직 판이 없어요';
+            const tsum = document.getElementById('dgc-tiles-sum');
+            if (tsum) tsum.textContent = (g.tiles || []).length ? g.tiles.length + '칸' : '';
+            const ksum = document.getElementById('dgc-keys-sum');
+            if (ksum) ksum.textContent = (g.keys || []).length + '장';
             const rb = document.getElementById('dgc-roll-btn');
             if (rb) {
                 const ok = !!g.enabled && (g.tiles || []).length > 0;
@@ -9772,6 +10034,7 @@ initFoldablePanels();
                 const nx = (g.pieces || [])[g.turn | 0];
                 if (ps.options[0]) ps.options[0].textContent = nx ? ('(다음 차례: ' + nx.name + ')') : '(누구 차례?)';
             }
+            try { dgcPaintPlayers(); } catch (e) {}
             try { dgcRenderBoard(g); } catch (e) {}   // 🏆 전용 점수판
             // 황금열쇠 — 처음 한 번만 채운다(적던 글을 SSE 가 덮으면 안 된다)
             const ta = document.getElementById('dgc-keys');
