@@ -465,21 +465,22 @@
         .rail-h a { color: var(--text-muted); text-decoration: none; font-weight: 600; }
         .rail-h a:hover { color: var(--accent); }
         /* 시그니처 송출 */
-        /* 🖼 시그니처 사진은 가로로 긴 직사각형(약 1.83:1)이다 — 정사각으로 자르지 말고 칸 너비 그대로 보여준다
-              (대표님 2026-09-28: "정사각형 말고 직사각으로") */
-        .rs2 { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-        .rs2-thumb { width: 100%; aspect-ratio: 1280 / 698; border-radius: var(--r-3); background: var(--bg-input) center / cover no-repeat;
+        /* 🖼 시그니처 사진은 가로로 긴 직사각형(약 1.83:1)이다 — 정사각으로 자르지 않는다(대표님: "직사각으로").
+              ⚠️ 칸 너비 통째로 두니 너무 컸다(대표님: "사진이 너무 커") — 왼쪽에 작게, 오른쪽에 금액 칸 */
+        .rs2 { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 10px; align-items: start; margin-bottom: 8px; }
+        .rs2-thumb { width: 100%; aspect-ratio: 1280 / 698; border-radius: var(--r-2); background: var(--bg-input) center / cover no-repeat;
                      border: 1px solid var(--border-light); display: flex; align-items: flex-end; justify-content: flex-start; overflow: hidden; }
-        .rs2-thumb span { font-size: var(--fs-2); font-weight: 800; color: #fff; background: rgba(0, 0, 0, 0.6); padding: 3px 9px;
+        .rs2-thumb span { font-size: var(--fs-1); font-weight: 800; color: #fff; background: rgba(0, 0, 0, 0.6); padding: 2px 7px;
                           border-top-right-radius: var(--r-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-        .rs2-thumb:not([style*="background-image"])::after { content: '금액을 넣으면 맞는 시그니처가 여기 떠요'; margin: auto;
+        .rs2-thumb:not([style*="background-image"])::after { content: '시그 사진'; margin: auto;
                           color: var(--text-dim); font-size: var(--fs-2); }
         .rs2-amt { display: flex; align-items: center; gap: 6px; }
         .rs2-amt input { margin: 0; flex: 1; min-width: 0; width: 100%; box-sizing: border-box; font-size: var(--fs-5); font-weight: 800; font-variant-numeric: tabular-nums; }
         .rs2-amt span { color: var(--text-muted); font-size: var(--fs-2); }
         .rs2-match { font-size: var(--fs-2); color: var(--accent); margin-top: 4px; min-height: 18px; }
         .rs2-match.up { color: var(--text-muted); }
-        #rail-send > input { width: 100%; margin: 0 0 8px; box-sizing: border-box; }
+        #rail-send > input, #rail-send > textarea { width: 100%; margin: 0 0 8px; box-sizing: border-box; }
+        #rail-send > textarea { resize: vertical; min-height: 52px; font-family: inherit; font-size: var(--fs-3); line-height: 1.5; padding: 8px 10px; }
         .rs2-row { display: flex; align-items: center; gap: 8px; }
         .rs2-chk { flex: 1; display: flex; align-items: center; gap: 6px; font-size: var(--fs-2); color: var(--text-muted); cursor: pointer; }
         .rs2-chk input { margin: 0; accent-color: var(--accent); }
@@ -3060,6 +3061,9 @@
                 </div>
             </div>
             <input type="text" id="rs-donor" placeholder="후원자명 (비우면 '수동송출')" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter')railSend()">
+            <!-- 💬 후원 메시지 — 화면에 시그와 함께 뜬다(후원 콘솔과 같다). 줄바꿈은 Enter, 바로 송출은 Ctrl+Enter -->
+            <textarea id="rs-msg" rows="2" maxlength="120" placeholder="후원 메시지 (선택 · Ctrl+Enter 로 송출)" autocomplete="off"
+                      onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();railSend();}"></textarea>
             <div class="rs2-row">
                 <label class="rs2-chk" title="체크하면 실제 후원처럼 장부·대기함·후원 순위에 들어갑니다. 안 하면 화면에만 나갑니다."><input type="checkbox" id="rs-ledger"> 정산 장부에 기록</label>
                 <button type="button" id="rs-send" onclick="railSend()">송출</button>
@@ -9215,16 +9219,20 @@ initFoldablePanels();
             const a = rsAmount();
             if (a <= 0) { acctToast('금액을 넣어 주세요', 'warn'); document.getElementById('rs-amount').focus(); return; }
             const name = (document.getElementById('rs-donor').value || '').trim() || '수동송출';
+            const msgEl = document.getElementById('rs-msg');
+            const msg = msgEl ? (msgEl.value || '').trim().slice(0, 120) : '';
             const ledger = document.getElementById('rs-ledger').checked;
             const btn = document.getElementById('rs-send'); btn.disabled = true;
             const url = ledger ? '/api/donation' : '/api/signature/play';
-            const body = ledger ? { name: name, amount: a, message: '', tx_id: 'manual_' + Date.now() } : { name: name, amount: a, message: '' };
+            const body = ledger ? { name: name, amount: a, message: msg, tx_id: 'manual_' + Date.now() } : { name: name, amount: a, message: msg };
             try {
                 const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
                 const d = await r.json().catch(() => ({}));
                 if (r.ok && d.status === 'success') {
                     acctToast('🎵 송출했습니다' + (ledger ? ' (장부 기록)' : ''), 'ok');
-                    document.getElementById('rs-amount').value = ''; document.getElementById('rs-donor').value = ''; railPreview();
+                    document.getElementById('rs-amount').value = ''; document.getElementById('rs-donor').value = '';
+                    if (msgEl) msgEl.value = '';
+                    railPreview();
                 } else acctToast('송출 실패: ' + (d.message || r.status), 'warn');
             } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); }
             finally { btn.disabled = false; }
