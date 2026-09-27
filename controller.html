@@ -1536,6 +1536,45 @@
         #cmdk .ck-hint { padding:8px 15px; font-size:var(--fs-1); color:var(--text-dim);
                          border-top:1px solid var(--border-light); }
 
+        /* 🎛️ 실행 타일 (2단계 · 트위치 '빠른 동작') — 큰 네모 하나 = 단추 하나. 금색 채움은 주 동작 하나뿐.
+           밑 띠에는 큰 숫자 하나(구슬 · 마지막 눈 · 후보 · 받음) + 지금 상태 글. */
+        .gx-act.gx-deck { display: block; padding: 10px; }
+        .gx-tiles { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; }
+        .gx-tiles.gx-tiles-4 { grid-template-columns: 1.1fr 1.2fr 1fr 1.2fr; }
+        .gx-tile, button.gx-tile { margin: 0; min-height: 96px; height: auto; display: flex; flex-direction: column; align-items: flex-start;
+            justify-content: space-between; gap: 10px; padding: 14px 15px; border-radius: var(--r-3); text-align: left; white-space: normal;
+            background: #141417; border: 1px solid var(--edge-2); color: var(--text-main); box-shadow: none; }
+        button.gx-tile:hover { background: var(--surface-2); border-color: rgba(255, 255, 255, 0.16); }
+        button.gx-tile:active { transform: translateY(1px); }
+        .gx-tile .ic { font-size: 18px; color: var(--text-muted); }
+        .gx-tile .nm { display: block; font-size: var(--fs-5); font-weight: 800; letter-spacing: -0.3px; }
+        .gx-tile .sub { display: block; margin-top: 2px; font-size: var(--fs-1); font-weight: 500; color: var(--text-muted); line-height: 1.45; }
+        button.gx-tile.go { background: linear-gradient(160deg, #efc75c, #c99a31); border-color: #f3d27d; box-shadow: 0 0 26px rgba(226, 182, 75, 0.16); }
+        button.gx-tile.go:hover { background: linear-gradient(160deg, #f5d06a, #d3a43a); border-color: #f7dc95; }
+        button.gx-tile.go .ic, button.gx-tile.go .nm, button.gx-tile.go .sub { color: #17140b; }
+        button.gx-tile.go .nm { font-size: 20px; }
+        button.gx-tile.go .sub { opacity: 0.75; }
+        button.gx-tile.ok:not(:disabled) { background: linear-gradient(160deg, #36d17f, #149a57); border-color: #5fe09c; }
+        button.gx-tile.ok:not(:disabled) .ic, button.gx-tile.ok:not(:disabled) .nm, button.gx-tile.ok:not(:disabled) .sub { color: #06200f; }
+        button.gx-tile:disabled { opacity: 0.4; cursor: not-allowed; }
+        button.gx-tile.live .ic { color: var(--danger); }
+        button.gx-tile.live .nm::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 7px 2px 0;
+            background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+        .gx-tile-keys .dgc-eyes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; width: 100%; }
+        .gx-tile-keys button.dgc-eye { width: auto; height: 40px; font-size: var(--fs-5); }
+        .gx-tile-timer .sg-timer { font-size: 40px; min-width: 0; }
+        .gx-strip { display: flex; align-items: center; gap: 14px; margin-top: 8px; padding: 8px 12px; border-radius: var(--r-2);
+            background: var(--bg-input); border: 1px solid var(--edge); }
+        .gx-strip .gx-state { min-width: 0; }
+        .gx-big { flex: none; display: inline-flex; align-items: baseline; font-family: var(--font-num); font-size: 22px; font-weight: 800;
+            color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; }
+        .gx-big small { margin-left: 5px; font-family: 'Pretendard', sans-serif; font-size: var(--fs-1); font-weight: 600; color: var(--text-muted); }
+        @media (max-width: 760px) {
+            .gx-tiles, .gx-tiles.gx-tiles-4 { grid-template-columns: 1fr 1fr; }
+            .gx-tiles > .go, .gx-tiles > .gx-tile-keys, .gx-tiles > .gx-tile-timer { grid-column: 1 / -1 !important; }
+            .gx-tile, button.gx-tile { min-height: 76px; }
+        }
+
         /* ═══════════════════════════════════════════════════════
            🎨 Linear 옷 (2026-09-28) — 대표님: "도구 모음은 트위치, 디자인은 Linear"
            ⚠️ 겉모습만 덮는다. 배치·동작은 그대로. 마음에 안 들면 이 블록만 걷어내면 시안 A 모습으로 돌아간다.
@@ -2568,12 +2607,16 @@
                 <label class="gx-air" title="방송 화면에 띄우거나 내립니다 — 굴리면 저절로 켜집니다"><span class="gx-off">방송에 띄우기</span><span class="gx-on">방송 중</span><span class="apple-switch"><input type="checkbox" id="pb-on" onchange="pbcEnable(this.checked)"><span class="apple-slider"></span></span></label>
             </div>
 
-            <div class="gx-act">
-                <button type="button" class="gx-go" onclick="pbcStart()"><i class="fa-solid fa-play"></i> 굴리기</button>
-                <button type="button" onclick="pbcReset()">초기화</button>
+            <!-- 🎛️ 실행 타일(트위치 '빠른 동작' 식) — 큰 네모 하나 = 단추 하나. 글자 안 읽고 자리로 누른다. -->
+            <div class="gx-act gx-deck">
+                <div class="gx-tiles">
+                    <button type="button" class="gx-tile go" onclick="pbcStart()"><i class="ic fa-solid fa-play"></i><span><span class="nm">굴리기</span><span class="sub"><span id="pb-go-sub">판 · 규칙</span></span></span></button>
+                    <button type="button" class="gx-tile" onclick="pbcReset()"><i class="ic fa-solid fa-rotate-left"></i><span><span class="nm">초기화</span><span class="sub">순위 지우기</span></span></button>
+                    <button type="button" class="gx-tile" onclick="pbcAirTile()" id="pb-air-tile"><i class="ic fa-solid fa-tv"></i><span><span class="nm"><span id="pb-air-nm">띄우기</span></span><span class="sub">방송 화면</span></span></button>
+                </div>
                 <!-- ⚠️ 봇·게임은 다른 프로그램(방송판)이 실제로 굴린다. 그 사실을 숨기면
                      "굴렸는데 왜 아무 일도 없지" 로 헤맨다. 상태를 그대로 보여준다. -->
-                <div id="pb-state" class="gx-state">불러오는 중…</div>
+                <div class="gx-strip"><span class="gx-big" id="pb-big">0<small>구슬</small></span><div id="pb-state" class="gx-state">불러오는 중…</div></div>
             </div>
 
             <div class="gx-grid" style="grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);">
@@ -2671,11 +2714,13 @@
             <div id="dgc-players" class="dgc-players"></div>
             <select id="dgc-player" class="gx-hide" aria-hidden="true" tabindex="-1"><option value="">(누구 차례?)</option></select>
 
-            <div class="gx-act">
-                <button type="button" onclick="dgcRoll()" id="dgc-roll-btn" class="gx-go" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다"><i class="fa-solid fa-dice"></i> 굴리기</button>
+            <div class="gx-act gx-deck">
+                <div class="gx-tiles">
+                    <button type="button" class="gx-tile go" onclick="dgcRoll()" id="dgc-roll-btn" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다"><i class="ic fa-solid fa-dice"></i><span><span class="nm"><span id="dgc-roll-nm">굴리기</span></span><span class="sub">서버가 무작위로 · 안 고르면 차례대로</span></span></button>
                 <!-- 🎲 현실에서 굴린 눈을 넣는다 — 사장님: "주사위는 현실에서 굴리기로 했어" -->
+                <div class="gx-tile gx-tile-keys" style="grid-column: span 2;">
+                <span class="sub">직접 굴렸으면 나온 눈</span>
                 <span class="dgc-eyes">
-                    <span class="gx-info" style="margin-right:2px;">직접 굴렸으면</span>
                     <button type="button" onclick="dgcRollValue(1)" class="dgc-eye">1</button>
                     <button type="button" onclick="dgcRollValue(2)" class="dgc-eye">2</button>
                     <button type="button" onclick="dgcRollValue(3)" class="dgc-eye">3</button>
@@ -2683,7 +2728,9 @@
                     <button type="button" onclick="dgcRollValue(5)" class="dgc-eye">5</button>
                     <button type="button" onclick="dgcRollValue(6)" class="dgc-eye">6</button>
                 </span>
-                <span id="dgc-status" class="gx-state" style="flex-basis:100%;"></span>
+                </div>
+                </div>
+                <div class="gx-strip"><span class="gx-big" id="dgc-big">–<small>마지막 눈</small></span><span id="dgc-status" class="gx-state"></span></div>
             </div>
 
             <div class="gx-grid" style="grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); margin-bottom:12px;">
@@ -2761,12 +2808,15 @@
                  background: rgba(245,165,36,0.12); border:1px solid rgba(245,165,36,0.45); color:#f5a524; font-weight:700; font-size: var(--fs-2);"></div>
 
             <!-- ── 실행 줄: 타이머 · 올클리어. 게임 중에 누르는 것만 ── -->
-            <div class="gx-act">
-                <div id="sg-timer-view" class="sg-timer">10:00</div>
-                <button type="button" onclick="sgTimer('START')" title="시작"><i class="fa-solid fa-play"></i> 시작</button>
-                <button type="button" onclick="sgTimer('PAUSE')" title="일시정지"><i class="fa-solid fa-pause"></i> 멈춤</button>
-                <button type="button" onclick="sgTimer('STOP')" title="되돌리기 — 새 판 준비에 적어 둔 시간으로"><i class="fa-solid fa-rotate-left"></i> 처음 시간으로</button>
-                <button type="button" id="sg-allclear-btn" class="sg-allclear" onclick="sgAllClear()" disabled><i class="fa-solid fa-champagne-glasses"></i> 올클리어</button>
+            <!-- 🎛️ 시작·멈춤은 한 타일로 — 누를 때마다 번갈아(지금 상태를 타일이 보여준다) -->
+            <div class="gx-act gx-deck">
+                <div class="gx-tiles gx-tiles-4">
+                    <div class="gx-tile gx-tile-timer"><span class="sub">남은 시간</span><div id="sg-timer-view" class="sg-timer">10:00</div></div>
+                    <button type="button" class="gx-tile go" onclick="sgTimerToggle()" id="sg-play-tile"><i class="ic fa-solid fa-play"></i><span><span class="nm"><span id="sg-play-nm">시작</span></span><span class="sub">타이머</span></span></button>
+                    <button type="button" class="gx-tile" onclick="sgTimer('STOP')" title="되돌리기"><i class="ic fa-solid fa-rotate-left"></i><span><span class="nm">처음 시간으로</span><span class="sub">새 판 준비에 적어 둔 시간</span></span></button>
+                    <button type="button" id="sg-allclear-btn" class="gx-tile ok" onclick="sgAllClear()" disabled><i class="ic fa-solid fa-champagne-glasses"></i><span><span class="nm" id="sg-ac-nm">올클리어</span><span class="sub" id="sg-ac-sub">카드를 먼저 뒤집어주세요</span></span></button>
+                </div>
+                <div class="gx-strip"><span class="gx-big" id="sg-big">0/0<small>받음</small></span><span class="gx-state" id="sg-strip"></span></div>
             </div>
 
             <!-- ── 카드판 + 목표를 좌우로 ── -->
@@ -2961,9 +3011,14 @@
                 <label class="gx-air" title="돌리면 저절로 켜지고, 당첨이 나오면 저절로 내려갑니다"><span class="gx-off">방송에 띄우기</span><span class="gx-on">방송 중</span><span class="apple-switch"><input type="checkbox" id="chk-slot-enabled" onchange="toggleOption('slot_enabled')" checked><span class="apple-slider"></span></span></label>
             </div>
 
-            <div class="gx-act">
-                <button type="button" class="gx-go" onclick="triggerSlotSpin()"><i class="fa-solid fa-play"></i> 돌리기</button>
-                <div class="gx-state" id="slot-state">후보 <b id="slot-pool-count">0</b>개 중에서 뽑아요</div>
+            <!-- 🎛️ '띄우기' 를 타일로 뺐다 — 돌리기보다 더 많이 눌렀다(28번 · 당첨 뒤 저절로 내려가서 다음 판 전에 다시 켠다) -->
+            <div class="gx-act gx-deck">
+                <div class="gx-tiles">
+                    <button type="button" class="gx-tile go" onclick="triggerSlotSpin()"><i class="ic fa-solid fa-play"></i><span><span class="nm">돌리기</span><span class="sub">돌리면 저절로 뜨고, 당첨 뒤 내려가요</span></span></button>
+                    <button type="button" class="gx-tile" onclick="slotAirTile()" id="slot-air-tile"><i class="ic fa-solid fa-tv"></i><span><span class="nm"><span id="slot-air-nm">띄우기</span></span><span class="sub">기계만 미리 보여주기</span></span></button>
+                    <button type="button" class="gx-tile" onclick="slotPickerToggle()"><i class="ic fa-solid fa-layer-group"></i><span><span class="nm">후보 고르기</span><span class="sub" id="slot-pick-sub">사진 목록 펼치기</span></span></button>
+                </div>
+                <div class="gx-strip"><span class="gx-big" id="slot-big">0<small>후보</small></span><div class="gx-state" id="slot-state">후보 <b id="slot-pool-count">0</b>개 중에서 뽑아요</div></div>
             </div>
 
             <!-- 🎰 고른 후보만 칩으로 보여준다. 전체 목록(사진)은 [후보 고르기] 를 눌렀을 때만 편다.
@@ -2971,7 +3026,6 @@
             <div class="gx-sub">
                 <span class="gx-lbl" style="margin:0;"><i class="fa-solid fa-compact-disc" style="color: var(--accent);"></i> 이번 방송 후보</span>
                 <span style="display:flex; gap:6px; flex-wrap:wrap;">
-                    <button type="button" class="gx-sm" id="slot-pick-btn" onclick="slotPickerToggle()">＋ 후보 고르기</button>
                     <button type="button" class="gx-sm" onclick="slotPoolPickRandom(20)"><i class="fa-solid fa-shuffle"></i> 무작위 20개</button>
                     <button type="button" class="gx-sm" onclick="slotPoolSelectAll(false)">전부 빼기</button>
                 </span>
@@ -2989,7 +3043,7 @@
                     <div style="color: var(--text-muted); padding: 20px; text-align: center; grid-column: 1 / -1;">시그니처 목록을 불러오는 중...</div>
                 </div>
             </div>
-            <div class="gx-info" style="margin-top:12px;">돌리면 저절로 방송에 뜨고, 당첨이 나오면 저절로 내려가요. 돌리기 전에 기계를 미리 보여 주고 싶을 때만 스위치를 켜세요.</div>
+            <div class="gx-info" style="margin-top:12px;">돌리면 저절로 방송에 뜨고, 당첨이 나오면 저절로 내려가요. 돌리기 전에 기계를 미리 보여 주고 싶을 때만 «띄우기»를 누르세요.</div>
         </div>
     </div>
     </div><!-- /.shell-main -->
@@ -3108,12 +3162,21 @@
                 if (slotLast) h += ' · 방금 <b>' + escapeHTML(slotLast.title || '시그니처') + '</b> ' + (slotLast.amount || 0).toLocaleString() + '원';
                 st.innerHTML = h;
             }
+            const sb = document.getElementById('slot-big');
+            if (sb) sb.innerHTML = (picked.length || all) + '<small>' + (picked.length ? '후보' : '전체') + '</small>';
+        }
+        function slotAirTile() {
+            const c = document.getElementById('chk-slot-enabled');
+            if (!c) return;
+            c.checked = !c.checked;
+            toggleOption('slot_enabled');
+            gxAirTile('slot-air-tile', 'slot-air-nm', c.checked);
         }
         function slotPickerToggle(force) {
-            const p = document.getElementById('slot-picker'), b = document.getElementById('slot-pick-btn');
+            const p = document.getElementById('slot-picker'), b = document.getElementById('slot-pick-sub');
             if (!p) return;
             p.hidden = (typeof force === 'boolean') ? !force : !p.hidden;
-            if (b) b.textContent = p.hidden ? '＋ 후보 고르기' : '고르기 닫기';
+            if (b) b.textContent = p.hidden ? '사진 목록 펼치기' : '사진 목록 닫기';
             if (!p.hidden && !slotAllSignatures.length) loadSlotCandidates();
         }
 
@@ -4025,6 +4088,7 @@
             setChk('chk-ticker', gd.ticker_enabled);
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
             setChk('chk-slot-enabled', gd.slot_enabled !== false);
+            try { gxAirTile('slot-air-tile', 'slot-air-nm', gd.slot_enabled !== false); } catch (e) {}
             setChk('chk-sig-tally', !!gd.sig_tally_enabled);
             setChk('chk-donor-rank', !!gd.donor_rank_enabled);
             setChk('chk-best', !!gd.best_enabled);
@@ -8676,6 +8740,15 @@
             const cnt = document.getElementById('sg-goal-count');
             const done = goals.filter(c => c.doneAt).length;
             if (cnt) cnt.textContent = goals.length ? ('달성 ' + done + ' / ' + goals.length) : '';
+            const sgb = document.getElementById('sg-big');
+            if (sgb) sgb.innerHTML = done + '/' + goals.length + '<small>받음</small>';
+            const sgs = document.getElementById('sg-strip');
+            if (sgs) {
+                const tgt = ((sgState() || {}).target) || target || 0;
+                sgs.textContent = !cards.length ? '카드가 없어요 — 아래 «새 판 준비» 에서 깔아 주세요'
+                    : goals.length < tgt ? ('뒤집을 카드 ' + (tgt - goals.length) + '장 남음 · 받을 시그 ' + (goals.length - done) + '개')
+                    : (goals.length - done) ? ('받을 시그 ' + (goals.length - done) + '개 남음') : '전부 받았어요 — 올클리어를 터뜨리세요';
+            }
             // 🃏 목표만 올리기 — 지금 상태와 올릴 수 있는지를 버튼에 그대로 보여준다.
             //    한 줄에 6칸부터는 카드가 너무 작아져서 올리는 의미가 없다(서버도 막는다).
             const lb = document.getElementById('sg-lift-btn');
@@ -8708,11 +8781,11 @@
                 const ready = goals.length > 0;
                 const leftN = goals.length - done;
                 acb.disabled = !ready;
-                acb.style.opacity = ready ? '1' : '.35';
+                acb.style.opacity = ready ? '1' : '.4';
                 acb.style.cursor = ready ? 'pointer' : 'not-allowed';
-                acb.innerHTML = '<i class="fa-solid fa-champagne-glasses"></i> ' + (!ready ? '올클리어'
-                                : leftN > 0 ? '올클리어 (남은 ' + leftN + '장 한 번에)'
-                                            : '올클리어 터뜨리기');
+                const acn = document.getElementById('sg-ac-nm'), acs = document.getElementById('sg-ac-sub');
+                if (acn) acn.textContent = (ready && !leftN) ? '올클리어 터뜨리기' : '올클리어';
+                if (acs) acs.textContent = !ready ? '카드를 먼저 뒤집어주세요' : leftN > 0 ? '남은 ' + leftN + '장 한 번에 달성' : '전부 받았어요';
                 acb.title = ready ? '' : '카드를 먼저 뒤집어주세요';
             }
             if (!goals.length) {
@@ -8751,6 +8824,15 @@
             };
             paint();
             if (t.status === 'PLAYING') sgTimerView = setInterval(paint, 250);
+            // 🎛️ 시작·멈춤 한 타일 — 돌고 있으면 '멈춤', 아니면 '시작'
+            const pt = document.getElementById('sg-play-tile'), pn = document.getElementById('sg-play-nm');
+            const playing = t.status === 'PLAYING';
+            if (pn) pn.textContent = playing ? '멈춤' : '시작';
+            if (pt) { const ic = pt.querySelector('.ic'); if (ic) ic.className = 'ic fa-solid ' + (playing ? 'fa-pause' : 'fa-play'); pt.classList.toggle('go', !playing); }
+        }
+        function sgTimerToggle() {
+            const t = ((sgState() || {}).timer) || {};
+            sgTimer(t.status === 'PLAYING' ? 'PAUSE' : 'START');
         }
     </script>
 <!-- ⌨️ 명령 팔레트 — Ctrl+K 로 연다. 찾지 않고 타이핑으로 부른다. -->
@@ -9567,7 +9649,20 @@ initFoldablePanels();
                 html += '<br><span style="color:var(--text-dim);">방송 화면에 안 떠 있어요 — 굴리면 저절로 뜹니다.</span>';
             }
             box.innerHTML = html;
+            // 🎛️ 타일 글자
+            const gs = document.getElementById('pb-go-sub');
+            if (gs) gs.textContent = g.running ? '굴러가는 중…' : (mname + ' · ' + rname + ' ' + picks + '명');
+            const big = document.getElementById('pb-big');
+            if (big) big.innerHTML = (nb || n) + '<small>구슬</small>';
+            gxAirTile('pb-air-tile', 'pb-air-nm', !!g.enabled);
         }
+        /* 📺 띄우기 타일 — 떠 있으면 '내리기'(빨간 점), 아니면 '띄우기'. 머리 줄 스위치와 같은 값이다 */
+        function gxAirTile(tileId, nmId, on) {
+            const t = document.getElementById(tileId), nm = document.getElementById(nmId);
+            if (nm) nm.textContent = on ? '내리기' : '띄우기';
+            if (t) t.classList.toggle('live', !!on);
+        }
+        function pbcAirTile() { pbcEnable(!pbcState().enabled); }
 
         async function dgcCall(path, body) {
             try {
@@ -9656,7 +9751,8 @@ initFoldablePanels();
             if (box.dataset.h !== html) { box.innerHTML = html; box.dataset.h = html; }
             const rb = document.getElementById('dgc-roll-btn');
             const who = pick || nx;
-            if (rb) rb.innerHTML = '<i class="fa-solid fa-dice"></i> ' + escapeHTML(who ? who + ' ' : '') + '굴리기';
+            const rn = document.getElementById('dgc-roll-nm');
+            if (rn) rn.textContent = (who ? who + ' ' : '') + '굴리기';
         }
         function dgcPick(n) {
             const sel = document.getElementById('dgc-player');
@@ -10091,6 +10187,11 @@ initFoldablePanels();
                 rb.disabled = !ok;
                 rb.style.opacity = ok ? '1' : '.45';
                 rb.title = ok ? '' : '판을 깔고 화면에 올리면 굴릴 수 있어요';
+            }
+            const dbig = document.getElementById('dgc-big');
+            if (dbig) {
+                const dv = ((g.action || {}).dice || []).join('+');
+                dbig.innerHTML = escapeHTML(dv || '–') + '<small>마지막 눈</small>';
             }
             // 누구 차례 목록 — 점수판 이름이 바뀔 때만 다시 채운다
             const ps = document.getElementById('dgc-player');
