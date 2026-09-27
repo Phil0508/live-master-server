@@ -194,6 +194,55 @@
         #pb-total { font-size: var(--fs-2); color: var(--text-muted); font-variant-numeric: tabular-nums; }
         #pb-total.over { color: var(--danger); font-weight: 800; }
 
+
+        /* 📋 로그 탭 (2026-09-28 정리) */
+        .lg-box { padding: 18px; }
+        .lg-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .lg-title { font-size: var(--fs-4); font-weight: 800; color: var(--text-main); margin-right: auto; display: flex; align-items: baseline; gap: 8px; }
+        .lg-title small { font-size: var(--fs-2); font-weight: 600; color: var(--text-muted); }
+        .lg-count { font-size: var(--fs-2); font-weight: 700; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .lg-chips { display: flex; gap: 4px; background: var(--bg-input); padding: 3px; border-radius: var(--r-2); }
+        .lg-chips button { margin: 0; height: 28px; min-height: 0; padding: 0 12px; border: 0; border-radius: var(--r-1); background: transparent;
+                           color: var(--text-muted); font-size: var(--fs-2); font-weight: 700; }
+        .lg-chips button.on, .lg-chips button.ml-filter-active { background: var(--surface-2); color: var(--text-main); }
+        .lg-q { width: 150px; margin: 0; height: 34px !important; min-height: 0; padding: 0 10px !important; box-sizing: border-box; }   /* 공통 입력칸 높이를 이긴다 — 옆 단추와 줄을 맞춘다 */
+        .lg-actions { display: flex; gap: 6px; }
+        .lg-actions button { margin: 0; height: 34px; font-size: var(--fs-2); }
+        .lg-list { max-height: 440px; overflow-y: auto; border-top: 1px solid var(--border-light); }
+        .lg-row { display: grid; grid-template-columns: 70px 64px minmax(0, 1fr) 96px minmax(0, 1.4fr); gap: 10px; align-items: center;
+                  padding: 8px 4px; border-bottom: 1px solid var(--border-light); font-size: var(--fs-3); }
+        .lg-row .t { color: var(--text-dim); font-variant-numeric: tabular-nums; font-size: var(--fs-2); }
+        .lg-row .k { font-size: var(--fs-1); font-weight: 800; padding: 1px 7px; border-radius: var(--r-1); justify-self: start;
+                     background: var(--surface-2); color: var(--text-muted); }
+        .lg-row .k.contrib { color: #c99bff; background: rgba(175, 82, 222, 0.14); }
+        .lg-row .k.dice { color: var(--gold); background: rgba(232, 189, 85, 0.12); }
+        .lg-row .k.match { color: var(--text-main); }
+        .lg-row .n { font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lg-row .v { font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); }
+        .lg-row .v.neg { color: var(--danger); }
+        .lg-row .w { color: var(--text-muted); font-size: var(--fs-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .lg-empty { color: var(--text-muted); font-size: var(--fs-3); padding: 18px 4px; text-align: center; }
+        .lg-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px;
+                   font-size: var(--fs-2); color: var(--text-muted); }
+        .lg-foot-r { display: flex; gap: 14px; }
+        .lg-link { margin: 0; padding: 0; height: auto; min-height: 0; background: none; border: 0; color: var(--text-muted);
+                   font-size: var(--fs-2); text-decoration: underline; text-underline-offset: 3px; }
+        .lg-link:hover { color: var(--danger); background: none; }
+        .lg-pager { display: flex; align-items: center; gap: 8px; }
+        .lg-pager button { margin: 0; height: 30px; font-size: var(--fs-2); }
+        .lg-table { max-height: 520px; overflow: auto; border-top: 1px solid var(--border-light); }
+        .lg-table table { width: 100%; border-collapse: collapse; font-size: var(--fs-3); font-variant-numeric: tabular-nums; }
+        .lg-table th { position: sticky; top: 0; background: var(--bg-panel); text-align: left; color: var(--text-muted);
+                       font-size: var(--fs-2); font-weight: 700; padding: 8px 6px !important; border-bottom: 1px solid var(--border-light) !important; }
+        .lg-table td { padding: 8px 6px !important; border-bottom: 1px solid var(--border-light) !important; }
+        .lg-meta { font-size: var(--fs-2); text-align: right; margin: -6px 2px 16px; }
+        .lg-meta a { color: var(--text-muted); text-decoration: none; }
+        .lg-meta a:hover { color: var(--accent); }
+        @media (max-width: 700px) {
+            .lg-row { grid-template-columns: 56px minmax(0, 1fr) 80px; }
+            .lg-row .k, .lg-row .w { display: none; }
+            .lg-q { width: 100%; }
+        }
         /* 🪟 한 창 조종실 (대표님 2026-09-28 · 시안 1) — 후원 콘솔을 따로 안 띄워도 되게 오른쪽 칸에 작게 넣는다.
            넓은 화면(1280px 이상)에서만. 좁으면 예전처럼 대기함·🆕 줄이 탭 밑(상단 고정)으로 돌아간다(railPlace).
            ⚠️ 오른쪽 칸은 따로 스크롤된다 — 점수표를 내려도 대기함이 늘 보여야 한다. */
@@ -1457,7 +1506,7 @@
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
             <a href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-logs')"><i class="fa-solid fa-list-ul"></i> 로그</button>
+            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-logs'); renderLogFeed(true);"><i class="fa-solid fa-list-ul"></i> 로그</button>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
             <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
@@ -2012,57 +2061,49 @@
         </div>
     </div>
     <div id="tab-logs" class="tab-content">
-        <div class="group-box" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-            <span style="font-size:var(--fs-3); color:var(--text-muted);">📊 방송 중에 <b style="color:#fff;">무엇을 많이 눌렀는지</b> 방송별로 볼 수 있어요 (탭 정리에 씁니다)</span>
-            <a href="/uistats.html" target="_blank" style="text-decoration:none;"><button type="button"><i class="fa-solid fa-chart-simple"></i> 많이 누른 것 보기</button></a>
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div class="group-box" style="margin-bottom: 0;"><div class="group-title"><i class="fa-solid fa-list-ol"></i> 랭킹 로그</div><div id="log-box-ranking" class="log-box" style="margin-bottom: 15px;"></div><button style="width: 100%; justify-content: center;" onclick="clearLogs('rank')"><i class="fa-solid fa-trash-can"></i> 비우기</button></div>
-            <div class="group-box" style="margin-bottom: 0;"><div class="group-title"><i class="fa-solid fa-swords"></i> 대결 로그</div><div id="log-box-match" class="log-box" style="margin-bottom: 15px;"></div><button style="width: 100%; justify-content: center;" onclick="clearLogs('match')"><i class="fa-solid fa-trash-can"></i> 비우기</button></div>
-        </div>
-        
-        <!-- 📋 영구 점수 조작 이력 뷰어 -->
-        <div class="group-box" style="margin-top: 20px; margin-bottom: 0;">
-            <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span><i class="fa-solid fa-book-open"></i> 영구 점수 변동 이력 (DB 기록)</span>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <button onclick="exportManualLogs()" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(76, 175, 80, 0.12); border: 1px solid #4caf50; border-radius: var(--r-1); color: #4caf50; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(76,175,80,0.25)';" onmouseout="this.style.background='rgba(76,175,80,0.12)';">
-                        <i class="fa-solid fa-file-csv"></i> CSV 다운로드
-                    </button>
-                    <button onclick="loadManualLogs(1)" style="padding: 6px 12px; font-size: var(--fs-2); font-weight: bold; background: rgba(226, 182, 75, 0.1); border: 1px solid var(--accent); border-radius: var(--r-1); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" onmouseover="this.style.background='rgba(226, 182, 75,0.25)';" onmouseout="this.style.background='rgba(226, 182, 75,0.1)';">
-                        <i class="fa-solid fa-arrows-rotate"></i> 새로고침
-                    </button>
+        <!-- 📋 로그 탭 (2026-09-28 정리) — 대표님: "너무 난잡해".
+             예전: 클릭 통계 상자 · 랭킹 로그 · 대결 로그(검은 상자 둘, 큰 비우기 단추 둘) · DB 이력(색 제각각 단추).
+             지금: ① 이번 방송 기록 한 줄로(구분 칩·이름 찾기) ② 전체 점수 기록(DB) ③ 클릭 통계는 맨 아래 작은 링크.
+             ⚠️ 예전 상자(#log-box-ranking · #log-box-match)는 다른 코드가 계속 채우므로 숨겨서 남긴다. -->
+        <div class="group-box lg-box">
+            <div class="lg-head">
+                <div class="lg-title">이번 방송 기록 <span class="lg-count" id="lg-count"></span></div>
+                <div class="lg-chips" id="lg-chips">
+                    <button type="button" class="on" data-k="all">전체</button>
+                    <button type="button" data-k="score">점수</button>
+                    <button type="button" data-k="contrib">기여도</button>
+                    <button type="button" data-k="dice">주사위</button>
+                    <button type="button" data-k="match">대결</button>
                 </div>
+                <input type="text" id="lg-q" class="lg-q" placeholder="이름 찾기" autocomplete="off">
             </div>
-            
-            <!-- 필터 바 -->
-            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-                <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-light); border-radius: var(--r-1); padding: 3px; flex-shrink: 0;">
+            <div class="lg-list" id="lg-list"><div class="lg-empty">아직 기록이 없어요</div></div>
+            <div class="lg-foot">
+                <span>최근 것이 위 · 누가 몇 점을 받았는지</span>
+                <span class="lg-foot-r">
+                    <button type="button" class="lg-link" onclick="clearLogs('rank')">랭킹 기록 비우기</button>
+                    <button type="button" class="lg-link" onclick="clearLogs('match')">대결 기록 비우기</button>
+                </span>
+            </div>
+        </div>
+
+        <!-- 📚 전체 점수 기록 (DB) — 방송이 바뀌어도 남는다 -->
+        <div class="group-box lg-box">
+            <div class="lg-head">
+                <div class="lg-title">전체 점수 기록 <small>DB · 지난 방송 포함</small></div>
+                <div class="lg-chips">
                     <button id="ml-filter-all" class="ml-filter-btn ml-filter-active" onclick="setManualLogFilter('all')">전체</button>
-                    <button id="ml-filter-mobile" class="ml-filter-btn" onclick="setManualLogFilter('mobile')">🖐️ 수동</button>
-                    <button id="ml-filter-toonation" class="ml-filter-btn" onclick="setManualLogFilter('toonation')">💰 후원</button>
+                    <button id="ml-filter-mobile" class="ml-filter-btn" onclick="setManualLogFilter('mobile')">손으로 준 것</button>
+                    <button id="ml-filter-toonation" class="ml-filter-btn" onclick="setManualLogFilter('toonation')">후원</button>
                 </div>
-                <div style="flex: 1; display: flex; gap: 8px; align-items: center;">
-                    <input type="text" id="ml-search-name" placeholder="🔍 이름 검색..." style="flex: 1; min-width: 120px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-light); padding: 8px 14px; border-radius: var(--r-1); color: #fff; font-size: var(--fs-3); outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--accent)';" onblur="this.style.borderColor='var(--border-light)';" onkeydown="if(event.key==='Enter') loadManualLogs(1)">
-                    <button onclick="loadManualLogs(1)" style="height: 36px; padding: 0 14px; font-weight: bold; background: rgba(226, 182, 75, 0.15); border: 1px solid var(--accent); color: var(--accent); border-radius: var(--r-1); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-3); flex-shrink: 0;">
-                        <i class="fa-solid fa-magnifying-glass"></i> 검색
-                    </button>
-                </div>
+                <input type="text" id="ml-search-name" class="lg-q" placeholder="이름 찾기" onkeydown="if(event.key==='Enter')loadManualLogs(1)">
+                <span class="lg-actions">
+                    <button type="button" onclick="loadManualLogs(1)" title="새로 불러오기">새로고침</button>
+                    <button type="button" onclick="exportManualLogs()" title="엑셀에서 여는 파일로 받기">CSV 받기</button>
+                </span>
             </div>
-            
-            <!-- 이력 정보 및 페이지 -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: var(--fs-3);">
-                <span style="color: var(--text-muted);">총 <span id="ml-total-count" style="color: var(--gold); font-weight: bold;">0</span>건의 기록</span>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <button id="ml-prev-btn" onclick="loadManualLogs(mlCurrentPage - 1)" disabled style="padding: 5px 10px; font-size: var(--fs-2); background: rgba(255,255,255,0.05); border: 1px solid var(--border-light); color: var(--text-muted); border-radius: var(--r-1); cursor: pointer;">◀ 이전</button>
-                    <span style="color: #fff; font-weight: bold;"><span id="ml-current-page">1</span> / <span id="ml-total-pages">1</span></span>
-                    <button id="ml-next-btn" onclick="loadManualLogs(mlCurrentPage + 1)" disabled style="padding: 5px 10px; font-size: var(--fs-2); background: rgba(255,255,255,0.05); border: 1px solid var(--border-light); color: var(--text-muted); border-radius: var(--r-1); cursor: pointer;">다음 ▶</button>
-                </div>
-            </div>
-            
-            <!-- 이력 테이블 -->
-            <div style="overflow-x: auto; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: rgba(0,0,0,0.3);">
-                <table id="ml-table" style="width: 100%; border-collapse: collapse; font-size: var(--fs-3);">
+            <div class="lg-table">
+                <table id="ml-table">
                     <thead>
                         <tr style="background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--border-light);">
                             <th style="padding: 10px 14px; text-align: left; color: var(--text-muted); font-weight: 600; white-space: nowrap;">시간</th>
@@ -2074,11 +2115,22 @@
                         </tr>
                     </thead>
                     <tbody id="ml-tbody">
-                        <tr><td colspan="6" style="padding: 30px; text-align: center; color: var(--text-muted);">로그 탭을 열면 자동으로 불러옵니다.</td></tr>
+                        <tr><td colspan="6" class="lg-empty">로그 탭을 열면 자동으로 불러옵니다.</td></tr>
                     </tbody>
                 </table>
             </div>
+            <div class="lg-foot">
+                <span>총 <b id="ml-total-count">0</b>건</span>
+                <span class="lg-pager">
+                    <button id="ml-prev-btn" onclick="loadManualLogs(mlCurrentPage - 1)" disabled>◀ 이전</button>
+                    <span><span id="ml-current-page">1</span> / <span id="ml-total-pages">1</span></span>
+                    <button id="ml-next-btn" onclick="loadManualLogs(mlCurrentPage + 1)" disabled>다음 ▶</button>
+                </span>
+            </div>
         </div>
+
+        <div class="lg-meta"><a href="/uistats.html" target="_blank">📊 방송 중에 무엇을 많이 눌렀나 보기 ▸</a></div>
+        <div hidden aria-hidden="true"><div id="log-box-ranking"></div><div id="log-box-match"></div></div>
     </div>
 
     <div id="tab-system" class="tab-content">
@@ -3669,6 +3721,7 @@
             try { psRender(); } catch (e) {}                             // 💾 세이브 슬롯 단추
             try { renderRecentStrip(); } catch (e) {}                    // 🆕 방금 들어온 후원 줄
             try { railQueue(); } catch (e) {}                            // ▶ 오른쪽 칸 재생 대기열
+            try { renderLogFeed(); } catch (e) {}                        // 📋 로그 탭(보일 때만)
             if (document.getElementById('home-race-panel-body')?.style.display !== 'none') {
                 renderHomeGoalInputs();
             }
@@ -8626,6 +8679,65 @@ initFoldablePanels();
               결과도 방송판이 서버에 보고하고, 우리는 그 상태를 받아 보여준다. */
         function pbcState() { return (typeof gd !== 'undefined' && gd && gd.pinball) || {}; }
 
+
+
+        /* 📋 이번 방송 기록 — 랭킹 로그(gd.logs)와 대결 로그(gd.match_logs)를 한 줄로 합쳐 그린다.
+              로그 탭이 보일 때만 그린다(1초마다 수백 줄을 다시 그릴 이유가 없다). 바뀔 때만 다시 그린다. */
+        var lgKind = 'all', lgSig = '';
+        function lgRows() {
+            const out = [];
+            (Array.isArray(gd.logs) ? gd.logs : []).forEach(l => out.push({ t: l.time, n: l.name, v: l.val,
+                k: l.kind === 'contrib' ? 'contrib' : (l.kind === 'dice' ? 'dice' : 'score'), w: l.why || '' }));
+            (Array.isArray(gd.match_logs) ? gd.match_logs : []).forEach(l => out.push({ t: l.time, n: l.name, v: l.val, k: 'match', w: '' }));
+            // 최신이 위 — 시각 글자로 줄 세운다(같은 시각이면 원래 순서를 지킨다: sort 는 안정 정렬).
+            // ⚠️ 방송은 자정을 넘긴다(17시~새벽 3시). 새벽 6시 전 시각은 '다음 날' 로 센다 — 안 그러면 23:57 이 00:16 보다 위에 온다.
+            const key = t => {
+                const m = String(t || '').match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+                if (!m) return -1;
+                let sec = (+m[1]) * 3600 + (+m[2]) * 60 + (+(m[3] || 0));
+                if (sec < 6 * 3600) sec += 86400;
+                return sec;
+            };
+            out.sort((a, b) => key(b.t) - key(a.t));
+            return out;
+        }
+        function renderLogFeed(force) {
+            const box = document.getElementById('lg-list');
+            if (!box || typeof gd === 'undefined' || !gd) return;
+            const tab = document.getElementById('tab-logs');
+            if (!force && tab && tab.offsetParent === null) return;
+            const q = ((document.getElementById('lg-q') || {}).value || '').trim();
+            let rows = lgRows();
+            const total = rows.length;
+            if (lgKind !== 'all') rows = rows.filter(r => r.k === lgKind);
+            if (q) rows = rows.filter(r => String(r.n || '').indexOf(q) !== -1);
+            const sig = JSON.stringify([lgKind, q, rows.slice(0, 300)]);
+            if (sig === lgSig) return;
+            lgSig = sig;
+            const cnt = document.getElementById('lg-count');
+            if (cnt) cnt.textContent = total ? (rows.length === total ? total + '줄' : rows.length + ' / ' + total + '줄') : '';
+            if (!rows.length) { box.innerHTML = '<div class="lg-empty">' + (total ? '맞는 기록이 없어요' : '아직 기록이 없어요') + '</div>'; return; }
+            const LBL = { score: '점수', contrib: '기여도', dice: '주사위', match: '대결' };
+            box.innerHTML = rows.slice(0, 300).map(r => {
+                const v = Number(r.v || 0), unit = r.k === 'contrib' ? '' : '점';
+                const hm = (String(r.t || '').match(/(\d{1,2}:\d{2}:\d{2}|\d{1,2}:\d{2})/) || [])[1] || escapeHTML(String(r.t || ''));
+                return '<div class="lg-row"><span class="t">' + hm + '</span><span class="k ' + r.k + '">' + LBL[r.k] + '</span>'
+                    + '<span class="n">' + escapeHTML(String(r.n || '')) + '</span>'
+                    + '<span class="v' + (v < 0 ? ' neg' : '') + '">' + (v > 0 ? '+' : '') + v.toLocaleString() + unit + '</span>'
+                    + '<span class="w">' + escapeHTML(String(r.w || '')) + '</span></div>';
+            }).join('') + (rows.length > 300 ? '<div class="lg-empty">최근 300줄만 보여요 — 더 오래된 것은 아래 전체 점수 기록에서</div>' : '');
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            const chips = document.getElementById('lg-chips');
+            if (chips) chips.addEventListener('click', function (e) {
+                const b = e.target.closest('button[data-k]'); if (!b) return;
+                lgKind = b.dataset.k;
+                chips.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+                renderLogFeed(true);
+            });
+            const q = document.getElementById('lg-q');
+            if (q) q.addEventListener('input', function () { renderLogFeed(true); });
+        });
 
         /* 🪟 한 창 조종실 — 넓으면 대기함·🆕 줄·되돌리기를 오른쪽 칸으로, 좁으면 탭 밑(상단 고정)으로 되돌린다.
               ⚠️ 요소를 **옮긴다**(복사 아님) — id·버튼이 그대로라 다른 코드는 아무것도 몰라도 된다. */
