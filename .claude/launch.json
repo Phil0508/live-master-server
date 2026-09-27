@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8777", "--bind", "127.0.0.1"],
+      "port": 8777
+    },
+    {
+      "name": "livemaster",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "set HEADLESS=1&& set BIND_HOST=127.0.0.1&& python server.py"],
+      "port": 5000,
+      "url": "http://localhost:5000"
+    }
+  ]
+}
