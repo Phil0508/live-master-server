@@ -4382,7 +4382,7 @@
             // 올클리어 신호가 새로 왔을 때만 한 번 재생한다
             if (act.type === 'ALLCLEAR' && act.ts !== sgAllClearTs && (now - act.ts) < 8000) {
                 sgAllClearTs = act.ts;
-                try { if (clipAuto()) clipSave(20000, '올클리어'); } catch (e) {}
+                try { if (clipAuto()) clipSave(20000, '올클리어', 'allclear:' + act.ts); } catch (e) {}
                 shown.forEach(c => { if (c.doneAt) sgSeenDone.add(c.id + ':' + c.doneAt); });
                 sgPlayAllClear(grid, box.querySelector('.sg-board') || box, goals.length);
             }
@@ -7475,7 +7475,7 @@
         function playReaction(data) {
             console.log('Playing reaction:', data);
             // ✂️ 기준 금액 이상 시그가 실제로 재생된다 — 반응까지 담기게 25초 뒤 저장
-            try { const _m = clipAuto(); if (_m && Number(data && data.amount) >= _m) clipSave(CLIP_AUTO_WAIT, (data.donator || '') + ' ' + data.amount); } catch (e) {}
+            try { const _m = clipAuto(); if (_m && Number(data && data.amount) >= _m) clipSave(CLIP_AUTO_WAIT, (data.donator || '') + ' ' + data.amount, data.id); } catch (e) {}
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -8038,7 +8038,8 @@
               OBS 밖(미리보기 창·폰)에는 window.obsstudio 가 없어 아무 일도 안 한다.
            ⚠️ 두 순간이 30초 안에 겹치면 한 번에 담는다(뒤 순간까지 기다려 저장, 처음부터 60초까지만).
               그보다 멀면 다음 저장을 따로 건다 — 버리지 않는다. */
-        const CLIP = { level: -1, rb: null, err: '', timer: null, due: 0, first: 0, later: 0 };
+        const CLIP = { level: -1, rb: null, err: '', timer: null, due: 0, first: 0, later: 0,
+                       refs: [], laterRefs: [], firedRefs: null, confirmT: null };
         const CLIP_AUTO_WAIT = 25000;     // 시그 재생 뒤 25초 — 앞 65초 + 반응 25초가 담긴다(버퍼 90초 기준)
         function clipObs() { return (window.obsstudio && typeof window.obsstudio === 'object') ? window.obsstudio : null; }
         function clipHello(extra) {
@@ -8070,33 +8071,50 @@
                 });
             } catch (e) { CLIP.err = String((e && e.message) || e).slice(0, 60); clipHello(); }
         }
+        /* 💾 저장이 확인되면 '무엇을 저장했나(열쇠)' 를 서버에 알린다 — 회사 PC 도우미가 파일 이름을 붙일 때 쓴다.
+              OBS 가 저장됨 신호(obsReplaybufferSaved)를 안 주면 4초 뒤 그냥 알린다. */
+        function clipConfirm() {
+            if (!CLIP.firedRefs) return;
+            if (CLIP.confirmT) { clearTimeout(CLIP.confirmT); CLIP.confirmT = null; }
+            clipHello({ saved: true, refs: CLIP.firedRefs.slice(0, 10) });
+            CLIP.firedRefs = null;
+        }
         function clipFire() {
             CLIP.timer = null;
             const o = clipObs();
             if (o) {
-                try { o.saveReplayBuffer(); console.log('✂️ [클립] 리플레이 저장'); }
+                try {
+                    o.saveReplayBuffer(); console.log('✂️ [클립] 리플레이 저장');
+                    CLIP.firedRefs = CLIP.refs.slice(); CLIP.refs = [];
+                    CLIP.confirmT = setTimeout(clipConfirm, 4000);
+                }
                 catch (e) { CLIP.err = '저장 실패'; clipHello(); }
             }
             if (CLIP.later) {
                 const wait = Math.max(0, CLIP.later - Date.now());
                 CLIP.later = 0;
+                CLIP.refs = CLIP.laterRefs; CLIP.laterRefs = [];
                 CLIP.first = Date.now(); CLIP.due = Date.now() + wait;
                 CLIP.timer = setTimeout(clipFire, wait);
             }
         }
-        function clipSave(delayMs, why) {
+        function clipSave(delayMs, why, ref) {
             if (!clipObs() || !(CLIP.level >= 4)) return;
             const now = Date.now(), at = now + Math.max(0, delayMs || 0);
+            const take = function (arr) { if (ref && arr.indexOf(String(ref)) < 0) arr.push(String(ref)); };
             console.log('✂️ [클립] 저장 예약 +' + Math.round((at - now) / 1000) + '초 · ' + (why || ''));
             if (CLIP.timer) {
-                if (at <= CLIP.due) return;                                   // 이미 담긴다
+                if (at <= CLIP.due) { take(CLIP.refs); return; }              // 이미 담긴다
                 if (at - CLIP.due <= 30000 && at - CLIP.first <= 60000) {     // 겹친다 — 뒤까지 기다려 한 번에
+                    take(CLIP.refs);
                     clearTimeout(CLIP.timer); CLIP.due = at; CLIP.timer = setTimeout(clipFire, at - now);
                 } else {
+                    take(CLIP.laterRefs);
                     CLIP.later = Math.max(CLIP.later, at);                    // 멀다 — 다음 저장으로
                 }
                 return;
             }
+            take(CLIP.refs);
             CLIP.first = now; CLIP.due = at;
             CLIP.timer = setTimeout(clipFire, at - now);
         }
@@ -8105,7 +8123,7 @@
             return c.auto !== false ? (Number(c.auto_min) || 0) : 0;
         }
         if (clipObs()) {
-            window.addEventListener('obsReplaybufferSaved', function () { clipHello({ saved: true }); });
+            window.addEventListener('obsReplaybufferSaved', function () { if (CLIP.firedRefs) clipConfirm(); else clipHello({ saved: true }); });
             window.addEventListener('obsReplaybufferStarted', function () { CLIP.rb = true; clipHello(); });
             window.addEventListener('obsReplaybufferStopped', function () { CLIP.rb = false; clipHello(); });
             setTimeout(clipCheck, 3000);
@@ -8161,7 +8179,7 @@
             });
 
             sseSource.addEventListener('clip', function(e) {
-                try { const d = e.data ? JSON.parse(e.data) : {}; clipSave(Number(d.delay_ms) || 0, d.label || '조종실'); }
+                try { const d = e.data ? JSON.parse(e.data) : {}; clipSave(Number(d.delay_ms) || 0, d.label || '조종실', d.id); }
                 catch (err) { console.error('clip 처리 오류:', err); }
             });
 

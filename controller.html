@@ -1588,12 +1588,28 @@
         .clip-min { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-2); color: var(--text-muted); }
         .clip-min select { height: 32px; margin: 0; padding: 0 8px; font-size: var(--fs-2); line-height: 1.2; }
         .clip-log { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
-        .clip-row { display: grid; grid-template-columns: 64px 96px 38px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-light); font-size: var(--fs-3); }
+        .clip-row { display: grid; grid-template-columns: 64px 96px 38px minmax(0, 1fr) 44px; gap: 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border-light); font-size: var(--fs-3); }
+        .clip-row input.clip-l { margin: 0; height: 30px; padding: 0 8px; font-size: var(--fs-3); background: transparent; border-color: transparent; }
+        .clip-row input.clip-l:hover { border-color: var(--border-light); }
+        .clip-row input.clip-l:focus { border-color: var(--accent); background: var(--bg-input); }
+        .clip-ok { font-size: var(--fs-1); font-weight: 700; color: var(--success); text-align: right; }
+        .clip-ok.no { color: var(--text-dim); }
+        .clip-name { margin-top: 14px; }
+        .clip-fmt-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .clip-fmt-row input[type="text"] { flex: 1 1 220px; margin: 0; height: 36px !important; min-height: 0 !important; padding: 0 10px !important; font-size: var(--fs-3); }
+        .clip-tok { display: inline-flex; gap: 4px; }
+        .clip-tok button { margin: 0; height: 28px; padding: 0 9px; font-size: var(--fs-2); border-radius: var(--r-full); }
+        #clip-fmt-ex { margin-top: 4px; font-family: var(--font-num); }
+        .clip-helper { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 12px; border-radius: var(--r-2); background: var(--bg-input); border: 1px solid var(--border-light); }
+        .clip-helper > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+        .clip-helper b { font-size: var(--fs-3); }
+        a.clip-dl { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px; border-radius: var(--r-2);
+                    background: var(--accent); color: #17140b; font-weight: 800; font-size: var(--fs-3); text-decoration: none; }
         .clip-row time, .clip-at { font-family: var(--font-num); font-size: var(--fs-2); color: var(--text-muted); }
         .clip-k { font-size: var(--fs-1); font-weight: 800; text-align: center; border-radius: 4px; padding: 1px 0; }
         .clip-k.m { background: rgba(226, 182, 75, 0.16); color: var(--accent); }
         .clip-k.a { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
-        .clip-l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .clip-l { min-width: 0; }
 
         /* ═══════════════════════════════════════════════════════
            🎨 Linear 옷 (2026-09-28) — 대표님: "도구 모음은 트위치, 디자인은 Linear"
@@ -2519,17 +2535,41 @@
                     </select>
                 </label>
             </div>
-            <div class="gx-sub" style="margin-top:12px;"><span class="gx-lbl" style="margin:0;">오늘 저장한 순간 <span id="clip-count"></span></span>
+            <!-- 📁 저장 폴더는 회사 PC 도우미가 정한다(처음 켤 때 폴더를 고른다). 이름 규칙은 여기서 — 도우미가 3초마다 읽는다 -->
+            <div class="clip-name">
+                <span class="gx-lbl">파일 이름 규칙</span>
+                <div class="clip-fmt-row">
+                    <input type="text" id="clip-fmt" maxlength="80" autocomplete="off" placeholder="{날짜} {시각} {제목}"
+                           oninput="clipFmtPreview()" onchange="clipSetFmt()" onkeydown="if(event.key==='Enter')this.blur()">
+                    <span class="clip-tok">
+                        <button type="button" onclick="clipTok('{날짜}')">날짜</button>
+                        <button type="button" onclick="clipTok('{시각}')">시각</button>
+                        <button type="button" onclick="clipTok('{제목}')">제목</button>
+                        <button type="button" onclick="clipTok('{번호}')">번호</button>
+                    </span>
+                </div>
+                <div class="gx-info" id="clip-fmt-ex"></div>
+            </div>
+            <div class="clip-helper">
+                <div>
+                    <b>회사 컴퓨터용 도우미</b>
+                    <span class="gx-info">OBS 가 저장한 클립을 고른 폴더로 옮기고 위 규칙대로 이름을 붙여요. 제목을 고치면 파일 이름도 따라 바뀌어요.</span>
+                </div>
+                <a class="clip-dl" href="/api/clip/helper.zip" download><i class="fa-solid fa-download"></i> 도우미 받기</a>
+            </div>
+            <div class="gx-sub" style="margin-top:12px;"><span class="gx-lbl" style="margin:0;">오늘 저장한 순간 <span id="clip-count"></span> <span class="gx-info">제목 칸을 고치면 파일 이름이 바뀌어요</span></span>
                 <button class="secondary gx-sm" onclick="clipClear()">목록 비우기</button></div>
             <div id="clip-log" class="clip-log"><div class="gx-info">아직 없어요.</div></div>
             <details class="gx-fold" style="margin-top:10px;">
-                <summary>회사 OBS 에서 처음 한 번만 할 것 <small>두 가지</small></summary>
+                <summary>회사 컴퓨터에서 처음 한 번만 할 것 <small>세 가지</small></summary>
                 <div class="gx-fold-body gx-note">
                     ① <b>설정 → 출력 → 리플레이 버퍼</b> — "리플레이 버퍼 사용" 체크, 최대 시간 <b>90초</b>.
                     저장 폴더는 녹화 폴더와 같아요.<br>
                     ② 방송판 <b>브라우저 소스를 더블클릭 → 맨 아래 "페이지 권한" → "OBS에 대한 고급 접근 권한"</b>.
                     방송판이 여러 장면에 있으면 <b>한 곳에만</b> 주세요(여러 곳이면 같은 클립이 여러 개 생겨요).<br>
                     다 하면 위 줄이 <b>초록색 "OBS 연결됨"</b>으로 바뀝니다. 리플레이 버퍼는 방송판이 알아서 켜요.<br>
+                    ③ 위 <b>[도우미 받기]</b> 를 회사 컴퓨터에서 받아 풀고 <b>start_clip_helper.bat</b> 더블클릭 → 폴더 두 개(OBS 녹화 폴더 · 클립 모을 폴더)를 고르면 끝.
+                    방송 동안 까만 창을 켜 두세요. 리플레이 파일 이름은 OBS 기본("Replay …")으로 두세요.<br>
                     저장되는 것은 <b>누른 순간까지의 90초</b>예요. 큰 시그는 재생 25초 뒤, 올클리어는 20초 뒤에 저장해서 반응까지 담깁니다.
                 </div>
             </details>
@@ -3681,6 +3721,48 @@
             if (!(await premiumConfirm('오늘 저장한 순간 목록을 비웁니다.\nOBS 에 저장된 영상 파일은 그대로 남아요.', '✂ 목록 비우기', 'warning'))) return;
             try { await fetch('/api/clip/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clear: true }) }); } catch (e) {}
         }
+        /* 📁 파일 이름 — 도우미(clip_helper.ps1 Build-Name)와 같은 셈이어야 미리보기가 거짓말을 안 한다 */
+        const CLIP_FMT_DEFAULT = '{날짜} {시각} {제목}';
+        function clipFileName(fmt, title, ms, seq) {
+            const d = new Date(Number(ms) + 9 * 3600 * 1000);           // 한국 시각(도우미와 같게)
+            const p2 = n => String(n).padStart(2, '0');
+            const date = d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate());
+            const time = p2(d.getUTCHours()) + '-' + p2(d.getUTCMinutes()) + '-' + p2(d.getUTCSeconds());
+            let n = String(fmt || CLIP_FMT_DEFAULT).split('{날짜}').join(date).split('{시각}').join(time)
+                .split('{번호}').join(p2(seq || 1)).split('{제목}').join(title || '클립');
+            n = n.replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim().replace(/\.+$/, '');
+            return (n.slice(0, 120).trim() || '클립');
+        }
+        function clipFmtPreview() {
+            const f = document.getElementById('clip-fmt'), ex = document.getElementById('clip-fmt-ex');
+            if (!f || !ex) return;
+            ex.textContent = '예) ' + clipFileName(f.value.trim() || CLIP_FMT_DEFAULT, '밍밍 1,000,000원 VIP', Date.now(), 3) + '.mp4';
+        }
+        function clipTok(t) {
+            const f = document.getElementById('clip-fmt');
+            if (!f) return;
+            const a = f.selectionStart != null ? f.selectionStart : f.value.length, b = f.selectionEnd != null ? f.selectionEnd : a;
+            f.value = f.value.slice(0, a) + t + f.value.slice(b);
+            f.focus(); f.setSelectionRange(a + t.length, a + t.length);
+            clipFmtPreview(); clipSetFmt();
+        }
+        async function clipSetFmt() {
+            const f = document.getElementById('clip-fmt');
+            if (!f) return;
+            try {
+                const r = await fetch('/api/clip/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name_fmt: f.value.trim() || CLIP_FMT_DEFAULT }) });
+                if (r.ok) acctToast('📁 파일 이름 규칙을 바꿨어요', 'ok');
+            } catch (e) { acctToast('저장 실패', 'warn'); }
+        }
+        async function clipRename(id, el) {
+            try {
+                const r = await fetch('/api/clip/rename', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id, name: (el.value || '').trim() }) });
+                if (!r.ok) { acctToast('제목 저장 실패', 'warn'); return; }
+                acctToast('✎ 제목을 바꿨어요 — 도우미가 파일 이름도 바꿔요', 'ok');
+            } catch (e) { acctToast('통신 실패', 'warn'); }
+        }
         let _clipLogSig = '';
         function clipPaint() {
             const [st, txt] = clipObsText(_clipObs);
@@ -3695,10 +3777,15 @@
             if (a && document.activeElement !== a) a.checked = c.auto !== false;
             const m = document.getElementById('clip-min');
             if (m && document.activeElement !== m && c.auto_min) m.value = String(c.auto_min);
+            const fEl = document.getElementById('clip-fmt');
+            if (fEl && document.activeElement !== fEl) { fEl.value = c.name_fmt || CLIP_FMT_DEFAULT; clipFmtPreview(); }
             const log = Array.isArray(c.log) ? c.log : [];
             const t0 = Number(gd && gd.broadcast_started_at) || 0;
-            const sig = JSON.stringify([log.map(x => x.id), t0]);
+            const sig = JSON.stringify([log.map(x => [x.id, x.name, x.saved_at]), t0]);
             if (sig === _clipLogSig) return;
+            // ⚠️ 제목을 치는 중에 다시 그리면 글자가 날아간다 — 손이 떠나면 그린다
+            const boxNow = document.getElementById('clip-log');
+            if (boxNow && boxNow.contains(document.activeElement)) return;
             _clipLogSig = sig;
             const cnt = document.getElementById('clip-count');
             if (cnt) cnt.textContent = log.length ? log.length + '개' : '';
@@ -3713,7 +3800,10 @@
                 return '<div class="clip-row"><time>' + clock + '</time>'
                      + (t0 && x.ts >= t0 && x.ts - t0 < 16 * 3600 * 1000 ? '<span class="clip-at">방송 +' + hms(x.ts - t0) + '</span>' : '<span class="clip-at"></span>')
                      + '<span class="clip-k ' + (x.kind === 'manual' ? 'm' : 'a') + '">' + (x.kind === 'manual' ? '직접' : '자동') + '</span>'
-                     + '<span class="clip-l">' + escapeHTML(x.label || '') + '</span></div>';
+                     + '<input class="clip-l" type="text" maxlength="60" value="' + escapeHTML(x.name || '') + '" placeholder="' + escapeHTML(x.label || '제목') + '"'
+                     + ' data-id="' + escapeHTML(x.id) + '" onchange="clipRename(this.dataset.id, this)" onkeydown="if(event.key===\'Enter\')this.blur()">'
+                     + (x.saved_at ? '<span class="clip-ok" title="OBS 가 저장했어요">저장됨</span>' : '<span class="clip-ok no" title="아직 OBS 저장 확인이 안 왔어요">대기</span>')
+                     + '</div>';
             }).join('');
         }
         setInterval(clipPoll, 20000);

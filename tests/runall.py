@@ -179,6 +179,13 @@ for f in ('server.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.
     if os.path.exists(src):
         for d in (LT2, PT):
             copy_into(src, os.path.join(d, f))
+# ✂️ 회사 PC 도우미 — 서버가 이 폴더를 묶어 내려준다(/api/clip/helper.zip). 없으면 500 이 난다
+_hsrc = os.path.join(PROJ, 'tools', 'clip_helper')
+if os.path.isdir(_hsrc):
+    for d in (LT2, PT):
+        _hdst = os.path.join(d, 'tools', 'clip_helper')
+        shutil.rmtree(_hdst, ignore_errors=True)
+        shutil.copytree(_hsrc, _hdst)
 # ── 검사 원본은 저장소 tests/ 다. 스크래치패드는 시스템이 언제든 비울 수 있어서
 #    실제로 검사 두 개가 증발한 적이 있다. 매 실행마다 저장소에서 새로 받아온다.
 TESTS = os.path.join(PROJ, 'tests')

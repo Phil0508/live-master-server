@@ -1013,7 +1013,8 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
     try:
         _c = _clip_state(state)
         if _c.get('auto') and _c.get('auto_min') and int(amount or 0) >= int(_c['auto_min']):
-            _clip_log(state, 'auto', '%s %s원 %s' % (donator or '익명', format(int(amount or 0), ','), sig.get('title') or ''))
+            _clip_log(state, 'auto', '%s %s원 %s' % (donator or '익명', format(int(amount or 0), ','), sig.get('title') or ''),
+                      ref=reaction_uuid)
     except Exception as e:
         print(f"⚠️ [클립 목록 실패] {e}")
 
@@ -5983,6 +5984,10 @@ def api_presets_apply():
 #    ②③ 은 방송판이 재생·연출 시각을 알아서 스스로 건다 — 서버는 목록(무엇이 언제)만 적는다.
 CLIP_LOG_MAX = 60
 CLIP_AUTO_DEFAULT = 100000
+# 📁 파일 이름 규칙 — 회사 PC 도우미가 리플레이 파일을 모을 폴더로 옮기며 이 규칙대로 이름을 붙인다.
+#    {날짜} 2026-10-01 · {시각} 21-14-50 · {제목} 클립 제목(조종실에서 고친 것, 없으면 이유) · {번호} 그날 몇 번째
+CLIP_NAME_FMT_DEFAULT = '{날짜} {시각} {제목}'
+CLIP_HELPER_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tools', 'clip_helper')
 # 방송판(OBS)이 알려 오는 '저장 담당' 상태 — 메모리에만 둔다(DB·상태에 안 쓴다, 조종실 표시용).
 _clip_obs = {'seen': 0.0, 'level': -1, 'rb': None, 'saved': 0.0, 'err': ''}
 _clip_obs_lock = threading.Lock()
@@ -5995,16 +6000,21 @@ def _clip_state(state):
         state['clip'] = c
     c.setdefault('auto', True)
     c['auto_min'] = max(0, _as_int(c.get('auto_min'), CLIP_AUTO_DEFAULT) or 0)
+    if not isinstance(c.get('name_fmt'), str) or not c.get('name_fmt').strip():
+        c['name_fmt'] = CLIP_NAME_FMT_DEFAULT
     if not isinstance(c.get('log'), list):
         c['log'] = []
     return c
 
 
-def _clip_log(state, kind, label):
-    """클립 목록에 한 줄. 방송이 끝나면 '어느 파일이 뭐였나' 를 이 시각으로 맞춘다."""
+def _clip_log(state, kind, label, ref=None):
+    """클립 목록에 한 줄. 방송이 끝나면 '어느 파일이 뭐였나' 를 이 시각으로 맞춘다.
+    ref — 방송판이 '이것을 저장했다' 고 알려 올 때 쓰는 열쇠(직접=이 줄 id, 큰 시그=대기열 id, 올클리어=allclear:시각).
+    saved_at — 방송판이 OBS 저장을 확인한 서버 시각. 회사 PC 도우미가 파일 시각과 맞춰 이름을 붙인다."""
     c = _clip_state(state)
     cid = uuid.uuid4().hex[:10]
-    c['log'].append({'id': cid, 'ts': int(time.time() * 1000), 'kind': kind, 'label': str(label or '')[:60]})
+    c['log'].append({'id': cid, 'ts': int(time.time() * 1000), 'kind': kind, 'label': str(label or '')[:60],
+                     'ref': str(ref or cid)[:40], 'name': '', 'saved_at': 0})
     if len(c['log']) > CLIP_LOG_MAX:
         del c['log'][:len(c['log']) - CLIP_LOG_MAX]
     return cid
@@ -6050,11 +6060,60 @@ def api_clip_settings():
             c['auto'] = bool(body.get('auto'))
         if 'auto_min' in body:
             c['auto_min'] = max(0, min(100000000, _as_int(body.get('auto_min'), CLIP_AUTO_DEFAULT) or 0))
+        if 'name_fmt' in body:
+            f = str(body.get('name_fmt') or '').replace('\n', ' ').strip()[:80]
+            c['name_fmt'] = f or CLIP_NAME_FMT_DEFAULT
         if body.get('clear'):
             c['log'] = []
         save_data(state)
         broadcast_event('update', state)
     return jsonify({'status': 'success', 'clip': c})
+
+
+@app.route('/api/clip/rename', methods=['POST'])
+def api_clip_rename():
+    """클립 제목 고치기 — 도우미가 모은 폴더의 파일 이름도 따라 바뀐다."""
+    body = request.get_json(silent=True) or {}
+    cid = str(body.get('id') or '')
+    name = str(body.get('name') or '').replace('\n', ' ').strip()[:60]
+    with file_lock:
+        state = load_data()
+        c = _clip_state(state)
+        hit = next((x for x in c['log'] if x.get('id') == cid), None)
+        if not hit:
+            return jsonify({'status': 'error', 'message': '없는 클립입니다'}), 404
+        hit['name'] = name
+        save_data(state)
+        broadcast_event('update', state)
+    return jsonify({'status': 'success', 'clip': hit})
+
+
+@app.route('/api/clip/helper.zip', methods=['GET'])
+def api_clip_helper_zip():
+    """회사 PC(OBS 있는 곳)에서 켜 둘 도우미 — 리플레이 파일을 고른 폴더로 옮기며 이름을 붙인다.
+    ⚠️ 윈도우 기본 PowerShell 로 돈다(설치 없음). 서버 주소는 받는 순간의 주소로 박아 준다."""
+    import io as _io, zipfile as _zip
+    from flask import Response
+    host = request.headers.get('X-Forwarded-Host') or request.host
+    scheme = request.headers.get('X-Forwarded-Proto') or request.scheme
+    if not host.startswith(('127.0.0.1', 'localhost')):
+        scheme = 'https'
+    server = '%s://%s' % (scheme, host)
+    buf = _io.BytesIO()
+    with _zip.ZipFile(buf, 'w', _zip.ZIP_DEFLATED) as z:
+        for fn in sorted(os.listdir(CLIP_HELPER_DIR)):
+            p = os.path.join(CLIP_HELPER_DIR, fn)
+            if not os.path.isfile(p):
+                continue
+            data = open(p, 'rb').read()
+            if fn.endswith('.ps1'):
+                txt = data.decode('utf-8-sig').replace('__SERVER__', server)
+                data = b'\xef\xbb\xbf' + txt.replace('\r\n', '\n').replace('\n', '\r\n').encode('utf-8')   # PowerShell 5.1 은 BOM 이 있어야 한글을 읽는다
+            elif fn.endswith(('.bat', '.txt')):
+                data = data.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+            z.writestr('shorts_clip_helper/' + fn, data)
+    return Response(buf.getvalue(), mimetype='application/zip',
+                    headers={'Content-Disposition': 'attachment; filename=shorts_clip_helper.zip'})
 
 
 @app.route('/api/clip/hello', methods=['POST'])
@@ -6076,6 +6135,23 @@ def api_clip_hello():
         _clip_obs['err'] = str(b.get('err') or '')[:80]
         if b.get('saved') is True:
             _clip_obs['saved'] = now
+    # 💾 어느 순간이 저장됐나 — 목록 줄에 저장 시각을 적는다(도우미가 파일 시각과 맞춘다).
+    #    ⚠️ 무인증 길이라 좁게 받는다: 저장 알림 + 권한 있는 방송판 + 열쇠 10개(각 40자)까지,
+    #       이미 있는 줄의 saved_at 한 칸만 바꾼다. 없는 열쇠는 무시한다.
+    refs = b.get('refs') if isinstance(b.get('refs'), list) else []
+    refs = [str(r)[:40] for r in refs[:10] if isinstance(r, (str, int))]
+    if b.get('saved') is True and refs and lv >= 4:
+        with file_lock:
+            state = load_data()
+            c = _clip_state(state)
+            hit = False
+            for x in c['log']:
+                if (x.get('ref') in refs or x.get('id') in refs) and not x.get('saved_at'):
+                    x['saved_at'] = int(now * 1000)
+                    hit = True
+            if hit:
+                save_data(state)
+                broadcast_event('update', state)
     return jsonify({'status': 'success'})
 
 # ==========================================
@@ -7110,7 +7186,7 @@ def api_siggame_allclear():
         n, filled = len(goals), len(left)
         try:
             if _clip_state(state).get('auto'):
-                _clip_log(state, 'auto', '시그뒤집기 올클리어 (%d장)' % n)
+                _clip_log(state, 'auto', '시그뒤집기 올클리어 (%d장)' % n, ref='allclear:%d' % now_ms)
         except Exception as e:
             print(f"⚠️ [클립 목록 실패] {e}")
         _siggame_save(state, g)
