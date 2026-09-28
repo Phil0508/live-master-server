@@ -1697,6 +1697,8 @@ DEFAULT_STATE = {
     # ⚔️ 대결. players 는 대결자(또는 팀)다.
     #    team_mode 를 켜면 players[i].members 에 넣은 점수판 사람들에게 들어온 후원이
     #    그 팀의 점수로도 함께 올라간다. 꺼두면 예전처럼 손으로만 넣는다.
+    #    link 는 조종실이 고른 방식 — 'team'(팀원 여럿) · 'solo'(개인전: 대결자마다 점수판 한 명).
+    #    ⚠️ 개인전도 같은 길(members 한 명)을 탄다. 연동 여부는 여전히 team_mode 가 정한다.
     #    [{name, score, members: ["제이양", "밍밍"]}]
     "match_data": {"active": False, "players": [], "time_left_ms": 180000,
                    "is_running": False, "team_mode": False},
@@ -4835,6 +4837,9 @@ def api_data():
                             _m = str(_m or '').strip()
                             if _m and _m not in _seen:
                                 _seen.append(_m)
+                        # 🧍 개인전은 대결자마다 한 명이다 — 둘이 붙어 있으면 한 사람 후원이 두 번 셀 수 있다
+                        if _md.get('link') == 'solo':
+                            _seen = _seen[:1]
                         _p['members'] = _seen
             _bf = state.get('bottom_fixed')
             if isinstance(_bf, dict) and isinstance(_bf.get('name'), str):

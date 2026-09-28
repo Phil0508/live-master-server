@@ -111,4 +111,31 @@ print('   후원:', st)
 s = state()
 print('   B팀:', s['match_data']['players'][1]['score'], '(후원은 대기함으로 가므로 변화 없을 수 있음)')
 
+# ── 🧍 개인전 연동 (대표님 2026-09-29: "개인전에도, 개인에서도 선택하게") ──
+print('\n8) 개인전 — 대결자마다 점수판 한 명')
+s = state()
+s['match_data'] = {"active": True, "players": [
+        {"name": "철수", "score": 0, "members": ["철수"]},
+        {"name": "민수", "score": 0, "members": ["민수", "지연"]}],   # 둘 붙여 보낸다 → 서버가 한 명만 남겨야
+    "time_left_ms": 180000, "is_running": False, "team_mode": True, "link": "solo"}
+req('/api/data', s)
+s = state()
+chk('개인전은 대결자마다 한 명만 남는다', s['match_data']['players'][1]['members'] == ['민수'], s['match_data']['players'][1]['members'])
+chk('연동 방식이 저장된다', s['match_data'].get('link') == 'solo')
+req('/api/score/add', {"scope": "rank", "name": "철수", "delta": 3000})
+req('/api/score/add', {"scope": "rank", "name": "민수", "delta": 1000})
+req('/api/score/add', {"scope": "rank", "name": "지연", "delta": 9000})
+s = state()
+chk('철수 후원판 점수 → 대결 철수 3000', s['match_data']['players'][0]['score'] == 3000, s['match_data']['players'][0]['score'])
+chk('민수 → 대결 민수 1000 (떨어져 나간 지연은 안 붙음)', s['match_data']['players'][1]['score'] == 1000, s['match_data']['players'][1]['score'])
+s['match_data']['team_mode'] = False; req('/api/data', s)
+req('/api/score/add', {"scope": "rank", "name": "철수", "delta": 500})
+s = state()
+chk('연동 끄면 개인전도 안 오른다', s['match_data']['players'][0]['score'] == 3000, s['match_data']['players'][0]['score'])
+import io as _io, os as _os
+CTL = _io.open(_os.path.join(_os.environ.get('LM_PROJECT_ROOT') or _os.path.abspath(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '..')), 'controller.html'), encoding='utf-8').read()
+chk('조종실: 끔 · 개인전 · 팀전 고르기', "setMatchLink('solo')" in CTL and "setMatchLink('team')" in CTL and "setMatchLink('off')" in CTL)
+chk('조종실: 개인전은 한 명만 고른다', "t.members = [name];" in CTL)
+chk('조종실: 예전 저장본(team_mode 만)은 팀전으로 읽는다', "return md.link === 'solo' ? 'solo' : 'team';" in CTL)
+
 print(f'\n═══ 통과 {ok} / 실패 {fail} ═══')
