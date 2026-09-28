@@ -362,14 +362,7 @@
             body:not(.tabs-open) .tabs-2row .tab-x { display: none !important; }
             body.tabs-open .tabs-2row .tab-row2 { flex-wrap: wrap; }
             body.tabs-open .tabs-2row .tab-dots { color: var(--accent); }
-            /* 세이브 슬롯 — 칩 한 줄 */
-            #ps-box { background: transparent !important; border: 0 !important; padding: 10px 0 !important; margin-bottom: 4px !important;
-                      display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-            #ps-box > .group-title { margin: 0; padding: 0; border: 0; font-size: var(--fs-2); color: var(--text-muted); font-weight: 700; }
-            #ps-box > .group-title span, #ps-box > .group-title i { display: none; }
-            #ps-btns { display: contents !important; }
-            #ps-btns button, #ps-box .ps-new { margin: 0 !important; height: 30px; padding: 0 13px; border-radius: var(--r-full); font-size: var(--fs-3); }
-            #ps-box .ps-new { background: transparent; border-style: dashed; color: var(--text-muted); }
+            /* 세이브 슬롯 칩은 방송 화면 칸(.shb)으로 옮겼다 */
         }
         @media (min-width: 1280px) {
             /* 맨 윗줄 — 한 줄로(연결 · 타이머 · 음악 · 단추들). 예전엔 줄이 넘쳐 단추가 아랫줄로 떨어졌다 */
@@ -1576,6 +1569,31 @@
             .gx-tile, button.gx-tile { min-height: 76px; }
         }
 
+        /* 📺 방송 화면 칸 */
+        .shb { padding: 10px 12px !important; margin-bottom: 14px; }
+        .shb-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .shb-fold { margin: 0; height: 34px; width: 34px; padding: 0; justify-content: center; }
+        .shb.open .shb-fold { color: var(--accent); border-color: rgba(226, 182, 75, .45); }
+        .shb-sum { font-size: var(--fs-3); color: var(--text-muted); min-width: 0; }
+        .shb-sum b { color: var(--text-main); font-size: var(--fs-4); }
+        .shb-dim { color: var(--text-dim); font-size: var(--fs-2); }
+        .shb-cover { color: #c9a6ff; font-size: var(--fs-2); font-weight: 700; margin-left: 4px; }
+        .shb-cue { margin-left: auto; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+        .shb-cues { display: flex; gap: 4px; flex-wrap: wrap; }
+        .shb-cues button, .shb-cue > button { margin: 0; height: 32px; padding: 0 11px; font-size: var(--fs-2); }
+        button.shb-cue-b.done { color: var(--text-dim); }
+        button.shb-cue-b.on { border-color: var(--accent); color: var(--text-main); background: rgba(226, 182, 75, .12); }
+        button.shb-next { background: var(--accent); border-color: var(--accent); color: #17140b; font-weight: 800; }
+        button.shb-next:hover { background: #ecc463; color: #17140b; }
+        button.shb-next:disabled { opacity: .4; }
+        .shb-cue .ps-new { background: transparent; border-style: dashed; color: var(--text-muted); }
+        .shb-more { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge, var(--border-light)); flex-direction: column; gap: 8px; }
+        .shb.open .shb-more { display: flex; }
+        .shb-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .shb-lbl { width: 64px; flex: none; font-size: var(--fs-2); font-weight: 700; color: var(--text-muted); }
+        .shb-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+        button.shb-chip { margin: 0; height: 30px; padding: 0 11px; font-size: var(--fs-2); border-radius: var(--r-full); color: var(--text-muted); }
+        button.shb-chip.on { color: var(--text-main); border-color: rgba(53, 208, 127, .5); background: rgba(53, 208, 127, .08); }
         /* ✂️ 쇼츠 클립 */
         /* 🔗 대결 — 후원판 점수 연동 */
         .ml-link { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-2);
@@ -1906,6 +1924,31 @@
         <div id="context-strip" style="display:none;"></div>
     </div>
 
+    <!-- 📺 방송 화면 (2026-09-29 개편) — 모든 탭 위. 대표님: "위젯 개념으로 껐다 켰다 하잖아, 싹 다 드러내서 다른 방식으로".
+         윗줄: 지금 화면 한 줄 + 순서표(예전 세이브 슬롯이 단계) [◀] [다음 ▶].
+         펼치면: 무대(한 번에 하나) · 고정 자리 · 알림. 전부 /api/show 하나로 간다(규칙은 서버 show.py).
+         ⚠️ 이름·덮어쓰기·지우기·순서 바꾸기는 편집기에서(예전 세이브 슬롯과 같다). -->
+    <section class="group-box shb" id="show-bar">
+        <div class="shb-top">
+            <button type="button" class="shb-fold" onclick="showFold()" title="무대 · 고정 자리 · 알림 펼치기/접기"><i class="fa-solid fa-tv"></i></button>
+            <span class="shb-sum" id="shb-sum">불러오는 중…</span>
+            <div class="shb-cue">
+                <button type="button" class="shb-prev" onclick="showCue('prev')" title="이전 단계">◀</button>
+                <div id="ps-btns" class="shb-cues"></div>
+                <button type="button" class="shb-next" id="shb-next" onclick="showCue('next')" title="순서표 다음 단계로">다음 ▶</button>
+                <button type="button" class="ps-new" onclick="psSaveNew()" title="지금 화면(위젯 자리 · 무대 · 고정 자리)을 순서표 끝에 단계로 저장합니다"><i class="fa-solid fa-plus"></i> 단계</button>
+            </div>
+        </div>
+        <div class="shb-more">
+            <div class="shb-row"><span class="shb-lbl">무대</span><div class="gx-seg" id="shb-stage"></div>
+                <span class="gx-info" id="shb-ret"></span></div>
+            <div class="shb-row"><span class="shb-lbl">고정 자리</span><div class="shb-chips" id="shb-hud"></div></div>
+            <div class="shb-row"><span class="shb-lbl">알림</span><div class="shb-chips" id="shb-alerts"></div>
+                <span class="gx-info">시작·끝 화면 · 시그 리액션은 '덮기' — 켜진 동안 아래가 잠깐 가려져요</span></div>
+        </div>
+    </section>
+
+
 
     <!-- 🎮 모드 탭: 임시게임판 + 퇴근전쟁 (랭킹 탭에서 분리해 옮김) -->
     <div id="tab-mode" class="tab-content">
@@ -2034,14 +2077,7 @@
 
     <div id="tab-ranking" class="tab-content active">
 
-        <!-- 💾 세이브 슬롯 (대표님 2026-09-22) — 누르면 저장해 둔 자리 · 켜고 끈 위젯 · 게임판 그대로 바뀐다.
-             슬롯 이름 바꾸기·덮어쓰기·지우기는 편집기에서. -->
-        <div class="group-box" id="ps-box">
-            <div class="group-title"><i class="fa-solid fa-floppy-disk"></i> 세이브 슬롯
-                <span style="font-size: var(--fs-1); color: var(--text-muted); font-weight: 600; margin-left: 6px;">누르면 그 화면으로 바로 바뀝니다 · 이름·덮어쓰기·지우기는 편집기에서</span></div>
-            <div id="ps-btns" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
-            <button type="button" class="ps-new" onclick="psSaveNew()" title="지금 화면(위젯 자리 · 켜고 끈 위젯 · 떠 있는 게임판)을 새 슬롯으로 저장합니다"><i class="fa-solid fa-plus"></i> 지금 상태를 새 슬롯으로 저장</button>
-        </div>
+        <!-- 💾 세이브 슬롯은 '방송 화면' 칸의 순서표로 옮겼다(모든 탭 위, 2026-09-29) -->
 
 
         <div class="group-box">
@@ -4272,7 +4308,8 @@
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
             try { dgcSync(); } catch(e) {}
             try { pbcSync(); } catch(e) {}
-            try { clipPaint(); } catch(e) {}        // ✂️ 쇼츠 클립 목록       // 🎱 구슬 핀볼 판 갱신       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
+            try { clipPaint(); } catch(e) {}        // ✂️ 쇼츠 클립 목록
+            try { showRender(); } catch(e) {}       // 📺 방송 화면 칸       // 🎱 구슬 핀볼 판 갱신       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
             try { ntcSync(); } catch(e) {}       // 📣 안내 전광판 설정 반영
             try { abSync(false); } catch(e) {}   // 🤖 진행봇 설정 반영
             try { renderVipLive(false); } catch(e) {}   // 👑 이번 방송 순위 등급(탭이 보일 때만)
@@ -4321,7 +4358,7 @@
             
             setChk('chk-popup', gd.popup_enabled);
             setChk('chk-takeover', gd.takeover_enabled);
-            setChk('chk-match', gd.match_data.active);
+            setChk('chk-match', !!(gd.show ? gd.show.stage === 'match' : gd.match_data.active));
             setChk('chk-match-fire', gd.match_data.fire_effect || false);
             setChk('chk-ticker', gd.ticker_enabled);
             setChk('chk-roulette-enabled', gd.roulette_enabled || false);
@@ -5717,7 +5754,16 @@
             }
         }
 
+        /* 📺 방송 화면 스위치는 이제 /api/show 로 간다(서버 show.py 가 규칙을 쥔다).
+              ⚠️ 옛 스위치 값을 여기서 뒤집어 통째 저장으로 보내도 서버가 무시한다 — 반드시 이 길로. */
+        const SHOW_KEY = {
+            popup_enabled: ['alerts', 'popup'], takeover_enabled: ['alerts', 'takeover'], reaction_title_enabled: ['alerts', 'reaction_title'],
+            sig_tally_enabled: ['hud', 'sig_tally'], donor_rank_enabled: ['hud', 'donor_rank'], best_enabled: ['hud', 'best'],
+            notice_enabled: ['hud', 'notice'], ticker_enabled: ['hud', 'ticker'],
+            roulette_enabled: ['stage', 'roulette'], slot_enabled: ['stage', 'slot'], home_race_enabled: ['stage', 'home_race'],
+        };
         function toggleOption(key) {
+            if (SHOW_KEY[key]) { showToggle(SHOW_KEY[key][0], SHOW_KEY[key][1]); return; }
             gd[key] = !gd[key];
             if (key === 'reaction_mode') {
                 if (gd[key]) { enterContentMode(); showReactionToast(); }
@@ -5752,7 +5798,13 @@
             }
         }
 
-        function toggleMatch() { gd.match_data.active = !gd.match_data.active; pushAPI(); }
+        /* ⚔️ 대결 위젯 — 켜면 무대에 올린다(대결 시작). 끄면 대결을 끝낸다(서버가 무대에서도 내린다).
+              ⚠️ 무대가 잠깐 슬롯으로 가 있어도 대결은 계속 돈다 — 끄기는 '끝내기' 다. */
+        function toggleMatch() {
+            const on = document.getElementById('chk-match') ? document.getElementById('chk-match').checked : !gd.match_data.active;
+            if (on) { showSet({ stage: 'match' }); return; }
+            gd.match_data.active = false; pushAPI();
+        }
         function toggleMatchFire() { gd.match_data.fire_effect = !gd.match_data.fire_effect; pushAPI(); }
         function updateTheme() { gd.theme = document.getElementById('sel-theme').value; pushAPI(); }
         // 💰 게이지 보정 — 막대의 현재 금액만 ± 로 고친다.
@@ -9160,7 +9212,7 @@ initFoldablePanels();
         //    "지금 띄우기" 만 서버에 신호를 보낸다.
         let _ntcFilled = false, _ntcPickSig = '';
 
-        function ntcToggle(on) { patchAPI({ notice_enabled: !!on }); }
+        function ntcToggle(on) { showSet({ hud: { notice: !!on } }); }   // 📺 고정 자리
 
         function ntcSave() {
             const ta = document.getElementById('ntc-msgs');
@@ -9590,17 +9642,98 @@ initFoldablePanels();
             const box = document.getElementById('ps-btns');
             if (!box || typeof gd === 'undefined' || !gd) return;
             const list = Array.isArray(gd.layout_presets) ? gd.layout_presets : [];
-            const sig = JSON.stringify([list.map(p => [p.id, p.name, p.board]), psLast]);
+            const at = (gd.show && typeof gd.show.cue_at === 'number') ? gd.show.cue_at : -1;
+            const sig = JSON.stringify([list.map(p => [p.id, p.name, p.stage, p.board]), at]);
             if (sig === psSig) return;
             psSig = sig;
+            const nx = document.getElementById('shb-next');
+            if (nx) {
+                const n = list[at + 1];
+                nx.textContent = n ? '다음 ▶ ' + n.name : (list.length ? '끝' : '다음 ▶');
+                nx.disabled = !n;
+            }
             if (!list.length) {
-                box.innerHTML = '<span style="color: var(--text-muted); font-size: var(--fs-2);">아직 슬롯이 없어요. 원하는 대로 켜고(편집기에서 자리도 옮기고) 아래 버튼을 누르세요.</span>';
+                box.innerHTML = '<span class="gx-info">순서표가 비어 있어요 — 화면을 맞추고 [＋ 단계] 로 저장하세요</span>';
                 return;
             }
-            box.innerHTML = list.map((p, i) => '<button type="button" onclick="psApply(\'' + p.id + '\')" title="'
-                + escapeHTML(PS_BOARD_NAME[p.board] || '게임판 없음') + '" style="' + (p.id === psLast ? 'outline: 2px solid var(--gold);' : '') + '">'
-                + (i + 1) + '. ' + escapeHTML(p.name) + '</button>').join('');
+            box.innerHTML = list.map((p, i) => {
+                const st = p.stage !== undefined ? p.stage : p.board;
+                return '<button type="button" class="shb-cue-b' + (i === at ? ' on' : (i < at ? ' done' : '')) + '" onclick="psApply(\'' + p.id + '\')" title="'
+                    + escapeHTML('무대: ' + (SHOW_STAGE_NAME[st] || '없음')) + '">'
+                    + (i + 1) + '. ' + escapeHTML(p.name) + '</button>';
+            }).join('');
         }
+
+        /* 📺 방송 화면 칸 — 무대(한 번에 하나) · 고정 자리 · 알림 · 순서표. 전부 /api/show 하나로.
+              서버가 돌려준 show 를 gd.show 에 넣고 바로 그린다(SSE update 도 곧 온다). */
+        var SHOW_STAGE_NAME = { match: '대결', pinball: '핀볼', dicegame: '주사위', siggame: '시그뒤집기', roulette: '룰렛',
+                                slot: '슬롯', home_race: '퇴근빵', hell: '지옥탈출' };
+        var SHOW_STAGES = [['', '없음'], ['match', '대결'], ['pinball', '핀볼'], ['dicegame', '주사위'], ['siggame', '시그뒤집기'],
+                           ['roulette', '룰렛'], ['slot', '슬롯'], ['home_race', '퇴근빵'], ['hell', '지옥탈출']];
+        var SHOW_HUDS = [['ranking', '점수판'], ['gauge', '게이지'], ['account', '계좌'], ['notice', '공지'], ['ticker', '전광판'],
+                         ['donor_rank', '후원 순위'], ['sig_tally', '시그 순위'], ['best', '최고 후원'], ['fundjar', '모금함']];
+        var SHOW_ALERTS = [['popup', '후원 팝업'], ['takeover', '1등 탈환'], ['reaction_title', '시그 제목']];
+        var showSig = '';
+        async function showSet(body) {
+            try {
+                const r = await fetch('/api/show', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); try { showSig = ''; showRender(); } catch (e) {} return null; }
+                if (d.show && typeof gd !== 'undefined' && gd) { gd.show = d.show; showSig = ''; showRender(); psSig = ''; psRender(); }
+                return d;
+            } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); return null; }
+        }
+        function showToggle(kind, k) {
+            const s = (gd && gd.show) || {};
+            if (kind === 'stage') return showSet({ stage: s.stage === k ? null : k });
+            const cur = kind === 'hud' ? !!(s.hud || {})[k] : ((s.alerts || {})[k] !== false);
+            return showSet({ [kind]: { [k]: !cur } });
+        }
+        async function showCue(dir) {
+            const d = await showSet({ cue: dir });
+            if (d) {
+                const list = (d.cues || []), at = d.show ? d.show.cue_at : -1;
+                acctToast('📺 ' + (list[at] ? (at + 1) + '. ' + list[at].name : '다음 단계'), 'ok');
+            }
+        }
+        function showFold() {
+            const b = document.getElementById('show-bar');
+            if (!b) return;
+            const open = !b.classList.contains('open');
+            b.classList.toggle('open', open);
+            try { localStorage.setItem('showbar:open', open ? '1' : '0'); } catch (e) {}
+        }
+        function showRender() {
+            if (typeof gd === 'undefined' || !gd || !gd.show) return;
+            if (!window.__shbInit) {   // 펼침 상태는 이 컴퓨터에만 기억한다
+                window.__shbInit = 1;
+                try { if (localStorage.getItem('showbar:open') === '1') document.getElementById('show-bar').classList.add('open'); } catch (e) {}
+            }
+            const s = gd.show;
+            const sig = JSON.stringify([s.stage, s.ret, s.cover, s.hud, s.alerts, s.summary]);
+            if (sig === showSig) return;
+            showSig = sig;
+            const sum = document.getElementById('shb-sum');
+            if (sum) {
+                const cover = s.cover ? { screen_start: '시작 화면', screen_end: '끝 화면', karaoke: '노래방', reaction: '시그 리액션' }[s.cover] : '';
+                sum.innerHTML = '<b>' + escapeHTML(SHOW_STAGE_NAME[s.stage] || '무대 비어 있음') + '</b>'
+                    + (s.ret ? ' <span class="shb-dim">끝나면 ' + escapeHTML(SHOW_STAGE_NAME[s.ret] || '') + '</span>' : '')
+                    + (cover ? ' <span class="shb-cover">덮기: ' + escapeHTML(cover) + '</span>' : '');
+                sum.title = s.summary || '';
+            }
+            const stg = document.getElementById('shb-stage');
+            if (stg) stg.innerHTML = SHOW_STAGES.map(([k, n]) => '<button type="button" data-v="' + k + '" class="' + ((s.stage || '') === k ? 'on' : '') + '"'
+                + ' onclick="showSet({ stage: this.dataset.v || null })">' + n + '</button>').join('');
+            const ret = document.getElementById('shb-ret');
+            if (ret) ret.textContent = s.ret ? '잠깐 올라온 판 — 끝나면 ' + (SHOW_STAGE_NAME[s.ret] || '') + '(으)로 돌아가요' : '무대는 한 번에 하나 — 올리면 다른 판은 내려가요';
+            const chips = (list, cur, kind) => list.map(([k, n]) => '<button type="button" class="shb-chip' + (cur[k] ? ' on' : '') + '"'
+                + ' onclick="showToggle(\'' + kind + '\', \'' + k + '\')">' + (cur[k] ? '● ' : '') + n + '</button>').join('');
+            const hud = document.getElementById('shb-hud');
+            if (hud) hud.innerHTML = chips(SHOW_HUDS, s.hud || {}, 'hud');
+            const al = document.getElementById('shb-alerts');
+            if (al) al.innerHTML = chips(SHOW_ALERTS, Object.fromEntries(SHOW_ALERTS.map(([k]) => [k, (s.alerts || {})[k] !== false])), 'alerts');
+        }
+
         async function psCall(path, body) {
             try {
                 const r = await fetch('/api/presets/' + path, { method: 'POST',
@@ -9614,11 +9747,13 @@ initFoldablePanels();
         async function psApply(id) {
             const d = await psCall('apply', { id });
             if (!d) return;
-            psLast = id; psSig = ''; psRender();
-            acctToast('💾 "' + ((d.preset && d.preset.name) || '슬롯') + '" 으로 바꿨어요');
+            psLast = id;
+            if (d.show && gd) gd.show = d.show;
+            psSig = ''; psRender(); showRender();
+            acctToast('📺 "' + ((d.preset && d.preset.name) || '단계') + '" 으로 바꿨어요');
         }
         async function psSaveNew() {
-            const name = prompt('슬롯 이름 (예: 룰렛 타임, 지옥탈출)', '');
+            const name = prompt('단계 이름 (예: 1차 대결, 휴식, 지옥탈출)', '');
             if (name === null) return;
             const d = await psCall('save', { name: name.trim() });
             if (!d) return;
@@ -10725,6 +10860,9 @@ function cmdkCommands() {
         { k: '대결 1분', t: '⚔ 대결 +1분', h: '대결', run: () => modifyTimer(1, 'min') },
         { k: '올클리어', t: '🎉 시그뒤집기 올클리어', h: '게임', run: () => sgAllClear() },
         { k: '클립', t: '✂ 쇼츠 클립 — 방금 90초 저장', h: '녹화', run: () => clipNow() },
+        { k: '다음', t: '📺 순서표 다음 단계', h: '화면', run: () => showCue('next') },
+        { k: '이전', t: '📺 순서표 이전 단계', h: '화면', run: () => showCue('prev') },
+        { k: '무대 비우기', t: '📺 무대 비우기', h: '화면', run: () => showSet({ stage: null }) },
         { k: '건너뛰기 스킵', t: '⏭ 시그니처 재생 건너뛰기', h: '재생', run: () => skipCurrentReaction() },
         { k: '랭킹', t: '📑 랭킹 탭', h: '이동', run: () => openTabById('tab-ranking') },
         { k: '로그', t: '📑 로그 탭', h: '이동', run: () => openTabById('tab-logs') },

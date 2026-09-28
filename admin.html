@@ -1540,8 +1540,17 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                     if (Object.keys(fields).length) await patchSettings(fields);
                 }, 120);
             }
+            /* 📺 방송 화면 스위치(고정 자리 · 알림)는 /api/show 로 — 서버 show.py 가 규칙을 쥔다(2026-09-29 개편).
+                  ⚠️ 설정 패치에 섞어 보내면 서버가 패치 전체를 거절해 같이 보낸 크기·위치 값까지 날아간다. 따로 보낸다. */
+            async function showSet(body) {
+                try {
+                    const r = await fetch('/api/show', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
+                    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.message || ('바꾸지 못했습니다 (' + r.status + ')')); }
+                } catch(e) {}
+            }
             // 🏅 후원 순위 설정 — 바뀐 필드만 보낸다(다른 조작을 덮지 않게).
             window.updateDonorRank = function(key, val) {
+                if (key === 'donor_rank_enabled') { showSet({ hud: { donor_rank: !!val } }); return; }
                 pendingReac[key] = val;
                 pushReac();
             };
@@ -1556,9 +1565,9 @@ body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok) :is(#ranking-c
                 const l = document.getElementById('reac-delay-val'); if(l) l.innerText = (parseInt(val)/1000).toFixed(1) + '초';
                 pushReac();
             };
-            window.updateReacTitleOn = function(on) { pendingReac.reaction_title_enabled = !!on; pushReac(); };
+            window.updateReacTitleOn = function(on) { showSet({ alerts: { reaction_title: !!on } }); };
             window.updateReacSuffix = function(val) { pendingReac.reaction_title_suffix = val; pushReac(); };
-            window.updateTallyOn = function(on) { pendingReac.sig_tally_enabled = !!on; pushReac(); };
+            window.updateTallyOn = function(on) { showSet({ hud: { sig_tally: !!on } }); };
             window.resetTally = function() {
                 if(!confirm('시그니처 신청 집계를 모두 지울까요?')) return;
                 pendingReac.sig_tally = {};
