@@ -110,7 +110,9 @@
 ```
 c:\Users\Administrator\Desktop\새로다시시작\
 ├── PROJECT_OVERVIEW.md              # 본 종합 분석 보고서
-├── server.py                        # Render/로컬 백엔드 서버 (Flask, SSE, Slot API)
+├── server.py                        # 백엔드 본체 (Flask, DB, 로그인, SSE, 후원 접수, /api/data)
+├── show.py                          # 방송 화면 규칙 (무대 하나 · 고정 자리 · 알림 · 순서표)
+├── features/                        # server.py 에서 떼어 낸 기능별 파일 (게임·후원·기록·도구) — __init__.py 에 지도
 ├── controller.html                  # 스트리머용 통합 컨트롤러 (슬롯머신, 룰렛, 대결, 이펙트)
 ├── overlay.html                     # OBS 방송 오버레이 (1080x1920, 슬롯머신 위젯 이식)
 ├── admin.html                       # 시각적 레이아웃 드래그앤드롭 에디터
