@@ -427,8 +427,9 @@ _q2 = [x.get('play_after') or 0 for x in (get().get('reaction_queue') or [])]
 chk('보통 후원 시그니처는 안 미룬다 (전부 0)', all(v == 0 for v in _q2), _q2)
 
 _ov = io.open(_os.path.join(_proj(), 'overlay.html'), encoding='utf-8', errors='replace').read()
+# 📺 2026-09-29 — 가리개는 shApply 한 곳에서 켠다(주사위 말 기다리기도 거기서)
 chk('화면이 리액션 모드 전환도 같이 미룬다',
-    "if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');" in _ov)
+    "b.classList.toggle('reaction-mode', !!d.reaction_mode && hold === 0);" in _ov and 'const hold = d.reaction_mode ? reactionHoldMs() : 0;' in _ov)
 chk('참는 시간을 한 곳에서 답한다', 'function reactionHoldMs()' in _ov)
 chk('⚠️ 시계를 비교하지 않는다 (어긋난 만큼 그대로 늦어졌다)',
     'const left = (window.dgBusyUntil || 0) - Date.now();' in _ov

@@ -660,7 +660,11 @@
         /* 🏅 후원 순위판(380×347)은 게임 자리와 같은 구역이라 주사위판 오른쪽 열을 통째로 덮었다.
            게이지 딱지와 같은 규칙으로 게임판이 떠 있는 동안 내린다. */
         body.game-on #donor-rank-container { opacity: 0 !important; pointer-events: none; }
-        body.game-on #best-container { opacity: 0 !important; pointer-events: none; }   /* 💥 게임판 자리와 겹친다 */
+        body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
+        /* 📺 고정 자리 끄기 — 점수판 · 게이지 · 계좌는 예전엔 끌 수 없었다(방송 중이면 늘 떠 있었다). shApply 가 켠다 */
+        body.hud-off-ranking #ranking-container, body.hud-off-ranking #dgboard-container,
+        body.hud-off-gauge #gauge-container,
+        body.hud-off-account #account-container { opacity: 0 !important; visibility: hidden !important; }   /* 💥 게임판 자리와 겹친다 */
         .goal-rail-tip { transition: bottom var(--t-slow) var(--ease), opacity var(--t-base) ease; }
         /* 목표를 채우면 막대가 번쩍인다.
            ⚠️ 예전에는 JS 가 goal-flash 를 붙이기만 하고 CSS 가 없어서 아무 일도 안 났다. */
@@ -4167,7 +4171,7 @@
             if (!box || !grid) return;
 
             const cards = (g && g.cards) || [];
-            const on = !!(g && g.enabled && cards.length);
+            const on = !!(g && shStage() === 'siggame' && cards.length);   // 📺 무대
             box.classList.toggle('on', on);
             box.style.opacity = on ? (g.opacity != null ? g.opacity : 1) : 0;
             if (!on) {
@@ -4917,7 +4921,7 @@
             const reac = (d.reaction_queue && d.reaction_queue[0]) || null;
             const upText = reactionUpText(reac, d);
             const showReac = !!upText;
-            const showStatic = !showReac && d.ticker_enabled && d.reaction_mode && !!d.ticker_text;
+            const showStatic = !showReac && shHud('ticker', d) && d.reaction_mode && !!d.ticker_text;
 
             if (showReac) {
                 // 리액션 표시는 showReactionTitle→scheduleTickerSplit 이 담당. 여기선 손대지 않는다.
@@ -5408,8 +5412,7 @@
             if (!box || !card) return;
             const ss = (d && d.stage_screen) || {};
             const mode = (ss.mode === 'start' || ss.mode === 'end') ? ss.mode : 'off';
-            box.classList.toggle('show', mode !== 'off');
-            document.body.classList.toggle('stage-on', mode !== 'off');
+            box.classList.toggle('show', mode !== 'off');   // 가리개(body.stage-on)는 shApply 가 켠다
             box.setAttribute('data-mode', mode);
             ssStartAt = mode === 'start' ? (Number(ss.start_at) || 0) : 0;
             const sub = ss.title ? '<div class="ss-sub">' + ssEsc(ss.title) + '</div>' : '';
@@ -5522,7 +5525,7 @@
         function renderBest(d) {
             const box = document.getElementById('best-container');
             if (!box) return;
-            const on = !!d.best_enabled;
+            const on = shHud('best', d);   // 📺 고정 자리
             box.style.opacity = on ? '1' : '0';
             box.style.visibility = on ? 'visible' : 'hidden';
             const b = d.best_single || {};
@@ -5609,11 +5612,90 @@
             // 🎡 룰렛은 테마를 안 따른다 — 금테 그림 자체가 옷이다(2026-09-21). 예전 테두리 색 재기는 걷었다.
         }
 
+        /* 📺 방송 화면 — 무엇이 보일지 여기서만 정한다 (2026-09-29 개편, 서버 show.py 와 짝)
+           서버가 show 하나를 보낸다: stage(무대 하나) · hud(고정 자리) · alerts(알림) · cover(덮기, 서버가 계산) · summary.
+           ⚠️ 위젯은 이제 옛 스위치(roulette_enabled · dicegame.enabled · sig_tally_enabled …)를 직접 보지 않는다.
+              shStage / shHud / shAlert 에 묻는다. 한 위젯이 안 뜨면 여기와 show.summary 한 줄만 보면 된다.
+           ⚠️ 몰래 가리는 규칙(시그 리액션 · 시작·끝 화면 · 게임판이 뜨면 비키는 것 · 고정 자리 끄기)은
+              shApply 한 곳에서 body 클래스로 켠다. 예전엔 세 군데서 따로 켰고, 하나는 위젯 변화를 몰래 지켜보는 방식이었다.
+           ⚠️ 옛 서버(show 를 안 보냄)면 옛 스위치로 읽는다 — 방송판만 먼저 바뀌어도 안 깨지게. */
+        const SH_BOARDS = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball'];
+        const SH_HUD_LEGACY = { notice: 'notice_enabled', ticker: 'ticker_enabled', donor_rank: 'donor_rank_enabled',
+                                sig_tally: 'sig_tally_enabled', best: 'best_enabled' };
+        const SH_ALERT_LEGACY = { popup: 'popup_enabled', takeover: 'takeover_enabled', reaction_title: 'reaction_title_enabled' };
+        function shOf(d) { d = d || globalData || {}; return (d.show && typeof d.show === 'object') ? d.show : null; }
+        function shStage(d) {
+            d = d || globalData || {};
+            const s = shOf(d);
+            if (s) return s.stage || null;
+            if (d.roulette_enabled) return 'roulette';
+            if (d.slot_enabled === true) return 'slot';
+            for (const k of ['siggame', 'dicegame', 'pinball']) if (d[k] && d[k].enabled) return k;
+            if (d.hell && d.hell.on) return 'hell';
+            if (d.home_race_enabled) return 'home_race';
+            if (d.match_data && d.match_data.active) return 'match';
+            return null;
+        }
+        function shHud(k, d) {
+            d = d || globalData || {};
+            const s = shOf(d);
+            if (s && s.hud) return !!s.hud[k];
+            if (k === 'fundjar') return !!(d.fundjar && d.fundjar.enabled);
+            if (SH_HUD_LEGACY[k]) return !!d[SH_HUD_LEGACY[k]];
+            return true;
+        }
+        function shAlert(k, d) {
+            d = d || globalData || {};
+            const s = shOf(d);
+            if (s && s.alerts) return s.alerts[k] !== false;
+            return d[SH_ALERT_LEGACY[k]] !== false;
+        }
+        function shCover(d) {
+            d = d || globalData || {};
+            const s = shOf(d);
+            if (s) return s.cover || null;
+            const m = (d.stage_screen || {}).mode;
+            if (m === 'start' || m === 'end') return 'screen_' + m;
+            if (d.karaoke_enabled && d.karaoke_video) return 'karaoke';
+            return d.reaction_mode ? 'reaction' : null;
+        }
+        /* 가리개를 여기서만 켠다. CSS 는 그대로 body 클래스를 본다(stage-on · reaction-mode · game-on · hud-off-*). */
+        function shApply(d) {
+            d = d || globalData || {};
+            const b = document.body;
+            const cover = shCover(d);
+            // 🎬 시작·끝 화면 — 위젯판·게임판을 다 내린다(알림·고액 영상·노래방만 남는다)
+            b.classList.toggle('stage-on', cover === 'screen_start' || cover === 'screen_end');
+            /* 🎵 시그 리액션 — 점수판·게임판을 가린다.
+               ⚠️ 주사위 말이 다 갈 때까지는 가리지 않는다(reactionHoldMs). 서버가 시그니처를 큐에 넣는 순간
+                  reaction_mode 가 켜지므로, 그대로 두면 말이 가는 것을 아예 볼 수 없었다
+                  (사장님: "먼저 리액션모드로 가고나서 주사위가 가서 안 보여"). 재생과 함께 가리개도 미룬다.
+               ⚠️ 노래방도 리액션을 켠다(조종실 startKaraoke) — 그래서 덮기 순위가 아니라 reaction_mode 로 본다. */
+            const hold = d.reaction_mode ? reactionHoldMs() : 0;
+            b.classList.toggle('reaction-mode', !!d.reaction_mode && hold === 0);
+            if (hold > 0) {
+                clearTimeout(window.rmGateTimer);   // 미룬 만큼 뒤에 스스로 다시 본다 — 다음 SSE 를 기다리면 그만큼 더 늦는다
+                window.rmGateTimer = setTimeout(() => { try { shApply(globalData); } catch (e) {} }, hold + 60);
+            }
+            /* 💰 게임판이 떠 있으면 후원 순위·최고 후원·게이지 딱지가 비킨다.
+               ⚠️ 예전엔 게임판 다섯의 style·class 변화를 몰래 지켜봤다(MutationObserver). 이제 무대에서 바로 안다.
+               룰렛은 결과 뒤 4초 더 서 있으므로(선 자리 보여주기) 그동안도 판으로 친다. */
+            const st = shStage(d);
+            let _rw = false;
+            try { _rw = !!isRouletteWidgetShown; } catch (e) {}   // ⚠️ let 이라 스크립트가 거기까지 안 돌았으면 던진다(typeof 로도 못 피한다)
+            b.classList.toggle('game-on', SH_BOARDS.includes(st) || _rw);
+            // 🧷 고정 자리 중 옛 스위치가 없던 셋(점수판 · 게이지 · 계좌) — 끄면 가린다
+            ['ranking', 'gauge', 'account'].forEach(k => b.classList.toggle('hud-off-' + k, !shHud(k, d)));
+            b.setAttribute('data-stage', st || '');
+            b.setAttribute('data-cover', cover || '');
+        }
+
         function handleData(d) {
             if (d && d.server_time) {
                 serverTimeOffset = d.server_time - Date.now();
             }
             globalData = d;
+            shApply(d);   // 📺 가리개는 여기서만 — 방송 꺼짐 return 보다 앞(방송 전에도 시작 화면·시그가 있다)
             // 👑 이번 방송 순위 등급 — 서버가 매 상태에 실어 보낸다. 팝업·순위판이 vipOf 로 본다.
             //    ⚠️ 팝업보다 먼저 받아 둬야 '이 후원으로 1위' 가 그 팝업에 바로 보인다.
             if (d && d.vip_live && typeof d.vip_live === 'object') window.vipLive = d.vip_live;
@@ -5675,7 +5757,7 @@
                 // 🎰 [슬롯머신 위젯 표시/숨김 스위치 연동]
                 const slotContainer = document.getElementById('slot-container');
                 if (slotContainer) {
-                    const isSlotOn = d.slot_enabled !== false;
+                    const isSlotOn = shStage(d) === 'slot';   // 📺 무대 (예전엔 칸이 없으면 켜진 것으로 봤다)
                     slotContainer.style.opacity = isSlotOn ? '1' : '0';
                     slotContainer.style.visibility = isSlotOn ? 'visible' : 'hidden';
                 }
@@ -5864,26 +5946,14 @@
                     }
                 }
 
-                /* ⚠️ 여기가 사장님이 본 문제의 자리다. body.reaction-mode 는
-                      #dicegame-container 를 visibility:hidden 으로 숨긴다. 서버가 시그니처를
-                      큐에 넣는 순간 reaction_mode 가 켜지므로, 그대로 두면 말이 가는 것을
-                      아예 볼 수 없었다("먼저 리액션모드로 가고나서 주사위가 가서 안 보여").
-                      재생을 미루는 것만으로는 부족하다 — 화면 전환도 같이 미뤄야 한다. */
-                const _rmHold = reactionHoldMs();
-                if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');
-                else document.body.classList.remove('reaction-mode');
-                if (_rmHold > 0) {
-                    // 미룬 만큼 뒤에 스스로 다시 본다 — 다음 SSE 를 기다리면 그만큼 더 늦는다
-                    clearTimeout(window.rmGateTimer);
-                    window.rmGateTimer = setTimeout(() => { try { handleData(globalData); } catch (e) {} }, _rmHold + 60);
-                }
+                // 🎵 리액션 가리개(body.reaction-mode)는 이제 shApply 가 켠다 — 주사위 말 기다리기(reactionHoldMs)도 거기서
 
                 renderHomeRace(d);   // 🏃 퇴근전쟁 진행바 (켜져 있으면 랭킹판 대신 표시)
                 renderSigTally(d);   // 📊 시그니처 신청 집계 패널
             renderDonorRank(d);  // 🏅 후원 순위 패널
             renderBest(d);       // 💥 한 방 최고 후원
                 renderFundJar(d);    // 🏺 모금함(유리병)
-                let md = d.match_data || {active: false, players: [], fire_effect: false}; if (md.active && md.fire_effect) document.body.classList.add('match-fire-on'); else document.body.classList.remove('match-fire-on');
+                let md = d.match_data || {active: false, players: [], fire_effect: false}; if (shStage(d) === 'match' && md.fire_effect) document.body.classList.add('match-fire-on'); else document.body.classList.remove('match-fire-on');
 
                 const accBox = document.getElementById('account-box-ui');
                 if(d.account && (d.account.bank || d.account.acc_num)) { 
@@ -5901,7 +5971,7 @@
                 if (d.up_trigger && d.up_trigger.time !== lastUpTriggerTime) { lastUpTriggerTime = d.up_trigger.time; const upEl = document.getElementById('up-message-layer'); upEl.innerText = d.up_trigger.text; upEl.style.transition = 'none'; upEl.classList.remove('show'); void upEl.offsetWidth; upEl.style.transition = ''; upEl.classList.add('show'); clearTimeout(upMessageTimer); upMessageTimer = setTimeout(() => { upEl.classList.remove('show'); }, 2000); }
                 
                 // 수동 알림
-                if (d.latest_popup && d.latest_popup.time !== lastPopupTime && d.popup_enabled && d.latest_popup.diff > 0) { 
+                if (d.latest_popup && d.latest_popup.time !== lastPopupTime && shAlert('popup', d) && d.latest_popup.diff > 0) { 
                     lastPopupTime = d.latest_popup.time;
                     playSfx('donation');
                     document.getElementById('popup-text').innerText = d.latest_popup.name + ' 후원 '; 
@@ -5915,7 +5985,7 @@
                 }
 
                 // 🎁 투네이션 팝업
-                if (d.latest_donation && d.latest_donation.time !== lastDonationTime && d.popup_enabled) { 
+                if (d.latest_donation && d.latest_donation.time !== lastDonationTime && shAlert('popup', d)) { 
                     lastDonationTime = d.latest_donation.time;
                     
                     // 리액션 대기열에 포함된 후원인지 검사
@@ -5934,10 +6004,10 @@
                     }
                 }
 
-                if (d.takeover_enabled && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { playSfx('takeover'); document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
+                if (shAlert('takeover', d) && d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime) { playSfx('takeover'); document.getElementById('takeover-text').innerText = d.latest_takeover.name + ' 1등 탈환! 👑'; const tk = document.getElementById('takeover-popup'); tk.classList.remove('show'); void tk.offsetWidth; tk.classList.add('show'); setTimeout(() => tk.classList.remove('show'), 2500); lastTakeoverTime = d.latest_takeover.time; }
                 
                 let mc = document.getElementById('match-container');
-                if(md.active) {
+                if (shStage(d) === 'match') {   // 📺 무대 — 내려가도 대결 점수·타이머는 서버에서 계속 돈다
                     mc.style.opacity = 1; mc.style.visibility = 'visible';
                     renderMatchWidget(md);
                     matchData = md;
@@ -6633,6 +6703,9 @@
                 // ⚠️ 바로 내리지는 않는다 — holdUntil 까지 선 자리를 보여준다 (handleRouletteState)
                 if (globalData) {
                     globalData.roulette_enabled = false;
+                    // 📺 서버가 결과를 받으면 원래 무대로 돌린다 — 그 전에 여기서도 미리 내려 둔다(선 자리 4초 뒤 내리기용)
+                    const _s = (typeof shOf === 'function') ? shOf(globalData) : null;   // 룰렛만 떼어 도는 검사에는 없다
+                    if (_s && _s.stage === 'roulette') { _s.stage = _s.ret || null; _s.ret = null; }
                 }
             }
         };
@@ -6662,7 +6735,7 @@
             if (titleEl && titleEl.textContent !== title) titleEl.textContent = title;
             
             // 2. 수동 토글 감지 (ON/OFF)
-            if (d.roulette_enabled) {
+            if (shStage(d) === 'roulette') {   // 📺 무대
                 if (!isRouletteWidgetShown) {
                     showRouletteWidget();
                 }
@@ -6675,7 +6748,7 @@
                     if (wait > 0) {
                         clearTimeout(rouletteHideTimer);
                         rouletteHideTimer = setTimeout(() => {
-                            if (globalData && !globalData.roulette_enabled && !RouletteWidget.isRolling) hideRouletteWidget();
+                            if (globalData && shStage(globalData) !== 'roulette' && !RouletteWidget.isRolling) hideRouletteWidget();
                         }, wait);
                     } else {
                         hideRouletteWidget();
@@ -6702,7 +6775,7 @@
                     RouletteWidget.stop(targetIndex, cmdTime);   // 정지 시각이 씨앗 — 모든 창이 같은 칸에 선다
                 } else if (cmd === 'reset') {
                     RouletteWidget.reset();
-                    if (!d.roulette_enabled) {
+                    if (shStage(d) !== 'roulette') {
                         hideRouletteWidget();
                     }
                 }
@@ -6717,6 +6790,7 @@
         const ROULETTE_FIT = 0.87;
         function showRouletteWidget() {
             isRouletteWidgetShown = true;
+            try { shApply(globalData); } catch (e) {}
             clearTimeout(rouletteHideTimer);   // 선 자리 보여주던 중에 다시 켜면 내리지 않는다
             const container = document.getElementById('roulette-container');
             const backdrop = document.getElementById('roulette-overlay-backdrop');
@@ -6736,6 +6810,7 @@
 
         function hideRouletteWidget() {
             isRouletteWidgetShown = false;
+            try { shApply(globalData); } catch (e) {}
             const container = document.getElementById('roulette-container');
             const backdrop = document.getElementById('roulette-overlay-backdrop');
             if (container) {
@@ -7142,7 +7217,7 @@
             }
 
             const el = document.getElementById('reaction-title-banner');
-            const bannerOn = el && gd.reaction_title_enabled !== false;
+            const bannerOn = el && shAlert('reaction_title', gd);
 
             if (bannerOn) {
                 // 큰 배너 등장(등급 색/크기)
@@ -8283,7 +8358,7 @@
         function renderSigTally(d) {
             const box = document.getElementById('sig-tally-container');
             if (!box) return;
-            const on = !!d.sig_tally_enabled;
+            const on = shHud('sig_tally', d);
             box.style.opacity = on ? '1' : '0';
             box.style.visibility = on ? 'visible' : 'hidden';
             if (!on) return;
@@ -8344,7 +8419,7 @@
             if (donorLine) msgs.push(donorLine);
             const donorIdx = donorLine ? msgs.length - 1 : -1;
             const donorTag = donorLine ? ':' + (d.notice_donors || []).length : '';
-            if (!d.notice_enabled || !msgs.length) { bar.classList.remove('show'); noticeCycle = ''; return; }
+            if (!shHud('notice', d) || !msgs.length) { bar.classList.remove('show'); noticeCycle = ''; return; }
 
             const now = Date.now() + serverTimeOffset;
             const period = Math.max(20, parseInt(d.notice_period) || 300) * 1000;
@@ -9431,7 +9506,7 @@
             const box = document.getElementById('pinball-container');
             if (!box) return;
             g = g || {};
-            const on = !!g.enabled;
+            const on = shStage() === 'pinball';   // 📺 무대
             box.style.opacity = on ? 1 : 0;
             box.style.visibility = on ? 'visible' : 'hidden';
             if (!on) { pbStop(); pbShowWinner(null); pbShowReady(0); pbRound = -1; pbPreviewKey = null; pbLastG = null; return; }
@@ -9949,7 +10024,7 @@
             g = g || {};
             const box = document.getElementById('dicegame-container');
             if (!box) return;
-            const on = !!g.enabled && (g.tiles || []).length > 0;
+            const on = shStage() === 'dicegame' && (g.tiles || []).length > 0;   // 📺 무대
             box.style.opacity = on ? '1' : '0';
             box.style.visibility = on ? 'visible' : 'hidden';
             // 엑셀판은 이제 그대로 둔다(위). 계좌만 머리 줄로 비킨다 — rankHiddenBy.dice 가 그 신호.
@@ -10112,7 +10187,7 @@
             const box = document.getElementById('fundjar-container');
             if (!box) return;
             const j = (d && d.fundjar) || {};
-            const on = !!j.enabled;
+            const on = shHud('fundjar', d);   // 📺 고정 자리
             box.style.opacity = on ? 1 : 0;
             box.style.visibility = on ? 'visible' : 'hidden';
             if (!on) { jarPrev = null; return; }
@@ -10158,7 +10233,7 @@
         function renderDonorRank(d) {
             const box = document.getElementById('donor-rank-container');
             if (!box) return;
-            const on = !!d.donor_rank_enabled;
+            const on = shHud('donor_rank', d);   // 📺 고정 자리
             box.style.opacity = on ? '1' : '0';
             box.style.visibility = on ? 'visible' : 'hidden';
             if (!on) return;
@@ -10329,7 +10404,10 @@
 
             // 🔥 지옥탈출이 켜져 있으면 이 판을 빌려 쓴다(퇴근빵보다 먼저). 명단은 지옥탈출을 시작한 사람들,
             //    목표 큰 순(= 시작 순간 1등부터). 진행은 '시작 뒤 받은 점수'(끝냈으면 굳힌 값)다.
-            const hell = (d.hell && d.hell.on) ? d.hell : null;
+            // 📺 무대가 지옥탈출일 때만 지옥탈출을 그린다. 무대가 퇴근빵이면 지옥탈출이 돌고 있어도 퇴근빵을 그린다
+            //    (지옥탈출 기록·탈출 판정은 서버 hell.on 이 따로 쥔다 — 잠깐 슬롯을 돌려도 안 끊긴다).
+            const _stg = shStage(d);
+            const hell = (_stg === 'hell' && d.hell && d.hell.on) ? d.hell : null;
             homeRaceHell = hell;
             raceEl.classList.toggle('hell', !!hell);
             let bjs = d.bjs || [];
@@ -10339,7 +10417,7 @@
                 const order = Object.keys(hg).sort((x, y) => (hg[y] || 0) - (hg[x] || 0));
                 bjs = order.map(n => bjs.find(b => b.name === n)).filter(Boolean);
             }
-            const on = (!!d.home_race_enabled || !!hell) && bjs.length > 0;
+            const on = (_stg === 'home_race' || !!hell) && bjs.length > 0;
             const titleEl = raceEl.querySelector('.home-race-title');
             // 모두 채우면 '전원 탈출!' — 판정 · 벌칙은 없다(퇴근빵처럼 채우면 끝)
             const allOut = !!hell && bjs.length > 0 && bjs.every(b => {
@@ -10526,29 +10604,9 @@
         }
         loadVipsToCache();
 
-        /* 💰 게임판이 떠 있는 동안에는 게이지 금액 딱지를 숨긴다.
-           게임마다 켜는 자리가 달라서(dgRender · showRouletteWidget · sgRenderGame · 슬롯)
-           다섯 군데에 호출을 심는 대신 컨테이너의 변화를 지켜본다. */
-        function syncGameOn() {
-            // ⚠️ 핀볼이 빠져 있었다 — 핀볼판(980×840)이 떴는데 후원 순위판·한 방 최고 후원이
-            //    그 위에 그대로 남아 구슬을 가렸다(2026-09-18 안내 페이지용으로 찍다가 발견).
-            const on = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball'].some(id => {
-                const el = document.getElementById(id + '-container');
-                if (!el || el.style.display === 'none') return false;
-                // ⚠️ 계산값이 아니라 인라인 값으로 본다. 보이고 숨는 데 0.4~0.5초
-                //    전환이 걸려서 계산값은 그동안 옛 값을 준다.
-                return el.style.visibility === 'visible' || el.classList.contains('on');
-            });
-            document.body.classList.toggle('game-on', on);
-        }
-        (function watchGameWidgets() {
-            const els = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball']
-                .map(id => document.getElementById(id + '-container')).filter(Boolean);
-            if (!els.length) return;
-            const mo = new MutationObserver(syncGameOn);
-            els.forEach(el => mo.observe(el, { attributes: true, attributeFilter: ['style', 'class'] }));
-            syncGameOn();
-        })();
+        /* 💰 게임판이 떠 있는 동안 게이지 금액 딱지·후원 순위·최고 후원을 비키게 하는 것(body.game-on)은
+           이제 shApply 가 무대(show.stage)를 보고 켠다. 예전 syncGameOn(다섯 판의 style 변화를 몰래 지켜보기)은 걷었다.
+           ⚠️ 핀볼이 빠졌던 적이 있다(2026-09-18) — SH_BOARDS 에 다섯이 다 있어야 한다. */
 
         /* 🎯 [목표 100% 달성 연출]
            ⚠️ 예전에는 게이지 박스를 화면 한가운데로 옮겨 1.6배 키웠다. 게이지가

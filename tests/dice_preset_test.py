@@ -281,8 +281,8 @@ chk('① 미룬 것은 스스로 다시 확인한다 (다음 SSE 를 기다리�
 chk('① 이미 나가는 리액션은 안 끊는다 (currentPlayingId === null 일 때만 미룬다)',
     'currentPlayingId === null && hold > 0' in _ov)
 # ⚠️ 재생만 미뤄서는 안 된다. 화면을 덮는 것은 리액션 모드다.
-chk('① 화면 전환(리액션 모드)도 같이 미룬다',
-    "if (d.reaction_mode && _rmHold === 0) document.body.classList.add('reaction-mode');" in _ov)
+chk('① 화면 전환(리액션 모드)도 같이 미룬다 (shApply 한 곳에서)',
+    "b.classList.toggle('reaction-mode', !!d.reaction_mode && hold === 0);" in _ov)
 chk('② 굴림을 시작할 때 이전 강조를 직접 걷는다',
     'function dgClearMarks()' in _ov and _ov.count('dgClearMarks();') >= 2)
 chk("② 걷는 것은 dg-land 와 dg-hop", "classList.remove('dg-land', 'dg-hop')" in _ov)

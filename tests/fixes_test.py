@@ -155,7 +155,7 @@ chk('게이지 딱지 규칙 옆에 있다 (같은 스위치)',
 #    핀볼판이 떴는데 후원 순위판·한 방 최고 후원이 그 위에 남아 구슬을 가렸다(2026-09-18).
 _on = re.findall(r"\['dicegame'[^\]]*\]", OV)
 chk('게임판 다섯을 모두 지켜본다 (핀볼 포함)',
-    len(_on) >= 2 and all(all(("'" + g + "'") in blk for g in ('dicegame', 'roulette', 'slot', 'siggame', 'pinball'))
+    len(_on) >= 1 and all(all(("'" + g + "'") in blk for g in ('dicegame', 'roulette', 'slot', 'siggame', 'pinball'))
                           for blk in _on), _on[:2])
 
 print()

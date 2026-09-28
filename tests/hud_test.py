@@ -240,11 +240,12 @@ print('=' * 74)
 print('⑥ 게임 중에는 금액 딱지를 숨기는가')
 print('=' * 74)
 chk('숨김 규칙이 있다', 'body.game-on .goal-rail-tip' in ov)
-chk('게임 넷을 다 본다 (주사위·룰렛·슬롯·시그뒤집기)', 'syncGameOn' in ov
-    and all(("'" + k + "'") in ov for k in ('dicegame', 'roulette', 'slot', 'siggame')))
-chk('컨테이너 변화를 지켜본다 (게임마다 켜는 자리가 다르다)', 'MutationObserver' in ov)
-chk('인라인 값으로 판단한다 (계산값은 0.4초 전환 동안 옛 값이다)',
-    "el.style.visibility === 'visible'" in ov)
+# 📺 2026-09-29 — 몰래 지켜보기(syncGameOn · MutationObserver)를 걷고, 무대(show.stage)에서 바로 안다
+chk('게임판 다섯을 다 본다 (주사위·룰렛·슬롯·시그뒤집기·핀볼)',
+    "const SH_BOARDS = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball'];" in ov)
+chk('가리개는 한 곳(shApply)에서 켠다', "b.classList.toggle('game-on', SH_BOARDS.includes(st) || _rw);" in ov
+    and 'function syncGameOn' not in ov)
+chk('룰렛이 선 자리를 보여주는 4초도 판으로 친다', 'try { shApply(globalData); } catch (e) {}' in ov)
 
 print()
 print('=' * 74)
