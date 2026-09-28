@@ -2,15 +2,19 @@
 """server.py 에서 떼어 낸 기능들 (2026-09-29).
 
 어디에 무엇이 있나
-  게임     pinball · dicegame · siggame · hell · extra_game
+  게임     pinball · dicegame · siggame · hell · extra_game · offwork(퇴근빵)
   방송판   show_api(/api/show · 세이브 슬롯) · screens(시작·끝 화면) · notice(전광판) · reaction(리액션 대기줄 · 슬롯)
-  후원     score(점수 넣기) · donor_memory(후원자 기억) · vip · excluded(순위에서 뺄 이름) · account_video(계좌 영상)
+           effects(효과 · 룰렛 당첨 · 모금함 · 대결 시간 끝) · layout(위젯 자리)
+  후원     donation(후원 접수) · score(점수 넣기) · donor_memory(후원자 기억) · vip · excluded(순위에서 뺄 이름)
+           account_video(계좌 영상) · ranking(이번 방송 순위) · bjs(선수 일괄 등록)
+  시그니처 signatures(등록 · 수정 · 삭제) · signature_play(목록 · 바로 틀기)
   기록     archive(지난 방송 · 월별 순위) · logs(수동 조작 이력) · uistats(클릭 기록)
-  도구     ai(NIM 제안 · AI 채팅) · clip(쇼츠 클립) · announce(안내 봇) · streamdeck · signatures(시그니처 관리)
+  도구     ai(NIM 제안 · AI 채팅) · clip(쇼츠 클립) · announce(안내 봇) · streamdeck
+  화면     pages(로그인 · 처음 설정 · 각 화면 파일 · 효과음 · 영상 · 정적 파일)
   운영     versions(버전 되돌리기) · legal(개인정보처리방침 · 약관 · /health)
 
-server.py 에 남은 것: DB · 로그인 · SSE · 상태 저장/불러오기 · 후원 접수 · /api/data ·
-  페이지 라우팅 · 방송 시작/종료 · 스냅샷/시간 여행 · 은행 원장 — 서버의 기억(MEMORY_STATE)을
+server.py 에 남은 것: DB · 로그인 규칙 · SSE · 상태 저장/불러오기 · /api/data · 서버 상태(/api/health) ·
+  방송 시작/종료 · 스냅샷/시간 여행 · 은행 원장 · 설정 바꾸기 · GUI — 서버의 기억(MEMORY_STATE)을
   통째로 바꾸는 코드는 server.py 에 둔다. 다른 파일로 옮기면 서로 다른 기억을 보게 된다.
 
 규칙
