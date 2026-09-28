@@ -3923,12 +3923,8 @@ def serve_controller():
         return _redirect_keep_query('/mobile')
     return serve_html_file('controller.html')
 
-@app.route('/controller2')
-def serve_controller2():
-    """🧪 재구성한 조종실 미리보기 — 운영 조종실과 나란히 열어 비교한다. 같은 서버·같은 상태를 본다."""
-    if _wants_mobile():
-        return _redirect_keep_query('/mobile')
-    return serve_html_file('controller2.html')
+# 🧪 /controller2(재구성 미리보기)는 걷었다(2026-09-29) — 조종실이 그 내용을 흡수했고,
+#    옛 방식으로 화면 스위치를 보내 방송 화면 개편(show.py) 뒤로는 눌러도 서버가 거절한다.
 
 @app.route('/mobile')
 def serve_mobile():
@@ -4792,6 +4788,9 @@ def api_data():
             # 📺 옛 방식으로 온 것만 무대에 옮긴다 — 룰렛 돌리기(roulette.command=spin) · 대결 켜기/끄기.
             #    그리고 옛 스위치를 show 에서 다시 계산해 적는다(낡은 조종실이 보낸 값이 남지 않게).
             #    ⚠️ 반드시 SERVER_OWNED 복원 **뒤**에 한다(복원이 show 를 서버 값으로 되돌려 놓은 다음).
+            # ⚠️ 서버에 아직 show 가 없으면(개편 전 저장본) 밖에서 온 show 를 믿지 않는다 — 옛 스위치에서 옮겨 담는다
+            if 'show' not in current_state:
+                state.pop('show', None)
             _prev_stage = showmod.ensure(state)['stage']
             showmod.ingest_roulette(state, current_state.get('roulette'))
             showmod.ingest_match(state, bool((current_state.get('match_data') or {}).get('active')))
@@ -5744,8 +5743,7 @@ def _layout_write(data):
 #    ⚠️ 안 담는 것: 게임 속 내용(룰렛 칸·핀볼 명단)·점수·테마.
 #    ⚠️ 지옥탈출·퇴근빵·대결은 진행 기록이 있어 불러와도 건드리지 않는다.
 # ==========================================
-PRESET_FLAGS = ('sig_tally_enabled', 'donor_rank_enabled', 'best_enabled',
-                'notice_enabled', 'ticker_enabled')
+# ⚠️ 켜고 끈 위젯 목록(예전 PRESET_FLAGS)은 이제 show.py 의 고정 자리(HUD_KEYS)다.
 PRESET_MAX = 60                  # 제한 없이 — 다만 실수로 끝없이 쌓이지 않게 넉넉한 뚜껑만
 PRESET_NAME_MAX = 30
 _SCENE_LABEL = {'roulette': '🎡 룰렛', 'slot': '🎰 슬롯머신', 'siggame': '🃏 시그뒤집기',

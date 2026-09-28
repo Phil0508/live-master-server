@@ -109,6 +109,10 @@ def ensure(state):
         s['rev'] = int(s.get('rev') or 0)
     except (TypeError, ValueError):
         s['rev'] = 0
+    # 저장본에는 이 칸들만 — 밖으로 나갈 때 붙는 cover · summary 가 되돌아와 눌러앉지 않게
+    for k in list(s.keys()):
+        if k not in ('stage', 'ret', 'hud', 'alerts', 'cue_at', 'rev'):
+            s.pop(k, None)
     return s
 
 
