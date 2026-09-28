@@ -8,6 +8,8 @@
 ⚠️ 여기서는 NVIDIA 를 부르지 않는다. 분당 호출 한도를 검사가 먹으면 안 된다.
    실제로 되는지는 nim_verify.py / nim_chat_verify.py 로 따로 확인한다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import os
 import re
@@ -24,7 +26,7 @@ def chk(name, cond, detail=''):
     print(('  [OK] ' if cond else '  [!!] ') + name + (('  -- ' + str(detail)[:110]) if detail else ''))
 
 
-src = io.open(os.path.join(ROOT, 'server.py'), encoding='utf-8', errors='replace').read()
+src = server_src(ROOT)
 
 print('=' * 74)
 print('① 모델 이름을 서버 설정으로 바꿀 수 있는가')

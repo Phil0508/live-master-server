@@ -12,6 +12,8 @@
   ③ 공정하지 않았다. 40판에서 3번 자리는 0승, 2·5·6번은 10~11승(기대값 6.7).
      → 출발 자리를 매 판 섞는다. 고친 뒤 120판에서 16~24회(기대값 20)로 고르게 나왔다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json, subprocess, tempfile
 import os
@@ -23,7 +25,7 @@ ROOT = (os.environ.get('LM_PROJECT_ROOT')
         or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 
 OV = io.open(os.path.join(ROOT, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
-SRV = io.open(os.path.join(ROOT, 'server.py'), encoding='utf-8', errors='replace').read()
+SRV = server_src(ROOT)
 AD = io.open(os.path.join(ROOT, 'admin.html'), encoding='utf-8', errors='replace').read()
 CTL = io.open(os.path.join(ROOT, 'controller.html'), encoding='utf-8', errors='replace').read()
 

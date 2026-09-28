@@ -10,6 +10,8 @@
   · 방송이 꺼져 있으면 아무 말도 안 한다
   · 하루 예산을 넘으면 후원 감사만 남긴다
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -31,7 +33,7 @@ def chk(name, cond, detail=''):
 import announce as A   # noqa: E402
 
 BOT = io.open(os.path.join(ROOT, 'bot', 'announce.py'), encoding='utf-8', errors='replace').read()
-SRV = io.open(os.path.join(ROOT, 'server.py'), encoding='utf-8', errors='replace').read()
+SRV = server_src(ROOT)
 
 
 CFG0 = json.load(io.open(os.path.join(ROOT, 'bot', 'config.json'), encoding='utf-8'))

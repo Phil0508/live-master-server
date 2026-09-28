@@ -17,6 +17,8 @@
 ⚠️ 이 검사는 서버를 안 띄운다. 시간대는 '어느 함수를 쓰느냐' 의 문제라 코드를 읽어서 본다
    (서버를 UTC 로 돌려놓고 재는 것은 윈도우에서 재현이 안 된다).
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import os
 import re
@@ -26,7 +28,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 PROJ = (os.environ.get('LM_PROJECT_ROOT')
         or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
-SV = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+SV = server_src(PROJ)
 
 OK, BAD = [], []
 

@@ -20,6 +20,8 @@
 
 ③·⑥ 은 살아 있는 서버(5199)로 실제로 밟는다. 나머지는 코드를 읽어서 본다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -35,7 +37,7 @@ H = {'Content-Type': 'application/json', 'Authorization': 'Bearer sandboxsecret1
 PROJ = (os.environ.get('LM_PROJECT_ROOT')
         or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 rd = lambda f: io.open(os.path.join(PROJ, f), encoding='utf-8', errors='replace').read()
-OV, CT, MB, SV = rd('overlay.html'), rd('controller.html'), rd('mobile.html'), rd('server.py')
+OV, CT, MB, SV = rd('overlay.html'), rd('controller.html'), rd('mobile.html'), server_src(PROJ)
 
 OK, BAD = [], []
 

@@ -11,6 +11,8 @@
   ③ 방송을 끝내면 0 으로 돌아간다 — 다음 주로 넘어가면 그게 사고다 (목표치는 남는다)
   ④ 달성 판정 세 곳(막대·조종실 알림·서버 AI)이 같은 셈을 쓴다 — 점수 + 운영비 + 보정
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io, json, os, sys, time, urllib.request
 sys.stdout.reconfigure(encoding='utf-8')
 B = 'http://127.0.0.1:5199'
@@ -72,7 +74,7 @@ chk('목표치는 그대로 남는다', d.get('target_goal') == 100000, d.get('t
 print(); print('=' * 74); print('④ 달성 판정 세 곳이 같은 셈 — 점수 + 운영비 + 보정'); print('=' * 74)
 ov = io.open(os.path.join(PROJ, 'overlay.html'), encoding='utf-8', errors='replace').read()
 ct = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8', errors='replace').read()
-sv = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+sv = server_src(PROJ)
 chk('막대 — 보정을 더한다', 'tot += parseInt(d.goal_offset) || 0;' in ov)
 chk('조종실 알림 — 점수 + 운영비 + 보정', "+ (parseInt(gd.goal_offset) || 0);" in ct and "acc + (b.score || 0), 0)" in ct)
 chk('조종실 알림 — 기여도로 안 본다', "acc + (b.contribution || 0), 0);\n            const isGoalReached" not in ct.replace('\r\n', '\n'))

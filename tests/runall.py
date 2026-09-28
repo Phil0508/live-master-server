@@ -179,6 +179,13 @@ for f in ('server.py', 'show.py', 'overlay.html', 'admin.html', 'controller.html
     if os.path.exists(src):
         for d in (LT2, PT):
             copy_into(src, os.path.join(d, f))
+# ✂️ server.py 에서 떼어 낸 기능들 — 없으면 서버가 뜨자마자 ImportError 로 죽는다
+_fsrc = os.path.join(PROJ, 'features')
+if os.path.isdir(_fsrc):
+    for d in (LT2, PT):
+        _fdst = os.path.join(d, 'features')
+        shutil.rmtree(_fdst, ignore_errors=True)
+        shutil.copytree(_fsrc, _fdst, ignore=shutil.ignore_patterns('__pycache__'))
 # ✂️ 회사 PC 도우미 — 서버가 이 폴더를 묶어 내려준다(/api/clip/helper.zip). 없으면 500 이 난다
 _hsrc = os.path.join(PROJ, 'tools', 'clip_helper')
 if os.path.isdir(_hsrc):
@@ -208,7 +215,7 @@ print('샌드박스에 최신 코드 복사 완료', flush=True)
 # ── ① 정적 검사 ──
 print('\n' + '=' * 72); print('▶ 정적 — 파이썬 컴파일')
 bad = []
-for f in ('server.py', 'show.py', 'toon_listener.py'):
+for f in ('server.py', 'show.py', 'toon_listener.py') + tuple(os.path.join('features', x) for x in sorted(os.listdir(os.path.join(PROJ, 'features'))) if x.endswith('.py')):
     p = os.path.join(PROJ, f)
     if os.path.exists(p):
         rc, out = sh([PY, '-c',

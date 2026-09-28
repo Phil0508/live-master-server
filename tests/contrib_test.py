@@ -18,6 +18,8 @@
 
 ⚠️ 돈이 움직이는 길이다. ④ 가 깨지면 그날 정산이 통째로 틀어진다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -199,7 +201,7 @@ chk('크기만 바꾸면 단가는 그대로 이어받는다',
     r.get('roll_price') == 30000 and r.get('lap_contrib') == 7, r)
 post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'roll_price': 20000, 'lap_contrib': 10})
 
-src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+src = server_src(PROJ)
 chk('시그니처에서 한 판 값을 뺀다',
     'man_won(_sig_amt - _price)' in src)
 chk('한 판 값보다 싼 시그는 0 으로 둔다 (빼앗지 않는다)',
@@ -235,7 +237,7 @@ print('=' * 74)
 #    이제 사람을 안 고르면 **움직인 말의 주인**에게 넣는다 — 말은 선수마다 하나씩이라
 #    주인이 곧 굴린 사람이다. ('마지막으로 굴린 사람' 기억은 말이 하나뿐일 때 규칙이었고,
 #    폰이 말만 골라 보내면 모두의 기여도가 첫 사람에게 몰렸다.)
-src2 = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+src2 = server_src(PROJ)
 chk('마지막으로 굴린 사람을 기억한다', '"last_player": ""' in src2)
 chk('고르면 기억해 둔다', "g['last_player'] = player" in src2)
 chk('안 고르면 움직인 말의 주인에게 간다',
@@ -277,7 +279,7 @@ print('=' * 74)
 # 사장님 말: "슬롯머신도 아까 방식으로 2점 빼고 기여도만 올릴 수 있게"
 # ⚠️ 주사위와 다른 점: 슬롯은 '굴린 사람' 이 없다. 차례가 없으니 서버가 누구 것인지
 #    알 길이 없어 대기함 카드로 올린다 — 아무에게나 자동으로 넣으면 틀린 사람에게 준다.
-src3 = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+src3 = server_src(PROJ)
 # ⚠️ 지금 값이 아니라 '코드 기본값' 을 본다. 방송마다 바꾸는 값이라 지금 값은
 #    무엇이든 될 수 있다 — 검사가 볼 것은 '안 정하면 2만원인가' 다.
 chk('슬롯 한 판 값 기본이 2만원이다', '"slot_price": 20000,' in src3)

@@ -17,6 +17,8 @@
   ⑧ 조종실 화면
   ⑨ 남의 후원 장부가 무인증으로 안 열리는가
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -95,7 +97,7 @@ def live():
     return d.get('vip_live') or {}
 
 
-src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+src = server_src(PROJ)
 ov = io.open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8', 'replace')
 ctl = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8', errors='replace').read()
 

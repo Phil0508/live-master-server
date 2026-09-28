@@ -14,6 +14,8 @@
   ② 세 곳(서버·조종실·폰)이 같은 답을 낸다 — 실제 코드를 꺼내 돌린다
   ③ 옛 셈(Math.round(… / 10000), round(… / 10000))이 한 줄도 안 남았다
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io, json, os, re, subprocess, sys, tempfile
 sys.stdout.reconfigure(encoding='utf-8')
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -35,7 +37,7 @@ TABLE = [(0, 0), (4999, 0), (5000, 0), (5999, 0), (6000, 1), (9999, 1), (10000, 
          (35000, 3), (36000, 4), (100000, 10), (105000, 10), (106000, 11), (333000, 33)]
 
 print('=' * 74); print('① 서버 man_won — 실제 코드를 꺼내 돌린다'); print('=' * 74)
-src = read('server.py')
+src = server_src(PROJ)
 m = re.search(r'def man_won\(amount\):.*?\n(?=\n\ndef |\n\n\n)', src, re.S)
 chk('서버에 man_won 이 있다', bool(m))
 ns = {}

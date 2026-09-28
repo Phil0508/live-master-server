@@ -17,6 +17,8 @@
 
 ⚠️ pausetest 서버(5199)가 필요하다 — runall 이 띄운다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -79,7 +81,7 @@ def donate(name, amount):
 
 
 rd = lambda f: io.open(os.path.join(PROJ, f), encoding='utf-8', errors='replace').read()
-SV, OV, CTL = rd('server.py'), rd('overlay.html'), rd('controller.html')
+SV, OV, CTL = server_src(PROJ), rd('overlay.html'), rd('controller.html')
 
 print('=' * 74)
 print('① /api/screen 이 값을 다듬어 받는다')

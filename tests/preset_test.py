@@ -17,6 +17,8 @@
 
 ⚠️ pausetest 서버(5199)가 필요하다 — runall 이 띄운다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -135,7 +137,7 @@ try:
     st = state()
     after = json.dumps([st.get('hell'), st.get('home_race_enabled'), (st.get('match_data') or {}).get('active')], sort_keys=True)
     chk('지옥탈출 · 퇴근빵 · 대결이 그대로', before == after)
-    SRC = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8').read()
+    SRC = server_src(PROJ)
     _ap = SRC[SRC.find('def api_presets_apply('):SRC.find('return jsonify', SRC.find('def api_presets_apply('))]
     chk('불러오기 코드가 그 셋을 안 만진다', 'hell' not in _ap and 'home_race' not in _ap and 'match_data' not in _ap)
 

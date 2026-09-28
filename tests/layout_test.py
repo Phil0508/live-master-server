@@ -22,6 +22,8 @@
    손으로 확인했다 — 엑셀판을 (120,200) 배율 0.8 로 저장하니 오버레이가 그대로 섰고,
    새로고침 뒤에도 유지됐다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -94,7 +96,7 @@ print('=' * 74)
 print('③ 방송판이 배치를 어떻게 다루는가')
 print('=' * 74)
 ov = io.open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
-srv = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+srv = server_src(PROJ)
 # ⚠️ 새로 붙는 창(OBS 새로고침)에도 처음에 배치를 실어 보내야 자리가 복구된다
 chk('새로 붙는 창에 배치를 실어 보낸다 (OBS 새로고침 복구)',
     "event: layout" in srv and 'LAYOUT_FILE' in srv)

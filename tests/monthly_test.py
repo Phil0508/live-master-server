@@ -16,6 +16,8 @@
    적혀 있어, 그대로 걸러내면 한 건도 안 잡힌다. BROADCAST_TZ_SHIFT 로 맞춘다.
    화면이 서버 시계를 같이 띄우므로 어긋나면 바로 보인다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import datetime
 import io
 import json
@@ -114,7 +116,7 @@ print()
 print('=' * 74)
 print('③ 서버가 같은 셈을 쓰는가')
 print('=' * 74)
-src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+src = server_src(PROJ)
 chk('창 시각이 상수로 잡혀 있다', 'BC_START_H = 17' in src and 'BC_END_H = 3' in src)
 chk('수요일 저녁을 센다', "if wd == 2 and t.hour >= BC_START_H:" in src)
 chk('목요일 새벽은 어제(수)로 붙인다',

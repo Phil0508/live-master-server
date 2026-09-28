@@ -5,6 +5,8 @@
 500(서버가 예외로 넘어진 것)이 나오는 곳을 찾는다.
 400/404 는 '곱게 거절한 것'이라 정상이다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io, json, os, re, sys, urllib.request, urllib.error
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -15,7 +17,7 @@ H = {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + TOK}
 #    여기서 필요한 것은 '서버의 POST 길 목록' 뿐이라 저장소 원본을 읽으면 된다.
 _ROOT = (os.environ.get('LM_PROJECT_ROOT')
          or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
-SRC = io.open(os.path.join(_ROOT, 'server.py'), encoding='utf-8').read()
+SRC = server_src(_ROOT)
 
 routes = re.findall(r"@app\.route\('([^']+)'(?:,\s*methods=\[([^\]]+)\])?\)", SRC)
 posts = [u for u, m in routes if m and 'POST' in m]

@@ -16,6 +16,8 @@
 
 ⚠️ pausetest 서버(5199)가 필요하다 — runall 이 띄운다.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -105,7 +107,7 @@ if sigs:
     req('/api/reaction/stop', {})
 else:
     print('  (시그니처가 없는 서버 — 큰 시그 자동은 코드로만 본다)')
-SRV = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8').read()
+SRV = server_src(PROJ)
 chk('시그를 큐에 넣을 때 기준 금액을 본다', "int(amount or 0) >= int(_c['auto_min'])" in SRV)
 chk('올클리어도 적는다', "'시그뒤집기 올클리어 (%d장)'" in SRV)
 

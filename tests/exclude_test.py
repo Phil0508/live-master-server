@@ -13,6 +13,8 @@
   ⑤ 언제든 되돌릴 수 있다
   ⑥ 아무나 남의 후원 장부를 못 만진다
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import json
 import os
@@ -168,7 +170,7 @@ print('③ 후원 기록을 지우지 않는가  ← 제일 중요')
 print('=' * 74)
 """⚠️ donation_archive 는 '절대 삭제하지 않는' 영구 장부다. 지우면 총액·게이지·
    지난 방송 내역이 전부 어긋나고 되돌릴 수도 없다. 쪽지만 따로 둬야 한다."""
-src = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8', errors='replace').read()
+src = server_src(PROJ)
 # ⚠️ donation_history 를 비우는 곳은 따로 있다 — 방송을 끝낼 때 장부(archive)로
 #    옮긴 뒤 이번 방송분을 비우는 정상 동작이다. 그건 건드리면 안 되고, 여기서
 #    볼 것은 '빼기 기능이 후원을 지우느냐' 뿐이다. 그래서 그 함수 안만 본다.

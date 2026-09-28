@@ -20,6 +20,8 @@
 ⚠️ 실제로 소리가 나는지는 여기서 못 듣는다. 2026-09-04 에 오버레이를 띄워
    확인했다 — 스위치 끄면 0번, 켜면 음 개수대로, 파일이 있으면 파일로.
 """
+import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _srvsrc import server_src  # server.py + features/*.py
 import io
 import os
 import re
@@ -30,7 +32,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 PROJ = (os.environ.get('LM_PROJECT_ROOT')
         or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')))
 rd = lambda f: io.open(os.path.join(PROJ, f), encoding='utf-8', errors='replace').read()
-OV, CT, SV = rd('overlay.html'), rd('controller.html'), rd('server.py')
+OV, CT, SV = rd('overlay.html'), rd('controller.html'), server_src(PROJ)
 
 OK, BAD = [], []
 
