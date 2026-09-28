@@ -185,6 +185,29 @@ chk('◀ 이전', c == 200 and r['show']['stage'] == 'pinball' and r['show']['cu
 c, r = req('/api/presets/apply', {'id': ps[2]['id']})
 chk('예전 [불러오기] 도 같은 길 — 순서표 위치가 맞춰진다', c == 200 and r['show']['cue_at'] == 2 and r['show']['stage'] is None,
     (c, r.get('show', {}).get('cue_at')))
+# ✏️ 순서표 편집 — 이름 · 순서 · 지우기. 옮기거나 지워도 '지금 단계' 표시는 같은 단계를 가리킨다
+c, r = req('/api/presets/rename', {'id': ps[1]['id'], 'name': '핀볼 2판'})
+chk('이름 바꾸기', c == 200 and [p['name'] for p in r['presets']] == ['1차 대결', '핀볼 2판', '휴식'], (c, r.get('message')))
+c, r = req('/api/presets/move', {'id': ps[2]['id'], 'dir': -1})
+chk('지금 단계(휴식)를 앞으로 옮기면 표시도 따라간다', c == 200 and [p['name'] for p in r['presets']] == ['1차 대결', '휴식', '핀볼 2판']
+    and r['show']['cue_at'] == 1, (c, r.get('show', {}).get('cue_at')))
+c, r = req('/api/presets/move', {'id': ps[0]['id'], 'dir': 1})
+chk('다른 단계를 옮겨도 표시는 휴식에', c == 200 and [p['name'] for p in r['presets']] == ['휴식', '1차 대결', '핀볼 2판']
+    and r['show']['cue_at'] == 0, (c, r.get('show', {}).get('cue_at')))
+c, r = req('/api/presets/delete', {'id': ps[2]['id']})
+chk('지금 단계를 지우면 그 앞을 가리킨다', c == 200 and r['show']['cue_at'] == -1 and len(r['presets']) == 2, (c, r.get('show', {}).get('cue_at')))
+c, r = req('/api/show', {'cue': 'next'})
+chk('그래서 다음 ▶ 은 지운 단계 다음 것(1차 대결)', c == 200 and r['show']['stage'] == 'match' and r['show']['cue_at'] == 0,
+    (c, r.get('show', {}).get('stage')))
+c, r = req('/api/presets/delete', {'id': ps[1]['id']})
+chk('뒤 단계를 지워도 표시는 그대로', c == 200 and r['show']['cue_at'] == 0, (c, r.get('show', {}).get('cue_at')))
+c, r = req('/api/presets/rename', {'id': ps[0]['id'], 'name': '   '})
+chk('빈 이름은 막는다', c == 400, c)
+CTLSRC = open(os.path.join(PROJ, "controller.html"), encoding="utf-8").read()
+chk('조종실에 순서표 [편집] 단추', 'onclick="psEditToggle()"' in CTLSRC and 'id="ps-edit"' in CTLSRC)
+chk('편집 중엔 단계를 눌러도 방송판이 안 바뀐다(고르기만)', "const click = psEditing ? 'psEditPick' : 'psApply';" in CTLSRC)
+chk('지우기는 두 번 눌러야', 'psDelArmed = setTimeout(' in CTLSRC and "psCall('delete'" in CTLSRC)
+chk('이름 · 순서 바꾸기 길', "psCall('rename'" in CTLSRC and "psCall('move'" in CTLSRC)
 for p in ps:
     req('/api/presets/delete', {'id': p['id']})
 

@@ -1587,6 +1587,22 @@
         button.shb-next:hover { background: #ecc463; color: #17140b; }
         button.shb-next:disabled { opacity: .4; }
         .shb-cue .ps-new { background: transparent; border-style: dashed; color: var(--text-muted); }
+        .shb-cue .ps-edit { background: transparent; color: var(--text-muted); }
+        .shb.editing .shb-cue .ps-edit { color: var(--accent); border-color: rgba(226, 182, 75, .45); }
+        .shb.editing button.shb-cue-b { border-style: dashed; }
+        .shb.editing button.shb-cue-b.pick { border-style: solid; border-color: var(--accent); color: var(--text-main); background: rgba(226, 182, 75, .16); }
+        .shb-edit { display: none; margin-top: 10px; padding: 10px 12px; border-radius: var(--r-2); background: var(--bg-input);
+            border: 1px dashed rgba(226, 182, 75, .45); align-items: center; gap: 8px; flex-wrap: wrap; }
+        .shb.editing .shb-edit { display: flex; }
+        .shb-edit-tools { display: none; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .shb-edit-tools.show { display: inline-flex; }
+        .shb-edit input { height: 32px; min-width: 0; width: 200px; padding: 0 10px; border-radius: var(--r-2); border: 1px solid var(--border-light);
+            background: rgba(0, 0, 0, .35); color: var(--text-main); font-size: var(--fs-3); outline: none; }
+        .shb-edit input:focus { border-color: var(--accent); }
+        .shb-edit button { margin: 0; height: 32px; padding: 0 11px; font-size: var(--fs-2); }
+        .shb-edit button.ps-del { color: var(--danger); border-color: rgba(255, 69, 58, .35); }
+        .shb-edit button.ps-del.sure { background: var(--danger); color: #fff; border-color: var(--danger); }
+        .shb-edit .ps-edit-done { margin-left: auto; }
         .shb-more { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge, var(--border-light)); flex-direction: column; gap: 8px; }
         .shb.open .shb-more { display: flex; }
         .shb-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -1937,7 +1953,19 @@
                 <div id="ps-btns" class="shb-cues"></div>
                 <button type="button" class="shb-next" id="shb-next" onclick="showCue('next')" title="순서표 다음 단계로">다음 ▶</button>
                 <button type="button" class="ps-new" onclick="psSaveNew()" title="지금 화면(위젯 자리 · 무대 · 고정 자리)을 순서표 끝에 단계로 저장합니다"><i class="fa-solid fa-plus"></i> 단계</button>
+                <button type="button" class="ps-edit" id="ps-edit-btn" onclick="psEditToggle()" title="순서표 단계 이름 바꾸기 · 순서 바꾸기 · 지우기"><i class="fa-solid fa-pen"></i> 편집</button>
             </div>
+        </div>
+        <div class="shb-edit" id="ps-edit">
+            <span class="gx-info" id="ps-edit-hint">고칠 단계를 위 순서표에서 누르세요</span>
+            <span class="shb-edit-tools" id="ps-edit-tools">
+                <input id="ps-edit-name" type="text" maxlength="30" placeholder="단계 이름" onkeydown="if(event.key==='Enter')psEditRename()">
+                <button type="button" onclick="psEditRename()"><i class="fa-solid fa-check"></i> 이름 저장</button>
+                <button type="button" onclick="psEditMove(-1)" title="한 칸 앞으로">◀ 앞으로</button>
+                <button type="button" onclick="psEditMove(1)" title="한 칸 뒤로">뒤로 ▶</button>
+                <button type="button" class="ps-del" id="ps-edit-del" onclick="psEditDelete()"><i class="fa-solid fa-trash"></i> 지우기</button>
+            </span>
+            <button type="button" class="ps-edit-done" onclick="psEditToggle(false)">다 했어요</button>
         </div>
         <div class="shb-more">
             <div class="shb-row"><span class="shb-lbl">무대</span><div class="gx-seg" id="shb-stage"></div>
@@ -9643,7 +9671,7 @@ initFoldablePanels();
             if (!box || typeof gd === 'undefined' || !gd) return;
             const list = Array.isArray(gd.layout_presets) ? gd.layout_presets : [];
             const at = (gd.show && typeof gd.show.cue_at === 'number') ? gd.show.cue_at : -1;
-            const sig = JSON.stringify([list.map(p => [p.id, p.name, p.stage, p.board]), at]);
+            const sig = JSON.stringify([list.map(p => [p.id, p.name, p.stage, p.board]), at, psEditing, psPick]);
             if (sig === psSig) return;
             psSig = sig;
             const nx = document.getElementById('shb-next');
@@ -9658,8 +9686,11 @@ initFoldablePanels();
             }
             box.innerHTML = list.map((p, i) => {
                 const st = p.stage !== undefined ? p.stage : p.board;
-                return '<button type="button" class="shb-cue-b' + (i === at ? ' on' : (i < at ? ' done' : '')) + '" onclick="psApply(\'' + p.id + '\')" title="'
-                    + escapeHTML('무대: ' + (SHOW_STAGE_NAME[st] || '없음')) + '">'
+                // ✏️ 편집 중엔 눌러도 방송판이 안 바뀐다 — 고칠 단계를 고르기만
+                const click = psEditing ? 'psEditPick' : 'psApply';
+                return '<button type="button" class="shb-cue-b' + (i === at ? ' on' : (i < at ? ' done' : '')) + (psEditing && p.id === psPick ? ' pick' : '')
+                    + '" onclick="' + click + '(\'' + p.id + '\')" title="'
+                    + escapeHTML(psEditing ? '이 단계 고치기' : '무대: ' + (SHOW_STAGE_NAME[st] || '없음')) + '">'
                     + (i + 1) + '. ' + escapeHTML(p.name) + '</button>';
             }).join('');
         }
@@ -9752,6 +9783,74 @@ initFoldablePanels();
             psSig = ''; psRender(); showRender();
             acctToast('📺 "' + ((d.preset && d.preset.name) || '단계') + '" 으로 바꿨어요');
         }
+        /* ✏️ 순서표 편집 — 이름 바꾸기 · 순서 바꾸기 · 지우기. 편집 중엔 단계를 눌러도 방송판이 안 바뀐다. */
+        var psEditing = false, psPick = '', psDelArmed = 0;
+        function psEditToggle(on) {
+            psEditing = (on === undefined) ? !psEditing : !!on;
+            if (!psEditing) psPick = '';
+            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            const bar = document.getElementById('show-bar');
+            if (bar) bar.classList.toggle('editing', psEditing);
+            psEditPaint(); psSig = ''; psRender();
+        }
+        function psEditPick(id) {
+            psPick = (psPick === id) ? '' : id;
+            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            const inp = document.getElementById('ps-edit-name');
+            if (inp) inp.blur();
+            psEditPaint(); psSig = ''; psRender();
+            if (psPick && inp) { inp.focus(); inp.select(); }
+        }
+        function psEditPaint() {
+            const list = (typeof gd !== 'undefined' && gd && Array.isArray(gd.layout_presets)) ? gd.layout_presets : [];
+            const hit = list.find(p => p.id === psPick);
+            if (psPick && !hit) psPick = '';
+            const tools = document.getElementById('ps-edit-tools'), hint = document.getElementById('ps-edit-hint');
+            if (tools) tools.classList.toggle('show', !!hit);
+            if (hint) hint.textContent = hit ? (list.indexOf(hit) + 1) + '번 단계' : (list.length ? '고칠 단계를 위 순서표에서 누르세요' : '순서표가 비어 있어요');
+            const inp = document.getElementById('ps-edit-name');
+            if (inp && hit && document.activeElement !== inp) inp.value = hit.name || '';
+            const del = document.getElementById('ps-edit-del');
+            if (del) {
+                del.classList.toggle('sure', !!psDelArmed);
+                del.innerHTML = psDelArmed ? '<i class="fa-solid fa-trash"></i> 정말 지울까요? 한 번 더' : '<i class="fa-solid fa-trash"></i> 지우기';
+            }
+        }
+        function psEditDone(d) {
+            if (d && d.show && typeof gd !== 'undefined' && gd) gd.show = d.show;
+            psEditPaint(); psSig = ''; psRender();
+            if (typeof showRender === 'function') { showSig = ''; showRender(); }
+        }
+        async function psEditRename() {
+            const inp = document.getElementById('ps-edit-name');
+            const name = inp ? inp.value.trim() : '';
+            if (!psPick) return;
+            if (!name) { acctToast('이름을 적어 주세요', 'warn'); return; }
+            const d = await psCall('rename', { id: psPick, name });
+            if (!d) return;
+            if (inp) inp.blur();
+            psEditDone(d); acctToast('✏️ 이름을 바꿨어요');
+        }
+        async function psEditMove(dir) {
+            if (!psPick) return;
+            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            const d = await psCall('move', { id: psPick, dir });
+            if (d) psEditDone(d);
+        }
+        async function psEditDelete() {
+            if (!psPick) return;
+            // 실수로 한 번에 지워지지 않게 3초 안에 두 번 누르게 한다
+            if (!psDelArmed) {
+                psDelArmed = setTimeout(() => { psDelArmed = 0; psEditPaint(); }, 3000);
+                psEditPaint(); return;
+            }
+            clearTimeout(psDelArmed); psDelArmed = 0;
+            const d = await psCall('delete', { id: psPick });
+            if (!d) { psEditPaint(); return; }
+            psPick = '';
+            psEditDone(d); acctToast('🗑️ 지웠어요');
+        }
+
         async function psSaveNew() {
             const name = prompt('단계 이름 (예: 1차 대결, 휴식, 지옥탈출)', '');
             if (name === null) return;

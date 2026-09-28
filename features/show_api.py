@@ -91,6 +91,18 @@ def _presets_migrate(state):
     return True
 
 
+def _keep_cue(state, before_ids):
+    """단계를 옮기거나 지운 뒤에도 '지금 단계'(cue_at, 자리 번호)가 같은 단계를 가리키게 한다.
+    지금 단계를 지웠으면 그 바로 앞을 가리킨다 — 그래야 [다음 ▶]이 지운 단계 다음 것으로 간다."""
+    s = showmod.ensure(state)
+    at = s['cue_at']
+    if not (0 <= at < len(before_ids)):
+        return
+    ids = [x.get('id') for x in (state.get('layout_presets') or [])]
+    cur = before_ids[at]
+    s['cue_at'] = ids.index(cur) if cur in ids else min(at, len(ids)) - 1
+
+
 def _presets_save_state(state):
     save_data(state)
     broadcast_event('update', state)
@@ -168,9 +180,11 @@ def api_presets_move():
         i = next((k for k, x in enumerate(ps) if x.get('id') == pid), -1)
         j = i + d
         if i >= 0 and 0 <= j < len(ps):
+            before = [x.get('id') for x in ps]
             ps[i], ps[j] = ps[j], ps[i]
+            _keep_cue(state, before)
             _presets_save_state(state)
-    return jsonify({'status': 'success', 'presets': ps})
+    return jsonify({'status': 'success', 'presets': ps, 'show': showmod.view(state)})
 
 
 @app.route('/api/presets/delete', methods=['POST'])
@@ -181,11 +195,13 @@ def api_presets_delete():
         state = load_data()
         ps = _presets(state)
         n = len(ps)
+        before = [x.get('id') for x in ps]
         state['layout_presets'] = [x for x in ps if x.get('id') != pid]
         if len(state['layout_presets']) == n:
             return jsonify({'status': 'error', 'message': '없는 슬롯입니다'}), 404
+        _keep_cue(state, before)
         _presets_save_state(state)
-    return jsonify({'status': 'success', 'presets': state['layout_presets']})
+    return jsonify({'status': 'success', 'presets': state['layout_presets'], 'show': showmod.view(state)})
 
 
 def _cue_apply(state, hit):
