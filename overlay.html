@@ -4382,6 +4382,7 @@
             // 올클리어 신호가 새로 왔을 때만 한 번 재생한다
             if (act.type === 'ALLCLEAR' && act.ts !== sgAllClearTs && (now - act.ts) < 8000) {
                 sgAllClearTs = act.ts;
+                try { if (clipAuto()) clipSave(20000, '올클리어'); } catch (e) {}
                 shown.forEach(c => { if (c.doneAt) sgSeenDone.add(c.id + ':' + c.doneAt); });
                 sgPlayAllClear(grid, box.querySelector('.sg-board') || box, goals.length);
             }
@@ -7473,6 +7474,8 @@
 
         function playReaction(data) {
             console.log('Playing reaction:', data);
+            // ✂️ 기준 금액 이상 시그가 실제로 재생된다 — 반응까지 담기게 25초 뒤 저장
+            try { const _m = clipAuto(); if (_m && Number(data && data.amount) >= _m) clipSave(CLIP_AUTO_WAIT, (data.donator || '') + ' ' + data.amount); } catch (e) {}
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -8027,6 +8030,88 @@
         window.addEventListener('keydown', recoverFromAutoplayBlock);
         window.addEventListener('touchstart', recoverFromAutoplayBlock, { passive: true });
 
+
+        /* ✂️ 쇼츠 클립 — 이 방송판이 OBS 의 '리플레이 버퍼 저장' 담당이다 (2026-09-28)
+           OBS 는 최근 90초를 늘 기억한다(블랙박스). 명장면이면 이 화면이 OBS 에 "방금 90초 저장" 이라고 말한다.
+           ⚠️ OBS 브라우저 소스 속성 → 페이지 권한 → 'OBS 에 대한 고급 접근 권한'(4) 이상일 때만 된다.
+              권한 준 방송판 하나만 저장한다 — 장면마다 방송판이 있어도 클립이 여러 개 안 생긴다.
+              OBS 밖(미리보기 창·폰)에는 window.obsstudio 가 없어 아무 일도 안 한다.
+           ⚠️ 두 순간이 30초 안에 겹치면 한 번에 담는다(뒤 순간까지 기다려 저장, 처음부터 60초까지만).
+              그보다 멀면 다음 저장을 따로 건다 — 버리지 않는다. */
+        const CLIP = { level: -1, rb: null, err: '', timer: null, due: 0, first: 0, later: 0 };
+        const CLIP_AUTO_WAIT = 25000;     // 시그 재생 뒤 25초 — 앞 65초 + 반응 25초가 담긴다(버퍼 90초 기준)
+        function clipObs() { return (window.obsstudio && typeof window.obsstudio === 'object') ? window.obsstudio : null; }
+        function clipHello(extra) {
+            if (!clipObs()) return;
+            try {
+                fetch('/api/clip/hello', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.assign({ level: CLIP.level, rb: CLIP.rb, err: CLIP.err }, extra || {})) }).catch(function () {});
+            } catch (e) {}
+        }
+        function clipCheck() {
+            const o = clipObs();
+            if (!o) return;
+            try {
+                if (typeof o.getControlLevel !== 'function') { CLIP.err = 'OBS 가 낡았어요(28 이상 필요)'; clipHello(); return; }
+                o.getControlLevel(function (lv) {
+                    CLIP.level = Number(lv);
+                    if (!(CLIP.level >= 4)) { CLIP.err = '페이지 권한이 낮아요'; CLIP.rb = null; clipHello(); return; }
+                    o.getStatus(function (st) {
+                        CLIP.rb = !!(st && st.replaybuffer);
+                        CLIP.err = '';
+                        // 리플레이 버퍼가 꺼져 있으면 켠다. OBS 설정에서 '리플레이 버퍼 사용' 이 꺼져 있으면 켜지지 않는다.
+                        if (!CLIP.rb) {
+                            try { o.startReplayBuffer(); } catch (e) { CLIP.err = '리플레이 버퍼를 못 켰어요'; }
+                            // 켜졌는지 3초 뒤 다시 본다 — 켜짐 신호(obsReplaybufferStarted)가 안 오는 OBS 도 있다
+                            if (!CLIP.recheck) { CLIP.recheck = true; setTimeout(function () { CLIP.recheck = false; clipCheck(); }, 3000); }
+                        }
+                        clipHello();
+                    });
+                });
+            } catch (e) { CLIP.err = String((e && e.message) || e).slice(0, 60); clipHello(); }
+        }
+        function clipFire() {
+            CLIP.timer = null;
+            const o = clipObs();
+            if (o) {
+                try { o.saveReplayBuffer(); console.log('✂️ [클립] 리플레이 저장'); }
+                catch (e) { CLIP.err = '저장 실패'; clipHello(); }
+            }
+            if (CLIP.later) {
+                const wait = Math.max(0, CLIP.later - Date.now());
+                CLIP.later = 0;
+                CLIP.first = Date.now(); CLIP.due = Date.now() + wait;
+                CLIP.timer = setTimeout(clipFire, wait);
+            }
+        }
+        function clipSave(delayMs, why) {
+            if (!clipObs() || !(CLIP.level >= 4)) return;
+            const now = Date.now(), at = now + Math.max(0, delayMs || 0);
+            console.log('✂️ [클립] 저장 예약 +' + Math.round((at - now) / 1000) + '초 · ' + (why || ''));
+            if (CLIP.timer) {
+                if (at <= CLIP.due) return;                                   // 이미 담긴다
+                if (at - CLIP.due <= 30000 && at - CLIP.first <= 60000) {     // 겹친다 — 뒤까지 기다려 한 번에
+                    clearTimeout(CLIP.timer); CLIP.due = at; CLIP.timer = setTimeout(clipFire, at - now);
+                } else {
+                    CLIP.later = Math.max(CLIP.later, at);                    // 멀다 — 다음 저장으로
+                }
+                return;
+            }
+            CLIP.first = now; CLIP.due = at;
+            CLIP.timer = setTimeout(clipFire, at - now);
+        }
+        function clipAuto() {
+            const c = (globalData && globalData.clip) || {};
+            return c.auto !== false ? (Number(c.auto_min) || 0) : 0;
+        }
+        if (clipObs()) {
+            window.addEventListener('obsReplaybufferSaved', function () { clipHello({ saved: true }); });
+            window.addEventListener('obsReplaybufferStarted', function () { CLIP.rb = true; clipHello(); });
+            window.addEventListener('obsReplaybufferStopped', function () { CLIP.rb = false; clipHello(); });
+            setTimeout(clipCheck, 3000);
+            setInterval(clipCheck, 60000);
+        }
+
         let sseSource = null;
         function initSSE() {
             if (sseSource) {
@@ -8073,6 +8158,11 @@
                     const data = JSON.parse(e.data);
                     handleSlotSpinOverlay(data);
                 } catch(err){ console.error("Error in slot_spin handler:", err); }
+            });
+
+            sseSource.addEventListener('clip', function(e) {
+                try { const d = e.data ? JSON.parse(e.data) : {}; clipSave(Number(d.delay_ms) || 0, d.label || '조종실'); }
+                catch (err) { console.error('clip 처리 오류:', err); }
             });
 
             sseSource.addEventListener('goal_celebration', function(e) {

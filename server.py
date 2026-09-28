@@ -1008,6 +1008,15 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
     })
     state['reaction_mode'] = True
 
+    # ✂️ 쇼츠 클립 목록 — 기준 금액 이상이면 '이런 순간이 곧 나온다' 고 적어 둔다.
+    #    실제 저장은 방송판이 재생을 시작한 뒤 건다(대기열이 밀리면 재생은 한참 뒤다).
+    try:
+        _c = _clip_state(state)
+        if _c.get('auto') and _c.get('auto_min') and int(amount or 0) >= int(_c['auto_min']):
+            _clip_log(state, 'auto', '%s %s원 %s' % (donator or '익명', format(int(amount or 0), ','), sig.get('title') or ''))
+    except Exception as e:
+        print(f"⚠️ [클립 목록 실패] {e}")
+
     # 📊 시그니처별 신청 집계 (실제 후원만 센다 — 슬롯/재생전용 수동은 count_tally=False)
     if count_tally:
         try:
@@ -1221,6 +1230,8 @@ def require_login():
         #    ⚠️ 여기서 열어도 아무나 결과를 못 심는다: 굴러가는 중(running)일 때만 받고,
         #       판 번호(round_id)가 맞아야 하며, 받는 즉시 문을 닫는다(먼저 온 하나만 이긴다).
         '/api/pinball/result',
+        # ✂️ 쇼츠 클립 — 방송판(OBS)이 '저장 담당' 상태만 알린다. 메모리 표시용(상태·DB 안 바뀜)
+        '/api/clip/hello',
         '/api/match/timeup',
         '/api/signatures',
         '/api/reaction/next',
@@ -4719,7 +4730,7 @@ def api_data():
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
                             'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen', 'hell',
-                            'broadcast_started_at', 'layout_presets', 'layout_rev')
+                            'broadcast_started_at', 'layout_presets', 'layout_rev', 'clip')
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -5960,6 +5971,114 @@ def api_presets_apply():
     return jsonify({'status': 'success', 'preset': hit, 'off': off, 'layout': ly})
 
 # ==========================================
+# ✂️ 쇼츠 클립 — OBS 리플레이 버퍼로 '방금 90초' 저장 (2026-09-28)
+# ==========================================
+# 대표님: "9시간 방송으로 쇼츠를 몇 개 만들 수 있게". 녹화본을 나중에 처음부터 뒤지지 않도록,
+# 명장면이 터질 때마다 OBS 가 '방금 90초' 를 파일로 떨구게 한다(자동차 블랙박스와 같다).
+# ⚠️ OBS 는 다른 컴퓨터(회사)에 있다. 조종실은 https 라서 다른 컴퓨터의 OBS 에 직접 못 붙는다.
+#    그래서 OBS 안에 이미 들어가 있는 **방송판(브라우저 소스)** 이 대신 말한다:
+#    window.obsstudio.saveReplayBuffer(). 이 말은 OBS 에서 그 소스에 '고급 접근 권한' 을 줬을 때만 먹는다.
+#    → 방송판을 여러 장면에 넣어 뒀어도 권한 준 하나만 저장한다(같은 클립이 여러 개 안 생긴다).
+# 순간은 셋: ① 조종실 [✂ 클립] ② 기준 금액 이상 시그가 **실제로 재생될 때** ③ 시그뒤집기 올클리어.
+#    ②③ 은 방송판이 재생·연출 시각을 알아서 스스로 건다 — 서버는 목록(무엇이 언제)만 적는다.
+CLIP_LOG_MAX = 60
+CLIP_AUTO_DEFAULT = 100000
+# 방송판(OBS)이 알려 오는 '저장 담당' 상태 — 메모리에만 둔다(DB·상태에 안 쓴다, 조종실 표시용).
+_clip_obs = {'seen': 0.0, 'level': -1, 'rb': None, 'saved': 0.0, 'err': ''}
+_clip_obs_lock = threading.Lock()
+
+
+def _clip_state(state):
+    c = state.get('clip')
+    if not isinstance(c, dict):
+        c = {}
+        state['clip'] = c
+    c.setdefault('auto', True)
+    c['auto_min'] = max(0, _as_int(c.get('auto_min'), CLIP_AUTO_DEFAULT) or 0)
+    if not isinstance(c.get('log'), list):
+        c['log'] = []
+    return c
+
+
+def _clip_log(state, kind, label):
+    """클립 목록에 한 줄. 방송이 끝나면 '어느 파일이 뭐였나' 를 이 시각으로 맞춘다."""
+    c = _clip_state(state)
+    cid = uuid.uuid4().hex[:10]
+    c['log'].append({'id': cid, 'ts': int(time.time() * 1000), 'kind': kind, 'label': str(label or '')[:60]})
+    if len(c['log']) > CLIP_LOG_MAX:
+        del c['log'][:len(c['log']) - CLIP_LOG_MAX]
+    return cid
+
+
+def _clip_obs_view():
+    with _clip_obs_lock:
+        o = dict(_clip_obs)
+    o['alive'] = bool(o['seen']) and (time.time() - o['seen'] < 90)
+    o['seen_ago'] = int(time.time() - o['seen']) if o['seen'] else None
+    o['saved_ago'] = int(time.time() - o['saved']) if o['saved'] else None
+    return o
+
+
+@app.route('/api/clip', methods=['GET'])
+def api_clip_get():
+    state = load_data()
+    return jsonify({'status': 'success', 'clip': _clip_state(state), 'obs': _clip_obs_view()})
+
+
+@app.route('/api/clip', methods=['POST'])
+def api_clip_now():
+    """조종실 [✂ 클립] — 방송판에게 '지금 저장' 을 보낸다."""
+    body = request.get_json(silent=True) or {}
+    label = str(body.get('label') or '').strip()[:60] or '✂ 직접 누름'
+    delay = max(0, min(60000, _as_int(body.get('delay_ms'), 0) or 0))
+    with file_lock:
+        state = load_data()
+        cid = _clip_log(state, 'manual', label)
+        save_data(state)
+        broadcast_event('update', state)
+    broadcast_event('clip', {'id': cid, 'label': label, 'delay_ms': delay})
+    return jsonify({'status': 'success', 'id': cid, 'obs': _clip_obs_view()})
+
+
+@app.route('/api/clip/settings', methods=['POST'])
+def api_clip_settings():
+    body = request.get_json(silent=True) or {}
+    with file_lock:
+        state = load_data()
+        c = _clip_state(state)
+        if 'auto' in body:
+            c['auto'] = bool(body.get('auto'))
+        if 'auto_min' in body:
+            c['auto_min'] = max(0, min(100000000, _as_int(body.get('auto_min'), CLIP_AUTO_DEFAULT) or 0))
+        if body.get('clear'):
+            c['log'] = []
+        save_data(state)
+        broadcast_event('update', state)
+    return jsonify({'status': 'success', 'clip': c})
+
+
+@app.route('/api/clip/hello', methods=['POST'])
+def api_clip_hello():
+    """방송판(OBS 브라우저 소스)이 '저장 담당' 상태를 알린다 — 무인증(방송판은 세션이 없다).
+    ⚠️ 받는 것은 숫자·참거짓 몇 개뿐이고 메모리에만 적는다. 상태·DB 는 안 건드린다.
+       여러 방송판이 알려 오면 권한이 가장 높은 쪽을 믿는다(권한 없는 쪽이 덮어써 깜빡이지 않게)."""
+    b = request.get_json(silent=True) or {}
+    lv = _as_int(b.get('level'), -1)
+    lv = -1 if lv is None else max(-1, min(5, lv))
+    now = time.time()
+    with _clip_obs_lock:
+        fresh = _clip_obs['seen'] and now - _clip_obs['seen'] < 90
+        if fresh and lv < _clip_obs['level']:
+            return jsonify({'status': 'success', 'kept': True})
+        _clip_obs['seen'] = now
+        _clip_obs['level'] = lv
+        _clip_obs['rb'] = b.get('rb') if isinstance(b.get('rb'), bool) else None
+        _clip_obs['err'] = str(b.get('err') or '')[:80]
+        if b.get('saved') is True:
+            _clip_obs['saved'] = now
+    return jsonify({'status': 'success'})
+
+# ==========================================
 # 🎮 번외 게임 모드 제어 API
 # ==========================================
 @app.route('/api/extra_game/start', methods=['POST'])
@@ -6989,6 +7108,11 @@ def api_siggame_allclear():
             c['doneAt'] = now_ms
         g['action'] = {"type": "ALLCLEAR", "ts": now_ms, "count": len(goals)}
         n, filled = len(goals), len(left)
+        try:
+            if _clip_state(state).get('auto'):
+                _clip_log(state, 'auto', '시그뒤집기 올클리어 (%d장)' % n)
+        except Exception as e:
+            print(f"⚠️ [클립 목록 실패] {e}")
         _siggame_save(state, g)
     print("🎉 [시그게임] 올클리어! (%d장, 이번에 채운 %d장)" % (n, filled), flush=True)
     return jsonify({"status": "success", "count": n, "filled": filled})
@@ -7313,6 +7437,8 @@ PATCH_DENY = frozenset((
     'hell', 'broadcast_started_at',
     # 💾 세이브 슬롯도 /api/presets/* 로만 — 낡은 조종실이 통째로 보내면 방금 저장한 칸이 사라진다
     'layout_presets', 'layout_rev',
+    # ✂️ 클립 목록도 /api/clip* 으로만
+    'clip',
 ))
 
 

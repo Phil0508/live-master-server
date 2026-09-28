@@ -1576,6 +1576,25 @@
             .gx-tile, button.gx-tile { min-height: 76px; }
         }
 
+        /* ✂️ 쇼츠 클립 */
+        .clip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); display: inline-block; margin-right: 2px; }
+        .clip-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .clip-dot.warn { background: #f5a524; }
+        .clip-status { font-size: var(--fs-3); font-weight: 600; padding: 9px 12px; border-radius: var(--r-2); background: var(--bg-input); border: 1px solid var(--border-light); }
+        .clip-status.on { color: var(--success); }
+        .clip-status.warn { color: #f5a524; }
+        .clip-status.off { color: var(--text-muted); }
+        .clip-set { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+        .clip-min { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-2); color: var(--text-muted); }
+        .clip-min select { height: 32px; margin: 0; padding: 0 8px; font-size: var(--fs-2); line-height: 1.2; }
+        .clip-log { display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
+        .clip-row { display: grid; grid-template-columns: 64px 96px 38px minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-light); font-size: var(--fs-3); }
+        .clip-row time, .clip-at { font-family: var(--font-num); font-size: var(--fs-2); color: var(--text-muted); }
+        .clip-k { font-size: var(--fs-1); font-weight: 800; text-align: center; border-radius: 4px; padding: 1px 0; }
+        .clip-k.m { background: rgba(226, 182, 75, 0.16); color: var(--accent); }
+        .clip-k.a { background: rgba(255, 255, 255, 0.06); color: var(--text-muted); }
+        .clip-l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
         /* ═══════════════════════════════════════════════════════
            🎨 Linear 옷 (2026-09-28) — 대표님: "도구 모음은 트위치, 디자인은 Linear"
            ⚠️ 겉모습만 덮는다. 배치·동작은 그대로. 마음에 안 들면 이 블록만 걷어내면 시안 A 모습으로 돌아간다.
@@ -1761,6 +1780,8 @@
                 <button onclick="stopReaction()" title="리액션 긴급 중단" style="height:30px; padding:0 10px; background:rgba(255,69,58,0.12); border:1px solid rgba(255,69,58,0.4); color:var(--danger); border-radius:var(--r-1); cursor:pointer; font-size:var(--fs-2); font-weight:bold; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle-stop"></i> 중단</button>
                 <button id="skip-reaction-btn-main" onclick="skipCurrentReaction()" title="다음 후원 넘기기(Skip)" style="height:30px; padding:0 10px; background:#ff9500; color:#fff; border:none; border-radius:var(--r-1); cursor:pointer; font-size:var(--fs-2); font-weight:bold; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-forward-step"></i> Skip</button>
             </div>
+            <!-- ✂️ 쇼츠 클립 — 누르면 OBS 가 '방금 90초' 를 파일로 저장한다(방송판이 대신 말한다). 점 = OBS 연결 상태 -->
+            <button id="btn-clip" onclick="clipNow()" title="방금 90초를 OBS 가 저장합니다 (쇼츠 재료)" style="height: 42px;"><span id="clip-dot" class="clip-dot"></span><i class="fa-solid fa-scissors"></i> 클립</button>
             <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px; background: rgba(255,255,255,0.05); color: #fff; border-color: var(--border-light);"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
         </div>
     </div>
@@ -2476,6 +2497,41 @@
             <details class="sys-fold">
                 <summary>서버 로그 보기 (최근 30건)</summary>
                 <div id="sys-console-logs" class="sys-log">[대기 중] 서버 데이터를 불러오고 있습니다...</div>
+            </details>
+        </div>
+
+        <!-- ✂️ 쇼츠 클립 (2026-09-28) — 명장면마다 OBS 가 '방금 90초' 를 저장한다. 방송이 끝나면 이 목록으로 파일을 맞춘다 -->
+        <div class="group-box sys-box" id="clip-box">
+            <div class="group-title sys-head">
+                <span><i class="fa-solid fa-scissors"></i> 쇼츠 클립</span>
+                <button class="secondary sys-mini" onclick="clipPoll(true)"><i class="fa-solid fa-arrows-rotate"></i> 새로고침</button>
+            </div>
+            <div id="clip-status" class="clip-status off">불러오는 중…</div>
+            <div class="clip-set">
+                <label class="gx-tg"><input type="checkbox" id="clip-auto" onchange="clipSetAuto()"> 큰 시그 · 올클리어 때 저절로 저장</label>
+                <label class="clip-min">기준
+                    <select id="clip-min" onchange="clipSetAuto()">
+                        <option value="50000">5만원 이상</option>
+                        <option value="100000">10만원 이상</option>
+                        <option value="200000">20만원 이상</option>
+                        <option value="500000">50만원 이상</option>
+                        <option value="1000000">100만원 이상</option>
+                    </select>
+                </label>
+            </div>
+            <div class="gx-sub" style="margin-top:12px;"><span class="gx-lbl" style="margin:0;">오늘 저장한 순간 <span id="clip-count"></span></span>
+                <button class="secondary gx-sm" onclick="clipClear()">목록 비우기</button></div>
+            <div id="clip-log" class="clip-log"><div class="gx-info">아직 없어요.</div></div>
+            <details class="gx-fold" style="margin-top:10px;">
+                <summary>회사 OBS 에서 처음 한 번만 할 것 <small>두 가지</small></summary>
+                <div class="gx-fold-body gx-note">
+                    ① <b>설정 → 출력 → 리플레이 버퍼</b> — "리플레이 버퍼 사용" 체크, 최대 시간 <b>90초</b>.
+                    저장 폴더는 녹화 폴더와 같아요.<br>
+                    ② 방송판 <b>브라우저 소스를 더블클릭 → 맨 아래 "페이지 권한" → "OBS에 대한 고급 접근 권한"</b>.
+                    방송판이 여러 장면에 있으면 <b>한 곳에만</b> 주세요(여러 곳이면 같은 클립이 여러 개 생겨요).<br>
+                    다 하면 위 줄이 <b>초록색 "OBS 연결됨"</b>으로 바뀝니다. 리플레이 버퍼는 방송판이 알아서 켜요.<br>
+                    저장되는 것은 <b>누른 순간까지의 90초</b>예요. 큰 시그는 재생 25초 뒤, 올클리어는 20초 뒤에 저장해서 반응까지 담깁니다.
+                </div>
             </details>
         </div>
 
@@ -3584,6 +3640,85 @@
         // 🏦 계좌 고액후원 영상 — 대기함 카드의 [계좌] 버튼이 부른다.
         //   30만원 이상이면 서버가 금액대 영상을 오버레이에 재생하고, 여기선 작은 알림만 띄운다.
         //   30만원 미만이면 아무 영상도 안 나간다.
+        /* ✂️ 쇼츠 클립 — [✂ 클립] → 서버 → 방송판(회사 OBS 안) → OBS 가 '방금 90초' 저장.
+           OBS 연결 상태는 방송판이 1분마다 서버에 알린다(/api/clip/hello) — 여기선 20초마다 읽어 점으로 보여준다. */
+        let _clipObs = null;
+        function clipAgo(sec) {
+            if (sec == null) return '';
+            return sec < 60 ? sec + '초 전' : sec < 3600 ? Math.floor(sec / 60) + '분 전' : Math.floor(sec / 3600) + '시간 전';
+        }
+        function clipObsText(o) {
+            if (!o || !o.alive) return ['off', 'OBS 저장 담당이 안 보여요 — 회사 OBS 에 방송판이 켜져 있고 권한을 줬는지 확인 (아래 "처음 한 번만 할 것")'];
+            if (!(o.level >= 4)) return ['warn', '방송판은 보이는데 권한이 낮아요 — 브라우저 소스 → 페이지 권한 → "OBS에 대한 고급 접근 권한"'];
+            if (o.rb === false) return ['warn', '리플레이 버퍼가 꺼져 있어요 — OBS 설정 → 출력 → "리플레이 버퍼 사용" 체크'];
+            return ['on', 'OBS 연결됨 · 리플레이 버퍼 켜짐' + (o.saved_ago != null ? ' · 마지막 저장 ' + clipAgo(o.saved_ago) : '')];
+        }
+        async function clipPoll(force) {
+            try {
+                const r = await fetch('/api/clip');
+                const d = await r.json();
+                if (d && d.status === 'success') { _clipObs = d.obs; if (d.clip && typeof gd !== 'undefined' && gd) gd.clip = d.clip; clipPaint(); }
+            } catch (e) {}
+        }
+        async function clipNow() {
+            try {
+                const r = await fetch('/api/clip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast('클립 실패: ' + (d.message || r.status), 'warn'); return; }
+                _clipObs = d.obs || _clipObs; clipPaint();
+                const ok = _clipObs && _clipObs.alive && _clipObs.level >= 4 && _clipObs.rb !== false;
+                acctToast(ok ? '✂️ 방금 90초를 OBS 가 저장합니다' : '✂️ 목록에만 적었어요 — OBS 연결을 확인하세요 (시스템 탭)', ok ? 'ok' : 'warn');
+            } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); }
+        }
+        async function clipSetAuto() {
+            const a = document.getElementById('clip-auto'), m = document.getElementById('clip-min');
+            try {
+                await fetch('/api/clip/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ auto: !!(a && a.checked), auto_min: Number(m && m.value) || 100000 }) });
+            } catch (e) { acctToast('저장 실패', 'warn'); }
+        }
+        async function clipClear() {
+            if (!(await premiumConfirm('오늘 저장한 순간 목록을 비웁니다.\nOBS 에 저장된 영상 파일은 그대로 남아요.', '✂ 목록 비우기', 'warning'))) return;
+            try { await fetch('/api/clip/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clear: true }) }); } catch (e) {}
+        }
+        let _clipLogSig = '';
+        function clipPaint() {
+            const [st, txt] = clipObsText(_clipObs);
+            const dot = document.getElementById('clip-dot');
+            if (dot) dot.className = 'clip-dot ' + st;
+            const b = document.getElementById('btn-clip');
+            if (b) b.title = '방금 90초를 OBS 가 저장합니다 — ' + txt;
+            const sEl = document.getElementById('clip-status');
+            if (sEl) { sEl.textContent = txt; sEl.className = 'clip-status ' + st; }
+            const c = (typeof gd !== 'undefined' && gd && gd.clip) || {};
+            const a = document.getElementById('clip-auto');
+            if (a && document.activeElement !== a) a.checked = c.auto !== false;
+            const m = document.getElementById('clip-min');
+            if (m && document.activeElement !== m && c.auto_min) m.value = String(c.auto_min);
+            const log = Array.isArray(c.log) ? c.log : [];
+            const t0 = Number(gd && gd.broadcast_started_at) || 0;
+            const sig = JSON.stringify([log.map(x => x.id), t0]);
+            if (sig === _clipLogSig) return;
+            _clipLogSig = sig;
+            const cnt = document.getElementById('clip-count');
+            if (cnt) cnt.textContent = log.length ? log.length + '개' : '';
+            const box = document.getElementById('clip-log');
+            if (!box) return;
+            if (!log.length) { box.innerHTML = '<div class="gx-info">아직 없어요.</div>'; return; }
+            // 방송 시작부터 몇 시간 몇 분인지 — 녹화본에서 그 자리를 찾을 때 쓴다
+            const hms = ms => { const t = Math.max(0, Math.floor(ms / 1000)); return Math.floor(t / 3600) + ':' + String(Math.floor(t % 3600 / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+            box.innerHTML = log.slice().reverse().map(x => {
+                const d = new Date(x.ts);
+                const clock = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+                return '<div class="clip-row"><time>' + clock + '</time>'
+                     + (t0 && x.ts >= t0 && x.ts - t0 < 16 * 3600 * 1000 ? '<span class="clip-at">방송 +' + hms(x.ts - t0) + '</span>' : '<span class="clip-at"></span>')
+                     + '<span class="clip-k ' + (x.kind === 'manual' ? 'm' : 'a') + '">' + (x.kind === 'manual' ? '직접' : '자동') + '</span>'
+                     + '<span class="clip-l">' + escapeHTML(x.label || '') + '</span></div>';
+            }).join('');
+        }
+        setInterval(clipPoll, 20000);
+        setTimeout(clipPoll, 1500);
+
         function acctToast(msg, kind) {
             let box = document.getElementById('acct-video-toast');
             if (!box) {
@@ -4038,7 +4173,8 @@
             try { renderSelfPing(); } catch(e) {}
             try { sgSyncPanel(); } catch(e) {}   // 🃏 시그게임 카드판 갱신(입력 중에도 최신 유지)
             try { dgcSync(); } catch(e) {}
-            try { pbcSync(); } catch(e) {}       // 🎱 구슬 핀볼 판 갱신       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
+            try { pbcSync(); } catch(e) {}
+            try { clipPaint(); } catch(e) {}        // ✂️ 쇼츠 클립 목록       // 🎱 구슬 핀볼 판 갱신       // 🎲 주사위게임 판 갱신(입력 중이면 건너뜀)
             try { ntcSync(); } catch(e) {}       // 📣 안내 전광판 설정 반영
             try { abSync(false); } catch(e) {}   // 🤖 진행봇 설정 반영
             try { renderVipLive(false); } catch(e) {}   // 👑 이번 방송 순위 등급(탭이 보일 때만)
@@ -10464,6 +10600,7 @@ function cmdkCommands() {
         { k: '대결', t: '⚔ 대결 타이머 시작/정지', h: '대결', run: () => toggleTimer() },
         { k: '대결 1분', t: '⚔ 대결 +1분', h: '대결', run: () => modifyTimer(1, 'min') },
         { k: '올클리어', t: '🎉 시그뒤집기 올클리어', h: '게임', run: () => sgAllClear() },
+        { k: '클립', t: '✂ 쇼츠 클립 — 방금 90초 저장', h: '녹화', run: () => clipNow() },
         { k: '건너뛰기 스킵', t: '⏭ 시그니처 재생 건너뛰기', h: '재생', run: () => skipCurrentReaction() },
         { k: '랭킹', t: '📑 랭킹 탭', h: '이동', run: () => openTabById('tab-ranking') },
         { k: '로그', t: '📑 로그 탭', h: '이동', run: () => openTabById('tab-logs') },
