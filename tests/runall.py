@@ -174,7 +174,7 @@ def run(name, cmd, cwd, kind=None, timeout=900):
 #    그래도 터지지는 않게 폴더는 만들어 둔다 (.gitignore 가 커밋은 막는다).
 for _d in (LT2, PT):
     os.makedirs(_d, exist_ok=True)
-for f in ('server.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.html'):
+for f in ('server.py', 'show.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.html'):
     src = os.path.join(PROJ, f)
     if os.path.exists(src):
         for d in (LT2, PT):
@@ -208,7 +208,7 @@ print('샌드박스에 최신 코드 복사 완료', flush=True)
 # ── ① 정적 검사 ──
 print('\n' + '=' * 72); print('▶ 정적 — 파이썬 컴파일')
 bad = []
-for f in ('server.py', 'toon_listener.py'):
+for f in ('server.py', 'show.py', 'toon_listener.py'):
     p = os.path.join(PROJ, f)
     if os.path.exists(p):
         rc, out = sh([PY, '-c',
@@ -248,6 +248,7 @@ run('한 방 최고 후원', [PY, 'best_test.py'], HERE, kind='pt')
 run('🔥 지옥탈출', [PY, 'hell_test.py'], HERE, kind='pt')
 run('💾 세이브 슬롯', [PY, 'preset_test.py'], HERE, kind='pt')
 run('✂️ 쇼츠 클립', [PY, 'clip_test.py'], HERE, kind='pt')
+run('📺 방송 화면', [PY, 'show_test.py'], HERE, kind='pt')
 run('📊 조종실 클릭 기록', [PY, 'uistats_test.py'], HERE, kind='pt')
 run('시작·끝 화면', [PY, 'stage_test.py'], HERE, kind='pt')
 run('시그니처 재생', [PY, 'sig_test.py'], HERE, kind='pt')

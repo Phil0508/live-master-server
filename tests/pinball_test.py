@@ -86,7 +86,7 @@ chk('조종실이 통째로 덮어쓰지 못한다', bool(_so) and "'pinball'" i
 _pd = re.search(r'PATCH_DENY = frozenset\(\((.*?)\)\)', SRV, re.S)
 chk('설정 패치로도 못 건드린다', bool(_pd) and "'pinball'" in _pd.group(1))
 # ⚠️ 게임판 넷은 같은 자리를 쓴다. 빠지면 주사위판 위에 겹쳐 떠서 둘 다 못 읽는다.
-chk('다른 게임판과 자리를 다툰다', "'pinball')" in SRV and "_solo_board(state, 'pinball')" in SRV)
+chk('다른 게임판과 자리를 다툰다(무대 하나)', "showmod.set_stage(state, 'pinball')" in SRV)
 chk('옛 저장본에도 칸을 채운다', 'def _pinball_state(' in SRV and 'setdefault' in SRV)
 chk('방송 시작·종료 때 걷는다', "_pb.update({'enabled': False, 'running': False" in SRV)
 # ⚠️ 이름 수가 아니라 **펼친 구슬 수**로 세야 한다.

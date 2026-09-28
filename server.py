@@ -119,6 +119,8 @@ def get_db_connection():
         _db_local.conn = None
         raise
 from flask import Flask, jsonify, request, send_from_directory, redirect, url_for, session
+# 📺 방송 화면(무대·고정 자리·알림·순서표) 규칙은 show.py 한 곳에 있다 — server.py 를 쪼개는 첫 조각
+import show as showmod
 from werkzeug.exceptions import HTTPException
 try:
     import tkinter as tk
@@ -1066,34 +1068,14 @@ def is_duplicate_donation(key):
 # 슬롯 릴 정지 + 당첨 배너(약 3.3초) 뒤 결과 처리까지의 대기 시간
 SLOT_RESULT_DELAY_SEC = 4.0
 
-# 🎮 방송 화면에서 게임판 넷(주사위·시그뒤집기·룰렛·슬롯)은 **같은 자리**를 쓴다.
-#    둘 이상 켜면 서로 겹쳐 아무것도 못 읽는다. 하나를 켤 때 나머지를 내린다.
-#    ⚠️ 끄는 것은 여기서 안 한다 — 켜는 쪽에서만 부른다. 그래야 '전부 꺼진 상태'가 그대로 남는다.
+# 🎮 게임판 이름 — 옛 세이브 슬롯(board)을 읽을 때만 쓴다.
+#    ⚠️ '무대에는 하나만' 규칙은 이제 show.py(showmod.set_stage)가 맡는다. 예전 _solo_board 는 걷었다.
 BOARD_NAMES = ('dicegame', 'siggame', 'roulette', 'slot', 'pinball')
 
 
-def _solo_board(state, keep):
-    """게임판 하나만 남기고 나머지를 내린다. keep 은 BOARD_NAMES 중 하나."""
-    off = []
-    if keep != 'dicegame':
-        _g = state.get('dicegame')
-        if isinstance(_g, dict) and _g.get('enabled'):
-            _g['enabled'] = False; off.append('주사위')
-    if keep != 'siggame':
-        _g = state.get('siggame')
-        if isinstance(_g, dict) and _g.get('enabled'):
-            _g['enabled'] = False; off.append('시그뒤집기')
-    if keep != 'pinball':
-        _g = state.get('pinball')
-        if isinstance(_g, dict) and _g.get('enabled'):
-            _g['enabled'] = False; _g['running'] = False; off.append('핀볼')
-    if keep != 'roulette' and state.get('roulette_enabled'):
-        state['roulette_enabled'] = False; off.append('룰렛')
-    if keep != 'slot' and state.get('slot_enabled'):
-        state['slot_enabled'] = False; off.append('슬롯')
-    if off:
-        print('  🎮 [게임 자리] %s 를 켜면서 %s 을(를) 내렸습니다' % (keep, ' · '.join(off)), flush=True)
-    return off
+def _stage_log(prev, now):
+    if prev != now:
+        print('  📺 [무대] %s → %s' % (showmod.STAGE_LABEL.get(prev, '없음'), showmod.STAGE_LABEL.get(now, '없음')), flush=True)
 
 
 def _slot_finish(winner):
@@ -1105,7 +1087,7 @@ def _slot_finish(winner):
         title = winner.get('title') or '시그니처'
         with file_lock:
             state = load_data()
-            state['slot_enabled'] = False
+            showmod.end_temp(state, 'slot')      # 📺 잠깐 올라온 슬롯이 내려가고 원래 무대로 돌아간다
             enqueue_signature(state, winner, winner.get('amount') or 0,
                               '🎰 슬롯머신', f'[슬롯 당첨] {title}', skip_popup=True, count_tally=False)
             # 🎯 기여도만 — 점수(그날 일당)는 안 건드린다.
@@ -1435,6 +1417,11 @@ def state_for_client(state, authed):
         out = strip_private_state(out)   # 🔒 대기 후원·장부·로그는 오버레이가 쓰지 않는다
     out = dict(out)                      # 원본을 건드리면 서버가 정답을 잃는다
     out.pop('api_token', None)           # 🔐 상태에 섞여 들어갔더라도 절대 내보내지 않는다
+    # 📺 방송 화면 — 저장본 + 계산한 덮기(cover) + 한 줄 요약. 방송판·조종실이 이것 하나만 본다
+    try:
+        out['show'] = showmod.view(out)
+    except Exception as _e:
+        print(f'⚠️ [방송 화면] 내보내기 실패: {_e}', flush=True)
     out['server_time'] = int(time.time() * 1000)   # ⏱️ 화면이 서버 시계에 맞출 수 있게
     # 🎲 전용 점수판이 아직 없는 옛 저장본이면 여기서 채워 내보낸다.
     #    ⚠️ 원본은 안 건드린다(얕은 복사본에만 얹는다) — 읽는 길에서 상태를 고치면 안 된다.
@@ -2406,6 +2393,8 @@ def reset_session_keys(state):
     if isinstance(_sg, dict):
         _sg.update({'enabled': False, 'cards': [], 'action': None, 'compact': False,
                     'timer': {'status': 'STOPPED', 'timeLeft': 600, 'expiresAt': None}})
+    # 📺 무대도 방송 1회분 — 비운다. 고정 자리·알림은 설정이라 남긴다(예전 스위치도 안 지웠다)
+    showmod.reset_session(state)
     # ⚠️ home_goals(퇴근빵 개인별 목표)는 여기서 지우면 안 된다.
     #    이건 '지난 방송의 흔적'이 아니라 운영자가 방송 전에 세팅해두는 '설정'이다.
     #    그런데 이 함수는 방송 종료뿐 아니라 '방송 시작'에서도 불린다.
@@ -4733,7 +4722,9 @@ def api_data():
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
                             'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen', 'hell',
-                            'broadcast_started_at', 'layout_presets', 'layout_rev', 'clip')
+                            'broadcast_started_at', 'layout_presets', 'layout_rev', 'clip',
+                            # 📺 방송 화면 — 무대·고정 자리·알림은 /api/show 로만. 옛 스위치는 show 가 계산한다
+                            'show') + showmod.LEGACY_OWNED
 
             # 🔐 [보안] 응답 전용 필드는 절대 상태로 들어오면 안 된다.
             #   GET /api/data 는 로그인 세션이 있으면 응답에 api_token(= 관리자 비밀키)을 얹어준다.
@@ -4798,14 +4789,14 @@ def api_data():
             for k in SERVER_OWNED:
                 if k in current_state:
                     state[k] = current_state[k]          # 서버 소유 필드는 서버의 최신 값을 유지
-            # 🎮 룰렛·슬롯 스위치는 전용 길이 없고 이 경로로 온다. 꺼짐→켜짐으로 바뀐 것만 보고
-            #    나머지 게임판을 내린다(둘 다 안 바뀌었으면 아무것도 안 한다).
-            #    ⚠️ 반드시 SERVER_OWNED 복원 **뒤**에 해야 한다. 앞에 두었더니 siggame 이
-            #       서버 소유라 복원 단계가 내린 값을 도로 켜버렸다 — 룰렛을 켜도 시그판이
-            #       그대로 떠 있었다(브라우저로 잡았다).
-            for _bk, _bn in (('roulette_enabled', 'roulette'), ('slot_enabled', 'slot')):
-                if state.get(_bk) and not current_state.get(_bk):
-                    _solo_board(state, _bn)
+            # 📺 옛 방식으로 온 것만 무대에 옮긴다 — 룰렛 돌리기(roulette.command=spin) · 대결 켜기/끄기.
+            #    그리고 옛 스위치를 show 에서 다시 계산해 적는다(낡은 조종실이 보낸 값이 남지 않게).
+            #    ⚠️ 반드시 SERVER_OWNED 복원 **뒤**에 한다(복원이 show 를 서버 값으로 되돌려 놓은 다음).
+            _prev_stage = showmod.ensure(state)['stage']
+            showmod.ingest_roulette(state, current_state.get('roulette'))
+            showmod.ingest_match(state, bool((current_state.get('match_data') or {}).get('active')))
+            showmod.project(state)
+            _stage_log(_prev_stage, state['show']['stage'])
             # ⚠️ 이름 앞뒤 공백을 저장 단계에서 떼어낸다.
             #    이름 칸에 공백을 하나만 더 눌러도 그 사람이 점수를 못 받는 사고가 있었다.
             #    찾을 때도 공백을 무시하도록 고쳤지만(_find_score_target), 저장되는 값 자체가
@@ -5036,6 +5027,9 @@ def api_hell_start():
             h = _hell_state(state)
             h.update({'on': True, 'started_at': int(time.time() * 1000),
                       'base': {}, 'goals': {}, 'escaped': []})
+            _prev = showmod.ensure(state)['stage']
+            showmod.set_stage(state, 'hell')
+            _stage_log(_prev, 'hell')
             for rank, (_, b) in enumerate(ranked):
                 n = b['name']
                 h['base'][n] = int(b.get('score') or 0)
@@ -5083,6 +5077,7 @@ def api_hell_off():
         state = load_data()
         h = _hell_state(state)
         h['on'] = False
+        showmod.clear_stage(state, 'hell')
         _hell_save(state, h)
     return jsonify({'status': 'success', 'hell': h})
 
@@ -5680,7 +5675,7 @@ def api_roulette_winner():
             state['roulette']['command'] = 'ended'
             state['roulette']['is_spinning'] = False
             state['roulette']['command_time'] = int(time.time() * 1000)
-            state['roulette_enabled'] = False
+            showmod.end_temp(state, 'roulette')     # 📺 원래 무대로 돌아간다(화면은 방송판이 4초 더 잡고 있다)
             
             # 랭킹 로그에 기록 추가
             time_str = now_hms()
@@ -5759,22 +5754,15 @@ _SCENE_LABEL = {'roulette': '🎡 룰렛', 'slot': '🎰 슬롯머신', 'siggame
 
 
 def _preset_board_now(state):
-    """지금 떠 있는 게임판 이름(BOARD_NAMES 중 하나) — 없으면 ''."""
-    if state.get('roulette_enabled'):
-        return 'roulette'
-    if state.get('slot_enabled') is True:
-        return 'slot'
-    for k in ('siggame', 'dicegame', 'pinball'):
-        g = state.get(k)
-        if isinstance(g, dict) and g.get('enabled'):
-            return k
-    return ''
+    """지금 무대(옛 이름 board 로도 남긴다 — 옛 조종실·편집기가 읽는다)."""
+    return showmod.cue_from_state(state)['stage'] or ''
 
 
 def _preset_switches_now(state):
-    sw = {k: bool(state.get(k)) for k in PRESET_FLAGS}
-    fj = state.get('fundjar')
-    sw['fundjar'] = bool(isinstance(fj, dict) and fj.get('enabled'))
+    """옛 모양 switches — 옛 조종실·편집기 표시용. 진짜 값은 hud 다."""
+    hud = showmod.ensure(state)['hud']
+    sw = {lk: hud[k] for k, lk in showmod.HUD_LEGACY.items()}
+    sw['fundjar'] = hud['fundjar']
     return sw
 
 
@@ -5852,8 +5840,10 @@ def api_presets_save():
         state = load_data()
         _presets_migrate(state)
         ps = _presets(state)
+        _cue = showmod.cue_from_state(state)
         snap = {'layout': _preset_layout_of(_layout_read()),
-                'switches': _preset_switches_now(state),
+                'hud': _cue['hud'], 'stage': _cue['stage'],
+                'switches': _preset_switches_now(state),      # 옛 화면 표시용(읽기만)
                 'board': _preset_board_now(state),
                 'saved_at': int(time.time())}
         hit = next((x for x in ps if x.get('id') == pid), None) if pid else None
@@ -5923,21 +5913,24 @@ def api_presets_delete():
     return jsonify({'status': 'success', 'presets': state['layout_presets']})
 
 
-def _preset_apply_board(state, board):
-    """게임판을 슬롯대로. 켤 것이 있으면 켜고(나머지는 _solo_board 가 내린다), 없으면 전부 내린다."""
-    if board not in BOARD_NAMES:
-        board = ''
-    if board == 'roulette':
-        state['roulette_enabled'] = True
-    elif board == 'slot':
-        state['slot_enabled'] = True
-    elif board == 'siggame':
-        _siggame_state(state)['enabled'] = True
-    elif board == 'dicegame':
-        _dicegame_state(state)['enabled'] = True
-    elif board == 'pinball':
-        _pinball_state(state)['enabled'] = True
-    return _solo_board(state, board or '__none__')
+def _cue_apply(state, hit):
+    """순서표 한 단계(세이브 슬롯)를 불러온다 — 배치 · 고정 자리 · 무대. file_lock 안에서 부른다."""
+    ly = _layout_read()
+    ly.pop('__scenes', None)
+    for k, v in (hit.get('layout') or {}).items():
+        ly[k] = v
+    ly['__v'] = 2
+    _layout_write(ly)
+    prev = showmod.ensure(state)['stage']
+    showmod.apply_cue(state, hit)
+    _stage_log(prev, state['show']['stage'])
+    ps = _presets(state)
+    state['show']['cue_at'] = next((i for i, x in enumerate(ps) if x.get('id') == hit.get('id')), -1)
+    try:
+        state['layout_rev'] = int(state.get('layout_rev') or 0) + 1
+    except (TypeError, ValueError):
+        state['layout_rev'] = 1
+    return ly
 
 
 @app.route('/api/presets/apply', methods=['POST'])
@@ -5952,29 +5945,84 @@ def api_presets_apply():
         hit = next((x for x in ps if x.get('id') == pid), None)
         if not hit:
             return jsonify({'status': 'error', 'message': '없는 슬롯입니다'}), 404
-        # ① 자리 — 슬롯에 없는 위젯(슬롯을 만든 뒤 새로 생긴 것)은 지금 자리 그대로 둔다
-        ly = _layout_read()
-        ly.pop('__scenes', None)
-        for k, v in (hit.get('layout') or {}).items():
-            ly[k] = v
-        ly['__v'] = 2
-        _layout_write(ly)
-        # ② 위젯 켜기/끄기
-        sw = hit.get('switches') or {}
-        for k in PRESET_FLAGS:
-            if k in sw:
-                state[k] = bool(sw[k])
-        if 'fundjar' in sw and isinstance(state.get('fundjar'), dict):
-            state['fundjar']['enabled'] = bool(sw['fundjar'])
-        # ③ 게임판
-        off = _preset_apply_board(state, hit.get('board') or '')
-        try:
-            state['layout_rev'] = int(state.get('layout_rev') or 0) + 1
-        except (TypeError, ValueError):
-            state['layout_rev'] = 1
+        # 자리(슬롯에 없는 위젯은 지금 자리 그대로) · 고정 자리 · 무대 — _cue_apply 한 곳에서
+        ly = _cue_apply(state, hit)
         _presets_save_state(state)
-        print('  💾 [세이브 슬롯] "%s" 불러옴 (게임판: %s)' % (hit.get('name'), hit.get('board') or '없음'), flush=True)
-    return jsonify({'status': 'success', 'preset': hit, 'off': off, 'layout': ly})
+        print('  💾 [순서표] "%s" 불러옴 — %s' % (hit.get('name'), showmod.summary(state)), flush=True)
+    return jsonify({'status': 'success', 'preset': hit, 'layout': ly, 'show': showmod.view(state)})
+
+# ==========================================
+# 📺 방송 화면 — 무대 · 고정 자리 · 알림 · 순서표 (2026-09-29 개편)
+#    화면을 바꾸는 단 하나의 길. 규칙은 show.py 에 있다.
+#    예전의 roulette_enabled · sig_tally_enabled 같은 스위치는 이제 여기서만 바뀐다(show 가 계산해 적는다).
+# ==========================================
+def _show_cues(state):
+    """순서표 = 세이브 슬롯 목록(순서 그대로). 조종실이 그릴 만큼만."""
+    out = []
+    for p in _presets(state):
+        out.append({'id': p.get('id'), 'name': p.get('name') or '',
+                    'stage': showmod.cue_stage(p), 'hud': showmod.cue_hud(p)})
+    return out
+
+
+@app.route('/api/show', methods=['GET'])
+def api_show_get():
+    state = load_data()
+    return jsonify({'status': 'success', 'show': showmod.view(state), 'cues': _show_cues(state)})
+
+
+@app.route('/api/show', methods=['POST'])
+def api_show_set():
+    """body 에 든 것만 바꾼다.
+         {stage: 'pinball' | null, temp: false}      무대(하나만). null 이면 비운다
+         {hud: {notice: true, best: false}}           고정 자리
+         {alerts: {popup: false}}                     알림
+         {cue: 'next' | 'prev' | 'go', id: '...'}      순서표(세이브 슬롯) 단계 넘기기
+    """
+    body = request.get_json(silent=True) or {}
+    with file_lock:
+        state = load_data()
+        prev = showmod.ensure(state)['stage']
+        if 'stage' in body:
+            st = body.get('stage') or None
+            if st is not None and st not in showmod.STAGES:
+                return jsonify({'status': 'error', 'message': '없는 무대입니다: %s' % st}), 400
+            if st == 'hell':
+                h = _hell_state(state)
+                if not h.get('started_at'):
+                    return jsonify({'status': 'error', 'message': '지옥탈출은 먼저 [시작] 을 눌러 주세요'}), 409
+                h['on'] = True            # 다시 올리면 다시 센다(기록은 그대로)
+            showmod.set_stage(state, st, temp=bool(body.get('temp')))
+        for k, v in ((body.get('hud') or {}) if isinstance(body.get('hud'), dict) else {}).items():
+            if not showmod.set_hud(state, k, v):
+                return jsonify({'status': 'error', 'message': '없는 고정 자리입니다: %s' % k}), 400
+        for k, v in ((body.get('alerts') or {}) if isinstance(body.get('alerts'), dict) else {}).items():
+            if not showmod.set_alert(state, k, v):
+                return jsonify({'status': 'error', 'message': '없는 알림입니다: %s' % k}), 400
+        cue = body.get('cue')
+        if cue:
+            ps = _presets(state)
+            at = showmod.ensure(state)['cue_at']
+            if cue == 'next':
+                idx = at + 1
+            elif cue == 'prev':
+                idx = at - 1
+            elif cue == 'go':
+                idx = next((i for i, x in enumerate(ps) if x.get('id') == str(body.get('id') or '')), -1)
+            else:
+                return jsonify({'status': 'error', 'message': '모르는 순서표 명령입니다'}), 400
+            if not (0 <= idx < len(ps)):
+                return jsonify({'status': 'error',
+                                'message': '순서표 끝이에요' if ps else '순서표가 비어 있어요 — 지금 화면을 단계로 저장해 주세요'}), 409
+            _cue_apply(state, ps[idx])
+            print('  📺 [순서표] %d/%d "%s"' % (idx + 1, len(ps), ps[idx].get('name')), flush=True)
+        _stage_log(prev, state['show']['stage'])
+        save_data(state)
+        broadcast_event('update', state)
+        v = showmod.view(state)
+        cues = _show_cues(state)
+    return jsonify({'status': 'success', 'show': v, 'cues': cues})
+
 
 # ==========================================
 # ✂️ 쇼츠 클립 — OBS 리플레이 버퍼로 '방금 90초' 저장 (2026-09-28)
@@ -7053,7 +7101,9 @@ def api_siggame_deal():
                        "title": p.get('title'), "amount": p.get('amount'),
                        "state": "HIDDEN", "doneAt": None, "flippedAt": None}
                       for i, p in enumerate(picks)]
-        _solo_board(state, 'siggame')      # 카드를 깔면 그 자리를 차지한다
+        _prev = showmod.ensure(state)['stage']
+        showmod.set_stage(state, 'siggame')      # 📺 카드를 깔면 무대를 차지한다
+        _stage_log(_prev, 'siggame')
         g.update({"cols": cols, "rows": rows, "enabled": True, "target": target,
                   "compact": False,     # 새 판이면 올린 상태를 푼다
                   "timer": {"status": "STOPPED", "timeLeft": minutes * 60, "expiresAt": None},
@@ -7325,9 +7375,12 @@ def api_siggame_set():
         state = load_data()
         g = _siggame_state(state)
         if 'enabled' in data:
-            g['enabled'] = bool(data['enabled'])
-            if g['enabled']:
-                _solo_board(state, 'siggame')
+            _prev = showmod.ensure(state)['stage']
+            if data['enabled']:
+                showmod.set_stage(state, 'siggame')
+            else:
+                showmod.clear_stage(state, 'siggame')
+            _stage_log(_prev, state['show']['stage'])
         if 'opacity' in data:
             try:
                 g['opacity'] = max(0.1, min(1.0, float(data['opacity'])))
@@ -7352,8 +7405,9 @@ def api_siggame_clear():
     with file_lock:
         state = load_data()
         g = _siggame_state(state)
-        g.update({"cards": [], "enabled": False, "action": None,
+        g.update({"cards": [], "action": None,
                   "timer": copy.deepcopy(DEFAULT_STATE['siggame']['timer'])})
+        showmod.clear_stage(state, 'siggame')
         _siggame_save(state, g)
     print("🃏 [시그게임] 판을 치웠습니다 (고른 시그니처는 유지)", flush=True)
     return jsonify({"status": "success"})
@@ -7433,8 +7487,9 @@ def api_slot_spin():
         # (오버레이는 매 업데이트마다 slot_enabled로 표시를 다시 칠하므로 상태로 켜야 한다)
         with file_lock:
             state = load_data()
-            state['slot_enabled'] = True
-            _solo_board(state, 'slot')
+            _prev = showmod.ensure(state)['stage']
+            showmod.set_stage(state, 'slot', temp=True)   # 📺 잠깐 — 당첨 뒤 원래 무대로 돌아간다
+            _stage_log(_prev, 'slot')
             save_data(state)
             broadcast_event('update', state)
 
@@ -7520,7 +7575,9 @@ PATCH_DENY = frozenset((
     'layout_presets', 'layout_rev',
     # ✂️ 클립 목록도 /api/clip* 으로만
     'clip',
-))
+    # 📺 방송 화면과 옛 스위치 — /api/show 로만(옛 스위치는 show 가 계산해 적는다)
+    'show',
+)) | frozenset(showmod.LEGACY_OWNED)
 
 
 @app.route('/api/settings/patch', methods=['POST'])
@@ -7545,7 +7602,15 @@ def api_settings_patch():
 
         with file_lock:
             state = load_data()
+            _was_match = bool((state.get('match_data') or {}).get('active'))
+            _was_roulette = copy.deepcopy(state.get('roulette'))
             state.update(body)
+            # 📺 폰은 대결 켜기/끄기·룰렛 돌리기를 이 길로 보낸다 — 무대가 따라가게
+            _prev_stage = showmod.ensure(state)['stage']
+            showmod.ingest_roulette(state, _was_roulette)
+            showmod.ingest_match(state, _was_match)
+            showmod.project(state)
+            _stage_log(_prev_stage, state['show']['stage'])
             state['version'] = (state.get('version') or 1) + 1
             save_data(state)
             broadcast_event('update', state)
@@ -7618,7 +7683,7 @@ def api_fundjar():
                 j = copy.deepcopy(DEFAULT_STATE['fundjar'])
                 state['fundjar'] = j
             if 'on' in body:
-                j['enabled'] = bool(body.get('on'))
+                showmod.set_hud(state, 'fundjar', bool(body.get('on')))   # 📺 고정 자리
             if body.get('seed') is not None:
                 _s = _as_int(body.get('seed'))
                 if _s is None or not (0 <= _s <= 100000000):
@@ -8304,11 +8369,15 @@ def api_dicegame_setup():
                 tiles.append({'id': i, 'type': 'blank', 'label': ''})
         g.update({'cols': cols, 'rows': rows, 'dice': dice, 'tiles': tiles,
                   'roll_price': roll_price, 'lap_contrib': lap_contrib,
-                  'pos': 0, 'laps': 0, 'enabled': True,
+                  'pos': 0, 'laps': 0,
                   # 새 판이면 말 넷 전부 출발점으로. 이름은 그대로 둔다.
                   'pieces': [{'name': _p['name'], 'pos': 0, 'laps': 0}
                              for _p in g['pieces']], 'turn': 0,
                   'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
+        # 📺 판을 깔면 무대에 올린다. ⚠️ 예전엔 enabled 만 켜서 다른 게임판과 겹쳐 떴다
+        _prev = showmod.ensure(state)['stage']
+        showmod.set_stage(state, 'dicegame')
+        _stage_log(_prev, 'dicegame')
         _dicegame_save(state, g)
     print(f"🎲 [주사위게임] 판 깔림 — {cols}×{rows} 테두리 {n}칸, 주사위 {dice}개, "
           f"한 판 {roll_price:,}원, 한 바퀴 기여도 {lap_contrib}")
@@ -8810,9 +8879,12 @@ def api_dicegame_enable():
     with file_lock:
         state = load_data()
         g = _dicegame_state(state)
-        g['enabled'] = on
+        _prev = showmod.ensure(state)['stage']
         if on:
-            _solo_board(state, 'dicegame')
+            showmod.set_stage(state, 'dicegame')
+        else:
+            showmod.clear_stage(state, 'dicegame')
+        _stage_log(_prev, state['show']['stage'])
         _dicegame_save(state, g)
     return jsonify({'status': 'success', 'enabled': on})
 
@@ -8825,8 +8897,9 @@ def api_dicegame_reset():
         g = _dicegame_state(state)
         for _p in g['pieces']:
             _p['pos'] = 0; _p['laps'] = 0
-        g.update({'pos': 0, 'laps': 0, 'turn': 0, 'enabled': False,
+        g.update({'pos': 0, 'laps': 0, 'turn': 0,
                   'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
+        showmod.clear_stage(state, 'dicegame')
         _dicegame_save(state, g)
     return jsonify({'status': 'success'})
 
@@ -9118,11 +9191,13 @@ def api_pinball_enable():
         with file_lock:
             state = load_data()
             g = _pinball_state(state)
-            g['enabled'] = on
+            _prev = showmod.ensure(state)['stage']
             if on:
-                _solo_board(state, 'pinball')
+                showmod.set_stage(state, 'pinball')
             else:
-                g['running'] = False      # 내리면 굴리던 것도 멈춘다
+                showmod.clear_stage(state, 'pinball')   # 내리면 굴리던 것도 멈춘다(project)
+                g['running'] = False
+            _stage_log(_prev, state['show']['stage'])
             _pinball_save(state, g)
         return jsonify({'status': 'success', 'pinball': g})
     except Exception as e:
@@ -9153,8 +9228,9 @@ def api_pinball_start():
             if len(_pinball_expand(g['names'])) < 2:
                 return jsonify({'status': 'error',
                                 'message': '구슬이 둘 이상이어야 합니다'}), 400
-            g['enabled'] = True
-            _solo_board(state, 'pinball')
+            _prev = showmod.ensure(state)['stage']
+            showmod.set_stage(state, 'pinball')
+            _stage_log(_prev, 'pinball')
             g['running'] = True
             g['result'] = []
             g['round_id'] = int(g.get('round_id') or 0) + 1

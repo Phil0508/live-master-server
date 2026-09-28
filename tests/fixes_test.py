@@ -191,77 +191,78 @@ print()
 print('=' * 74)
 print('⑦ 게임 자리는 하나뿐 — 하나를 켜면 나머지가 내려간다 (살아 있는 서버)')
 print('=' * 74)
-chk('공용 헬퍼가 있다', 'def _solo_board(state, keep):' in SV)
-# ⚠️ 끄는 쪽에서는 부르지 않는다 — 전부 꺼진 상태가 그대로 남아야 한다
-# ⚠️ 끄는 쪽에서는 부르지 않는다 — 전부 꺼진 상태가 그대로 남아야 한다.
-#    escape 를 피하려고 줄 단위로 본다.
-_dg_route = SV.split("def api_dicegame_enable():")[1].split(chr(10) + '@app.route')[0]
-_lines = [x.strip() for x in _dg_route.replace(chr(13), '').split(chr(10))]
-chk('켤 때만 부른다 (주사위)',
-    'if on:' in _lines and _lines[_lines.index('if on:') + 1] == "_solo_board(state, 'dicegame')",
-    _lines[:12])
-for who in ('dicegame', 'siggame', 'slot'):
-    chk("%s 를 켜는 자리에서 부른다" % who, ("_solo_board(state, '%s')" % who) in SV)
-# 룰렛·슬롯 스위치는 전용 길이 없어 /api/data 에서 이름을 변수로 넘긴다
-chk('룰렛·슬롯 스위치도 잡는다',
-    "('roulette_enabled', 'roulette'), ('slot_enabled', 'slot')" in SV
-    and '_solo_board(state, _bn)' in SV)
+# 📺 2026-09-29 개편 — '자리 하나' 규칙은 show.py(무대)가 맡는다. 예전 _solo_board 는 걷었다.
+SHOWPY = open(os.path.join(os.environ.get('LM_PROJECT_ROOT') or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')), 'show.py'), encoding='utf-8').read()
+chk('무대 규칙이 한 곳(show.py set_stage)에 있다', 'def set_stage(state, stage, temp=False):' in SHOWPY)
+chk('옛 _solo_board 는 없다', 'def _solo_board(' not in SV)
+for who in ('dicegame', 'siggame', 'pinball', 'hell'):
+    chk("%s 를 올리는 자리에서 무대를 거친다" % who, ("showmod.set_stage(state, '%s')" % who) in SV)
+chk('슬롯은 잠깐(temp) — 당첨 뒤 원래 무대로', "showmod.set_stage(state, 'slot', temp=True)" in SV
+    and "showmod.end_temp(state, 'slot')" in SV)
+chk('룰렛도 잠깐 — 결과 뒤 원래 무대로', "showmod.end_temp(state, 'roulette')" in SV)
+chk('옛 스위치는 밖에서 못 바꾼다(서버 소유)', "'show') + showmod.LEGACY_OWNED" in SV)
+chk('옛 방식 룰렛 돌리기·대결 켜기는 SERVER_OWNED 복원 뒤에 옮긴다',
+    SV.index('for k in SERVER_OWNED:') < SV.index("showmod.ingest_roulette(state, current_state.get('roulette'))"))
 
 post('/api/server/start_broadcast', {'names': ['가', '나']})
 post('/api/dicegame/setup', {'cols': 7, 'rows': 5, 'dice': 1})
 post('/api/dicegame/enable', {'on': True})
 post('/api/siggame/picks', {'picks': [10001, 10002, 10003]})
-post('/api/siggame/deal', {'minutes': 10, 'target': 3})   # 카드를 깔면 그 자리를 가져간다
+post('/api/siggame/deal', {'minutes': 10, 'target': 3})   # 카드를 깔면 무대를 가져간다
 d = get()
 chk('카드를 깔면 주사위판이 내려간다',
-    d['siggame'].get('enabled') is True and d['dicegame'].get('enabled') is False,
-    (d['siggame'].get('enabled'), d['dicegame'].get('enabled')))
+    d['siggame'].get('enabled') is True and d['dicegame'].get('enabled') is False and d['show']['stage'] == 'siggame',
+    (d['siggame'].get('enabled'), d['dicegame'].get('enabled'), d['show']['stage']))
 post('/api/dicegame/enable', {'on': True})                # 다시 주사위로
 d = get()
 chk('주사위를 켜면 시그뒤집기가 내려간다',
     d['dicegame'].get('enabled') is True and d['siggame'].get('enabled') is False,
     (d['dicegame'].get('enabled'), d['siggame'].get('enabled')))
-post('/api/slot/spin', {})                                 # 슬롯이 자리를 가져간다
+post('/api/slot/spin', {})                                 # 슬롯이 잠깐 무대를 가져간다
 d = get()
 chk('슬롯을 돌리면 주사위판이 내려간다',
-    d.get('slot_enabled') is True and d['dicegame'].get('enabled') is False,
-    (d.get('slot_enabled'), d['dicegame'].get('enabled')))
-# 룰렛 스위치는 전용 길이 없이 /api/data 로 온다
+    d.get('slot_enabled') is True and d['dicegame'].get('enabled') is False and d['show'].get('ret') == 'dicegame',
+    (d.get('slot_enabled'), d['dicegame'].get('enabled'), d['show'].get('ret')))
+time.sleep(4.6)                                            # 당첨(4초) 뒤
+d = get()
+chk('슬롯 당첨 뒤 주사위판이 저절로 돌아온다 (예전엔 화면이 비었다)',
+    d.get('slot_enabled') is False and d['dicegame'].get('enabled') is True and d['show']['stage'] == 'dicegame',
+    (d.get('slot_enabled'), d['dicegame'].get('enabled'), d['show']['stage']))
+# 룰렛 — 조종실이 돌리면(roulette.command=spin) /api/data 로 온다
 _st = get(); _body = {k: v for k, v in _st.items()
                       if k not in ('bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
                                    'api_token', 'server_time')}
-_body['roulette_enabled'] = True
+_r = dict(_body.get('roulette') or {}); _r.update({'command': 'spin', 'command_time': int(time.time() * 1000), 'is_spinning': True})
+_body['roulette'] = _r
 post('/api/data', _body)
 d = get()
-chk('룰렛을 켜면 슬롯이 내려간다 (/api/data 경로)',
-    d.get('roulette_enabled') is True and d.get('slot_enabled') is False,
-    (d.get('roulette_enabled'), d.get('slot_enabled')))
-# ⚠️ siggame 은 SERVER_OWNED 라, _solo_board 를 복원보다 앞에서 부르면 복원 단계가
-#    내린 값을 도로 켠다. 룰렛을 켰는데 시그판이 그대로 떠 있었다(브라우저로 잡았다).
-post('/api/siggame/picks', {'picks': [10001, 10002]})
-post('/api/siggame/deal', {'minutes': 10, 'target': 2})     # 시그판이 자리를 가져간다
+chk('룰렛을 돌리면 잠깐 무대에 (/api/data 경로)',
+    d.get('roulette_enabled') is True and d['dicegame'].get('enabled') is False and d['show'].get('ret') == 'dicegame',
+    (d.get('roulette_enabled'), d['dicegame'].get('enabled'), d['show'].get('ret')))
+post('/api/roulette/winner', {'name': '가'})
+d = get()
+chk('룰렛 결과 뒤 주사위판이 돌아온다', d.get('roulette_enabled') is False and d['show']['stage'] == 'dicegame',
+    (d.get('roulette_enabled'), d['show']['stage']))
+# 옛 스위치를 직접 보내도 안 먹는다 — 바꾸는 길은 /api/show 하나
 _st = get(); _body = {k: v for k, v in _st.items()
                       if k not in ('bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
                                    'api_token', 'server_time')}
-_body['roulette_enabled'] = True
+_body['roulette_enabled'] = True; _body['sig_tally_enabled'] = True
 post('/api/data', _body)
 d = get()
-chk('룰렛을 켜면 시그판도 내려간다 (서버 소유 필드라 복원 뒤에 내려야 한다)',
-    d.get('roulette_enabled') is True and d['siggame'].get('enabled') is False,
-    (d.get('roulette_enabled'), d['siggame'].get('enabled')))
-chk('_solo_board 가 SERVER_OWNED 복원 뒤에 있다',
-    SV.index('for k in SERVER_OWNED:') < SV.index("_solo_board(state, _bn)"))
-# 끄는 것은 아무것도 켜지 않는다
-post('/api/dicegame/enable', {'on': False})
-_st = get(); _body = {k: v for k, v in _st.items()
-                      if k not in ('bjs', 'extra_bjs', 'bottom_fixed', 'logs', 'match_logs',
-                                   'api_token', 'server_time')}
-_body['roulette_enabled'] = False
-post('/api/data', _body)
+chk('옛 스위치를 통째 저장으로 보내도 무시된다', d.get('roulette_enabled') is False and d.get('sig_tally_enabled') is False,
+    (d.get('roulette_enabled'), d.get('sig_tally_enabled')))
+c, _ = post('/api/settings/patch', {'roulette_enabled': True})
+chk('설정 패치로도 못 바꾼다', c == 400, c)
+c, r = post('/api/show', {'stage': 'roulette'})
 d = get()
-chk('끄면 아무것도 안 켜진다 (끄는 쪽은 _solo_board 를 안 부른다)',
+chk('/api/show 로 룰렛을 올리면 주사위가 내려간다', c == 200 and d.get('roulette_enabled') is True and d['dicegame'].get('enabled') is False,
+    (c, d.get('roulette_enabled'), d['dicegame'].get('enabled')))
+post('/api/show', {'stage': None})
+d = get()
+chk('무대를 비우면 아무것도 안 켜진다',
     not any([d['dicegame'].get('enabled'), d['siggame'].get('enabled'),
-             d.get('roulette_enabled'), d.get('slot_enabled')]),
+             d.get('roulette_enabled'), d.get('slot_enabled'), d['pinball'].get('enabled')]),
     (d['dicegame'].get('enabled'), d['siggame'].get('enabled'),
      d.get('roulette_enabled'), d.get('slot_enabled')))
 

@@ -82,7 +82,7 @@ try:
     ly = dict(L0); ly['ranking'] = {'x_px': 48, 'y_px': 520, 'scale': 1.0}; ly['__v'] = 2
     req('/api/layout', ly)
     req('/api/pinball/enable', {'enabled': True})
-    put_state(donor_rank_enabled=True, notice_enabled=False)
+    req('/api/show', {'hud': {'donor_rank': True, 'notice': False}})   # 📺 2026-09-29 — 켜고 끄기는 방송 화면으로
     c, d = req('/api/presets/save', {'name': '핀볼 타임'})
     a = d.get('preset') or {}
     made.append(a.get('id'))
@@ -90,14 +90,15 @@ try:
     chk('이름이 붙는다', a.get('name') == '핀볼 타임')
     chk('자리가 담긴다', (a.get('layout') or {}).get('ranking', {}).get('y_px') == 520)
     chk('떠 있는 게임판이 담긴다', a.get('board') == 'pinball', a.get('board'))
-    chk('켜고 끈 위젯이 담긴다', (a.get('switches') or {}).get('donor_rank_enabled') is True
-        and (a.get('switches') or {}).get('notice_enabled') is False)
+    chk('켜고 끈 위젯이 담긴다', (a.get('hud') or {}).get('donor_rank') is True
+        and (a.get('hud') or {}).get('notice') is False, a.get('hud'))
+    chk('옛 모양(switches)도 같이 적힌다 — 옛 편집기가 읽는다', (a.get('switches') or {}).get('donor_rank_enabled') is True)
 
     # 둘째 슬롯 — 다른 상태
     ly = layout(); ly['ranking'] = {'x_px': 48, 'y_px': 960, 'scale': 0.8}
     req('/api/layout', ly)
     req('/api/dicegame/enable', {'on': True})
-    put_state(donor_rank_enabled=False, notice_enabled=True)
+    req('/api/show', {'hud': {'donor_rank': False, 'notice': True}})
     c, d = req('/api/presets/save', {'name': ''})
     b = d.get('preset') or {}
     made.append(b.get('id'))
@@ -200,7 +201,7 @@ finally:
     req('/api/layout', L0)
     req('/api/pinball/enable', {'enabled': False})
     req('/api/dicegame/enable', {'on': False})
-    put_state(donor_rank_enabled=S0.get('donor_rank_enabled', False), notice_enabled=S0.get('notice_enabled', False))
+    req('/api/show', {'hud': {'donor_rank': bool(S0.get('donor_rank_enabled', False)), 'notice': bool(S0.get('notice_enabled', False))}})
 
 print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))

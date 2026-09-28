@@ -55,8 +55,11 @@ MSGS = ['계좌로 보내주실 때 *닉네임+플레이어* 를 적어주시면
 print('=' * 74)
 print('① 설정이 저장되는가')
 print('=' * 74)
-c, _ = post('/api/settings/patch', {'notice_enabled': True, 'notice_period': 120,
+# 📺 2026-09-29 — 켜고 끄기는 방송 화면(/api/show 고정 자리)으로, 나머지 설정은 패치로
+c0, _ = post('/api/show', {'hud': {'notice': True}})
+c, _ = post('/api/settings/patch', {'notice_period': 120,
                                     'notice_speed': 130, 'notice_msgs': MSGS})
+c = c if c0 == 200 else c0
 d = get()
 chk('켜짐·주기·속도·문구가 저장된다',
     c == 200 and d.get('notice_enabled') is True and d.get('notice_period') == 120
