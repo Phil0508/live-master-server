@@ -872,52 +872,91 @@
         .ai-toast .t-btns { display:flex; gap:7px; }
         .ai-toast button { border:none; border-radius:var(--r-1); padding:8px 10px; font-family:inherit;
             font-size:var(--fs-2); font-weight:800; cursor:pointer; }
-        .ai-toast .t-ok { flex:1; background:linear-gradient(135deg,#2563ff,#7c3aed); color:#fff; }
+        .ai-toast .t-ok { flex:1; background:var(--accent); color:#1a1508; }
         .ai-toast .t-ok:hover { filter:brightness(1.12); }
         .ai-toast .t-no { flex:0 0 66px; background:rgba(255,255,255,0.07); color:#9fb0c9; }
-        /* 🤖 AI 서포트 슬라이드 패널 (왼쪽 끝 중앙 화살표) */
+        /* 🤖 AI 도우미 패널 (왼쪽 끝 중앙 화살표) — B안(2026-09-29): 조종실 색 · 위 상황판 네 칸 · 아래 대화.
+              ⚠️ 예전 파랑·보라 그라데이션은 조종실(검정·금색)과 따로 놀았다. 색은 전부 조종실 토큰에서 가져온다. */
         #ai-drawer-toggle { position:fixed; left:0; top:50%; transform:translateY(-50%); z-index:4001;
             width:26px; height:66px; border:none; border-radius:0 12px 12px 0; cursor:pointer;
-            background:linear-gradient(135deg,#2563ff,#7c3aed); color:#fff; font-size:var(--fs-3); font-weight:900;
+            background:var(--accent); color:#1a1508; font-size:var(--fs-3); font-weight:900;
             box-shadow:2px 0 12px rgba(0,0,0,0.45); transition:left .28s cubic-bezier(.16,1,.3,1);
             display:flex; align-items:center; justify-content:center; }
         #ai-drawer-toggle.open { left:min(380px,86vw); }
         #ai-drawer { position:fixed; left:0; top:0; height:100vh; width:min(380px,86vw); z-index:4000;
-            background:linear-gradient(180deg,#15161a,#101114); border-right:1px solid rgba(120,135,255,0.35);
+            background:var(--bg-panel); border-right:1px solid var(--line);
             box-shadow:6px 0 30px rgba(0,0,0,0.5); transform:translateX(-100%);
             transition:transform .28s cubic-bezier(.16,1,.3,1); display:flex; flex-direction:column; }
         #ai-drawer.open { transform:translateX(0); }
-        #ai-drawer-head { padding:16px 18px 12px; font-size:var(--fs-4); font-weight:900; color:#fff;
-            border-bottom:1px solid rgba(255,255,255,0.08);
-            background:linear-gradient(135deg,rgba(37,99,255,0.18),rgba(124,58,237,0.14)); }
-        #ai-drawer-head small { display:block; font-size:var(--fs-1); font-weight:600; color:#9fb0ff; margin-top:4px; line-height:1.4; }
+        #ai-drawer-head { padding:12px 14px 0; border-bottom:1px solid var(--border-light); }
         #ai-drawer-head .ai-head-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-        #ai-chat-clear { background:rgba(255,255,255,0.08); color:#c9cede; border:1px solid rgba(255,255,255,0.14);
-            border-radius:var(--r-1); padding:5px 9px; font-size:var(--fs-1); font-weight:700; cursor:pointer; white-space:nowrap; }
-        #ai-chat-clear:hover { background:rgba(255,80,80,0.18); border-color:rgba(255,80,80,0.45); color:#ffd5d5; }
-        #ai-proactive-toggle { background:rgba(255,255,255,0.08); color:#c9cede; border:1px solid rgba(255,255,255,0.14);
-            border-radius:var(--r-1); padding:5px 9px; font-size:var(--fs-1); font-weight:700; cursor:pointer; white-space:nowrap; }
-        #ai-proactive-toggle.on { background:rgba(255,180,60,0.18); border-color:rgba(255,180,60,0.5); color:#ffd9a0; }
-        #ai-proactive-toggle.off { opacity:0.55; }
+        .ai-title { font-size:var(--fs-4); font-weight:800; color:var(--text-main); }
+        .ai-health { display:flex; align-items:center; gap:6px; font-size:var(--fs-1); font-weight:700; color:var(--text-muted); white-space:nowrap; }
+        .ai-health i { width:7px; height:7px; border-radius:50%; background:var(--text-dim); flex:none; }
+        .ai-health[data-state="ok"] i { background:var(--success); box-shadow:0 0 0 3px rgba(53,208,127,0.18); }
+        .ai-health[data-state="busy"] { color:#f0c27a; }
+        .ai-health[data-state="busy"] i { background:#f0a33a; box-shadow:0 0 0 3px rgba(240,163,58,0.18); }
+        .ai-health[data-state="off"] i { background:var(--danger); }
+        .ai-tools { display:flex; gap:6px; flex-wrap:wrap; padding:9px 0 10px; }
+        .ai-tools button { background:transparent; color:var(--text-muted); border:1px solid var(--line); border-radius:var(--r-1);
+            padding:4px 9px; font-family:inherit; font-size:var(--fs-1); font-weight:700; cursor:pointer; white-space:nowrap; transition:var(--t-fast); }
+        .ai-tools button:hover { color:var(--text-main); border-color:var(--text-dim); }
+        .ai-tools button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+        #ai-proactive-toggle.on { color:var(--accent); border-color:rgba(226,182,75,0.45); }
+        #ai-proactive-toggle.off { opacity:0.6; }
+        #ai-chat-clear:hover { color:#ffd5d5; border-color:rgba(255,80,80,0.45); }
+        /* 📋 상황판 — 네 칸. 누르면 자세한 답이 대화에 뜬다. 3분 넘게 기다린 후원이 있으면 주황 */
+        #ai-board { display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:10px 12px; border-bottom:1px solid var(--border-light); }
+        .ai-tile { display:flex; flex-direction:column; align-items:stretch; gap:2px; min-width:0; text-align:left;
+            background:var(--bg-card); border:1px solid var(--line); border-radius:var(--r-2); padding:8px 10px;
+            font-family:inherit; color:var(--text-main); cursor:pointer; transition:var(--t-fast); }
+        .ai-tile:hover { border-color:var(--text-dim); }
+        .ai-tile:active { transform:translateY(1px); }
+        .ai-tile:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+        .ai-tile .k { font-size:var(--fs-1); font-weight:700; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ai-tile .v { font-size:var(--fs-4); font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+        .ai-tile .s { font-size:var(--fs-1); color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:1.3em; }
+        .ai-tile .bar { display:block; height:4px; border-radius:2px; background:var(--surface-2); overflow:hidden; margin-top:3px; }
+        .ai-tile .bar[hidden] { display:none; }
+        .ai-tile .bar i { display:block; height:100%; width:0; background:var(--accent); transition:width var(--d-slow) var(--ease); }
+        .ai-tile.hot { border-color:rgba(240,163,58,0.6); background:rgba(240,163,58,0.07); }
+        .ai-tile.hot .k { color:#f0a33a; }
         /* 능동 알림 말풍선(호박색) + 화살표 안읽음 배지 */
         .ai-msg-proactive { align-self:flex-start; border:1px solid rgba(255,180,60,0.5); background:rgba(255,180,60,0.10);
-            color:#ffe6bd; border-bottom-left-radius:4px; }
+            color:#ffe6bd; }
         #ai-unread { display:none; position:absolute; top:-5px; right:-5px; min-width:17px; height:17px; padding:0 4px;
             border-radius:var(--r-2); background:#ff3b3b; color:#fff; font-size:var(--fs-1); font-weight:800; line-height:17px;
-            text-align:center; box-shadow:0 0 0 2px #101114; }
-        #ai-chat-log { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
-        .ai-msg { max-width:86%; padding:9px 12px; border-radius:var(--r-2); font-size:var(--fs-3); line-height:1.55; word-break:break-word; }
-        .ai-msg-user { align-self:flex-end; background:linear-gradient(135deg,#2563ff,#4f46e5); color:#fff; border-bottom-right-radius:4px; }
-        .ai-msg-ai { align-self:flex-start; background:#22242b; color:#e8eaf0; border:1px solid rgba(255,255,255,0.07); border-bottom-left-radius:4px; }
-        .ai-msg-sys { align-self:center; background:transparent; color:#7d8496; font-size:var(--fs-2); text-align:center; line-height:1.5; }
-        .ai-thinking { color:#9fb0ff; font-style:italic; }
-        #ai-chat-input-row { display:flex; gap:8px; padding:12px; border-top:1px solid rgba(255,255,255,0.08); }
-        #ai-chat-input { flex:1; resize:none; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.12);
-            border-radius:var(--r-2); color:#fff; padding:9px 11px; font-size:var(--fs-3); font-family:inherit; outline:none; max-height:120px; }
-        #ai-chat-input:focus { border-color:#6b8bff; }
-        #ai-chat-send { background:linear-gradient(135deg,#2563ff,#7c3aed); color:#fff; border:none; border-radius:var(--r-2);
+            text-align:center; box-shadow:0 0 0 2px var(--bg-body); }
+        #ai-chat-log { flex:1; min-height:0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:9px; }
+        .ai-msg { max-width:88%; padding:8px 11px; border-radius:var(--r-2); font-size:var(--fs-3); line-height:1.55; word-break:break-word; }
+        .ai-msg-user { align-self:flex-end; background:rgba(226,182,75,0.14); border:1px solid rgba(226,182,75,0.28); color:var(--text-main); }
+        .ai-msg-ai { align-self:flex-start; background:var(--bg-card); color:var(--text-main); border:1px solid var(--line); }
+        .ai-msg-sys { align-self:center; background:transparent; color:var(--text-dim); font-size:var(--fs-2); text-align:center; line-height:1.5; }
+        .ai-thinking { color:var(--text-muted); font-style:italic; }
+        /* ⚡ 빠른 질문 단추(상황판에 없는 넷) · 답 꼬리표 · 목록 */
+        #ai-quick { display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px 0; border-top:1px solid var(--border-light); }
+        #ai-quick button { background:var(--surface-2); color:var(--text-main); border:1px solid var(--line); border-radius:var(--r-full);
+            padding:5px 10px; font-family:inherit; font-size:var(--fs-2); font-weight:700; cursor:pointer; transition:var(--t-fast); }
+        #ai-quick button:hover { border-color:var(--accent); color:var(--accent); }
+        #ai-quick button:active { transform:translateY(1px); }
+        #ai-quick button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+        .ai-msg b { color:#fff; font-weight:800; }
+        .ai-msg .ai-li { display:block; padding-left:12px; position:relative; margin-top:2px; }
+        .ai-msg .ai-li::before { content:''; position:absolute; left:2px; top:.62em; width:4px; height:4px; border-radius:50%; background:var(--text-muted); }
+        .ai-src { display:block; margin-top:6px; font-size:var(--fs-1); font-weight:700; color:var(--text-dim); }
+        .ai-src-calc { color:var(--success); }
+        #ai-chat-input-row { display:flex; gap:8px; padding:10px 12px 12px; }
+        #ai-chat-input { flex:1; resize:none; background:var(--bg-input); border:1px solid var(--line);
+            border-radius:var(--r-2); color:var(--text-main); padding:9px 11px; font-size:var(--fs-3); font-family:inherit; outline:none; max-height:120px; }
+        #ai-chat-input:focus { border-color:var(--accent); }
+        #ai-chat-send { background:var(--accent); color:#1a1508; border:none; border-radius:var(--r-2);
             padding:0 16px; font-weight:800; font-size:var(--fs-3); cursor:pointer; white-space:nowrap; }
         #ai-chat-send:disabled { opacity:.5; cursor:default; }
+        /* 📱 폰에서 패널을 열면 오른쪽 아래 '지급할까요' 창과 백업 단추가 입력칸을 가렸다 — 창은 위로, 백업은 잠깐 숨긴다 */
+        @media (max-width: 700px) {
+            body.ai-open #ai-assign-toasts { top:12px; bottom:auto; }
+            body.ai-open #float-backup-btn { display:none !important; }
+        }
         .bj-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
         .bj-btn { background: var(--line); color: white; padding: 6px 12px; font-size: var(--fs-3); border: 1px solid var(--line); }
         .bj-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
@@ -4979,33 +5018,53 @@
                 //    '이 후원자는 늘 밍밍에게 갔다' 는 이력만으로 풀린다. 그러니 다 물어본다.
                 if (auditRequested.has(don.id)) return;
                 auditRequested.add(don.id);
-                fetch('/api/audit/suggest', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message, players: currentPlayerNames() })
-                }).then(r => r.json()).then(res => {
-                    if (!res || res.status !== 'success') return;
-                    // ⚠️ 예전에는 target 과 confidence 만 챙기고 나머지를 버렸다. 그래서 근거도
-                    //    이력도 화면에 못 띄웠고, 무엇보다 '모름' 은 아예 저장되지 않아 조용히 묻혔다.
-                    //    자리를 비웠을 때 바로 그 '모름' 이 사람이 봐야 할 일이다. 통째로 받아 둔다.
-                    auditSuggest[don.id] = {
-                        target: res.target || null, confidence: res.confidence || 0,
-                        tier: res.tier || null, source: res.source || null,
-                        why: res.why || null, history: res.history || [],
-                    };
-                    paintAuditBadge(don.id);
-                    if (!res.target) return;
-                    // 확신이 충분하면 '이 사람에게 줄까요?' 를 한 번 물어본다(아직 대기 중일 때만)
-                    if ((res.confidence || 0) >= ASSIGN_TOAST_MIN_CONF
-                        && !assignToastShown.has(don.id)
-                        && !removedPendingIds.has(don.id)
-                        && (gd.pending_donations || []).some(p => p && p.id === don.id)) {
-                        assignToastShown.add(don.id);
-                        showAssignToast(don, res.target);
-                    }
-                    // 🚗 오토파일럿이 켜져 있으면 방금 판정이 끝난 이 건도 바로 훑는다
-                    try { autopilotSweep(); } catch (e) {}
-                }).catch(() => {});   // 실패해도 조용히 무시(운영 방해 금지)
+                auditAsk(don);
             });
+        }
+        // ⏳ AI 가 붐비거나 한도에 걸려 '모름' 이 된 후원은 조금 뒤 다시 묻는다(20초 → 40초 → 60초, 세 번까지).
+        //    ⚠️ 예전에는 후원 1건당 한 번만 물어서, 그때 붐볐으면 끝까지 '모름' 으로 남았다
+        //       (방송 서버 기록: 2주 동안 AI 가 아예 답을 못 한 게 5번).
+        const auditRetries = {};           // don.id -> 다시 물은 횟수
+        function auditAsk(don) {
+            fetch('/api/audit/suggest', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ name: don.name, amount: don.amount, message: don.message, players: currentPlayerNames() })
+            }).then(r => r.json()).then(res => {
+                if (!res || res.status !== 'success') return;
+                // ⚠️ 예전에는 target 과 confidence 만 챙기고 나머지를 버렸다. 그래서 근거도
+                //    이력도 화면에 못 띄웠고, 무엇보다 '모름' 은 아예 저장되지 않아 조용히 묻혔다.
+                //    자리를 비웠을 때 바로 그 '모름' 이 사람이 봐야 할 일이다. 통째로 받아 둔다.
+                auditSuggest[don.id] = {
+                    target: res.target || null, confidence: res.confidence || 0,
+                    tier: res.tier || null, source: res.source || null,
+                    why: res.why || null, history: res.history || [],
+                    retry: !!res.retry,
+                };
+                if (res.retry) {
+                    const n = (auditRetries[don.id] || 0) + 1;
+                    auditRetries[don.id] = n;
+                    if (n <= 3) {
+                        auditSuggest[don.id].retryIn = true;
+                        setTimeout(() => {
+                            // 그새 배정·삭제됐으면 다시 묻지 않는다
+                            if (removedPendingIds.has(don.id) || !(gd.pending_donations || []).some(p => p && p.id === don.id)) return;
+                            auditAsk(don);
+                        }, 20000 * n);
+                    }
+                }
+                paintAuditBadge(don.id);
+                if (!res.target) return;
+                // 확신이 충분하면 '이 사람에게 줄까요?' 를 한 번 물어본다(아직 대기 중일 때만)
+                if ((res.confidence || 0) >= ASSIGN_TOAST_MIN_CONF
+                    && !assignToastShown.has(don.id)
+                    && !removedPendingIds.has(don.id)
+                    && (gd.pending_donations || []).some(p => p && p.id === don.id)) {
+                    assignToastShown.add(don.id);
+                    showAssignToast(don, res.target);
+                }
+                // 🚗 오토파일럿이 켜져 있으면 방금 판정이 끝난 이 건도 바로 훑는다
+                try { autopilotSweep(); } catch (e) {}
+            }).catch(() => {});   // 실패해도 조용히 무시(운영 방해 금지)
         }
         function paintAuditBadge(donId) {
             const el = document.getElementById('audit-' + donId);
@@ -5025,6 +5084,10 @@
                 el.className = 'audit-badge lv-suggest';
                 el.innerHTML = `🤖 <b>${escapeHTML(s.target)}</b>${josaRo(s.target)} 보임${why}`;
                 el.style.display = 'inline-block';
+            } else if (s.retryIn) {
+                // 잠깐 막힌 것뿐 — 곧 다시 묻는다. '모름' 과 섞으면 사람이 괜히 손으로 판단하러 간다.
+                el.className = 'audit-badge lv-unknown';
+                el.innerHTML = `⏳ AI 가 붐벼요 — 곧 다시 물어봐요${s.why ? ` · ${escapeHTML(s.why)}` : ''}`;
             } else {
                 // '모름' 을 숨기지 않는다. 자리를 비웠을 때 이게 쌓이는 것이 곧 할 일이다.
                 el.className = 'audit-badge lv-unknown';
@@ -5096,7 +5159,7 @@
         // AI는 조작하지 않고 정보/조언만 준다.
         // 대화는 localStorage 에 저장 → 새로고침·재접속해도 유지된다('대화 지우기'로 초기화).
         const AI_CHAT_KEY = 'aiChatLog';
-        const AI_HINT_HTML = '<div class="ai-msg ai-msg-sys">예: "지금 1등 누구야?" · "대결 몇 점 차이야?" · "대기함에 밀린 후원 있어?"</div>';
+        const AI_HINT_HTML = '<div class="ai-msg ai-msg-sys">위 칸을 누르면 자세히 알려줘요 · 그 밖의 것은 글로 물어보세요</div>';
         let aiChatLog = [];       // {role:'user'|'assistant', content} — 전체 대화(저장 대상)
         let aiChatBusy = false;
         let aiRestored = false;
@@ -5109,7 +5172,7 @@
             if (!log) return;
             if (aiChatLog.length) {
                 log.innerHTML = '';
-                aiChatLog.forEach(m => aiAppendMsg(m.role === 'assistant' ? 'ai' : 'user', m.content));
+                aiChatLog.forEach(m => aiAppendMsg(m.role === 'assistant' ? 'ai' : 'user', m.content, m.source));
             }
         }
         function aiClearChat() {
@@ -5123,6 +5186,8 @@
             const t = document.getElementById('ai-drawer-toggle');
             const open = d.classList.toggle('open');
             t.classList.toggle('open', open);
+            aiBoardRun(open);   // 📋 상황판은 열려 있을 때만 새로 받는다
+            document.body.classList.toggle('ai-open', open);
             document.getElementById('ai-toggle-arrow').textContent = open ? '◀' : '▶';
             if (open && !aiRestored) { aiRestored = true; aiRestoreLog(); }   // 첫 열림에 저장된 대화 복원
             if (open) {
@@ -5131,11 +5196,25 @@
                 setTimeout(() => { const i = document.getElementById('ai-chat-input'); if (i) i.focus(); }, 260);
             }
         }
-        function aiAppendMsg(role, text) {
+        // 답 글자 → 화면. **굵게** 와 '- ' 목록만 살린다(나머지는 글자 그대로 — 안전하게 escape 먼저).
+        function aiFmt(text) {
+            return String(text || '').split('\n').map(line => {
+                let h = escapeHTML(line).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+                const li = /^\s*[-•]\s+/.exec(line);
+                return li ? '<span class="ai-li">' + h.replace(/^\s*[-•]\s+/, '') + '</span>' : h;
+            }).join('<br>').replace(/<br>(<span class="ai-li">)/g, '$1').replace(/(<\/span>)<br>/g, '$1');
+        }
+        // 누가 답했는지 — ⚡ 서버가 계산(늘 맞다) / 🤖 AI(말을 다듬음, 가끔 틀릴 수 있다)
+        const AI_SRC = { calc: '⚡ 서버 계산', ai: '🤖 AI' };
+        function aiFill(div, text, source) {
+            div.innerHTML = aiFmt(text) + (AI_SRC[source] ? `<span class="ai-src ai-src-${source}">${AI_SRC[source]}</span>` : '');
+        }
+        function aiAppendMsg(role, text, source) {
             const log = document.getElementById('ai-chat-log');
             const div = document.createElement('div');
             div.className = 'ai-msg ai-msg-' + role;
-            div.innerHTML = escapeHTML(text).replace(/\n/g, '<br>');
+            if (role === 'ai') aiFill(div, text, source);
+            else div.innerHTML = escapeHTML(text).replace(/\n/g, '<br>');
             log.appendChild(div);
             log.scrollTop = log.scrollHeight;
             return div;
@@ -5185,14 +5264,16 @@
             try {
                 const res = await fetch('/api/ai/chat', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: q, messages: aiChatLog.slice(-6) })
+                    // 서버엔 말만 보낸다(source 같은 화면용 꼬리표는 뺀다)
+                    body: JSON.stringify({ question: q, messages: aiChatLog.slice(-6).map(m => ({ role: m.role, content: m.content })) })
                 }).then(r => r.json());
                 const reply = (res && res.reply) ? res.reply : '(응답 없음)';
                 thinking.classList.remove('ai-thinking');
-                thinking.innerHTML = escapeHTML(reply).replace(/\n/g, '<br>');
+                aiFill(thinking, reply, res && res.source);
                 document.getElementById('ai-chat-log').scrollTop = 9e9;
-                aiChatLog.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+                aiChatLog.push({ role: 'user', content: q }, { role: 'assistant', content: reply, source: res && res.source });
                 aiSaveLog();   // 새로고침해도 유지되게 저장
+                aiBoardLoad();   // AI 를 불렀으니 머리의 상태 점을 바로 새로
             } catch (e) {
                 thinking.classList.remove('ai-thinking');
                 thinking.innerHTML = '(오류) 연결 실패';
@@ -5200,6 +5281,67 @@
                 aiChatBusy = false;
                 document.getElementById('ai-chat-send').disabled = false;
                 const i = document.getElementById('ai-chat-input'); if (i) i.focus();
+            }
+        }
+
+        // 📋 상황판(B안) — 패널 위 네 칸. 서버가 사실표에서 바로 센다(/api/ai/board, AI 안 부름).
+        //    패널이 열려 있을 때만 4초마다 새로 받는다. 머리의 점은 마지막 AI 호출 결과다.
+        let aiBoardTimer = null;
+        async function aiBoardLoad() {
+            const d = document.getElementById('ai-drawer');
+            if (!d || !d.classList.contains('open')) return;
+            try {
+                const res = await fetch('/api/ai/board').then(r => r.json());
+                if (res && res.status === 'success') aiBoardPaint(res);
+            } catch (e) {}
+        }
+        function aiBoardPaint(res) {
+            (res.tiles || []).forEach(t => {
+                const el = document.getElementById('ai-tile-' + t.intent);
+                if (!el) return;
+                el.querySelector('.k').textContent = t.k || '';
+                el.querySelector('.v').textContent = t.v || '';
+                el.querySelector('.s').textContent = t.s || '';
+                el.classList.toggle('hot', !!t.hot);
+                const bar = el.querySelector('.bar');
+                if (bar) { bar.hidden = (t.pct == null); bar.firstElementChild.style.width = (t.pct || 0) + '%'; }
+            });
+            const h = document.getElementById('ai-health');
+            if (h && res.ai) { h.dataset.state = res.ai.state || 'idle'; h.lastElementChild.textContent = res.ai.text || ''; }
+        }
+        function aiBoardRun(on) {
+            clearInterval(aiBoardTimer); aiBoardTimer = null;
+            if (on) { aiBoardLoad(); aiBoardTimer = setInterval(aiBoardLoad, 4000); }
+        }
+
+        // ⚡ 빠른 질문 — AI 를 안 부르고 서버가 계산한 답을 바로 받는다(0초 · 늘 맞다 · NVIDIA 가 붐벼도 된다).
+        //    이름표는 서버(features/ai_facts.INTENTS)와 같게 둔다.
+        const AI_QUICK = { rank: '📊 순위', pending: '📥 대기함', goal: '🎯 목표', match: '⚔️ 대결',
+                           race: '🏃 퇴근빵', today: '💰 오늘 후원', sig: '🎵 시그 순위', flow: '📈 최근 흐름' };
+        async function aiAsk(intent) {
+            const label = AI_QUICK[intent];
+            if (!label || aiChatBusy) return;
+            if (!aiRestored) { aiRestored = true; aiRestoreLog(); }
+            aiChatBusy = true;
+            aiAppendMsg('user', label);
+            const box = aiAppendMsg('ai', '계산 중…');
+            box.classList.add('ai-thinking');
+            try {
+                const res = await fetch('/api/ai/chat', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ intent: intent })
+                }).then(r => r.json());
+                const reply = (res && res.reply) ? res.reply : '(응답 없음)';
+                box.classList.remove('ai-thinking');
+                aiFill(box, reply, res && res.source);
+                aiChatLog.push({ role: 'user', content: label }, { role: 'assistant', content: reply, source: res && res.source });
+                aiSaveLog();
+            } catch (e) {
+                box.classList.remove('ai-thinking');
+                box.textContent = '(오류) 연결 실패 — 다시 눌러 주세요';
+            } finally {
+                aiChatBusy = false;
+                document.getElementById('ai-chat-log').scrollTop = 9e9;
             }
         }
 
@@ -5277,7 +5419,9 @@
                     if (!p || !p.id) return;
                     pendIds.add(p.id);
                     if (aiForgotAlerted.has(p.id)) return;
-                    const mm = /^don_(\d+)$/.exec(p.id);     // don.id = don_<epoch ms>
+                    // don.id = don_<epoch ms>_<6자리>. ⚠️ 예전 모양(don_<ms>)만 읽는 /^don_(\d+)$/ 였어서,
+                    //    번호에 꼬리가 붙은 뒤로 '3분째 대기' 알림이 한 번도 안 떴다.
+                    const mm = /^don_(\d+)/.exec(p.id);
                     if (!mm) return;
                     if (nowMs - parseInt(mm[1]) >= FORGOT_MS) {
                         aiForgotAlerted.add(p.id);
@@ -5303,8 +5447,12 @@
                 // ⚠️ 예전에는 d.goal_event_pending 을 봤는데, 그 값을 true 로 만드는 코드가
                 //    어디에도 없다. 그래서 이 알림은 한 번도 뜬 적이 없었다.
                 //    화면에 승인 버튼을 띄우는 renderGoalAchievementNotice() 와 같은 기준을 쓴다.
+                // ⚠️ 막대(방송판)와 같은 셈 — 점수 + 운영비 + 보정. 기여도를 더하면 게임 보너스까지 들어가
+                //    막대는 44% 인데 '1,000점을 넘었어요(현재 1,199점)' 가 떴다(2026-09-29 샌드박스에서 봄).
                 const _tgt = d.target_goal || 0;
-                const _tot = (d.bjs || []).reduce((a2, b2) => a2 + (b2.contribution || 0), 0);
+                const _tot = ((d.bottom_fixed || {}).score || 0)
+                    + (d.bjs || []).reduce((a2, b2) => a2 + (b2.score || 0), 0)
+                    + (parseInt(d.goal_offset) || 0);
                 const _goalWaiting = (_tgt > 0 && _tot >= _tgt) && !d.goal_event_approved;
                 if (_goalWaiting && aiCanAlert('goal', 3600000)) {
                     aiProactiveSay(`목표 ${_tgt.toLocaleString()}점을 넘었어요 (현재 ${_tot.toLocaleString()}점). 달성 연출이 승인 대기 중이에요.`);
@@ -8820,15 +8968,28 @@
     <button id="ai-drawer-toggle" onclick="toggleAiDrawer()" title="AI 서포트"><span id="ai-toggle-arrow">▶</span><span id="ai-unread"></span></button>
     <div id="ai-drawer">
         <div id="ai-drawer-head">
-            <div class="ai-head-row"><span>🤖 AI 서포트</span><span style="display:flex; gap:6px;"><button id="ai-autopilot-toggle" onclick="toggleAutopilot()" title="자리비움용: 확신이 높은 후원만 AI가 자동으로 배정합니다. 애매한 건 대기함에 그대로 둡니다. 새로고침하면 꺼집니다.">🚗 오토파일럿</button><button id="ai-proactive-toggle" onclick="aiToggleProactive()" title="AI가 큰 후원·대기함 적체·대결 종료 등을 먼저 알려줍니다">🔔 알림</button><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">🗑 지우기</button></span></div>
-            <small>지금 방송 상황을 물어보세요 · AI가 중요한 순간엔 먼저 알려줘요 · 대화 자동 저장</small>
+            <div class="ai-head-row"><span class="ai-title">AI 도우미</span><span id="ai-health" class="ai-health" data-state="idle" title="마지막 AI 호출 결과예요. 위 칸과 단추(⚡)는 AI 없이 서버가 계산해서 AI 가 붐벼도 돼요."><i></i><span>확인 중…</span></span></div>
+            <div class="ai-tools"><button id="ai-autopilot-toggle" onclick="toggleAutopilot()" title="자리비움용: 확신이 높은 후원만 AI가 자동으로 배정합니다. 애매한 건 대기함에 그대로 둡니다. 새로고침하면 꺼집니다.">🚗 오토파일럿</button><button id="ai-proactive-toggle" onclick="aiToggleProactive()" title="AI가 큰 후원·대기함 적체·대결 종료 등을 먼저 알려줍니다">🔔 알림</button><button id="ai-chat-clear" onclick="aiClearChat()" title="대화 내용을 지웁니다">지우기</button></div>
+        </div>
+        <!-- 📋 상황판(B안) — 서버가 사실표에서 바로 센다(AI 안 부름). 패널이 열려 있을 때만 4초마다 새로 받는다 -->
+        <div id="ai-board" role="group" aria-label="상황판 — 누르면 자세히">
+            <button type="button" class="ai-tile" id="ai-tile-pending" onclick="aiAsk('pending')"><span class="k">📥 대기함</span><span class="v">…</span><span class="s"></span></button>
+            <button type="button" class="ai-tile" id="ai-tile-match" onclick="aiAsk('match')"><span class="k">⚔️ 대결</span><span class="v">…</span><span class="s"></span></button>
+            <button type="button" class="ai-tile" id="ai-tile-goal" onclick="aiAsk('goal')"><span class="k">🎯 목표</span><span class="v">…</span><span class="s"></span><span class="bar" hidden><i></i></span></button>
+            <button type="button" class="ai-tile" id="ai-tile-race" onclick="aiAsk('race')"><span class="k">🏃 퇴근빵</span><span class="v">…</span><span class="s"></span></button>
         </div>
         <div id="ai-chat-log">
-            <div class="ai-msg ai-msg-sys">예: "지금 1등 누구야?" · "대결 몇 점 차이야?" · "대기함에 밀린 후원 있어?"</div>
+            <div class="ai-msg ai-msg-sys">위 칸을 누르면 자세히 알려줘요 · 그 밖의 것은 글로 물어보세요</div>
+        </div>
+        <div id="ai-quick" role="group" aria-label="빠른 질문">
+            <button type="button" onclick="aiAsk('rank')">📊 순위</button>
+            <button type="button" onclick="aiAsk('today')">💰 오늘 후원</button>
+            <button type="button" onclick="aiAsk('sig')">🎵 시그 순위</button>
+            <button type="button" onclick="aiAsk('flow')">📈 최근 흐름</button>
         </div>
         <div id="ai-chat-input-row">
-            <textarea id="ai-chat-input" rows="1" placeholder="현재 상황을 물어보세요…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiChatSend();}"></textarea>
-            <button id="ai-chat-send" onclick="aiChatSend()">전송</button>
+            <textarea id="ai-chat-input" rows="1" placeholder="그 밖의 것은 글로 물어보세요" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();aiChatSend();}"></textarea>
+            <button id="ai-chat-send" onclick="aiChatSend()">보내기</button>
         </div>
     </div>
 

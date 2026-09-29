@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """🤖 AI 도우미 — NVIDIA NIM 으로 '이 후원은 누구 점수인가' 제안(기입 검증)과 조종실 AI 채팅.
 
-server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
+server.py 에서 옮겨 왔다. 공용 도구는 server 에서 빌려 온다.
+2026-09-29 개편 — 계산은 서버가 끝내고(사실표), 자주 묻는 것은 AI 없이 즉답한다.
+사실표 · 즉답 · 프롬프트는 features/ai_facts.py (서버 없이 검사할 수 있게 떼어 뒀다).
 """
 import json
 import os
@@ -12,6 +14,11 @@ from flask import jsonify, request
 from server import (
     BASE_DIR, _vip_live, alias_lookup, app, db_query, donor_history, file_lock,
     get_db_connection, load_data, requests,
+)
+from features.ai_facts import (
+    CHAT_MAX_TOKENS, assign_system_prompt, assign_user_prompt, board_tiles, build_facts,
+    chat_system_prompt, clean_reply, detect_intent, looks_broken, name_forms as _name_forms,
+    nickname_hints, quick_answer,
 )
 
 
@@ -67,7 +74,6 @@ NIM_CHAT_MODEL = (os.environ.get('NIM_CHAT_MODEL') or "nvidia/nemotron-3-super-1
 #   실측(정답 4/4 · JSON 4/4): 추론 켠 채 1.10초 → 끄면 0.26초.
 #   (예전 모델은 0.7초였으니 더 빨라졌다)
 NIM_NO_THINK = {"chat_template_kwargs": {"thinking": False}}
-NIM_CHAT_PREFIX = ""  # 채팅은 추론을 켜 둔다 — 설명이 필요한 자리라 그게 낫다.
 
 # 🔁 붐빌 때 넘어갈 예비 모델.
 #    503 은 고장이 아니라 "그 모델이 지금 몰렸다" 는 뜻이다. 몇 분 뒤면 풀리지만
@@ -85,6 +91,11 @@ NIM_CHAT_BACKUP = (os.environ.get('NIM_CHAT_BACKUP')
 NIM_RETRYABLE = (429, 500, 502, 503, 504)
 
 
+# 🩺 마지막 AI 호출 결과 — 조종실 AI 패널 머리에 'AI 연결됨 · 0.7초' / 'AI 붐빔' 으로 뜬다.
+#    방송 전에 AI 가 살아 있는지 따로 불러 보지 않아도 패널만 열면 보이게 하려는 것.
+NIM_HEALTH = {'ok': None, 'ms': 0, 'at': 0.0, 'model': '', 'code': 0}
+
+
 def nim_post(models, body, timeout):
     """모델을 차례로 시도한다. 붐비면(503 등) 다음 모델로 넘어간다.
 
@@ -95,12 +106,16 @@ def nim_post(models, body, timeout):
     for i, m in enumerate(tried):
         one = dict(body)
         one["model"] = m
+        t0 = time.time()
         try:
             r = requests.post(NIM_URL, headers={"Authorization": f"Bearer {NVIDIA_API_KEY}"},
                               json=one, timeout=timeout)
         except Exception:
             last = 0
+            NIM_HEALTH.update(ok=False, at=time.time(), model=m, code=0)
             continue
+        NIM_HEALTH.update(ok=r.status_code == 200, ms=int((time.time() - t0) * 1000), at=time.time(),
+                          model=m, code=r.status_code)
         if r.status_code == 200:
             if i > 0:
                 print("🔁 [AI 예비 모델] %s 이(가) 막혀 %s 로 넘어갔습니다."
@@ -109,8 +124,14 @@ def nim_post(models, body, timeout):
         last = r.status_code
         if r.status_code not in NIM_RETRYABLE:
             return r, r.status_code, m      # 다시 해도 같은 오류 — 그대로 알린다
-        more = " — 예비 모델로 넘어갑니다" if i + 1 < len(tried) else ""
+        again = i + 1 < len(tried) and tried[i + 1] == m
+        more = (" — 한 번 더 불러 봅니다" if again
+                else " — 예비 모델로 넘어갑니다" if i + 1 < len(tried) else "")
         print("⚠️ [AI 붐빔] %s 응답 %s%s" % (m, r.status_code, more), flush=True)
+        if again:
+            # 503 은 1초 안에 풀릴 때가 많다. 예비(lightning)는 5~40초씩 걸려서, 주 모델을 한 번 더
+            # 부르는 편이 빠르다(2026-09-29 실측: 주 0.6초 · 예비 5초/7초/40초 타임아웃).
+            time.sleep(0.8)
     return None, last, (tried[-1] if tried else "")
 
 # 분당 호출 한도. 넘으면 검증을 조용히 건너뛴다.
@@ -131,38 +152,27 @@ def _nim_allowed():
         _nim_calls.append(now)
         return True
 
-def nim_suggest_target(name, amount, message, players, history=None, context=None):
+def nim_suggest_target(name, amount, message, players, history=None, context=None, hints=None):
     """후원 메시지가 지목하는 플레이어를 추정한다.
        반환: {"target": 이름 또는 None, "confidence": 0.0~1.0}
-       키 없음/한도 초과/오류/타임아웃 시에는 target=None 으로 조용히 실패한다(예외를 던지지 않는다)."""
+       키 없음/한도 초과/오류/타임아웃 시에는 target=None 으로 조용히 실패한다(예외를 던지지 않는다).
+       잠깐 막힌 것(한도 · 붐빔 · 무응답)이면 retry=True — 조종실이 조금 뒤 다시 묻는다."""
     names = [(p.get('name') if isinstance(p, dict) else str(p)) for p in (players or [])]
     names = [n for n in names if n]
     if not NVIDIA_API_KEY or not requests or not (message or '').strip() or not names:
         return {"target": None, "confidence": 0.0, "skipped": True}
     if not _nim_allowed():
-        return {"target": None, "confidence": 0.0, "skipped": True, "reason": "rate"}
+        return {"target": None, "confidence": 0.0, "skipped": True, "reason": "rate", "retry": True}
     # ⚠️ 메시지 글자만 주면 'ㄱㅇㅈ' 같은 건 영영 못 푼다.
-    #    이 후원자가 예전에 누구에게 갔는지, 지금 화면에서 뭐가 벌어지는지를 같이 준다.
-    extra = ""
-    if history:
-        extra += ("\n이 후원자의 과거 배정: "
-                  + ", ".join(f"{p} {c}번" for p, c in history[:4]))
-    if context:
-        extra += "\n지금 방송 상황: " + " / ".join(context)
-    sys_prompt = (
-        "너는 라이브 후원 방송의 기입 검증 도우미다. 후원 메시지를 읽고 "
-        "그 후원이 아래 플레이어 중 누구를 지목/응원하는지 판단한다.\n"
-        "플레이어: " + ", ".join(names) + extra + "\n"
-        "규칙: 이름/별명/맥락으로 특정 플레이어를 지목하면 그 이름을, "
-        "지목이 전혀 없으면 target 을 null 로 둔다. 반드시 목록에 있는 정확한 이름만 사용한다.\n"
-        "과거 배정은 참고만 한다 — 메시지가 다른 사람을 가리키면 메시지를 따른다.\n"
-        'JSON만 출력: {"target": "이름 또는 null", "confidence": 0.0~1.0}'
-    )
+    #    이 후원자가 예전에 누구에게 갔는지, 지금 화면에서 뭐가 벌어지는지, 이름과 글자가 겹치는
+    #    낱말(힌트)을 같이 준다. 별명 푸는 법(이름 일부 · 초성 · 영어 · 애칭)은 예시로 가르친다.
+    #    2026-09-29 실측: 규칙으로 못 푸는 20건 — 예전 프롬프트 16/20, 지금 20/20.
+    sys_prompt = assign_system_prompt(names, hints=hints, history=history, context=context)
     body = {
         "model": NIM_MODEL,
         "messages": [
             {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": f"닉:{name}/금액:{amount}/메시지:{message}"},
+            {"role": "user", "content": assign_user_prompt(name, amount, message)},
         ],
         "temperature": 0.1,
         # ⚠️ 추론을 켜 두면 생각을 먼저 쓰다가 길이 제한에 잘려 JSON 이 아예 안 나온다.
@@ -171,10 +181,10 @@ def nim_suggest_target(name, amount, message, players, history=None, context=Non
     }
     body.update(NIM_NO_THINK)
     try:
-        # 붐비면 예비 모델로 넘어간다. 후원이 들어온 순간이라 기다릴 수 없다.
-        r, _code, _used = nim_post([NIM_MODEL, NIM_MODEL_BACKUP], body, 8)
+        # 붐비면 주 모델을 한 번 더, 그래도 막히면 예비 모델로 넘어간다.
+        r, _code, _used = nim_post([NIM_MODEL, NIM_MODEL, NIM_MODEL_BACKUP], body, 8)
         if r is None:
-            return {"target": None, "confidence": 0.0, "error": _code or "no-response"}
+            return {"target": None, "confidence": 0.0, "error": _code or "no-response", "retry": True}
         if r.status_code != 200:
             # ⚠️ 410/404 는 서버 고장이 아니라 "그 모델이 없어졌다" 는 뜻이다.
             #    NVIDIA 는 모델을 예고 후 내린다. 운영자가 무엇을 해야 하는지 알 수 있게
@@ -184,8 +194,9 @@ def nim_suggest_target(name, amount, message, players, history=None, context=Non
                       f"NVIDIA 에서 내려간 모델일 수 있습니다. "
                       f"서버 설정 NIM_MODEL 을 살아 있는 모델로 바꿔주세요.", flush=True)
                 return {"target": None, "confidence": 0.0, "error": r.status_code, "gone": True}
-            return {"target": None, "confidence": 0.0, "error": r.status_code}
-        content = r.json()["choices"][0]["message"]["content"].strip()
+            return {"target": None, "confidence": 0.0, "error": r.status_code,
+                    "retry": r.status_code in NIM_RETRYABLE}
+        content = (r.json()["choices"][0]["message"].get("content") or "").strip()
         i, j = content.find('{'), content.rfind('}')   # JSON 블록만 추출
         if i == -1 or j == -1:
             return {"target": None, "confidence": 0.0}
@@ -203,64 +214,13 @@ def nim_suggest_target(name, amount, message, players, history=None, context=Non
             conf = 0.0
         return {"target": target, "confidence": conf}
     except Exception as e:
-        return {"target": None, "confidence": 0.0, "error": str(e)[:80]}
+        return {"target": None, "confidence": 0.0, "error": str(e)[:80], "retry": True}
 
-# ---- AI 서포트 채팅: 현재 방송 상태 스냅샷 + 시스템 프롬프트 ----
-AI_SYSTEM_PROMPT = (
-    "너는 '엔젤컴퍼니' 라이브 방송 운영 시스템의 AI 서포트 어시스턴트다.\n\n"
-    "[이 프로그램이 무엇인가]\n"
-    "- 시청자 후원(투네이션)을 받아 방송 화면(오버레이)에 리액션·연출을 띄우고, "
-    "플레이어(출연자)들의 점수·기여도 랭킹을 관리하는 라이브 방송 운영 도구다.\n"
-    "- 운영자(사람)가 '컨트롤러' 화면에서 조작한다. 너는 그 운영자를 돕는다.\n\n"
-    "[핵심 흐름]\n"
-    "- 후원이 들어오면 '승인 대기함'에 쌓인다. 운영자가 각 후원을 특정 플레이어에게 배정하면 "
-    "그 플레이어의 점수·기여도가 오른다(대개 금액/10000 만큼).\n"
-    "- 후원 금액대에 맞는 '시그니처'(효과음+이미지 연출)가 자동으로 화면에 재생된다.\n"
-    "- 위젯: 플레이어 랭킹판, 후원 게이지, 계좌, 대결(match) 위젯, 퇴근빵(개인별 목표 레이스), "
-    "슬롯머신/룰렛 게임 등.\n\n"
-    "[너의 역할 = 서포트만]\n"
-    "- 현재 상황을 파악해 질문에 답한다. 예: '지금 1등 누구야?', '대결 몇 점 차이야?', "
-    "'대기함에 밀린 후원 있어?', '누가 역전당했어?'.\n"
-    "- 상황 요약, 실수 방지 조언, 우선순위 제안을 한다.\n"
-    "- ⚠️ 너는 직접 점수를 바꾸거나 조작을 실행하지 않는다. 정보 제공과 조언만 한다. "
-    "실제 실행은 운영자가 버튼으로 직접 한다.\n\n"
-    "[답변 규칙]\n"
-    "- 제공된 '현재 방송 상태(JSON)'를 근거로 답한다. 직접 안 적혀 있어도 데이터로 계산·추론할 수 있으면 "
-    "끝까지 계산해서 답한다. 예: 점수 차이는 두 점수를 빼서, 역전 여부·급상승은 최근 점수 로그와 현재 순위를 "
-    "비교해서 알아낸다. 성급하게 '모른다'고 하지 말 것.\n"
-    "- 한두 줄로 끝내지 말고, 운영자가 상황을 판단하는 데 도움이 되게 충분히 설명한다. 관련 숫자(점수·차이·순위·"
-    "대기 건수·남은 시간 등)를 구체적으로 제시하고, 도움이 되면 다음에 뭘 하면 좋을지 짧은 제안도 덧붙인다.\n"
-    "- 그래도 데이터에 정말 없는 항목이면, 없다고 말한 뒤 어디서 확인하면 되는지(어떤 위젯·기능을 켜거나 봐야 하는지)"
-    " 알려준다. 숫자를 지어내지는 않는다.\n"
-    "- 후원 건수·합계를 물으면 '오늘_후원' 을 그대로 쓴다. 점수 로그를 세어 짐작하지 않는다 — "
-    "그건 배정 기록이라 후원 건수와 다르다(하나를 나눠주면 여러 줄이 된다).\n"
-    "- 한국어로. 핵심을 먼저, 세부는 뒤에. 방송 중이라 읽기 쉽게 정리한다."
-)
-
-def _top_donors(d, n=8):
-    """시그니처 1건의 신청자별 횟수 중 상위 n명. 스냅샷 토큰을 아끼려고 자른다.
-       잘린 경우 '…그 외'를 남겨서, AI가 일부만 보고 전체인 양 답하지 않게 한다."""
-    if not isinstance(d, dict) or not d:
-        return None
-    items = sorted(d.items(), key=lambda kv: kv[1], reverse=True)
-    out = {k: v for k, v in items[:n]}
-    if len(items) > n:
-        out["…그 외"] = f"{len(items) - n}명"
-    return out
-
-
-def _goal_waiting(state):
-    """목표를 넘었는데 아직 연출을 송출하지 않았는가."""
-    tgt = int(state.get('target_goal') or 0)
-    if tgt <= 0 or state.get('goal_event_approved'):
-        return False
-    # ⚠️ 막대와 같은 셈이어야 한다 — 점수 + 운영비 + 보정. 예전에는 기여도 합을 써서
-    #    (기여도 = 점수 + 게임 보너스) 막대가 다 차기 전에 '넘었다' 고 했다.
-    total = int((state.get('bottom_fixed') or {}).get('score') or 0)
-    total += sum(int(b.get('score') or 0) for b in (state.get('bjs') or []))
-    total += int(state.get('goal_offset') or 0)
-    return total >= tgt
-
+# ---- AI 서포트 채팅 ----
+# ⚠️ 예전에는 상태를 거의 날것(JSON)으로 주고 "끝까지 계산해서 답하라" 고 시켰다. 그랬더니
+#    3만 원을 +30점이라 하고, 목표(점수)를 오늘 후원(원)과 비교해 "초과 달성" 이라 하고,
+#    퇴근빵 목표를 엉뚱한 사람에게 붙였다. 답은 20줄씩 길었고 "예지랑에게 몰아주면 역전" 같은
+#    조언까지 했다. 이제 계산은 서버가 끝내고(features/ai_facts.build_facts) AI 는 옮겨 적기만 한다.
 
 def _today_donations():
     """이번 방송에 들어온 후원 건수·합계·상위 후원자.
@@ -286,65 +246,6 @@ def _today_donations():
         print(f"⚠️ [AI 스냅샷] 오늘 후원 집계 실패 — 그 항목만 빠집니다: {e}", flush=True)
         return None
 
-
-def build_ai_snapshot(state):
-    """AI 서포트가 상황을 파악할 수 있게 현재 상태의 핵심만 추려 컴팩트한 dict로 만든다.
-       (레이아웃·에디터·미디어 데이터 등 방송 판단과 무관한 큰 값은 제외해 토큰을 아낀다.)"""
-    extra = bool(state.get("extra_game_active"))
-    src = "extra_bjs" if extra else "bjs"
-    ranking = sorted(
-        [{"이름": b.get("name"), "점수": b.get("score", 0), "기여도": b.get("contribution", 0)}
-         for b in state.get(src, [])],
-        key=lambda x: x["기여도"], reverse=True,
-    )
-    pend = [{"이름": d.get("name"), "금액": d.get("amount"), "메시지": d.get("message")}
-            for d in state.get("pending_donations", []) if d.get("type") != "off_work"]
-    recent_logs = [{"시각": l.get("time"), "대상": l.get("name"), "점수변화": l.get("val")}
-                   for l in (state.get("logs") or [])[:20]]   # 최신순 상위 20건
-    tally = state.get("sig_tally") or {}
-    sig_tally_list = sorted(
-        [{"제목": v.get("title"), "신청수": v.get("count"), "금액": v.get("amount"),
-          "신청자": _top_donors(v.get("donors"))} for v in tally.values()],
-        key=lambda x: (x["신청수"] or 0), reverse=True)
-    # 시그니처를 많이 쏜 사람 순위. 8b 모델은 여러 항목을 가로질러 합산하는 걸 자주 틀리므로
-    # "오늘 시그 제일 많이 쏜 사람?" 에 바로 답할 수 있게 서버에서 미리 합쳐준다.
-    donor_total = {}
-    for v in tally.values():
-        amt = v.get("amount") or 0
-        for nm, cnt in (v.get("donors") or {}).items():
-            row = donor_total.setdefault(nm, {"횟수": 0, "금액합": 0})
-            row["횟수"] += int(cnt or 0)
-            row["금액합"] += int(cnt or 0) * amt
-    sig_donor_rank = sorted(
-        [{"이름": k, "횟수": v["횟수"], "금액합": v["금액합"]} for k, v in donor_total.items()],
-        key=lambda x: x["금액합"], reverse=True)[:10]
-    roul = state.get("roulette") or {}
-    return {
-        "방송중": bool(state.get("broadcast_active")),
-        "임시게임_진행중": extra,
-        "플레이어_랭킹": ranking,
-        "승인_대기_후원": pend,
-        "승인_대기_건수": len(pend),
-        "리액션_대기열_수": len(state.get("reaction_queue", [])),
-        "최근_점수_로그": recent_logs,
-        # ⚠️ 점수 로그는 '배정' 기록이라 후원 건수와 다르다. 후원 건수를 물으면 여기를 봐야 한다.
-        "오늘_후원": _today_donations(),
-        "최근_후원": state.get("latest_donation"),
-        "방송_목표금액": state.get("target_goal"),
-        "대결": state.get("match_data"),
-        "퇴근빵_켜짐": bool(state.get("home_race_enabled")),
-        "퇴근빵_목표": state.get("home_goals"),
-        "계좌": state.get("account"),
-        "운영비": state.get("bottom_fixed"),
-        "시그니처_신청집계": sig_tally_list,
-        "시그니처_후원자_순위": sig_donor_rank,
-        # ⚠️ goal_event_pending 은 true 가 되는 코드가 없어서 늘 거짓이었다.
-        #    조종실이 승인 버튼을 띄우는 기준(기여도 합계가 목표를 넘었는가)과 같게 맞춘다.
-        "목표연출_승인대기": bool(_goal_waiting(state)),
-        "슬롯": {"켜짐": bool(state.get("slot_enabled")), "후보수": len(state.get("slot_pool") or [])},
-        "룰렛": {"켜짐": bool(state.get("roulette_enabled")), "당첨자": roul.get("winner_name"), "돌리는중": bool(roul.get("is_spinning"))},
-        "티커_문구": state.get("ticker_text"),
-    }
 
 def _ai_vip_list():
     """AI 스냅샷용 VIP 목록 — 이번 방송 순위 등급 + 직접 준 등급. 실패해도 빈 리스트."""
@@ -417,25 +318,7 @@ def game_context(state):
     return out
 
 
-# 이름 뒤에 흔히 붙는 조사·호칭. '철수형' → '철수' 로 되돌리려고 쓴다.
-_NAME_TAILS = ('에게', '한테', '이랑', '님께', '님', '씨', '형', '누나', '오빠', '언니',
-               '쨩', '찡', '아', '야', '이', '가', '은', '는', '을', '를', '와', '과',
-               '랑', '도', '만', '께')
-
-
-def _name_forms(word):
-    """낱말 하나에서 '이름일 수 있는 모양'들을 만든다(조사·호칭을 두 번까지 뗀다)."""
-    out = {word}
-    cur = word
-    for _ in range(2):
-        for t in _NAME_TAILS:
-            if len(cur) > len(t) and cur.endswith(t):
-                cur = cur[:-len(t)]
-                out.add(cur)
-                break
-        else:
-            break
-    return out
+# 이름 뒤 조사·호칭을 떼는 _name_forms 는 features/ai_facts.name_forms 로 옮겼다(별명 힌트와 같이 쓴다).
 
 
 def names_in_message(msg, names):
@@ -551,11 +434,22 @@ def suggest_target(donor, amount, message, players, state=None):
         return dict(base, target=None, confidence=0.0, tier='unknown',
                     source='이름', why='여러 이름 글자가 섞임: ' + ', '.join(sorted(loose)))
 
+    # ③-c 이름 일부 · 초성 · 줄임 — '행걸' · '지랑이' · 'ㅎㅂㅎㄱ'. 이것만으로 배정하지는 않는다
+    #      ('대단한걸' 도 '행복한걸' 과 뒤가 겹친다). AI 에게 힌트로 주고, AI 가 못 답할 때만 추천으로 올린다.
+    hints = nickname_hints(msg, names)
+
     # ④ 여기까지 못 풀면 AI 에게. 위에서 모은 것을 근거로 같이 넘긴다.
     ctx = game_context(state) if state else []
     ai = nim_suggest_target(donor, amount, msg, names,
-                            history=known, context=ctx)
+                            history=known, context=ctx, hints=hints)
     conf = float(ai.get('confidence') or 0)
+    retry = bool(ai.get('retry'))
+    if not ai.get('target') and len(hints) == 1 and (ai.get('error') or ai.get('skipped')):
+        # AI 가 붐비거나 꺼져 있을 때 — 글자가 겹치는 선수가 하나뿐이면 '확인 필요' 추천으로만 띄운다.
+        # 0.72 는 배지만 뜨고(0.6↑) '지급할까요' 창(0.75↑) · 오토파일럿(0.9↑)은 안 움직이는 자리다.
+        one, why_h = next(iter(hints.items()))
+        return dict(base, target=one, confidence=0.72, tier=_tier(0.72), source='별명',
+                    why=why_h + ' (AI 없이 글자로만 봄)', retry=retry)
     if not ai.get('target'):
         # ⚠️ 왜 모르는지를 사람 말로 돌려준다. 'rate' 같은 낱말은 화면에 그대로 뜨면
         #    운영자가 무슨 뜻인지 알 수 없고, 그러면 그 표시를 아예 안 믿게 된다.
@@ -575,12 +469,13 @@ def suggest_target(donor, amount, message, players, state=None):
             why = '메시지로도 이력으로도 특정이 안 됨'
         else:
             why = '처음 보는 후원자이고 메시지에 단서가 없음'
-        return dict(base, target=None, confidence=0.0, tier='unknown', source='AI', why=why)
+        return dict(base, target=None, confidence=0.0, tier='unknown', source='AI', why=why, retry=retry)
     # AI 는 이력·별명만큼 믿지 않는다. 위쪽 단계에서 걸리지 않은 건은 애매한 것이다.
     conf = min(conf, 0.88)
+    why = '메시지 내용으로 추정' + (f" — {hints[ai['target']]}" if ai['target'] in hints else '')
     return _hold_if_message_points_elsewhere(
         dict(base, target=ai['target'], confidence=round(conf, 2), tier=_tier(conf),
-             source='AI', why='메시지 내용으로 추정'), loose)
+             source='AI', why=why), loose)
 
 
 _SUGGEST_CACHE = {}   # (이름, 금액, 메시지, 플레이어들) → (물은 시각, 답)
@@ -614,33 +509,92 @@ def api_audit_suggest():
         result = suggest_target(name, amount, message, players, st)
         if len(_SUGGEST_CACHE) > 500:
             _SUGGEST_CACHE.clear()          # 무한히 크지 않게 — 방송 한 회차 후원 수보다 훨씬 크다
-        _SUGGEST_CACHE[_ck] = (_now, result)
+        # ⚠️ 잠깐 막힌 답(붐빔 · 한도)은 기억하지 않는다. 예전에는 '모름' 도 10분 동안 기억해서,
+        #    조종실이 다시 물어도 붐볐던 그 답이 그대로 나왔다(2주 동안 5건이 그렇게 묻혔다).
+        if not result.get('retry'):
+            _SUGGEST_CACHE[_ck] = (_now, result)
         return jsonify({"status": "success", **result})
     except Exception as e:
         return jsonify({"status": "success", "target": None, "confidence": 0.0, "error": str(e)[:80]})
 
+def _cached_suggest(state):
+    """대기 후원 하나 → 조종실이 이미 물어 둔 배정 판단(캐시). 채팅 때문에 AI 를 또 부르지 않는다."""
+    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    players = tuple(b.get('name') for b in state.get(src, []))
+
+    def look(d):
+        try:
+            # api_audit_suggest 와 같은 열쇠 — 조종실이 보낸 모양 그대로(이름 · 금액 · 메시지 · 선수들)
+            hit = _SUGGEST_CACHE.get((str(d.get('name', '')), int(d.get('amount') or 0),
+                                      str(d.get('message', '')), players))
+        except (TypeError, ValueError):
+            return None
+        return hit[1] if hit else None
+    return look
+
+
+def ai_health():
+    """AI 가 지금 어떤가 — 마지막 호출 결과. 조종실 AI 패널 머리의 점 색과 글자."""
+    if not NVIDIA_API_KEY:
+        return {'state': 'off', 'text': 'AI 꺼짐 · 칸과 단추는 돼요'}
+    h = NIM_HEALTH
+    if not h['at']:
+        return {'state': 'idle', 'text': 'AI 대기 중'}
+    if h['ok']:
+        return {'state': 'ok', 'text': f"AI 연결됨 · {h['ms'] / 1000:.1f}초"}
+    mins = int((time.time() - h['at']) // 60)
+    return {'state': 'busy', 'text': 'AI 붐빔' + (f' · {mins}분 전' if mins else '')}
+
+
+@app.route('/api/ai/board', methods=['GET'])
+def api_ai_board():
+    """[AI 상황판] 조종실 AI 패널 위 네 칸(대기함 · 대결 · 목표 · 퇴근빵)과 AI 상태. AI 는 안 부른다.
+       조종실은 패널이 열려 있을 때만 4초마다 부른다. 로그인해야 열린다(대기함 후원자 이름이 들어 있다)."""
+    try:
+        with file_lock:
+            state = load_data()
+        f = build_facts(state, suggest=_cached_suggest(state))
+        return jsonify({"status": "success", "tiles": board_tiles(f), "ai": ai_health()})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)[:100]})
+
+
 @app.route('/api/ai/chat', methods=['POST'])
 def api_ai_chat():
-    """[AI 서포트 채팅] 운영자가 현재 상황을 물어보면, 실시간 상태 스냅샷을 근거로 답한다.
-       조작은 하지 않고 정보/조언만. 실패해도 항상 200 + 안내 문구로 응답한다."""
+    """[AI 서포트 채팅] 운영자가 현재 상황을 물어보면, 서버가 계산한 사실표를 근거로 답한다.
+       intent 를 주면(조종실 빠른 질문 단추) AI 없이 사실표로 바로 답한다.
+       조작은 하지 않고 정보/조언만. 실패해도 항상 200 + 안내 문구로 응답한다.
+       source — 'calc'(서버 계산) · 'ai' · 'none'(답 못 함)"""
     try:
         body = request.get_json(silent=True) or {}
         question = str(body.get('question', '')).strip()
+        intent = str(body.get('intent') or '').strip()
         history = body.get('messages') or []
-        if not question:
-            return jsonify({"status": "success", "reply": "무엇을 도와드릴까요?"})
-        if not NVIDIA_API_KEY or not requests:
-            return jsonify({"status": "success",
-                            "reply": "AI 키가 설정되지 않았어요. (Render 환경변수 NVIDIA_API_KEY 확인)"})
-        if not _nim_allowed():
-            return jsonify({"status": "success",
-                            "reply": "지금 AI 호출이 몰려서 잠시 후 다시 물어봐 주세요."})
         with file_lock:
             state = load_data()
-            snap = build_ai_snapshot(state)
-        snap["VIP_후원자"] = _ai_vip_list()   # 상태 밖(DB)이라 여기서 붙인다
-        sys_full = NIM_CHAT_PREFIX + AI_SYSTEM_PROMPT + "\n\n[현재 방송 상태(JSON)]\n" + json.dumps(snap, ensure_ascii=False)
-        msgs = [{"role": "system", "content": sys_full}]
+        facts = build_facts(state, today=_today_donations(), vip=_ai_vip_list(),
+                            suggest=_cached_suggest(state))
+        # ⚡ 빠른 질문 단추 — 0초 · 늘 맞다 · NVIDIA 가 붐벼도 된다
+        if intent:
+            ans = quick_answer(intent, facts)
+            return jsonify({"status": "success", "source": "calc",
+                            "reply": ans or "그건 아직 바로 답할 수 없어요. 글로 물어봐 주세요."})
+        if not question:
+            return jsonify({"status": "success", "source": "none", "reply": "무엇을 도와드릴까요?"})
+        # AI 가 못 답할 때 대신 줄 답 — 질문 종류를 알아보면 사실표로 계산한다
+        fallback = quick_answer(detect_intent(question), facts)
+
+        def _no_ai(msg):
+            if fallback:
+                return jsonify({"status": "success", "source": "calc",
+                                "reply": fallback + f"\n\n({msg} — 서버 계산으로 답했어요)"})
+            return jsonify({"status": "success", "source": "none", "reply": msg})
+
+        if not NVIDIA_API_KEY or not requests:
+            return _no_ai("AI 키가 설정되지 않았어요 (서버 환경변수 NVIDIA_API_KEY)")
+        if not _nim_allowed():
+            return _no_ai("지금 AI 호출이 몰려서 잠시 후 다시 물어봐 주세요")
+        msgs = [{"role": "system", "content": chat_system_prompt(facts, question)}]
         for m in history[-6:]:   # 직전 대화 몇 개만(토큰 절약)
             role = m.get('role'); content = str(m.get('content', ''))
             if role in ('user', 'assistant') and content:
@@ -649,14 +603,14 @@ def api_ai_chat():
         # ⚠️ 채팅도 추론을 끈다. 켜 뒀더니 700 토큰을 생각에 다 쓰고 답을 쓰기 전에
         #    잘려서, 화면에 생각하는 과정이 그대로 나갔다
         #    ("Okay, let's see. The user is asking… Let me count the entries…").
-        req_body = {"messages": msgs, "temperature": 0.3, "max_tokens": 700}
+        # 답은 5줄 안쪽이라 400 이면 넉넉하다(예전 700 은 20줄짜리 답이 잘릴 때까지 썼다).
+        req_body = {"messages": msgs, "temperature": 0.2, "max_tokens": CHAT_MAX_TOKENS}
         req_body.update(NIM_NO_THINK)
-        # 붐비면 예비 모델로 넘어간다 — 한쪽이 막혔다고 채팅이 통째로 죽지 않게.
-        r, _code, _used = nim_post([NIM_CHAT_MODEL, NIM_CHAT_BACKUP], req_body, 30)
+        # 붐비면 주 모델을 한 번 더, 그래도 막히면 예비 모델로 — 한쪽이 막혔다고 채팅이 통째로 죽지 않게.
+        r, _code, _used = nim_post([NIM_CHAT_MODEL, NIM_CHAT_MODEL, NIM_CHAT_BACKUP], req_body, 20)
         if r is None:
-            return jsonify({"status": "success",
-                            "reply": "지금 AI 서버가 붐벼서 답을 못 받았어요. "
-                                     "잠시 뒤 다시 물어봐 주세요. (후원·점수에는 영향 없습니다)"})
+            return _no_ai("지금 AI 서버가 붐벼서 답을 못 받았어요. 잠시 뒤 다시 물어봐 주세요. "
+                          "(후원·점수에는 영향 없습니다)")
         if r.status_code != 200:
             if r.status_code in (404, 410):
                 # ⚠️ 주 모델이 아니라 '실제로 답한 모델'(_used) 을 대야 한다.
@@ -666,13 +620,13 @@ def api_ai_chat():
                 _which = 'NIM_CHAT_BACKUP' if _used == NIM_CHAT_BACKUP else 'NIM_CHAT_MODEL'
                 print(f"❌ [AI 모델 없음] '{_used}' 이(가) 응답 {r.status_code}. "
                       f"({_which} 를 바꿔야 합니다)", flush=True)
-                return jsonify({"status": "success",
+                return jsonify({"status": "success", "source": "none",
                                 "reply": f"이 AI 모델('{_used}')이 종료됐습니다.\n"
                                          f"서버 설정의 {_which} 을(를) 살아 있는 모델로 "
                                          "바꾸고 재시작해주세요. (후원·점수에는 영향 없습니다)"})
-            return jsonify({"status": "success", "reply": f"(AI 오류 {r.status_code}) 잠시 후 다시 시도해주세요."})
+            return _no_ai(f"AI 오류 {r.status_code}")
         msg = r.json()["choices"][0]["message"]
-        reply = (msg.get("content") or "").strip()
+        reply = clean_reply(msg.get("content") or "")
         # ⚠️ reasoning_content 는 답이 아니라 '생각' 이다. 예전에는 답이 비면 그걸 대신
         #    보여줬는데, 지금 모델은 거기에 혼잣말을 담는다. 그대로 내보내면 조종실에
         #    "Okay, let's see. The user is asking…" 같은 게 뜬다. 답으로 쓰지 않는다.
@@ -681,7 +635,11 @@ def api_ai_chat():
             if think:
                 print(f"⚠️ [AI 채팅] 답이 비어 왔습니다(생각만 {len(think)}자). "
                       f"모델: {_used}", flush=True)
-            reply = "생각만 하다 답을 못 만들었어요. 조금 더 짧게 물어봐 주세요."
-        return jsonify({"status": "success", "reply": reply})
+            return _no_ai("생각만 하다 답을 못 만들었어요. 조금 더 짧게 물어봐 주세요")
+        # 모델이 가끔 깨진 글자를 뱉는다(실측 11번에 1번: '재시 가장의 ( :1{" TEXT [[[H0[[[0…').
+        if looks_broken(reply):
+            print(f"⚠️ [AI 채팅] 깨진 답이 와서 버렸습니다: {reply[:60]!r} (모델: {_used})", flush=True)
+            return _no_ai("AI 답이 깨져서 왔어요. 한 번 더 물어봐 주세요")
+        return jsonify({"status": "success", "source": "ai", "reply": reply})
     except Exception as e:
-        return jsonify({"status": "success", "reply": f"(오류) {str(e)[:100]}"})
+        return jsonify({"status": "success", "source": "none", "reply": f"(오류) {str(e)[:100]}"})

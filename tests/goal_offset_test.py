@@ -78,8 +78,10 @@ sv = server_src(PROJ)
 chk('막대 — 보정을 더한다', 'tot += parseInt(d.goal_offset) || 0;' in ov)
 chk('조종실 알림 — 점수 + 운영비 + 보정', "+ (parseInt(gd.goal_offset) || 0);" in ct and "acc + (b.score || 0), 0)" in ct)
 chk('조종실 알림 — 기여도로 안 본다', "acc + (b.contribution || 0), 0);\n            const isGoalReached" not in ct.replace('\r\n', '\n'))
-seg = sv.split('def _goal_waiting')[1].split('def ')[0]
-chk('서버 AI 판정 — 같은 셈', "state.get('goal_offset')" in seg and "b.get('score')" in seg and 'contribution' not in seg)
+# 2026-09-29 — AI 의 목표 셈은 _goal_waiting 에서 사실표(features/ai_facts.build_facts)로 옮겼다
+seg = sv.split('# 목표 — 막대와 같은 셈')[1].split("f['목표'] = '목표 없음'")[0]
+chk('서버 AI 판정 — 같은 셈', "state.get('goal_offset')" in seg and "r['점수'] for r in rows" in seg
+    and "state.get('bottom_fixed')" in seg and '기여도' not in seg, seg[:200])
 chk('조종실에 입력칸이 있다', 'id="in-offset"' in ct and 'function updateOffset' in ct)
 chk('방송 종료 때 0 으로 돌리는 줄이 있다', "state['goal_offset'] = 0" in sv)
 # ⚠️ 시작·종료 양쪽에서 불리는 reset_session_keys 안에 있어야 한다. 종료 쪽에만 두면

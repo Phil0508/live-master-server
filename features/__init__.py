@@ -9,7 +9,8 @@
            account_video(계좌 영상) · ranking(이번 방송 순위) · bjs(선수 일괄 등록)
   시그니처 signatures(등록 · 수정 · 삭제) · signature_play(목록 · 바로 틀기)
   기록     archive(지난 방송 · 월별 순위) · logs(수동 조작 이력) · uistats(클릭 기록)
-  도구     ai(NIM 제안 · AI 채팅) · clip(쇼츠 클립) · announce(안내 봇) · streamdeck
+  도구     ai(NIM 제안 · AI 채팅 · 상황판) · ai_facts(사실표 · 즉답 · 프롬프트 — 서버 안 부르는 순수 함수)
+           clip(쇼츠 클립) · announce(안내 봇) · streamdeck
   화면     pages(로그인 · 처음 설정 · 각 화면 파일 · 효과음 · 영상 · 정적 파일)
   운영     versions(버전 되돌리기) · legal(개인정보처리방침 · 약관 · /health)
 
