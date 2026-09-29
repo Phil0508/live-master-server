@@ -203,11 +203,17 @@ c, r = req('/api/presets/delete', {'id': ps[1]['id']})
 chk('뒤 단계를 지워도 표시는 그대로', c == 200 and r['show']['cue_at'] == 0, (c, r.get('show', {}).get('cue_at')))
 c, r = req('/api/presets/rename', {'id': ps[0]['id'], 'name': '   '})
 chk('빈 이름은 막는다', c == 400, c)
+req('/api/show', {'stage': 'pinball', 'hud': {'best': True}})
+c, r = req('/api/presets/save', {'id': ps[0]['id']})
+chk('📸 지금 화면으로 바꾸기 — 이름 · 개수는 그대로, 무대 · 고정 자리만 새로', c == 200 and len(r['presets']) == 1
+    and r['preset']['id'] == ps[0]['id'] and r['preset']['name'] == '1차 대결' and r['preset']['stage'] == 'pinball'
+    and r['preset']['hud']['best'] is True, (c, r.get('preset', {}).get('stage')))
 CTLSRC = open(os.path.join(PROJ, "controller.html"), encoding="utf-8").read()
 chk('조종실에 순서표 [편집] 단추', 'onclick="psEditToggle()"' in CTLSRC and 'id="ps-edit"' in CTLSRC)
 chk('편집 중엔 단계를 눌러도 방송판이 안 바뀐다(고르기만)', "const click = psEditing ? 'psEditPick' : 'psApply';" in CTLSRC)
 chk('지우기는 두 번 눌러야', 'psDelArmed = setTimeout(' in CTLSRC and "psCall('delete'" in CTLSRC)
 chk('이름 · 순서 바꾸기 길', "psCall('rename'" in CTLSRC and "psCall('move'" in CTLSRC)
+chk('지금 화면으로 바꾸기도 두 번 눌러야(같은 단계 id 로 저장)', "psOverArmed = setTimeout(" in CTLSRC and "psCall('save', { id: psPick })" in CTLSRC)
 for p in ps:
     req('/api/presets/delete', {'id': p['id']})
 

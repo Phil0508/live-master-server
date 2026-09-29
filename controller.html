@@ -1601,6 +1601,7 @@
         .shb-edit input:focus { border-color: var(--accent); }
         .shb-edit button { margin: 0; height: 32px; padding: 0 11px; font-size: var(--fs-2); }
         .shb-edit button.ps-del { color: var(--danger); border-color: rgba(255, 69, 58, .35); }
+        .shb-edit button.ps-over.sure { background: var(--accent); color: #17140b; border-color: var(--accent); }
         .shb-edit button.ps-del.sure { background: var(--danger); color: #fff; border-color: var(--danger); }
         .shb-edit .ps-edit-done { margin-left: auto; }
         .shb-more { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--edge, var(--border-light)); flex-direction: column; gap: 8px; }
@@ -1961,6 +1962,7 @@
             <span class="shb-edit-tools" id="ps-edit-tools">
                 <input id="ps-edit-name" type="text" maxlength="30" placeholder="단계 이름" onkeydown="if(event.key==='Enter')psEditRename()">
                 <button type="button" onclick="psEditRename()"><i class="fa-solid fa-check"></i> 이름 저장</button>
+                <button type="button" class="ps-over" id="ps-edit-over" onclick="psEditOverwrite()" title="이 단계를 지금 방송판 모습(무대 · 고정 자리 · 위젯 자리)으로 바꿉니다"><i class="fa-solid fa-camera"></i> 지금 화면으로 바꾸기</button>
                 <button type="button" onclick="psEditMove(-1)" title="한 칸 앞으로">◀ 앞으로</button>
                 <button type="button" onclick="psEditMove(1)" title="한 칸 뒤로">뒤로 ▶</button>
                 <button type="button" class="ps-del" id="ps-edit-del" onclick="psEditDelete()"><i class="fa-solid fa-trash"></i> 지우기</button>
@@ -9784,18 +9786,22 @@ initFoldablePanels();
             acctToast('📺 "' + ((d.preset && d.preset.name) || '단계') + '" 으로 바꿨어요');
         }
         /* ✏️ 순서표 편집 — 이름 바꾸기 · 순서 바꾸기 · 지우기. 편집 중엔 단계를 눌러도 방송판이 안 바뀐다. */
-        var psEditing = false, psPick = '', psDelArmed = 0;
+        var psEditing = false, psPick = '', psDelArmed = 0, psOverArmed = 0;
+        function psDisarm() {
+            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            if (psOverArmed) { clearTimeout(psOverArmed); psOverArmed = 0; }
+        }
         function psEditToggle(on) {
             psEditing = (on === undefined) ? !psEditing : !!on;
             if (!psEditing) psPick = '';
-            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            psDisarm();
             const bar = document.getElementById('show-bar');
             if (bar) bar.classList.toggle('editing', psEditing);
             psEditPaint(); psSig = ''; psRender();
         }
         function psEditPick(id) {
             psPick = (psPick === id) ? '' : id;
-            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            psDisarm();
             const inp = document.getElementById('ps-edit-name');
             if (inp) inp.blur();
             psEditPaint(); psSig = ''; psRender();
@@ -9815,6 +9821,11 @@ initFoldablePanels();
                 del.classList.toggle('sure', !!psDelArmed);
                 del.innerHTML = psDelArmed ? '<i class="fa-solid fa-trash"></i> 정말 지울까요? 한 번 더' : '<i class="fa-solid fa-trash"></i> 지우기';
             }
+            const ov = document.getElementById('ps-edit-over');
+            if (ov) {
+                ov.classList.toggle('sure', !!psOverArmed);
+                ov.innerHTML = psOverArmed ? '<i class="fa-solid fa-camera"></i> 한 번 더 누르면 덮어써요' : '<i class="fa-solid fa-camera"></i> 지금 화면으로 바꾸기';
+            }
         }
         function psEditDone(d) {
             if (d && d.show && typeof gd !== 'undefined' && gd) gd.show = d.show;
@@ -9833,18 +9844,33 @@ initFoldablePanels();
         }
         async function psEditMove(dir) {
             if (!psPick) return;
-            if (psDelArmed) { clearTimeout(psDelArmed); psDelArmed = 0; }
+            psDisarm();
             const d = await psCall('move', { id: psPick, dir });
             if (d) psEditDone(d);
+        }
+        /* 📸 이 단계를 지금 방송판 모습으로 — 옛 세이브 슬롯(무대 정보가 없던 것)을 새로 담을 때 쓴다.
+              저장해 둔 배치를 덮어쓰므로 지우기처럼 3초 안에 두 번 눌러야 한다. 이름 · 순서는 그대로. */
+        async function psEditOverwrite() {
+            if (!psPick) return;
+            if (!psOverArmed) {
+                psDisarm();
+                psOverArmed = setTimeout(() => { psOverArmed = 0; psEditPaint(); }, 3000);
+                psEditPaint(); return;
+            }
+            psDisarm();
+            const d = await psCall('save', { id: psPick });
+            if (!d) { psEditPaint(); return; }
+            psEditDone(d); acctToast('📸 지금 화면으로 바꿨어요');
         }
         async function psEditDelete() {
             if (!psPick) return;
             // 실수로 한 번에 지워지지 않게 3초 안에 두 번 누르게 한다
             if (!psDelArmed) {
+                psDisarm();
                 psDelArmed = setTimeout(() => { psDelArmed = 0; psEditPaint(); }, 3000);
                 psEditPaint(); return;
             }
-            clearTimeout(psDelArmed); psDelArmed = 0;
+            psDisarm();
             const d = await psCall('delete', { id: psPick });
             if (!d) { psEditPaint(); return; }
             psPick = '';
