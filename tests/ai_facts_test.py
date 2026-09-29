@@ -83,7 +83,7 @@ SUG = {"지수크루": {"target": "밍밍", "tier": "auto"}, "코코몽": {"targ
 f = F.build_facts(STATE, today=TODAY, suggest=lambda d: SUG.get(d.get('name')), now=NOW)
 
 head('① 사실표 — 서버가 맞게 센다')
-chk('점수 환산은 서버와 같은 식(4천 원부터 올림)',
+chk('점수 환산은 서버와 같은 식(5천 원대는 내리고 6천 원부터 올림)',
     [F.man_won(x) for x in (5000, 6000, 30000, 15000, 16000, 0, None)] == [0, 1, 3, 1, 2, 0, 0])
 r = f['순위']
 chk('순위는 기여도 순', [x['이름'] for x in r] == ['행복한걸', '밍밍', '예지랑', '앙나니'])
@@ -124,6 +124,12 @@ chk('시그 — 횟수 1등 지수크루 · 금액 1등 재성(135,609원)',
     s['횟수_순'][0]['이름'] == '지수크루' and s['금액_순'][0]['이름'] == '재성' and s['금액_순'][0]['금액합'] == 135609)
 ex = F.build_facts(dict(STATE, extra_game_active=True, extra_bjs=[{"name": "임시", "score": 1, "contribution": 2}]), now=NOW)
 chk('임시게임 중이면 임시 선수로 센다', [x['이름'] for x in ex['순위']] == ['임시'] and ex['판'].startswith('임시'))
+# ⚠️ 번외 중에도 목표 막대 · 퇴근빵은 본게임 명단(bjs)으로 센다 — 방송판 막대·퇴근빵 판이 d.bjs 만 본다
+chk('임시게임 중에도 목표는 본게임 점수(443 / 1000)', isinstance(ex['목표'], dict)
+    and ex['목표']['현재점수'] == 443 and ex['목표']['남은점수'] == 557, ex['목표'])
+chk('임시게임 중에도 퇴근빵은 본게임 선수로', ex.get('퇴근빵', {}).get('가장_가까운_미달성') == '앙나니'
+    and {x['이름'] for x in ex['퇴근빵']['선수별']} == {'밍밍', '예지랑', '행복한걸', '앙나니'}, ex.get('퇴근빵'))
+chk("단위 설명이 실제 셈과 같다(6천 원부터 올림)", '6천 원부터 올림' in f['단위'] and '4천' not in f['단위'], f['단위'])
 chk('빈 상태에서도 안 터진다', isinstance(F.build_facts({}, now=NOW), dict))
 
 head('② 즉답 — 여덟 단추가 맞는 숫자를 말한다')

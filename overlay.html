@@ -4063,6 +4063,12 @@
                 if ((p.score || 0) > maxScore) { maxScore = p.score || 0; leadIdx = i; }
             });
             if (maxScore <= 0) leadIdx = -1;
+            // 👑 빛(.lead)은 '혼자 1등' 일 때만 준다.
+            //    ⚠️ 동점이면 leadIdx 는 '배열에서 먼저 나온 사람' 일 뿐이다 — 예전엔 그대로 빛을 줘서
+            //       2:2 동점인데 왼쪽 카드만 이기고 있는 것처럼 보였다.
+            //       격차(renderMatchGap)는 leadIdx 를 그대로 받는다 — '동점' 표시·역전 판정이 그걸로 돈다.
+            const topCount = leadIdx < 0 ? 0 : players.filter(p => (p.score || 0) === maxScore).length;
+            const hiIdx = topCount === 1 ? leadIdx : -1;
 
             const fracs = [];
             players.forEach((p, i) => {
@@ -4082,7 +4088,7 @@
                 const seg = document.getElementById(`m-seg-${i}`);
                 if (seg) {
                     seg.style.flex = frac.toFixed(4);
-                    seg.classList.toggle('lead', i === leadIdx);
+                    seg.classList.toggle('lead', i === hiIdx);
                 }
 
                 // 점수 애니메이션 (카드 금액 + 게이지 금액)
@@ -4105,7 +4111,7 @@
                 }
 
                 const card = document.getElementById(`m-card-${i}`);
-                if (card) card.classList.toggle('lead', i === leadIdx);
+                if (card) card.classList.toggle('lead', i === hiIdx);
             });
 
             renderMatchGap(players, leadIdx, total, fracs);
@@ -6406,7 +6412,7 @@
                     resetMatchGapState();   // 대결을 껐다 켜면 새 판 → 지난 판의 1등을 기억한 채 '역전!'이 뜨면 안 된다
                 }
 
-                let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = d.target_goal || 1; 
+                let bjs = d.bjs || []; let bot = d.bottom_fixed || {name:'운영비', score:0}; let tgt = Math.max(0, Number(d.target_goal) || 0);   // ⚠️ 0·빈칸 = 목표 없음(조종실도 그렇게 읽는다) — 예전엔 `|| 1` 이라 목표 0 이면 1점만 있어도 막대가 꽉 차고 '달성' 반짝임까지 떴다
                 // 🔢 기여도가 100만을 넘는 줄이 하나라도 있으면 숫자 칸을 넓힌다(CSS .big-num)
                 try {
                     const _eb = document.getElementById('excel-board');
@@ -10656,6 +10662,20 @@
            ⚠️ 숫자는 animateVal 로 세어 올린다(엑셀판과 같은 연출). 오른 줄은 키우고,
               내린 줄은 살짝 줄인다 — 뺏어오기는 두 줄이 한 번에 움직이기 때문이다. */
         let dgbPrev = {}, dgbRosterKey = '';
+        // 🔤 동점 이름 차례 — 서버(features/dicegame.py _dicegame_ranked)의 파이썬 문자열 비교와 똑같이
+        //    '글자 번호(code point)' 순으로 줄 세운다.
+        //    ⚠️ localeCompare 를 쓰면 안 된다 — 대소문자를 안 가리고 언어 규칙을 따라서 'b' 와 'C' 처럼
+        //       서버와 거꾸로 서는 이름이 생겼다(조종실·서버는 1등, 방송판은 2등).
+        //       '<' 만 쓰면 이모지 같은 큰 글자(UTF-16 짝)에서 또 어긋나 글자 단위로 비교한다.
+        function dgCodeCmp(a, b) {
+            const A = Array.from(String(a)), B = Array.from(String(b));
+            const n = Math.min(A.length, B.length);
+            for (let i = 0; i < n; i++) {
+                const x = A[i].codePointAt(0), y = B[i].codePointAt(0);
+                if (x !== y) return x < y ? -1 : 1;
+            }
+            return A.length === B.length ? 0 : (A.length < B.length ? -1 : 1);
+        }
         function renderDiceBoard(g) {
             const left = document.getElementById('dgb-left');
             const right = document.getElementById('dgb-right');
@@ -10663,7 +10683,7 @@
             const rows = (Array.isArray(g.board) ? g.board : [])
                 .filter(r => r && r.name)
                 .map(r => ({ name: String(r.name), pts: Number(r.pts) || 0 }))
-                .sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+                .sort((a, b) => b.pts - a.pts || dgCodeCmp(a.name, b.name));
             const key = rows.map(r => r.name).join('|');
             const half = Math.max(1, Math.ceil(rows.length / 2));
             const cell = (r, i) => `<div class="excel-row ${i < 3 ? 'rank-' + (i + 1) : ''}" id="dgb-${safeId(r.name)}">`

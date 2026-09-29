@@ -7,8 +7,16 @@ import copy
 import time
 from flask import jsonify, request
 from server import (
-    DEFAULT_STATE, app, broadcast_event, file_lock, is_excluded, load_data, save_data,
+    DEFAULT_STATE, _norm_donor, app, broadcast_event, excluded_names, file_lock, load_data, save_data,
 )
+
+
+def _really_excluded(name):
+    """사장님이 [순위에서 빼기] 로 뺀 이름인가(빈 이름도 뺀다).
+    ⚠️ is_excluded() 를 쓰면 안 된다 — 그건 '익명' 을 언제나 빼서, 조종실에서 '익명 포함' 을
+       켜도 끝 화면에만 익명이 안 나왔다(후원 순위판엔 나온다). 익명은 donor_rank_anon 이 정한다."""
+    who = _norm_donor(name)
+    return (not who) or who in excluded_names()
 
 
 # ==========================================
@@ -59,7 +67,7 @@ def _stage_snapshot(st):
     show_amt = st.get('donor_rank_amount') is not False
     rows = []
     for who, row in (st.get('donor_tally') or {}).items():
-        if not isinstance(row, dict) or is_excluded(who):
+        if not isinstance(row, dict) or _really_excluded(who):
             continue
         if not with_anon and who == '익명':
             continue
@@ -70,7 +78,11 @@ def _stage_snapshot(st):
 
     b = st.get('best_single') or {}
     best = None
-    if isinstance(b, dict) and _n(b.get('amount')) > 0:
+    # ⚠️ 한 방 최고도 뺀 이름이면 안 띄운다 — 기록된 뒤에 [순위에서 빼기] 를 눌러도 best_single 은
+    #    그대로 남아 있어, 끝 화면에 테스트 후원 이름이 '오늘의 한 방' 으로 나갈 수 있었다.
+    #    익명 한 방은 그대로 둔다(한 방 위젯도 익명을 띄운다).
+    if (isinstance(b, dict) and _n(b.get('amount')) > 0
+            and not (str(b.get('name') or '').strip() and _really_excluded(b.get('name')))):
         best = {'name': str(b.get('name') or ''), 'amount': _n(b.get('amount')),
                 'member': str(b.get('member') or '')}
     return {

@@ -23,7 +23,9 @@ import time
 
 
 def man_won(amount):
-    """금액 → 점수. server.man_won · 조종실 manWon() 과 같은 식(4천 원부터 올림)."""
+    """금액 → 점수. server.man_won · 조종실 manWon() 과 같은 식(5천 원대는 내리고 6천 원부터 올림).
+    ⚠️ 식의 +4000 만 보고 '4천 원부터 올림' 이라 적었다가 틀렸다 — 끝자리가 6,000 이상이어야
+       1만이 넘는다(5,999 + 4,000 = 9,999 → 내림). tests/rounding_test.py 표와 같다."""
     try:
         return (int(amount) + 4000) // 10000
     except (TypeError, ValueError):
@@ -164,20 +166,29 @@ def build_facts(state, today=None, vip=None, suggest=None, now=None):
     now_ms = int(now * 1000)
     extra = bool(state.get('extra_game_active'))
     players = state.get('extra_bjs' if extra else 'bjs') or []
-    rows = sorted(({'이름': b.get('name'), '점수': _int(b.get('score')), '기여도': _int(b.get('contribution'))}
-                   for b in players if b.get('name')), key=lambda r: r['기여도'], reverse=True)
+
+    def _rows(lst):
+        return sorted(({'이름': b.get('name'), '점수': _int(b.get('score')), '기여도': _int(b.get('contribution'))}
+                       for b in lst if isinstance(b, dict) and b.get('name')),
+                      key=lambda r: r['기여도'], reverse=True)
+    # 순위(board)는 지금 판(번외 중이면 번외 판)으로 센다
+    board = _rows(players)
+    # ⚠️ 목표 막대 · 퇴근빵 · 지옥탈출(rows)은 번외 중에도 **본게임 명단(bjs)** 으로 센다.
+    #    방송판(overlay) 목표 막대 · 퇴근빵 판, 조종실 목표 알림이 전부 d.bjs 만 보기 때문이다.
+    #    예전엔 번외 판(extra_bjs)으로 세어서 화면 막대와 AI 가 말하는 '남은 점수' 가 달랐다.
+    rows = _rows(state.get('bjs') or []) if extra else board
     rank = []
-    for i, r in enumerate(rows):
+    for i, r in enumerate(board):
         e = dict(순위=i + 1, **r)
         if i:
-            e['윗순위와_기여도차'] = rows[i - 1]['기여도'] - r['기여도']
-            e['윗순위와_점수차'] = rows[i - 1]['점수'] - r['점수']
+            e['윗순위와_기여도차'] = board[i - 1]['기여도'] - r['기여도']
+            e['윗순위와_점수차'] = board[i - 1]['점수'] - r['점수']
         rank.append(e)
 
     f = {
         '방송': '진행 중' if state.get('broadcast_active') else '꺼짐',
         '판': '임시게임(엑스트라)' if extra else '본게임',
-        '단위': '점수 1점 = 후원 1만 원(4천 원부터 올림). 순위는 기여도 순.',
+        '단위': '점수 1점 = 후원 1만 원(5천 원대는 내리고 6천 원부터 올림). 순위는 기여도 순.',
         '순위': rank,
     }
 
@@ -245,6 +256,7 @@ def build_facts(state, today=None, vip=None, suggest=None, now=None):
     goals = (hell.get('goals') if hell.get('on') else state.get('home_goals')) or {}
     base = (hell.get('base') or {}) if hell.get('on') else {}
     race = []
+    # ⚠️ 본게임 명단(rows)으로 센다 — 방송판 퇴근빵·지옥탈출 판도 번외 중에 d.bjs 를 본다.
     for r in rows:
         g = _int(goals.get(r['이름']))
         if g <= 0:
