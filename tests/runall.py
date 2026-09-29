@@ -48,6 +48,8 @@ def sh(cmd, cwd=None, env=None, timeout=900):
     e['LM_PROJECT_ROOT'] = PROJ
     # 검사가 샌드박스 DB 를 짐작하지 않게 실제 경로를 알려준다
     e['LM_SANDBOX_PT'] = PT
+    # fix_server_test 의 '저장 실패 · 이중 보관' 검사는 서버 사본을 새 DB 로 프로세스 안에서 돌린다 — 저장소를 원본으로 준다
+    e.setdefault('LM_SANDBOX_DIR', PROJ)
     if env: e.update(env)
     try:
         r = subprocess.run(cmd, cwd=cwd, env=e, capture_output=True,
@@ -252,6 +254,12 @@ run('주사위게임', [PY, 'dice_test.py'], HERE, kind='pt')
 run('🎲 주사위 고친 것 (09-30)', [PY, 'dice_fix_test.py'], HERE, kind='pt')
 run('🎲 주사위 순서 — 방송판에서 재기', [PY, 'dice_order_test.py'], HERE, kind='pt')
 run('🎲 주사위 연출 시간표 — 서버 = 방송판', [PY, 'dice_timing_test.py'], HERE)
+# 🧾 2026-09-30 점수 오류 전수 점검 → 고친 것 (서버 핵심 · 조종실/폰 · 게임 · 방송 화면)
+run('🧾 고친 것 — 서버 핵심', [PY, 'fix_server_test.py'], HERE, kind='pt')
+run('🧾 고친 것 — 후원 접수', [PY, 'fix_donation_test.py'], HERE, kind='pt')
+run('🧾 고친 것 — 조종실 · 폰', [PY, 'fix_client_test.py'], HERE, kind='pt')
+run('🧾 고친 것 — 게임', [PY, 'fix_games_test.py'], HERE, kind='pt')
+run('🧾 고친 것 — 방송 화면 · AI', [PY, 'fix_display_test.py'], HERE, kind='pt')
 run('구슬 핀볼', [PY, 'pinball_test.py'], HERE)
 run('기여도만 지급', [PY, 'contrib_test.py'], HERE, kind='pt')
 run('한 방 최고 후원', [PY, 'best_test.py'], HERE, kind='pt')
