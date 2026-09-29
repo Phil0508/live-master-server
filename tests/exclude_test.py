@@ -204,7 +204,8 @@ print('=' * 74)
    donor_tally 와 길이 다르다 — 그래서 빼기가 게이지를 못 건드린다."""
 ov = io.open(os.path.join(PROJ, 'overlay.html'), encoding='utf-8', errors='replace').read()
 chk('게이지는 점수판에서 계산한다 (순위 명단과 다른 길)',
-    'let tgt = d.target_goal || 1;' in ov and 'let bjs = d.bjs || [];' in ov)
+    # 2026-09-30 목표 0 은 '목표 없음' — 예전 `|| 1` 은 막대를 꽉 채웠다
+    'let tgt = Math.max(0, Number(d.target_goal) || 0);' in ov and 'let bjs = d.bjs || [];' in ov)
 chk('빼기는 donor_tally 만 건드린다', "state.get('donor_tally') or {}).pop(who, None)" in src)
 chk('빼기 코드가 금액 합계를 건드리지 않는다',
     'target_goal' not in src.split('def api_excluded_add')[1].split('def api_excluded_remove')[0])
