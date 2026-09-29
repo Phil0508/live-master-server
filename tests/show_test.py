@@ -260,6 +260,19 @@ chk('랭킹 탭 팝업 스위치 옆에도 같은 스위치', 'id="chk-small" on
     and "setChk('chk-small', !(gd.show && gd.show.alerts && gd.show.alerts.small === false));" in CTLSRC2)
 chk('띠는 반투명 35%', 'background: rgba(0, 0, 0, 0.35);' in OVSRC)
 
+print(); print('=' * 74); print('⑩ 🔕 알림 스위치를 다시 켤 때 밀린 알림이 한꺼번에 뜨지 않는다'); print('=' * 74)
+chk('안 띄울 점수 팝업 · 1등 탈환도 본 것으로 삼킨다',
+    "&& !(shAlert('popup', d) && alertFresh(d.latest_popup.time))) lastPopupTime = d.latest_popup.time;" in OVSRC
+    and "&& !(shAlert('takeover', d) && alertFresh(d.latest_takeover.time))) lastTakeoverTime = d.latest_takeover.time;" in OVSRC)
+chk('안 띄울 후원 카드 · 띠도 본 것으로 삼킨다',
+    "&& !((_isSmall || shAlert('popup', d)) && alertFresh(d.latest_donation.time))) lastDonationTime = d.latest_donation.time;" in OVSRC)
+_i_sw = OVSRC.find("lastPopupTime = d.latest_popup.time;\n                if (d.latest_takeover")
+chk('삼키는 줄이 띄우는 줄보다 먼저 온다', 0 < _i_sw < OVSRC.find("if (d.latest_popup && d.latest_popup.time !== lastPopupTime && shAlert('popup', d)")
+    and OVSRC.find('lastDonationTime = d.latest_donation.time;\n') < OVSRC.find("d.latest_donation.time !== lastDonationTime && (_isSmall || shAlert('popup', d))) {"))
+chk('30초 넘은 알림은 안 띄운다 — 초(후원) · 밀리초(팝업 · 탈환) 둘 다, 서버 시계로',
+    'const ALERT_FRESH_MS = 30000;' in OVSRC and 'if (ms > 0 && ms < 1e12) ms *= 1000;' in OVSRC
+    and '(Date.now() + serverTimeOffset) - ms < ALERT_FRESH_MS' in OVSRC)
+
 print()
 print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))

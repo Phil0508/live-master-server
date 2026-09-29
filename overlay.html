@@ -5671,6 +5671,16 @@
             if (s && s.alerts) return s.alerts[k] !== false;
             return d[SH_ALERT_LEGACY[k]] !== false;
         }
+        /* ⏱️ 알림이 '방금' 생긴 것인가 — 30초가 넘은 알림은 띄우지 않는다.
+              방송판이 잠깐 끊겼다 다시 붙거나(OBS 소스 숨김 · 인터넷 끊김) 스위치를 다시 켤 때
+              지난 알림이 뒤늦게 터지지 않게 한다. 시계는 서버 시각(serverTimeOffset)에 맞춰 잰다.
+              ⚠️ 서버가 적는 단위가 다르다 — 후원(latest_donation)은 초, 점수 팝업 · 1등 탈환은 밀리초. */
+        const ALERT_FRESH_MS = 30000;
+        function alertFresh(t) {
+            let ms = Number(t) || 0;
+            if (ms > 0 && ms < 1e12) ms *= 1000;
+            return ms > 0 && (Date.now() + serverTimeOffset) - ms < ALERT_FRESH_MS;
+        }
         function shCover(d) {
             d = d || globalData || {};
             const s = shOf(d);
@@ -5991,6 +6001,14 @@
 
                 if (d.up_trigger && d.up_trigger.time !== lastUpTriggerTime) { lastUpTriggerTime = d.up_trigger.time; const upEl = document.getElementById('up-message-layer'); upEl.innerText = d.up_trigger.text; upEl.style.transition = 'none'; upEl.classList.remove('show'); void upEl.offsetWidth; upEl.style.transition = ''; upEl.classList.add('show'); clearTimeout(upMessageTimer); upMessageTimer = setTimeout(() => { upEl.classList.remove('show'); }, 2000); }
                 
+                // 🔕 안 띄울 알림도 '본 것'으로 삼킨다(대표님 2026-09-29: 스위치를 켜는 순간 알림이 파바박 올라왔다).
+                //    예전에는 띄울 때만 표시를 해서, 꺼 둔 사이에 온 알림이 다시 켜는 순간 한꺼번에 터졌다.
+                //    30초 넘은 알림도 여기서 삼킨다. 아래 원래 줄들은 켜져 있고 방금 온 것만 띄운다.
+                if (d.latest_popup && d.latest_popup.time !== lastPopupTime
+                    && !(shAlert('popup', d) && alertFresh(d.latest_popup.time))) lastPopupTime = d.latest_popup.time;
+                if (d.latest_takeover && d.latest_takeover.time !== lastTakeoverTime
+                    && !(shAlert('takeover', d) && alertFresh(d.latest_takeover.time))) lastTakeoverTime = d.latest_takeover.time;
+
                 // 수동 알림
                 if (d.latest_popup && d.latest_popup.time !== lastPopupTime && shAlert('popup', d) && d.latest_popup.diff > 0) { 
                     lastPopupTime = d.latest_popup.time;
@@ -6010,6 +6028,8 @@
                 //    ⚠️ 끈다고 카드로 되돌리지 않는다 — '소액은 화면에 안 띄우고 싶다'가 끄는 이유다.
                 const _isSmall = !!d.latest_donation && isSmallDon(d.latest_donation, d);
                 const _smallDon = _isSmall && shAlert('small', d);
+                if (d.latest_donation && d.latest_donation.time !== lastDonationTime
+                    && !((_isSmall || shAlert('popup', d)) && alertFresh(d.latest_donation.time))) lastDonationTime = d.latest_donation.time;
                 if (d.latest_donation && d.latest_donation.time !== lastDonationTime && (_isSmall || shAlert('popup', d))) { 
                     lastDonationTime = d.latest_donation.time;
                     
