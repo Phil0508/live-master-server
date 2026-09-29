@@ -251,6 +251,30 @@ chk('조종실: 못 옮긴 사람을 창으로 알린다', "'🎯 못 옮긴 사
 
 print()
 print('=' * 74)
+print('12. 굴려도 굴리는 사람은 그대로 — 바꿀 때만 바뀐다')
+print('=' * 74)
+"""대표님(2026-09-30): "한 명 굴리면 다른 사람으로 굴리는 게 바뀌던데 내가 바꾸기 전까진 그대로 냅두게 해줘"
+   예전엔 두 곳에서 바뀌었다 — 서버가 차례를 다음 말로 넘기고, 조종실 · 폰이 고른 사람을 지웠다."""
+reset()
+board()
+post('/api/dicegame/move', {'piece': '나', 'pos': 0})
+c, r = post('/api/dicegame/roll', {'piece': '나', 'value': 1})
+g = dg()
+chk('⭐ 서버: 나가 굴린 뒤에도 차례는 나 (예전: 다로 넘어갔다)', g['pieces'][g['turn']]['name'] == '나', g['pieces'][g['turn']]['name'])
+time.sleep(3.0)      # 연타 막기(말 닿음 0.8초 + 카드 1.5초 + 0.3초)
+c, r = post('/api/dicegame/roll', {'value': 1})               # 사람을 안 고르고 또 굴린다
+chk('안 고르고 또 굴려도 나', c == 200 and r.get('piece') == '나', (c, r.get('piece'), r.get('message')))
+_toast = CTL[CTL.index('function dgcRollToast(d)'):CTL.index('function dgcLogAdd(m)')]
+chk('⭐ 조종실: 굴린 뒤 고른 사람을 안 지운다', "sel.value = ''" not in _toast, _toast[-300:])
+_mv = CTL[CTL.index('async function dgcMove()'):CTL.index('function dgcRenderBoard(g)')]
+chk('조종실: 말을 옮긴 뒤에도 고른 사람 그대로', "sel.value = ''" not in _mv)
+MOB = io.open(os.path.join(_proj(), 'mobile.html'), encoding='utf-8', errors='replace').read()
+_mr = MOB[MOB.index('async function dgMobRoll()'):MOB.index('async function dgMobShow()')]
+chk('⭐ 폰: 굴린 뒤 고른 사람을 안 지운다', "sel.value = ''" not in _mr)
+chk('안내 문구: 굴려도 안 바뀌어요', '굴려도 안 바뀌어요 — 바꿀 때만 이름을 누르세요' in CTL and '굴리고 나면 다음 사람으로 넘어가요' not in CTL)
+
+print()
+print('=' * 74)
 print('2 · 8. 조종실 — 시그 재생 중 경고 · 옛 안내 문구')
 print('=' * 74)
 chk('시그 재생 중이면 경고 띠 · 흐린 단추 · 누르면 한 번 더 묻는다',

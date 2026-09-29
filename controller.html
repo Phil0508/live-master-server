@@ -2978,7 +2978,7 @@
 
             <!-- 👥 누구 차례 — 예전엔 드롭다운(클릭 22번). 이름 단추로 바꿨다.
                  ⚠️ 숨긴 <select id="dgc-player"> 가 진짜 값이다 — 굴리기 · 말 옮기기가 이걸 읽는다. -->
-            <span class="gx-lbl">누구 차례? <span class="gx-info">안 고르면 금색 테두리 사람이 굴려요 · 굴리고 나면 다음 사람으로 넘어가요</span></span>
+            <span class="gx-lbl">누구 차례? <span class="gx-info">금색 테두리 사람이 굴려요 · 굴려도 안 바뀌어요 — 바꿀 때만 이름을 누르세요</span></span>
             <div id="dgc-players" class="dgc-players"></div>
             <select id="dgc-player" class="gx-hide" aria-hidden="true" tabindex="-1"><option value="">(누구 차례?)</option></select>
 
@@ -2987,7 +2987,7 @@
 
             <div class="gx-act gx-deck">
                 <div class="gx-tiles">
-                    <button type="button" class="gx-tile go" onclick="dgcRoll()" id="dgc-roll-btn" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다"><i class="ic fa-solid fa-dice"></i><span><span class="nm"><span id="dgc-roll-nm">굴리기</span></span><span class="sub">서버가 무작위로 · 안 고르면 차례대로</span></span></button>
+                    <button type="button" class="gx-tile go" onclick="dgcRoll()" id="dgc-roll-btn" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다"><i class="ic fa-solid fa-dice"></i><span><span class="nm"><span id="dgc-roll-nm">굴리기</span></span><span class="sub">서버가 무작위로 · 고른 사람 그대로</span></span></button>
                 <!-- 🎲 현실에서 굴린 눈을 넣는다 — 사장님: "주사위는 현실에서 굴리기로 했어" -->
                 <div class="gx-tile gx-tile-keys" style="grid-column: span 2;">
                 <span class="sub">직접 굴렸으면 나온 눈</span>
@@ -10739,10 +10739,8 @@ initFoldablePanels();
             acctToast(m, 'ok');
             dgcLogAdd(m.replace(/🎲 /, ''));
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');
-            // 고른 사람은 이번 굴림에만 쓴다 — 남겨 두면 다음 굴림도 그 사람 말이 가고
-            // 그 사람이 받는다. 차례대로 돌아가야 한다.
-            const sel = document.getElementById('dgc-player');
-            if (sel) sel.value = '';
+            // 🙋 고른 사람은 **그대로 둔다** — 대표님: "내가 바꾸기 전까진 그대로 냅두게 해줘".
+            //    ⚠️ 예전엔 굴리자마자 지워서 다음 사람으로 넘어갔다(서버도 차례를 넘겼다 — 이제 안 넘긴다).
             dgcPaintPlayers();
         }
 
@@ -10759,7 +10757,7 @@ initFoldablePanels();
         }
 
         /* 👥 차례 단추 — 숨긴 select(dgc-player) 를 바꾼다. 굴리기 · 말 옮기기가 그 값을 읽는다.
-           안 골랐으면 서버가 정한 다음 차례(pieces[turn])에 금색 테두리를 두른다. */
+           안 골랐으면 서버가 정한 지금 차례(pieces[turn] — 마지막으로 굴린 사람)에 금색 테두리를 두른다. */
         function dgcPaintPlayers() {
             const box = document.getElementById('dgc-players');
             const sel = document.getElementById('dgc-player');
@@ -10852,7 +10850,7 @@ initFoldablePanels();
             if (d.key) m += ' · 🔑 ' + d.key + (d.key_effect ? ' → ' + d.key_effect : '');
             acctToast(m, 'ok');
             if (d.note) acctToast('⚠️ ' + d.note, 'warn');
-            if (sel) sel.value = '';
+            // 옮긴 뒤에도 고른 사람은 그대로 — 바꿀 때만 사람 단추를 누른다
         }
 
         /* 🏆 전용 점수판 — 상태가 올 때마다 다시 그린다(dgcSync 가 부른다). */
@@ -11273,7 +11271,7 @@ initFoldablePanels();
                 }
                 // 첫 줄에 지금 차례를 적어 준다 — 안 고르고 굴리면 이 사람의 말이 간다
                 const nx = (g.pieces || [])[g.turn | 0];
-                if (ps.options[0]) ps.options[0].textContent = nx ? ('(다음 차례: ' + nx.name + ')') : '(누구 차례?)';
+                if (ps.options[0]) ps.options[0].textContent = nx ? ('(지금 차례: ' + nx.name + ')') : '(누구 차례?)';
             }
             try { dgcPaintPlayers(); } catch (e) {}
             try { dgcRenderBoard(g); } catch (e) {}   // 🏆 전용 점수판

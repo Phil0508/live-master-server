@@ -182,15 +182,16 @@ chk('로그에 주사위라고 남는다',
     any(l.get('name') == '제이양' and l.get('val') == 2 and l.get('kind') == 'dice'
         for l in (d.get('logs') or [])), (d.get('logs') or [])[:1])
 chk('응답에도 반영 결과', (r.get('scored') or {}).get('name') == '제이양', r.get('scored'))
-post('/api/dicegame/move', {'pos': 0})
-c, r = post('/api/dicegame/roll')                      # 차례 없이
+post('/api/dicegame/move', {'piece': '밍밍', 'pos': 0})
+c, r = post('/api/dicegame/roll', {'piece': '밍밍'})     # 사람(player) 없이 말만
 d = get()
 sc2 = {b['name']: (b.get('score'), b.get('contribution')) for b in d['bjs']}
 # 사람을 안 고르면 **움직인 말의 주인**이 받는다 — 말은 선수마다 하나씩이라
-# '방금 굴린 사람' 기억은 남의 기여도를 첫 사람에게 몰아주는 거짓 규칙이었다.
-# 제이양이 굴렸으니 차례는 밍밍 — 밍밍 말이 가고 밍밍이 받는다 (0번에서 1~6칸은 전부 점수 칸)
+# '방금 굴린 사람' 기억(last_player = 제이양)은 남의 기여도를 첫 사람에게 몰아주는 거짓 규칙이었다.
+# 밍밍 말이 가고 밍밍이 받는다 (0번에서 1~6칸은 전부 점수 칸)
+# ⚠️ 2026-09-30 부터 굴려도 차례는 안 넘어간다 — 그래서 '차례 없이' 가 아니라 말만 골라 굴린다.
 bd2 = {r['name']: r['pts'] for r in (get()['dicegame'].get('board') or [])}
-chk('차례를 안 골라도 움직인 말의 주인이 받는다', bd2.get('제이양') == 2 and bd2.get('밍밍') == 2, bd2)
+chk('사람을 안 골라도 움직인 말의 주인이 받는다 (기억해 둔 제이양 말고)', bd2.get('제이양') == 2 and bd2.get('밍밍') == 2, bd2)
 c, r = post('/api/dicegame/move', {'pos': 0}) and post('/api/dicegame/roll', {'player': '없는사람'})
 chk('없는 사람이면 기여도 안 넣고 알린다', '못 찾아' in ((r or {}).get('note') or ''), (r or {}).get('note'))
 
@@ -500,19 +501,24 @@ chk('말 순서는 그대로', [p['name'] for p in d['dicegame']['pieces']] == [
     [p['name'] for p in d['dicegame']['pieces']])
 chk('응답에 어느 말이 갔는지 실린다', r.get('piece') == '라', r.get('piece'))
 time.sleep(3.3)      # 연타 방지(말 닿음 1.4초 + 카드 1.5초 + 0.3초 = 3.2초)가 풀리기를 기다린다
-c, r = post('/api/dicegame/roll', {'value': 2})                    # 안 고르면 차례 말
-chk('다음 차례는 처음 사람(가) — 1등으로 뛴 라가 또 굴리지 않는다', r.get('piece') == '가', r.get('piece'))
-sc = {b['name']: b['contribution'] for b in get()['bjs']}
+# 🙋 2026-09-30 — 굴려도 차례는 안 넘어간다(대표님: "내가 바꾸기 전까진 그대로 냅두게 해줘").
+#    예전 규칙은 '굴리면 다음 사람' 이었다. 판 순서가 바뀌어도 차례가 흔들리지 않는지는 그대로 본다.
+c, r = post('/api/dicegame/roll', {'value': 2})                    # 안 고르면 지금 차례 말
+chk('⭐ 굴려도 차례는 그대로(라) — 1등으로 뛰어 판 순서가 바뀌어도', r.get('piece') == '라', r.get('piece'))
 sc = {x['name']: x['pts'] for x in dg()['board']}
-chk('점수도 가에게 (라는 그대로 10)', sc.get('가') == 10 and sc.get('라') == 10, sc)
+chk('점수도 라에게 (10 → 20 · 가는 0)', sc.get('라') == 20 and sc.get('가') == 0, sc)
+time.sleep(3.3)
+c, r = post('/api/dicegame/roll', {'piece': '가', 'value': 1})     # 사람을 바꿔 굴린다
+chk('사람을 고르면 그 사람이 굴리고 차례가 그리로 옮는다', r.get('piece') == '가'
+    and dg()['pieces'][dg()['turn']]['name'] == '가', (r.get('piece'), dg().get('turn')))
 
 print()
 print('=' * 74)
 print('⑯ 손으로 옮길 때 기본 말 = 차례 말 (굴리기와 같은 규칙 · 응답에 어느 말인지)')
 print('=' * 74)
 c, r = post('/api/dicegame/move', {'pos': 9})
-chk('말을 안 고르면 차례 말(나)이 옮겨진다 — 굴리기와 같은 말', r.get('piece') == '나', r.get('piece'))
-chk('나 위치 9', next(p['pos'] for p in dg()['pieces'] if p['name'] == '나') == 9,
+chk('말을 안 고르면 차례 말(가)이 옮겨진다 — 굴리기와 같은 말', r.get('piece') == '가', r.get('piece'))
+chk('가 위치 9', next(p['pos'] for p in dg()['pieces'] if p['name'] == '가') == 9,
     [(p['name'], p['pos']) for p in dg()['pieces']])
 
 print()
@@ -551,7 +557,7 @@ for i in range(1, 20):
     post('/api/dicegame/tile', {'id': i, 'type': 'score', 'points': 10})
 post('/api/dicegame/move', {'piece': '가', 'pos': 5})
 post('/api/dicegame/move', {'piece': '나', 'pos': 7})
-c, r = post('/api/dicegame/roll', {'piece': '다', 'value': 2})    # 차례 → 라
+c, r = post('/api/dicegame/roll', {'piece': '라', 'value': 2})    # 굴린 라가 그대로 차례(2026-09-30 — 굴려도 안 넘어간다)
 _cur = {b['name']: b['contribution'] for b in get()['bjs']}
 # 조종실이 하는 그대로: 명단(bjs)만 /api/data 로 저장
 post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': _cur.get(n, 0)} for n in ('가', '나', '다', '라', '마', '바')]})
