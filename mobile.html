@@ -428,7 +428,8 @@ function rPending(el) {
             ? `<span class="sug ${s.tier === 'auto' ? 'auto' : 'mid'}">${s.tier === 'auto' ? '✓' : '🤖'} ${esc(s.target)}${s.why ? ' · ' + esc(s.why) : ''}</span>`
             : `<span class="sug unk">? 누구 것인지 모르겠음${s && s.why ? ' · ' + esc(s.why) : ''}</span>`;
         return `<div class="grp"><div class="cell don ${need ? 'need' : ''}">
-            <div class="top"><span class="who">${esc(d.name)}</span><span class="amt">${won(d.amount)}원</span></div>
+            <div class="top"><span class="who">${esc(d.name)}</span><span class="amt">${d.kind === 'contrib'
+                ? '기여도 ' + won(d.contrib) : won(d.amount) + '원'}</span></div>
             ${d.message ? `<div class="msg">"${esc(d.message)}"</div>` : ''}
             ${sug}
             ${hist.length ? `<div class="hist">지난 배정 · ${hist.map(h => esc(h.name) + ' ' + h.count + '번').join(' · ')}</div>` : ''}
@@ -443,18 +444,27 @@ async function assign(donId, name) {
     const p = players().find(x => x.name === name);
     if (!don || !p) return;
     busy = true;
-    const pts = manWon(don.amount);
+    /* 🎯 기여도 전용 카드(슬롯 당첨 · 주사위 시그니처)는 점수가 아니라 기여도만 준다.
+       ⚠️ 예전에는 이 카드도 일반 후원처럼 delta=manWon(0)=0 만 보냈다. 서버는 contribution 이
+          없으면 delta(0)를 기여도로 쓰므로 0 이 들어갔고, 카드는 대기함에서 지워져
+          기여도가 통째로 사라졌다. 조종실 assignPending 과 같은 모양으로 보낸다. */
+    const isC = don.kind === 'contrib';
+    const pts = isC ? 0 : manWon(don.amount);
+    const cN = isC ? (Number(don.contrib) || 0) : pts;
     try {
         // 🧠 후원자를 같이 보낸다 — 서버가 기억해서 다음 'ㄱㅇㅈ' 을 푼다
-        const r = await addScore({ scope:'rank', name, delta:pts, pending_id:donId, popup:true, takeover:true,
+        //    (기여도 카드는 delta 0 이라 서버가 기억하지 않는다 — delta>0 만 배운다)
+        // ⚠️ contribution 은 늘 보낸다. 일반 후원은 pts 와 같아 예전과 똑같고, 기여도 카드는 이것만 오른다.
+        const r = await addScore({ scope:'rank', name, delta:pts, contribution:cN, pending_id:donId, popup:true, takeover:true,
                                    donor:don.name, donor_message:don.message });
         gd.pending_donations = gd.pending_donations.filter(d => d.id !== donId);
         renderApp(); renderHome();
         // 🛡️ PC 조종실이 같은 후원을 먼저 처리했으면 서버는 점수를 더하지 않았다.
         //    그런데도 되돌리기 배너를 띄우면, 누르는 순간 주지도 않은 점수를 깎는다.
         if (r && r.already) { toast('이미 다른 기기에서 처리된 후원입니다', false); return; }
-        undoBanner(`${don.name}님 → ${name} +${pts}점`,
-                   { name, pts, time: r.time });
+        undoBanner(isC ? `${name} 기여도 +${cN}` : `${don.name}님 → ${name} +${pts}점`,
+                   { name, pts, contrib: cN, isC, time: r.time,
+                     list: gd.extra_game_active ? 'extra' : 'main' });
     } catch (e) { toast('지급 실패 — 다시 눌러주세요', false); }
     finally { busy = false; }
 }
@@ -510,8 +520,14 @@ async function removeDon(donId) {
 function undoBanner(text, u) {
     banner('✔', text, '되돌리기는 여기를 누르세요', 'rgba(48,209,88,.25)', async () => {
         try {
-            await addScore({ scope:'rank', name:u.name, delta:-u.pts,
-                             undo_log:{ time:u.time, name:u.name, val:u.pts } });
+            // ⚠️ 기여도 카드는 점수 0 · 기여도 N 으로 들어갔다. delta 만 되돌리면 기여도가 남고,
+            //    장부 줄도 val=N(기여도)로 적혔으므로 그 값으로 지운다.
+            //    list — 번외 게임이 그 사이 켜지거나 꺼져도 원래 명단에서 뺀다.
+            await addScore(u.isC
+                ? { scope:'rank', name:u.name, delta:0, contribution:-u.contrib, log:false, list:u.list,
+                    undo_log:{ time:u.time, name:u.name, val:u.contrib } }
+                : { scope:'rank', name:u.name, delta:-u.pts, contribution:-u.contrib, log:false, list:u.list,
+                    undo_log:{ time:u.time, name:u.name, val:u.pts } });
             toast('되돌렸습니다');
         } catch (e) { toast('되돌리기 실패', false); }
     }, 5000);
@@ -581,8 +597,11 @@ async function matchScore(name, pts) {
     try { await addScore({ scope:'match', name, delta:pts }); toast(`${name} +${pts}`); }
     catch (e) { toast('실패: ' + e.message, false); }
 }
-/* ⚠️ 타이머는 match_data 를 통째로 patch 한다 — 점수(bjs)와 달리 이 객체는
-      한 사람(운영자)만 만지는 값이라 마지막 저장이 이기면 된다. */
+/* ⚠️ 타이머는 match_data 를 통째로 patch 한다 — 마지막 저장이 이긴다.
+      ⚠️ '한 사람만 만지는 값' 이 아니다. PC 조종실도 같은 match_data 를 보내고,
+         팀전 점수는 /api/score/add 가 후원 배정 때마다 서버에서 올린다. 그래서 폰이 들고 있던
+         낡은 사본을 통째로 보내면 그 사이 PC 가 바꾼 시계나 팀 점수를 되돌릴 수 있다.
+         (서버 쪽 보호는 따로 다룬다 — 여기서는 사본을 되도록 방금 받은 것으로 쓴다) */
 async function matchPatch(mut) {
     const md = JSON.parse(JSON.stringify(gd.match_data || {}));
     mut(md);
@@ -882,7 +901,9 @@ function handleState(st) {
     for (const d of (st.pending_donations || [])) {
         if (!seenDon.has(d.id)) {
             seenDon.add(d.id);
-            if (!firstState) banner('💰', `${d.name} · ${won(d.amount)}원`,
+            // 🎯 기여도 카드는 돈이 아니다 — '0원' 으로 알리면 후원이 들어온 걸로 읽는다
+            if (!firstState) banner(d.kind === 'contrib' ? '⭐' : '💰',
+                d.kind === 'contrib' ? `${d.name} · 기여도 ${won(d.contrib)}` : `${d.name} · ${won(d.amount)}원`,
                 d.message || '(메시지 없음)', 'linear-gradient(135deg,#b8860b,#8a6508)',
                 () => openApp('pending'));
         }

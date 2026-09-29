@@ -4455,20 +4455,42 @@
                                   + '기록은 보관해 뒀다가 같은 이름을 다시 넣으면 그대로 되살려요.\n계속할까요?',
                                   '🎲 주사위 기록', 'warning');
         }
+        /* 👤 이름 칸 · 지우기 버튼은 '그린 순간의 이름' 으로만 사람을 찾는다.
+           ⚠️ 예전에는 gd[listKey][i] (몇 번째 줄) 로 먼저 찾았다. 이름을 고치는 동안 후원이 들어와
+              기여도순이 바뀌면 i 번째는 이미 다른 사람이라, **옆 사람의 이름이 바뀌거나 옆 사람이 지워졌다**.
+              (입력칸에 포커스가 있으면 renderUI 가 표를 안 그려서 화면은 옛 순서 그대로다)
+              그 사람을 못 찾으면 아무것도 안 한다 — 엉뚱한 사람을 고치는 것보다 낫다. */
+        var _rkRowNames = _rkRowNames || { key: '', names: [] };   // var — renderUI 가 이 줄보다 먼저 불려도 적어 둔 것을 안 지운다
         async function rkRename(listKey, i, el) {
-            const row = (gd[listKey] || [])[i];
-            if (!row) return;
-            const old = row.name, nv = el.value;
+            const old = el && el.dataset ? el.dataset.tname : undefined;
+            if (old === undefined) return;
+            const nv = el.value;
+            if (!(gd[listKey] || []).some(x => x && x.name === old)) {
+                el.value = old;
+                acctToast(`'${old}' 을(를) 명단에서 찾지 못해 이름을 바꾸지 않았습니다`, 'warn');
+                return;
+            }
             if (String(nv).trim() !== String(old || '').trim() && !(await rkDiceGuard(listKey, old))) { el.value = old; return; }
             // 묻는 사이 목록이 새로 왔을 수 있다 — 이름으로 다시 찾는다
-            const cur = (gd[listKey] || []).find(x => x && x.name === old) || row;
+            const cur = (gd[listKey] || []).find(x => x && x.name === old);
+            if (!cur) { el.value = old; return; }
             cur.name = nv;
+            el.dataset.tname = nv;
             pushAPI({include:['bjs','extra_bjs']});
         }
         async function rkRemove(listKey, i) {
-            const row = (gd[listKey] || [])[i];
-            if (!row) return;
-            const nm = row.name;
+            const nm = (_rkRowNames.key === listKey) ? _rkRowNames.names[i] : undefined;
+            if (nm === undefined) return;
+            const row = (gd[listKey] || []).find(x => x && x.name === nm);
+            if (!row) { acctToast(`'${nm}' 을(를) 명단에서 찾지 못했습니다`, 'warn'); return; }
+            // 🗑️ 점수나 기여도가 있는 사람을 빼면 그 숫자가 명단에서 같이 사라진다 — 한 번 묻는다.
+            //    ⚠️ 휴지통 아이콘은 +점수 칸 바로 옆이라 손이 미끄러지기 쉽다.
+            if ((Number(row.score) || 0) > 0 || (Number(row.contribution) || 0) > 0) {
+                const go = await premiumConfirm(
+                    `'${nm}' 을(를) 명단에서 뺍니다.\n점수 ${(Number(row.score) || 0).toLocaleString()} · 기여도 ${(Number(row.contribution) || 0).toLocaleString()} 이(가) 함께 사라집니다.\n\n계속할까요?`,
+                    '🗑️ 명단에서 빼기', 'warning');
+                if (!go) return;
+            }
             if (!(await rkDiceGuard(listKey, nm))) return;
             const at = (gd[listKey] || []).findIndex(x => x && x.name === nm);
             if (at < 0) return;
@@ -4669,11 +4691,11 @@
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="rkRename('${listKey}', ${i}, this)" disabled style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
+                                <div class="rk-nm"><input type="text" value="${bj.name}" data-tname="${escapeHtml(bj.name)}" onchange="rkRename('${listKey}', ${i}, this)" disabled style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
-                        <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
+                        <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" data-tname="${escapeHtml(bj.name)}" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
                         <td><button onclick="rkRemove('${listKey}', ${i})" disabled><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
@@ -4682,11 +4704,11 @@
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="rkRename('${listKey}', ${i}, this)" style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
+                                <div class="rk-nm"><input type="text" value="${bj.name}" data-tname="${escapeHtml(bj.name)}" onchange="rkRename('${listKey}', ${i}, this)" style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
-                        <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
+                        <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" data-tname="${escapeHtml(bj.name)}" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
                         <td><button onclick="rkRemove('${listKey}', ${i})"><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
@@ -4728,7 +4750,12 @@
                     <td><button onclick="fundjarReset()" title="후원분만 0으로. 종잣돈은 남습니다."><i class="fa-solid fa-rotate-left"></i></button></td>
                 </tr>`;
             }
-            if (lastRHtml !== rHtml) { document.getElementById('ranking-tbody').innerHTML = rHtml; lastRHtml = rHtml; }
+            if (lastRHtml !== rHtml) {
+                document.getElementById('ranking-tbody').innerHTML = rHtml; lastRHtml = rHtml;
+                // 🗑️ 지우기 버튼이 가리키는 이름을 '그린 순간' 그대로 적어 둔다(rkRemove 가 본다).
+                //    ⚠️ 표를 새로 그릴 때만 바꾼다 — 화면의 i 번째 줄과 이 목록의 i 번째가 늘 같은 사람이어야 한다.
+                _rkRowNames = { key: listKey, names: (targetList || []).map(b => b && b.name) };
+            }
 
             // ⏱️ [개조] 입력 버퍼 끊김 현상 없는 실시간 디지털 디스플레이 업데이트
             let md = gd.match_data; 
@@ -5694,14 +5721,18 @@
             if (r) {
                 // ⚠️ 배정도 되돌리기 기록에 남긴다. 예전에는 점수 칸 직접 입력만 남겨서,
                 //    가장 잦고 가장 위험한 조작인 배정이 정작 되돌릴 수 없었다.
-                recordScoreAction({ scope: 'rank', name: chosenName, delta: addPoint,
+                // 🎯 contrib 에 '실제로 오른 기여도' 를 따로 적는다.
+                //    ⚠️ 예전에는 delta(=점수)만 적어서, 기여도 전용 카드(주사위 시그 · 슬롯)를 되돌리면
+                //       delta:-0 만 나가 아무것도 안 빠졌다 — 기여도는 그대로, 되돌리기 줄만 사라졌다.
+                recordScoreAction({ scope: 'rank', name: chosenName, delta: addPoint, contrib: addContrib,
                                     isExtra, addedContrib: true, logTime: r.time,
                                     donor: don0.name, amount: don0.amount });
             }
             if (!r) {
                 // 서버에 안 들어갔으므로 화면도 원상복구한다(점수·대기함).
+                // ⚠️ 기여도는 addContrib 만큼 올렸다 — addPoint 로 빼면 기여도 카드에서 화면이 어긋난다
                 target.score -= addPoint;
-                target.contribution -= addPoint;
+                target.contribution -= addContrib;
                 gd.pending_donations.splice(donIdx, 0, don0);   // 되살려서 다시 누를 수 있게
                 renderUI();
                 await premiumAlert(
@@ -5826,10 +5857,18 @@
             
             let isExtra = gd.extra_game_active || false;
             let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-            let currentVal = targetList[idx].contribution || 0;
-            
+            // 👤 누구의 기여도인지는 '그린 순간의 이름'(data-tname)으로 못 박는다.
+            //    ⚠️ 팝오버가 열린 동안 후원이 들어와 순서가 바뀌면 idx 번째는 다른 사람이다.
+            //       예전에는 [확인] 을 누르는 순간 targetList[idx] 를 다시 읽어서, 적은 값이 옆 사람에게 들어갔다.
+            const editName = (el && el.dataset && el.dataset.tname !== undefined)
+                ? el.dataset.tname : ((targetList || [])[idx] || {}).name;
+            const editRow = (targetList || []).find(b => b.name === editName);
+            if (!editRow) return;
+            let currentVal = editRow.contribution || 0;
+
             let pop = document.createElement('div');
             pop.id = 'contrib-popover';
+            pop.dataset.tname = editName;
             pop.style.cssText = `
                 position: absolute;
                 top: 100%;
@@ -5896,20 +5935,34 @@
             }, 10);
         }
 
+        // 팝오버가 열릴 때 못 박아 둔 이름(editContrib 참고). 없으면 undefined.
+        function contribPopName() {
+            const pop = document.getElementById('contrib-popover');
+            return (pop && pop.dataset) ? pop.dataset.tname : undefined;
+        }
+
         async function confirmContribChange(idx) {
             let inputEl = document.getElementById('edit-contrib-popover-input');
             if (inputEl) {
-                let parsed = parseInt(String(inputEl.value).replace(/[^\d-]/g,''));
+                const rawTxt = String(inputEl.value).trim();
+                let parsed = parseIntStrict(rawTxt);
+                if (isNaN(parsed) && rawTxt !== '') {
+                    // ⚠️ "1.5" 를 15 로 읽던 자리다 — 고쳐 읽지 않고 거절한다(팝오버는 그대로 둔다)
+                    acctToast(`'${rawTxt}' 은(는) 넣지 않았습니다 — 기여도는 정수만 됩니다`, 'warn');
+                    return;
+                }
                 if (!isNaN(parsed)) {
                     let isExtra = gd.extra_game_active || false;
                     let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-                    if (!targetList || !targetList[idx]) { cancelContribEdit(); return; }
                     // ⚠️ 아래 확인창(await) 동안 SSE 가 gd 를 통째로 갈아끼울 수 있다. 그러면
                     //    지금 잡아둔 targetList 는 화면과 무관한 '버려진 배열'이 되어 수정이 조용히 사라지고,
                     //    순서가 바뀐 경우엔 엉뚱한 사람의 기여도를 고치게 된다.
                     //    그래서 사람은 이름으로 고정하고, 확인창 뒤에 다시 찾는다.
-                    const editName = targetList[idx].name;
-                    let oldVal = targetList[idx].contribution || 0;
+                    // ⚠️ 이름은 idx 로 지금 읽지 않는다 — 팝오버를 연 순간의 이름이다(타이핑하는 사이 순서가 바뀐다).
+                    const editName = contribPopName();
+                    const row0 = (targetList || []).find(b => b.name === editName);
+                    if (editName === undefined || !row0) { cancelContribEdit(); return; }
+                    let oldVal = row0.contribution || 0;
                     // 🔢 자릿수 오타 방어: 한 번에 너무 크게(±30 이상) 바뀌면 확인
                     if (Math.abs(parsed - oldVal) >= 30) {
                         const go = await premiumConfirm(
@@ -5942,11 +5995,16 @@
         async function adjustContrib(idx, amount) {
             let isExtra = gd.extra_game_active || false;
             let targetList = isExtra ? gd.extra_bjs : gd.bjs;
-            if (!targetList || !targetList[idx]) return;
             // ⚠️ 사람은 번호가 아니라 이름으로 고정한다. 목록은 기여도순으로 계속 다시
             //    정렬되므로, 보내는 사이에 번호가 가리키는 사람이 바뀔 수 있다.
-            const name = targetList[idx].name;
-            targetList[idx].contribution = (targetList[idx].contribution || 0) + amount;
+            //    그 이름도 '지금 idx 번째' 가 아니라 팝오버를 연 순간의 이름이다.
+            const name = contribPopName();
+            const row = (targetList || []).find(b => b.name === name);
+            if (name === undefined || !row) return;
+            row.contribution = (row.contribution || 0) + amount;
+            // 팝오버 입력칸 숫자도 같이 맞춘다 — 이어서 [확인] 을 누르면 이 값이 기준이 된다
+            const inp = document.getElementById('edit-contrib-popover-input');
+            if (inp) inp.value = row.contribution;
             renderUI();
             await sendContribDelta(name, amount);
         }
@@ -6825,9 +6883,25 @@
         //    랭킹은 기여도순으로 계속 재정렬되므로, 렌더 당시의 인덱스를 그대로 쓰면
         //    (후원/SSE로 순서가 바뀐 사이에) 철수 칸에서 올린 점수가 영희에게 들어가는 사고가 났다.
         //    이제 입력칸의 data-tname(이름)으로 대상을 특정해 절대 어긋나지 않는다.
+        // 🔢 점수·기여도 칸에 적은 글자를 정수로 읽는다. 정수가 아니면 NaN.
+        //    ⚠️ 예전에는 replace(/[^\d-]/g,'') 로 숫자와 '-' 만 남겨 읽어서 "1.5" 가 15 가 되고
+        //       "1-2" 가 1 이 됐다. 점수는 언제나 정수(만원 단위)라 소수점은 오타다 —
+        //       고쳐 읽지 말고 거절해서 운영자가 다시 보게 한다. 천 단위 쉼표만 봐준다.
+        function parseIntStrict(v) {
+            const s = String(v == null ? '' : v).trim().replace(/,/g, '');
+            if (!/^[+-]?\d+$/.test(s)) return NaN;
+            return parseInt(s, 10);
+        }
+
         async function addScoreEl(scope, el) {
             if (!el) return;
-            let val = parseInt(String(el.value).replace(/[^\d-]/g, ''));
+            const rawTxt = String(el.value).trim();
+            let val = parseIntStrict(rawTxt);
+            if (isNaN(val) && rawTxt !== '') {
+                // ⚠️ 칸은 비우지 않는다 — 무엇을 잘못 적었는지 보고 고칠 수 있게
+                acctToast(`'${rawTxt}' 은(는) 넣지 않았습니다 — 점수는 정수만 됩니다`, 'warn');
+                return;
+            }
             if (isNaN(val) || val === 0) { el.value = ''; el.blur(); return; }
             let isExtra = gd.extra_game_active || false;
             let targetList = isExtra ? gd.extra_bjs : gd.bjs;
@@ -6859,13 +6933,20 @@
                 return;
             }
             // ↩ 되돌리기용 기록 (서버가 남긴 로그 시각을 그대로 받아둔다)
-            recordScoreAction({ scope, name: tname, delta: val, isExtra, addedContrib: (scope === 'rank'), logTime: r.time });
+            recordScoreAction({ scope, name: tname, delta: val, contrib: (scope === 'rank' ? val : 0),
+                                isExtra, addedContrib: (scope === 'rank'), logTime: r.time });
         }
 
         // ===== ↩ 점수 되돌리기(undo) =====
         let lastScoreActions = [];   // 최근 점수 조작 스택
         let undoToastTimer = null;
+        // 🔖 기록마다 고유 번호를 붙인다. 되돌리기 줄의 버튼은 이 번호로 지목한다.
+        //    ⚠️ 예전에는 '목록의 몇 번째' 로 지목해서, 버튼을 두 번 빠르게 누르면 첫 번째가
+        //       목록을 한 칸 당긴 뒤 두 번째가 **옆 기록**을 취소했다(한 번 누른 줄 알았는데 두 건이 빠짐).
+        let _undoSeq = 0;
+        const _undoBusy = new Set();   // 서버 응답을 기다리는 되돌리기(같은 건을 두 번 보내지 않게)
         function recordScoreAction(a) {
+            a.uid = ++_undoSeq;
             lastScoreActions.push(a);
             if (lastScoreActions.length > 20) lastScoreActions.shift();
             showUndoToast(a);
@@ -6876,9 +6957,15 @@
         // ⚠️ 이게 없을 때는, 잘못 준 걸 알아채도 로그 탭으로 건너가야 했고
         //    그동안 대기함이 안 보였다. 실수를 고치는 사이 새 후원이 쌓인다.
         //    "실수할 수 있다"보다 "실수를 알아챘는데 고칠 수 없다"가 더 나쁘다.
+        // '+3점' / 기여도만 오른 것은 '기여도 +5' — '+0점' 이라고 적으면 무엇을 취소하는지 모른다
+        function undoAmountText(a) {
+            const c = (typeof a.contrib === 'number') ? a.contrib : 0;
+            if (!a.delta && c) return '기여도 ' + (c > 0 ? '+' : '') + c.toLocaleString();
+            return (a.delta > 0 ? '+' : '') + (a.delta || 0).toLocaleString() + '점';
+        }
         function undoLabel(a) {
             const who = a.split ? (a.names || []).join('·') : a.name;
-            const pts = (a.delta > 0 ? '+' : '') + a.delta + '점';
+            const pts = undoAmountText(a);
             if (a.donor) {
                 return escapeHTML(a.donor) + ' ' + (a.amount || 0).toLocaleString() + '원 → '
                      + '<b style="color:var(--accent)">' + escapeHTML(who) + '</b> ' + pts;
@@ -6894,8 +6981,8 @@
             el.style.display = 'flex';
             el.innerHTML = '<span class="u-lbl"><i class="fa-solid fa-rotate-left"></i> 방금</span>'
                 + recent.map(a => {
-                    const idx = lastScoreActions.indexOf(a);
-                    return '<button onclick="undoScoreAt(' + idx + ')" title="이 지급을 취소합니다">'
+                    // ⚠️ 목록 위치가 아니라 고유 번호로 지목한다(연타해도 옆 기록을 건드리지 않게)
+                    return '<button onclick="undoScoreById(' + a.uid + ')" title="이 지급을 취소합니다">'
                          + undoLabel(a) + ' 취소</button>';
                   }).join('');
         }
@@ -6903,8 +6990,8 @@
             const t = document.getElementById('score-undo-toast');
             const txt = document.getElementById('score-undo-text');
             if (!t || !txt) return;
-            const sign = a.delta > 0 ? '+' : '';
-            txt.innerHTML = `방금 <b style="color:var(--accent)">${escapeHtml(a.name)}</b> ${sign}${a.delta.toLocaleString()}점`;
+            const who = a.split ? (a.names || []).join('·') : a.name;
+            txt.innerHTML = `방금 <b style="color:var(--accent)">${escapeHtml(who)}</b> ${undoAmountText(a)}`;
             t.style.display = 'flex';
             requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)'; });
             if (undoToastTimer) clearTimeout(undoToastTimer);
@@ -6917,54 +7004,101 @@
             if (undoToastTimer) { clearTimeout(undoToastTimer); undoToastTimer = null; }
             setTimeout(() => { if (t.style.opacity === '0') t.style.display = 'none'; }, 260);
         }
-        function undoLastScore() { undoScoreAt(lastScoreActions.length - 1); }
-
-        // ⚠️ 예전에는 pop() 으로 '마지막 것'만 되돌릴 수 있었다. 그런데 후원이 몰릴 때는
-        //    두세 건 배정한 뒤에야 두 번째 것이 틀렸다는 걸 알아챈다. 번호로 지목해 되돌린다.
+        // ↩ 마지막 것 되돌리기(토스트의 [취소]) — 이미 서버로 보내는 중인 것은 건너뛴다
+        function undoLastScore() {
+            const a = lastScoreActions[lastScoreActions.length - 1];
+            if (a) undoScoreById(a.uid); else hideUndoToast();
+        }
+        // (옛 호출 호환) 목록 위치로 부르면 그 순간의 고유 번호로 바꿔서 넘긴다
         function undoScoreAt(idx) {
-            if (idx < 0 || idx >= lastScoreActions.length) { hideUndoToast(); return; }
-            const a = lastScoreActions.splice(idx, 1)[0];
-            if (!a) { hideUndoToast(); return; }
-            // 나눠주기는 여러 명이 한 건이다. 그 사람들 것을 한꺼번에 되돌린다.
+            const a = lastScoreActions[idx];
+            if (a) undoScoreById(a.uid); else hideUndoToast();
+        }
+
+        // 이 기록이 올린 기여도. 예전 기록(contrib 없음)은 '점수만큼 같이 올랐다' 로 본다.
+        function undoContribOf(a) {
+            if (typeof a.contrib === 'number') return a.contrib;
+            return a.addedContrib ? (a.delta || 0) : 0;
+        }
+
+        // 화면에 미리 반영(sign=-1: 되돌리기, +1: 실패해서 다시 얹기). 진짜 값은 서버가 SSE 로 보낸다.
+        function undoApplyLocal(a, sign) {
             if (a.split && Array.isArray(a.names)) {
                 const list = a.isExtra ? gd.extra_bjs : gd.bjs;
-                // ⚠️ 사람마다 받은 점수가 다를 수 있다(딱 안 떨어지는 몫은 앞사람이 1점 더 받는다).
-                //    한 값으로 일괄해서 빼면 누구는 덜, 누구는 더 깎인다.
                 const ds = Array.isArray(a.deltas) ? a.deltas : a.names.map(() => a.delta);
                 a.names.forEach((nm, i) => {
                     const t = (list || []).find(b => b.name === nm);
                     if (!t) return;
-                    t.score -= ds[i];
-                    if (a.addedContrib && t.contribution !== undefined) t.contribution -= ds[i];
+                    t.score += sign * ds[i];
+                    if (a.addedContrib && t.contribution !== undefined) t.contribution += sign * ds[i];
                 });
-                if (list) { list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0)); }
-                renderUI(); renderUndoStrip();
-                addScoreAPI({ scope: 'rank', log: false,
-                              items: a.names.map((nm, i) => ({ name: nm, delta: -ds[i] })),
-                              undo_log: a.names.map((nm, i) => ({ time: a.logTime, name: nm, val: ds[i] })) });
-                if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
-                else hideUndoToast();
-                return;
+                if (list) list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0));
+                return true;
             }
             let target = null;
             if (a.scope === 'bot') target = gd.bottom_fixed;
+            else if (a.scope === 'jar') target = gd.fundjar;
             else if (a.scope === 'match') target = ((gd.match_data && gd.match_data.players) || []).find(p => p.name === a.name);
             else { const list = a.isExtra ? gd.extra_bjs : gd.bjs; target = (list || []).find(b => b.name === a.name); }
-            if (!target) { hideUndoToast(); return; }   // 대상이 사라졌으면 조용히 종료
+            if (!target) return false;
+            target.score = (target.score || 0) + sign * (a.delta || 0);
+            if (a.scope === 'rank') {
+                if (target.contribution !== undefined) target.contribution += sign * undoContribOf(a);
+                const list = a.isExtra ? gd.extra_bjs : gd.bjs;
+                if (list) list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0));
+            }
+            return true;
+        }
+
+        // ⚠️ 예전에는 pop() 으로 '마지막 것'만 되돌릴 수 있었다. 그런데 후원이 몰릴 때는
+        //    두세 건 배정한 뒤에야 두 번째 것이 틀렸다는 걸 알아챈다. 고유 번호로 지목해 되돌린다.
+        // ⚠️ 서버 응답을 확인한다. 예전에는 보내고 끝이라, 실패해도 기록은 이미 지워져
+        //    '취소한 줄 알았는데 점수는 그대로' 이면서 다시 누를 버튼도 없었다.
+        async function undoScoreById(uid) {
+            if (_undoBusy.has(uid)) return;             // 같은 건을 두 번 보내지 않는다(연타)
+            const idx = lastScoreActions.findIndex(x => x.uid === uid);
+            if (idx < 0) { renderUndoStrip(); return; } // 이미 되돌렸다 — 아무것도 안 한다
+            _undoBusy.add(uid);
+            const a = lastScoreActions.splice(idx, 1)[0];
+            // 📋 원래 점수가 들어간 명단을 못 박는다. 그 사이 번외 게임을 켜거나 끄면
+            //    서버의 '지금 명단' 이 바뀌어, 같은 이름의 다른 명단 사람에게서 빠질 수 있었다.
+            const listArg = a.isExtra ? 'extra' : 'main';
+            let payload;
+            if (a.split && Array.isArray(a.names)) {
+                // 나눠주기는 여러 명이 한 건이다. 그 사람들 것을 한꺼번에 되돌린다.
+                // ⚠️ 사람마다 받은 점수가 다를 수 있다(딱 안 떨어지는 몫은 앞사람이 1점 더 받는다).
+                //    한 값으로 일괄해서 빼면 누구는 덜, 누구는 더 깎인다.
+                const ds = Array.isArray(a.deltas) ? a.deltas : a.names.map(() => a.delta);
+                payload = { scope: 'rank', log: false, list: listArg,
+                            items: a.names.map((nm, i) => ({ name: nm, delta: -ds[i],
+                                                             contribution: a.addedContrib ? -ds[i] : 0 })),
+                            undo_log: a.names.map((nm, i) => ({ time: a.logTime, name: nm, val: ds[i] })) };
+            } else {
+                // 원래 남긴 로그 줄을 지운다 — '+3'과 '-3'이 나란히 남지 않게.
+                // ⚠️ 기여도만 오른 기록(주사위 시그 · 슬롯 카드)은 서버가 val=기여도 로 적었다.
+                //    delta(0) 로 찾으면 줄이 안 지워지고, delta:-0 만 보내면 기여도도 안 빠진다.
+                const c = undoContribOf(a);
+                const logVal = (!a.delta && c) ? c : a.delta;
+                payload = { scope: a.scope, name: a.name, delta: -(a.delta || 0), log: false,
+                            undo_log: { time: a.logTime, name: a.name, val: logVal } };
+                if (a.scope === 'rank') { payload.contribution = -c; payload.list = listArg; }
+            }
             // 화면 먼저 되돌리고, 서버에는 '부호 반대인 더할 값'을 보낸다.
             // (상태 전체를 보내면 그 사이 폰에서 들어온 점수까지 같이 되돌려버린다)
-            target.score -= a.delta;
-            if (a.addedContrib && target.contribution !== undefined) target.contribution -= a.delta;
-            // 랭킹은 기여도순 재정렬
-            if (a.scope === 'rank') { const list = a.isExtra ? gd.extra_bjs : gd.bjs; if (list) { list.sort((x, y) => (y.contribution || 0) - (x.contribution || 0)); if (a.isExtra) gd.extra_bjs = list; else gd.bjs = list; } }
-            renderUI();
-            // 원래 남긴 로그 줄을 지운다 — '+3'과 '-3'이 나란히 남지 않게
-            addScoreAPI({ scope: a.scope, name: a.name, delta: -a.delta, log: false,
-                          undo_log: { time: a.logTime, name: a.name, val: a.delta } });
-            // 이전 조작이 더 남아있으면 그 토스트를 이어서 띄운다(연속 취소 가능)
-            renderUndoStrip();
+            const moved = undoApplyLocal(a, -1);
+            renderUI(); renderUndoStrip();
             if (lastScoreActions.length) showUndoToast(lastScoreActions[lastScoreActions.length - 1]);
             else hideUndoToast();
+            let r = null;
+            try { r = await addScoreAPI(payload); } finally { _undoBusy.delete(uid); }
+            if (!r || r.status !== 'success') {
+                // ❗ 서버에 안 들어갔다 → 화면을 도로 얹고 기록도 제자리에 되살린다(다시 누를 수 있게)
+                if (moved) undoApplyLocal(a, +1);
+                const at = lastScoreActions.findIndex(x => x.uid > a.uid);
+                if (at < 0) lastScoreActions.push(a); else lastScoreActions.splice(at, 0, a);
+                renderUI(); renderUndoStrip();
+                acctToast('되돌리지 못했습니다 (서버 전송 실패) — 점수는 그대로입니다. 다시 눌러주세요', 'warn');
+            }
         }
 
         function clearLogs(type) { if(type === 'rank') gd.logs = []; if(type === 'match') gd.match_logs = []; pushAPI({include:['logs','match_logs']}); }
@@ -7400,8 +7534,7 @@
                 if (Date.now() - lastLocalBackupAt > 20000) {
                     lastLocalBackupAt = Date.now();
                     try {
-                        localStorage.setItem('active_broadcast_backup', JSON.stringify(gd));
-                        localStorage.setItem('active_broadcast_backup_time', Date.now().toString());
+                        saveBroadcastBackup(gd, Date.now());
                     } catch (e) { console.warn("브라우저 백업 저장 실패:", e); }
                 }
             } else {
@@ -7409,6 +7542,15 @@
                     localStorage.removeItem('active_broadcast_backup');
                     localStorage.removeItem('active_broadcast_backup_time');
                     window.userInitiatedEnd = false;
+                } else if (restoreVerdict(gd, backupStartedAt()) !== 'ok') {
+                    // ⚠️ '방금까지 방송 중이었다' 로 판단하면 안 된다 — 서버가 재기동으로 상태를 잃어도
+                    //    이 탭에는 똑같이 '방송 중 → 아님' 으로 보인다. 시작 시각이 남아 있는지로 가른다.
+                    // 🛑 서버에서 방송이 '정상적으로' 끝난 것을 봤다 → 백업을 지우고 묻지 않는다.
+                    //    ⚠️ 예전에는 다른 탭(또는 폰)이 방송을 끝내도 이 탭은 '서버 초기화 감지 — 복구?' 를 띄웠다.
+                    //       그 창을 늦게 [확인] 하면 — 그 사이 새 방송이 시작됐어도 — /api/restore 가
+                    //       새 방송을 옛 백업으로 통째로 갈아끼웠다. 끝난 방송은 서버의 '방송 종료 자동 백업'
+                    //       스냅샷으로 되살릴 수 있으니, 브라우저 백업은 진짜 초기화(서버 기록이 0)에만 쓴다.
+                    clearBroadcastBackup();
                 } else {
                     let backupStr = localStorage.getItem('active_broadcast_backup');
                     let backupTimeStr = localStorage.getItem('active_broadcast_backup_time');
@@ -7434,6 +7576,29 @@
                             
                             premiumConfirm(msg, "서버 재기동/초기화 감지", "question").then(async (confirmed) => {
                                 if (confirmed) {
+                                    // 🛡️ 창이 떠 있는 동안 세상이 바뀌었을 수 있다(몇 분씩 떠 있기도 한다).
+                                    //    누르는 순간 서버 상태를 **다시 받아** 확인한다 — 이미 방송 중이거나
+                                    //    다른 방송이 시작·종료됐으면 복구하지 않는다(그 방송을 덮어쓴다).
+                                    try {
+                                        const chk = await fetch('/api/data', { cache: 'no-store' });
+                                        const cur = chk.ok ? await chk.json() : null;
+                                        const v = cur ? restoreVerdict(cur, Number(backupData.broadcast_started_at) || backupStartedAt()) : 'unknown';
+                                        if (v !== 'ok') {
+                                            window.restorePromptShown = false;
+                                            if (v !== 'unknown') clearBroadcastBackup();
+                                            await premiumAlert(v === 'live'
+                                                ? '서버는 이미 방송 중입니다. 지금 방송을 옛 백업으로 덮어쓰지 않도록 복구하지 않았습니다.'
+                                                : v === 'unknown'
+                                                ? '서버 상태를 확인하지 못해 복구하지 않았습니다. 잠시 뒤 새로고침해 주세요.'
+                                                : '그 사이 서버에서 방송이 끝났거나 다른 방송이 있었습니다. 백업이 낡아 복구하지 않았습니다.\n(끝난 방송은 백업 탭의 「방송 종료 자동 백업」 으로 되살릴 수 있습니다)',
+                                                '복구 안 함', 'warning');
+                                            return;
+                                        }
+                                    } catch (err) {
+                                        window.restorePromptShown = false;
+                                        await premiumAlert('서버 상태를 확인하지 못해 복구하지 않았습니다: ' + err.message, '복구 안 함', 'warning');
+                                        return;
+                                    }
                                     try {
                                         // ⚠️ /api/data 로 보내면 안 된다. 그 경로는 대기함·리액션 큐를
                                         //    서버 소유로 보호해서 받은 값을 버린다 — 점수는 돌아오는데
@@ -7657,6 +7822,39 @@
             }
         }
 
+        /* 💾 브라우저 백업 — 이 방송이 '언제 시작한 방송' 인지(broadcast_started_at)도 같이 적는다.
+           ⚠️ 이게 없으면 복구 창이 '어느 방송의 백업' 인지 모른다. 다른 방송이 시작된 뒤에
+              옛 백업을 복구해 새 방송을 덮어쓴 길이 여기서 열렸다(restoreVerdict 가 본다). */
+        function saveBroadcastBackup(state, now) {
+            localStorage.setItem('active_broadcast_backup', JSON.stringify(state));
+            localStorage.setItem('active_broadcast_backup_time', String(now || Date.now()));
+            localStorage.setItem('active_broadcast_backup_started', String(Number(state && state.broadcast_started_at) || 0));
+        }
+        function clearBroadcastBackup() {
+            try {
+                localStorage.removeItem('active_broadcast_backup');
+                localStorage.removeItem('active_broadcast_backup_time');
+                localStorage.removeItem('active_broadcast_backup_started');
+            } catch (e) {}
+        }
+        function backupStartedAt() {
+            try { return Number(localStorage.getItem('active_broadcast_backup_started')) || 0; } catch (e) { return 0; }
+        }
+        /* 서버 상태를 보고 브라우저 백업을 되살려도 되는지 판단한다.
+           'live'  — 서버가 방송 중이다(복구하면 지금 방송을 덮어쓴다)
+           'ended' — 서버가 **그 방송**을 정상 종료했다(시작 시각이 같다) · 또는 옛 백업이라 시작 시각을 모른다
+           'other' — 서버 시작 시각이 백업과 다르다(그 사이 다른 방송이 있었다)
+           'ok'    — 서버에 방송 기록이 전혀 없다(시작 시각 0) = 진짜 초기화 · 재기동으로 날아갔다
+           ⚠️ 방송 종료(end_broadcast)는 broadcast_started_at 을 지우지 않는다. 그래서 0 이면 '끝낸 것' 이 아니라 '날아간 것' 이다. */
+        function restoreVerdict(serverState, startedAt) {
+            if (!serverState) return 'unknown';
+            if (serverState.broadcast_active) return 'live';
+            const ss = Number(serverState.broadcast_started_at) || 0;
+            if (!ss) return 'ok';
+            if (!startedAt || ss === Number(startedAt)) return 'ended';
+            return 'other';
+        }
+
         function startAutoBackupInterval() {
             if (autoBackupTimer) clearInterval(autoBackupTimer);
             autoBackupTimer = setInterval(() => {
@@ -7677,9 +7875,11 @@
                 return;
             }
             try {
+                // ⚠️ saveBroadcastBackup 과 같은 세 칸을 적는다(tests/fixes_test.py 가 이 자리의 순서를 본다)
                 localStorage.setItem('active_broadcast_backup', JSON.stringify(gd));
                 const now = Date.now();
                 localStorage.setItem('active_broadcast_backup_time', now.toString());
+                localStorage.setItem('active_broadcast_backup_started', String(Number(gd.broadcast_started_at) || 0));
                 updateAutoBackupStatusBadge(now);
                 if (manualNotice) {
                     premiumAlert("현재 상태가 내 PC 브라우저 백업에 즉시 저장되었습니다!", "백업 완료", "success");
