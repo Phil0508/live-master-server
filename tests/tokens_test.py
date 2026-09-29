@@ -186,6 +186,10 @@ chk('새 열 벌은 안쪽 점선을 끈다', all(_blk[t] and '--pearl: transpar
 chk('테두리 두께 · 배지 둥글기를 테마가 정한다',
     'border: var(--frame-w, 4px) solid transparent;' in THEME and 'var(--badge-radius, 50%)' in THEME)
 chk('새 열 벌 시작·끝 화면 바탕이 있다', all('body.theme-%s #stage-screen {' % n in THEME for n in ('hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter')))
+# 🎬 2026-09-30 대표님 "종료화면 반투명한 거 없애줘" — 끝 화면 바탕은 불투명. 97% 였을 때 뒤 카메라가 옅게 비쳤다
+_ssbg = re.findall(r'#stage-screen \{[^}]*?background:\s*([^;}]*)', OV)
+chk('시작·끝 화면 바탕 15개(기본 + 테마 14) 모두 불투명 (rgba · transparent 없음)',
+    len(_ssbg) >= 15 and not any('rgba' in x or 'transparent' in x for x in _ssbg), [x[:60] for x in _ssbg if 'rgba' in x][:3])
 # VIP 알림은 !important 옷이라 테마가 이기려면 똑같이 써야 한다(실측: 속이 검정으로 남았다)
 chk('VIP 알림도 테마 속을 입는다', '#toon-popup.vip-premium-card { background: var(--frame-fill) !important; }' in THEME)
 # 글자 속 그라데이션은 칸 안에만 칠해진다 — 넘친 앞자리가 사라졌다(로얄 '1,284,000' → ',284,000')

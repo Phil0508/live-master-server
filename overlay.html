@@ -413,9 +413,11 @@
               기다리는 동안 들어온 후원도 알림은 떠야 한다. 대신 위젯판·게임판은 body.stage-on 이 내린다
               (위젯판 z-index 가 이 화면보다 높아서 안 내리면 위로 비친다).
            ⚠️ 글씨는 안전지대(115~954) 가운데에 모은다 — 폰에서는 그 아래가 채팅에 가린다. */
+        /* ⚠️ 바탕은 **불투명**이다(2026-09-30 대표님 "종료화면 반투명한 거 없애줘"). 예전엔 97~98.5% 라
+              어두운 바탕 위로 뒤 카메라가 옅게 비쳤다. 테마별 바탕(🎀 방송판 테마 구역)도 전부 rgb — 알파를 넣지 말 것. */
         #stage-screen { position: absolute; inset: 0; z-index: 87000; pointer-events: none;
             opacity: 0; visibility: hidden; transition: opacity var(--t-slow) ease, visibility var(--t-slow);
-            background: radial-gradient(120% 60% at 50% 26%, rgba(46, 38, 78, .97), rgba(10, 10, 18, .985) 72%); }
+            background: radial-gradient(120% 60% at 50% 26%, rgb(46, 38, 78), rgb(10, 10, 18) 72%); }
         #stage-screen.show { opacity: 1; visibility: visible; }
         /* ⚠️ 위젯판은 #ui-layer 밖에도 있다(한 방 최고 후원 · 후원 순위 …) — 처음에 ui-layer 만 내렸더니
               그 둘이 시작 화면 위로 그대로 비쳤다. 손잡이 클래스(.widget-container)로 한 번에 내린다.
@@ -3090,20 +3092,20 @@
         /* ── 🎬 시작·끝 화면도 테마 옷을 입는다 ─────────────────────────────────
            액자·모서리 장식은 위 ① 목록에 .ss-card 를 넣어 같이 입힌다. 여기선 바탕과 글씨만.
            ⚠️ 파스텔은 속이 밝다 — 흰 글씨를 그대로 두면 안 보인다. 전부 잉크 토큰으로 칠한다. */
-        body.theme-rose #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(96, 40, 66, .97), rgba(34, 12, 24, .985) 72%); }
-        body.theme-pastel #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(255, 244, 249, .98), rgba(236, 222, 252, .985) 72%); }
-        body.theme-royal #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(52, 26, 92, .97), rgba(14, 8, 30, .985) 72%); }
-        body.theme-chuseok #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(26, 36, 78, .97), rgba(8, 11, 28, .985) 72%); }
-        body.theme-hospital #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(250, 253, 253, .98), rgba(226, 242, 240, .985) 72%); }
-        body.theme-halloween #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(58, 29, 82, .97), rgba(18, 8, 26, .985) 72%); }
-        body.theme-concert #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(40, 30, 80, .97), rgba(8, 6, 18, .985) 72%); }
-        body.theme-sports #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(30, 33, 38, .97), rgba(10, 11, 13, .985) 72%); }
-        body.theme-news #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(250, 251, 253, .98), rgba(226, 233, 244, .985) 72%); }
-        body.theme-arcade #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(28, 30, 100, .97), rgba(8, 9, 36, .985) 72%); }
-        body.theme-mintchoco #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(226, 249, 240, .98), rgba(196, 236, 221, .985) 72%); }
-        body.theme-y2k #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(46, 46, 60, .97), rgba(14, 14, 20, .985) 72%); }
-        body.theme-hanji #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(248, 242, 228, .98), rgba(232, 220, 196, .985) 72%); }
-        body.theme-winter #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgba(246, 250, 255, .98), rgba(214, 230, 252, .985) 72%); }
+        body.theme-rose #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(96, 40, 66), rgb(34, 12, 24) 72%); }
+        body.theme-pastel #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(255, 244, 249), rgb(236, 222, 252) 72%); }
+        body.theme-royal #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(52, 26, 92), rgb(14, 8, 30) 72%); }
+        body.theme-chuseok #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(26, 36, 78), rgb(8, 11, 28) 72%); }
+        body.theme-hospital #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(250, 253, 253), rgb(226, 242, 240) 72%); }
+        body.theme-halloween #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(58, 29, 82), rgb(18, 8, 26) 72%); }
+        body.theme-concert #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(40, 30, 80), rgb(8, 6, 18) 72%); }
+        body.theme-sports #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(30, 33, 38), rgb(10, 11, 13) 72%); }
+        body.theme-news #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(250, 251, 253), rgb(226, 233, 244) 72%); }
+        body.theme-arcade #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(28, 30, 100), rgb(8, 9, 36) 72%); }
+        body.theme-mintchoco #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(226, 249, 240), rgb(196, 236, 221) 72%); }
+        body.theme-y2k #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(46, 46, 60), rgb(14, 14, 20) 72%); }
+        body.theme-hanji #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(248, 242, 228), rgb(232, 220, 196) 72%); }
+        body.theme-winter #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(246, 250, 255), rgb(214, 230, 252) 72%); }
         /* 🌕 추석 — 화면 위쪽에 큰 보름달(달토끼) */
         body.theme-chuseok #stage-screen::before { content: ""; position: absolute; left: 50%; top: 40px; width: 300px; height: 300px;
             margin-left: -150px; border-radius: 50%; opacity: .9;
