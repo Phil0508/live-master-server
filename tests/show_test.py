@@ -249,12 +249,16 @@ chk('방송판에 맨 위 띠 자리', 'id="small-don"' in OVSRC and '#small-don
 chk('색은 트위치 알림과 같게 — 이름 · 금액 청록 #32C3A6, 검은 테두리', '#small-don .sd-hl { color: #32C3A6; }' in OVSRC and '-webkit-text-stroke: 9px #000' in OVSRC)
 chk('1만 원 미만 · 0원 초과 · 시그니처 신청 글은 카드로', 'const SMALL_DON_MAX = 10000;' in OVSRC and 'amt > 0 && amt < max' in OVSRC
     and "startsWith('[시그니처 신청:')" in OVSRC)
-chk('[소액 후원]이 켜져 있으면 띠, 꺼져 있으면 예전 카드', "shAlert('small', d) && isSmallDon(d.latest_donation, d)" in OVSRC
-    and "(_smallDon || shAlert('popup', d))" in OVSRC and 'showSmallDon(d.latest_donation);' in OVSRC)
-chk('띠는 시그니처 대기줄을 붙잡지 않는다(카드처럼 2초 기다리지 않는다)', 'showSmallDon(d.latest_donation);\n                        checkReactionQueue();' in OVSRC)
+chk('[1천~9천 알림]이 켜져 있으면 띠, 꺼져 있으면 아무것도 안 띄운다(카드로 되돌리지 않는다)',
+    'const _smallDon = _isSmall && shAlert(\'small\', d);' in OVSRC and "(_isSmall || shAlert('popup', d))" in OVSRC
+    and 'if (_smallDon) showSmallDon(d.latest_donation);' in OVSRC)
+chk('띠는 시그니처 대기줄을 붙잡지 않는다(카드처럼 2초 기다리지 않는다)', 'if (_smallDon) showSmallDon(d.latest_donation);\n                        checkReactionQueue();' in OVSRC)
 chk('몰리면 줄 서되 밀린 만큼 짧게 — 아무도 건너뛰지 않는다', 'const hold = left >= 4 ? 2000 : (left >= 2 ? 3000 : 5000);' in OVSRC
     and 'smallDonQ.push(don);' in OVSRC and 'splice' not in OVSRC[OVSRC.find('function showSmallDon'):OVSRC.find('function smallDonNext')])
-chk('조종실 알림 줄에 [소액 후원] 칩', "['small', '소액 후원']" in CTLSRC2)
+chk('조종실 알림 줄에 [1천~9천 알림] 칩', "['small', '1천~9천 알림']" in CTLSRC2)
+chk('랭킹 탭 팝업 스위치 옆에도 같은 스위치', 'id="chk-small" onchange="showToggle(\'alerts\', \'small\')"' in CTLSRC2
+    and "setChk('chk-small', !(gd.show && gd.show.alerts && gd.show.alerts.small === false));" in CTLSRC2)
+chk('띠는 반투명 35%', 'background: rgba(0, 0, 0, 0.35);' in OVSRC)
 
 print()
 print('=' * 74)

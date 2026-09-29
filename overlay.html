@@ -2098,7 +2098,7 @@
            색은 트위치 구독 알림(스트림랩스 기본값)과 같게: 이름 · 금액만 청록 #32C3A6, 나머지 흰 글씨에 굵은 검은 테두리.
            ⚠️ 테두리는 paint-order:stroke fill 로 글자 '뒤'에 깐다 — 앞에 그리면 획이 글자를 먹어 가늘어진다. */
         #small-don { position: absolute; left: 0; top: 0; width: 100%; box-sizing: border-box; z-index: 100006; pointer-events: none;
-            padding: 16px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.5);   /* 반투명 — 뒤 캠이 비친다(대표님: 너무 까매). 글씨는 검은 테두리가 받쳐 준다 */
+            padding: 16px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.35);   /* 반투명 35% — 뒤 캠이 비친다(대표님이 35 · 50 · 65 중 고름). 글씨는 검은 테두리가 받쳐 준다 */
             opacity: 0; visibility: hidden; transform: translateY(-100%);
             transition: transform var(--t-base) var(--ease), opacity var(--t-base) ease, visibility var(--t-base); }
         #small-don.show { opacity: 1; visibility: visible; transform: none; }
@@ -6006,9 +6006,11 @@
                 }
 
                 // 🎁 투네이션 팝업
-                // 💬 1천~9천 원은 [소액 후원] 알림이 켜져 있으면 가운데 카드 대신 맨 위 띠로. 꺼져 있으면 예전처럼 카드.
-                const _smallDon = !!d.latest_donation && shAlert('small', d) && isSmallDon(d.latest_donation, d);
-                if (d.latest_donation && d.latest_donation.time !== lastDonationTime && (_smallDon || shAlert('popup', d))) { 
+                // 💬 1천~9천 원은 가운데 카드 대신 맨 위 띠로. [1천~9천 알림]을 끄면 아무것도 안 띄운다(대표님 2026-09-29).
+                //    ⚠️ 끈다고 카드로 되돌리지 않는다 — '소액은 화면에 안 띄우고 싶다'가 끄는 이유다.
+                const _isSmall = !!d.latest_donation && isSmallDon(d.latest_donation, d);
+                const _smallDon = _isSmall && shAlert('small', d);
+                if (d.latest_donation && d.latest_donation.time !== lastDonationTime && (_isSmall || shAlert('popup', d))) { 
                     lastDonationTime = d.latest_donation.time;
                     
                     // 리액션 대기열에 포함된 후원인지 검사
@@ -6019,9 +6021,9 @@
                     
                     if (hasReaction) {
                         console.log("Donation has matching reaction. Delaying popup to playReaction.");
-                    } else if (_smallDon) {
-                        // 띠는 시그니처 대기줄을 붙잡지 않는다 — 카드처럼 2초 기다리게 하지 않는다
-                        showSmallDon(d.latest_donation);
+                    } else if (_isSmall) {
+                        // 띠는 시그니처 대기줄을 붙잡지 않는다 — 카드처럼 2초 기다리게 하지 않는다. 꺼져 있으면 조용히 넘어간다.
+                        if (_smallDon) showSmallDon(d.latest_donation);
                         checkReactionQueue();
                     } else {
                         // 일반 후원(리액션 없는 후원)인 경우 즉시 노출
