@@ -153,7 +153,7 @@ chk('예전 검은 사선 겉판으로 안 돌아갔다', 'repeating-linear-grad
 chk('그림 파일이 있다', all(os.path.exists(os.path.join(PROJ, 'vendor', 'roulette', f)) for f in ('frame.webp', 'pointer.webp')))
 chk('멤버 룰렛 · 벌칙 룰렛이 같은 판 (제목만 다르다)',
     "itemSource === 'custom' ? '😈 벌칙 룰렛' : '🎡 행운의 돌림판'" in OV and OV.count('const RouletteWidget = {') == 1)
-chk('테마가 룰렛 겉모양을 안 바꾼다', '.roulette-wrap {' not in OV[OV.index('body:is(.theme-rose'):] if 'body:is(.theme-rose' in OV else True)
+chk('테마가 룰렛 겉모양을 안 바꾼다', '.roulette-wrap {' not in OV[OV.index('body.themed'):] if 'body.themed' in OV else True)
 
 print()
 print('=' * 74)

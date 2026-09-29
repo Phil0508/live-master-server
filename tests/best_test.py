@@ -163,7 +163,8 @@ chk('자릿수가 늘면 금액 글씨를 줄인다 (메달 밖으로 안 나가
 # ⚠️ 액자·장식은 여러 판이 한 줄(:is(...))을 같이 쓴다 — 줄이 길어져도(.ss-card 가 붙었다)
 #    깨지지 않게 '그 목록에 best-board 가 들어 있는가' 로 본다.
 import re as _re
-_frames = _re.findall(r'\.theme-chuseok\) :is\(([^)]*)\)', OV)
+# 2026-09-30 — 옷 입히는 규칙은 body.themed 하나에 건다(테마 14벌)
+_frames = _re.findall(r'body\.themed :is\(([^)]*)\)', OV)
 chk('테마 옷을 입는다', any('.best-board' in g for g in _frames) and '.best-head) {' in OV,
     len(_frames))
 

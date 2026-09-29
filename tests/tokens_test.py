@@ -92,7 +92,8 @@ print('=' * 74)
 # ⚠️ 모서리를 따로 주는 표기도 허용한다 — 자리마다 전부 허용값이면 단계를 벗어난 게
 #    아니다. (예: 위만 둥근 등급 머리띠 'var(--glass-radius) var(--glass-radius) 0 0')
 #    막으려는 건 '28px' 같은 **새 숫자**를 지어내는 것이지, 모서리를 나눠 주는 게 아니다.
-_R1 = r'(?:var\(--r-[sml]\)|var\(--glass-radius\)|999px|50%|inherit|6px|0)'
+# 🎨 2026-09-30 — 배지 둥글기는 테마가 정한다(알약 · 원 · 네모). 토큰이라 단계 안이다
+_R1 = r'(?:var\(--r-[sml]\)|var\(--glass-radius\)|var\(--badge-radius, 50%\)|999px|50%|inherit|6px|0)'
 RADIUS_OK = re.compile(r'^(?:calc\(.*\)|%s(?:\s+%s){0,3})$' % (_R1, _R1))
 bad = [v.strip() for v in re.findall(r'border-radius:\s*([^;]+);', BODY) if not RADIUS_OK.match(v.strip())]
 chk('CSS 둥글기가 단계 안에 있다', not bad, bad[:5])
@@ -136,20 +137,22 @@ print('=' * 74)
 CTL = rd('controller.html')
 _sel = re.search(r'<select id="sel-theme".*?</select>', CTL, re.S)
 _opts = re.findall(r'value="(\w+)"', _sel.group(0)) if _sel else []
-chk('조종실 테마 칸에 네 벌이 있다 (추석 포함)', _opts == ['default', 'rose', 'pastel', 'royal', 'chuseok'], _opts)
+# 🎨 2026-09-30 열 벌 더(대표님 "일단 다 올려")
+chk('조종실 테마 칸에 열네 벌이 있다 (추석 · 새 열 벌 포함)', _opts == ['default', 'rose', 'pastel', 'royal', 'chuseok', 'hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter'], _opts)
 chk('옛 네온 핑크는 목록에서 뺐다', 'pink' not in _opts)
 chk('옛 저장값 pink 는 로즈골드로 읽는다 (조종실)', "gd.theme === 'pink' ? 'rose'" in CTL)
 chk("옛 저장값 pink 는 로즈골드로 읽는다 (방송판)", "if (t === 'pink') t = 'rose';" in OV)
 
 _ts = CSS.index('🎀 방송판 테마 —')
 THEME = CSS[_ts:]
-_blk = {t: re.search(r'body\.theme-%s \{(.*?)\n        \}' % t, THEME, re.S) for t in ('rose', 'pastel', 'royal', 'chuseok')}
-chk('네 벌 모두 토큰 묶음이 있다', all(_blk.values()), [t for t, b in _blk.items() if not b])
+_ALL = ('rose', 'pastel', 'royal', 'chuseok', 'hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter')
+_blk = {t: re.search(r'body\.theme-%s \{(.*?)\n        \}' % t, THEME, re.S) for t in _ALL}
+chk('열네 벌 모두 토큰 묶음이 있다', all(_blk.values()), [t for t, b in _blk.items() if not b])
 # 금색을 하나라도 안 덮으면 그 토큰을 쓰는 위젯은 금색으로 남는다 — 네온 핑크가 그랬다
 _GOLD = ['--gold:', '--gold-rgb:', '--gold-light:', '--gold-deep:', '--gold-glow:', '--on-gold:',
          '--silver:', '--bronze:', '--accent:', '--theme-neon:']
 _miss = ['%s %s' % (t, k) for t, b in _blk.items() if b for k in _GOLD if k not in b.group(1)]
-chk('네 벌 모두 금색 토큰을 빠짐없이 덮는다 (%d개씩)' % len(_GOLD), not _miss, _miss[:4])
+chk('열네 벌 모두 금색 토큰을 빠짐없이 덮는다 (%d개씩)' % len(_GOLD), not _miss, _miss[:4])
 # ⚠️ 파스텔은 속이 밝다. --glass-bg 를 밝히면 흰 글씨를 쓰는 위젯이 전부 안 보인다.
 chk('파스텔은 유리판 배경(--glass-bg)을 통째로 밝히지 않는다',
     bool(_blk['pastel']) and '--glass-bg' not in _blk['pastel'].group(1))
@@ -170,9 +173,19 @@ chk('무늬 그림은 파일 안에만 있다 (바깥 그림을 안 부른다)',
 
 # 파스텔 — 밝은 판 안에서 흰 글씨가 남으면 안 보인다
 chk('파스텔 판 안의 이름·점수를 어둡게 칠한다', '--ink-name: #6b2150' in _blk['pastel'].group(1) if _blk['pastel'] else False)
-chk('파스텔 전광판 글씨를 어둡게', 'body.theme-pastel .notice-txt { color: var(--ink-name)' in THEME)
-chk('파스텔 VIP 후원 순위 줄의 검은 바탕을 밝힌다', 'body.theme-pastel .dr-row.dr-vip' in THEME)
-chk('파스텔 VIP 알림의 흰 이름을 어둡게', 'body.theme-pastel #toon-popup.vip-premium-card #toon-name' in THEME)
+chk('밝은 판 전광판 글씨를 어둡게', 'body.themed-light .notice-txt { color: var(--ink-name)' in THEME)
+chk('밝은 판 VIP 후원 순위 줄의 검은 바탕을 밝힌다', 'body.themed-light .dr-row.dr-vip' in THEME)
+chk('밝은 판 VIP 알림의 흰 이름을 어둡게', 'body.themed-light #toon-popup.vip-premium-card #toon-name' in THEME)
+# 🔆 밝은 판(파스텔 · 병원 · 뉴스 · 민트초코 · 한지 · 첫눈) — 유리판 배경을 통째로 밝히면 흰 글씨 위젯이 안 보인다
+_LIGHT = ('pastel', 'hospital', 'news', 'mintchoco', 'hanji', 'winter')
+chk('밝은 판 테마는 --glass-bg 를 안 건드린다', all(_blk[t] and '--glass-bg' not in _blk[t].group(1) for t in _LIGHT))
+chk('밝은 판 목록이 방송판과 같다', "const THEMES_LIGHT = ['pastel', 'hospital', 'news', 'mintchoco', 'hanji', 'winter'];" in OV)
+# 🎨 새 열 벌 — 숫자는 한 가지 색(그라데이션 X) · 안쪽 점선은 끈다 · 두께/배지는 테마가 정한다
+chk('새 열 벌은 숫자를 한 가지 색으로 칠한다', all(_blk[t] and '--num-fill: none;' in _blk[t].group(1) for t in ('hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter')))
+chk('새 열 벌은 안쪽 점선을 끈다', all(_blk[t] and '--pearl: transparent;' in _blk[t].group(1) for t in ('hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter')))
+chk('테두리 두께 · 배지 둥글기를 테마가 정한다',
+    'border: var(--frame-w, 4px) solid transparent;' in THEME and 'var(--badge-radius, 50%)' in THEME)
+chk('새 열 벌 시작·끝 화면 바탕이 있다', all('body.theme-%s #stage-screen {' % n in THEME for n in ('hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter')))
 # VIP 알림은 !important 옷이라 테마가 이기려면 똑같이 써야 한다(실측: 속이 검정으로 남았다)
 chk('VIP 알림도 테마 속을 입는다', '#toon-popup.vip-premium-card { background: var(--frame-fill) !important; }' in THEME)
 # 글자 속 그라데이션은 칸 안에만 칠해진다 — 넘친 앞자리가 사라졌다(로얄 '1,284,000' → ',284,000')
@@ -189,23 +202,29 @@ chk('테마가 안 바뀌면 아무것도 안 한다 (SSE 마다 불린다)', 'i
 
 # 🌕 추석 (대표님 2026-09-17: "담주가 추석이라 추석테마 만들자")
 chk('추석: 조종실 · 방송판 목록에 있다', "'chuseok'" in OV and 'value="chuseok"' in CTL)
-chk('추석: 옷 입히는 규칙이 추석에도 걸린다',
-    THEME.count('body:is(.theme-rose, .theme-pastel, .theme-royal, .theme-chuseok)') > 30
-    and 'body:is(.theme-rose, .theme-pastel, .theme-royal)' not in THEME)
+# ⚠️ 예전엔 네 테마 이름을 60군데에 적었다 — 새 테마마다 늘려야 했다. 이제 body.themed 하나에 건다(2026-09-30)
+chk('옷 입히는 규칙이 모든 테마에 걸린다 (body.themed)',
+    THEME.count('body.themed ') > 30 and 'body:is(.theme-rose' not in THEME)
+chk('테마를 고르면 themed · 밝은 판이면 themed-light 를 붙인다',
+    "cl.toggle('themed', !!want);" in OV and "cl.toggle('themed-light', !!want && THEMES_LIGHT.indexOf(t) >= 0);" in OV)
+_tl = OV.find('const THEMES = [')
+chk('새 열 벌이 방송판 목록에 있다', _tl > 0 and all("'%s'" % n in OV[_tl:_tl + 300] for n in ('hospital', 'halloween', 'concert', 'sports', 'news', 'arcade', 'mintchoco', 'y2k', 'hanji', 'winter')))
 chk('추석: 색동 테두리 · 보름달 · 송편 · 달토끼가 있다',
     bool(_blk['chuseok']) and 'repeating-linear-gradient(135deg, #e8664e' in _blk['chuseok'].group(1)
     and _blk['chuseok'].group(1).count('data:image/svg+xml') == 4)
 
 # 🔤 대표님: "폰트들도 다 다르게해줘 다 궁서체잖아" (2026-09-17)
 #    예전엔 네 테마가 이름표에 붓글씨(고운바탕 · 송명)를 같이 썼다.
+_ORIG = ('rose', 'pastel', 'royal', 'chuseok')
 def _faces(t):
     b = _blk[t].group(1) if _blk[t] else ''
     return {k: (re.search(r'--face-%s: "([^"]+)"' % k, b) or [None, None])[1] for k in ('name', 'num', 'big', 'label')}
 _F = {t: _faces(t) for t in _blk}
-chk('네 테마 모두 글꼴 넷(이름 · 표 숫자 · 큰 숫자 · 이름표)을 정한다',
+chk('열네 테마 모두 글꼴 넷(이름 · 표 숫자 · 큰 숫자 · 이름표)을 정한다',
     all(all(v.values()) for v in _F.values()), _F)
-_label = [v['label'] for v in _F.values()]
-_name = [v['name'] for v in _F.values()]
+# 글꼴이 서로 달라야 하는 건 처음 네 벌끼리다 — 새 열 벌은 모양 · 색으로 가르고, 잘 읽히는 글꼴은 겹쳐 쓴다
+_label = [_F[t]['label'] for t in _ORIG]
+_name = [_F[t]['name'] for t in _ORIG]
 chk('이름표 글꼴이 테마마다 다르다', len(set(_label)) == len(_label), _label)
 chk('이름 글꼴이 테마마다 다르다', len(set(_name)) == len(_name), _name)
 chk('붓글씨(궁서 계열)를 안 쓴다 (주석은 빼고 본다)', not re.search(r'Gowun Batang|Song Myung|Nanum Myeongjo|Batang|Gungsuh', re.sub(r'/\*.*?\*/', '', THEME, flags=re.S)))
@@ -238,7 +257,7 @@ print('=' * 74)
 _gm = ['%s %s' % (t, k) for t, b in _blk.items() if b
        for k in ('--game-fill:', '--tile-fill:', '--tile-blank:', '--canvas-bg:', '--piece-fill:', '--race:', '--race-rgb:')
        if k not in b.group(1)]
-chk('네 벌 모두 게임판 토큰이 있다', not _gm, _gm[:4])
+chk('열네 벌 모두 게임판 토큰이 있다', not _gm, _gm[:4])
 chk('게임판은 진한 속(--game-fill)을 쓴다 — 밝은 속(--frame-fill)이 아니다',
     'background: var(--game-fill) padding-box, var(--frame) border-box' in THEME
     and re.search(r':is\(\.sg-board, \.slot-card, \.home-race-box, \.dg-card\) \{[^}]*--frame-fill', THEME) is None)
