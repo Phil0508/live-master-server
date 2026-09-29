@@ -428,6 +428,17 @@
             .shell-rail #recent-strip .rs-more { position: absolute; top: 9px; right: 10px; height: 24px; background: none; border: 0; color: var(--text-muted); }
             /* 재생 대기열 — 지금 것은 크게, 다음 것은 번호 줄 */
             .rq-row:not(.first) { grid-template-columns: minmax(0, 1fr) auto 26px; padding: 5px 0; }
+            /* 🔁 같은 게 여러 번 왔을 때 묻는 팝업 */
+            #combo-ask { position: fixed; right: 16px; bottom: 84px; z-index: 9000; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100vw - 32px)); }
+            .ca-card { background: #16191f; border: 1px solid #3a2f39; border-left: 4px solid #ff3b30; border-radius: var(--r-2); padding: 12px 14px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, .45); display: flex; flex-direction: column; gap: 8px; color: var(--text-main); }
+            .ca-h { font-size: var(--fs-3); font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+            .ca-h small { color: var(--text-muted); font-weight: 600; }
+            .ca-x { background: #ff3b30; color: #fff; border-radius: 999px; padding: 0 9px; font-weight: 900; font-size: var(--fs-2); line-height: 1.6; }
+            .ca-t { font-size: var(--fs-2); color: var(--text-muted); line-height: 1.5; }
+            .ca-b { display: flex; gap: 6px; flex-wrap: wrap; }
+            .ca-b button { margin: 0; height: 32px; padding: 0 12px; font-size: var(--fs-2); font-weight: 800; }
+            .ca-b .ca-all { background: var(--accent); border-color: var(--accent); color: #17140b; }
             /* 🔁 묶인 시그니처 — 빨간 ×N 과 [N번 다 틀기] */
             .rs2-cnt { display: inline-flex; align-items: center; gap: 2px; margin: 0; font-weight: 800; color: var(--text-muted); }
             #rail-send .rs2-cnt input { width: 48px; height: 36px; min-height: 0; margin: 0; padding: 0 4px; text-align: center; border-radius: var(--r-2);
@@ -4450,6 +4461,7 @@
             try { psRender(); } catch (e) {}                             // 💾 세이브 슬롯 단추
             try { renderRecentStrip(); } catch (e) {}                    // 🆕 방금 들어온 후원 줄
             try { railQueue(); } catch (e) {}                            // ▶ 오른쪽 칸 재생 대기열
+            try { comboAskSync(); } catch (e) {}                         // 🔁 같은 게 여러 번 — 묻는 팝업
             try { renderLogFeed(); } catch (e) {}                        // 📋 로그 탭(보일 때만)
             if (document.getElementById('home-race-panel-body')?.style.display !== 'none') {
                 renderHomeGoalInputs();
@@ -9689,9 +9701,78 @@ initFoldablePanels();
         }
         async function railPlayAll(id, on, cnt) {
             try {
-                await railPost('/api/reaction/queue/playall/' + encodeURIComponent(id), { on: !!on });
-                acctToast(on ? '🔁 ' + cnt + '번 다 틉니다' : '한 번만 틀고 ×' + cnt + ' 으로 보여줍니다', 'ok');
-            } catch (e) { acctToast('실패: ' + e.message, 'warn'); }
+                const r = await fetch('/api/reaction/queue/playall/' + encodeURIComponent(id), {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ on: !!on }) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); return false; }
+                if (d.again) acctToast('🔁 남은 ' + d.count + '번을 바로 이어서 틉니다 (' + (d.seq_base + 1) + ' / ' + d.seq_total + ' 부터)', 'ok');
+                else acctToast(on ? '🔁 ' + cnt + '번 다 틉니다' : '한 번만 틀고 ×' + cnt + ' 으로 보여줍니다', 'ok');
+                return true;
+            } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); return false; }
+        }
+
+        /* 🔁 같은 게 여러 번 왔을 때 묻는 팝업 (대표님 2026-09-29).
+              대기줄에 ×2 이상이 서면 바로 뜬다: [N번 다 틀기] / [그대로 한 번만].
+              한 번 나가고 대기줄에서 빠진 뒤에도 45초 동안 남아 [남은 N-1번 더 틀기]로 이어 틀 수 있다
+              (예전엔 누르기 전에 끝나 버려 [N번 다 틀기]가 HTTP 404 였다). */
+        var comboAsk = {};
+        function comboAskClose(id) {
+            const c = comboAsk[id];
+            if (c && c.el && c.el.parentNode) c.el.parentNode.removeChild(c.el);
+            if (c) c.closed = true;
+        }
+        function comboAskCard(id) {
+            let box = document.getElementById('combo-ask');
+            if (!box) { box = document.createElement('div'); box.id = 'combo-ask'; document.body.appendChild(box); }
+            const el = document.createElement('div'); el.className = 'ca-card';
+            box.appendChild(el);
+            return el;
+        }
+        function comboAskPaint(c) {
+            const it = c.item, cnt = Number(it.count || 1);
+            const who = escapeHTML(it.donator || '익명'), title = escapeHTML(it.title || '시그니처');
+            const amt = Number(it.amount || 0).toLocaleString() + '원';
+            if (!c.gone) {
+                c.el.innerHTML = '<div class="ca-h"><span class="ca-x">×' + cnt + '</span><b>' + who + '</b>님 · ' + title + ' <small>' + amt + '</small></div>'
+                    + '<div class="ca-t">같은 시그니처가 ' + cnt + '번 왔어요. 지금은 한 번만 틀고 ×' + cnt + ' 로 보여줘요.</div>'
+                    + '<div class="ca-b"><button type="button" class="ca-all">' + cnt + '번 다 틀기</button><button type="button" class="ca-keep">그대로 한 번만</button></div>';
+                c.el.querySelector('.ca-all').onclick = async function () { if (await railPlayAll(it.id, true, cnt)) comboAskClose(it.id); };
+                c.el.querySelector('.ca-keep').onclick = function () { c.keptAt = cnt; comboAskClose(it.id); };
+            } else {
+                const left = cnt - 1;
+                c.el.innerHTML = '<div class="ca-h"><span class="ca-x">×' + cnt + '</span><b>' + who + '</b>님 · ' + title + ' <small>' + amt + '</small></div>'
+                    + '<div class="ca-t">한 번 나갔어요. ' + cnt + '번 다 해야 했다면 남은 ' + left + '번을 바로 이어서 틀 수 있어요.</div>'
+                    + '<div class="ca-b"><button type="button" class="ca-all">' + left + '번 더 틀기</button><button type="button" class="ca-keep">괜찮아요</button></div>';
+                c.el.querySelector('.ca-all').onclick = async function () { if (await railPlayAll(it.id, true, cnt)) comboAskClose(it.id); };
+                c.el.querySelector('.ca-keep').onclick = function () { comboAskClose(it.id); };
+            }
+        }
+        function comboAskSync() {
+            if (typeof gd === 'undefined' || !gd) return;
+            const q = Array.isArray(gd.reaction_queue) ? gd.reaction_queue : [];
+            const now = Date.now(), inQ = new Set();
+            q.forEach(function (it) {
+                inQ.add(it.id);
+                const cnt = Number(it.count || 1);
+                if (cnt < 2 || it.again_of) return;                       // 이어 틀기로 새로 선 것은 묻지 않는다
+                let c = comboAsk[it.id];
+                if (it.play_all) { if (c && !c.closed) comboAskClose(it.id); return; }
+                if (c && c.closed) {
+                    if (c.keptAt && cnt > c.keptAt) { c.closed = false; c.keptAt = 0; c.el = comboAskCard(it.id); } // 그대로 둔 뒤 더 왔다 — 다시 묻는다
+                    else return;
+                }
+                if (!c) c = comboAsk[it.id] = { el: comboAskCard(it.id) };
+                if (c.painted === cnt && !c.gone) return;
+                c.item = it; c.gone = false; c.painted = cnt;
+                comboAskPaint(c);
+            });
+            Object.keys(comboAsk).forEach(function (id) {
+                const c = comboAsk[id];
+                if (inQ.has(id)) return;
+                if (c.closed) { if (!c.goneAt) c.goneAt = now; if (now - c.goneAt > 60000) delete comboAsk[id]; return; }
+                if (!c.gone) { c.gone = true; c.goneAt = now; comboAskPaint(c); return; }   // 한 번 나갔다
+                if (now - c.goneAt > 45000) { comboAskClose(id); delete comboAsk[id]; }
+            });
         }
         async function railPause() {
             try { const d = await railPost('/api/reaction/pause'); acctToast(d.paused ? '알림을 멈췄습니다 — 재생 중인 것은 끝까지 나갑니다' : '알림을 다시 내보냅니다', 'ok'); }

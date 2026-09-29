@@ -3,15 +3,23 @@
 
 server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
 """
+import collections
 import random
 import show as showmod
 import threading
+import time
+import uuid
 from flask import jsonify, request
 import server  # 연습 서버가 가짜로 바꿔 끼우는 시그니처 조회는 부를 때마다 server 에서 찾는다
 from server import (
     SLOT_RESULT_DELAY_SEC, _slot_finish, _stage_log, app, broadcast_event, file_lock,
     load_data, request_is_authed, save_data, state_for_client,
 )
+
+
+# 🔁 방금 끝난 묶음(×N) — 조종실에서 '이미 한 번 나갔는데 N번 다 틀어야 했다' 할 때 남은 만큼 이어 틀려고 잠깐 기억한다.
+#    (서버를 다시 켜면 비워진다 — 그땐 이미 한참 지난 일이다)
+_RECENT_DONE = collections.deque(maxlen=30)
 
 
 @app.route('/api/reaction/next', methods=['POST'])
@@ -36,7 +44,9 @@ def next_reaction():
 
             if queue:
                 if not pop_id or queue[0].get('id') == pop_id:
-                    queue.pop(0)
+                    _done = queue.pop(0)
+                    if int(_done.get('seq_total') or _done.get('count') or 1) > 1:
+                        _RECENT_DONE.append(dict(_done, ended_at=time.time()))
                 
             if not queue:
                 state['reaction_mode'] = False
@@ -161,9 +171,33 @@ def api_reaction_playall(rq_id):
     on = bool(body.get('on', True))
     with file_lock:
         state = load_data()
-        hit = next((x for x in (state.get('reaction_queue') or []) if x.get('id') == rq_id), None)
+        queue = state.setdefault('reaction_queue', [])
+        hit = next((x for x in queue if x.get('id') == rq_id), None)
         if not hit:
-            return jsonify({'status': 'error', 'message': '대기줄에 없는 시그니처예요 — 이미 끝났을 수 있어요'}), 404
+            # 이미 한 번 틀고 대기줄에서 빠졌다 — 남은 만큼 곧바로 이어서 튼다(지금 나오는 것 바로 다음)
+            old = next((x for x in reversed(_RECENT_DONE) if x.get('id') == rq_id), None)
+            if old is None:
+                return jsonify({'status': 'error', 'message': '이 시그니처는 끝난 지 오래돼 이어서 틀 수 없어요 — 시그니처 송출 칸에서 × 몇 번으로 다시 보내 주세요'}), 404
+            if not on:
+                return jsonify({'status': 'success', 'id': rq_id, 'play_all': False, 'count': 0})
+            total = int(old.get('seq_total') or old.get('count') or 1)
+            played = int(old.get('seq_base') or 0) + (int(old.get('count') or 1) if old.get('play_all') else 1)
+            remaining = total - played
+            if remaining <= 0:
+                return jsonify({'status': 'error', 'message': '이미 %d번 다 틀었어요' % total}), 409
+            nw = {k: v for k, v in old.items() if k != 'ended_at'}
+            nw.update({'id': 'rq_' + uuid.uuid4().hex, 'count': remaining, 'play_all': True, 'skip_popup': True,
+                       'seq_base': played, 'seq_total': total, 'again_of': rq_id, 'play_after': 0})
+            queue.insert(1 if queue else 0, nw)
+            state['reaction_mode'] = True
+            try:
+                _RECENT_DONE.remove(old)          # 두 번 눌러 두 번 이어 틀지 않게
+            except ValueError:
+                pass
+            save_data(state)
+            broadcast_event('update', state)
+            return jsonify({'status': 'success', 'id': nw['id'], 'play_all': True, 'count': remaining,
+                            'again': True, 'seq_base': played, 'seq_total': total})
         hit['play_all'] = on
         save_data(state)
         broadcast_event('update', state)

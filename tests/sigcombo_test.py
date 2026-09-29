@@ -100,9 +100,28 @@ chk('켜면 play_all', c == 200 and r.get('play_all') is True and r.get('count')
 c, r = req('/api/reaction/queue/playall/' + rid, {'on': False})
 chk('끄면 다시 한 번 + ×N', c == 200 and queue()[0].get('play_all') is False, (c, r))
 c, r = req('/api/reaction/queue/playall/rq_nothing_here', {'on': True})
-chk('없는 것은 알려준다', c == 404 and '대기줄' in (r.get('message') or ''), (c, r))
+chk('없는 것은 까닭과 함께 알려준다', c == 404 and bool(r.get('message')), (c, r))
 c, r = req('/api/reaction/queue/playall/' + rid, {'on': True}, auth=False)
 chk('로그인 없이는 못 바꾼다', c in (401, 403), c)
+req('/api/reaction/stop', {})
+
+print(); print('=' * 74); print('⑦ 한 번 나간 뒤 [남은 N번 더 틀기] (예전엔 HTTP 404)'); print('=' * 74)
+req('/api/reaction/stop', {})
+for _ in range(3):
+    don('이어서', 12000, '묶음')
+old_id = queue()[0]['id']
+c, r = req('/api/reaction/next', {'id': old_id}, auth=False)          # 방송판이 한 번 틀고 넘긴 것처럼
+chk('한 번 나가면 대기줄에서 빠진다', c == 200 and not any(x.get('id') == old_id for x in queue()))
+c, r = req('/api/reaction/queue/playall/' + old_id, {'on': True})
+q = queue()
+nw = next((x for x in q if x.get('again_of') == old_id), None)
+chk('끝난 묶음에 누르면 남은 2번을 이어서 튼다(2 / 3 부터)', c == 200 and r.get('again') is True and nw is not None
+    and nw.get('count') == 2 and nw.get('play_all') is True and nw.get('seq_base') == 1 and nw.get('seq_total') == 3, (c, r))
+chk('이어 트는 것은 후원 팝업 없이 · 같은 시그니처', nw is not None and nw.get('skip_popup') is True and nw.get('amount') == 12000)
+c, r = req('/api/reaction/queue/playall/' + old_id, {'on': True})
+chk('두 번 눌러도 두 번 이어 틀지 않는다', c == 404 and len([x for x in queue() if x.get('again_of') == old_id]) == 1, (c, r.get('message')))
+c, r = req('/api/reaction/queue/playall/rq_longgone', {'on': True})
+chk('오래된 것은 까닭을 말해 준다(HTTP 404 만 뜨지 않게)', c == 404 and '× 몇 번' in (r.get('message') or ''), r.get('message'))
 req('/api/reaction/stop', {})
 
 print(); print('=' * 74); print('⑥ 계좌 후원 직접 송출 — × 몇 번 · 같은 내용 필터'); print('=' * 74)
@@ -138,18 +157,23 @@ CT = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8').read()
 SV = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8').read()
 chk('그림 모서리에 ×N 자리', '<div id="reaction-combo" aria-hidden="true"></div>' in OV and '#reaction-combo.burst' in OV)
 chk('처음 뜰 때 ×1 → ×N 으로 올라가고, 틀던 중 늘면 바로 올린다', 'let k = 1; bump(1);' in OV and 'bump(cnt);' in OV)
-chk('[N번 다 틀기]면 몇 번째인지(2 / 7)', "el.innerHTML = '<b>' + n + '</b> / ' + cnt;" in OV)
+chk('[N번 다 틀기]면 몇 번째인지(2 / 7)', "el.className = 'count';" in OV and "'</b> / ' + total;" in OV)
 chk('[N번 다 틀기]면 끝날 때 남은 만큼 같은 시그니처를 다시 튼다(큐는 안 넘김)',
     '_rh.play_all && rxRep.id === popId && rxRep.n < (Number(_rh.count) || 1)' in OV and 'playReaction(_rh, true);' in OV)
 chk('다시 틀 때는 후원 팝업을 또 띄우지 않는다', 'if (data.skip_popup || queueBacklog || bigDonation || isRepeat) {' in OV)
 chk('업데이트마다 표시를 맞춘다', 'try { rxComboSync(); } catch (e) {}\n            if (isDonationPopupShowing) return;' in OV)
 chk('슬롯 당첨 · 재생전용 · 주사위 대기는 묶지 않는다', 'if (count_tally and not skip_popup and not play_after_ms and _last is not None' in SV)
-chk('조종실 대기줄에 ×N 과 [N번 다 틀기]', "cnt + '번 다 틀기'" in CT and "railPost('/api/reaction/queue/playall/'" in CT
+chk('조종실 대기줄에 ×N 과 [N번 다 틀기]', "cnt + '번 다 틀기'" in CT and "fetch('/api/reaction/queue/playall/' + encodeURIComponent(id)" in CT
     and 'x.count, x.play_all' in CT)
 MS = io.open(os.path.join(PROJ, 'manual_send.html'), encoding='utf-8').read()
 chk('조종실 시그니처 송출 칸에 × 몇 번', 'id="rs-count"' in CT and ": [{ name: name, amount: a, message: msg, count: cnt }];" in CT
     and "tx_id: 'manual_' + stamp + (cnt > 1 ? '_' + (i + 1) : '')" in CT)
 chk('후원 콘솔에도 × 몇 번', 'id="in-count"' in MS and ": [{ name, amount, message, count:cnt }];" in MS)
+chk('같은 게 여러 번 오면 조종실에 묻는 팝업 — [N번 다 틀기] / [그대로 한 번만]', 'function comboAskSync()' in CT
+    and "'번 다 틀기</button><button type=\"button\" class=\"ca-keep\">그대로 한 번만</button>" in CT and 'try { comboAskSync(); } catch (e) {}' in CT)
+chk('한 번 나간 뒤에도 45초 동안 [남은 N번 더 틀기]', "'번 더 틀기</button>" in CT and 'now - c.goneAt > 45000' in CT)
+chk('실패하면 까닭을 그대로 보여준다', "acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); return false;" in CT)
+chk('방송판은 이어 틀 때 앞에서 튼 만큼 더해 센다(2 / 3)', "el.innerHTML = '<b>' + (base + n) + '</b> / ' + total;" in OV)
 
 print()
 print('=' * 74)

@@ -7073,7 +7073,10 @@
             const q = (globalData && globalData.reaction_queue) || [];
             const it = (currentPlayingId && q.length && q[0].id === currentPlayingId) ? q[0] : null;
             const cnt = it ? (Number(it.count) || 1) : 0;
-            if (!it || cnt <= 1) {
+            // 이미 한 번 나간 묶음을 이어 트는 것이면 앞에서 튼 만큼(seq_base)을 더해 '2 / 3' 부터 센다
+            const total = it ? (Number(it.seq_total) || cnt) : 0;
+            const base = it ? (Number(it.seq_base) || 0) : 0;
+            if (!it || total <= 1) {
                 if (rxComboShown.id !== null) { el.className = ''; el.textContent = ''; clearInterval(rxComboTimer); }
                 rxComboShown = { id: null, count: 0, all: false, n: 0 };
                 return;
@@ -7086,7 +7089,7 @@
             clearInterval(rxComboTimer);
             if (all) {
                 el.className = 'count';
-                el.innerHTML = '<b>' + n + '</b> / ' + cnt;
+                el.innerHTML = '<b>' + (base + n) + '</b> / ' + total;
                 return;
             }
             const bump = (k) => { el.textContent = '×' + k; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); };
