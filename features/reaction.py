@@ -107,9 +107,37 @@ def stop_reaction():
         print(f"Error in stop_reaction: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# 🎰 지금 도는 슬롯 판. ⚠️ 한 번에 한 판만 돈다.
+#    예전엔 막는 게 없어서 [돌리기] 를 0.3초 사이로 두 번 누르면(두 번 탭 · 폰과 조종실 동시)
+#    릴이 두 번 돌고 _slot_finish 도 두 번 불려 **당첨 시그 두 개 · 기여도 카드 두 장**이 나갔다.
+#    상태(state)가 아니라 여기(메모리)에 두는 까닭: 당첨 처리는 이 프로세스의 타이머가 하므로,
+#    서버를 다시 켜면 타이머도 같이 사라진다 — 그때 '도는 중' 이 남아 있으면 영영 못 돌린다.
+#    ⚠️ until 은 안전판이다. 타이머가 어떤 이유로 안 불려도 그 시각이 지나면 다시 돌릴 수 있다.
+_SLOT = {'round': 0, 'until': 0.0}
+
+
+def _slot_finish_round(rnd, winner):
+    """이 판(rnd)의 당첨만 처리한다. 판이 이미 바뀌었으면(늦게 깬 타이머) 아무것도 안 한다."""
+    with file_lock:
+        if _SLOT['round'] != rnd:
+            print(f"⚠️ [슬롯] {rnd}판 타이머가 늦게 깼습니다 — 지금은 {_SLOT['round']}판이라 건너뜁니다", flush=True)
+            return
+    # ⚠️ _slot_finish 가 안에서 file_lock 을 잡는다 — 위 잠금을 풀고 부른다(같은 잠금을 두 번 잡으면 멈춘다).
+    _slot_finish(winner)
+    with file_lock:
+        if _SLOT['round'] == rnd:
+            _SLOT['until'] = 0.0       # 🚪 이 판 끝 — 다음 판을 받는다
+
+
 @app.route('/api/slot/spin', methods=['POST'])
 def api_slot_spin():
     try:
+        # ⚠️ 먼저 '도는 중인가' 를 본다 — 시그니처 목록을 부르기 전에(느린 길이라 그 사이에 한 번 더 들어온다).
+        with file_lock:
+            _left = _SLOT['until'] - time.time()
+        if _left > 0:
+            return jsonify({"status": "error",
+                            "message": "슬롯이 아직 돌고 있어요 — %.0f초 뒤에 다시 눌러 주세요" % max(1, _left)}), 409
         data = request.get_json(silent=True) or {}
         winner = data.get('winner')
         candidates = data.get('candidates', [])
@@ -139,6 +167,14 @@ def api_slot_spin():
         # 릴이 도는 동안 슬롯 위젯이 확실히 보이도록 켠다.
         # (오버레이는 매 업데이트마다 slot_enabled로 표시를 다시 칠하므로 상태로 켜야 한다)
         with file_lock:
+            # 🚪 여기서 판을 잡는다. 위의 첫 확인과 여기 사이에 다른 요청이 먼저 잡았으면 이쪽이 물러난다
+            #    (시그니처 목록 조회가 잠금 밖이라 둘이 동시에 첫 확인을 통과할 수 있다).
+            if _SLOT['until'] > time.time():
+                return jsonify({"status": "error", "message": "슬롯이 아직 돌고 있어요"}), 409
+            _SLOT['round'] += 1
+            _rnd = _SLOT['round']
+            # 릴 + 당첨 발표 + 처리까지. 2초는 타이머가 늦게 깨는 몫이다.
+            _SLOT['until'] = time.time() + SLOT_RESULT_DELAY_SEC + 2.0
             state = load_data()
             _prev = showmod.ensure(state)['stage']
             showmod.set_stage(state, 'slot', temp=True)   # 📺 잠깐 — 당첨 뒤 원래 무대로 돌아간다
@@ -156,9 +192,10 @@ def api_slot_spin():
         # 당첨 발표(약 3.3초) 뒤에 슬롯을 끄고 시그니처를 리액션 큐에 넣는다.
         # 큐를 태우면 reaction_mode가 켜지고, 재생이 끝나면 큐가 비면서 자동으로 꺼진다.
         # 오버레이는 비인증이라 스스로 재생 API를 부를 수 없으므로 서버가 예약한다.
-        threading.Timer(SLOT_RESULT_DELAY_SEC, _slot_finish, args=(winner,)).start()
+        # ⚠️ _slot_finish 를 바로 걸지 않고 판 번호를 붙여 건다 — 제 판의 당첨만 처리하게.
+        threading.Timer(SLOT_RESULT_DELAY_SEC, _slot_finish_round, args=(_rnd, winner)).start()
 
-        return jsonify({"status": "success", "winner": winner})
+        return jsonify({"status": "success", "winner": winner, "round": _rnd})
     except Exception as e:
         print(f"Error spinning slot: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
