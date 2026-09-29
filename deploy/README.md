@@ -21,8 +21,8 @@
 cd /opt/livemaster && sudo -u livemaster git fetch origin main && sudo -u livemaster git reset --hard origin/main && systemctl restart livemaster
 ```
 
-이걸 해야 `/health` 와 `OTP_MASTER_CODE` 가 새 서버에서도 동작한다.
-(원한다면 `/etc/livemaster.env` 에 `OTP_MASTER_CODE=...` 도 함께 추가)
+이걸 해야 `/health` 가 새 서버에서도 동작한다.
+(조종실 로그인은 비밀번호 하나다 — OTP 는 2026-09-30 에 걷어냈다)
 
 ### 3. 템퍼몽키 유저스크립트를 고친다 ← 이게 전환의 핵심
 

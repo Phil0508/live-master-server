@@ -218,18 +218,11 @@
         </div>
 
         <form id="login-form" onsubmit="handleLogin(event)">
-            <div class="input-group">
+            <div class="input-group" style="margin-bottom: 25px;">
                 <label for="password">인증 PW</label>
                 <div class="input-wrapper">
                     <input type="password" id="password" placeholder="비밀번호 입력" required autocomplete="off" autofocus>
                     <i class="fa-solid fa-lock"></i>
-                </div>
-            </div>
-            <div class="input-group" style="margin-bottom: 25px;">
-                <label for="otp">모바일 OTP 번호 (선택 사항)</label>
-                <div class="input-wrapper">
-                    <input type="text" id="otp" placeholder="구글 OTP 6자리 (선택)" autocomplete="off" maxlength="6" pattern="[0-9]{6}" inputmode="numeric">
-                    <i class="fa-solid fa-mobile-screen-button"></i>
                 </div>
             </div>
 
@@ -247,7 +240,6 @@
         async function handleLogin(e) {
             e.preventDefault();
             const p = document.getElementById('password').value.trim();
-            const o = document.getElementById('otp').value.trim();
             const card = document.getElementById('login-card');
             const err = document.getElementById('err-msg');
 
@@ -258,7 +250,7 @@
                 const res = await fetch('/login', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({password: p, otp: o})
+                    body: JSON.stringify({password: p})   // 🔓 OTP 는 걷어냈다(2026-09-30)
                 });
                 const data = await res.json();
 
@@ -281,9 +273,9 @@
             err.style.display = 'flex';
             card.classList.add('shake-active');
             
-            // OTP 입력창 비우고 포커스
-            document.getElementById('otp').value = '';
-            document.getElementById('otp').focus();
+            // 비밀번호를 통째로 골라 두어 바로 다시 칠 수 있게
+            const pw = document.getElementById('password');
+            pw.focus(); pw.select();
             
             // 진동 해제용
             setTimeout(() => {

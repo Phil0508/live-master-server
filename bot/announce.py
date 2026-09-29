@@ -414,7 +414,7 @@ class Bot:
         pw = os.environ.get('ADMIN_PASSWORD')
         if pw:
             # ⚠️ 로그인해야 logs 가 온다. 무인증 손님에게는 서버가 빼고 보낸다.
-            body = json.dumps({'password': pw, 'otp': os.environ.get('ADMIN_OTP', '')}).encode()
+            body = json.dumps({'password': pw}).encode()   # 🔓 OTP 는 걷어냈다(2026-09-30)
             req = urllib.request.Request(self.cfg['server'] + '/login', data=body,
                                          headers={'Content-Type': 'application/json'})
             try:

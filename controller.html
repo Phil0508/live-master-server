@@ -2840,8 +2840,6 @@
             <div class="sys-row">
                 <a href="/toonation_tampermonkey.user.js" target="_blank" rel="noopener" class="sys-link" title="투네이션 후원을 이 서버로 넘겨주는 템퍼몽키 스크립트. 이미 깔려 있으면 최신으로 덮어씁니다.">
                     <i class="fa-solid fa-puzzle-piece"></i> 투네이션 연동 스크립트 설치 (템퍼몽키)</a>
-                <a href="/setup" target="_blank" class="sys-link" title="휴대폰 구글 OTP 를 새로 등록하거나 확인합니다.">
-                    <i class="fa-solid fa-shield-halved"></i> OTP 기기 등록 (/setup)</a>
             </div>
         </div>
 
@@ -9423,7 +9421,7 @@ if (localStorage.getItem('tabsMore') === '1') document.body.classList.add('tabs-
 //    ⚠️ 제목 안의 버튼·체크박스를 눌렀을 때는 접히면 안 된다(버전 새로고침, 알림음 등).
 //    '한 번 설정하고 마는' 패널은 처음부터 접어둔다 — 방송 중에 매번 지나칠 필요가 없다.
 const FOLD_DEFAULT = ['기본 설정', '기본 대결 화면 설정', '투네이션 연동 스크립트',
-                      'OTP 보안 설정', '클라우드 영구 저장소', '오프라인 비상 백업'];
+                      '클라우드 영구 저장소', '오프라인 비상 백업'];
 function initFoldablePanels() {
     document.querySelectorAll('.group-box').forEach(box => {
         if (box.id === 'pending-box' || box.id === 'ps-box') return;   // 대기함은 자기 접기가 · 세이브 슬롯은 칩 한 줄이라 접을 게 없다

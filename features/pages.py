@@ -1,116 +1,22 @@
 # -*- coding: utf-8 -*-
-"""🌐 페이지 — 로그인 · 처음 설정 · 조종실/폰/방송판 등 화면 파일, 효과음 · 영상 · 정적 파일 내보내기.
+"""🌐 페이지 — 로그인 · 조종실/폰/방송판 등 화면 파일, 효과음 · 영상 · 정적 파일 내보내기.
 
 server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
 """
 import os
-import pyotp
 from flask import jsonify, redirect, request, send_from_directory, session, url_for
 from server import (
-    ADMIN_PASSWORD_UNSET_MSG, BASE_DIR, BUNDLE_DIR, REQUIRE_OTP, _login_key,
-    admin_password_is_unset, app, get_or_create_totp_secret, login_failed, login_ok,
-    login_throttle, otp_master_matches, password_matches, serve_html_file,
+    ADMIN_PASSWORD_UNSET_MSG, BASE_DIR, BUNDLE_DIR,
+    admin_password_is_unset, app, login_failed, login_ok,
+    login_throttle, password_matches, serve_html_file,
 )
 
 
 # ==========================================
 # 🌐 페이지 라우팅
 # ==========================================
-@app.route('/setup')
-def serve_setup():
-    """OTP 페어링 화면. 통과하면 2단계 인증의 비밀키를 그대로 보여준다.
+# 🔓 /setup(OTP 등록 화면)은 걷어냈다 — 조종실 로그인은 비밀번호 하나다(2026-09-30).
 
-    ⚠️ 예전에는 비밀번호 한 겹만 넘으면 열렸다 — 그러면 자물쇠 두 개가 사실상 한 개다.
-       (비밀번호를 알아낸 사람이 여기서 OTP 키까지 가져가면 2단계가 무의미해진다)
-       이제 조종실 로그인을 먼저 통과해야 한다. 무인증 예외 목록에서도 뺐으므로
-       로그인하지 않으면 before_request 가 로그인 화면으로 돌려보낸다.
-    """
-
-    secret = get_or_create_totp_secret()
-    # QR Code compatible URL (ASCII only for label/issuer)
-    otp_uri = f"otpauth://totp/LiveMaster:admin?secret={secret}&issuer=LiveMaster"
-    
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔒 라이브 마스터 OTP 초기 페어링</title>
-    <style>
-        body {{
-            background: #0d0d0f;
-            color: #f5f5f7;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-        }}
-        .card {{
-            background: #16161a;
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 20px;
-            padding: 40px 30px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            max-width: 420px;
-            width: 90%;
-            box-sizing: border-box;
-        }}
-        h2 {{ color: #00ffcc; margin-top: 0; font-size: 22px; }}
-        p {{ font-size: 14px; color: #8e8e93; line-height: 1.6; }}
-        canvas {{ background: #fff; padding: 10px; border-radius: 10px; margin: 20px 0; }}
-        .secret-label {{ font-size: 12px; color: #8e8e93; margin-top: 15px; margin-bottom: 5px; }}
-        .secret {{
-            background: rgba(255,255,255,0.05);
-            padding: 12px;
-            border-radius: 8px;
-            font-family: monospace;
-            font-size: 18px;
-            letter-spacing: 2px;
-            color: #ff9f0a;
-            user-select: all;
-            word-break: break-all;
-            font-weight: bold;
-        }}
-        .btn {{
-            background: #00ffcc;
-            color: #000;
-            border: none;
-            padding: 14px 28px;
-            font-weight: bold;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 25px;
-            text-decoration: none;
-            display: inline-block;
-            transition: opacity 0.2s;
-        }}
-        .btn:hover {{ opacity: 0.9; }}
-    </style>
-    <script src="/vendor/qrious.min.js"></script>
-</head>
-<body>
-    <div class="card">
-        <h2>🔒 모바일 OTP 페어링 타워</h2>
-        <p>스마트폰의 <b>구글 OTP (Google Authenticator)</b> 앱을 실행하고,<br>우측 하단의 '+' 버튼을 눌러 아래 QR 코드를 스캔해 주세요.</p>
-        <canvas id="qr"></canvas>
-        <div class="secret-label">수동 등록을 위한 보안 키 (앱에 직접 입력 가능)</div>
-        <div class="secret">{secret}</div>
-        <a href="/login" class="btn">인증 로그인 화면으로 이동</a>
-    </div>
-    <script>
-        new QRious({{
-            element: document.getElementById('qr'),
-            value: '{otp_uri}',
-            size: 200
-        }});
-    </script>
-</body>
-</html>
-"""
-    return html
 
 @app.route('/login', methods=['GET', 'POST'])
 def serve_login():
@@ -123,45 +29,23 @@ def serve_login():
         try:
             data = request.get_json(silent=True) or request.form or {}
             p = data.get('password', '').strip()
-            otp_code = data.get('otp', '').strip()
-            
+
             # PW 검증
             if admin_password_is_unset():
                 return jsonify({'status': 'error', 'message': ADMIN_PASSWORD_UNSET_MSG}), 403
 
-            login_throttle()   # 앞서 틀린 만큼 늦춘다(찍어보기 방지)
+            login_throttle()   # 앞서 틀린 만큼 늦춘다(찍어보기 방지) — OTP 가 없으니 이게 유일한 장치다
 
+            # 🔓 비밀번호 하나로 들어온다. 옛 화면 · 진행봇이 'otp' 를 같이 보내도 보지 않는다.
             if password_matches(p):
-                totp_secret = get_or_create_totp_secret()
-                totp = pyotp.TOTP(totp_secret)
-
-                # 통과 사유를 남긴다. '왜 들어왔는지'를 로그로 볼 수 있어야
-                # 마스터 코드가 남에게 쓰였을 때 알아챌 수 있다.
-                how = None
-                if otp_code and otp_master_matches(otp_code):
-                    how = 'master'
-                elif otp_code and totp.verify(otp_code, valid_window=1):
-                    how = 'otp'
-                elif not otp_code and not REQUIRE_OTP:
-                    how = 'skipped'
-
-                if how:
-                    login_ok()
-                    session['authenticated'] = True
-                    if how == 'master':
-                        print(f"🔑 조종실 로그인: 마스터 코드 사용 (ip={_login_key()})", flush=True)
-                    return jsonify({'status': 'success'})
-                else:
-                    # OTP 가 틀린 것도 실패로 센다. 비밀번호를 알아낸 뒤
-                    # OTP 여섯 자리를 찍어보는 것도 같은 방식으로 막아야 한다.
-                    login_failed('조종실 OTP')
-                    return jsonify({'status': 'error', 'message': '보안 OTP 번호가 일치하지 않습니다.'}), 400
-            else:
-                login_failed('조종실 로그인')
-                return jsonify({'status': 'error', 'message': '비밀번호가 잘못되었습니다.'}), 400
+                login_ok()
+                session['authenticated'] = True
+                return jsonify({'status': 'success'})
+            login_failed('조종실 로그인')
+            return jsonify({'status': 'error', 'message': '비밀번호가 달라요. 다시 넣어 주세요.'}), 400
         except Exception as e:
             return jsonify({'status': 'error', 'message': str(e)}), 500
-            
+
     return serve_html_file('login.html')
 
 @app.route('/logout')

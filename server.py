@@ -37,7 +37,6 @@ import math     # 시그게임 판을 정사각형에 가깝게 잡을 때
 import threading
 import uuid
 import logging
-import pyotp
 import secrets
 
 import time
@@ -155,19 +154,13 @@ WEAK_DEFAULT_SECRET = 'isacbin_master_key_0508'
 SECRET_IS_WEAK = False          # /api/server/status 로 노출해서 눈에 보이게 한다
 AUTH_POSTURE_WARNED = False     # 로그인 잠금 상태 경고는 시작할 때 한 번만 찍는다
 
-# OTP 를 반드시 입력하게 할지. 기본은 꺼짐(=빈칸이면 통과) — 지금까지의 동작이다.
-# ⚠️ 켜기 전에 반드시 OTP 앱이나 마스터 코드로 로그인이 되는지 먼저 확인할 것.
-#    확인 없이 켜면 방송 직전에 조종실에 못 들어가는 사고가 난다.
-# ⚠️ load_auth_config() 가 이 값을 읽고, 그 함수는 모듈이 로딩되는 도중에도 불린다
-#    (app.secret_key 설정). 그래서 정의는 반드시 load_auth_config 보다 위에 있어야 한다.
-REQUIRE_OTP = (os.environ.get('REQUIRE_OTP') or '').strip().lower() in ('1', 'on', 'true', 'yes')
-
-
+# 🔓 조종실 로그인은 비밀번호 하나다 — OTP 는 걷어냈다(대표님 2026-09-30 "너무 불편해").
+#    운영 서버는 원래 OTP 를 강제하지 않아(빈칸이면 통과) 칸만 남아 헷갈렸다.
+#    ⚠️ auth_config.json 에 남은 totp_secret 은 지우지 않는다 — '버전 되돌리기' 로 옛 버전에 가면 쓴다.
 def load_auth_config():
     config = {
         'admin_password': '0508',
         'session_secret': WEAK_DEFAULT_SECRET,
-        'totp_secret': ''
     }
     if os.path.exists(AUTH_CONFIG_FILE):
         try:
@@ -177,8 +170,6 @@ def load_auth_config():
                     config['admin_password'] = data['admin_password']
                 if 'session_secret' in data:
                     config['session_secret'] = data['session_secret']
-                if 'totp_secret' in data:
-                    config['totp_secret'] = data['totp_secret']
         except Exception as e:
             print(f"Error reading auth config: {e}")
             
@@ -190,25 +181,12 @@ def load_auth_config():
     if env_session_secret:
         config['session_secret'] = env_session_secret.strip()
         
-    env_totp_secret = os.environ.get('TOTP_SECRET')
-    if env_totp_secret:
-        config['totp_secret'] = env_totp_secret.strip()
-        
-    if not config['totp_secret']:
-        config['totp_secret'] = pyotp.random_base32()
-        save_auth_config(config)   # ⚠️ totp_secret 만 저장된다(save_auth_config 참고)
-
     global AUTH_POSTURE_WARNED
     if not AUTH_POSTURE_WARNED:
         AUTH_POSTURE_WARNED = True
         gripes = []
         if config['admin_password'] == '0508':
             gripes.append("조종실 비밀번호가 공개된 기본값 '0508' 입니다. ADMIN_PASSWORD 를 넣어주세요.")
-        master = (os.environ.get('OTP_MASTER_CODE') or '').strip()
-        if master and len(master) < 8:
-            gripes.append(f"OTP 마스터 코드가 {len(master)}자로 짧습니다. 두 번째 자물쇠가 사실상 없는 것과 같습니다.")
-        if not REQUIRE_OTP:
-            gripes.append("OTP 를 비워두면 통과합니다. 잠그려면 REQUIRE_OTP=1 을 넣으세요.")
         if gripes:
             print("=" * 70, flush=True)
             for g in gripes:
@@ -227,21 +205,9 @@ def load_auth_config():
 
     return config
 
-# 저장하는 것은 totp_secret 하나뿐이다.
-# ⚠️ 예전에는 config 를 통째로 썼다. 그러면 환경변수로 넣은 실제 운영
-#    비밀번호(ADMIN_PASSWORD)와 관리자 키(SESSION_SECRET)가 auth_config.json 에
-#    평문으로 적힌다. 그 파일은 저장소에 추적되고 있어서, 무심코 커밋하면
-#    공개 저장소에 그대로 올라간다. 환경변수는 환경변수로만 두고 파일에 옮기지 않는다.
-_AUTH_PERSIST_KEYS = ('totp_secret',)
-
-
-def save_auth_config(config):
-    try:
-        keep = {k: config[k] for k in _AUTH_PERSIST_KEYS if config.get(k)}
-        with open(AUTH_CONFIG_FILE, 'w', encoding='utf-8') as f:
-            json.dump(keep, f, indent=4)
-    except Exception as e:
-        print(f"Error writing auth config: {e}")
+# ⚠️ auth_config.json 에는 아무것도 쓰지 않는다. 예전에는 OTP 키(totp_secret)를 적었고, 그보다 전에는
+#    config 를 통째로 써서 환경변수로 넣은 운영 비밀번호(ADMIN_PASSWORD) · 관리자 키(SESSION_SECRET)가
+#    평문으로 적혔다(저장소에 추적되는 파일이다). 비밀은 환경변수로만 둔다.
 
 # ==========================================
 # 🟢 Supabase 시그니처 연동 (Storage + PostgREST)
@@ -710,7 +676,7 @@ def add_header(r):
     # ⚠️ 예전에는 모든 응답에 걸었다. 그러면 .js·.css·글꼴·그림까지 캐시가 금지돼
     #    OBS 오버레이를 새로고침할 때마다 정적 파일을 통째로 다시 받는다.
     #    상하면 안 되는 것은 상태(API)뿐이라 거기에만 건다.
-    if request.path.startswith('/api/') or request.path in ('/login', '/setup'):
+    if request.path.startswith('/api/') or request.path == '/login':
         r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         r.headers["Pragma"] = "no-cache"
         r.headers["Expires"] = "0"
@@ -1048,14 +1014,10 @@ def broadcast_event(event_name, data):
                 except Exception:
                     pass
 
-def get_or_create_totp_secret():
-    return load_auth_config()['totp_secret']
-
-
 # 🔒 공개된 기본 비밀번호로는 인터넷에서 로그인할 수 없게 막는다.
 #
 # '0508' 은 이 파일에 적혀 있고 저장소는 공개(public)라, 사실상 누구나 아는 값이다.
-# 게다가 OTP 는 빈칸이면 통과하므로, 이 상태에서는 주소만 알면 조종실에 들어와
+# 조종실 자물쇠는 비밀번호 하나라(OTP 없음), 이 상태에서는 주소만 알면 조종실에 들어와
 # 점수·전광판·방송 리셋을 전부 만질 수 있었다.
 #
 # 그래서 '서버로 돌고 있을 때'(HEADLESS 또는 DATABASE_URL) 는 기본값을 거부한다.
@@ -1079,20 +1041,10 @@ ADMIN_PASSWORD_UNSET_MSG = (
 )
 
 
-# 🔑 OTP 마스터 코드 — OTP 앱 없이 들어가기 위한 예비 열쇠.
-#
-# ⚠️ 값을 코드에 적지 않는다. 이 저장소는 공개(public)라, 여기 적는 순간
-#    누구나 읽을 수 있는 열쇠가 된다. 반드시 환경변수로만 넣는다.
-#      /etc/livemaster.env  →  OTP_MASTER_CODE=...
-#    설정하지 않으면 이 기능은 아예 꺼진 상태다(아무 코드도 통과시키지 않는다).
-#
-# ⚠️ 이 코드는 '두 번째 자물쇠'를 통째로 대신한다. 짧고 뻔한 값(생일·0508 등)을
-#    넣으면 2단계 인증이 사실상 없는 것과 같아진다. 그래도 쓰겠다면 최소한
-#    조종실 비밀번호(ADMIN_PASSWORD)만은 길고 어렵게 두어야 한다.
 # 🐢 로그인 시도를 늦춘다.
-#    /login 과 /setup 은 비밀번호 한 개로 통과하는데 시도 횟수에 제한이 없었다.
+#    /login 은 비밀번호 한 개로 통과하는데 시도 횟수에 제한이 없었다.
 #    기본 비밀번호가 네 자리(0508)라, 자동 도구면 몇 초 만에 다 넣어본다.
-#    /setup 은 통과하면 OTP 비밀키를 그대로 보여주므로 두 번째 자물쇠까지 같이 열린다.
+#    OTP 를 걷어낸 뒤로는(2026-09-30) 이것이 찍어보기를 막는 유일한 장치다 — 빼지 말 것.
 #
 # ⚠️ '몇 번 틀리면 잠금' 은 일부러 쓰지 않는다. 남이 아무 비밀번호나 계속 넣어
 #    방송 직전에 사장님을 못 들어오게 만들 수 있다(그게 더 큰 사고다).
@@ -1149,14 +1101,6 @@ def password_matches(given):
     """비밀번호 비교. 한 글자씩 비교하다 멈추면 응답 시간으로 앞자리를 알아낼 수 있다."""
     return secrets.compare_digest(str(given or ''), str(load_auth_config()['admin_password'] or ''))
 
-
-def otp_master_matches(code):
-    master = (os.environ.get('OTP_MASTER_CODE') or '').strip()
-    if not master:
-        return False
-    # 글자를 하나씩 비교하다 처음 틀린 데서 멈추면, 응답 시간 차이로
-    # 코드를 앞에서부터 알아낼 수 있다. 길이와 무관하게 같은 시간이 걸리게 비교한다.
-    return secrets.compare_digest(code.strip(), master)
 
 def serve_html_file(filename):
     local_path = os.path.join(BASE_DIR, filename)
@@ -2215,10 +2159,6 @@ def api_health():
             'bind_host': (os.environ.get('BIND_HOST') or '0.0.0.0').strip(),
             'ai_key_present': bool((os.environ.get('NVIDIA_API_KEY') or '').strip()),
             'default_admin_password': load_auth_config()['admin_password'] == '0508',
-            'require_otp': REQUIRE_OTP,
-            # 코드 자체가 아니라 '설정됐는지/길이가 되는지'만. 값은 절대 내보내지 않는다.
-            'otp_master_set': bool((os.environ.get('OTP_MASTER_CODE') or '').strip()),
-            'otp_master_short': 0 < len((os.environ.get('OTP_MASTER_CODE') or '').strip()) < 8,
         }
 
     return jsonify(out)
@@ -3317,14 +3257,6 @@ if __name__ == '__main__':
             
             lbl_info = tk.Label(root, text='투네이션의 모든 수동 후원이 대기함으로 입하되며,\n조종실 및 방송 오버레이가 한치의 오차 없이 구동됩니다.', fg='#8e8e93', bg='#111113', font=('Malgun Gothic', 9), justify='center')
             lbl_info.pack(pady=5)
-            
-            # 🔑 OTP 보안 등록 정보 추가
-            otp_sec = get_or_create_totp_secret()
-            lbl_otp = tk.Label(root, text='🔑 모바일 OTP 보안키: ' + otp_sec, fg='#ff9f0a', bg='#111113', font=('Consolas', 11, 'bold'))
-            lbl_otp.pack(pady=5)
-            
-            lbl_otp_info = tk.Label(root, text=f'* 최초 등록 방법: 스마트폰 구글 OTP 앱에서 위 키를 입력하거나,\n서버 PC 브라우저로 http://localhost:{port}/setup 에 접속해 QR 코드를 스캔하세요.', fg='#8e8e93', bg='#111113', font=('Malgun Gothic', 8), justify='center')
-            lbl_otp_info.pack(pady=5)
             
             frame_btns = tk.Frame(root, bg='#111113')
             frame_btns.pack(pady=20)
