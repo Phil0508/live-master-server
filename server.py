@@ -530,12 +530,32 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
     #    게다가 오버레이가 다시 붙는 순간 밀린 것을 전부 연달아 재생해버린다.
     #    상한을 두고 가장 오래된 것부터 버린다(버린 사실은 로그로 남긴다).
     _queue = state.setdefault('reaction_queue', [])
-    if len(_queue) >= REACTION_QUEUE_MAX:
+    # 🔁 같은 사람 · 같은 시그니처가 줄 끝에 이미 있으면 새로 줄 세우지 않고 묶는다(대표님 2026-09-29 C안).
+    #    2만 원을 7번 보내면 2만 원 시그니처를 한 번 틀고 ×7. 금액을 합쳐 다른 시그니처로 바꾸지 않는다.
+    #    조종실 대기줄의 [N번 다 틀기](play_all)를 누르면 방송판이 같은 시그니처를 N번 다 튼다.
+    #    ⚠️ 줄 '끝'과만 묶는다 — 사이에 다른 후원이 끼면 순서를 지키려고 새로 줄 선다.
+    #    ⚠️ 지금 틀고 있는 것(줄 머리)과도 묶인다 — 방송판이 틀면서 ×N 을 바로 올린다.
+    #    ⚠️ 슬롯 당첨 · 재생전용 수동 송출(count_tally=False) · 주사위 대기(play_after)는 묶지 않는다.
+    #    정산 · 시그 순위 · 점수는 후원마다 그대로 센다(아래 집계는 묶여도 1씩 올린다).
+    _last = _queue[-1] if _queue else None
+    if (count_tally and not skip_popup and not play_after_ms and _last is not None
+            and not _last.get('skip_popup') and not _last.get('play_after')
+            and str(_last.get('item_id')) == str(sig.get('id'))
+            and _norm_donor(_last.get('donator')) == _norm_donor(donator)):
+        _last['count'] = int(_last.get('count') or 1) + 1
+        reaction_uuid = _last['id']
+        state['reaction_mode'] = True
+        print(f"  🔁 [시그 묶음] {donator} '{sig.get('title')}' ×{_last['count']}", flush=True)
+        _merged = True
+    else:
+        _merged = False
+    if not _merged and len(_queue) >= REACTION_QUEUE_MAX:
         dropped = len(_queue) - REACTION_QUEUE_MAX + 1
         del _queue[:dropped]
         print(f"⚠️ [리액션 큐 상한] 밀린 시그니처 {dropped}건을 버렸습니다 (상한 {REACTION_QUEUE_MAX}건). "
               f"오버레이가 꺼져 있거나 재생이 멈춰 있는지 확인하세요.")
-    _queue.append({
+    if not _merged:
+      _queue.append({
         "id": reaction_uuid,
         "item_id": sig.get('id'),
         "title": sig.get('title'),
@@ -554,14 +574,18 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
         #    안 넘어간다. 주사위가 말을 다 옮길 때까지 기다리게 하려고 쓴다.
         #    0 이면 곧바로 재생 — 보통 후원은 전부 0 이다.
         "play_after": (int(time.time() * 1000) + play_after_ms) if play_after_ms > 0 else 0,
-    })
+        # 🔁 묶음 — count: 같은 사람이 같은 시그니처를 몇 번 보냈나, play_all: 조종실 [N번 다 틀기]
+        "count": 1,
+        "play_all": False,
+      })
     state['reaction_mode'] = True
 
     # ✂️ 쇼츠 클립 목록 — 기준 금액 이상이면 '이런 순간이 곧 나온다' 고 적어 둔다.
     #    실제 저장은 방송판이 재생을 시작한 뒤 건다(대기열이 밀리면 재생은 한참 뒤다).
+    #    묶인 후원은 이미 적힌 한 줄로 충분하다.
     try:
         _c = _clip_state(state)
-        if _c.get('auto') and _c.get('auto_min') and int(amount or 0) >= int(_c['auto_min']):
+        if not _merged and _c.get('auto') and _c.get('auto_min') and int(amount or 0) >= int(_c['auto_min']):
             _clip_log(state, 'auto', '%s %s원 %s' % (donator or '익명', format(int(amount or 0), ','), sig.get('title') or ''),
                       ref=reaction_uuid)
     except Exception as e:

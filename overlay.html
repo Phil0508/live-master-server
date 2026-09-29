@@ -2263,6 +2263,19 @@
 
         /* 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액) 흔들림 */
         .reaction-img-box { position: relative; display: inline-block; border-radius: var(--r-m); line-height: 0; }
+        /* 🔁 같은 사람 · 같은 시그니처 연속 — 한 번 틀면 그림 모서리 빨간 원에 ×N 이 톡톡 올라간다(대표님 2026-09-29 C안).
+              조종실 [N번 다 틀기]면 대신 '2 / 7' 처럼 몇 번째인지 보인다. */
+        #reaction-combo { position: absolute; top: -34px; right: -34px; z-index: 6; display: none; pointer-events: none; line-height: 1; }
+        #reaction-combo.burst { display: grid; place-items: center; width: 118px; height: 118px; border-radius: 50%;
+            background: radial-gradient(circle at 40% 35%, #ff7a70, #ff3b30 55%, #c4140b); color: #fff;
+            font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-size: 54px; transform: rotate(-8deg);
+            box-shadow: 0 0 0 5px rgba(0, 0, 0, .5), 0 0 34px rgba(255, 59, 48, .55); }
+        #reaction-combo.count { display: block; top: -22px; right: -18px; padding: 8px 18px; border-radius: var(--r-m); background: rgba(14, 14, 20, .88);
+            border: 2px solid rgba(255, 255, 255, .25); color: #fff; font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            font-weight: 900; font-size: 42px; font-variant-numeric: tabular-nums; }
+        #reaction-combo.count b { color: #ffcf4d; }
+        #reaction-combo.pop { animation: rx-combo-pop var(--t-base) var(--ease-pop); }
+        @keyframes rx-combo-pop { from { transform: rotate(-8deg) scale(.4); } to { transform: rotate(-8deg) scale(1); } }
         .reaction-img-box.glow { box-shadow: 0 0 0 3px var(--reac-glow, #ff2d78), 0 0 30px var(--reac-glow, #ff2d78), var(--sh-2); }
         .reaction-shine { position: absolute; inset: 0; border-radius: var(--r-m); overflow: hidden; pointer-events: none; }
         .reaction-shine::before {
@@ -2961,6 +2974,7 @@
     <!-- 🎵 리액션 음원/사진 송출 전광판 및 오디오 객체 -->
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
         <div id="reaction-img-box" class="reaction-img-box">
+            <div id="reaction-combo" aria-hidden="true"></div>
             <img id="reaction-screen-image" src="" alt="Reaction Image">
             <div class="reaction-shine"></div>
         </div>
@@ -7049,7 +7063,45 @@
             return left;
         }
 
+        /* 🔁 묶음 표시 — 지금 틀고 있는 항목(큐 머리)의 count · play_all 을 그림 모서리에 그린다. */
+        let rxRep = { id: null, n: 0 };          // 지금 틀고 있는 묶음이 몇 번째 재생인가([N번 다 틀기] 때 씀)
+        let rxComboShown = { id: null, count: 0, all: false, n: 0 };
+        let rxComboTimer = null;
+        function rxComboSync() {
+            const el = document.getElementById('reaction-combo');
+            if (!el) return;
+            const q = (globalData && globalData.reaction_queue) || [];
+            const it = (currentPlayingId && q.length && q[0].id === currentPlayingId) ? q[0] : null;
+            const cnt = it ? (Number(it.count) || 1) : 0;
+            if (!it || cnt <= 1) {
+                if (rxComboShown.id !== null) { el.className = ''; el.textContent = ''; clearInterval(rxComboTimer); }
+                rxComboShown = { id: null, count: 0, all: false, n: 0 };
+                return;
+            }
+            const all = !!it.play_all;
+            const n = rxRep.id === it.id ? rxRep.n : 1;
+            const was = rxComboShown;
+            if (was.id === it.id && was.count === cnt && was.all === all && was.n === n) return;
+            rxComboShown = { id: it.id, count: cnt, all: all, n: n };
+            clearInterval(rxComboTimer);
+            if (all) {
+                el.className = 'count';
+                el.innerHTML = '<b>' + n + '</b> / ' + cnt;
+                return;
+            }
+            const bump = (k) => { el.textContent = '×' + k; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); };
+            el.className = 'burst';
+            if (was.id !== it.id || was.all) {
+                // 처음 뜰 때 ×1 → ×N 으로 톡톡 올라간다
+                let k = 1; bump(1);
+                rxComboTimer = setInterval(() => { k++; bump(k); if (k >= cnt) clearInterval(rxComboTimer); }, 260);
+            } else {
+                bump(cnt);                        // 틀고 있는 사이 같은 후원이 더 들어왔다
+            }
+        }
+
         function checkReactionQueue() {
+            try { rxComboSync(); } catch (e) {}
             if (isDonationPopupShowing) return;
             
             // 💡 [개조] 리액션 모드(reaction_mode)가 꺼져있거나 대기열이 비었으면 리액션 화면을 즉시 내립니다.
@@ -7596,8 +7648,9 @@
             return { r: Math.round(R * 255), g: Math.round(G * 255), b: Math.round(B * 255) };
         }
 
-        function playReaction(data) {
-            console.log('Playing reaction:', data);
+        function playReaction(data, isRepeat) {
+            console.log('Playing reaction:', data, isRepeat ? '(🔁 반복 ' + (rxRep.n) + ')' : '');
+            if (!isRepeat || rxRep.id !== data.id) rxRep = { id: data.id, n: 1 };
             // ✂️ 기준 금액 이상 시그가 실제로 재생된다 — 반응까지 담기게 25초 뒤 저장
             try { const _m = clipAuto(); if (_m && Number(data && data.amount) >= _m) clipSave(CLIP_AUTO_WAIT, (data.donator || '') + ' ' + data.amount, data.id); } catch (e) {}
             
@@ -7664,6 +7717,7 @@
                 // 3. 카드 노출 (페이드인 & 스케일 바운스) - 중앙에 크게
                 overlay.classList.remove('minimize');
                 overlay.classList.add('show');
+                try { rxComboSync(); } catch (e) {}   // 🔁 ×N · 몇 번째
 
                 // 3-a. 금액 등급별 이펙트(플래시·흔들림·이미지 글로우/샤인·배경 스포트라이트) 적용
                 applyReactionEffects(data);
@@ -7833,7 +7887,7 @@
             //    팝업을 지워도 전광판이 반드시 대신 나온다. 시그니처가 없는 고액 후원은
             //    handleData 쪽 경로로 가는데 거기서 팝업까지 막으면 화면에 아무것도 안 뜬다.
             const bigDonation = (parseInt(data.amount) || 0) >= BIG_DONATION_MIN;
-            if (data.skip_popup || queueBacklog || bigDonation) {
+            if (data.skip_popup || queueBacklog || bigDonation || isRepeat) {
                 if (queueBacklog && !data.skip_popup) console.log('대기열 밀림 — 후원 팝업 건너뛰고 즉시 재생');
                 if (bigDonation && !data.skip_popup) console.log('고액 후원 — 후원 팝업 대신 전광판으로 연출');
                 startPlayback();
@@ -7848,6 +7902,14 @@
 
         function onReactionEnded() {
             const popId = currentPlayingId;
+            // 🔁 [N번 다 틀기] — 아직 남았으면 같은 시그니처를 팝업 없이 다시 튼다(큐는 안 넘긴다).
+            //    창마다 같은 값을 보고 각자 되풀이하므로 여러 창이어도 횟수가 같다.
+            const _rh = ((globalData && globalData.reaction_queue) || [])[0];
+            if (_rh && _rh.id === popId && _rh.play_all && rxRep.id === popId && rxRep.n < (Number(_rh.count) || 1)) {
+                rxRep.n += 1;
+                playReaction(_rh, true);
+                return;
+            }
             currentPlayingId = null;
 
             // 모니터 모드에서는 서버 큐를 건드리지 않는다 (이중 pop 방지)

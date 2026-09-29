@@ -428,6 +428,11 @@
             .shell-rail #recent-strip .rs-more { position: absolute; top: 9px; right: 10px; height: 24px; background: none; border: 0; color: var(--text-muted); }
             /* 재생 대기열 — 지금 것은 크게, 다음 것은 번호 줄 */
             .rq-row:not(.first) { grid-template-columns: minmax(0, 1fr) auto 26px; padding: 5px 0; }
+            /* 🔁 묶인 시그니처 — 빨간 ×N 과 [N번 다 틀기] */
+            .rq-combo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+            .rq-cx { background: #ff3b30; color: #fff; border-radius: 999px; padding: 0 8px; font-size: var(--fs-1); font-weight: 900; line-height: 1.6; }
+            .rq-all { margin: 0; height: 24px; padding: 0 9px; font-size: var(--fs-1); font-weight: 800; border-radius: var(--r-2); }
+            .rq-all.on { background: var(--accent); border-color: var(--accent); color: #17140b; }
             .rq-row:not(.first) .rq-th { display: none; }
             .rq-row:not(.first) b { font-weight: 600; }
             .rq-row.first { grid-template-columns: 88px minmax(0, 1fr) auto 26px; padding-bottom: 10px; }
@@ -8545,7 +8550,7 @@
                 return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: var(--r-1); ${borderStyle}">
                         <div style="flex: 1; min-width: 0; font-size: var(--fs-2); color: #fff;">
-                            ${badge}<span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:inline-block; max-width:110px; vertical-align:middle;">${escapeHTML(item.title)}</span>
+                            ${badge}<span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; display:inline-block; max-width:110px; vertical-align:middle;">${escapeHTML(item.title)}</span>${Number(item.count || 1) > 1 ? ` <span class="rq-cx">×${Number(item.count)}</span> <button type="button" class="rq-all${item.play_all ? ' on' : ''}" onclick="railPlayAll('${item.id}', ${!item.play_all}, ${Number(item.count)})">${item.play_all ? Number(item.count) + '번 다 트는 중' : Number(item.count) + '번 다 틀기'}</button>` : ''}
                         </div>
                         <button onclick="removeFromQueue('${item.id}')" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:var(--fs-2); padding: 0 4px; flex-shrink: 0; display: inline-flex; align-items: center;">
                             <i class="fa-solid fa-xmark"></i>
@@ -9621,7 +9626,7 @@ initFoldablePanels();
             const list = document.getElementById('rq-list'); if (!list || typeof gd === 'undefined' || !gd) return;
             const q = Array.isArray(gd.reaction_queue) ? gd.reaction_queue : [];
             const paused = !!gd.reaction_paused;
-            const sig = JSON.stringify([q.map(x => [x.id, x.title, x.donator, x.amount]), paused]);
+            const sig = JSON.stringify([q.map(x => [x.id, x.title, x.donator, x.amount, x.count, x.play_all]), paused]);
             if (sig === rqSig) return;
             rqSig = sig;
             document.getElementById('rq-count').textContent = q.length ? q.length + '개' : '';
@@ -9638,7 +9643,20 @@ initFoldablePanels();
                 const b = document.createElement('b'); b.textContent = (i > 0 ? (i + 1) + '. ' : '') + (it.title || '시그니처');
                 const sm = document.createElement('small'); sm.textContent = (i === 0 ? (paused ? '다음 차례 · ' : '재생 중 · ') : '') + (it.donator || '익명');
                 mid.appendChild(b); mid.appendChild(sm);
-                const am = document.createElement('span'); am.className = 'rq-a'; am.textContent = Number(it.amount || 0).toLocaleString();
+                // 🔁 같은 사람 · 같은 시그니처 묶음 — 기본은 한 번 + ×N, [N번 다 틀기]로 바꿀 수 있다
+                const cnt = Number(it.count || 1);
+                if (cnt > 1) {
+                    const cb = document.createElement('div'); cb.className = 'rq-combo';
+                    const px = document.createElement('span'); px.className = 'rq-cx'; px.textContent = '×' + cnt;
+                    const bt = document.createElement('button'); bt.type = 'button';
+                    bt.className = 'rq-all' + (it.play_all ? ' on' : '');
+                    bt.textContent = it.play_all ? cnt + '번 다 트는 중 · 한 번만으로' : cnt + '번 다 틀기';
+                    bt.title = it.play_all ? '다시 한 번만 틀고 ×' + cnt + ' 으로' : '이 시그니처를 ' + cnt + '번 다 틉니다(방송판에 몇 번째인지 보여요)';
+                    bt.onclick = function () { railPlayAll(it.id, !it.play_all, cnt); };
+                    cb.appendChild(px); cb.appendChild(bt); mid.appendChild(cb);
+                }
+                const am = document.createElement('span'); am.className = 'rq-a';
+                am.textContent = Number(it.amount || 0).toLocaleString() + (cnt > 1 ? ' ×' + cnt : '');
                 const x = document.createElement('button'); x.type = 'button'; x.className = 'rq-x'; x.title = '목록에서 빼기'; x.textContent = '✕';
                 x.onclick = function () { railRemove(it.id); };
                 row.appendChild(th); row.appendChild(mid); row.appendChild(am); row.appendChild(x);
@@ -9650,6 +9668,12 @@ initFoldablePanels();
             const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             return r.json().catch(() => ({}));
+        }
+        async function railPlayAll(id, on, cnt) {
+            try {
+                await railPost('/api/reaction/queue/playall/' + encodeURIComponent(id), { on: !!on });
+                acctToast(on ? '🔁 ' + cnt + '번 다 틉니다' : '한 번만 틀고 ×' + cnt + ' 으로 보여줍니다', 'ok');
+            } catch (e) { acctToast('실패: ' + e.message, 'warn'); }
         }
         async function railPause() {
             try { const d = await railPost('/api/reaction/pause'); acctToast(d.paused ? '알림을 멈췄습니다 — 재생 중인 것은 끝까지 나갑니다' : '알림을 다시 내보냅니다', 'ok'); }

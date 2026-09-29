@@ -153,6 +153,23 @@ def api_slot_spin():
         print(f"Error spinning slot: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/reaction/queue/playall/<string:rq_id>', methods=['POST'])
+def api_reaction_playall(rq_id):
+    """🔁 묶인 시그니처(×N)를 N번 다 틀지 — 조종실 대기줄의 [N번 다 틀기]. on=false 면 다시 '한 번 + ×N'.
+       지금 틀고 있는 묶음에 눌러도 된다 — 방송판이 이번 재생이 끝나면 남은 만큼 이어서 튼다."""
+    body = request.get_json(silent=True) or {}
+    on = bool(body.get('on', True))
+    with file_lock:
+        state = load_data()
+        hit = next((x for x in (state.get('reaction_queue') or []) if x.get('id') == rq_id), None)
+        if not hit:
+            return jsonify({'status': 'error', 'message': '대기줄에 없는 시그니처예요 — 이미 끝났을 수 있어요'}), 404
+        hit['play_all'] = on
+        save_data(state)
+        broadcast_event('update', state)
+    return jsonify({'status': 'success', 'id': rq_id, 'play_all': on, 'count': int(hit.get('count') or 1)})
+
+
 @app.route('/api/reaction/queue/remove/<string:rq_id>', methods=['POST'])
 def remove_from_queue(rq_id):
     try:
