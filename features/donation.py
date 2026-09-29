@@ -6,6 +6,7 @@ server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구
 import collections
 import os
 import secrets
+import threading
 import time
 import uuid
 from flask import jsonify, request
@@ -79,6 +80,94 @@ def donation_source_allowed():
     return False
 
 
+# ══ 🔒 같은 tx_id 가 두 번 세어지지 않게 — '처리 중' · '처리 끝' 표 ══
+#
+# ⚠️ [실제로 두 번 세어지던 구멍] 예전에는 tx_id 중복을 장부(donation_history)로만 봤다.
+#    그런데 장부에 줄이 생기는 건 처리 **맨 끝**(시그니처 매칭 뒤, 락 안)이고, 그 매칭은
+#    Supabase 왕복이라 느리면 18초까지 걸린다. 리스너는 10초 만에 포기하고 0.6초 뒤
+#    **같은 tx_id** 로 다시 보냈다 → 두 요청 다 장부 검사를 통과(아직 줄이 없다) →
+#    대기함 2건 · 후원 순위 2배 · 시그니처 2번. 리스너 후원(toon_)은 12초 내용 필터도
+#    건너뛰므로 막을 곳이 하나도 없었다.
+#    그래서 느린 일을 하기 **전에** tx_id 를 '처리 중' 으로 찍는다. 확인과 찍기는 한 자물쇠 안에서
+#    한 번에 한다 — 둘 사이가 벌어지면 똑같은 구멍이 다시 생긴다.
+# ⚠️ file_lock 이 아니라 전용 자물쇠를 쓴다. 여기서 하는 일은 표 한 칸 보고 적기뿐이라
+#    원자성은 똑같고, 점수 버튼 · 큐 넘기기가 쓰는 file_lock 을 후원마다 한 번 더 잡지 않아도 된다.
+# ⚠️ 처리가 **실패하면 '처리 중' 을 풀어준다**(끝 표에는 안 넣는다). 서버가 도중에 죽거나 예외가 나면
+#    리스너 대기줄이 같은 tx_id 로 다시 보내는데, 그때는 진짜로 처리돼야 한다.
+# ⚠️ 서버가 여러 프로세스로 뜨면 이 표는 프로세스마다 따로다. 지금은 한 프로세스(file_lock 도
+#    threading.Lock)라 괜찮다. 여러 개로 늘리면 장부 tx_id 에 UNIQUE 를 거는 게 먼저다.
+_tx_lock = threading.Lock()
+_tx_inflight = set()
+_tx_done = collections.OrderedDict()     # tx_id → 끝난 시각. 오래된 것부터 흘려보낸다
+_TX_DONE_MAX = 5000
+
+
+def _tx_claim(tx):
+    """tx_id 를 '처리 중' 으로 찍는다. 'ok'(찍었다) · 'busy'(다른 요청이 처리 중) · 'done'(이미 끝났다)."""
+    with _tx_lock:
+        if tx in _tx_done:
+            return 'done'
+        if tx in _tx_inflight:
+            return 'busy'
+        _tx_inflight.add(tx)
+        return 'ok'
+
+
+def _tx_release(tx, handled):
+    """'처리 중' 을 푼다. handled 면 '처리 끝' 에 올려 다음 재전송을 장부까지 안 가고 거른다."""
+    with _tx_lock:
+        _tx_inflight.discard(tx)
+        if handled:
+            _tx_done[tx] = time.time()
+            while len(_tx_done) > _TX_DONE_MAX:
+                _tx_done.popitem(last=False)
+
+
+# ══ 📒 장부엔 있는데 상태(대기함)엔 없는 후원 되살리기 ══
+#
+# ⚠️ 장부 INSERT 는 상태 저장보다 **먼저** 끝난다(상태는 락을 놓은 뒤 DB 에 쓰인다).
+#    그 사이에 서버가 재시작되면 장부엔 줄이 있는데 대기함 · 순위엔 없다. 리스너가 같은 tx_id 로
+#    다시 보내도 '장부에 있으니 중복' 으로 버려져, 그 후원은 대기함에 영영 안 나타났다(돈은 받았는데 점수 못 줌).
+#    그래서 상태 안에도 '이 tx_id 는 상태까지 들어갔다' 는 표시를 남긴다.
+# ⚠️ 표시는 latest_donation 안에 둔다. 새 칸을 만들면 조종실이 상태를 통째로 보낼 때 낡은 사본이
+#    그 칸을 덮어써(서버 소유 칸이 아니다) '들어간 적 없다' 로 잘못 읽고 **두 번 넣는다**.
+#    latest_donation 은 서버 소유 칸이라 조종실이 못 덮고, 방송 시작 · 종료 때 장부와 같이 비워진다.
+# ⚠️ 목록은 짧게(방송 화면으로도 같이 나간다). 잘려 나간 것을 '안 들어갔다' 로 착각하지 않게
+#    'since'(이 시각 이후 장부 줄만 판단한다)를 같이 적는다 — 처음 배포한 날의 옛 장부 줄도 이걸로 걸러진다.
+_TX_LOG_MAX = 60
+
+
+def _tx_log_add(latest, prev_latest, tx):
+    """새 latest_donation 에 앞 목록을 이어 붙이고 tx 를 적는다."""
+    old = (prev_latest or {}).get('tx_log') if isinstance(prev_latest, dict) else None
+    now = int(time.time())
+    if isinstance(old, dict) and isinstance(old.get('ids'), list):
+        ids = [x for x in old['ids'] if isinstance(x, list) and len(x) == 2]
+        since = int(old.get('since') or now)
+    else:
+        ids, since = [], now
+    if tx:
+        ids.append([tx, now])
+    while len(ids) > _TX_LOG_MAX:
+        gone = ids.pop(0)
+        since = max(since, int(gone[1]) + 1)     # 잘린 것보다 뒤만 판단한다
+    latest['tx_log'] = {'since': since, 'ids': ids}
+
+
+def _tx_state_missing(state, tx, ledger_ts):
+    """장부에 있는 tx 가 상태에는 안 들어갔는가. 확실할 때만 True — 애매하면 False(= 평소처럼 중복으로 버린다)."""
+    log_ = (state.get('latest_donation') or {}).get('tx_log')
+    if not isinstance(log_, dict) or not isinstance(log_.get('ids'), list):
+        return False
+    if any(isinstance(x, list) and x and x[0] == tx for x in log_['ids']):
+        return False
+    try:
+        row_at = time.mktime(time.strptime(str(ledger_ts), '%Y-%m-%d %H:%M:%S'))
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return row_at >= int(log_.get('since') or 0) + 1   # 초 단위라 1초 여유를 둔다
+
+
 @app.route('/api/donation', methods=['POST'])
 def receive_donation():
     if not donation_source_allowed():
@@ -87,6 +176,8 @@ def receive_donation():
         return jsonify({"status": "error",
                         "message": "이 서버에서만 후원을 접수합니다. 바깥에서 보내려면 "
                                    "DONATION_KEY 를 정하고 X-Donation-Key 헤더에 같은 값을 넣으세요."}), 401
+    _tx = ''            # 이 요청이 '처리 중' 으로 찍은 tx_id (finally 에서 푼다)
+    _handled = False    # 이 tx_id 를 '처리 끝' 으로 볼 것인가 — 실패로 끝나면 False 로 남아 재전송이 통한다
     try:
         new_don = request.get_json(silent=True)
         if not isinstance(new_don, dict):
@@ -105,16 +196,42 @@ def receive_donation():
         if amount < 0:
             return jsonify({"status": "error", "message": "Invalid amount"}), 400
             
-        # 2. tx_id 중복 검사로 중복 처리 차단
+        # 2-0. 🔒 같은 tx_id 가 지금 처리 중이거나 이미 끝났으면 여기서 끊는다(느린 일보다 먼저 — 위 _tx_claim 설명).
+        #      ⚠️ '처리 중' 에 성공(200)을 주면 안 된다. 앞 요청이 그 뒤에 실패하면 보낸 쪽은 '들어갔다' 고
+        #         믿고 버려서 후원이 사라진다. 409 로 '잠시 뒤 다시' 를 알리면 리스너는 대기줄에 넣고
+        #         10초 뒤 다시 보낸다 — 그때는 '이미 끝남'(200) 이거나, 앞 요청이 실패했으면 새로 처리된다.
+        _recover = False     # 장부엔 있는데 상태엔 없는 후원을 되살리는 중인가(장부 줄은 다시 안 적는다)
+        if tx_id not in (None, ''):
+            _t = str(tx_id).strip()
+            _claim = _tx_claim(_t) if _t else 'ok'
+            if _claim == 'done':
+                return jsonify({"status": "success", "message": "Duplicate donation ignored."})
+            if _claim == 'busy':
+                print(f"⏳ [같은 후원 처리 중] tx_id={_t} — 409 로 돌려보냅니다(보낸 쪽이 잠시 뒤 다시 보낸다)", flush=True)
+                return jsonify({"status": "error", "in_progress": True,
+                                "message": "같은 후원을 아직 처리 중입니다 — 잠시 뒤 다시 보내 주세요"}), 409
+            _tx = _t
+
+        # 2. tx_id 중복 검사로 중복 처리 차단 (서버를 다시 켠 뒤라 위 표가 비어 있을 때 — 장부가 정본이다)
         if tx_id:
+            _row = None
             try:
                 with get_db_connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(db_query("SELECT id FROM donation_history WHERE tx_id = ?"), (tx_id,))
-                    if cursor.fetchone():
-                        return jsonify({"status": "success", "message": "Duplicate donation ignored."})
+                    cursor.execute(db_query("SELECT id, timestamp FROM donation_history WHERE tx_id = ?"), (tx_id,))
+                    _row = cursor.fetchone()
             except Exception as dbe:
                 print(f"⚠️ [tx_id 중복 확인 오류] {dbe}")
+            if _row:
+                # 📒 장부 줄은 있는데 상태까지 못 간 후원인가(장부 INSERT 와 상태 저장 사이에 서버가 죽은 경우)
+                with file_lock:
+                    _missing = _tx_state_missing(load_data(), str(tx_id).strip(), _row[1])
+                if not _missing:
+                    _handled = True
+                    return jsonify({"status": "success", "message": "Duplicate donation ignored."})
+                _recover = True
+                print(f"🩹 [후원 되살리기] tx_id={tx_id} 는 장부에만 있고 대기함 · 순위엔 없습니다 "
+                      f"— 장부 줄은 그대로 두고 대기함 · 순위만 다시 채웁니다", flush=True)
 
         # 2-b. 재전송 대비: 이름+금액+메시지가 동일한 후원이 아주 짧은 시간 안에
         #      다시 오면 중복으로 간주해 무시한다(시그니처 이중 재생 방지).
@@ -135,8 +252,10 @@ def receive_donation():
         #    사람이 일부러 누른 것이라 '재전송'이 아니다. 송출 단추는 보내는 동안 잠겨 두 번 눌리지 않는다.
         from_manual = str(tx_id or '').startswith('manual_') and request_is_authed()
         dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
-        if not from_listener and not from_manual and is_duplicate_donation(dup_key):
+        # ⚠️ 되살리는 중(_recover)이면 거르지 않는다 — 장부로 '진짜 한 건' 이 확인된 후원이다.
+        if not from_listener and not from_manual and not _recover and is_duplicate_donation(dup_key):
             print("⚠️ [내용 기반 중복 후원 무시] 동일 후원이 짧은 시간에 재수신됨")
+            _handled = True
             return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
 
         # 💬 1만 원 미만 '화면에만' 후원 — 리스너가 display_only 를 붙여 보낸다(대표님 2026-09-29).
@@ -146,17 +265,23 @@ def receive_donation():
         #    ⚠️ 장부에 안 적으니 tx_id 중복 검사(위)가 안 걸린다 — 최근 것을 따로 기억해 재전송을 거른다.
         if new_don.get('display_only') and from_listener and 0 < amount < SMALL_DISPLAY_MAX:
             if tx_id and tx_id in _display_seen:
+                _handled = True
                 return jsonify({"status": "success", "message": "Duplicate donation ignored.", "display_only": True})
             if tx_id:
                 _display_seen.append(tx_id)
             _nm = ' '.join(str(new_don.get('name') or '').split()) or '익명'
             with file_lock:
                 state = load_data()
-                state['latest_donation'] = {'name': _nm, 'amount': amount,
-                                            'message': str(new_don.get('message') or '').strip(),
-                                            'time': time.time(), 'display_only': True}
+                _new_latest = {'name': _nm, 'amount': amount,
+                               'message': str(new_don.get('message') or '').strip(),
+                               'time': time.time(), 'display_only': True}
+                # 📒 '상태까지 들어간 tx' 목록은 이어 붙인다(여기서 끊기면 되살리기 판단이 틀어진다).
+                #    화면에만 후원은 장부에 안 적으므로 목록에 넣을 필요는 없다.
+                _tx_log_add(_new_latest, state.get('latest_donation'), None)
+                state['latest_donation'] = _new_latest
                 save_data(state)
                 broadcast_event('update', state)
+            _handled = True
             print(f"  💬 [화면에만] {_nm} {amount:,}원 — 방송판 맨 위 띠로만 띄웁니다", flush=True)
             return jsonify({'status': 'success', 'display_only': True})
 
@@ -243,12 +368,15 @@ def receive_donation():
             if len(state['pending_donations']) == PENDING_WARN_AT:
                 print(f"⚠️ [대기함 {PENDING_WARN_AT}건] 배정이 밀려 있습니다. 화면 갱신이 무거워집니다 "
                       f"— 조종실에서 처리하거나 오토파일럿을 켜주세요.")
-            state['latest_donation'] = {
+            _new_latest = {
                 'name': parsed_name,
                 'amount': amount,
                 'message': cleaned_msg,
                 'time': time.time()
             }
+            # 📒 이 tx 가 '상태까지 들어갔다' 고 적는다 — 대기함 줄과 **같은 저장**에 실려야 의미가 있다(위 설명).
+            _tx_log_add(_new_latest, state.get('latest_donation'), _tx or None)
+            state['latest_donation'] = _new_latest
             # ⚠️ 여기서 reaction_mode 를 무조건 켜면 안 된다.
             #    시그니처가 매칭되지 않는 후원(금액 미등록, 0원 후원, Supabase 일시 오류)에서도
             #    켜져버리는데, 켜는 건 여기뿐이고 끄는 건 '오버레이가 큐를 다 소화했을 때'뿐이라
@@ -336,7 +464,8 @@ def receive_donation():
             #    점수를 주지만 장부엔 없다). Supabase 는 유휴 커넥션을 끊기 때문에 조용한 구간 뒤
             #    첫 후원에서 이게 실제로 발생한다. 다른 곳(save_data_sync)은 이미 1회 재시도로
             #    대응하고 있는데 여기만 빠져 있었다. 실패는 상태창에도 남겨 운영자가 알 수 있게 한다.
-            for _attempt in range(2):
+            # ⚠️ 되살리는 중(_recover)이면 장부 줄은 이미 있다 — 또 적으면 정산에 두 번 잡힌다.
+            for _attempt in range(0 if _recover else 2):
                 try:
                     with get_db_connection() as conn:
                         cursor = conn.cursor()
@@ -368,6 +497,9 @@ def receive_donation():
             #    화면에서는 시그니처가 멈추고 컨트롤러가 먹통이 됐다.
             #    큐에 넣는 것까지만 락 안에서 하고, 기다리는 건 락을 놓은 뒤에 한다.
             pending_write = save_data(state, sync=True, wait=False)
+            # 🔒 여기부터는 '처리 끝' 이다. 뒤에서 무슨 예외가 나도 대기함 · 장부엔 이미 들어갔으므로
+            #    같은 tx_id 재전송은 걸러야 한다(안 그러면 두 번 들어간다).
+            _handled = True
             broadcast_event('update', state)
 
             print("  🎯 [최종 처리 결과]")
@@ -382,6 +514,10 @@ def receive_donation():
         return jsonify({'status': 'success', 'id': don_id})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+    finally:
+        # 🔒 '처리 중' 을 반드시 푼다 — 안 풀면 그 tx_id 는 영원히 409 가 되어 후원이 못 들어온다.
+        if _tx:
+            _tx_release(_tx, _handled)
 
 # 💬 '화면에만' 후원 — 이 금액 미만만(방송판 SMALL_DON_MAX 와 같게), 최근 tx_id 500개로 재전송을 거른다
 SMALL_DISPLAY_MAX = 10000

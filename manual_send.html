@@ -641,25 +641,41 @@
         const cnt=Math.max(1,Math.min(30,parseInt(($('in-count')||{}).value||'1',10)||1));
         const btn=$('btn-send'); btn.disabled=true;
         const endpoint = ledger ? '/api/donation' : '/api/signature/play';
-        const stamp=Date.now();
+        // 🔁 실패한 묶음을 **같은 내용으로 다시 누르면 같은 번호(tx_id)를 다시 쓴다.**
+        //    ⚠️ 예전에는 누를 때마다 번호를 새로 만들어서, ×5 중 3건이 들어가고 실패한 뒤 다시 누르면
+        //       5건이 또 들어가 3건이 두 번 잡혔다(장부 · 대기함 · 순위). 번호가 같으면 서버가
+        //       이미 들어간 것은 '중복' 으로 걸러 주고 빠진 것만 넣는다.
+        //    ⚠️ 내용(이름 · 금액 · 메시지 · 횟수)이 하나라도 다르면 새 번호다 — 다른 후원이기 때문이다.
+        const sig=JSON.stringify([name,amount,message,cnt]);
+        const reuse = ledger && _manualRetry && _manualRetry.sig===sig;
+        const stamp = reuse ? _manualRetry.stamp : Date.now();
         const payloads = ledger
             ? Array.from({length:cnt},(_,i)=>({ name, amount, message, tx_id:'manual_'+stamp+(cnt>1?'_'+(i+1):'') }))
             : [{ name, amount, message, count:cnt }];
+        // ⚠️ okN 은 try 밖에 둔다 — 통신이 도중에 끊겨(catch) 도 몇 건 들어갔는지 알려야 한다.
+        let okN=0, lastErr='';
         try{
-            let okN=0, lastErr='';
             for(const payload of payloads){   // 차례로 — 한 번에 쏘면 순서가 섞여 대기열에서 안 묶일 수 있다
                 const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
                 const data=await res.json().catch(()=>({}));
                 if(data.status==='success') okN++; else { lastErr=data.message||res.status; break; }
             }
-            if(okN===payloads.length){
-                toast('✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
-                $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; if($('in-count')) $('in-count').value='1'; updatePreview();
-                refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
-            }else{ toast('송출 실패'+(okN?' ('+okN+'/'+payloads.length+'건만 들어감)':'')+': '+lastErr,true); }
-        }catch(e){ toast('통신 실패: '+e.message,true); }
+        }catch(e){ lastErr='통신 실패 — '+e.message; }
         finally{ btn.disabled=false; }
+        if(okN===payloads.length){
+            _manualRetry=null;
+            toast('✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
+            $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; if($('in-count')) $('in-count').value='1'; updatePreview();
+            refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
+        }else{
+            if(ledger) _manualRetry={sig, stamp};   // 입력칸은 그대로 둔다 — 그대로 다시 누르면 빠진 것만 들어간다
+            if(okN) refreshQueueOnce();
+            toast('송출 실패 ('+okN+'/'+payloads.length+'건 들어감)'
+                  +(ledger?' — 그대로 다시 누르면 빠진 것만 넣습니다':'')+': '+lastErr,true);
+        }
     }
+    // 🔁 마지막으로 실패한 장부 송출 묶음 — {sig: 입력 내용, stamp: 그때 쓴 번호}
+    let _manualRetry=null;
 
     /* ── 후원 순위 ── */
     async function loadRanking(showEmpty){

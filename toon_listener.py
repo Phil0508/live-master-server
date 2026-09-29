@@ -63,6 +63,18 @@ SPOOL_FILE = os.environ.get("SPOOL_FILE") or os.path.join(
 #    (대기줄은 아래 spool_watcher 가 10초마다 비워주므로 늦어야 10초다)
 RETRY_DELAYS = (0.6,)
 
+# 한 번 보낼 때 기다리는 시간(초).
+# ⚠️ 예전에는 10초였다. 그런데 서버는 후원 한 건에 시그니처 조회(Supabase 왕복, 느리면 18초)를 하고
+#    나서야 답한다. 10초에 포기하고 0.6초 뒤 **같은 tx_id** 로 다시 보내면, 서버는 첫 요청을 아직
+#    처리하는 중이라 두 번 다 받아들여 대기함 · 순위 · 시그니처가 두 배가 됐다(실측 재현).
+#    서버도 이제 '처리 중인 tx_id' 를 409 로 돌려보내 막지만, 애초에 느린 서버를 기다려 주는 게 맞다.
+# ⚠️ 이 값이 길수록 서버가 멎었을 때 한 건이 더 오래 걸린다. 그래도 deliver 는 딴 갈래(to_thread)에서
+#    돌아 웹소켓은 안 멈춘다(t10_starve). 그리고 아래 deliver 는 '시간 초과' 면 바로 다시 보내지 않는다.
+try:
+    POST_TIMEOUT = float(os.environ.get("POST_TIMEOUT", "30"))
+except ValueError:
+    POST_TIMEOUT = 30.0
+
 DONATION_CODE = 101  # 투네이션 후원 이벤트 코드 (실측 확인)
 
 def log(*a):
@@ -170,8 +182,16 @@ def post_donation(payload):
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(DONATION_URL, data=data,
                                  headers={"Content-Type": "application/json"})
-    r = urllib.request.urlopen(req, timeout=10)
+    r = urllib.request.urlopen(req, timeout=POST_TIMEOUT)
     return r.status, r.read().decode("utf-8", "replace")[:200]
+
+
+def _is_timeout(e):
+    """'서버가 살아 있는데 늦게 답한다' 인가(= 아직 처리 중일 수 있다)."""
+    import socket
+    if isinstance(e, (socket.timeout, TimeoutError)):
+        return True
+    return isinstance(getattr(e, "reason", None), (socket.timeout, TimeoutError))
 
 
 # ══ 후원을 잃지 않기 위한 장치 ══
@@ -185,13 +205,20 @@ def post_donation(payload):
 #    ③ 서버가 살아나면 밀린 것부터 흘려보낸다. tx_id 가 그대로라 서버가 중복을 걸러주므로
 #    같은 후원이 두 번 들어갈 걱정은 없다.
 
-def send_once(payload):
-    """한 번 보낸다. 성공하면 True."""
+def send_once(payload, why=None):
+    """한 번 보낸다. 성공하면 True. why(list)를 주면 실패 까닭('timeout' · 'busy' · 'error')을 적어 준다.
+
+    ⚠️ 409 는 '같은 tx_id 를 서버가 아직 처리 중' 이다(features/donation.py). 성공이 아니다 —
+       앞 요청이 결국 실패할 수도 있으니 대기줄에 넣어 두고 나중에 다시 보낸다(그때는 '이미 끝남' 200 이 온다).
+    """
     try:
         st, body = post_donation(payload)
         log("   → 서버 응답", st, body)
         return True
     except Exception as e:
+        if why is not None:
+            why.append("timeout" if _is_timeout(e)
+                       else "busy" if getattr(e, "code", None) == 409 else "error")
         log("   ⚠️ 전송 실패:", type(e).__name__, e)
         return False
 
@@ -270,9 +297,17 @@ def _spool_drain_locked():
 
 def deliver(payload):
     """후원 한 건을 책임지고 넘긴다. 끝까지 안 되면 파일에 적어둔다."""
-    if send_once(payload):
+    why = []
+    if send_once(payload, why):
         spool_drain()   # 서버가 살아 있는 것을 확인했으니 밀린 것도 같이 보낸다
         return True
+    # ⚠️ 시간 초과 · 처리 중(409)이면 곧바로 다시 보내지 않는다. 서버는 살아 있고 **아직 그 후원을 처리하는 중**
+    #    일 수 있다 — 0.6초 뒤 재시도는 409 만 받거나(서버가 막는다), 막기 전 옛 서버라면 두 번 들어간다.
+    #    대기줄에 넣으면 10초마다 다시 보낸다(tx_id 가 같아 서버가 이미 끝난 것은 거른다).
+    #    곧바로 다시 보는 건 '연결 자체가 안 됨'(재시작 중) 일 때뿐이다 — 그게 이 재시도가 있는 까닭이다.
+    if why and why[-1] in ("timeout", "busy"):
+        spool_add(payload)
+        return False
     for d in RETRY_DELAYS:
         time.sleep(d)
         log("   ↻ 다시 보냅니다 (%.1f초 뒤)" % d)
@@ -335,7 +370,7 @@ async def listen(token, acct=None):
                 log("   → [dry] 보낼 내용:", json.dumps(payload, ensure_ascii=False))
                 continue
             # ⚠️ 반드시 딴 갈래(스레드)에서 부른다.
-            #    deliver 는 통신(최대 10초) + 재시도가 들어 있어 오래 걸리는데,
+            #    deliver 는 통신(최대 POST_TIMEOUT=30초) + 재시도가 들어 있어 오래 걸리는데,
             #    여기서 그냥 부르면 그동안 이 async 루프가 통째로 멈춘다.
             #    그러면 웹소켓이 ping 에 답하지 못해 연결이 끊긴다 — 하필
             #    후원이 쏟아지는 바로 그 순간에.
@@ -348,7 +383,7 @@ async def spool_watcher():
     while True:
         await asyncio.sleep(10)
         try:
-            # 여기도 같은 이유로 딴 갈래에서. 밀린 것이 많으면 한 건에 10초씩 걸린다.
+            # 여기도 같은 이유로 딴 갈래에서. 밀린 것이 많으면 한 건에 최대 30초(POST_TIMEOUT)씩 걸린다.
             await asyncio.to_thread(spool_drain)
         except Exception as e:
             log("⚠️ 대기줄 재시도 중 오류:", e)
