@@ -258,31 +258,33 @@ print('=' * 74)
    ② 도착 칸 강조가 다음 굴림 뒤에도 안 풀렸다 (dgClearTimers 가 풀림 타이머까지 지웠다)
    ③ 안 굴릴 때도 주사위가 보였다 (유휴에 눈 1 을 그리고 있었다)"""
 _ov = io.open(os.path.join(ROOT, 'overlay.html'), encoding='utf-8', errors='replace').read()
-chk('① 말이 닿는 시각을 알린다', 'window.dgBusyUntil = Date.now() + landAt' in _ov)
+# 🎲 2026-09-30 — 대표님: "주사위를 굴리고 이동을 하고 시그니처 걸린 게 뜨고 리액션모드로 들어가서 시그가 재생"
+#    이제 말이 닿는 순간이 아니라 '연출이 끝난 때(gate)' 까지 기다린다 — 시그 칸이면 카드를 1.5초 읽힌 뒤.
+#    실제 순서는 dice_order_test.py 가 브라우저로 잰다. 여기서는 뼈대만 본다.
+chk('① 연출 끝 시각을 알린다 (시간표 한 곳에서)', 'window.dgBusyUntil = Date.now() + plan.gate;' in _ov and 'function dgRollPlan(act)' in _ov)
 chk('① 리액션 재생기가 그 전에는 시작하지 않는다',
     'const hold = reactionHoldMs();' in _ov
     and 'if (currentPlayingId === null && hold > 0)' in _ov)
 # ⚠️ 문을 넓게 만들었다가 노래가 20초 늦게 나왔다. 브라우저가 들고 있는 dgBusyUntil 은
-#    묵으면 미래 시각으로 남아 상관없는 시그니처까지 붙잡는다. 서버가 실어 준
-#    play_after 하나만 본다 — 그 후원에 대해 계산된 값이라 묵지 않는다.
+#    묵으면 미래 시각으로 남아 상관없는 시그니처까지 붙잡는다.
 # ⚠️ 시계를 비교하면 어긋난 만큼 그대로 더 기다린다 — 카드가 뜨고도 2.5초,
 #    운영에서는 10초까지 늦었다. 이 브라우저 시계 하나만 본다.
 chk('① 문은 이 브라우저 시계 하나만 본다',
     'const left = (window.dgBusyUntil || 0) - Date.now();' in _ov
     and 'head.play_after - (Date.now()' not in _ov)
-chk('① 카드가 뜨는 순간 바로 재생한다',
-    'window.dgBusyUntil = 0;' in _ov and 'try { checkReactionQueue(); } catch (e) {}' in _ov)
-chk('① 문은 스스로 닫힌다 (묵으면 노래가 늦는다)',
-    'dgAfter(landAt + 400, () => { window.dgBusyUntil = 0; });' in _ov)
-chk('① 마지막 방어선 — 9초 넘으면 안 참는다',
-    'if (left <= 0 || left > 9000) return 0;' in _ov)
+chk('① 연출이 끝나면 문을 연다 — 가리개와 시그를 같이',
+    'dgAfter(plan.gate, dgGateOpen);' in _ov and 'function dgGateOpen()' in _ov)
+chk('① 연출을 안 하게 되면 문을 도로 연다 (묵으면 노래가 늦는다)',
+    'function dgRest()' in _ov and 'window.dgBusyUntil = 0;   // 연출을 안 하니 기다릴 것도 없다' in _ov)
+chk('① 마지막 방어선 — 상한을 넘으면 안 참는다',
+    'if (left <= 0 || left > DG_HOLD_CAP) return 0;' in _ov)
 chk('① 미룬 것은 스스로 다시 확인한다 (다음 SSE 를 기다리지 않는다)',
     'window.dgGateTimer = setTimeout(checkReactionQueue, hold + 60);' in _ov)
 chk('① 이미 나가는 리액션은 안 끊는다 (currentPlayingId === null 일 때만 미룬다)',
     'currentPlayingId === null && hold > 0' in _ov)
 # ⚠️ 재생만 미뤄서는 안 된다. 화면을 덮는 것은 리액션 모드다.
 chk('① 화면 전환(리액션 모드)도 같이 미룬다 (shApply 한 곳에서)',
-    "b.classList.toggle('reaction-mode', !!d.reaction_mode && hold === 0);" in _ov)
+    "b.classList.toggle('reaction-mode', !!d.reaction_mode && !_idlePaused && hold === 0);" in _ov)
 chk('② 굴림을 시작할 때 이전 강조를 직접 걷는다',
     'function dgClearMarks()' in _ov and _ov.count('dgClearMarks();') >= 2)
 chk("② 걷는 것은 dg-land 와 dg-hop", "classList.remove('dg-land', 'dg-hop')" in _ov)

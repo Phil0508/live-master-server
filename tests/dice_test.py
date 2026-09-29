@@ -411,8 +411,11 @@ chk('시그니처가 곧바로 큐에 들어간다 (서버가 재시작해도 �
 _pa = (_q[0].get('play_after') if _q else 0) or 0
 chk('play_after 가 실려 있다', _pa > _before, _pa)
 _act = (dg().get('action') or {})
-_exp = 370 + 1300 * len(_act.get('dice') or []) + 300 * len(_act.get('path') or []) + 500
-chk('미루는 시간이 화면 연출과 같은 식이다 (370 + 눈×1300 + 칸×300 + 500)',
+# ⏱️ 2026-09-30 — 말이 닿고(land) "시그니처 재생!" 카드를 1.5초 읽힌 뒤(gate). 식은 서버 _dicegame_plan 한 곳,
+#    방송판 dgRollPlan 과 같은지는 dice_timing_test.py 가 본다.
+_land = (380 if _act.get('manual') else 250 + 1300 * len(_act.get('dice') or [])) + 300 * len(_act.get('path') or []) + 120
+_exp = _land + 1500
+chk('미루는 시간이 화면 연출과 같은 식이다 (말 닿음 + 카드 1.5초)',
     abs((_pa - _before) - _exp) <= 400, '기대 %d · 실제 %d' % (_exp, _pa - _before))
 
 # 보통 후원 시그니처는 안 미룬다
@@ -428,8 +431,12 @@ chk('보통 후원 시그니처는 안 미룬다 (전부 0)', all(v == 0 for v i
 
 _ov = io.open(_os.path.join(_proj(), 'overlay.html'), encoding='utf-8', errors='replace').read()
 # 📺 2026-09-29 — 가리개는 shApply 한 곳에서 켠다(주사위 말 기다리기도 거기서)
+# 🎲 2026-09-30 — 새로 시작할 때만 기다린다 · 멈춰 두기만 했으면 안 가린다. 실제 순서는 dice_order_test.py 가 잰다
 chk('화면이 리액션 모드 전환도 같이 미룬다',
-    "b.classList.toggle('reaction-mode', !!d.reaction_mode && hold === 0);" in _ov and 'const hold = d.reaction_mode ? reactionHoldMs() : 0;' in _ov)
+    "b.classList.toggle('reaction-mode', !!d.reaction_mode && !_idlePaused && hold === 0);" in _ov
+    and 'const hold = (d.reaction_mode && !_playing) ? reactionHoldMs() : 0;' in _ov)
+chk('가리개보다 먼저 표지판을 세운다 (예전: 가리개가 늘 빈 표지판을 보고 판부터 가렸다)',
+    0 < _ov.index('try { dgPrime(d.dicegame, d); } catch (e) {}') < _ov.index('shApply(d);   // 📺 가리개는 여기서만'))
 chk('참는 시간을 한 곳에서 답한다', 'function reactionHoldMs()' in _ov)
 chk('⚠️ 시계를 비교하지 않는다 (어긋난 만큼 그대로 늦어졌다)',
     'const left = (window.dgBusyUntil || 0) - Date.now();' in _ov
@@ -492,7 +499,7 @@ chk('엑셀판 기여도는 한 점도 안 움직였다',
 chk('말 순서는 그대로', [p['name'] for p in d['dicegame']['pieces']] == ['가', '나', '다', '라'],
     [p['name'] for p in d['dicegame']['pieces']])
 chk('응답에 어느 말이 갔는지 실린다', r.get('piece') == '라', r.get('piece'))
-time.sleep(3.3)      # 연타 방지(3칸 × 0.3초 + 2.2초)가 풀리기를 기다린다
+time.sleep(3.3)      # 연타 방지(말 닿음 1.4초 + 카드 1.5초 + 0.3초 = 3.2초)가 풀리기를 기다린다
 c, r = post('/api/dicegame/roll', {'value': 2})                    # 안 고르면 차례 말
 chk('다음 차례는 처음 사람(가) — 1등으로 뛴 라가 또 굴리지 않는다', r.get('piece') == '가', r.get('piece'))
 sc = {b['name']: b['contribution'] for b in get()['bjs']}

@@ -482,13 +482,14 @@ def man_won(amount):
 
 
 def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, count_tally=True,
-                      play_after_ms=0):
+                      play_after_ms=0, extra=None):
     """시그니처를 리액션 큐에 추가 (모든 재생 경로가 이 함수를 공유).
 
     큐를 태우면 reaction_mode가 켜지고, 재생이 끝나 큐가 비면 자동으로 꺼진다.
     skip_popup: 슬롯 당첨처럼 이미 자체 연출을 보여준 경우 후원 팝업을 건너뛴다.
     count_tally: 시그니처 순위 집계에 셀지 여부. 실제 후원(자동/장부기록)만 True,
                  슬롯 당첨·재생전용 수동 송출은 False(집계 부풀림 방지).
+    extra: 큐 항목에 더 실을 것(예: 주사위 {'source': 'dice', 'banner': '밍밍 · 시그 칸 도착'}).
     """
     reaction_uuid = f"rq_{uuid.uuid4().hex}"
     # ⚠️ 큐는 '오버레이가 재생해야만' 줄어든다. OBS 장면을 바꿔놨거나 오버레이를 닫아둔 채
@@ -544,6 +545,8 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
         "count": 1,
         "play_all": False,
       })
+      if isinstance(extra, dict):
+          _queue[-1].update({k: v for k, v in extra.items() if k not in _queue[-1]})
     state['reaction_mode'] = True
 
     # ✂️ 쇼츠 클립 목록 — 기준 금액 이상이면 '이런 순간이 곧 나온다' 고 적어 둔다.
@@ -1251,6 +1254,9 @@ DEFAULT_STATE = {
         #    [엑셀판으로 옮기기] 를 눌러야 기여도가 된다. 전원 0점에서 시작하고
         #    마이너스도 된다(사장님이 정함).
         "board": [],
+        # 🅿️ 명단에서 잠깐 빠진 이름의 기록 {이름: {pos, laps, shield, choose, pts}}.
+        #    같은 이름이 돌아오면 되살린다(오타 고쳤다 되돌리기 · 번외 게임). 방송마다 비운다.
+        "parked": {},
         # 🙋 다음에 굴릴 말 번호. 조종실이 안 고르면 이 말이 움직인다.
         "turn": 0,
         # ⬇️ 아래 둘은 옛 저장본 호환용. 마지막으로 움직인 말을 그대로 비춰 둔다.
@@ -1898,7 +1904,16 @@ def reset_session_keys(state):
         for _p in (_dg.get('pieces') or []):
             if isinstance(_p, dict):
                 _p['pos'] = 0; _p['laps'] = 0
+                _p['shield'] = False; _p['choose'] = False   # 실드 · '원하는 곳으로' 도 이번 방송 것
         _dg['turn'] = 0
+        # 🏆 주사위 전용 점수판 · 맡아 둔 기록도 방송 1회분이다.
+        #    ⚠️ 예전엔 말 자리만 비우고 점수판은 남겼다 — [엑셀판으로 옮기기] 를 깜빡하면
+        #       지난주 점수가 이번 주 기여도에 섞였다. 끝낼 때 남아 있으면 조종실이 먼저 묻는다.
+        for _r in (_dg.get('board') or []):
+            if isinstance(_r, dict):
+                _r['pts'] = 0
+        _dg['parked'] = {}
+        _dg['last_player'] = ''
     # 🎱 핀볼도 방송 1회분이다. 참가자 명단(names)은 다음에도 쓰므로 남기고,
     #    보이기·굴러가는 중·결과만 걷는다.
     _pb = state.get('pinball')

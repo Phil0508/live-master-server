@@ -30,6 +30,35 @@ from server import (
 DICE_TILE_TYPES = ('start', 'blank', 'mission', 'sig', 'score', 'key',
                    'move', 'goto', 'giveall', 'steal')
 
+# ⏱️ 굴림 한 번의 연출 시간표 — 방송판 dgRollPlan(overlay.html)과 **같은 식**이어야 한다.
+#    tests/dice_timing_test.py 가 두 식에 같은 굴림을 넣어 맞춰 본다.
+#    ⚠️ 예전엔 연타 막기(429)가 '걸어가는 시간'까지만 셌다. 끌려가기 · 열쇠 뽑기 · 카드 읽을 틈을
+#       안 세서 블랙홀이 거꾸로 걷는 중에 다음 굴림이 끼어들었다(시험 서버 실측 3.2초).
+DG_SIG_BEAT = 1500    # 🎵 시그 칸 — "시그니처 재생!" 카드를 읽을 틈. 그 뒤에 가리개 + 시그 재생
+                      #    대표님: "주사위 굴리고 이동하고 시그니처 걸린 게 뜨고 리액션모드로 들어가서 재생"
+DG_CARD_BEAT = 1500   # 다른 칸 — 카드를 읽을 틈(다른 후원 시그가 판을 덮기 전)
+DG_KEY_DRAW = 1700    # 🔑 황금열쇠 뽑기 연출(dgKeyDraw)
+
+
+def _dicegame_plan(action):
+    """굴림 신호를 받은 때부터 잰 연출 시각(ms).
+    land: 말이 칸에 닿는 때 · gate: 연출이 다 끝나 시그를 틀어도 되는 때(연타 막기도 이걸 본다)."""
+    a = action or {}
+    roll_t = 380 if a.get('manual') else 250 + 1300 * len(a.get('dice') or [])
+    land = roll_t + 300 * len(a.get('path') or []) + 120
+    tt = (a.get('tile') or {}).get('type')
+    gate = land + (DG_KEY_DRAW if tt == 'key' else 0) + (DG_SIG_BEAT if tt == 'sig' else DG_CARD_BEAT)
+    af = a.get('after')
+    if isinstance(af, dict):
+        p2 = af.get('path') or []
+        start = 3200 if tt == 'key' else 1500
+        # ⚠️ Math.round 와 같게 반올림한다(파이썬 round 는 .5 를 짝수로 보낸다)
+        step = max(90, int(2400 / len(p2) + 0.5)) if af.get('rev') and len(p2) > 8 else 220
+        after_end = land + start + step * len(p2) + 120
+        t2 = (af.get('tile') or {}).get('type')
+        gate = max(gate, after_end + (DG_KEY_DRAW if t2 == 'key' else 0) + DG_CARD_BEAT)
+    return {'land': land, 'gate': gate}
+
 
 def _dicegame_key_effect(text):
     """황금열쇠 글을 읽어 어떤 효과인지 알아낸다. 덱은 글자로 저장돼 있으므로
@@ -118,7 +147,9 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
             tiles = g.get('tiles') or []
             nt = len(tiles)
             if k == 'start':
-                dest, path, kind = 0, [], 'goto'
+                # 🏁 출발지로 — 블랙홀처럼 거꾸로 걸어 출발까지. 예전엔 경로가 비어 혼자 순간이동했다
+                dest, kind = 0, 'goto'
+                path = [(cur_pos - i) % nt for i in range(1, cur_pos + 1)]
             elif k == 'back':
                 dest = (cur_pos - n) % nt
                 path = [(cur_pos - i) % nt for i in range(1, n + 1)]
@@ -129,6 +160,8 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
                 kind = 'move'
             t2 = tiles[dest] if isinstance(tiles[dest], dict) else {'id': dest, 'type': 'blank'}
             after = {'kind': kind, 'from': cur_pos, 'to': dest, 'path': path, 'label': str(text),
+                     # 뒤로 · 출발지로는 벌칙처럼 거꾸로 밟는다(길면 빠르게) — 블랙홀과 같은 표시
+                     'rev': k in ('back', 'start'),
                      'tile': {kk: t2.get(kk) for kk in ('id', 'type', 'label', 'points')}}
             # 도착한 칸이 점수 칸이면 그 점수도 준다. 열쇠·이동 칸은 다시 걸지 않는다(끝없는 연쇄 방지).
             if t2.get('type') == 'score' and t2.get('points') and who:
@@ -182,12 +215,27 @@ def _dicegame_sync_pieces(state, g):
             _next_name = _p['name']
             break
     g['turn'] = order.index(_next_name) if _next_name in order else 0
+    # 🅿️ 명단에서 빠진 이름의 기록은 버리지 않고 맡아 둔다(자리 · 바퀴 · 실드 · 선택권).
+    #    같은 이름이 돌아오면 그대로 되살린다 — 오타를 고쳤다 되돌리거나 번외 게임으로 명단이
+    #    잠깐 바뀌어도 판이 안 날아간다. 예전엔 곧바로 버려서 '0번 칸 · 0점' 으로 돌아왔다.
+    #    점수(board)는 _dicegame_sync_board 가 같은 자리에 맡기고, 되살린 뒤 비운다.
+    parked = g.get('parked') if isinstance(g.get('parked'), dict) else {}
+    for _p in _old_ps:
+        _nm = _p.get('name')
+        if _nm and _nm not in order:
+            parked.setdefault(_nm, {}).update({'pos': _p.get('pos', 0), 'laps': _p.get('laps', 0),
+                                               'shield': bool(_p.get('shield')),
+                                               'choose': bool(_p.get('choose'))})
+    g['parked'] = parked
+
+    def _was(nm):
+        return old.get(nm) or parked.get(nm) or {}
     g['pieces'] = [{'name': nm,
-                    'pos': (old.get(nm) or {}).get('pos', 0),
-                    'laps': (old.get(nm) or {}).get('laps', 0),
-                    'shield': bool((old.get(nm) or {}).get('shield')),
+                    'pos': _was(nm).get('pos', 0),
+                    'laps': _was(nm).get('laps', 0),
+                    'shield': bool(_was(nm).get('shield')),
                     # '원하는 곳으로' 를 뽑아 손 이동을 기다리는 중인가
-                    'choose': bool((old.get(nm) or {}).get('choose'))} for nm in order]
+                    'choose': bool(_was(nm).get('choose'))} for nm in order]
 
 
 def _dicegame_state(state):
@@ -273,14 +321,32 @@ def _dicegame_save(state, g):
 #      바꾸기' 가 진짜 후원 순위를 뒤바꿔 버렸다 — 이제 전부 이 판 안에서만 돈다.
 # ══════════════════════════════════════════════════════════════
 
+DG_PARKED_MAX = 40   # 🅿️ 맡아 두는 이름 수 상한 — 넘으면 오래된 것부터 버린다
+
+
 def _dicegame_sync_board(g):
-    """전용 점수판을 말 명단에 맞춘다. 있던 점수는 이름으로 지킨다."""
+    """전용 점수판을 말 명단에 맞춘다. 있던 점수는 이름으로 지킨다.
+    빠진 이름의 점수는 보관함(parked)에 맡기고, 돌아오면 되살린다."""
     old = {}
     for r in (g.get('board') or []):
         if isinstance(r, dict) and str(r.get('name') or '').strip():
             old[str(r['name']).strip()] = _as_int(r.get('pts'), 0) or 0
-    g['board'] = [{'name': p['name'], 'pts': old.get(p['name'], 0)}
-                  for p in (g.get('pieces') or [])]
+    names = [p['name'] for p in (g.get('pieces') or [])]
+    parked = g.get('parked') if isinstance(g.get('parked'), dict) else {}
+    for nm, pts in old.items():
+        if nm not in names:
+            parked.setdefault(nm, {})['pts'] = pts
+    g['board'] = [{'name': nm, 'pts': old[nm] if nm in old else (_as_int((parked.get(nm) or {}).get('pts'), 0) or 0)}
+                  for nm in names]
+    for nm in names:              # 돌아온 이름은 판에 올렸으니 보관함에서 뺀다
+        parked.pop(nm, None)
+    for nm in list(parked):       # 맡아 둘 게 없는 이름(출발 칸 · 0점)은 버린다
+        v = parked[nm] if isinstance(parked[nm], dict) else {}
+        if not (v.get('pos') or v.get('laps') or v.get('shield') or v.get('choose') or v.get('pts')):
+            parked.pop(nm)
+    while len(parked) > DG_PARKED_MAX:
+        parked.pop(next(iter(parked)))
+    g['parked'] = parked
 
 
 def _dicegame_row(g, name):
@@ -403,6 +469,10 @@ def api_dicegame_setup():
                   'pieces': [{'name': _p['name'], 'pos': 0, 'laps': 0}
                              for _p in g['pieces']], 'turn': 0,
                   'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
+        # 🅿️ 맡아 둔 이름도 새 판에선 출발부터(점수는 판 크기와 상관없으니 그대로)
+        for _v in (g.get('parked') or {}).values():
+            if isinstance(_v, dict):
+                _v.update({'pos': 0, 'laps': 0, 'shield': False, 'choose': False})
         # 📺 판을 깔면 무대에 올린다. ⚠️ 예전엔 enabled 만 켜서 다른 게임판과 겹쳐 떴다
         _prev = showmod.ensure(state)['stage']
         showmod.set_stage(state, 'dicegame')
@@ -553,14 +623,7 @@ def api_dicegame_roll():
     with file_lock:
         state = load_data()
         g = _dicegame_state(state)
-        # 🙋 기여도 받을 사람 — 골랐으면 그 사람, 아니면 **움직인 말의 주인**(아래).
-        #    ⚠️ 예전에는 '마지막으로 굴린 사람' 을 기억해 줬다 — 말이 하나뿐일 때 규칙이다.
-        #       말이 선수마다 하나씩 생긴 뒤로는 그 기억이 거짓이 된다: 폰은 말만 골라
-        #       보내므로(piece) 첫 사람이 한 번 굴리면 그 뒤 모두의 기여도가 첫 사람에게
-        #       갔다(사장님: '기여도 올라가는 게 안 보이네' — 다른 줄이 오르고 있었다).
         player = str(body.get('player') or '').strip()
-        if player:
-            g['last_player'] = player
         contrib_player = player
         # 🧩 어느 말이 가는가.
         #    ① piece 를 줬으면 그 말  ② 안 줬는데 사람 이름이 말 이름이면 그 말
@@ -590,25 +653,28 @@ def api_dicegame_roll():
             return jsonify({'status': 'error',
                             'message': '점수판에 사람이 없습니다. 엑셀판에 선수를 넣어주세요'}), 400
         piece = g['pieces'][_idx]
-        # '원하는 곳으로' 를 뽑고 옮기지 않은 채 다시 굴렸으면 그 선택권은 사라진다
-        piece.pop('choose', None)
-        # 사람을 안 골랐으면 움직인 말의 주인이 받는다 (말 = 점수판 선수)
-        if not contrib_player:
-            contrib_player = piece['name']
-            g['last_player'] = piece['name']
         tiles = g.get('tiles') or []
-        if not g.get('enabled') or not tiles:
+        if not tiles:
             return jsonify({'status': 'error', 'message': '먼저 판을 깔아주세요'}), 400
+        if not g.get('enabled'):
+            # 판은 있는데 무대에 없다 — '판을 깔아 주세요' 는 틀린 안내였다(깔려 있다)
+            _st = (state.get('show') or {}).get('stage')
+            if _st and _st != 'dicegame':
+                _lb = showmod.STAGE_LABEL.get(_st, _st)
+                _msg = "지금 무대에 '%s' 판이 올라가 있어요 — 주사위판을 먼저 올려 주세요" % _lb
+            else:
+                _msg = '주사위판이 방송에 안 떠 있어요 — 먼저 띄워 주세요'
+            return jsonify({'status': 'error', 'message': _msg}), 400
         # 연타 방지 — 앞 연출이 끝나기 전의 굴림은 겹쳐 보인다.
-        #   연출 길이 = 굴림 횟수 × 1.3초(주사위 하나가 이어 구른다) + 칸당 0.3초 + 착지 여유.
+        #   ⚠️ 연출 길이는 _dicegame_plan 한 곳에서 잰다(방송판 dgRollPlan 과 같은 식).
+        #      예전 식은 걸어가는 시간까지만 세서 블랙홀 · 열쇠 연출 중간에 다음 굴림이 끼어들었다.
         prev = g.get('action') or {}
         if prev.get('type') == 'ROLL':
-            # 현실 주사위는 화면에서 안 구르므로 그만큼 짧다
-            _tumble = 0 if prev.get('manual') else 1300 * len(prev.get('dice') or [1])
-            hold = len(prev.get('path') or []) * 300 + _tumble + 2200
-            if now_ms - (prev.get('ts') or 0) < hold:
-                return jsonify({'status': 'error',
-                                'message': '앞 연출이 아직 끝나지 않았습니다. 잠깐만요.'}), 429
+            hold = _dicegame_plan(prev)['gate'] + 300
+            left = hold - (now_ms - (prev.get('ts') or 0))
+            if left > 0:
+                return jsonify({'status': 'error', 'wait_ms': left,
+                                'message': '앞 연출이 아직 안 끝났어요 — %.1f초 뒤에 다시 눌러 주세요' % (left / 1000.0)}), 429
         n = len(tiles)
         # 🎲 현실에서 굴린 눈이 왔으면 그것을 쓴다.
         #    ⚠️ 값 검사를 여기서 확실히 한다 — 7 이나 글자가 들어오면 말이 엉뚱한 데로 간다.
@@ -622,6 +688,22 @@ def api_dicegame_roll():
             dice = [_v]
         else:
             dice = [random.randint(1, 6) for _ in range(max(1, min(2, _as_int(g.get('dice'), 1) or 1)))]
+        # ── ⚠️ 여기까지는 거절될 수 있는 검사뿐이다. 상태는 아래부터 바꾼다 ──
+        #    예전엔 검사 앞에서 선택권을 지웠다 — 연출 중에 한 번 더 눌러 429 로 거절돼도
+        #    '원하는 곳으로' 가 사라져, 원하는 칸으로 옮겨도 점수가 안 들어갔다.
+        # 🙋 기여도 받을 사람 — 골랐으면 그 사람, 아니면 **움직인 말의 주인**.
+        #    ⚠️ 예전에는 '마지막으로 굴린 사람' 을 기억해 줬다 — 말이 하나뿐일 때 규칙이다.
+        #       말이 선수마다 하나씩 생긴 뒤로는 그 기억이 거짓이 된다: 폰은 말만 골라
+        #       보내므로(piece) 첫 사람이 한 번 굴리면 그 뒤 모두의 기여도가 첫 사람에게
+        #       갔다(사장님: '기여도 올라가는 게 안 보이네' — 다른 줄이 오르고 있었다).
+        if player:
+            g['last_player'] = player
+        # '원하는 곳으로' 를 뽑고 옮기지 않은 채 다시 굴렸으면 그 선택권은 사라진다
+        piece.pop('choose', None)
+        # 사람을 안 골랐으면 움직인 말의 주인이 받는다 (말 = 점수판 선수)
+        if not contrib_player:
+            contrib_player = piece['name']
+            g['last_player'] = piece['name']
         steps = sum(dice)
         frm = piece['pos'] % n
         to = (frm + steps) % n
@@ -687,13 +769,17 @@ def api_dicegame_roll():
                 # ⏳ 말이 다 간 뒤에 나오게 한다. 곧바로 넣으면 reaction_mode 가 켜지면서
                 #    body.reaction-mode 가 주사위판을 숨겨, 말이 가는 것을 볼 수가 없다.
                 #    ⚠️ 큐에는 지금 넣는다 — 서버가 그 사이 재시작해도 시그니처를 안 잃는다.
-                #    ⚠️ 시간은 화면 연출(dgAnimateRoll)과 같은 식이어야 한다:
-                #       rollT = 250 + 눈수×1300, landAt = rollT + 지나간칸수×300 + 120.
-                #       거기에 도착 카드가 잠깐 보일 여유 500ms 를 더한다.
-                _anim_ms = 370 + (0 if manual else 1300 * len(dice)) + 300 * len(path) + 500
-                enqueue_signature(state, tile['sig'], tile['sig'].get('amount') or 0,
-                                  '주사위게임', '', count_tally=False,
-                                  play_after_ms=_anim_ms)
+                #    ⚠️ 시간은 _dicegame_plan 한 곳에서 잰다(방송판 dgRollPlan 과 같은 식):
+                #       말이 닿고(land) "시그니처 재생!" 카드를 읽을 틈(DG_SIG_BEAT)까지.
+                #    (방송판은 이 시각을 안 본다 — 제 시계로 같은 식을 잰다. 조종실 · 기록용)
+                _anim_ms = _dicegame_plan(action)['gate']
+                # 🎲 후원이 아니다 — 금액 0 · 팝업 없음 · '업' 배너 없음 · 클립 저장 없음.
+                #    예전엔 '주사위게임' 님이 시그 값만큼 후원한 것처럼 떴고, 10만 원 이상이면
+                #    '주사위게임업' 배너와 클립 자동 저장까지 돌았다. 누가 밟았는지만 제목으로 띄운다.
+                _who = contrib_player or piece['name']
+                enqueue_signature(state, tile['sig'], 0, _who, '🎲 주사위로 뽑은 시그',
+                                  skip_popup=True, count_tally=False, play_after_ms=_anim_ms,
+                                  extra={'source': 'dice', 'banner': '%s · 시그 칸 도착' % _who})
             except Exception as e:
                 print(f'⚠️ [주사위게임] 시그니처 재생 실패 — 게임은 계속됩니다: {e}')
             # 🎯 기여도만 준다. 점수는 그날 일당이라 게임으로 오르면 안 된다.
@@ -926,6 +1012,9 @@ def api_dicegame_reset():
         g = _dicegame_state(state)
         for _p in g['pieces']:
             _p['pos'] = 0; _p['laps'] = 0
+        for _v in (g.get('parked') or {}).values():   # 🅿️ 맡아 둔 이름도 출발로
+            if isinstance(_v, dict):
+                _v['pos'] = 0; _v['laps'] = 0
         g.update({'pos': 0, 'laps': 0, 'turn': 0,
                   'action': {'type': 'PLACE', 'ts': int(time.time() * 1000)}})
         showmod.clear_stage(state, 'dicegame')
@@ -953,7 +1042,7 @@ def api_dicegame_board():
     with file_lock:
         state = load_data()
         g = _dicegame_state(state)
-        moved = []
+        moved, skipped = [], []
         if do == 'reset':
             for r in g['board']:
                 r['pts'] = 0
@@ -975,14 +1064,19 @@ def api_dicegame_board():
         else:   # apply
             # 🎯 전용 판 점수를 엑셀판 기여도에 더한다. 0점인 사람은 건너뛴다.
             #    ⚠️ 여기서만 _find_score_target(엑셀판)을 쓴다.
+            _done = set()   # 실제로 옮긴 줄 — 이 줄만 비운다
             for r in g['board']:
                 pts = _as_int(r.get('pts'), 0) or 0
                 if not pts:
                     continue
                 t = _find_score_target(state, 'rank', r['name'])
                 if t is None:
+                    # ⚠️ 못 찾은 사람의 점수는 **남긴다**. 예전엔 옮기지도 않고 아래에서 0 으로
+                    #    비워 점수가 그냥 사라졌다. 조종실이 '못 옮긴 사람' 을 알린다.
                     print(f"⚠️ [주사위 판] '{r['name']}' 을(를) 엑셀판에서 못 찾아 건너뜁니다", flush=True)
+                    skipped.append({'name': r['name'], 'points': pts})
                     continue
+                _done.add(r['name'])
                 t['contribution'] = (t.get('contribution') or 0) + pts
                 logs = state.get('logs')
                 if not isinstance(logs, list):
@@ -999,7 +1093,9 @@ def api_dicegame_board():
                 state[src] = lst
             if body.get('clear', True):
                 for r in g['board']:
-                    r['pts'] = 0
-            print(f"🎯 [주사위 판] 기여도로 옮겼습니다 — {len(moved)}명", flush=True)
+                    if r['name'] in _done:
+                        r['pts'] = 0
+            print(f"🎯 [주사위 판] 기여도로 옮겼습니다 — {len(moved)}명"
+                  + (f" · 못 옮김 {len(skipped)}명" if skipped else ''), flush=True)
         _dicegame_save(state, g)
-    return jsonify({'status': 'success', 'board': g['board'], 'moved': moved})
+    return jsonify({'status': 'success', 'board': g['board'], 'moved': moved, 'skipped': skipped})

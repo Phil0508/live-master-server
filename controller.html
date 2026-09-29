@@ -253,6 +253,12 @@
         .dgc-log { display: flex; flex-direction: column; }
         .dgc-log div.l { display: flex; gap: 8px; font-size: var(--fs-2); padding: 5px 0; border-bottom: 1px solid var(--border-light); line-height: 1.5; }
         .dgc-log div.l time { flex: none; font-family: var(--font-num); color: var(--text-dim); font-size: var(--fs-1); padding-top: 1px; }
+        /* 🎵 시그 재생 중 경고 띠 — 지금 굴리면 방송판이 가려져 굴림이 안 보인다 */
+        .dgc-rx-warn { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 9px 12px; border-radius: var(--r-2);
+                       background: rgba(240, 163, 58, .14); border: 1px solid rgba(240, 163, 58, .38); color: #f5c27a; font-size: var(--fs-2); font-weight: 700; line-height: 1.45; }
+        .dgc-rx-warn[hidden] { display: none; }
+        /* 흐리게만 한다 — 누를 수는 있고, 누르면 한 번 더 묻는다 */
+        #tab-dicegame.dgc-wait #dgc-roll-btn, #tab-dicegame.dgc-wait button.dgc-eye { opacity: .45; }
         /* 🎰 슬롯 — 고른 후보 칩 */
         .slot-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
         .slot-chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 4px 4px 4px; border: 1px solid var(--line); border-radius: var(--r-2);
@@ -2976,6 +2982,9 @@
             <div id="dgc-players" class="dgc-players"></div>
             <select id="dgc-player" class="gx-hide" aria-hidden="true" tabindex="-1"><option value="">(누구 차례?)</option></select>
 
+            <!-- 🎵 시그가 재생 중이면 방송판이 가려진다 — 그때 굴리면 굴림이 통째로 안 보인다(dgcSync 가 켠다) -->
+            <div id="dgc-rx-warn" class="dgc-rx-warn" role="status" hidden><i class="fa-solid fa-music"></i><span>시그 재생 중 — 지금 굴리면 방송 화면에 안 보여요. 끝나고 굴려 주세요</span></div>
+
             <div class="gx-act gx-deck">
                 <div class="gx-tiles">
                     <button type="button" class="gx-tile go" onclick="dgcRoll()" id="dgc-roll-btn" title="주사위를 놓고 왔을 때 — 서버가 무작위로 정합니다"><i class="ic fa-solid fa-dice"></i><span><span class="nm"><span id="dgc-roll-nm">굴리기</span></span><span class="sub">서버가 무작위로 · 안 고르면 차례대로</span></span></button>
@@ -4423,6 +4432,50 @@
             }
         }
 
+        /* ✏️ 엑셀판 이름 고치기 · 빼기 — 주사위 기록(자리 · 점수 · 실드)이 있는 이름이 빠지면 먼저 묻는다.
+           ⚠️ 예전엔 묻지도 않고 그 이름의 주사위 기록을 서버가 버렸다 — 오타를 고쳤다 되돌려도 0번 칸 · 0점.
+              이제 서버가 맡아 뒀다가 같은 이름이 돌아오면 되살린다(features/dicegame.py parked). */
+        function rkDiceNote(listKey, name) {
+            const g = (gd && gd.dicegame) || {};
+            if (!(g.tiles || []).length) return '';
+            if ((gd.extra_game_active ? 'extra_bjs' : 'bjs') !== listKey) return '';   // 말은 지금 쓰는 명단만 따라간다
+            const nm = String(name || '').trim();
+            const p = (g.pieces || []).find(x => x && x.name === nm);
+            const r = (g.board || []).find(x => x && x.name === nm);
+            const bits = [];
+            if (p && Number(p.pos)) bits.push(p.pos + '번 칸');
+            if (r && Number(r.pts)) bits.push((r.pts > 0 ? '+' : '') + r.pts + '점');
+            if (p && p.shield) bits.push('실드');
+            return bits.join(' · ');
+        }
+        async function rkDiceGuard(listKey, name) {
+            const note = rkDiceNote(listKey, name);
+            if (!note) return true;
+            return premiumConfirm("주사위 기록이 있는 '" + String(name).trim() + "' (" + note + ") 이(가) 명단에서 빠져요.\n\n"
+                                  + '기록은 보관해 뒀다가 같은 이름을 다시 넣으면 그대로 되살려요.\n계속할까요?',
+                                  '🎲 주사위 기록', 'warning');
+        }
+        async function rkRename(listKey, i, el) {
+            const row = (gd[listKey] || [])[i];
+            if (!row) return;
+            const old = row.name, nv = el.value;
+            if (String(nv).trim() !== String(old || '').trim() && !(await rkDiceGuard(listKey, old))) { el.value = old; return; }
+            // 묻는 사이 목록이 새로 왔을 수 있다 — 이름으로 다시 찾는다
+            const cur = (gd[listKey] || []).find(x => x && x.name === old) || row;
+            cur.name = nv;
+            pushAPI({include:['bjs','extra_bjs']});
+        }
+        async function rkRemove(listKey, i) {
+            const row = (gd[listKey] || [])[i];
+            if (!row) return;
+            const nm = row.name;
+            if (!(await rkDiceGuard(listKey, nm))) return;
+            const at = (gd[listKey] || []).findIndex(x => x && x.name === nm);
+            if (at < 0) return;
+            gd[listKey].splice(at, 1);
+            pushAPI({include:['bjs','extra_bjs']});
+        }
+
         function renderUI() {
             // ⚠️ 아래 조기 반환보다 먼저 갱신한다. 입력칸에 포커스가 있으면 renderUI 가 통째로 빠져나가는데,
             //    깨워두기 표시가 실제 상태와 어긋난 채로 남으면 '켜둔 줄 알고' 자리를 비우게 된다.
@@ -4616,26 +4669,26 @@
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" disabled style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
+                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="rkRename('${listKey}', ${i}, this)" disabled style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
-                        <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI({include:['bjs','extra_bjs']});" disabled><i class="fa-solid fa-trash-can"></i></button></td>
+                        <td><button onclick="rkRemove('${listKey}', ${i})" disabled><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
                 } else {
                     rHtml += `<tr>
                         <td>
                             <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                                 ${badgeHtml}
-                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="gd.${listKey}[${i}].name=this.value; pushAPI({include:['bjs','extra_bjs']});" style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
+                                <div class="rk-nm"><input type="text" value="${bj.name}" onchange="rkRename('${listKey}', ${i}, this)" style="flex: 1; text-align: left; padding-left: 10px;"><div class="rk-meter"><i style="width:${_rkPct}%"></i></div></div>
                             </div>
                         </td>
                         <td class="score-display">${bj.score.toLocaleString()}</td>
                         <td class="score-display contrib-cell" style="color:var(--gold); position: relative;" onclick="editContrib(${i}, this, event)" title="클릭해서 기여도 수정"><span>${(bj.contribution||0).toLocaleString()}</span></td>
                         <td><input type="number" id="rank-add-${i}" data-scope="rank" data-tname="${escapeHtml(bj.name)}" placeholder="+ 점수" onkeydown="if(event.key==='Enter') addScoreEl('rank', this)"></td>
-                        <td><button onclick="gd.${listKey}.splice(${i},1); pushAPI({include:['bjs','extra_bjs']});"><i class="fa-solid fa-trash-can"></i></button></td>
+                        <td><button onclick="rkRemove('${listKey}', ${i})"><i class="fa-solid fa-trash-can"></i></button></td>
                     </tr>`; 
                 }
             });
@@ -7532,6 +7585,50 @@
                 };
             });
         }
+        /* 🔀 셋 이상에서 고르는 창 — premiumConfirm 과 같은 창을 쓰고 단추만 잠깐 바꿔 끼운다.
+           choices: [{ label, value, kind: 'gold' | 'danger' | '' }] · 돌려주는 값: 고른 value (닫기 = null) */
+        function premiumChoice(message, title, choices) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('premium-dialog-overlay');
+                const box = document.getElementById('dialog-buttons');
+                const btnConfirm = document.getElementById('dialog-btn-confirm');
+                const btnCancel = document.getElementById('dialog-btn-cancel');
+                if (!overlay || !box || !btnConfirm || !btnCancel) {
+                    resolve(confirm(message) ? (choices[0] || {}).value : null);
+                    return;
+                }
+                document.getElementById('dialog-title').innerText = title;
+                document.getElementById('dialog-message').innerText = message;
+                const iconEl = document.getElementById('dialog-icon');
+                iconEl.innerHTML = '<i class="fa-solid fa-circle-question"></i>';
+                iconEl.style.background = 'rgba(226, 182, 75, 0.15)';
+                iconEl.style.color = 'var(--accent)';
+                btnConfirm.style.display = 'none';
+                btnCancel.style.display = 'none';
+                box.style.flexWrap = 'wrap';
+                const made = [];
+                const done = (v) => {
+                    overlay.style.display = 'none';
+                    made.forEach(b => b.remove());
+                    btnConfirm.style.display = '';
+                    box.style.flexWrap = '';
+                    resolve(v);
+                };
+                (choices || []).forEach((c) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.textContent = c.label;
+                    b.style.cssText = btnCancel.style.cssText;   // 취소 단추 모양을 바탕으로
+                    b.style.display = '';
+                    if (c.kind === 'gold') { b.style.background = 'var(--accent)'; b.style.borderColor = 'var(--accent)'; b.style.color = '#000'; b.style.fontWeight = '700'; }
+                    if (c.kind === 'danger') { b.style.background = '#ff453a'; b.style.borderColor = '#ff453a'; b.style.color = '#fff'; b.style.fontWeight = '700'; }
+                    b.onclick = () => done(c.value);
+                    box.appendChild(b);
+                    made.push(b);
+                });
+                overlay.style.display = 'flex';
+            });
+        }
         // 🔇 조종실은 소리를 내지 않는다.
         //    예전에는 후원이 들어올 때마다 차임이 울렸는데, 방송 중에는 마이크가
         //    그 소리를 같이 주워 담고 후원이 몰리면 쉬지 않고 울려서 방해가 됐다.
@@ -8433,7 +8530,35 @@
         async function endBroadcast() {
             let confirm = await premiumConfirm("정말로 방송을 종료하시겠습니까?\n오늘 획득한 모든 플레이어 점수, 후원 기록, 정산 데이터가 영구히 소멸하며, 시작 설정 화면으로 돌아갑니다.", "방송 종료 확인", "warning");
             if (!confirm) return;
-            
+            /* 🎲 주사위 전용 점수판에 점수가 남아 있으면 먼저 묻는다.
+               ⚠️ 방송을 끝내면 서버가 전용 판을 비운다(방송 1회분). 예전엔 안 비웠다 — [엑셀판으로 옮기기] 를
+                  깜빡하면 지난주 점수가 이번 주 기여도에 섞였다. 이제 비우므로, 옮길지 여기서 고른다. */
+            try {
+                const dgB = ((gd && gd.dicegame && gd.dicegame.board) || []).filter(r => r && Number(r.pts));
+                if (dgB.length) {
+                    const shields = ((gd.dicegame.pieces) || []).filter(p => p && p.shield).length;
+                    const list = dgB.map(r => r.name + ' ' + (Number(r.pts) > 0 ? '+' : '') + Number(r.pts) + '점').join(' · ');
+                    const pick = await premiumChoice('주사위 점수가 아직 남아 있어요 — ' + list
+                        + (shields ? ' (실드 ' + shields + '개)' : '')
+                        + '\n\n방송을 끝내면 주사위 판은 비워져요. 엑셀판 기여도로 옮길까요?',
+                        '🎲 주사위 점수가 남아 있어요',
+                        [{ label: '엑셀판으로 옮기고 끝내기', value: 'apply', kind: 'gold' },
+                         { label: '버리고 끝내기', value: 'drop', kind: 'danger' },
+                         { label: '취소', value: null }]);
+                    if (!pick) return;
+                    if (pick === 'apply') {
+                        const r = await fetch('/api/dicegame/board', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                       body: JSON.stringify({ do: 'apply' }) });
+                        const d = await r.json().catch(() => ({}));
+                        if (!r.ok) { await premiumAlert('주사위 점수를 못 옮겼어요: ' + (d.message || r.status) + '\n방송은 아직 안 끝났어요.', '옮기기 실패', 'warning'); return; }
+                        if ((d.skipped || []).length) {
+                            const sk = d.skipped.map(x => x.name + ' ' + x.points + '점').join(' · ');
+                            if (!(await premiumConfirm('엑셀판에서 이름을 못 찾아 못 옮긴 사람이 있어요: ' + sk + '\n\n이 점수는 버리고 방송을 끝낼까요?', '🎯 못 옮긴 사람', 'warning'))) return;
+                        }
+                    }
+                }
+            } catch (e) { console.warn('[방송 종료] 주사위 점수 확인 실패 — 그대로 진행합니다', e); }
+
             try {
                 window.userInitiatedEnd = true;
                 let res = await fetch('/api/server/end_broadcast', {
@@ -9845,7 +9970,9 @@ initFoldablePanels();
                     cb.appendChild(px); cb.appendChild(bt); mid.appendChild(cb);
                 }
                 const am = document.createElement('span'); am.className = 'rq-a';
-                am.textContent = Number(it.amount || 0).toLocaleString() + (cnt > 1 ? ' ×' + cnt : '');
+                // 🎲 주사위 시그는 후원이 아니라 금액이 없다 — '0' 대신 어디서 왔는지 적는다
+                am.textContent = it.source === 'dice' ? '🎲 주사위'
+                    : Number(it.amount || 0).toLocaleString() + (cnt > 1 ? ' ×' + cnt : '');
                 const x = document.createElement('button'); x.type = 'button'; x.className = 'rq-x'; x.title = '목록에서 빼기'; x.textContent = '✕';
                 x.onclick = function () { railRemove(it.id); };
                 row.appendChild(th); row.appendChild(mid); row.appendChild(am); row.appendChild(x);
@@ -10664,10 +10791,25 @@ initFoldablePanels();
             dgcPaintPlayers();
         }
 
+        /* 🎵 지금 방송판이 시그로 가려져 있나 — 재생 중이거나 곧 튼다(대기가 있고 멈춤이 아니다).
+           ⚠️ 서버는 이때도 굴림을 받는다. 방송판은 가린 채로 연출해서, 시그가 끝나 판이 돌아오면
+              말은 이미 가 있고 카드도 없었다. 그래서 띠로 알리고, 그래도 누르면 한 번 더 묻는다.
+           ⏸️ 알림을 멈춰 두기만 했으면 방송판이 안 가린다(대기만 있고 트는 게 없다) — 그때는 괜찮다. */
+        function dgcRxBusy() {
+            const g = (typeof gd !== 'undefined' && gd) || {};
+            return !!g.reaction_mode && (g.reaction_queue || []).length > 0 && !g.reaction_paused;
+        }
+        async function dgcRxOk() {
+            if (!dgcRxBusy()) return true;
+            return premiumConfirm('시그가 재생 중이라 지금 굴리면 방송 화면에서 굴림이 안 보여요.\n시그가 끝나면 말은 이미 가 있고 카드도 지나가 있어요.\n\n그래도 굴릴까요?',
+                                  '🎵 시그 재생 중', 'warning');
+        }
+
         // 🎲 현실에서 굴린 눈을 그대로 넣는다 — 사장님이 주사위를 현실에서 굴리기로 정했다.
         //    ⚠️ 누구 차례인지는 무작위 굴리기와 같은 칸에서 읽는다. 두 길이 갈라지면
         //       한쪽으로 굴렸을 때만 기여도가 들어가는 사고가 난다.
         async function dgcRollValue(v) {
+            if (!(await dgcRxOk())) return;
             const sel = document.getElementById('dgc-player');
             const d = await dgcCall('roll', { value: v, player: sel ? sel.value : '' });
             if (d) dgcRollToast(d);
@@ -10675,6 +10817,7 @@ initFoldablePanels();
 
         // 주사위를 놓고 왔을 때 — 서버가 눈을 정한다
         async function dgcRoll() {
+            if (!(await dgcRxOk())) return;
             const sel = document.getElementById('dgc-player');
             const d = await dgcCall('roll', { player: sel ? sel.value : '' });
             if (d) dgcRollToast(d);
@@ -10755,6 +10898,11 @@ initFoldablePanels();
             if (what === 'apply') {
                 const m = (d.moved || []).map(x => x.name + ' ' + (x.points > 0 ? '+' : '') + x.points).join(' · ');
                 acctToast(m ? ('🎯 기여도로 옮겼습니다 — ' + m) : '🎯 옮길 점수가 없었습니다', 'ok');
+                // ⚠️ 엑셀판에서 못 찾은 사람은 점수를 판에 남긴다(예전엔 옮기지도 않고 지웠다)
+                const sk = (d.skipped || []).map(x => x.name + ' ' + (x.points > 0 ? '+' : '') + x.points).join(' · ');
+                if (sk) premiumAlert('엑셀판에서 이름을 못 찾아 못 옮긴 사람이 있어요:\n\n' + sk
+                                     + '\n\n점수는 주사위 판에 그대로 남겨 뒀어요. 엑셀판 이름을 맞춘 뒤 다시 눌러 주세요.',
+                                     '🎯 못 옮긴 사람', 'warning');
             } else {
                 acctToast('🏆 전원 0점으로 되돌렸습니다', 'ok');
             }
@@ -10779,11 +10927,12 @@ initFoldablePanels();
            칸 22개를 손으로 고르면 오래 걸리고 빠뜨린다. 한 번에 깐다.
            같은 종류가 붙어 있지 않게, 시그니처는 네 칸쯤 띄워 흩어 놓았다.
 
-           score  = 밟으면 서버가 알아서 점수를 준다
+           score  = 밟으면 서버가 알아서 **주사위 전용 점수판**에 점수를 준다
            mission= 사람이 해봐야 아는 것. 성공하면 진행자가 점수를 준다
                     (자동으로 주면 안 하고도 받는다)
 
-           ⚠️ 이 시스템의 점수는 '점수' 와 '기여도' 를 같이 올린다. */
+           ⚠️ 칸 점수는 엑셀판(진짜 점수 · 기여도)을 건드리지 않는다 — 전용 판에만 쌓이고,
+              [엑셀판으로 옮기기] 를 눌러야 기여도가 된다. */
         const DGC_PRESET_22 = [
             { id:  1, type: 'score',   label: '5점',                  points: 5 },
             { id:  2, type: 'sig',     sigName: '이꾸욧' },
@@ -10814,11 +10963,9 @@ initFoldablePanels();
            사장님이 종이에 그린 판을 그대로 옮긴 것. 8×5 테두리 = 22칸.
            번호는 왼쪽 위(출발)에서 시계방향. 0번은 출발이라 손대지 않는다.
 
-           ⚠️ 이 판에는 지금 엔진이 못 하는 칸이 셋 있다 —
-              싱크홀(뒤 5칸) · 블랙홀(출발점으로) · 각 플레이어 5점씩 받기.
-              말을 옮기거나 전원에게 주는 칸 종류가 아직 없어서 mission 으로 넣었다.
-              화면에는 글이 뜨고, 실제 처리는 진행자가 한다(말은 손으로 옮기기).
-              나중에 칸 종류를 늘리면 여기 type 만 바꾸면 된다. */
+           싱크홀(move · 뒤 5칸) · 블랙홀(goto · 출발점으로 거꾸로 걷기) · 각 플레이어에게서 5점씩(steal)은
+           서버가 자동으로 처리한다 — 말도 저절로 움직인다. 진행자가 손으로 또 옮기면 벌칙이 두 번 걸린다.
+           (예전엔 칸 종류가 없어서 mission 으로 넣고 손으로 옮겼다. 지금은 아니다.) */
         const DGC_PRESET_22_DRAW = [
             { id:  1, type: 'score',   label: '기여도 10',            points: 10 },
             { id:  2, type: 'score',   label: '기여도 5',             points: 5 },
@@ -10843,8 +10990,9 @@ initFoldablePanels();
             { id: 21, type: 'goto',    label: '블랙홀 · 출발점으로', points: 0 },
         ];
 
-        /* 황금열쇠 10장. 이 시스템의 열쇠는 '글' 이다 — 뽑으면 화면에 뜨고
-           효과는 진행자가 처리한다(자동으로 거는 장치가 아직 없다). */
+        /* 황금열쇠 10장. 열쇠는 '글' 로 저장되고, 서버가 글을 읽어 효과를 건다
+           (features/dicegame.py _dicegame_key_effect — 바꾸기 · 뒤로 N칸 · 출발지로 · 파산 · 한 번 더 ·
+           실드 · 원하는 곳으로 · 꽝 · 기여도 N). 모르는 글이면 화면에 글만 뜨고 진행자가 처리한다. */
         const DGC_KEYS_DRAW = [
             '기여도 1등과 바꾸기', '뒤로 7칸', '출발지로 (뒤)', '기여도 50', '한 번 더',
             '꽝', '원하는 곳으로', '실드권', '파산', '3등과 바꾸기',
@@ -10919,8 +11067,10 @@ initFoldablePanels();
             if (failed.length) msg += ' · 저장 실패: ' + failed.join(', ');
             if (keyFail) msg += ' · 황금열쇠 저장 실패';
             acctToast(msg, (failed.length || keyFail) ? 'warn' : 'ok');
+            // ⚠️ 예전 안내는 '싱크홀 · 블랙홀 · 전원지급은 글만 뜨니 말은 손으로 옮기라' 였다. 지금은
+            //    서버가 전부 자동으로 처리한다 — 안내대로 또 옮기면 벌칙이 두 번 걸렸다(5칸 → 10칸 뒤로).
             if (!failed.length && !keyFail) {
-                acctToast('싱크홀·블랙홀·전원지급 칸은 글만 뜹니다 — 말은 손으로 옮겨주세요', 'warn');
+                acctToast('싱크홀 · 블랙홀 · 전원지급 · 뺏어오기 칸은 자동으로 움직여요 — 손대지 않아도 돼요', 'ok');
             }
         }
 
@@ -11084,13 +11234,26 @@ initFoldablePanels();
             if (tsum) tsum.textContent = (g.tiles || []).length ? g.tiles.length + '칸' : '';
             const ksum = document.getElementById('dgc-keys-sum');
             if (ksum) ksum.textContent = (g.keys || []).length + '장';
+            // 굴리기 · 눈 1~6 은 같은 규칙으로 막는다 — 예전엔 굴리기만 막고 눈 단추는 열려 있어서
+            // 다른 판이 무대에 있을 때 눌러 '먼저 판을 깔아주세요' 라는 틀린 안내만 받았다.
+            const rollOk = !!g.enabled && (g.tiles || []).length > 0;
+            const rollWhy = !(g.tiles || []).length ? '판을 깔면 굴릴 수 있어요' : '주사위판을 방송에 올리면 굴릴 수 있어요';
             const rb = document.getElementById('dgc-roll-btn');
             if (rb) {
-                const ok = !!g.enabled && (g.tiles || []).length > 0;
-                rb.disabled = !ok;
-                rb.style.opacity = ok ? '1' : '.45';
-                rb.title = ok ? '' : '판을 깔고 화면에 올리면 굴릴 수 있어요';
+                rb.disabled = !rollOk;
+                rb.style.opacity = rollOk ? '' : '.45';
+                rb.title = rollOk ? '' : rollWhy;
             }
+            panel.querySelectorAll('button.dgc-eye').forEach(function (b) {
+                b.disabled = !rollOk;
+                b.style.opacity = rollOk ? '' : '.45';
+                b.title = rollOk ? '' : rollWhy;
+            });
+            // 🎵 시그 재생 중 — 띠를 띄우고 굴리기 단추를 흐리게(누르면 한 번 더 묻는다)
+            const rxBusy = rollOk && dgcRxBusy();
+            const rw = document.getElementById('dgc-rx-warn');
+            if (rw && rw.hidden === rxBusy) rw.hidden = !rxBusy;
+            panel.classList.toggle('dgc-wait', rxBusy);
             const dbig = document.getElementById('dgc-big');
             if (dbig) {
                 const dv = ((g.action || {}).dice || []).join('+');

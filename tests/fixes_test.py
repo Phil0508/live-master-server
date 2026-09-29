@@ -101,8 +101,11 @@ fn = CT.split('function performAutoPeriodicBackup(')[1].split('\n        }\n')[0
 chk('방송 중이 아니면 쓰지 않는다', 'if (!gd.broadcast_active)' in fn and 'return;' in fn)
 chk('그 확인이 저장보다 앞에 있다',
     fn.index('if (!gd.broadcast_active)') < fn.index("setItem('active_broadcast_backup'"))
+# ⚠️ 앞 1500자만 보면 안 된다 — 2026-09-30 주사위 점수 확인창이 함수 앞쪽에 들어가며 줄이 뒤로 밀렸다. 함수 전체를 본다
+_eb = CT.split('async function endBroadcast()')[1].split('\n        async function ')[0].split('\n        function ')[0]
 chk('종료 성공 시 백업을 지우는 줄은 그대로',
-    "localStorage.removeItem('active_broadcast_backup');" in CT.split('async function endBroadcast()')[1][:1500])
+    "localStorage.removeItem('active_broadcast_backup');" in _eb
+    and _eb.index("localStorage.removeItem('active_broadcast_backup');") > _eb.index("fetch('/api/server/end_broadcast'"))
 
 print()
 print('=' * 74)

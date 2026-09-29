@@ -5125,6 +5125,8 @@
         // 현재 재생 중인 시그니처의 '@@업' 문구 ("홍길동님"→"홍길동업", 슬롯 당첨은 시그니처 제목)
         function reactionUpText(item, gd) {
             if (!item) return '';
+            // 🎲 주사위 시그는 후원이 아니다 — '밍밍 · 시그 칸 도착' 처럼 누가 밟았는지만(서버가 banner 에 실어 준다)
+            if (item.source === 'dice') return String(item.banner || ((item.donator || '') + ' · 시그 칸 도착')).trim();
             let name = (item.skip_popup ? (item.title || '') : (item.donator || '')).trim();
             if (name.endsWith('님')) name = name.slice(0, -1);
             if (!name) return '';
@@ -6019,9 +6021,16 @@
                ⚠️ 주사위 말이 다 갈 때까지는 가리지 않는다(reactionHoldMs). 서버가 시그니처를 큐에 넣는 순간
                   reaction_mode 가 켜지므로, 그대로 두면 말이 가는 것을 아예 볼 수 없었다
                   (사장님: "먼저 리액션모드로 가고나서 주사위가 가서 안 보여"). 재생과 함께 가리개도 미룬다.
-               ⚠️ 노래방도 리액션을 켠다(조종실 startKaraoke) — 그래서 덮기 순위가 아니라 reaction_mode 로 본다. */
-            const hold = d.reaction_mode ? reactionHoldMs() : 0;
-            b.classList.toggle('reaction-mode', !!d.reaction_mode && hold === 0);
+               ⚠️ 노래방도 리액션을 켠다(조종실 startKaraoke) — 그래서 덮기 순위가 아니라 reaction_mode 로 본다.
+               ⚠️ 기다리는 것은 '새로 시작' 할 때뿐이다. 이미 틀고 있는 시그는 계속 가린다(재생은 안 끊는다).
+               ⏸️ 알림을 멈춰 두기만 하고 틀고 있는 게 없으면 가릴 것이 없다 — 예전엔 대기 1건만 있어도
+                  주사위판 · 점수판이 통째로 사라진 채 멈춰 있었다. */
+            let _playing = false;
+            try { _playing = currentPlayingId !== null; } catch (e) {}   // let 이라 스크립트가 거기까지 안 돌았으면 던진다
+            // (노래방은 시그와 따로 리액션을 켠다 — 알림 멈춤과 상관없이 가린다)
+            const _idlePaused = !!d.reaction_paused && !_playing && !(d.karaoke_enabled && d.karaoke_video);
+            const hold = (d.reaction_mode && !_playing) ? reactionHoldMs() : 0;
+            b.classList.toggle('reaction-mode', !!d.reaction_mode && !_idlePaused && hold === 0);
             if (hold > 0) {
                 clearTimeout(window.rmGateTimer);   // 미룬 만큼 뒤에 스스로 다시 본다 — 다음 SSE 를 기다리면 그만큼 더 늦는다
                 window.rmGateTimer = setTimeout(() => { try { shApply(globalData); } catch (e) {} }, hold + 60);
@@ -6044,6 +6053,11 @@
                 serverTimeOffset = d.server_time - Date.now();
             }
             globalData = d;
+            /* 🎲 새 굴림이 왔으면 '말이 가는 중' 표지판부터 세운다 — 가리개(shApply)가 그걸 보고 기다린다.
+               ⚠️ 표지판(dgBusyUntil)은 원래 아래 dgUpdate 안에서 섰다. 그래서 가리개가 늘 빈 자리를 보고
+                  시그 칸 굴림에 판부터 가렸다(대표님: "시그니처칸에 걸리면 냅다 리액션모드로 가고 말이
+                  이동하고 시그니처가 걸렸다고 떠"). 무대 정리 때 가리개가 맨 위로 올라가며 생긴 순서다. */
+            try { dgPrime(d.dicegame, d); } catch (e) {}
             shApply(d);   // 📺 가리개는 여기서만 — 방송 꺼짐 return 보다 앞(방송 전에도 시작 화면·시그가 있다)
             // 👑 이번 방송 순위 등급 — 서버가 매 상태에 실어 보낸다. 팝업·순위판이 vipOf 로 본다.
             //    ⚠️ 팝업보다 먼저 받아 둬야 '이 후원으로 1위' 가 그 팝업에 바로 보인다.
@@ -7352,6 +7366,7 @@
               그래서 이 답은 재생 시작과 화면 전환 두 곳에서 같이 쓴다.
            ① 서버가 실어 준 play_after — 주사위가 말을 다 옮길 때까지
            ② dgBusyUntil — 굴리는 중에 다른 후원 시그니처가 끼어드는 경우 */
+        const DG_HOLD_CAP = 20000;
         function reactionHoldMs() {
             /* ⚠️ 시계를 비교하지 않는다. 오직 이 브라우저의 시계 하나만 본다.
                  예전에는 서버가 준 시각(play_after)을 브라우저 시각과 맞춰 쟀는데,
@@ -7361,9 +7376,12 @@
                  만든다. 그 순간은 이 브라우저 안에서 벌어지는 일이라 어긋날 수가 없다.
                ⚠️ 이 값은 반드시 스스로 0 이 되어야 한다. 묵으면 상관없는 노래까지
                   붙잡힌다(실제로 그래서 노래가 20초 늦은 적이 있다). 카드가 뜰 때와
-                  연출이 끝날 때 두 곳에서 지운다. 9초 상한은 마지막 방어선이다. */
+                  연출이 끝날 때 두 곳에서 지운다. 20초 상한은 마지막 방어선이다.
+               ⚠️ 상한을 9초에서 20초로 올렸다(2026-09-30). 이제 끌려가기 · 열쇠 뽑기 · 카드 읽을 틈까지
+                  세므로 제일 긴 연출이 15.9초다(주사위 2개 · 열쇠 → 31칸 역주행). 9초면 그 전에 상한에 걸려
+                  곧장 가렸다. tests/dice_timing_test.py 가 제일 긴 연출 < 상한 을 본다. */
             const left = (window.dgBusyUntil || 0) - Date.now();
-            if (left <= 0 || left > 9000) return 0;
+            if (left <= 0 || left > DG_HOLD_CAP) return 0;
             return left;
         }
 
@@ -7636,6 +7654,13 @@
                 else if (t.level >= 2) el.classList.add('tier-2');
                 if (reactionTitleTimeout) { clearTimeout(reactionTitleTimeout); reactionTitleTimeout = null; }
                 el.innerText = text;
+                /* 📏 긴 글은 화면 폭(1080)에 맞춰 줄인다 — 배너 글씨는 150px 고정이라 '하율 · 시그 칸 도착' ·
+                      긴 시그 제목은 양 끝이 화면 밖으로 잘렸다. 짧은 'OO업' 은 그대로다(줄일 때만 건드린다). */
+                el.style.fontSize = '';
+                try {
+                    const room = 980, w = el.offsetWidth;   // offsetWidth 는 transform(scale) 을 안 탄다 — 원래 폭
+                    if (w > room) el.style.fontSize = Math.floor(parseFloat(getComputedStyle(el).fontSize) * room / w) + 'px';
+                } catch (e) {}
                 el.classList.remove('show');
                 void el.offsetWidth;
                 el.classList.add('show');
@@ -8045,6 +8070,10 @@
                     // 연출마다 자기 글자('가즈아', '참격', 'CLUB OPEN' …)를 이미 갖고 있어서 겹친다.
                     hideReactionTitle();
                     hideTickers();
+                } else if (data.source === 'dice') {
+                    // 🎲 주사위 시그 — 누가 밟았는지만 제목으로. 금액 · '업' 은 없다(후원이 아니다).
+                    //    ⚠️ 예전엔 '주사위게임' 님이 시그 값만큼 후원한 것처럼 떴다(10만 원 이상이면 '주사위게임업').
+                    showReactionTitle(reactionUpText(data), true, 0);
                 } else {
                     showReactionTitle(data.skip_popup ? data.title : data.donator, data.skip_popup, data.amount);
                 }
@@ -8948,6 +8977,7 @@
         //    서버의 action 신호를 연출로 옮긴다. 눈·경로·황금열쇠는 전부 서버가 정한 값 —
         //    화면이 스스로 정하면 오버레이 두 개가 서로 다른 결과를 보여준다.
         let dgLayoutKey = null, dgSeenTs = 0, dgTimers = [];
+        let dgWasOn = false;   // 지난번에 주사위판이 무대에 있었나 — 다시 올라온 순간을 알아챈다
         // 🎲 말이 칸에 닿는 시각. 이 전에는 리액션 재생기가 새 시그니처를 시작하지 않는다.
         window.dgBusyUntil = 0;
         const dgEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m =>
@@ -8955,6 +8985,72 @@
 
         function dgClearTimers() { dgTimers.forEach(t => clearTimeout(t)); dgTimers = []; }
         function dgAfter(ms, fn) { dgTimers.push(setTimeout(fn, ms)); }
+
+        /* ⏱️ 굴림 한 번의 연출 시간표(굴림 신호를 받은 때부터 ms) — 서버 _dicegame_plan(features/dicegame.py)과
+              **같은 식**이다. 서버는 이걸로 연타를 막고(429), 여기서는 연출과 가리개 문을 여기에 맞춘다.
+              tests/dice_timing_test.py 가 두 식에 같은 굴림을 넣어 맞춰 본다.
+           land : 말이 칸에 닿는 때
+           gate : 연출이 다 끝난 때 — 시그 칸이면 "시그니처 재생!" 카드를 1.5초 읽힌 뒤.
+                  이 전에는 가리개(리액션 모드)도 시그 재생도 시작하지 않는다.
+                  대표님: "주사위 굴리고 이동하고 시그니처 걸린 게 뜨고 리액션모드로 들어가서 재생"
+           ⚠️ 예전엔 말이 닿는 순간 곧바로 틀어서 카드가 0초 만에 가려졌고, 끌려가기 · 열쇠 뽑기는
+              아예 안 셌다(블랙홀 역주행 중에 다음 굴림 · 다른 시그가 끼어들었다). */
+        const DG_SIG_BEAT = 1500, DG_CARD_BEAT = 1500, DG_KEY_DRAW = 1700;
+        function dgRollPlan(act) {
+            act = act || {};
+            const rollT = act.manual ? 380 : 250 + (act.dice || []).length * 1300;
+            const land = rollT + (act.path || []).length * 300 + 120;
+            const tt = (act.tile || {}).type;
+            let gate = land + (tt === 'key' ? DG_KEY_DRAW : 0) + (tt === 'sig' ? DG_SIG_BEAT : DG_CARD_BEAT);
+            let afStart = 0, afStep = 0;
+            const af = act.after;
+            if (af) {
+                const p2 = af.path || [];
+                // 카드를 읽는 시간. 열쇠 칸은 뽑기 연출(1.7초)이 더 있으므로 그만큼 더 기다린다
+                afStart = (tt === 'key') ? 3200 : 1500;
+                // 🕳️ 역주행이 길면 빨리 밟는다 — 전체가 2.4초를 안 넘게(블랙홀 21칸을 220ms 면 4.6초)
+                afStep = af.rev && p2.length > 8 ? Math.max(90, Math.round(2400 / p2.length)) : 220;
+                const afterEnd = land + afStart + p2.length * afStep + 120;
+                const t2 = (af.tile || {}).type;
+                gate = Math.max(gate, afterEnd + (t2 === 'key' ? DG_KEY_DRAW : 0) + DG_CARD_BEAT);
+            }
+            return { rollT: rollT, land: land, gate: gate, afStart: afStart, afStep: afStep };
+        }
+
+        /* 🎲 새 굴림이 오면 가리개보다 **먼저** '말이 가는 중' 표지판(dgBusyUntil)을 세운다 — handleData 가 부른다.
+           그리기는 dgRender 가 한다. 연출을 안 하게 되면(판을 새로 그림 등) dgRest 가 표지판을 도로 걷는다. */
+        function dgPrime(g, d) {
+            g = g || {};
+            const act = g.action || {};
+            if (act.type !== 'ROLL' || !act.ts || act.ts === dgSeenTs) return;
+            if (shStage(d) !== 'dicegame' || !(g.tiles || []).length) return;
+            if (!((Date.now() + serverTimeOffset) - act.ts < 20000)) return;   // dgRender 의 fresh 와 같은 기준
+            window.dgBusyUntil = Date.now() + dgRollPlan(act).gate;
+        }
+
+        /* 🚪 연출이 다 끝났다 — 표지판을 걷고, 기다리던 가리개와 시그를 **같이** 연다. */
+        function dgGateOpen() {
+            window.dgBusyUntil = 0;
+            try { shApply(globalData); } catch (e) {}
+            try { checkReactionQueue(); } catch (e) {}
+        }
+
+        /* 🧍 연출 없이 서버 자리대로 선다 — 새로 연 창 · 판을 다시 그린 직후 · 무대에 다시 올라왔을 때.
+           ⚠️ 굴리는 중에 무대가 바뀌면 타이머가 다 지워져 말이 중간 칸에 반짝이며 멈춰 있었다
+              (서버는 6번인데 판에는 2번). 카드 · 한 바퀴 배너 · 열쇠 뽑기도 그 자리에 굳어 있었다. */
+        function dgRest() {
+            dgClearTimers();
+            dgClearMarks();
+            dgPlacePieces(null, null);
+            dgShowDice([]);   // 안 굴리는 중이다 — 주사위는 숨긴다
+            const card = document.getElementById('dg-card');
+            if (card) card.classList.remove('show');
+            const bn = document.getElementById('dg-lap-banner');
+            if (bn) bn.classList.remove('show');
+            const kd = document.getElementById('dg-keydraw');
+            if (kd) { kd.classList.remove('on'); kd.innerHTML = ''; }
+            window.dgBusyUntil = 0;   // 연출을 안 하니 기다릴 것도 없다(dgPrime 이 세웠을 수 있다)
+        }
         function dgBlip(f) {
             try { if (typeof isAudioLeader === 'function' && isAudioLeader()
                       && typeof sgBlip === 'function') sgBlip(f, 0.05, 0.16); } catch (e) {}
@@ -10098,8 +10194,17 @@
             //    굴리는 중이면 건드리지 않는다(연출이 끊긴다) — 다음 갱신 때 맞춰진다.
             if (dgLastG && !((window.dgBusyUntil || 0) > Date.now())) {
                 try { dgBuild(dgLastG); dgPlacePieces(null, null); } catch (e) {}
+                /* ⚠️ 다시 그렸으면 '판 모양 표시'(dgLayoutKey)도 맞춘다. 예전엔 안 맞춰서, 엑셀판이 늦게
+                      그려지거나 시그가 끝나 판 높이가 바뀐 **다음 굴림**이 '판을 새로 그렸다' 로 잘못 읽혀
+                      연출 없이 말이 순간이동했다(시험 서버에서 잡았다 — 2026-09-30). */
+                dgLayoutKey = dgKeyOf(dgLastG);
             }
         }
+        // 판 모양 표시 — 남는 자리 | 크기 · 칸 구성. 이게 바뀌면 판을 새로 그린다(dgRender · dgSyncPos 가 같이 쓴다)
+        function dgShapeOf(g) {
+            return JSON.stringify([g.cols, g.rows, (g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points])]);
+        }
+        function dgKeyOf(g) { return dgRoom + '|' + dgShapeOf(g); }
 
         function dgBuild(g) {
             const grid = document.getElementById('dg-grid');
@@ -10368,18 +10473,19 @@
             dgClearMarks();
             const card = document.getElementById('dg-card');
             if (card) card.classList.remove('show');
+            // ⏱️ 시각은 전부 시간표 한 곳에서 — 서버 연타 막기와 같은 식이다
+            const plan = dgRollPlan(act);
+            const rollT = plan.rollT;
             // ① 주사위.
             //    🎲 현실에서 굴렸으면(manual) 화면에서 또 구르지 않는다 — 이미 결과를
-            //       다들 봤는데 1.3초를 더 기다릴 이유가 없다. 나온 눈만 바로 크게 보여준다.
-            let rollT;
+            //       다들 봤는데 1.3초를 더 기다릴 이유가 없다. 나온 눈만 바로 크게 보여준다
+            //       (rollT 380ms — 눈을 읽을 만큼만 짧게 멈춘다).
             if (act.manual) {
                 dgShowDice(act.dice);
                 dgBlip(1040);
-                rollT = 380;                       // 눈을 읽을 만큼만 짧게 멈춘다
             } else {
                 dgTumbleSeq(act.dice);
                 playSfx('dice-roll');
-                rollT = 250 + (act.dice || []).length * 1300;
             }
             // ② 다 구른 뒤에 말이 한 칸씩 총총
             const path = act.path || [];
@@ -10392,19 +10498,19 @@
                 });
             });
             // ③ 도착 — 칸 강조 + 카드 공개 (+ 한 바퀴 배너)
-            const landAt = rollT + path.length * 300 + 120;
-            // 🎲 말이 닿기 전에는 시그니처 리액션이 시작되면 안 된다 (checkReactionQueue 가 본다)
-            window.dgBusyUntil = Date.now() + landAt;
-            // ⚠️ 안전장치. 위 dgAfter(landAt) 가 어떤 이유로든 안 돌아도 문은 열린다.
-            //    이 값이 묵으면 상관없는 노래까지 붙잡힌다.
-            dgAfter(landAt + 400, () => { window.dgBusyUntil = 0; });
+            const landAt = plan.land;
+            // 🎲 연출이 다 끝나기 전에는 가리개(리액션 모드)도 시그 재생도 시작하지 않는다
+            //    (shApply · checkReactionQueue 가 reactionHoldMs 로 본다). handleData 의 dgPrime 이
+            //    같은 값을 먼저 세워 두었다 — 여기서 다시 적는 건 굴림 신호를 받은 시각 기준으로 맞추려는 것.
+            window.dgBusyUntil = Date.now() + plan.gate;
+            // 🚪 문 열기 — 시그 칸이면 "시그니처 재생!" 카드를 1.5초 읽힌 뒤 가리개와 시그가 **같이** 시작한다.
+            //    ⚠️ 예전엔 말이 닿는 순간 곧바로 틀었다(사장님: "이쿠욧이 딱 뜨면 바로") — 그러면 가리개가
+            //       0.06초 만에 판을 덮어 카드를 읽을 수 없었다. 이제 카드 → 가리개 · 시그 순서다.
+            //    ⚠️ 이 값이 묵으면 상관없는 노래까지 붙잡힌다 — 여기서 반드시 걷는다(20초 상한은 마지막 방어선).
+            dgAfter(plan.gate, dgGateOpen);
             // 다 끝나면 주사위는 다시 숨긴다
             dgAfter(landAt + 4200, () => dgShowDice([]));
             dgAfter(landAt, () => {
-                // ⏱️ 말이 닿았다 — 카드가 뜨는 이 순간 시그니처를 튼다.
-                //    사장님: "6나오고 이쿠욧이 딱 뜨면 바로 시그 재생하자"
-                window.dgBusyUntil = 0;
-                try { checkReactionQueue(); } catch (e) {}
                 const t = document.getElementById('dg-tile-' + act.to);
                 if (t) { t.classList.add('dg-land'); dgAfter(4200, () => t.classList.remove('dg-land')); }
                 // 🔊 도착한 칸이 무엇이냐에 따라 다른 소리. 귀로도 결과를 알 수 있어야 한다.
@@ -10433,12 +10539,12 @@
                     // 카드를 읽는 시간. 열쇠 칸은 착지 뒤에 뽑기 연출(1.7초)이 더 있으므로
                     // 그만큼 더 기다린다 — 안 그러면 카드가 섞이는 중에 말이 먼저 미끄러져
                     // '뒤로 7칸' 을 읽을 틈이 없다(실측: 이동 2403ms, 카드 2652ms).
-                    const START = (_tt === 'key') ? 3200 : 1500;
                     // 끌려가는 것이라 걸을 때(300)보다 빠르다. 🕳️ 블랙홀은 출발까지 거꾸로
                     // 21칸을 밟으므로(사장님: "반대방향으로 돌아야함") 220ms 로는 4.6초라
                     // 늘어진다 — 길수록 빨리 밟아 전체가 2.4초를 안 넘게 한다.
-                    const STEP = af.rev && p2.length > 8
-                        ? Math.max(90, Math.round(2400 / p2.length)) : 220;
+                    // ⚠️ 두 값은 시간표(dgRollPlan)에서 받는다 — 서버 연타 막기가 같은 값을 쓴다.
+                    const START = plan.afStart;
+                    const STEP = plan.afStep;
                     dgAfter(START, () => playSfx('dice-miss'));
                     p2.forEach((pos, k) => {
                         dgAfter(START + k * STEP, () => {
@@ -10462,9 +10568,11 @@
                                   : t2.type === 'score' ? 'dice-miss' : 'dice-step');
                             // 끌려간 자리가 황금열쇠면 여기서도 뽑는 연출을 거친다 —
                             // 첫 착지에서만 뽑고 여기선 글만 뜨면 같은 칸이 두 가지로 보인다.
+                            // 💰 steal 도 넘긴다 — 끌려간 자리가 뺏어오기 칸이면 서버는 뺏는데
+                            //    예전엔 카드에 누가 누구에게서 얼마를 뺏었는지가 빠져 있었다.
                             const showAfter = () => dgShowCard({ tile: t2, key: af.key, scored: af.scored,
                                                                  score_note: af.note, key_effect: af.key_effect,
-                                                                 giveall: af.giveall });
+                                                                 giveall: af.giveall, steal: af.steal });
                             if (t2.type === 'key') dgKeyDraw(showAfter); else showAfter();
                         }
                     });
@@ -10482,23 +10590,38 @@
             // 엑셀판은 이제 그대로 둔다(위). 계좌만 머리 줄로 비킨다 — rankHiddenBy.dice 가 그 신호.
             rankHiddenBy.dice = on;
             syncRankVisible();
-            if (!on) { dgClearTimers(); return; }
+            if (!on) {
+                dgClearTimers();
+                // 판이 내려갔다 — 연출이 끊겼으니 시그를 붙잡고 있을 까닭도 없다
+                if (dgWasOn) window.dgBusyUntil = 0;
+                dgWasOn = false;
+                return;
+            }
+            // 🔁 다른 판(슬롯 · 룰렛 · 핀볼)이 무대에 올랐다 내려와 주사위판이 **다시** 올라왔다
+            const cameBack = !dgWasOn;
+            dgWasOn = true;
             dgLastG = g;
             dgSyncPos();   // 엑셀판 아래로 내려가 남는 자리를 잰다
-            const key = JSON.stringify([g.cols, g.rows, dgRoom,
-                (g.tiles || []).map(t => [t && t.type, t && t.label, t && t.points])]);
-            const rebuilt = key !== dgLayoutKey;
+            const act = g.action || {};
+            const key = dgKeyOf(g);
+            /* 굴리는 중(이 굴림을 그리고 있다)에 '남는 자리' 만 바뀌었으면 연출이 끝난 뒤에 다시 그린다.
+               ⚠️ 판을 다시 그리면 걷던 말이 사라지고 아래 dgRest 로 끝자리에 순간이동한다. */
+            const midRoll = act.ts === dgSeenTs && (window.dgBusyUntil || 0) > Date.now();
+            const sameShape = !!dgLayoutKey && dgLayoutKey.slice(dgLayoutKey.indexOf('|') + 1) === dgShapeOf(g);
+            const rebuilt = key !== dgLayoutKey && !(midRoll && sameShape);
             if (rebuilt) { dgLayoutKey = key; dgBuild(g); }
             // 🧩 말 목록은 판을 다시 그리지 않아도 매번 갱신한다 —
             //    이름을 바꾸거나 손으로 옮겼을 때 바로 반영되어야 한다.
             dgPieces = Array.isArray(g.pieces) ? g.pieces : [];
-            const act = g.action || {};
             const now = Date.now() + serverTimeOffset;
             const fresh = act.ts && (now - act.ts) < 20000;
-            if (act.type === 'ROLL' && act.ts !== dgSeenTs && fresh && !rebuilt) {
+            // ⚠️ 판을 방금 새로 그렸어도 새 굴림은 연출한다. 예전엔 '새로 그림' 이면 연출을 건너뛰어,
+            //    판 높이가 바뀐 직후의 굴림은 말이 순간이동했다. 새로 그린 판엔 말이 없으니 먼저 세운다.
+            if (act.type === 'ROLL' && act.ts !== dgSeenTs && fresh) {
                 dgSeenTs = act.ts;
+                if (rebuilt) dgPlacePieces(act.piece, act.from);
                 dgAnimateRoll(g, act);
-            } else if (act.type === 'MOVE' && act.tile && act.ts !== dgSeenTs && fresh && !rebuilt) {
+            } else if (act.type === 'MOVE' && act.tile && act.ts !== dgSeenTs && fresh) {
                 // 🎯 '원하는 곳으로' — 손으로 옮긴 자리의 칸이 일을 했다(서버가 tile 을 실어 보낸다).
                 //    굴림 연출은 없다. 말을 세우고 그 칸을 밝히고 카드만 보여준다
                 //    (열쇠 칸이면 뽑기 연출을 거친다). 기여도 줄 띄우기는 바로 나와도 된다.
@@ -10511,13 +10634,10 @@
                 const lt = document.getElementById('dg-tile-' + act.to);
                 if (lt) { lt.classList.add('dg-land'); dgAfter(4200, () => lt.classList.remove('dg-land')); }
                 if ((act.tile || {}).type === 'key') dgKeyDraw(() => dgShowCard(act)); else dgShowCard(act);
-            } else if (act.ts !== dgSeenTs || rebuilt) {
-                // 새로 온 창(또는 판을 다시 그린 직후)은 연출 없이 마지막 상태로 선다
+            } else if (act.ts !== dgSeenTs || rebuilt || cameBack) {
+                // 새로 온 창 · 판을 다시 그린 직후 · 무대에 다시 올라왔을 때는 연출 없이 서버 자리대로 선다
                 dgSeenTs = act.ts || 0;
-                dgClearTimers();
-                dgClearMarks();
-                dgPlacePieces(null, null);
-                dgShowDice([]);   // 안 굴리는 중이다 — 주사위는 숨긴다
+                dgRest();
             }
             const laps = document.getElementById('dg-laps');
             if (laps) laps.textContent = g.laps ? ('출발 ' + g.laps + '번') : '';
@@ -10545,16 +10665,15 @@
             let lh = '', rh = '';
             for (let i = 0; i < half; i++) lh += i < rows.length ? cell(rows[i], i) : blank;
             for (let i = half; i < half * 2; i++) rh += i < rows.length ? cell(rows[i], i) : blank;
-            // 줄 차례가 바뀌면 다시 그린다. 그 뒤에 숫자를 세어 올린다(순서가 중요하다 —
-            // 먼저 그려야 새 줄에 대고 애니메이션을 걸 수 있다).
-            if (key !== dgbRosterKey || left.childElementCount !== half) {
-                dgbRosterKey = key;
-                left.innerHTML = lh;
-                right.innerHTML = rh;
-            } else {
-                left.innerHTML = lh;
-                right.innerHTML = rh;
-            }
+            /* 숫자가 바뀔 때만 다시 그린다. 그 뒤에 숫자를 세어 올린다(순서가 중요하다 —
+               먼저 그려야 새 줄에 대고 애니메이션을 걸 수 있다).
+               ⚠️ 예전엔 소식이 올 때마다(후원 · 시그 · 다른 판) 통째로 다시 그렸다. 그러면 0.8초 동안
+                  세어 올라가던 숫자가 옛 칸과 함께 사라져, 오른 점수가 '툭' 바뀌거나 중간에서 멈췄다. */
+            const sig = key + '#' + rows.map(r => r.pts).join(',');
+            if (sig === dgbRosterKey && left.childElementCount === half) return;
+            dgbRosterKey = sig;
+            left.innerHTML = lh;
+            right.innerHTML = rh;
             rows.forEach(r => {
                 const el = document.getElementById('dgbp-' + safeId(r.name));
                 if (!el) return;
