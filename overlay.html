@@ -2098,7 +2098,7 @@
            색은 트위치 구독 알림(스트림랩스 기본값)과 같게: 이름 · 금액만 청록 #32C3A6, 나머지 흰 글씨에 굵은 검은 테두리.
            ⚠️ 테두리는 paint-order:stroke fill 로 글자 '뒤'에 깐다 — 앞에 그리면 획이 글자를 먹어 가늘어진다. */
         #small-don { position: absolute; left: 0; top: 0; width: 100%; box-sizing: border-box; z-index: 100006; pointer-events: none;
-            padding: 16px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.9);
+            padding: 16px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.5);   /* 반투명 — 뒤 캠이 비친다(대표님: 너무 까매). 글씨는 검은 테두리가 받쳐 준다 */
             opacity: 0; visibility: hidden; transform: translateY(-100%);
             transition: transform var(--t-base) var(--ease), opacity var(--t-base) ease, visibility var(--t-base); }
         #small-don.show { opacity: 1; visibility: visible; transform: none; }
