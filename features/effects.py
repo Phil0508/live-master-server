@@ -112,11 +112,37 @@ def api_roulette_winner():
             # ⚠️ 돌고 있지 않은데 결과가 들어오면 밖에서 부른 것이다.
             #    (오버레이는 자기가 돌린 룰렛이 멈출 때만 부른다)
             #    로그인한 요청은 그대로 통과시킨다 — 조종실 조작이나 시험용이다.
-            if not state['roulette'].get('is_spinning') and not request_is_authed():
+            r = state['roulette']
+            # 🎡 판 번호(round_id) — 결과는 **한 판에 한 번, 먼저 온 것만** 받는다(핀볼과 같은 문지기).
+            #    ⚠️ 예전엔 로그인한 요청이면 안 도는 중에도 통과시켰다. 그래서 로그인 세션이 있는
+            #       두 번째 방송판(조종실 미리보기 · 폰 브라우저 등)이 조금 늦게 멈춰 보고하면
+            #       이미 발표된 당첨자(winner_name)를 **다른 이름으로 덮었다.**
+            #    돌리기(command=spin)는 server.py /api/data 로 들어와서 여기서 판 번호를 못 매긴다.
+            #    대신 '이 판은 이미 결과가 났다'(command=ended · 안 도는 중)를 문으로 쓰고,
+            #    결과를 받을 때 판 번호를 하나 올려 적는다. 다음 [회전] 이 command 를 spin 으로 바꾸면 문이 다시 열린다.
+            # ⚠️ 방송판이 판 번호를 같이 보내면(round_id) 그것도 본다 — 지난 판의 늦은 보고를 거른다.
+            #    round_id 는 '결과가 난 판 수' 라서, 지금 도는 판은 round_id + 1 이다
+            #    (방송판은 돌기 시작할 때 본 roulette.round_id + 1 을 보내면 된다. 안 보내면 이 검사는 건너뛴다).
+            try:
+                _rid_in = req_data.get('round_id')
+                _rid_in = None if _rid_in is None else int(_rid_in)
+            except (TypeError, ValueError):
+                return jsonify({"status": "error", "message": "판 번호가 이상합니다"}), 400
+            _rid_now = int(r.get('round_id') or 0)
+            if not r.get('is_spinning') and r.get('command') == 'ended':
+                print(f"⛔ [룰렛 결과 거부] {_rid_now}판은 이미 결과가 났습니다 "
+                      f"(당첨 {r.get('winner_name')}, 늦게 온 이름={winner_name}, ip={request.remote_addr})", flush=True)
+                return jsonify({"status": "error", "message": "이번 판 결과는 이미 나왔어요",
+                                "round_id": _rid_now, "winner_name": r.get('winner_name')}), 409
+            if _rid_in is not None and _rid_in != _rid_now + 1:
+                return jsonify({"status": "error", "message": "지난 판의 결과입니다",
+                                "round_id": _rid_now}), 409
+            if not r.get('is_spinning') and not request_is_authed():
                 print(f"⛔ [룰렛 결과 거부] 돌고 있지 않은데 결과가 들어왔습니다 "
                       f"(ip={request.remote_addr}, 이름={winner_name})", flush=True)
                 return jsonify({"status": "error", "message": "지금은 룰렛이 돌고 있지 않습니다"}), 409
 
+            r['round_id'] = _rid_now + 1        # 🚪 여기서 이 판의 문을 닫는다 — 다음 보고는 409
             state['roulette']['winner_name'] = winner_name
             state['roulette']['command'] = 'ended'
             state['roulette']['is_spinning'] = False

@@ -128,11 +128,22 @@ p0 = pieces()['나']
 chk('처음: 나 4번 칸 · 10점', p0['pos'] == 4 and bd().get('나') == 10, (p0, bd()))
 post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': 0} for n in ('가', '나나', '다', '라')]})
 g = dg()
-chk("'나나' 로 고치면 새 이름은 0번 · 0점에서", pieces().get('나나', {}).get('pos') == 0 and bd().get('나나') == 0, (pieces().get('나나'), bd()))
+# ✏️ 2026-09-30: 같은 자리에서 이름만 바뀌면 개명으로 보고 기록을 물려준다(엑셀판과 같은 규칙).
+#    예전엔 '나나' 가 0번 · 0점에서 시작하고 '나' 는 보관함에 맡겨졌다 — 방송을 끝내면 보관함째 비워져 점수가 사라졌다.
+chk("⭐ '나나' 로 고치면 4번 칸 · 10점을 물려받는다 (개명)", pieces().get('나나', {}).get('pos') == 4 and bd().get('나나') == 10,
+    (pieces().get('나나'), bd()))
+chk('개명한 옛 이름은 보관함에 안 남는다', '나' not in (g.get('parked') or {}), g.get('parked'))
+post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': 0} for n in ('가', '나', '다', '라')]})
+chk("⭐ '나' 로 되돌리면 4번 칸 · 10점 그대로 (예전: 0번 · 0점)", pieces()['나']['pos'] == 4 and bd().get('나') == 10,
+    (pieces()['나'], bd()))
+chk('되돌린 뒤 보관함에 나 · 나나가 없다', not ({'나', '나나'} & set(dg().get('parked') or {})), dg().get('parked'))
+# 🅿️ 진짜로 뺀 사람(대신 들어온 사람 없음)은 예전처럼 맡겨 뒀다가 돌아오면 되살린다
+post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': 0} for n in ('가', '다', '라')]})
+g = dg()
 chk('⭐ 빠진 이름의 기록은 맡아 둔다', (g.get('parked') or {}).get('나', {}).get('pos') == 4
     and (g.get('parked') or {}).get('나', {}).get('pts') == 10, g.get('parked'))
 post('/api/data', {'bjs': [{'name': n, 'score': 0, 'contribution': 0} for n in ('가', '나', '다', '라')]})
-chk("⭐ '나' 로 되돌리면 4번 칸 · 10점 그대로 (예전: 0번 · 0점)", pieces()['나']['pos'] == 4 and bd().get('나') == 10,
+chk("⭐ 다시 넣으면 4번 칸 · 10점 그대로", pieces()['나']['pos'] == 4 and bd().get('나') == 10,
     (pieces()['나'], bd()))
 chk('되살린 이름은 보관함에서 빠진다', '나' not in (dg().get('parked') or {}), dg().get('parked'))
 chk('출발 칸 · 0점인 이름은 맡아 두지 않는다 (보관함이 안 불어난다)',

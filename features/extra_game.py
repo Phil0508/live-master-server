@@ -17,8 +17,15 @@ def extra_game_start():
     try:
         with file_lock:
             state = load_data()
+            # ⚠️ 이미 번외 게임 중이면 다시 시작하지 않는다.
+            #    예전엔 그대로 다시 깔아서 **번외 점수판(extra_bjs)이 전원 0점으로 돌아갔다**
+            #    — 두 번 누르거나 폰·조종실이 같이 누르면 그때까지 쌓인 번외 점수가 소리 없이 사라졌다.
+            #    다시 하고 싶으면 [종료](본판에 합산) 또는 [취소](버림)를 먼저 누르게 한다.
+            if state.get("extra_game_active"):
+                return jsonify({"status": "error",
+                                "message": "이미 번외 게임 중이에요 — 먼저 종료하거나 취소해 주세요"}), 409
             state["extra_game_active"] = True
-            
+
             # Initialize extra_bjs with all players from bjs, reset scores to 0
             state["extra_bjs"] = []
             for bj in state.get("bjs", []):

@@ -197,32 +197,50 @@ def _dicegame_sync_pieces(state, g):
             g['pieces'] = [{'name': '말', 'pos': 0, 'laps': 0}]
         return
     old = {p['name']: p for p in g.get('pieces') or []}
+    _old_ps = g.get('pieces') or []
+    parked = g.get('parked') if isinstance(g.get('parked'), dict) else {}
+    # ✏️ 개명이면 옛 이름의 말(자리 · 바퀴 · 실드 · 선택권)과 전용 판 점수를 새 이름이 물려받는다.
+    #    ⚠️ 예전엔 개명도 '빠짐 + 새로 들어옴' 으로 보고 옛 이름을 보관함(parked)에 맡겼다.
+    #       그런데 [엑셀판으로 옮기기] · 방송 종료 확인은 판(board)만 보고, 방송을 끝내면
+    #       보관함이 비워져서 **이름을 고친 사람의 주사위 점수가 소리 없이 사라졌다.**
+    #    엑셀판(server.py /api/data)과 같은 규칙으로만 개명이라 본다 — 확신할 수 없으면
+    #    예전처럼 맡겨 둔다(잘못 물려주면 그건 남의 점수를 주는 것이다).
+    _ren = _dicegame_rename(g, src, names, _old_ps, parked)
+    if _ren:
+        _gone, _new = _ren
+        old[_new] = dict(old.get(_gone) or {}, name=_new)
+        for _r in (g.get('board') or []):         # 점수판 줄도 이름만 바꿔 _dicegame_sync_board 가 이어받게
+            if isinstance(_r, dict) and str(_r.get('name') or '').strip() == _gone:
+                _r['name'] = _new
+        _o = old[_new]
+        print("  ✏️ [주사위게임] 이름 변경 %s → %s (%s번 칸 · 점수 그대로)"
+              % (_gone, _new, _o.get('pos', 0)), flush=True)
+    _swap = (lambda nm: _ren[1] if nm == _ren[0] else nm) if _ren else (lambda nm: nm)
     # 이름이 남아 있으면 자리도 그대로 — 명단을 고쳤다고 판이 초기화되면 안 된다
     # ⚠️ 순서는 **있던 말 순서를 지킨다**(새 이름만 뒤에 붙인다). 판은 기여도순으로 계속
     #    다시 서는데, 차례(turn)는 이 목록의 자리 번호다. 목록이 판을 따라 다시 서면
     #    점수를 받아 1등으로 뛴 사람이 곧바로 또 굴리고(자리 0번이 그 사람이 된다)
     #    누군가는 한 차례를 건너뛴다 — 남의 차례에 남의 말이 가고 기여도도 그리로 간다.
-    kept = [p['name'] for p in (g.get('pieces') or []) if p.get('name') in names]
+    # ⚠️ 개명한 말은 **제자리**에 둔다(뒤로 붙이면 차례 순서가 바뀐다).
+    kept = [_swap(p['name']) for p in _old_ps if _swap(p.get('name')) in names]
     order = kept + [nm for nm in names if nm not in kept]
     # 차례는 자리 번호라서, 차례보다 앞에 있던 사람이 명단에서 빠지면 번호가 한 칸
     # 당겨져 다음 사람이 건너뛰어진다. 차례였던 이름을 기억해 새 목록에서 다시 찾는다.
     # 그 사람이 빠졌으면 그 다음 남은 사람.
-    _old_ps = g.get('pieces') or []
     _ti = max(0, min(len(_old_ps) - 1, _as_int(g.get('turn'), 0) or 0)) if _old_ps else 0
     _next_name = None
     for _p in _old_ps[_ti:] + _old_ps[:_ti]:
-        if _p.get('name') in order:
-            _next_name = _p['name']
+        if _swap(_p.get('name')) in order:
+            _next_name = _swap(_p['name'])
             break
     g['turn'] = order.index(_next_name) if _next_name in order else 0
     # 🅿️ 명단에서 빠진 이름의 기록은 버리지 않고 맡아 둔다(자리 · 바퀴 · 실드 · 선택권).
     #    같은 이름이 돌아오면 그대로 되살린다 — 오타를 고쳤다 되돌리거나 번외 게임으로 명단이
     #    잠깐 바뀌어도 판이 안 날아간다. 예전엔 곧바로 버려서 '0번 칸 · 0점' 으로 돌아왔다.
     #    점수(board)는 _dicegame_sync_board 가 같은 자리에 맡기고, 되살린 뒤 비운다.
-    parked = g.get('parked') if isinstance(g.get('parked'), dict) else {}
     for _p in _old_ps:
         _nm = _p.get('name')
-        if _nm and _nm not in order:
+        if _nm and _swap(_nm) not in order:      # 개명한 이름은 물려줬으니 맡기지 않는다
             parked.setdefault(_nm, {}).update({'pos': _p.get('pos', 0), 'laps': _p.get('laps', 0),
                                                'shield': bool(_p.get('shield')),
                                                'choose': bool(_p.get('choose'))})
@@ -236,6 +254,42 @@ def _dicegame_sync_pieces(state, g):
                     'shield': bool(_was(nm).get('shield')),
                     # '원하는 곳으로' 를 뽑아 손 이동을 기다리는 중인가
                     'choose': bool(_was(nm).get('choose'))} for nm in order]
+    # 📸 이번 명단(순서 그대로)을 적어 둔다 — 다음 번에 '같은 자리의 이름만 바뀌었나'(개명)를 본다.
+    #    ⚠️ 말 목록 순서로는 못 본다. 말은 있던 순서를 지키고 새 이름을 뒤에 붙이므로 명단 순서와 다를 수 있다.
+    g['roster'] = {'src': src, 'names': list(names)}
+
+
+def _dicegame_rename(g, src, names, old_ps, parked):
+    """명단 변경이 '한 사람 개명' 인가. 맞으면 (옛 이름, 새 이름), 아니면 None.
+
+    엑셀판(server.py /api/data 의 개명 처리)과 같은 규칙이다:
+      사라진 이름 하나 · 새 이름 하나 · 사람 수 그대로 · **명단에서 같은 자리**.
+    ⚠️ 한 번에 여럿을 고치거나 추가·삭제가 섞이면 확신할 수 없으니 개명으로 안 본다
+       (그땐 예전처럼 보관함에 맡긴다 — 잃지는 않는다).
+    ⚠️ 번외 게임으로 명단이 bjs ↔ extra_bjs 로 바뀐 것은 개명이 아니다.
+    ⚠️ 새 이름이 보관함에 있으면 '맡아 둔 사람이 돌아온 것' 이다 — 되살리기가 먼저다.
+    """
+    old_names = [p.get('name') for p in old_ps if p.get('name')]
+    if len(old_names) != len(names):
+        return None
+    gone = [nm for nm in old_names if nm not in names]
+    new = [nm for nm in names if nm not in old_names]
+    if len(gone) != 1 or len(new) != 1:
+        return None
+    gone, new = gone[0], new[0]
+    if new in parked:
+        return None
+    prev = g.get('roster') if isinstance(g.get('roster'), dict) else None
+    pn = prev.get('names') if prev else None
+    if isinstance(pn, list) and set(pn) == set(old_names):
+        if prev.get('src') != src:
+            return None
+        return (gone, new) if pn.index(gone) == names.index(new) else None
+    # 명단 사진이 없다(고치기 전 저장본) — 말 순서로 대신 본다.
+    # ⚠️ 명단이 비었을 때 까는 자리표 말('말' 하나)은 사람이 아니다. 그 기록을 물려주지 않는다.
+    if old_names == ['말']:
+        return None
+    return (gone, new) if old_names.index(gone) == names.index(new) else None
 
 
 def _dicegame_state(state):
@@ -1087,6 +1141,15 @@ def api_dicegame_board():
                                 'val': pts, 'kind': 'contrib', 'why': '🎲 주사위게임 정산'})
                 del logs[LOG_MAX:]
                 moved.append({'name': t.get('name') or r['name'], 'points': pts})
+            # 🅿️ 명단에서 빠져 보관함에 맡겨 둔 사람의 점수도 **알린다**(옮기지는 않는다 — 엑셀판에 없는 이름이다).
+            #    ⚠️ 예전엔 판만 봐서 보관함 점수는 아무 말 없이 지나갔고, 방송을 끝내면 보관함째 비워져 사라졌다.
+            #       이름을 되돌리면 되살아나니, 사장님이 보고 고를 수 있게 '못 옮김' 에 같이 올린다.
+            _on_board = {r['name'] for r in g['board']}
+            for _nm, _v in (g.get('parked') or {}).items():
+                _pp = _as_int((_v or {}).get('pts'), 0) if isinstance(_v, dict) else 0
+                if _pp and _nm not in _on_board:
+                    print(f"⚠️ [주사위 판] '{_nm}' 은(는) 명단에서 빠져 보관함에 {_pp}점이 있습니다 — 옮기지 않았습니다", flush=True)
+                    skipped.append({'name': _nm, 'points': _pp, 'parked': True})
             if moved:
                 src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
                 lst = state.get(src) or []
