@@ -417,8 +417,14 @@ def _dicegame_log(state, name, val, why):
     if not isinstance(logs, list):
         logs = []
         state['logs'] = logs
-    logs.insert(0, {'time': now_hms(), 'name': name, 'val': int(val),
-                    'kind': 'dice', 'why': why})
+    # 🧮 '몇에 몇을 더해 몇' — 부르는 곳은 전부 판 점수를 **바꾼 뒤에** 부른다. 그래서 지금 판 값이 '뒤' 다.
+    row = next((r for r in ((state.get('dicegame') or {}).get('board') or [])
+                if isinstance(r, dict) and str(r.get('name') or '').strip() == str(name or '').strip()), None)
+    entry = {'time': now_hms(), 'name': name, 'val': int(val), 'kind': 'dice', 'why': why}
+    if row is not None:
+        after = _as_int(row.get('pts'), 0) or 0
+        entry.update({'before': after - int(val), 'after': after})
+    logs.insert(0, entry)
     del logs[LOG_MAX:]
 
 
@@ -1138,7 +1144,8 @@ def api_dicegame_board():
                     logs = []
                     state['logs'] = logs
                 logs.insert(0, {'time': now_hms(), 'name': t.get('name') or r['name'],
-                                'val': pts, 'kind': 'contrib', 'why': '🎲 주사위게임 정산'})
+                                'val': pts, 'kind': 'contrib', 'why': '🎲 주사위게임 정산',
+                                'before': t['contribution'] - pts, 'after': t['contribution']})
                 del logs[LOG_MAX:]
                 moved.append({'name': t.get('name') or r['name'], 'points': pts})
             # 🅿️ 명단에서 빠져 보관함에 맡겨 둔 사람의 점수도 **알린다**(옮기지는 않는다 — 엑셀판에 없는 이름이다).

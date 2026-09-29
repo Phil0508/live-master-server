@@ -777,7 +777,7 @@ function rLogs(el) {
     el.innerHTML = '<div class="grp">' + (logs.map(l =>
         `<div class="cell row"><span class="num" style="color:var(--dim); font-size:11.5px">${esc(l.time)}</span>
          <span style="flex:1; font-size:14px; font-weight:700">${esc(l.name)}</span>
-         <span class="num" style="font-weight:800; color:${(l.val||0) >= 0 ? 'var(--green)' : 'var(--red)'}">${(l.val||0) >= 0 ? '+' : ''}${l.val}</span></div>`).join('')
+         <span class="num" style="font-weight:800; color:${(l.val||0) >= 0 ? 'var(--green)' : 'var(--red)'}">${(l.val||0) >= 0 ? '+' : ''}${l.val}</span>${(l.before != null && l.after != null) ? `<span class="num" style="font-size:11.5px; color:${Number(l.before) + Number(l.val || 0) === Number(l.after) ? 'var(--dim)' : 'var(--red)'}">${Number(l.before).toLocaleString()}→${Number(l.after).toLocaleString()}</span>` : ''}</div>`).join('')
         || '<div class="empty">기록이 없습니다</div>') + '</div>';
 }
 

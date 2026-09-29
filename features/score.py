@@ -202,12 +202,24 @@ def api_score_add():
                     #    ⚠️ 예전에는 delta 만 적어서, 기여도를 손으로 고치면 '0점' 이라는
                     #       쓸모없는 줄이 남았다(그나마도 log:false 라 아예 안 남겼다).
                     #       그래서 나중에 "이 사람 기여도가 왜 이렇지" 를 되짚을 수 없었다.
+                    # 🧮 '몇에 몇을 더해 몇이 됐다' 를 같이 남긴다(before · after).
+                    #    대표님(2026-09-30): "+5 라고만 나오지 말고 몇에다가 몇을 더해서 몇이 되었다 라고도"
+                    #    ⚠️ 되돌리기가 줄을 찾을 때는 time · name · val 만 본다 — 새 칸은 짝 맞추기에 안 쓴다.
+                    _sa = int(a.get('score') or 0)
+                    _ca = int(a.get('contribution') or 0) if a.get('contribution') is not None else None
                     if not a['delta'] and a.get('contrib'):
                         logs.insert(0, {"time": time_str, "name": a['name'],
                                         "val": a['contrib'], "kind": "contrib",
-                                        "why": _reason or '조종실에서'})
+                                        "why": _reason or '조종실에서',
+                                        "before": (_ca - a['contrib']) if _ca is not None else None,
+                                        "after": _ca})
                     else:
-                        logs.insert(0, {"time": time_str, "name": a['name'], "val": a['delta']})
+                        _row = {"time": time_str, "name": a['name'], "val": a['delta'],
+                                "before": _sa - a['delta'], "after": _sa}
+                        # 점수와 기여도가 다르게 움직였으면(나눠주기 · 손 고침) 기여도도 따로 적는다
+                        if _ca is not None and a.get('contrib') is not None:
+                            _row.update({"cval": a['contrib'], "cbefore": _ca - a['contrib'], "cafter": _ca})
+                        logs.insert(0, _row)
             # 되돌리기: '-3점' 줄을 새로 남기는 대신 원래 줄을 지운다(장부가 깔끔하게 남는다).
             # 반반·N분할을 되돌릴 때는 지울 줄이 여러 개라 목록도 받는다.
             for u in ([undo_log] if isinstance(undo_log, dict) else (undo_log or [])):

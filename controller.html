@@ -4498,6 +4498,19 @@
             pushAPI({include:['bjs','extra_bjs']});
         }
 
+        /* 🧮 로그 한 줄에 '몇에 몇을 더해 몇' 을 붙인다 — 대표님(2026-09-30): "+5 라고만 나와있지만
+              몇에다가 몇을 더해서 몇이 되었다 라고도". 서버가 before · after 를 실어 보낸다.
+           ⚠️ 옛 로그(이 칸이 없는 줄)는 그대로 +5 만 보인다. 앞뒤가 안 맞으면(뒤 ≠ 앞 + 더한 값) 빨갛게 —
+              점수가 어딘가에서 틀어졌다는 신호다. */
+        function logMath(before, val, after, pre) {
+            if (before == null || after == null) return '';
+            const b = Number(before), v = Number(val || 0), a = Number(after);
+            if (!isFinite(b) || !isFinite(a)) return '';
+            const ok = b + v === a;
+            const txt = pre + b.toLocaleString() + (v < 0 ? ' − ' : ' + ') + Math.abs(v).toLocaleString() + ' = ' + a.toLocaleString();
+            return `<span style="color:${ok ? 'var(--text-muted)' : '#ff6b7a'}; font-size:var(--fs-1); font-variant-numeric:tabular-nums;"${ok ? '' : ' title="앞뒤가 안 맞아요 — 확인이 필요해요"'}>(${txt}${ok ? '' : ' ⚠'})</span>`;
+        }
+
         function renderUI() {
             // ⚠️ 아래 조기 반환보다 먼저 갱신한다. 입력칸에 포커스가 있으면 renderUI 가 통째로 빠져나가는데,
             //    깨워두기 표시가 실제 상태와 어긋난 채로 남으면 '켜둔 줄 알고' 자리를 비우게 된다.
@@ -4776,7 +4789,7 @@
             }
 
             if (gd.match_logs) {
-                let matchLogHtml = gd.match_logs.map(log => `<div class="log-item"><span style="color:var(--text-muted);">[${log.time}]</span> <span style="font-weight:900;">${log.name}</span> <span style="color:var(--accent); font-weight:900;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
+                let matchLogHtml = gd.match_logs.map(log => `<div class="log-item"><span style="color:var(--text-muted);">[${log.time}]</span> <span style="font-weight:900;">${log.name}</span> <span style="color:var(--accent); font-weight:900;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span> ${logMath(log.before, log.val, log.after, '')}</div>`).join('');
                 if (lastMatchLogHtml !== matchLogHtml) { document.getElementById('log-box-match').innerHTML = matchLogHtml; lastMatchLogHtml = matchLogHtml; }
             }
 
@@ -4824,13 +4837,15 @@
                         + tag
                         + `<span style="color:#fff; font-weight: bold;">${escapeHTML(String(log.name || ''))}</span>님`
                         + `<span style="color:${isC ? '#c99bff' : 'var(--accent)'}; font-weight: bold;">${amt}${isC ? '' : '점'}</span>`
+                        + logMath(log.before, log.val, log.after, isC ? '기여도 ' : '')
+                        + ((!isC && log.cbefore != null) ? logMath(log.cbefore, log.cval, log.cafter, '기여도 ') : '')
                         + why
                         + `</div>`;
                 }).join('');
                 if (lastRankLogHtml !== rankLogHtml) { document.getElementById('log-box-ranking').innerHTML = rankLogHtml; lastRankLogHtml = rankLogHtml; }
             }
             if (gd.match_logs) {
-                let matchLogHtml = gd.match_logs.map(log => `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px;"><span style="color:var(--text-dim);">&gt;</span> <span style="color:var(--text-dim); font-size: var(--fs-1);">[${log.time}]</span> <i class="fa-solid fa-bolt" style="color:var(--gold); font-size: var(--fs-1);"></i> <span style="color:#fff; font-weight: bold;">${log.name}</span> <span style="color:var(--accent); font-weight: bold;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span></div>`).join('');
+                let matchLogHtml = gd.match_logs.map(log => `<div style="margin-bottom:6px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 4px; display: flex; align-items: center; gap: 8px;"><span style="color:var(--text-dim);">&gt;</span> <span style="color:var(--text-dim); font-size: var(--fs-1);">[${log.time}]</span> <i class="fa-solid fa-bolt" style="color:var(--gold); font-size: var(--fs-1);"></i> <span style="color:#fff; font-weight: bold;">${log.name}</span> <span style="color:var(--accent); font-weight: bold;">${log.val > 0 ? '+'+log.val.toLocaleString() : log.val.toLocaleString()}점</span> ${logMath(log.before, log.val, log.after, '')}</div>`).join('');
                 if (lastMatchLogHtml !== matchLogHtml) { document.getElementById('log-box-match').innerHTML = matchLogHtml; lastMatchLogHtml = matchLogHtml; }
             }
             
