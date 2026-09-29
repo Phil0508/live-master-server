@@ -186,6 +186,12 @@
                     <label>후원 메시지 <span style="color:var(--faint);font-weight:500">(선택)</span></label>
                     <textarea id="in-msg" placeholder="화면에 함께 표시할 메시지"></textarea>
                 </div>
+                <!-- 🔁 × 몇 번 — 계좌로 같은 시그니처를 여러 번 받았을 때(2026-09-29). 대기열에 한 줄 ×N,
+                     방송판은 한 번 틀고 ×N. N번 다 틀려면 조종실 대기줄의 [N번 다 틀기] -->
+                <div class="fld">
+                    <label>몇 번 <span style="color:var(--faint);font-weight:500">(같은 시그니처를 여러 번 받았을 때)</span></label>
+                    <input type="number" id="in-count" min="1" max="30" value="1" inputmode="numeric" style="max-width:110px">
+                </div>
                 <label class="chk">
                     <input type="checkbox" id="in-ledger">
                     <span><b>정산 장부에 기록</b> — 체크하면 실제 후원처럼 장부·승인대기함·후원 순위에 반영되고, 안 하면 재생만 됩니다.</span>
@@ -631,17 +637,26 @@
         const name=$('in-donor').value.trim()||'수동송출';
         const message=$('in-msg').value.trim();
         const ledger=$('in-ledger').checked;
+        // 🔁 × 몇 번 — 장부에 넣을 때는 후원 N건을 따로 적고(정산 · 대기함 · 순위가 실제와 같게), 시그니처는 서버가 ×N 으로 묶는다
+        const cnt=Math.max(1,Math.min(30,parseInt(($('in-count')||{}).value||'1',10)||1));
         const btn=$('btn-send'); btn.disabled=true;
         const endpoint = ledger ? '/api/donation' : '/api/signature/play';
-        const payload = ledger ? { name, amount, message, tx_id:'manual_'+Date.now() } : { name, amount, message };
+        const stamp=Date.now();
+        const payloads = ledger
+            ? Array.from({length:cnt},(_,i)=>({ name, amount, message, tx_id:'manual_'+stamp+(cnt>1?'_'+(i+1):'') }))
+            : [{ name, amount, message, count:cnt }];
         try{
-            const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-            const data=await res.json();
-            if(data.status==='success'){
-                toast('✓ 송출했습니다'+(ledger?' (장부 기록됨)':''));
-                $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; updatePreview();
+            let okN=0, lastErr='';
+            for(const payload of payloads){   // 차례로 — 한 번에 쏘면 순서가 섞여 대기열에서 안 묶일 수 있다
+                const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+                const data=await res.json().catch(()=>({}));
+                if(data.status==='success') okN++; else { lastErr=data.message||res.status; break; }
+            }
+            if(okN===payloads.length){
+                toast('✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
+                $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; if($('in-count')) $('in-count').value='1'; updatePreview();
                 refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
-            }else{ toast('송출 실패: '+(data.message||''),true); }
+            }else{ toast('송출 실패'+(okN?' ('+okN+'/'+payloads.length+'건만 들어감)':'')+': '+lastErr,true); }
         }catch(e){ toast('통신 실패: '+e.message,true); }
         finally{ btn.disabled=false; }
     }

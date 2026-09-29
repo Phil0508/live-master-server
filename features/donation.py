@@ -130,8 +130,12 @@ def receive_donation():
         #       이 예외는 템퍼몽키를 끄고 리스너만 쓸 때를 전제로 한다. 둘을 같이 켜면
         #       알림창 애니메이션이 긴 후원에서 중복이 통과할 수 있으니 한쪽만 쓸 것.
         from_listener = str(tx_id or '').startswith('toon_')
+        # 🧑‍💼 로그인한 운영자가 조종실 · 후원 콘솔에서 직접 넣은 것(tx_id manual_)도 건너뛴다(대표님 2026-09-29).
+        #    계좌로 같은 사람이 같은 금액 · 같은 메시지를 연달아 보내면 두 번째가 12초 필터에 걸려 사라졌다.
+        #    사람이 일부러 누른 것이라 '재전송'이 아니다. 송출 단추는 보내는 동안 잠겨 두 번 눌리지 않는다.
+        from_manual = str(tx_id or '').startswith('manual_') and request_is_authed()
         dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
-        if not from_listener and is_duplicate_donation(dup_key):
+        if not from_listener and not from_manual and is_duplicate_donation(dup_key):
             print("⚠️ [내용 기반 중복 후원 무시] 동일 후원이 짧은 시간에 재수신됨")
             return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
 

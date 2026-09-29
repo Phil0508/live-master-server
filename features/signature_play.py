@@ -43,6 +43,12 @@ def api_signature_play():
             return jsonify({'status': 'error', 'message': '금액이 숫자가 아닙니다'}), 400
         donator = str(data.get('name') or '수동송출').strip() or '수동송출'
         message = (data.get('message') or '').strip()
+        # 🔁 × 몇 번 — 계좌로 같은 시그니처를 여러 번 받았을 때(대표님 2026-09-29). 한 줄 ×N 으로 줄 선다.
+        #    방송판은 한 번 틀고 ×N, 조종실 대기줄의 [N번 다 틀기]면 N번 다 튼다.
+        try:
+            count = max(1, min(30, int(data.get('count') or 1)))
+        except (TypeError, ValueError):
+            count = 1
 
         if sig_id:
             sig = server.supabase_get_signature(sig_id)
@@ -59,12 +65,16 @@ def api_signature_play():
         with file_lock:
             state = load_data()
             # 재생 전용 수동 송출은 실제 후원이 아니므로 시그니처 순위 집계에서 제외한다.
-            enqueue_signature(state, sig, amount, donator, message, count_tally=False)
+            _rid = enqueue_signature(state, sig, amount, donator, message, count_tally=False)
+            if count > 1:
+                _it = next((x for x in (state.get('reaction_queue') or []) if x.get('id') == _rid), None)
+                if _it is not None:
+                    _it['count'] = count
             save_data(state)
             broadcast_event('update', state)
 
-        print(f"  ▶️ [수동 송출] {amount}원 → '{sig.get('title')}' (#{sig.get('id')})")
-        return jsonify({'status': 'success', 'message': '송출했습니다.', 'signature': sig})
+        print(f"  ▶️ [수동 송출] {amount}원 → '{sig.get('title')}' (#{sig.get('id')})" + (f" ×{count}" if count > 1 else ''))
+        return jsonify({'status': 'success', 'message': '송출했습니다.', 'signature': sig, 'count': count})
     except Exception as e:
         print(f"[수동 송출 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500

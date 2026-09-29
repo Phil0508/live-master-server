@@ -105,6 +105,33 @@ c, r = req('/api/reaction/queue/playall/' + rid, {'on': True}, auth=False)
 chk('로그인 없이는 못 바꾼다', c in (401, 403), c)
 req('/api/reaction/stop', {})
 
+print(); print('=' * 74); print('⑥ 계좌 후원 직접 송출 — × 몇 번 · 같은 내용 필터'); print('=' * 74)
+req('/api/reaction/stop', {})
+c, r = req('/api/signature/play', {'name': '계좌손님', 'amount': 12000, 'message': '계좌', 'count': 3})
+q = queue()
+chk('재생만(장부 없이) ×3 → 대기줄 한 줄 ×3 · 같은 시그니처', c == 200 and r.get('count') == 3 and len(q) == 1
+    and q[0].get('count') == 3 and q[0].get('amount') == 12000, (c, [(x.get('donator'), x.get('count')) for x in q]))
+req('/api/reaction/stop', {})
+pend0 = len(req('/api/data')[1].get('pending_donations') or [])
+T = uuid.uuid4().hex[:8]
+for i in range(3):
+    c, r = req('/api/donation', {'name': '계좌민수', 'amount': 12000, 'message': '같은 메시지', 'tx_id': 'manual_%s_%d' % (T, i + 1)})
+d = req('/api/data')[1]
+pend = [x for x in (d.get('pending_donations') or []) if x.get('name') == '계좌민수']
+q = d.get('reaction_queue') or []
+chk('장부 ×3 — 같은 사람 · 같은 금액 · 같은 메시지 3건이 전부 들어간다(12초 필터를 안 탄다)', len(pend) == 3, len(pend))
+chk('장부 ×3 — 시그니처는 대기줄 한 줄 ×3 으로 묶인다', len(q) == 1 and q[0].get('count') == 3, [(x.get('donator'), x.get('count')) for x in q])
+c1, r1 = req('/api/donation', {'name': '스크립트', 'amount': 5000, 'message': '같은', 'tx_id': 'tm_%s_a' % T})
+c2, r2 = req('/api/donation', {'name': '스크립트', 'amount': 5000, 'message': '같은', 'tx_id': 'tm_%s_b' % T})
+chk('운영자 수동 송출이 아닌 곳은 여전히 12초 필터로 거른다(예전 템퍼몽키 재전송 방지)',
+    c1 == 200 and 'Duplicate' not in (r1.get('message') or '') and 'Duplicate' in (r2.get('message') or ''), (r1, r2))
+c, r = req('/api/donation', {'name': '로그인안함', 'amount': 5000, 'message': 'x', 'tx_id': 'manual_%s_z' % T}, auth=False)
+chk('로그인 안 한 manual_ 는 예외가 아니다(주소만 흉내 내도 필터를 못 피한다)', 'from_manual = str(tx_id or \'\').startswith(\'manual_\') and request_is_authed()'
+    in io.open(os.path.join(PROJ, 'features', 'donation.py'), encoding='utf-8').read())
+for x in (req('/api/data')[1].get('pending_donations') or []):
+    req('/api/pending/remove/' + x['id'], {})
+req('/api/reaction/stop', {})
+
 print(); print('=' * 74); print('⑤ 방송판 · 조종실'); print('=' * 74)
 OV = io.open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
 CT = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8').read()
@@ -119,6 +146,10 @@ chk('업데이트마다 표시를 맞춘다', 'try { rxComboSync(); } catch (e) 
 chk('슬롯 당첨 · 재생전용 · 주사위 대기는 묶지 않는다', 'if (count_tally and not skip_popup and not play_after_ms and _last is not None' in SV)
 chk('조종실 대기줄에 ×N 과 [N번 다 틀기]', "cnt + '번 다 틀기'" in CT and "railPost('/api/reaction/queue/playall/'" in CT
     and 'x.count, x.play_all' in CT)
+MS = io.open(os.path.join(PROJ, 'manual_send.html'), encoding='utf-8').read()
+chk('조종실 시그니처 송출 칸에 × 몇 번', 'id="rs-count"' in CT and ": [{ name: name, amount: a, message: msg, count: cnt }];" in CT
+    and "tx_id: 'manual_' + stamp + (cnt > 1 ? '_' + (i + 1) : '')" in CT)
+chk('후원 콘솔에도 × 몇 번', 'id="in-count"' in MS and ": [{ name, amount, message, count:cnt }];" in MS)
 
 print()
 print('=' * 74)

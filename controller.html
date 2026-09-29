@@ -429,6 +429,10 @@
             /* 재생 대기열 — 지금 것은 크게, 다음 것은 번호 줄 */
             .rq-row:not(.first) { grid-template-columns: minmax(0, 1fr) auto 26px; padding: 5px 0; }
             /* 🔁 묶인 시그니처 — 빨간 ×N 과 [N번 다 틀기] */
+            .rs2-cnt { display: inline-flex; align-items: center; gap: 2px; margin: 0; font-weight: 800; color: var(--text-muted); }
+            #rail-send .rs2-cnt input { width: 48px; height: 36px; min-height: 0; margin: 0; padding: 0 4px; text-align: center; border-radius: var(--r-2);
+                border: 1px solid var(--border-light); background: rgba(0, 0, 0, .35); color: var(--text-main); font-size: var(--fs-3); font-weight: 800; outline: none; }
+            #rail-send .rs2-cnt input:focus { border-color: var(--accent); }
             .rq-combo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
             .rq-cx { background: #ff3b30; color: #fff; border-radius: 999px; padding: 0 8px; font-size: var(--fs-1); font-weight: 900; line-height: 1.6; }
             .rq-all { margin: 0; height: 24px; padding: 0 9px; font-size: var(--fs-1); font-weight: 800; border-radius: var(--r-2); }
@@ -3275,6 +3279,7 @@
                       onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();railSend();}"></textarea>
             <div class="rs2-row">
                 <label class="rs2-chk" title="체크하면 실제 후원처럼 장부·대기함·후원 순위에 들어갑니다. 안 하면 화면에만 나갑니다."><input type="checkbox" id="rs-ledger"> 정산 장부에 기록</label>
+                <label class="rs2-cnt" title="같은 시그니처를 몇 번 받았나 — 대기줄에 한 줄 ×N 으로 서요. N번 다 틀려면 대기줄의 [N번 다 틀기]"><span>×</span><input type="number" id="rs-count" min="1" max="30" value="1" inputmode="numeric" onkeydown="if(event.key==='Enter')railSend()"></label>
                 <button type="button" id="rs-send" onclick="railSend()">송출</button>
             </div>
             <div class="rs2-quick" id="rs-quick"></div>
@@ -9604,18 +9609,31 @@ initFoldablePanels();
             const msgEl = document.getElementById('rs-msg');
             const msg = msgEl ? (msgEl.value || '').trim().slice(0, 120) : '';
             const ledger = document.getElementById('rs-ledger').checked;
+            // 🔁 × 몇 번 — 계좌로 같은 시그니처를 여러 번 받았을 때. 대기줄에 한 줄 ×N(방송판은 한 번 + ×N).
+            //    장부에 넣을 때는 후원 N건을 따로 적는다(정산 · 대기함 · 순위가 실제와 같게). 시그니처는 서버가 ×N 으로 묶는다.
+            const cntEl = document.getElementById('rs-count');
+            const cnt = Math.max(1, Math.min(30, parseInt(cntEl ? cntEl.value : '1', 10) || 1));
             const btn = document.getElementById('rs-send'); btn.disabled = true;
             const url = ledger ? '/api/donation' : '/api/signature/play';
-            const body = ledger ? { name: name, amount: a, message: msg, tx_id: 'manual_' + Date.now() } : { name: name, amount: a, message: msg };
+            const stamp = Date.now();
+            const bodies = ledger
+                ? Array.from({ length: cnt }, (_, i) => ({ name: name, amount: a, message: msg, tx_id: 'manual_' + stamp + (cnt > 1 ? '_' + (i + 1) : '') }))
+                : [{ name: name, amount: a, message: msg, count: cnt }];
             try {
-                const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-                const d = await r.json().catch(() => ({}));
-                if (r.ok && d.status === 'success') {
-                    acctToast('🎵 송출했습니다' + (ledger ? ' (장부 기록)' : ''), 'ok');
+                let okN = 0, lastErr = '';
+                for (const body of bodies) {       // 차례로 — 한 번에 쏘면 순서가 섞여 대기줄에서 안 묶일 수 있다
+                    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                    const d = await r.json().catch(() => ({}));
+                    if (r.ok && d.status === 'success') okN++;
+                    else { lastErr = d.message || r.status; break; }
+                }
+                if (okN === bodies.length) {
+                    acctToast('🎵 송출했습니다' + (cnt > 1 ? ' ×' + cnt + ' — 대기줄 [' + cnt + '번 다 틀기]로 다 틀 수 있어요' : '') + (ledger ? ' (장부 기록)' : ''), 'ok');
                     document.getElementById('rs-amount').value = ''; document.getElementById('rs-donor').value = '';
                     if (msgEl) msgEl.value = '';
+                    if (cntEl) cntEl.value = '1';
                     railPreview();
-                } else acctToast('송출 실패: ' + (d.message || r.status), 'warn');
+                } else acctToast('송출 실패' + (okN ? ' (' + okN + '/' + bodies.length + '건만 들어감)' : '') + ': ' + lastErr, 'warn');
             } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); }
             finally { btn.disabled = false; }
         }
