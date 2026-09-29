@@ -106,6 +106,16 @@ post('/api/data', s)
 s = get()
 chk('대결자 삭제는 받아들인다', mscore(s, 'B팀') is None and mscore(s, 'A팀장') == 500,
     s['match_data'].get('players'))
+# ⚠️ [대결자 추가]를 두 번 누르면 둘 다 'Player' — 두 번째가 첫 번째 점수를 복사하면 안 된다(최종 검증에서 잡은 회귀)
+s['match_data']['players'].append({'name': 'Player', 'score': 0, 'members': []})
+post('/api/data', s)
+post('/api/score/add', {'scope': 'match', 'name': 'Player', 'delta': 50})
+s = get()
+s['match_data']['players'].append({'name': 'Player', 'score': 0, 'members': []})
+post('/api/data', s)
+s = get()
+_pl = [p.get('score') for p in s['match_data']['players'] if p.get('name') == 'Player']
+chk('같은 이름 대결자 둘 — 두 번째는 0 (첫 번째 점수를 복사하지 않는다)', _pl == [50, 0], _pl)
 
 # ─────────────────────────────────────────────────────────────
 print('\n2) 원장 재정산 — 이번 방송분만 · 명단에 없는 이름은 안 되살린다')

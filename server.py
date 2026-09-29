@@ -2421,20 +2421,24 @@ def _keep_match_scores(inc_md, cur_md):
         return
     cur = [p for p in ((cur_md or {}).get('players') or []) if isinstance(p, dict)] \
         if isinstance(cur_md, dict) else []
+    # ⚠️ 같은 이름이 둘일 수 있다([대결자 추가]를 두 번 누르면 둘 다 'Player').
+    #    이름마다 서버 줄을 **차례로 한 번씩만** 짝짓는다 — 예전 첫 판은 두 번째 'Player' 에게도
+    #    첫 번째의 점수를 복사해 줘서 가짜 점수가 생겼다(최종 검증에서 잡았다).
     have = {}
     for p in cur:
-        have.setdefault(str(p.get('name') or '').strip(), p)
+        have.setdefault(str(p.get('name') or '').strip(), []).append(p)
     rows = [p for p in inc_md['players'] if isinstance(p, dict)]
-    matched, newbies = set(), []
+    used, newbies = set(), []
     for i, p in enumerate(rows):
         nm = str(p.get('name') or '').strip()
-        old = have.get(nm)
+        cands = have.get(nm) or []
+        old = cands.pop(0) if cands else None
         if old is None:
             newbies.append((i, p))
             continue
-        matched.add(nm)
+        used.add(id(old))
         p['score'] = old.get('score', 0)
-    gone = [p for p in cur if str(p.get('name') or '').strip() not in matched]
+    gone = [p for p in cur if id(p) not in used]
     if len(newbies) == 1 and len(gone) == 1 and len(rows) == len(cur):
         i, p = newbies[0]
         if i < len(cur) and cur[i] is gone[0]:          # 자리까지 같을 때만
