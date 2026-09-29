@@ -8735,9 +8735,13 @@
                   깜빡하면 지난주 점수가 이번 주 기여도에 섞였다. 이제 비우므로, 옮길지 여기서 고른다. */
             try {
                 const dgB = ((gd && gd.dicegame && gd.dicegame.board) || []).filter(r => r && Number(r.pts));
-                if (dgB.length) {
+                // 🅿️ 명단에서 빠져 보관함에 맡긴 점수도 센다 — 판이 전부 0점이면 예전엔 묻지 않고 넘어가
+                //    방송 종료가 보관함을 비울 때 그 점수가 조용히 사라졌다. (보관함 점수는 [옮기기]로 안 넘어간다 — 아래 '못 옮긴 사람')
+                const dgP = Object.entries((gd && gd.dicegame && gd.dicegame.parked) || {})
+                    .filter(([, v]) => v && Number(v.pts)).map(([n, v]) => ({ name: n + '(명단에 없음)', pts: Number(v.pts) }));
+                if (dgB.length || dgP.length) {
                     const shields = ((gd.dicegame.pieces) || []).filter(p => p && p.shield).length;
-                    const list = dgB.map(r => r.name + ' ' + (Number(r.pts) > 0 ? '+' : '') + Number(r.pts) + '점').join(' · ');
+                    const list = dgB.concat(dgP).map(r => r.name + ' ' + (Number(r.pts) > 0 ? '+' : '') + Number(r.pts) + '점').join(' · ');
                     const pick = await premiumChoice('주사위 점수가 아직 남아 있어요 — ' + list
                         + (shields ? ' (실드 ' + shields + '개)' : '')
                         + '\n\n방송을 끝내면 주사위 판은 비워져요. 엑셀판 기여도로 옮길까요?',
