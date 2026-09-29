@@ -237,6 +237,25 @@ req('/api/screen', {'mode': 'start'})
 chk('서버가 내보내는 show 에 덮기가 실린다', st()['show'].get('cover') == 'screen_start', st()['show'].get('cover'))
 req('/api/screen', {'mode': 'off'})
 
+print(); print('=' * 74); print('⑨ 💬 소액 후원 띠 (1천~9천 원 — 맨 위 검은 띠)'); print('=' * 74)
+x = base_state(); x['show'] = {'stage': None, 'hud': {}, 'alerts': {'popup': True, 'takeover': True, 'reaction_title': True}}
+chk('개편 직후 저장본(small 칸 없음)도 소액 알림은 켜진 채로 읽는다', S.ensure(x)['alerts'].get('small') is True)
+c, r = req('/api/show', {'alerts': {'small': False}})
+chk('조종실에서 끌 수 있다', c == 200 and r['show']['alerts']['small'] is False, (c, r.get('show', {}).get('alerts')))
+req('/api/show', {'alerts': {'small': True}})
+OVSRC = open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
+CTLSRC2 = open(os.path.join(PROJ, 'controller.html'), encoding='utf-8').read()
+chk('방송판에 맨 위 띠 자리', 'id="small-don"' in OVSRC and '#small-don { position: absolute; left: 0; top: 0; width: 100%;' in OVSRC)
+chk('색은 트위치 알림과 같게 — 이름 · 금액 청록 #32C3A6, 검은 테두리', '#small-don .sd-hl { color: #32C3A6; }' in OVSRC and '-webkit-text-stroke: 9px #000' in OVSRC)
+chk('1만 원 미만 · 0원 초과 · 시그니처 신청 글은 카드로', 'const SMALL_DON_MAX = 10000;' in OVSRC and 'amt > 0 && amt < max' in OVSRC
+    and "startsWith('[시그니처 신청:')" in OVSRC)
+chk('[소액 후원]이 켜져 있으면 띠, 꺼져 있으면 예전 카드', "shAlert('small', d) && isSmallDon(d.latest_donation, d)" in OVSRC
+    and "(_smallDon || shAlert('popup', d))" in OVSRC and 'showSmallDon(d.latest_donation);' in OVSRC)
+chk('띠는 시그니처 대기줄을 붙잡지 않는다(카드처럼 2초 기다리지 않는다)', 'showSmallDon(d.latest_donation);\n                        checkReactionQueue();' in OVSRC)
+chk('몰리면 줄 서되 밀린 만큼 짧게 — 아무도 건너뛰지 않는다', 'const hold = left >= 4 ? 2000 : (left >= 2 ? 3000 : 5000);' in OVSRC
+    and 'smallDonQ.push(don);' in OVSRC and 'splice' not in OVSRC[OVSRC.find('function showSmallDon'):OVSRC.find('function smallDonNext')])
+chk('조종실 알림 줄에 [소액 후원] 칩', "['small', '소액 후원']" in CTLSRC2)
+
 print()
 print('=' * 74)
 print('통과 %d · 실패 %d' % (len(OK), len(BAD)))

@@ -40,8 +40,9 @@ HUD_LABEL = {'ranking': '점수판', 'gauge': '게이지', 'account': '계좌', 
 HUD_LEGACY = {'notice': 'notice_enabled', 'ticker': 'ticker_enabled', 'donor_rank': 'donor_rank_enabled',
               'sig_tally': 'sig_tally_enabled', 'best': 'best_enabled'}
 
-ALERT_KEYS = ('popup', 'takeover', 'reaction_title')
-ALERT_LABEL = {'popup': '후원 팝업', 'takeover': '1등 탈환', 'reaction_title': '시그 제목'}
+# 💬 small: 1천~9천 원 후원을 가운데 카드 대신 맨 위 검은 띠 한 줄로 (옛 스위치 없음 — 새 칸)
+ALERT_KEYS = ('popup', 'takeover', 'reaction_title', 'small')
+ALERT_LABEL = {'popup': '후원 팝업', 'takeover': '1등 탈환', 'reaction_title': '시그 제목', 'small': '소액 후원'}
 ALERT_LEGACY = {'popup': 'popup_enabled', 'takeover': 'takeover_enabled', 'reaction_title': 'reaction_title_enabled'}
 
 # 밖에서 직접 못 바꾸는 옛 스위치 — server.py 가 SERVER_OWNED · PATCH_DENY 에 더한다
