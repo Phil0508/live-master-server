@@ -3,6 +3,7 @@
 
 server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
 """
+import collections
 import os
 import secrets
 import time
@@ -134,6 +135,27 @@ def receive_donation():
             print("⚠️ [내용 기반 중복 후원 무시] 동일 후원이 짧은 시간에 재수신됨")
             return jsonify({"status": "success", "message": "Duplicate donation ignored (content)."})
 
+        # 💬 1만 원 미만 '화면에만' 후원 — 리스너가 display_only 를 붙여 보낸다(대표님 2026-09-29).
+        #    방송판 맨 위 반투명 띠만 띄운다. 대기함 · 점수 · 정산 장부 · 후원 순위 · 시그니처는 건드리지 않는다.
+        #    (그전까지 리스너가 1만 원 미만을 버려서 여기까지 오지도 않았다 — 그 결과는 그대로 둔다)
+        #    ⚠️ 리스너(tx_id 가 toon_)가 보낸 것만 이 길로 받는다. 다른 곳이 붙여 보내면 평소대로 처리한다.
+        #    ⚠️ 장부에 안 적으니 tx_id 중복 검사(위)가 안 걸린다 — 최근 것을 따로 기억해 재전송을 거른다.
+        if new_don.get('display_only') and from_listener and 0 < amount < SMALL_DISPLAY_MAX:
+            if tx_id and tx_id in _display_seen:
+                return jsonify({"status": "success", "message": "Duplicate donation ignored.", "display_only": True})
+            if tx_id:
+                _display_seen.append(tx_id)
+            _nm = ' '.join(str(new_don.get('name') or '').split()) or '익명'
+            with file_lock:
+                state = load_data()
+                state['latest_donation'] = {'name': _nm, 'amount': amount,
+                                            'message': str(new_don.get('message') or '').strip(),
+                                            'time': time.time(), 'display_only': True}
+                save_data(state)
+                broadcast_event('update', state)
+            print(f"  💬 [화면에만] {_nm} {amount:,}원 — 방송판 맨 위 띠로만 띄웁니다", flush=True)
+            return jsonify({'status': 'success', 'display_only': True})
+
         # 🎵 시그니처 매칭은 file_lock 밖에서 미리 끝낸다.
         # ⚠️ 이 호출은 Supabase로 나가는 HTTP라 느려질 수 있는데, 예전에는 락을 쥔 채 실행했다.
         #    그러면 후원 한 건이 처리되는 동안 점수 버튼·슬롯·리액션 넘기기 등
@@ -207,6 +229,10 @@ def receive_donation():
                 'message': cleaned_msg,
                 'time': now_hms()
             }
+            # 🧪 테스트용 두 번째 투네이션(리스너가 toon_t2_ 를 붙인다) — 대기함 · 장부에 표시해 구분한다
+            _test_acct = str(tx_id or '').startswith('toon_t2_')
+            if _test_acct:
+                parsed_don_entry['test_acct'] = True
             state['pending_donations'].append(parsed_don_entry)
             # 대기함이 커지면 state 전체가 그만큼 무거워지고, 그게 접속 대수만큼 곱해져 나간다.
             # (부하 테스트: 802건 → state 120KB → 12대에 1.4MB/회)
@@ -312,7 +338,8 @@ def receive_donation():
                         cursor = conn.cursor()
                         cursor.execute(
                             db_query("INSERT INTO donation_history (timestamp, name, amount, current_total, message, source, tx_id) VALUES (?, ?, ?, ?, ?, ?, ?)"),
-                            (time.strftime('%Y-%m-%d %H:%M:%S'), parsed_name, amount, current_total, cleaned_msg, "toonation", tx_id)
+                            (time.strftime('%Y-%m-%d %H:%M:%S'), parsed_name, amount, current_total, cleaned_msg,
+                             "toonation_test" if _test_acct else "toonation", tx_id)
                         )
                     break
                 except Exception as dbe:
@@ -351,6 +378,11 @@ def receive_donation():
         return jsonify({'status': 'success', 'id': don_id})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# 💬 '화면에만' 후원 — 이 금액 미만만(방송판 SMALL_DON_MAX 와 같게), 최근 tx_id 500개로 재전송을 거른다
+SMALL_DISPLAY_MAX = 10000
+_display_seen = collections.deque(maxlen=500)
+
 
 @app.route('/api/pending/remove/<don_id>', methods=['POST'])
 def remove_pending_donation(don_id):

@@ -54,3 +54,7 @@ layout.json
 # 진행봇 — 토큰과 입막음 기록은 저장소에 두지 않는다
 bot/token.json
 bot/dryrun.log
+
+# 🧪 테스트용 두 번째 투네이션 알림창 주소(열쇠) · 리스너 연결 상태 — 서버마다 다르고, 열쇠는 공개 저장소에 올리면 안 된다
+toon_accounts.json
+toon_listener_status.json

@@ -3253,6 +3253,7 @@ import features.signatures  # noqa: E402,F401  (주소만 등록)
 import features.streamdeck  # noqa: E402,F401  (주소만 등록)
 import features.uistats  # noqa: E402,F401  (주소만 등록)
 import features.versions  # noqa: E402,F401  (주소만 등록)
+import features.toon_accounts  # noqa: E402,F401  (주소만 등록)
 # ── ✂️ 끝 ──
 
 if __name__ == '__main__':

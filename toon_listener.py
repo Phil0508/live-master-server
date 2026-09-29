@@ -8,7 +8,9 @@
 이걸 systemd 로 상주시키면 크롬·템퍼몽키·OBS 브라우저 소스가 전부 필요 없어진다.
 
 환경변수:
-  ALERTBOX_URL   투네이션 알림창 주소 (필수)
+  ALERTBOX_URL   투네이션 알림창 주소 (본 계정)
+  🧪 테스트 계정  두 번째 투네이션 — 조종실 시스템 탭에서 주소를 넣으면 서버가 toon_accounts.json 에 적고,
+                 여기서 10초마다 읽어 붙는다. 수 · 목(방송하는 날, 한국 시간)에는 저절로 쉰다.
   DONATION_URL   방송 서버 접수 주소 (기본 http://127.0.0.1:8080/api/donation)
   INCLUDE_TEST   '1' 이면 '후원 테스트'도 서버로 전달(기본은 전달 안 함, 로그만)
 
@@ -37,7 +39,18 @@ try:
     MIN_AMOUNT = int(os.environ.get("MIN_AMOUNT", "10000"))
 except ValueError:
     MIN_AMOUNT = 10000
+# 💬 1만 원 미만은 버리지 않고 '화면에만' 띄우라고 보낸다(대표님 2026-09-29 — 방송판 맨 위 반투명 띠).
+#    서버는 display_only 가 붙은 후원을 대기함 · 점수 · 장부 · 후원 순위 · 시그니처에 넣지 않고 띠만 띄운다.
+#    그래서 위 '10,000원당 1점 · 시그니처 없음' 이유는 그대로 지켜진다. SMALL_DISPLAY=0 이면 예전처럼 버린다.
+SMALL_DISPLAY = os.environ.get("SMALL_DISPLAY", "1").strip().lower() not in ("0", "off", "false", "no")
 DRY = "--dry" in sys.argv
+
+# 🧪 테스트용 두 번째 계정 설정(서버가 적는다) · 연결 상태(여기서 적고 서버가 조종실에 보여준다)
+_HERE = os.path.dirname(os.path.abspath(__file__))
+ACCOUNTS_FILE = os.environ.get("TOON_ACCOUNTS_FILE") or os.path.join(_HERE, "toon_accounts.json")
+STATUS_FILE = os.environ.get("TOON_STATUS_FILE") or os.path.join(_HERE, "toon_listener_status.json")
+# 수(2) · 목(3) — 한국 시간. 테스트 후원이 진짜 방송(수 17시 ~ 목 3시)에 섞이지 않게 이 이틀은 통째로 쉰다.
+TEST_REST_WEEKDAYS = (2, 3)
 
 # 📮 보내지 못한 후원을 적어두는 파일. 서버가 잠깐 죽어 있어도 후원이 사라지지 않게 한다.
 #    (자동 배포가 커밋마다 서버를 재시작하므로, 이 창은 드물지 않게 열린다)
@@ -88,15 +101,35 @@ except ValueError:
 # 마지막으로 소켓에 붙은 시각. 0 이면 아직 한 번도 안 붙은 것.
 _connected_at = 0.0
 
-def _replay_guard_active(now):
-    """지금 재전송 방어를 걸어야 하는 구간인가."""
-    if REPLAY_GUARD_AFTER_RECONNECT <= 0 or not _connected_at:
-        return False
-    return (now - _connected_at) < REPLAY_GUARD_AFTER_RECONNECT
+class Account:
+    """투네이션 계정 하나 = 알림창 주소 하나 = 웹소켓 하나.
+       재전송 방어(재연결 시각 · 최근 후원)는 계정마다 따로 잰다 — 두 계정에 같은 내용이
+       동시에 들어와도 서로를 '재전송'으로 착각해 버리지 않게."""
+    def __init__(self, key, label, url, prefix):
+        self.key, self.label, self.url, self.prefix = key, label, url, prefix
+        self.connected_at = 0.0
+        self.recent = {}
+        self.task = None
+        self.state = "starting"     # connected · connecting · error · off · resting
+        self.note = ""
+        self.last_donation = 0.0
 
-def to_donation(msg):
+
+ACCOUNTS = {}
+
+
+def _replay_guard_active(now, acct=None):
+    """지금 재전송 방어를 걸어야 하는 구간인가."""
+    at = acct.connected_at if acct is not None else _connected_at
+    if REPLAY_GUARD_AFTER_RECONNECT <= 0 or not at:
+        return False
+    return (now - at) < REPLAY_GUARD_AFTER_RECONNECT
+
+def to_donation(msg, acct=None):
     """투네이션 packet → (방송 서버 후원 형식, 테스트여부, 건너뛸사유).
-       후원이 아니면 payload=None. 소켓 재전송이면 skip='replay'."""
+       후원이 아니면 payload=None. 소켓 재전송이면 skip='replay'.
+       🧪 테스트 계정이면 tx_id 가 toon_t2_ 로 시작한다(서버가 이걸로 '테스트 계정' 표시를 붙인다)."""
+    recent = acct.recent if acct is not None else _recent
     if msg.get("code") != DONATION_CODE:
         return None, False, "not_donation"
     c = msg.get("content") or {}
@@ -119,17 +152,18 @@ def to_donation(msg):
 
     ident = "{}|{}|{}".format(name, amount, message)
     now = time.time()
-    for kk in [k for k, t in _recent.items() if now - t > REPLAY_TTL]:
-        _recent.pop(kk, None)
+    for kk in [k for k, t in recent.items() if now - t > REPLAY_TTL]:
+        recent.pop(kk, None)
     # 고유 id 가 없고, '재연결 직후 구간'일 때만 동일 후원 재수신을 재전송으로 보고 버린다.
     # 평소(연결이 계속 유지된 상태)에는 같은 내용이 또 와도 진짜 후원이므로 그냥 통과시킨다.
-    if (stable is None and _replay_guard_active(now)
-            and ident in _recent and now - _recent[ident] < REPLAY_TTL):
+    if (stable is None and _replay_guard_active(now, acct)
+            and ident in recent and now - recent[ident] < REPLAY_TTL):
         return None, is_test, "replay"
-    _recent[ident] = now
+    recent[ident] = now
 
     tx = stable or hashlib.md5("{}|{}".format(ident, now).encode("utf-8")).hexdigest()[:16]
-    payload = {"name": name, "amount": amount, "message": message, "tx_id": "toon_" + tx}
+    prefix = acct.prefix if acct is not None else "toon_"
+    payload = {"name": name, "amount": amount, "message": message, "tx_id": prefix + tx}
     return payload, is_test, None
 
 def post_donation(payload):
@@ -248,14 +282,19 @@ def deliver(payload):
     spool_add(payload)
     return False
 
-async def listen(token):
+async def listen(token, acct=None):
     url = "wss://ws.toon.at/" + token
     global _connected_at
+    lab = ("[%s] " % acct.label) if acct is not None and acct.key != "main" else ""
     async with websockets.connect(url, open_timeout=15, ping_interval=20) as ws:
         _connected_at = time.time()
+        if acct is not None:
+            acct.connected_at = _connected_at
+            acct.state, acct.note = "connected", ""
+            write_status()
         # 끊겨 있던 동안 못 보낸 후원이 있으면 먼저 흘려보낸다
-        spool_drain()
-        log("✅ 연결됨 →", DONATION_URL, "(dry-run)" if DRY else "",
+        await asyncio.to_thread(spool_drain)
+        log(lab + "✅ 연결됨 →", DONATION_URL, "(dry-run)" if DRY else "",
             "| 재전송 방어 {}초".format(REPLAY_GUARD_AFTER_RECONNECT)
             if REPLAY_GUARD_AFTER_RECONNECT > 0 else "| 재전송 방어 꺼짐")
         async for raw in ws:
@@ -263,14 +302,14 @@ async def listen(token):
                 msg = json.loads(raw)
             except Exception:
                 continue
-            payload, is_test, skip = to_donation(msg)
+            payload, is_test, skip = to_donation(msg, acct)
             if payload is None:
                 if skip == "replay":
                     # 조용히 버리면 방송이 끝난 뒤에야 알게 된다. 재연결 직후에만 나오는 로그다.
                     log("⚠️ 재연결 직후라 '재전송'으로 보고 버렸습니다 —",
                         "진짜 후원이었다면 후원 콘솔에서 수동 송출해 주세요.")
                 continue
-            tag = "[테스트] " if is_test else ""
+            tag = lab + ("[테스트] " if is_test else "")
             # ⚠️ 계좌/투네이션 구분용 힌트. 내일 진짜 계좌 후원이 들어오면 이 값으로 식별한다.
             c = msg.get("content") or {}
             hint = "acctype={} level={} code={}".format(
@@ -280,9 +319,15 @@ async def listen(token):
             # ⚠️ 서버(/api/donation)는 음수만 막고 소액은 안 거른다. 예전에는 템퍼몽키가
             #    소액을 걸러서 서버까지 오지도 않았다. 리스너로 갈아타면서 그 체가
             #    사라지면 100원짜리 후원까지 팝업·장부·대기함에 들어온다. 여기서 이어받는다.
+            if acct is not None:
+                acct.last_donation = time.time()
+                write_status()
             if MIN_AMOUNT > 0 and 0 < payload["amount"] < MIN_AMOUNT:
-                log(f"   → {MIN_AMOUNT:,}원 미만이라 무시 (MIN_AMOUNT=0 으로 끌 수 있음)")
-                continue
+                if not SMALL_DISPLAY:
+                    log(f"   → {MIN_AMOUNT:,}원 미만이라 무시 (MIN_AMOUNT=0 으로 끌 수 있음)")
+                    continue
+                payload["display_only"] = True
+                log(f"   → {MIN_AMOUNT:,}원 미만 — 방송판 맨 위 띠에만 띄우라고 보냅니다(대기함 · 점수 · 장부엔 안 들어감)")
             if is_test and not INCLUDE_TEST:
                 log("   → 테스트라 서버 전송 생략 (INCLUDE_TEST=1 로 켤 수 있음). 파이프라인은 정상.")
                 continue
@@ -309,23 +354,106 @@ async def spool_watcher():
             log("⚠️ 대기줄 재시도 중 오류:", e)
 
 
-async def main():
-    if not ALERTBOX_URL:
-        print("ALERTBOX_URL 환경변수가 필요합니다."); return
-    asyncio.create_task(spool_watcher())
-    token = fetch_token(ALERTBOX_URL)
-    log("토큰 %d자 확보. ws.toon.at 접속 시작." % len(token))
+def write_status():
+    """계정마다 연결 상태를 파일에 적는다 — 서버가 읽어 조종실 시스템 탭에 보여준다.
+       (리스너는 서버에 심장박동을 안 보내서, 예전엔 살았는지 SSH 로만 알 수 있었다)"""
+    try:
+        data = {"updated": time.time(),
+                "accounts": {a.key: {"label": a.label, "state": a.state, "note": a.note,
+                                     "connected_at": a.connected_at, "last_donation": a.last_donation}
+                             for a in ACCOUNTS.values()}}
+        tmp = STATUS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, STATUS_FILE)
+    except Exception:
+        pass
+
+
+def kst_weekday(now=None):
+    """한국 시간 요일 (월 0 ~ 일 6). 서버 시계는 UTC 라 9시간을 더한다."""
+    return time.gmtime((now if now is not None else time.time()) + 9 * 3600).tm_wday
+
+
+def test_resting(now=None):
+    """🧪 테스트 계정이 쉬는 날인가 — 수 · 목."""
+    return kst_weekday(now) in TEST_REST_WEEKDAYS
+
+
+def read_test_url():
+    """조종실에서 넣은 테스트 계정 주소. 없거나 꺼져 있으면 ''."""
+    try:
+        with open(ACCOUNTS_FILE, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        return ""
+    except Exception as e:
+        log("⚠️ 테스트 계정 설정 파일을 못 읽었습니다:", e)
+        return ""
+    if not cfg.get("enabled", True):
+        return ""
+    return str(cfg.get("test_url") or "").strip()
+
+
+async def account_loop(acct):
+    """한 계정에 붙어 있게 한다. 끊기면 토큰을 새로 받아 다시 붙는다(토큰이 만료됐을 수 있다)."""
+    lab = ("[%s] " % acct.label) if acct.key != "main" else ""
     while True:
+        wait = 3
         try:
-            await listen(token)
+            acct.state = "connecting"
+            write_status()
+            token = await asyncio.to_thread(fetch_token, acct.url)
+            log(lab + "토큰 %d자 확보. ws.toon.at 접속 시작." % len(token))
+            await listen(token, acct)
+            acct.state, acct.note = "connecting", "연결이 닫혀 다시 붙습니다"
+        except asyncio.CancelledError:
+            raise
         except Exception as e:
-            log("연결 끊김:", type(e).__name__, "- 3초 후 재연결")
-            await asyncio.sleep(3)
-        # 토큰이 만료됐을 수 있으니 재연결 때 새로 받는다
-        try:
-            token = fetch_token(ALERTBOX_URL)
-        except Exception as e:
-            log("토큰 갱신 실패:", e)
+            acct.state, acct.note = "error", ("%s: %s" % (type(e).__name__, e))[:160]
+            log(lab + "연결 끊김:", type(e).__name__, "- 다시 붙습니다")
+            if "payload" in str(e) or "토큰" in str(e):
+                wait = 30          # 주소가 틀렸거나 투네이션 쪽 문제 — 너무 자주 두드리지 않는다
+        write_status()
+        await asyncio.sleep(wait)
+
+
+async def watch_test_account():
+    """🧪 테스트 계정 — 10초마다 설정 · 요일을 보고 붙이거나 뗀다."""
+    while True:
+        url = read_test_url()
+        resting = test_resting()
+        acct = ACCOUNTS.get("test")
+        want = bool(url) and not resting
+        if acct is None:
+            acct = ACCOUNTS["test"] = Account("test", "테스트 계정", url, "toon_t2_")
+        if want and (acct.task is None or acct.task.done() or acct.url != url):
+            if acct.task is not None and not acct.task.done():
+                acct.task.cancel()
+            acct.url = url
+            acct.connected_at = 0.0
+            acct.recent = {}
+            log("🧪 테스트 계정에 붙습니다.")
+            acct.task = asyncio.create_task(account_loop(acct))
+        elif not want:
+            if acct.task is not None and not acct.task.done():
+                acct.task.cancel()
+                log("🧪 테스트 계정을 뗍니다 —", "수·목은 쉬는 날" if resting else "조종실에서 꺼짐")
+            acct.task = None
+            acct.state = "resting" if (url and resting) else "off"
+            acct.note = ""
+        write_status()
+        await asyncio.sleep(10)
+
+
+async def main():
+    asyncio.create_task(spool_watcher())
+    if ALERTBOX_URL:
+        main_acct = ACCOUNTS["main"] = Account("main", "투네이션", ALERTBOX_URL, "toon_")
+        main_acct.task = asyncio.create_task(account_loop(main_acct))
+    else:
+        log("ALERTBOX_URL 이 비어 있습니다 — 본 계정 없이 테스트 계정만 기다립니다.")
+    await watch_test_account()
 
 if __name__ == "__main__":
     try:
