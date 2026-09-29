@@ -2,250 +2,233 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🔒 라이브 마스터 보안 인증</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>조종실 로그인 · 라이브 마스터</title>
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* 🔓 로그인 — A안(대표님 2026-09-30): 조종실과 같은 검정·금색.
+              폰은 한 줄로 쌓고, PC(900px 이상)는 왼쪽 소개 · 오른쪽 로그인 칸.
+              ⚠️ 예전 민트 네온 유리 카드는 조종실(검정·금색)과 따로 놀았다. 색은 조종실 토큰 값을 그대로 쓴다.
+              ⚠️ OTP 는 걷어냈다(같은 날) — 비밀번호 하나로 들어간다. */
         :root {
-            --bg-body: #0d0d0f;
-            --bg-glass: rgba(22, 22, 26, 0.65);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --accent: #00ffcc;
-            --accent-glow: rgba(0, 255, 204, 0.3);
-            --danger: #ff453a;
-            --text-main: #f5f5f7;
-            --text-muted: #8e8e93;
+            --bg-body: #131315;
+            --bg-panel: #18181b;
+            --bg-input: #0f0f11;
+            --border-light: #26262a;
+            --line: #34343a;
+            --text-main: #ecebe6;
+            --text-muted: #8d8c86;
+            --text-dim: #6f6e69;
+            --accent: #e2b64b;
+            --accent-ring: rgba(226, 182, 75, 0.16);
+            --on-accent: #1a1508;
+            --danger: #ff6b5e;
+            --danger-text: #ff8a7f;
+            --r-2: 7px;
+            --r-3: 10px;
+            --font-num: 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
+            --ease: cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * { box-sizing: border-box; }
+        html, body { margin: 0; }
         body {
             background: var(--bg-body);
             color: var(--text-main);
-            font-family: 'Pretendard', sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
+            font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
             letter-spacing: -0.3px;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* 💡 럭셔리 앰비언트 아우라 백그라운드 */
-        .ambient-bg {
-            position: absolute;
-            width: 450px;
-            height: 450px;
-            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1;
-            filter: blur(80px);
-            pointer-events: none;
-            opacity: 0.85;
-            animation: pulseAmbient 6s ease-in-out infinite alternate;
+        /* 폰: 소개 → 로그인 칸 → 아래 주소 */
+        .login {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto 1fr;
+            grid-template-areas: "brand" "panel" "foot";
+            gap: 28px;
+            padding: calc(56px + env(safe-area-inset-top, 0px)) 24px calc(28px + env(safe-area-inset-bottom, 0px));
+            max-width: 480px;
+            margin: 0 auto;
         }
-        @keyframes pulseAmbient {
-            0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
-            100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0.9; }
-        }
+        .brand { grid-area: brand; display: flex; flex-direction: column; gap: 8px; }
+        .eyebrow { font-family: var(--font-num); font-size: 11px; font-weight: 700; letter-spacing: 1.6px; color: var(--text-muted); }
+        .brand h1 { margin: 0; font-size: 28px; font-weight: 800; line-height: 1.25; text-wrap: balance; }
+        .brand p { margin: 0; font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+        .panel { grid-area: panel; }
+        .foot { grid-area: foot; align-self: end; font-size: 12px; color: var(--text-dim); }   /* 한글 주소라 고정폭 글꼴을 쓰면 글자 사이가 벌어진다 */
 
-        /* 🔒 프리미엄 글래스모피즘 로그인 박스 */
-        .login-card {
-            background: var(--bg-glass);
-            backdrop-filter: blur(30px) saturate(180%);
-            -webkit-backdrop-filter: blur(30px) saturate(180%);
-            border: 1px solid var(--border-glass);
-            border-radius: 24px;
-            padding: 45px 40px;
-            width: 420px;
-            max-width: 90%;
-            box-shadow: inset 0 8px 16px rgba(255,255,255,0.03), 0 25px 50px rgba(0,0,0,0.8);
-            z-index: 10;
-            position: relative;
-            text-align: center;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        .card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-light);
+            border-radius: var(--r-3);
+            padding: 22px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
+        .card h2 { display: none; margin: 0 0 4px; font-size: 22px; font-weight: 800; }
 
-        .login-card:hover {
-            border-color: rgba(0, 255, 204, 0.25);
-            box-shadow: inset 0 8px 16px rgba(255,255,255,0.05), 0 30px 60px rgba(0, 255, 204, 0.1);
-        }
-
-        /* 💎 로고 영역 */
-        .logo-wrap {
-            margin-bottom: 30px;
-        }
-        .logo-icon {
-            font-size: 38px;
-            color: var(--accent);
-            text-shadow: 0 0 20px var(--accent-glow);
-            margin-bottom: 12px;
-            display: inline-block;
-        }
-        .logo-title {
-            margin: 0;
-            font-size: 22px;
-            font-weight: 900;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-        .logo-subtitle {
-            font-size: 13px;
-            color: var(--text-muted);
-            margin-top: 5px;
-        }
-
-        /* 📝 입력 폼 영역 */
-        .input-group {
-            margin-bottom: 20px;
-            text-align: left;
-            position: relative;
-        }
-        .input-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 8px;
-            padding-left: 4px;
-            text-transform: uppercase;
-        }
-        .input-wrapper {
-            position: relative;
+        .field { display: flex; flex-direction: column; gap: 8px; }
+        .field label { font-size: 13px; font-weight: 700; }
+        .pw-box {
             display: flex;
             align-items: center;
+            background: var(--bg-input);
+            border: 1px solid var(--line);
+            border-radius: var(--r-2);
+            transition: border-color 160ms var(--ease), box-shadow 160ms var(--ease);
         }
-        .input-wrapper i {
-            position: absolute;
-            left: 16px;
-            color: var(--text-muted);
-            font-size: 14px;
-            transition: color 0.2s;
-        }
-        .input-wrapper input {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.35);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 14px 16px 14px 44px;
-            color: white;
-            font-size: 15px;
-            font-family: inherit;
-            font-weight: 500;
-            outline: none;
-            transition: all 0.25s;
-        }
-        .input-wrapper input:focus {
-            border-color: var(--accent);
-            background: rgba(0, 0, 0, 0.6);
-            box-shadow: 0 0 0 3px var(--accent-glow);
-        }
-        .input-wrapper input:focus + i {
-            color: var(--accent);
-        }
-
-        /* 🚀 로그인 버튼 */
-        .btn-login {
-            width: 100%;
-            background: var(--accent);
-            color: #0d0d0f;
+        .pw-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+        .pw-box input {
+            flex: 1;
+            min-width: 0;
+            height: 48px;
+            padding: 0 14px;
+            background: transparent;
             border: none;
-            border-radius: 12px;
-            padding: 15px;
-            font-size: 15px;
-            font-weight: 800;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            outline: none;
+            color: var(--text-main);
+            font-size: 16px;            /* 16px 아래면 아이폰이 칸을 누를 때 화면을 확대한다 */
+            font-family: inherit;
+        }
+        .pw-box input::placeholder { color: var(--text-dim); }
+        .eye {
+            width: 48px;
+            height: 48px;
+            flex: none;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            margin-top: 15px;
-            box-shadow: 0 4px 15px var(--accent-glow);
+            cursor: pointer;
+            border-radius: var(--r-2);
         }
-        .btn-login:hover {
-            transform: translateY(-2px);
-            background: #00cca3;
-            box-shadow: 0 6px 20px rgba(0, 255, 204, 0.5);
+        .eye:hover { color: var(--text-main); }
+        .eye:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+        .eye .off { display: none; }
+        .eye.on .on-i { display: none; }
+        .eye.on .off { display: block; }
+
+        .err { display: none; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--danger-text); }
+        .field.bad .err { display: flex; }
+        .field.bad .pw-box { border-color: var(--danger); box-shadow: none; }
+
+        .go {
+            height: 50px;
+            border: none;
+            border-radius: var(--r-2);
+            background: var(--accent);
+            color: var(--on-accent);
+            font-size: 16px;
+            font-weight: 800;
+            font-family: inherit;
+            cursor: pointer;
+            transition: filter 160ms var(--ease), transform 120ms var(--ease);
         }
-        .btn-login:active {
-            transform: translateY(0);
+        .go:hover { filter: brightness(1.08); }
+        .go:active { transform: translateY(1px); }
+        .go:focus-visible { outline: 2px solid var(--text-main); outline-offset: 2px; }
+        .go:disabled { opacity: 0.6; cursor: default; }
+        .hint { font-size: 12px; color: var(--text-dim); }
+
+        /* 틀렸을 때 칸을 짧게 흔든다(모션 줄이기를 켠 사람에겐 안 흔든다) */
+        @media (prefers-reduced-motion: no-preference) {
+            .shake { animation: shake 0.36s cubic-bezier(.36,.07,.19,.97) both; }
+        }
+        @keyframes shake {
+            20%, 80% { transform: translateX(3px); }
+            35%, 65% { transform: translateX(-6px); }
+            50% { transform: translateX(6px); }
         }
 
-        /* ⚠️ 에러 메세지 슬라이딩 애니메이션 */
-        .err-msg {
-            color: var(--danger);
-            font-size: 13px;
-            font-weight: 700;
-            margin-top: 15px;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            animation: fadeInError 0.3s ease;
-        }
-        @keyframes fadeInError {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* ⚡ 로그인 실패 시 흔들림 3D 셰이크 효과 */
-        .shake-active {
-            animation: cardShake 0.4s cubic-bezier(.36,.07,.19,.97) both;
-            border-color: var(--danger) !important;
-            box-shadow: 0 0 20px rgba(255, 69, 58, 0.2) !important;
-        }
-        @keyframes cardShake {
-            10%, 90% { transform: translate3d(-2px, 0, 0); }
-            20%, 80% { transform: translate3d(4px, 0, 0); }
-            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
-            40%, 60% { transform: translate3d(6px, 0, 0); }
+        /* PC: 왼쪽 소개 · 오른쪽 로그인 칸 */
+        @media (min-width: 900px) {
+            .login {
+                max-width: none;
+                margin: 0;
+                padding: 0;
+                gap: 0;
+                grid-template-columns: 1fr 520px;
+                grid-template-rows: 1fr auto;
+                grid-template-areas: "brand panel" "foot panel";
+            }
+            .brand { padding: 88px 96px 0; gap: 18px; }
+            .eyebrow { font-size: 12px; letter-spacing: 1.8px; }
+            .brand h1 { font-size: 52px; line-height: 1.18; letter-spacing: -1.2px; }
+            .brand p { font-size: 17px; max-width: 440px; }
+            .foot { padding: 0 96px 56px; font-size: 13px; }
+            .panel {
+                background: var(--bg-panel);
+                border-left: 1px solid var(--border-light);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .card { width: 360px; padding: 0; background: none; border: none; gap: 18px; }
+            .card h2 { display: block; }
         }
     </style>
 </head>
 <body>
-    <div class="ambient-bg"></div>
-    <div class="login-card" id="login-card">
-        <div class="logo-wrap">
-            <div class="logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
-            <h2 class="logo-title">LIVE MASTER</h2>
-            <div class="logo-subtitle">방송 제어 센터 보안 게이트웨이</div>
-        </div>
+    <main class="login">
+        <section class="brand">
+            <div class="eyebrow">LIVE MASTER</div>
+            <h1>엔젤컴퍼니<br>방송 조종실</h1>
+            <p>점수 · 후원 · 방송 화면을 움직이는 곳이에요.<br>방송을 맡은 사람만 들어올 수 있어요.</p>
+        </section>
 
-        <form id="login-form" onsubmit="handleLogin(event)">
-            <div class="input-group" style="margin-bottom: 25px;">
-                <label for="password">인증 PW</label>
-                <div class="input-wrapper">
-                    <input type="password" id="password" placeholder="비밀번호 입력" required autocomplete="off" autofocus>
-                    <i class="fa-solid fa-lock"></i>
+        <section class="panel">
+            <form class="card" id="login-form" onsubmit="handleLogin(event)" novalidate>
+                <h2>들어가기</h2>
+                <div class="field" id="pw-field">
+                    <label for="password">비밀번호</label>
+                    <div class="pw-box" id="pw-box">
+                        <input type="password" id="password" autocomplete="current-password" required autofocus
+                               aria-describedby="err-msg">
+                        <button type="button" class="eye" id="pw-eye" aria-label="비밀번호 보기" aria-pressed="false" onclick="togglePw()">
+                            <svg class="on-i" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+                            <svg class="off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.4 0 10 7 10 7a18 18 0 0 1-3.2 4.2"/><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>
+                        </button>
+                    </div>
+                    <div class="err" id="err-msg" role="alert">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 16.5v.5"/></svg>
+                        <span>비밀번호가 달라요. 다시 넣어 주세요.</span>
+                    </div>
                 </div>
-            </div>
+                <button type="submit" class="go" id="go-btn">조종실 열기</button>
+                <div class="hint">Enter 키로도 들어가요</div>
+            </form>
+        </section>
 
-            <button type="submit" class="btn-login">
-                <i class="fa-solid fa-key"></i> 보안 인증 로그인
-            </button>
-        </form>
-
-        <div class="err-msg" id="err-msg">
-            <i class="fa-solid fa-circle-exclamation"></i> <span>인증 정보가 올바르지 않습니다.</span>
-        </div>
-    </div>
+        <div class="foot">엔젤컴퍼니.메인.한국</div>
+    </main>
 
     <script>
+        function togglePw() {
+            const pw = document.getElementById('password');
+            const eye = document.getElementById('pw-eye');
+            const show = pw.type === 'password';
+            pw.type = show ? 'text' : 'password';
+            eye.classList.toggle('on', show);
+            eye.setAttribute('aria-pressed', show ? 'true' : 'false');
+            eye.setAttribute('aria-label', show ? '비밀번호 숨기기' : '비밀번호 보기');
+            pw.focus();
+        }
+
         async function handleLogin(e) {
             e.preventDefault();
             const p = document.getElementById('password').value.trim();
-            const card = document.getElementById('login-card');
-            const err = document.getElementById('err-msg');
+            const btn = document.getElementById('go-btn');
+            document.getElementById('pw-field').classList.remove('bad');
+            if (!p) { triggerError('비밀번호를 넣어 주세요.'); return; }
 
-            err.style.display = 'none';
-            card.classList.remove('shake-active');
-
+            btn.disabled = true;
+            btn.textContent = '여는 중…';
             try {
                 const res = await fetch('/login', {
                     method: 'POST',
@@ -257,31 +240,34 @@
                 if (data.status === 'success') {
                     // 로그인 성공 시 원래 요청했던 모드(쿼리 파라미터) 보존하며 진입
                     window.location.href = '/controller' + window.location.search;
-                } else {
-                    triggerError(data.message || '인증 정보가 올바르지 않습니다.');
+                    return;
                 }
-            } catch(err) {
-                triggerError('서버와의 통신 중 오류가 발생했습니다.');
+                triggerError(data.message || '비밀번호가 달라요. 다시 넣어 주세요.');
+            } catch (err) {
+                triggerError('서버에 연결하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
             }
+            btn.disabled = false;
+            btn.textContent = '조종실 열기';
         }
 
         function triggerError(msg) {
-            const card = document.getElementById('login-card');
-            const err = document.getElementById('err-msg');
-            
-            err.querySelector('span').innerText = msg;
-            err.style.display = 'flex';
-            card.classList.add('shake-active');
-            
+            const field = document.getElementById('pw-field');
+            const box = document.getElementById('pw-box');
+            document.querySelector('#err-msg span').textContent = msg;
+            field.classList.add('bad');
+            box.classList.remove('shake');
+            void box.offsetWidth;          // 같은 애니메이션을 다시 틀려면 한 번 끊어 줘야 한다
+            box.classList.add('shake');
+
             // 비밀번호를 통째로 골라 두어 바로 다시 칠 수 있게
             const pw = document.getElementById('password');
             pw.focus(); pw.select();
-            
-            // 진동 해제용
-            setTimeout(() => {
-                card.classList.remove('shake-active');
-            }, 500);
         }
+
+        // 다시 치기 시작하면 빨간 표시를 걷는다
+        document.getElementById('password').addEventListener('input', () => {
+            document.getElementById('pw-field').classList.remove('bad');
+        });
     </script>
 </body>
 </html>

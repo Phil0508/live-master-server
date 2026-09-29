@@ -97,6 +97,13 @@ chk('찍어보기 늦추기는 그대로(OTP 가 없으니 유일한 장치)', '
 chk('기본 비밀번호(0508) 막기는 그대로', 'admin_password_is_unset()' in lg)
 chk('로그인 화면에 OTP 칸이 없다', 'id="otp"' not in LG and 'otp:' not in LG)
 chk('틀리면 비밀번호 칸으로 돌아간다', 'pw.focus(); pw.select();' in LG)
+# 🎨 A안(2026-09-30) — 조종실과 같은 검정·금색, 폰은 한 줄 · PC 는 두 칸, 비밀번호 보기
+chk('A안 — 조종실 금색(예전 민트 네온이 아니다)', '--accent: #e2b64b;' in LG and '#00ffcc' not in LG)
+chk('A안 — PC(900px 이상)는 왼쪽 소개 · 오른쪽 로그인 칸', '@media (min-width: 900px)' in LG
+    and 'grid-template-columns: 1fr 520px;' in LG)
+chk('비밀번호 보기 단추', 'function togglePw()' in LG and 'aria-label="비밀번호 보기"' in LG)
+chk('보내는 동안 단추를 잠근다(두 번 눌림 방지)', 'btn.disabled = true;' in LG)
+chk('아이폰이 칸을 누를 때 확대하지 않게 16px', 'font-size: 16px;' in LG)
 chk("조종실에 'OTP 기기 등록' 링크가 없다", 'href="/setup"' not in CT)
 chk('서버 창(GUI)에 OTP 키를 안 띄운다', 'OTP 보안키' not in SV)
 
