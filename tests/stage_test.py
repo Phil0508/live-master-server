@@ -201,8 +201,14 @@ chk('시작 화면은 엔젤 오락실 그림', '/vendor/stage/start_bg.jpg' in 
 chk('그림이 움직인다 (시작 화면일 때만)', 'const StageArt = {' in OV and "StageArt.set(mode === 'start')" in OV)
 chk('제목 · 문구 상자는 안 움직인다 (가림막)', 'float still=max(box(p,' in OV)
 chk('카운트다운은 알약에, 0 이 되면 곧 시작해요!', "document.getElementById('sa-num')" in OV and '곧 시작해요!' in OV)
-chk('테마 액자·모서리 장식을 입는다', '.best-board, .ss-card) {' in OV and '.best-board, .ss-card)::after {' in OV)
-chk('파스텔 밝은 속에서도 읽히게 잉크 토큰으로 칠한다', ':is(.ss-big, .ss-chip, .ss-donor b) {' in OV)
+# 🌸 끝 화면 = 엔젤 오락실 B (대표님 2026-09-30 "B로 가자") — 시작 화면처럼 테마 옷을 안 입는다.
+#    예전 끝 화면은 테마 액자를 입은 유리판(.ss-card)이었고 바탕이 반투명이라 뒤 카메라가 비쳤다.
+chk('끝 화면은 엔젤 오락실 B (분홍 물방울 바탕 층 · 흰 카드 · 사탕 칩)',
+    'id="ss-end-bg"' in OV and '<div class="se-wrap" id="ss-card"></div>' in OV
+    and "'<div class=\"se-pill\">엔젤 오락실 · 오늘 방송 끝</div>'" in OV and '.se-chip {' in OV)
+chk('끝 화면은 테마 액자를 안 입는다 (.ss-card 가 테마 목록에 없다)', '.ss-card' not in OV.split('/* ── ① 액자')[1].split('/* ── ⑤')[0])
+chk('끝 화면 바탕 층은 불투명 (#ffe1ee)', re.search(r'#ss-end-bg \{[^}]*background-color: #ffe1ee', OV) is not None)
+chk('기록이 없으면 빈 카드 대신 인사 한 줄', '다음 방송에서 또 만나요 ♥' in OV)
 chk('조종실 두 군데(방송 준비 · 방송 중)에 칸이 있다',
     'id="ss-min-setup"' in CTL and 'id="ss-min-live"' in CTL and "stageScreen('end', 'live')" in CTL)
 _rn = CTL.split('try { renderPending(); } catch(e) {}')[1][:200]

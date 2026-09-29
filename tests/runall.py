@@ -265,6 +265,7 @@ run('🤖 AI 도우미 사실표·즉답', [PY, 'ai_facts_test.py'], HERE, kind=
 run('🔓 로그인 — 비밀번호 하나', [PY, 'login_test.py'], HERE, kind='pt')
 run('📊 조종실 클릭 기록', [PY, 'uistats_test.py'], HERE, kind='pt')
 run('시작·끝 화면', [PY, 'stage_test.py'], HERE, kind='pt')
+run('🌸 끝 화면 — 방송판에서 재기', [PY, 'stage_end_test.py'], HERE, kind='pt')
 run('시그니처 재생', [PY, 'sig_test.py'], HERE, kind='pt')
 run('대결 팀전', [PY, 'team_test.py'], HERE, kind='pt')
 run('500 터지는 길 전수', [PY, 'crash_sweep.py'], HERE, kind='pt')

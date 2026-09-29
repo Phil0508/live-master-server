@@ -429,44 +429,55 @@
         body.stage-on #dicegame-container,
         body.stage-on #pinball-container,
         body.stage-on #match-container { opacity: 0 !important; visibility: hidden !important; }
-        .ss-card { position: absolute; left: 64px; right: 64px; top: 535px; transform: translateY(-50%);
-            box-sizing: border-box; padding: 46px 52px 44px; border-radius: var(--glass-radius);
-            background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
-            display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; color: var(--text-main); }
-        .ss-card:empty { display: none; }
-        #stage-screen.show .ss-card { animation: ssIn .7s var(--ease) both; }
-        @keyframes ssIn { from { opacity: 0; transform: translateY(calc(-50% + 30px)); } to { opacity: 1; transform: translateY(-50%); } }
-        .ss-eyebrow { font-size: 30px; font-weight: 800; letter-spacing: 6px; color: var(--gold); }
-        .ss-title { font-size: 84px; font-weight: 900; line-height: 1.08; letter-spacing: -2px; color: #fff;
-            text-shadow: 0 4px 0 rgba(0, 0, 0, .35), 0 0 28px rgba(var(--gold-rgb), .35); }
-        .ss-sub { font-size: 36px; font-weight: 700; color: var(--text-muted); max-width: 100%;
+        /* 🌸 끝 화면 — 엔젤 오락실 B (대표님 2026-09-30 "B로 가자"). 시작 화면(엔젤 오락실 그림)과 짝이다.
+           · 분홍 물방울 바탕(불투명) · 흰 알약 '엔젤 오락실 · 오늘 방송 끝' · '오늘도 고마워요'(Jua, 분홍 테두리)
+           · 흰 카드 안에 오늘의 1등(분홍) · 한 방 최고(보라) 두 칸 + 후원해 주신 분 사탕 칩(두 줄씩 넷)
+           ⚠️ 테마 옷을 안 입는다 — 시작 화면처럼 그림이 곧 옷이다. 예전 끝 화면(.ss-card 유리판)은 테마 액자를 입었고
+              판이 반투명이라 뒤 카메라가 비쳤다(대표님: "반투명한 거 없애줘").
+           ⚠️ 글씨는 안전지대(115~954) 안 — 폰에서는 그 아래가 채팅에 가린다. 아래쪽엔 하트 장식만 둔다.
+              후원자 여덟 분 + 한 줄 문구까지 넣어도 카드 아래끝이 954 를 안 넘게 크기를 잡았다(stage_end_test 가 잰다).
+           둥글기는 큰 단계(--r-l)의 배수 — 1080 폭 한 장이라 판보다 두어 배 둥글게(시안 B 의 말랑한 느낌). */
+        #ss-end-bg { position: absolute; inset: 0; z-index: 1; display: none; overflow: hidden;
+            background-color: #ffe1ee; background-image: radial-gradient(#ffffff 5px, transparent 6px); background-size: 52px 52px; }
+        #stage-screen[data-mode="end"] #ss-end-bg { display: block; }
+        #ss-end-bg .se-band { position: absolute; left: 0; right: 0; bottom: 0; height: 240px; background: #ffd0e4; }
+        #ss-end-bg .se-heart { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s);
+            animation: seBob var(--d) ease-in-out infinite alternate; }
+        #ss-end-bg .se-heart svg { display: block; width: 100%; height: 100%; }
+        @keyframes seBob { from { transform: translateY(0) rotate(-6deg); } to { transform: translateY(-22px) rotate(6deg); } }
+        .se-wrap { position: absolute; left: 52px; right: 52px; top: 122px; z-index: 2; display: none;
+            flex-direction: column; align-items: center; gap: 12px; text-align: center;
+            font-family: 'Jua', 'Gothic A1', sans-serif; color: #6e2450; }
+        #stage-screen[data-mode="end"] .se-wrap { display: flex; }
+        #stage-screen.show[data-mode="end"] .se-wrap { animation: seIn .7s var(--ease) both; }
+        @keyframes seIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+        .se-pill { padding: 8px 34px; border-radius: 999px; background: #ffffff; color: #c2447f; font-size: 30px; letter-spacing: 3px; }
+        .se-title { font-size: 88px; line-height: 1.05; color: #ffffff; letter-spacing: 1px;
+            paint-order: stroke fill; -webkit-text-stroke: 14px #d6508f; }
+        .se-sub { max-width: 100%; font-size: 34px; color: #a8527f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .se-card { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 24px 26px 20px; border-radius: calc(var(--r-l) * 2.5); background: #ffffff;
+            border: 8px solid #ffffff; box-shadow: 0 0 0 8px #ff9cc9, 0 26px 60px rgba(214, 80, 143, .22);
+            display: flex; flex-direction: column; gap: 14px; }
+        .se-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+        .se-duo.one { grid-template-columns: minmax(0, 1fr); }
+        .se-tile { min-width: 0; padding: 12px 18px 14px; border-radius: calc(var(--r-l) * 1.6); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+        .se-tile.se-top { background: #ffeaf3; --se-ink: #c2447f; }
+        .se-tile.se-best { background: #efe8ff; --se-ink: #7a55c9; }
+        .se-lab { display: flex; align-items: center; gap: 8px; font-size: 30px; color: var(--se-ink); }
+        .se-lab svg { width: 32px; height: 32px; flex: none; }
+        .se-big { max-width: 100%; font-size: 58px; line-height: 1.12; color: #6e2450; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .se-small { max-width: 100%; font-family: 'Gothic A1', sans-serif; font-size: 29px; font-weight: 800; color: var(--se-ink);
+            font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .se-lab2 { font-size: 31px; letter-spacing: 2px; color: #c2447f; }
+        .se-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+        .se-chip { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 5px 22px; border-radius: 999px; background: #fff4f9; border: 3px solid #ffd3e6; }
+        .se-chip b { min-width: 0; font-weight: 400; font-size: 32px; line-height: 1.15; color: #6e2450;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ss-count { font-size: 150px; font-weight: 900; line-height: 1; letter-spacing: -3px; font-variant-numeric: tabular-nums;
-            color: var(--gold-light); text-shadow: 0 6px 0 rgba(0, 0, 0, .4), 0 0 40px rgba(var(--gold-rgb), .45); }
-        .ss-count.soon { font-size: 110px; animation: ssSoon 1.2s ease-in-out infinite; }
-        @keyframes ssSoon { 50% { transform: scale(1.06); } }
-        .ss-lab { font-size: 28px; font-weight: 800; letter-spacing: 2px; color: var(--gold); }
-        .ss-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 14px; }
-        .ss-chip { font-size: 32px; font-weight: 800; padding: 8px 26px; border-radius: 999px;
-            background: rgba(255, 255, 255, .07); border: 2px solid rgba(var(--gold-rgb), .45); color: #fff; }
-        .ss-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; width: 100%; }
-        .ss-duo.one { grid-template-columns: 1fr; }
-        .ss-tile { min-width: 0; padding: 18px 20px 16px; border-radius: var(--r-m);
-            background: rgba(255, 255, 255, .06); border: 1px solid rgba(var(--gold-rgb), .3);
-            display: flex; flex-direction: column; gap: 4px; align-items: center; }
-        .ss-big { font-size: 46px; font-weight: 900; color: #fff; max-width: 100%;
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ss-small { font-size: 31px; font-weight: 800; color: var(--gold-light); font-variant-numeric: tabular-nums;
-            max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ss-donors { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 26px; width: 100%; }
-        .ss-donor { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; min-width: 0;
-            font-size: 31px; padding: 6px 4px; border-bottom: 1px solid rgba(255, 255, 255, .1); }
-        .ss-donor b { font-weight: 800; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .ss-donor span { flex: none; font-weight: 800; color: var(--gold-light); font-variant-numeric: tabular-nums; }
-        .ss-donors.names .ss-donor { justify-content: center; }
-        .ss-more { font-size: 28px; font-weight: 700; color: var(--text-muted); }
-        /* ⚠️ 끝 화면은 1등·한 방 최고·후원자 여덟 분까지 담는다. 시작 화면과 같은 여백으로 두면
-              아래끝이 971 이 되어 안전지대(954) 를 넘었다 — 끝 화면만 한 칸씩 조인다. */
+        .se-chip span { flex: none; font-family: 'Gothic A1', sans-serif; font-size: 28px; font-weight: 900; color: #d6508f;
+            font-variant-numeric: tabular-nums; }
+        .se-chips.names .se-chip { justify-content: center; }
+        .se-more { font-size: 30px; color: #a8527f; }
 
         /* 🌸 시작 전 화면 — 엔젤 오락실 그림 (대표님 2026-09-22 A 시안 확정)
            · 그림: vendor/stage/start_bg.jpg (받은 그림에서 시계를 지운 것 — 원본을 받으면 바꿔 끼운다)
@@ -478,7 +489,6 @@
         #ss-art { position: absolute; inset: 0; display: none; overflow: hidden; z-index: 1;
                   background: #f6d6e6 url("/vendor/stage/start_bg.jpg") center / cover no-repeat; }
         #stage-screen[data-mode="start"] #ss-art { display: block; }
-        #stage-screen[data-mode="start"] .ss-card { display: none; }
         #ss-art > * { position: absolute; }
         #sa-photo { inset: 0; width: 100%; height: 100%; }
         .sa-halo { left: 50%; top: 18.5%; width: 367px; height: 130px; transform: translate(-50%, -50%); border-radius: 50%;
@@ -513,9 +523,6 @@
                   filter: drop-shadow(0 4px 0 #fff) drop-shadow(0 0 17px rgba(255, 111, 174, .55)); }
         .sa-num.soon { font-size: 93px; animation: ssSoon 1.2s ease-in-out infinite; }
         .sa-num:empty { display: none; }
-        #stage-screen[data-mode="end"] .ss-card { gap: 14px; padding: 38px 48px 34px; }
-        #stage-screen[data-mode="end"] .ss-title { font-size: 76px; }
-        #stage-screen[data-mode="end"] .ss-donor { padding: 3px 4px; }
 
         /* 🌕 추석 보름달 — 큰 후원이 오면 후원 알림 뒤에서 떠오른다(달토끼 그림은 추석 테마의 --crown).
            ⚠️ 추석 테마가 아니면 부르지 않는다. 알림(100005) 바로 뒤에 깐다. */
@@ -2987,7 +2994,7 @@
         }
 
         /* ── ① 액자 ─────────────────────────────────────────────────────────── */
-        body.themed :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .ss-card) {
+        body.themed :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board) {
             border: var(--frame-w, 4px) solid transparent;
             background: var(--frame-fill) padding-box, var(--frame) border-box;
             border-radius: var(--glass-radius);
@@ -2996,7 +3003,7 @@
             outline-offset: -12px;
         }
         /* 유리판의 윗줄 하이라이트는 액자와 안 어울린다 */
-        body.themed :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .ss-card)::before { content: none; }
+        body.themed :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board)::before { content: none; }
         body.themed .notice-board { border-top-width: 3px; border-bottom-width: 3px; }
         body.themed .goal-rail {
             background: var(--rail-bg); border-color: rgba(var(--gold-rgb), .75);
@@ -3006,7 +3013,7 @@
         body.themed .goal-rail-tip { background: var(--tip-bg); outline: 2px var(--pearl-style) var(--pearl); outline-offset: -7px; }
 
         /* ── ② 장식 ─────────────────────────────────────────────────────────── */
-        body.themed :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .ss-card)::after {
+        body.themed :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board)::after {
             content: ""; position: absolute; inset: -16px; z-index: 6; pointer-events: none;
             background:
                 var(--orn-top) left top / 44px 44px no-repeat,
@@ -3089,9 +3096,9 @@
         /* VIP 알림의 'VVIP · 다이아' 글씨는 등급 색(금 · 하늘)이라 밝은 속에서 흐리다 — 테두리를 준다 */
         body.themed-light #toon-popup.vip-premium-card .vip-badge-tag { text-shadow: 0 0 1px #5a1733, 0 1px 0 #5a1733, 0 0 6px rgba(90, 23, 51, .35); }
 
-        /* ── 🎬 시작·끝 화면도 테마 옷을 입는다 ─────────────────────────────────
-           액자·모서리 장식은 위 ① 목록에 .ss-card 를 넣어 같이 입힌다. 여기선 바탕과 글씨만.
-           ⚠️ 파스텔은 속이 밝다 — 흰 글씨를 그대로 두면 안 보인다. 전부 잉크 토큰으로 칠한다. */
+        /* ── 🎬 시작·끝 화면 바탕 ────────────────────────────────────────────────
+           ⚠️ 2026-09-30 부터 시작(엔젤 오락실 그림)도 끝(엔젤 오락실 B)도 **테마 옷을 안 입는다** — 그림이 덮는다.
+              아래 바탕은 그림이 늦게 뜰 때 잠깐 보이는 밑바탕이다. 불투명이어야 한다(tokens_test 가 본다). */
         body.theme-rose #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(96, 40, 66), rgb(34, 12, 24) 72%); }
         body.theme-pastel #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(255, 244, 249), rgb(236, 222, 252) 72%); }
         body.theme-royal #stage-screen { background: radial-gradient(120% 60% at 50% 26%, rgb(52, 26, 92), rgb(14, 8, 30) 72%); }
@@ -3110,20 +3117,6 @@
         body.theme-chuseok #stage-screen::before { content: ""; position: absolute; left: 50%; top: 40px; width: 300px; height: 300px;
             margin-left: -150px; border-radius: 50%; opacity: .9;
             background: var(--crown) center / 92% no-repeat, radial-gradient(circle, rgba(255, 231, 160, .45) 0%, transparent 70%); }
-        body.theme-chuseok #stage-screen[data-mode="start"] .ss-card { top: 590px; }   /* 짧은 시작 화면만 달 밑으로 내린다 */
-        body.themed .ss-title {
-            font-family: var(--face-big); font-weight: var(--big-weight); letter-spacing: 0; color: var(--ink-name); }
-        body.themed :is(.ss-eyebrow, .ss-lab) {
-            font-family: var(--face-label); font-weight: var(--label-weight); color: var(--ink-label); }
-        body.themed :is(.ss-sub, .ss-more) { color: var(--ink-label); opacity: .85; }
-        body.themed :is(.ss-big, .ss-chip, .ss-donor b) {
-            font-family: var(--face-name); font-weight: var(--name-weight); color: var(--ink-name); }
-        body.themed :is(.ss-count, .ss-small, .ss-donor span) {
-            font-family: var(--face-num); font-weight: var(--num-weight); color: var(--ink-num); }
-        body.themed :is(.ss-tile, .ss-chip) {
-            background: var(--skin-row); border: 2px var(--pearl-style) var(--skin-line); }
-        body.themed .ss-donor { border-bottom: 1px var(--pearl-style) var(--skin-line); }
-        body.themed-light :is(.ss-title, .ss-count) { text-shadow: none; }
 
         /* ── ⑤ 게임판 (2차) ─────────────────────────────────────────────────
            ⚠️ 게임판 속 글씨는 거의 **흰색**이다(칸 이름 · 카드 · 릴 · 대결 카드). 파스텔의 밝은 속을 깔면
@@ -3377,7 +3370,10 @@
                     <div class="sa-glow"></div>
                     <div class="sa-pill" id="sa-pill"><span class="sa-lab" id="sa-lab">방송 시작까지</span><span class="sa-num" id="sa-num"></span></div>
                 </div>
-                <div class="ss-card" id="ss-card"></div>
+                <!-- 🌸 끝 화면 바탕 (엔젤 오락실 B) — 분홍 물방울 + 아래쪽 하트. 끝 화면일 때만 보인다 -->
+                <div id="ss-end-bg" aria-hidden="true"><div class="se-band"></div><i class="se-heart" style="--x:11%;--y:1250px;--s:92px;--d:2.6s"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.4C1.2 8.4 3.3 5 6.6 5c2 0 3.4 1.1 4.4 2.6C12 6.1 13.4 5 15.4 5c3.3 0 5.4 3.4 4.1 6.6C19.5 16.4 12 21 12 21z" fill="#ffb3d3"/></svg></i><i class="se-heart" style="--x:74%;--y:1390px;--s:128px;--d:3.2s"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.4C1.2 8.4 3.3 5 6.6 5c2 0 3.4 1.1 4.4 2.6C12 6.1 13.4 5 15.4 5c3.3 0 5.4 3.4 4.1 6.6C19.5 16.4 12 21 12 21z" fill="#ffc7df"/></svg></i><i class="se-heart" style="--x:41%;--y:1640px;--s:76px;--d:2.9s"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.4C1.2 8.4 3.3 5 6.6 5c2 0 3.4 1.1 4.4 2.6C12 6.1 13.4 5 15.4 5c3.3 0 5.4 3.4 4.1 6.6C19.5 16.4 12 21 12 21z" fill="#d9c8ff"/></svg></i><i class="se-heart" style="--x:84%;--y:1060px;--s:60px;--d:3.6s"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.4C1.2 8.4 3.3 5 6.6 5c2 0 3.4 1.1 4.4 2.6C12 6.1 13.4 5 15.4 5c3.3 0 5.4 3.4 4.1 6.6C19.5 16.4 12 21 12 21z" fill="#ffd3e6"/></svg></i><i class="se-heart" style="--x:6%;--y:1520px;--s:58px;--d:3.4s"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.5-9.4C1.2 8.4 3.3 5 6.6 5c2 0 3.4 1.1 4.4 2.6C12 6.1 13.4 5 15.4 5c3.3 0 5.4 3.4 4.1 6.6C19.5 16.4 12 21 12 21z" fill="#e6dbff"/></svg></i></div>
+                <!-- 끝 화면 글씨 · 카드 — renderStageScreen 이 채운다. ⚠️ .ss-card 클래스를 안 쓴다(테마 액자를 입으면 안 된다) -->
+                <div class="se-wrap" id="ss-card"></div>
             </div>
             <div id="theme-moon" class="theme-moon" aria-hidden="true"></div>
             <!-- 💬 소액 후원 띠 (1천~9천 원) — 맨 위 한 줄 -->
@@ -5732,6 +5728,12 @@
             }
         };
 
+        // 끝 화면 칸 머리 아이콘 — 이모지 대신 선 그림(폰에서 이모지는 기종마다 다르게 보인다)
+        const SE_ICON = {
+            trophy: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                  + '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></g></svg>',
+            bolt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/></svg>',
+        };
         function renderStageScreen(d) {
             const box = document.getElementById('stage-screen'), card = document.getElementById('ss-card');
             if (!box || !card) return;
@@ -5740,7 +5742,7 @@
             box.classList.toggle('show', mode !== 'off');   // 가리개(body.stage-on)는 shApply 가 켠다
             box.setAttribute('data-mode', mode);
             ssStartAt = mode === 'start' ? (Number(ss.start_at) || 0) : 0;
-            const sub = ss.title ? '<div class="ss-sub">' + ssEsc(ss.title) + '</div>' : '';
+            const sub = ss.title ? '<div class="se-sub">' + ssEsc(ss.title) + '</div>' : '';
             let html = '';
             // 🌸 시작 화면은 엔젤 오락실 그림이 맡는다 — 알약에 카운트다운(없으면 한 줄 문구만), 그림은 움직인다.
             //    예전 카드(곧 시작합니다 · 오늘 함께할 멤버)는 그림이 대신해 비운다.
@@ -5758,29 +5760,34 @@
             if (mode === 'start') {
                 html = '';
             } else if (mode === 'end') {
+                // 🌸 엔젤 오락실 B — 알약 · 큰 제목 · 흰 카드(1등 · 한 방 최고 + 후원자 사탕 칩)
                 const snap = d.stage_live || ss.last_snap || {};
                 const top = (snap.members || [])[0];
                 const best = snap.best;
                 const tiles = [];
                 if (top && (top.contribution > 0 || top.score > 0)) {
-                    tiles.push('<div class="ss-tile"><div class="ss-lab">🏆 오늘의 1등</div><div class="ss-big">' + ssEsc(top.name) + '</div>'
-                        + '<div class="ss-small">기여도 ' + Number(top.contribution || 0).toLocaleString() + '</div></div>');
+                    tiles.push('<div class="se-tile se-top"><div class="se-lab">' + SE_ICON.trophy + '오늘의 1등</div><div class="se-big">' + ssEsc(top.name) + '</div>'
+                        + '<div class="se-small">기여도 ' + Number(top.contribution || 0).toLocaleString() + '</div></div>');
                 }
                 if (best && best.amount > 0) {
-                    tiles.push('<div class="ss-tile"><div class="ss-lab">💥 한 방 최고</div><div class="ss-big">' + ssEsc(best.name) + '</div>'
-                        + '<div class="ss-small">' + ssWon(best.amount) + (best.member ? ' → ' + ssEsc(best.member) : '') + '</div></div>');
+                    tiles.push('<div class="se-tile se-best"><div class="se-lab">' + SE_ICON.bolt + '한 방 최고</div><div class="se-big">' + ssEsc(best.name) + '</div>'
+                        + '<div class="se-small">' + ssWon(best.amount) + (best.member ? ' → ' + ssEsc(best.member) : '') + '</div></div>');
                 }
                 const donors = snap.donors || [];
                 const more = Math.max(0, (snap.donor_count || 0) - donors.length);
-                html = '<div class="ss-eyebrow">오늘 방송 끝</div>'
-                     + '<div class="ss-title">오늘도 고마워요</div>' + sub
-                     + (tiles.length ? '<div class="ss-duo' + (tiles.length === 1 ? ' one' : '') + '">' + tiles.join('') + '</div>' : '')
-                     + (donors.length ? '<div class="ss-lab">후원해 주신 분</div><div class="ss-donors' + (snap.show_amount === false ? ' names' : '') + '">'
+                const inner = (tiles.length ? '<div class="se-duo' + (tiles.length === 1 ? ' one' : '') + '">' + tiles.join('') + '</div>' : '')
+                     // ⚠️ '후원해 주신 분' 제목 줄은 칩 아래 인사 줄과 합쳤다 — 다음 방송 문구 · 두 칸 · 여덟 분이 다 차면
+                     //    카드 아래끝이 991 로 채팅선(954)을 넘었다(stage_end_test 가 잰다).
+                     + (donors.length ? '<div class="se-chips' + (snap.show_amount === false ? ' names' : '') + '">'
                         + donors.map(function (r) {
-                            return '<div class="ss-donor"><b>' + ssEsc(r.name) + '</b>'
+                            return '<div class="se-chip"><b>' + ssEsc(r.name) + '</b>'
                                  + (r.total != null ? '<span>' + Number(r.total).toLocaleString() + '</span>' : '') + '</div>';
                           }).join('') + '</div>'
-                        + (more ? '<div class="ss-more">외 ' + more + '분 — 모두 고맙습니다</div>' : '') : '');
+                        + '<div class="se-more">' + (more ? '외 ' + more + '분까지, ' : '') + '후원해 주신 분들 모두 고마워요 ♥</div>' : '');
+                html = '<div class="se-pill">엔젤 오락실 · 오늘 방송 끝</div>'
+                     + '<div class="se-title">오늘도 고마워요</div>' + sub
+                     // 기록이 하나도 없으면(방송 전 · 후원 0) 빈 카드 대신 인사 한 줄
+                     + '<div class="se-card">' + (inner || '<div class="se-lab2">다음 방송에서 또 만나요 ♥</div>') + '</div>';
             }
             if (html !== ssHtml) { card.innerHTML = html; ssHtml = html; }
             if (ssStartAt) {
