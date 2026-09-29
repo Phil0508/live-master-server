@@ -31,7 +31,21 @@ def _match_team_of(state, member_name):
     return None
 
 
-def _find_score_target(state, scope, name):
+def _rank_src(state, want_list=''):
+    """점수판 명단 칸 이름('bjs' / 'extra_bjs').
+
+    ⚠️ 기본은 '지금 켜진 명단'이다. 그런데 되돌리기는 '원래 점수가 들어간 명단'을
+       겨눠야 한다 — 번외 게임 중에 준 점수를 번외가 끝난 뒤 되돌리면, 예전에는
+       같은 이름의 본 명단 사람에게서 빠졌다(또는 이름이 없어 404). list 로 못 박는다.
+    """
+    if want_list == 'main':
+        return 'bjs'
+    if want_list == 'extra':
+        return 'extra_bjs'
+    return 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+
+
+def _find_score_target(state, scope, name, src=None):
     """점수를 더할 대상 하나를 찾는다. 언제나 '이름'으로 찾는다 —
        랭킹은 기여도순으로 계속 재정렬되므로 위치 인덱스로 찾으면 엉뚱한 사람에게 돈이 들어간다.
 
@@ -53,7 +67,7 @@ def _find_score_target(state, scope, name):
     if scope == 'match':
         md = state.get('match_data') or {}
         return next((p for p in (md.get('players') or []) if same(p.get('name'))), None)
-    src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+    src = src or _rank_src(state)
     return next((b for b in (state.get(src) or []) if same(b.get('name'))), None)
 
 
@@ -82,6 +96,11 @@ def api_score_add():
         scope = str(body.get('scope') or 'rank').strip()
         if scope not in ('rank', 'bot', 'match', 'jar'):
             return jsonify({"status": "error", "message": f"알 수 없는 scope: {scope}"}), 400
+        # 📋 list — 어느 명단에 더할지('main' 본 명단 / 'extra' 번외). 안 주면 지금 켜진 명단.
+        #    ⚠️ 되돌리기가 보낸다. 모르는 값을 조용히 기본값으로 돌리면 엉뚱한 명단에서 빠지므로 400.
+        want_list = str(body.get('list') or '').strip()
+        if want_list not in ('', 'main', 'extra'):
+            return jsonify({"status": "error", "message": f"알 수 없는 list: {want_list}"}), 400
 
         raw = body.get('items') or [{"name": body.get('name'), "delta": body.get('delta'),
                                      "contribution": body.get('contribution')}]
@@ -98,6 +117,8 @@ def api_score_add():
             except (TypeError, ValueError):
                 return jsonify({"status": "error", "message": "delta/contribution 이 숫자가 아니다"}), 400
             wanted.append((name, delta, contrib))
+        # 기여도를 '직접' 보냈는가 — 아래 기여도 전용 카드 안전장치가 본다
+        sent_contrib = any(it.get('contribution') is not None for it in raw)
 
         # 🧠 이 후원이 누구에게 갔는지 기억해 둔다(다음 판단의 재료).
         #    조종실·폰이 배정할 때 donor 를 같이 보낸다. 없으면 그냥 기억하지 않는다.
@@ -121,7 +142,20 @@ def api_score_add():
                     print(f'  ↩️ [이중 배정 방지] 이미 처리된 후원입니다 ({pending_id})', flush=True)
                     return jsonify({'status': 'success', 'already': True,
                                     'message': '이미 다른 기기에서 처리된 후원입니다'})
-            src = 'extra_bjs' if state.get('extra_game_active') else 'bjs'
+                # 🎯 기여도 전용 카드(슬롯 당첨 · 주사위 시그니처)인데 기여도를 안 보냈으면 카드 값을 쓴다.
+                #    ⚠️ 폰은 이 카드를 일반 후원처럼 delta=manWon(0)=0 만 보냈다. 서버는 contribution 이
+                #       없으면 delta(0)를 기여도로 쓰므로 0 이 들어가고, 카드는 대기함에서 지워져
+                #       그 기여도가 어디에도 남지 않았다(2026-09-30 재현). 낡은 폰 화면이 켜져 있어도
+                #       잃지 않게 서버가 한 번 더 막는다. 한 사람에게 줄 때만 — 나눠주기의 몫은
+                #       보낸 쪽이 정해야 한다(여기서 멋대로 나누면 합이 어긋난다).
+                _card = next((d for d in _pend if d.get('id') == pending_id), None) or {}
+                if (_card.get('kind') == 'contrib' and not sent_contrib and len(wanted) == 1):
+                    try:
+                        _cc = int(_card.get('contrib') or 0)
+                    except (TypeError, ValueError):
+                        _cc = 0
+                    wanted[0] = (wanted[0][0], wanted[0][1], _cc)
+            src = _rank_src(state, want_list)
             prev_first = None
             if scope == 'rank':
                 lst = state.get(src) or []
@@ -132,7 +166,7 @@ def api_score_add():
             #    (반반 지급에서 두 번째 이름이 오타일 때 첫 사람만 점수를 받는 사고가 난다)
             targets = []
             for name, delta, contrib in wanted:
-                t = _find_score_target(state, scope, name)
+                t = _find_score_target(state, scope, name, src)
                 if t is None:
                     return jsonify({"status": "error",
                                     "message": f"'{name}' 을(를) 찾을 수 없습니다"}), 404
