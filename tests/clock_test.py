@@ -102,11 +102,12 @@ print('=' * 74)
 print('④ 타임머신 — 사장님이 치는 시각은 한국 시각이다')
 print('=' * 74)
 tm = body_of('restore_by_time')
-chk('시간대 보정을 쓴다', '_bc_shift_hours()' in tm)
-chk('KST 로 받아 서버시로 되돌려 묻는다', 'timedelta(hours=_shift)' in tm)
-chk('오늘 날짜도 한국 기준으로 잡는다', 'today_kst' in tm and '_shift * 3600' in tm)
-chk('안 맞는 시각은 곱게 거절한다', 'ValueError' in tm and '시간 형식' in tm)
-chk('사람에게는 한국 시각으로 보여준다', 'shown_ts' in tm)
+# (2026-09-30) 시각으로 되돌리기는 막았다 — 명단을 후원 장부(후원자 이름·금액)로 다시 짜서
+#    점수판이 후원자 이름으로 바뀌었다. 00~03시 날짜도 틀렸다. 이제 410 + 스냅샷 되돌리기 안내뿐.
+#    실제 동작은 tests/fix_server_test.py ③ 이 서버에 불러 확인한다.
+chk('시각으로 되돌리기는 막혀 있다(410)', '410' in tm and '스냅샷' in tm)
+chk('후원 장부로 명단을 다시 짜지 않는다', 'donation_history' not in tm.split('"""')[-1]
+    and "restored_state['bjs']" not in tm)
 # 옛 코드가 남아 있으면 안 된다
 chk('서버 날짜를 그대로 쓰던 줄이 없다', "today_str = time.strftime('%Y-%m-%d')" not in tm)
 
