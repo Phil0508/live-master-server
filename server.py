@@ -1739,7 +1739,15 @@ def db_worker():
         try:
             new_data, is_initial, done = db_write_queue.get()
             if new_data is not None:          # None 은 '여기까지 처리됐다'를 알리는 표식(drain_db_writes)
-                save_data_sync(new_data, is_initial)
+                try:
+                    save_data_sync(new_data, is_initial)
+                except Exception as _se:
+                    # 💾 동기 저장을 기다리는 쪽이 '실패했다'는 걸 알 수 있게 이벤트에 붙여 둔다.
+                    #    ⚠️ 예전에는 done 만 깨워서, 방송 시작·종료가 저장에 실패해도 '성공' 이라고 답했다
+                    #       (그 사이 kv_store 는 이미 지워져 있어, 재시작하면 설정이 통째로 사라진다).
+                    if done is not None:
+                        done.error = _se
+                    raise
             db_write_queue.task_done()
         except Exception as e:
             print(f"❌ [비동기 DB 저장 백그라운드 오류] {e}")
@@ -2006,6 +2014,24 @@ def _save_data_real(new_data, is_initial=False, sync=False, wait=True):
             print("⚠️ [동기 저장 시간 초과] 백그라운드에서 계속 진행됩니다.")
     # wait=False 로 부른 쪽은 이 이벤트를 받아 '락을 놓은 뒤' 기다릴 수 있다.
     return done
+
+
+def save_data_checked(new_data, is_initial=False):
+    """동기 저장을 하고, **실제로 DB 에 들어갔는지** 확인한다. 못 들어갔으면 예외를 던진다.
+
+    ⚠️ save_data(sync=True) 는 실패해도 조용히 돌아온다(워커가 로그만 남긴다).
+       방송 시작·종료처럼 DB 행을 먼저 지운 뒤 다시 쓰는 곳에서 그러면, 화면엔 '성공' 이
+       뜨는데 재시작하는 순간 슬롯 한 판 값·퇴근빵 목표·세이브 슬롯이 기본값으로 돌아간다.
+    ⚠️ 30초 안에 안 끝나도 실패로 본다 — '들어갔는지 모른다' 를 성공이라고 말하지 않는다.
+    """
+    done = save_data(new_data, is_initial=is_initial, sync=True)
+    if done is None:
+        return          # 🛰️ 대기 모드 — 원래 DB 에 안 쓴다
+    if not done.is_set():
+        raise RuntimeError('DB 저장이 30초 안에 끝나지 않았습니다')
+    err = getattr(done, 'error', None)
+    if err is not None:
+        raise RuntimeError(f'DB 저장 실패: {err}')
 
 def time_machine_recovery():
     try:
@@ -2287,52 +2313,133 @@ def get_bank_statement(player_name):
         print(f"[통장 내역 조회 오류] {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+def _ledger_mark_broadcast(cursor, label):
+    """원장에 '여기서 방송이 바뀌었다' 는 경계 줄을 하나 넣는다(점수 변동 0 · 이름 빈칸).
+
+    ⚠️ 방송 시작·종료의 DELETE 와 **같은 트랜잭션** 안에서 부른다. 따로 넣으면
+       지우기는 됐는데 경계가 없거나, 경계만 있고 지우기는 안 된 원장이 생길 수 있다.
+    """
+    cursor.execute(db_query("""INSERT INTO bank_ledger
+                                   (timestamp, player_name, tx_type, score_change, score_balance,
+                                    contrib_change, contrib_balance, description)
+                               VALUES (?, '', 'BROADCAST_RESET', 0, 0, 0, 0, ?)"""),
+                   (time.strftime('%Y-%m-%d %H:%M:%S'), label))
+
+
+def _ledger_session_start_id(cursor):
+    """이번 방송 원장이 시작되는 자리(그 번호 **뒤** 줄부터 이번 방송) — 재정산이 쓴다.
+
+    경계 줄이 있으면 그 번호. 없으면(이 수정 전에 시작한 방송) broadcast_started_at 시각보다
+    먼저 적힌 마지막 줄 번호. 그것도 없으면 0(원장 전체 — 옛 동작).
+    ⚠️ 시각 비교는 보조 수단이다. 원장 시각은 서버 지역시 · 초 단위라 경계 줄이 더 정확하다.
+    """
+    cursor.execute(db_query("SELECT MAX(id) FROM bank_ledger WHERE tx_type = 'BROADCAST_RESET'"))
+    row = cursor.fetchone()
+    if row and row[0]:
+        return int(row[0])
+    started_ms = int((MEMORY_STATE or {}).get('broadcast_started_at') or 0)
+    if started_ms:
+        ts = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(started_ms / 1000))
+        cursor.execute(db_query("SELECT MAX(id) FROM bank_ledger WHERE timestamp < ?"), (ts,))
+        row = cursor.fetchone()
+        return int(row[0]) if row and row[0] else 0
+    return 0
+
+
 @app.route('/api/bank/recalculate', methods=['POST'])
 def recalculate_bank_balances():
-    """원장에 쌓인 변동분을 처음부터 다시 합산해 현재 잔액을 재구성한다.
-       점수가 어긋났다고 의심될 때 쓰는 복구 수단."""
+    """원장에 쌓인 변동분을 **이번 방송 시작부터** 다시 합산해 현재 잔액을 재구성한다.
+       점수가 어긋났다고 의심될 때 쓰는 복구 수단.
+
+    ⚠️ 예전에는 원장 전체(지난 방송 전부)를 합산했다. 원장은 방송이 끝나도 안 지우므로,
+       누르는 순간 이번 주 점수에 지난주·지지난주 점수가 통째로 더해졌다. 게다가 명단에
+       없는 이름까지 INSERT 해서, 몇 주 전에 나간 사람이 점수판에 되살아났다.
+       → 마지막 방송 경계(BROADCAST_RESET 줄) 뒤의 줄만 더하고, 지금 명단에 있는 사람만 고친다.
+    ⚠️ 이번 방송에 원장 줄이 하나도 없는 사람은 건드리지 않는다. 백업 복구(/api/restore)처럼
+       원장을 안 거치고 점수가 들어온 경우가 있어, 0 으로 만들면 멀쩡한 점수를 지운다.
+    """
     try:
         global MEMORY_STATE, LAST_PERSISTED
         with file_lock:
+            # ⚠️ 먼저 큐를 비운다. 재정산 직전에 눌린 점수 버튼의 저장이 아직 큐에 있으면,
+            #    그 변동이 원장에 안 들어간 채로 합산하게 되고, 뒤늦게 쓰인 낡은 스냅샷이
+            #    방금 맞춘 점수를 도로 되돌린다.
+            drain_db_writes()
+            roster = [str(p.get('name') or '').strip() for p in (load_data().get('bjs') or [])
+                      if isinstance(p, dict) and str(p.get('name') or '').strip()]
             with get_db_connection() as conn:
                 cursor = conn.cursor()
+                since_id = _ledger_session_start_id(cursor)
                 cursor.execute(db_query("""
                     SELECT player_name, SUM(score_change), SUM(contrib_change)
-                    FROM bank_ledger GROUP BY player_name
-                """))
+                    FROM bank_ledger WHERE id > ? AND tx_type <> 'BROADCAST_RESET'
+                    GROUP BY player_name
+                """), (since_id,))
                 totals = {r[0]: (r[1] or 0, r[2] or 0) for r in cursor.fetchall()}
 
-                for name, (score_sum, contrib_sum) in totals.items():
-                    if IS_POSTGRES:
-                        cursor.execute(
-                            "INSERT INTO players (name, score, contribution) VALUES (%s, %s, %s) "
-                            "ON CONFLICT (name) DO UPDATE SET score = EXCLUDED.score, contribution = EXCLUDED.contribution",
-                            (name, score_sum, contrib_sum)
-                        )
-                    else:
-                        cursor.execute(
-                            "INSERT INTO players (name, score, contribution) VALUES (?, ?, ?) "
-                            "ON CONFLICT(name) DO UPDATE SET score = excluded.score, contribution = excluded.contribution",
-                            (name, score_sum, contrib_sum)
-                        )
+                # ⚠️ UPDATE 만 한다(INSERT 없음) — 명단에 없는 이름을 되살리지 않는다
+                fixed = []
+                for name in roster:
+                    if name not in totals:
+                        continue
+                    score_sum, contrib_sum = totals[name]
+                    cursor.execute(db_query("UPDATE players SET score = ?, contribution = ? WHERE name = ?"),
+                                   (score_sum, contrib_sum, name))
+                    fixed.append(name)
 
             # DB에서 다시 읽어 메모리 상태를 맞춘다.
-            # ⚠️ 먼저 큐를 비운다. 재정산 직전에 눌린 점수 버튼의 낡은 스냅샷이 뒤늦게 쓰이면
-            #    방금 원장 기준으로 맞춘 점수가 도로 돌아가고, 그 차이가 '수동 변경'으로
-            #    장부에 기록되어 재정산이 신뢰하는 원장 자체를 오염시킨다.
-            drain_db_writes()
             MEMORY_STATE = None
             LAST_PERSISTED = None
             state = load_data()
             broadcast_event('update', state)
 
-        print(f"  🏦 [원장 재정산] {len(totals)}명 잔액 복구")
+        skipped = len(roster) - len(fixed)
+        print(f"  🏦 [원장 재정산] {len(fixed)}명 잔액 복구 (원장 {since_id}번 뒤부터"
+              f"{f' · 이번 방송 기록 없는 {skipped}명은 그대로' if skipped else ''})")
         return jsonify({"status": "success",
-                        "message": f"{len(totals)}명의 잔액을 원장 기준으로 재정산했습니다.",
-                        "updated": len(totals)})
+                        "message": f"{len(fixed)}명의 잔액을 이번 방송 원장 기준으로 재정산했습니다."
+                                   + (f" (이번 방송 기록이 없는 {skipped}명은 그대로 두었습니다)" if skipped else ""),
+                        "updated": len(fixed)})
     except Exception as e:
         print(f"[원장 재정산 오류] {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+def _keep_match_scores(inc_md, cur_md):
+    """⚔️ 밖에서 온 match_data 의 대결 점수를 서버 값으로 되돌린다(그 자리에서 고친다).
+
+    ⚠️ 대결 점수는 /api/score/add 로만 오른다(직접 넣기 · 팀전·개인전 연동).
+       그런데 조종실 pushAPI(/api/data)와 폰 타이머 버튼(/api/settings/patch)은
+       match_data 를 **통째로** 보낸다. 거기 실린 점수는 브라우저가 들고 있던 낡은 사본이라,
+       타이머를 한 번 누르거나 팀원을 한 명 고르는 사이 들어온 후원 점수가 도로 사라졌다.
+       명단(bjs)을 지키는 것과 똑같은 방식으로, 이름이 같은 대결자는 서버 점수를 지킨다.
+    ⚠️ 점수 말고는 전부 받는다 — 대결자 추가·삭제·이름·팀원·타이머·켜고 끄기·연동 방식.
+    ⚠️ 새 이름은 보낸 값을 그대로 쓴다(조종실은 새 대결자를 0 으로 만든다 — bjs 와 같은 규칙).
+       단, 한 명만 이름을 바꾼 것(자리·인원 그대로)은 개명으로 보고 옛 점수를 물려준다.
+    ⚠️ 새 대결을 0 점에서 시작하려면 대결자를 지우고 다시 넣는다(방송 시작·종료도 비운다).
+    """
+    if not isinstance(inc_md, dict) or not isinstance(inc_md.get('players'), list):
+        return
+    cur = [p for p in ((cur_md or {}).get('players') or []) if isinstance(p, dict)] \
+        if isinstance(cur_md, dict) else []
+    have = {}
+    for p in cur:
+        have.setdefault(str(p.get('name') or '').strip(), p)
+    rows = [p for p in inc_md['players'] if isinstance(p, dict)]
+    matched, newbies = set(), []
+    for i, p in enumerate(rows):
+        nm = str(p.get('name') or '').strip()
+        old = have.get(nm)
+        if old is None:
+            newbies.append((i, p))
+            continue
+        matched.add(nm)
+        p['score'] = old.get('score', 0)
+    gone = [p for p in cur if str(p.get('name') or '').strip() not in matched]
+    if len(newbies) == 1 and len(gone) == 1 and len(rows) == len(cur):
+        i, p = newbies[0]
+        if i < len(cur) and cur[i] is gone[0]:          # 자리까지 같을 때만
+            p['score'] = gone[0].get('score', 0)
+
 
 @app.route('/api/data', methods=['GET', 'POST'])
 def api_data():
@@ -2417,6 +2524,8 @@ def api_data():
             _bf, _bf_old = incoming.get('bottom_fixed'), current_state.get('bottom_fixed')
             if isinstance(_bf, dict) and isinstance(_bf_old, dict):
                 _bf['score'] = _bf_old.get('score', 0)
+            # ⚔️ 대결 점수도 같은 이유로 지킨다(_keep_match_scores 설명 참고)
+            _keep_match_scores(incoming.get('match_data'), current_state.get('match_data'))
 
             state = dict(current_state)
             state.update(incoming)                      # 클라이언트 편집 필드는 그대로 반영(설정·승인 등 기존 동작 유지)
@@ -2602,7 +2711,17 @@ def restore_snapshot():
             state_json = row[0]
             
         with file_lock:
-            state = json.loads(state_json)
+            # ⚠️ 기본 상태 위에 스냅샷을 얹는다(/api/restore 와 같은 방식).
+            #    옛 스냅샷에는 그 뒤에 생긴 칸(show · hell · clip …)이 없다. 그대로 갈아끼우면
+            #    그 칸을 읽는 곳마다 KeyError 로 죽었다. 모르는 칸은 받지 않는다.
+            snap = json.loads(state_json)
+            if not isinstance(snap, dict):
+                return jsonify({"status": "error", "message": "스냅샷 내용이 올바르지 않습니다."}), 400
+            state = copy.deepcopy(DEFAULT_STATE)
+            for k in DEFAULT_STATE:
+                if k in snap:
+                    state[k] = snap[k]
+            state.pop('api_token', None)
             save_data(state, sync=True)
             broadcast_event('update', state)
             
@@ -2714,6 +2833,47 @@ BROADCAST_KEEP_KEYS = ('theme', 'theme_fx_enabled', 'neon_speed', 'saved_colors'
                        'totp_secret')
 
 
+def _archive_and_clear_broadcast(session_label, what):
+    """방송 시작·종료의 '장부 보관 + DB 비우기' 를 **한 트랜잭션** 으로 한다.
+
+    ⚠️ 예전에는 보관(INSERT)과 지우기(DELETE)가 따로 커밋됐다. 보관은 됐는데 지우기가
+       실패한 뒤 다시 누르면 같은 후원이 두 번 보관돼, 월별 후원 순위가 그만큼 두 배로 나왔다.
+       이제는 둘 다 되거나 둘 다 안 된다. 게다가 '보관한 번호까지만' 지운다 —
+       보관과 지우기 사이에 들어온 후원이 보관 없이 지워지는 틈도 막는다.
+    ⚠️ 먼저 저장 큐를 비운다. 큐에 남은 낡은 저장이 지운 **뒤에** 쓰이면 지운 선수·설정이 되살아난다.
+    ⚠️ 지운 뒤에는 LAST_PERSISTED(변경분 비교 기준)를 비운다. 옛 기준이 남아 있으면, 뒤이은
+       전체 저장이 실패했을 때 다음 평소 저장이 '바뀐 게 없다' 며 지워진 설정 칸을 영영 안 쓴다.
+    실패하면 예외를 그대로 던진다(롤백돼서 아무것도 안 지워진 상태다).
+    """
+    global LAST_PERSISTED
+    drain_db_writes()
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(db_query("SELECT MAX(id) FROM donation_history"))
+        _row = cursor.fetchone()
+        max_id = int(_row[0]) if _row and _row[0] is not None else 0
+        cursor.execute(db_query("""
+            INSERT INTO donation_archive
+                (archived_at, session_label, timestamp, name, amount, current_total, message, source, tx_id)
+            SELECT ?, ?, timestamp, name, amount, current_total, message, source, tx_id
+            FROM donation_history WHERE id <= ?
+        """), (time.strftime('%Y-%m-%d %H:%M:%S'), session_label, max_id))
+        cursor.execute(db_query("SELECT COUNT(*) FROM donation_archive"))
+        print(f"  📚 [장부 영구 보관] 누적 {cursor.fetchone()[0]}건")
+
+        cursor.execute(db_query("DELETE FROM players"))
+        cursor.execute(db_query("DELETE FROM donation_history WHERE id <= ?"), (max_id,))
+        cursor.execute(db_query("DELETE FROM snapshots"))
+        # 설정 칸(BROADCAST_KEEP_KEYS)만 남기고 kv_store 를 비운다
+        cursor.execute(
+            db_query("DELETE FROM kv_store WHERE key NOT IN (%s)" % ', '.join('?' * len(BROADCAST_KEEP_KEYS))),
+            BROADCAST_KEEP_KEYS
+        )
+        # 🏦 원장 경계 — 재정산이 여기서부터 이번 방송으로 센다
+        _ledger_mark_broadcast(cursor, f'{what} ({session_label})')
+    LAST_PERSISTED = None
+
+
 @app.route('/api/server/end_broadcast', methods=['POST'])
 def end_broadcast():
     try:
@@ -2726,36 +2886,15 @@ def end_broadcast():
             #    여기서 만들면 몇 줄 뒤 초기화가 방금 만든 백업까지 지워버려,
             #    실수로 방송을 종료했을 때 되돌릴 방법이 사라진다. 지금은 상태만 떠둔다.
             pre_state = copy.deepcopy(load_data())
+            # 1. 장부 보관 + DB 비우기 — 한 트랜잭션. 보관에 실패하면 아무것도 안 지운다(기록 유실 방지)
             try:
-                with get_db_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(db_query("""
-                        INSERT INTO donation_archive
-                            (archived_at, session_label, timestamp, name, amount, current_total, message, source, tx_id)
-                        SELECT ?, ?, timestamp, name, amount, current_total, message, source, tx_id
-                        FROM donation_history
-                    """), (time.strftime('%Y-%m-%d %H:%M:%S'), session_label))
-                    cursor.execute(db_query("SELECT COUNT(*) FROM donation_archive"))
-                    print(f"  📚 [장부 영구 보관] 누적 {cursor.fetchone()[0]}건")
+                _archive_and_clear_broadcast(session_label, '방송 종료')
             except Exception as arch_e:
-                # 보관에 실패하면 삭제를 진행하지 않는다 (기록 유실 방지)
-                print(f"❌ [장부 보관 실패 - 방송 종료 중단] {arch_e}")
+                print(f"❌ [장부 보관·초기화 실패 - 방송 종료 중단] {arch_e}")
                 return jsonify({"status": "error",
-                                "message": f"장부 백업에 실패해 방송 종료를 중단했습니다: {arch_e}"}), 500
+                                "message": f"장부 백업·초기화에 실패해 방송 종료를 중단했습니다(아무것도 지우지 않았습니다): {arch_e}"}), 500
 
-            # 1. Clear database tables (donation history, snapshots, players)
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(db_query("DELETE FROM players"))
-                cursor.execute(db_query("DELETE FROM donation_history"))
-                cursor.execute(db_query("DELETE FROM snapshots"))
-                # Delete kv_store keys that are NOT persistent configurations
-                cursor.execute(
-                    db_query("DELETE FROM kv_store WHERE key NOT IN (%s)" % ', '.join('?' * len(BROADCAST_KEEP_KEYS))),
-                    BROADCAST_KEEP_KEYS
-                )
-            
-            # 초기화가 끝난 뒤에 백업 스냅샷을 넣어야 살아남는다 (되돌리기 지점)
+            # 초기화가 끝난 뒤에백업 스냅샷을 넣어야 살아남는다 (되돌리기 지점)
             create_snapshot(pre_state, f"방송 종료 자동 백업 ({session_label})")
 
             # 2. Get current state from database (which will have only configurations preserved)
@@ -2770,6 +2909,9 @@ def end_broadcast():
             state.setdefault('fundjar', {})['score'] = 0
             state['goal_offset'] = 0      # 💰 게이지 보정은 이번 방송 것 — 다음 주로 안 넘긴다
             state['reaction_mode'] = False
+            # 🎬 리액션 대기줄도 방송 1회분이다. 안 비우면 지난주에 못 튼 시그니처가
+            #    다음 방송을 시작하자마자 방송판에서 재생됐다(reaction_mode 는 큐가 있으면 다시 켜진다).
+            state['reaction_queue'] = []
             state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000,
                                    "is_running": False, "team_mode": False}
             state['pending_donations'] = []
@@ -2796,8 +2938,15 @@ def end_broadcast():
             #    위에서 kv_store 행을 지웠는데 메모리 값은 그대로라, 변경분만 쓰는 평소 방식으로는
             #    "바뀐 게 없다"고 판단해 아무것도 복구되지 않는다. 그 상태로 서버가 재시작되면
             #    볼륨·슬롯 후보 같은 설정이 기본값으로 돌아가 버린다.
-            save_data(state, is_initial=True, sync=True)
+            # ⚠️ 이 저장이 실패하면 '성공' 이라고 답하면 안 된다(save_data_checked 설명 참고).
             broadcast_event('update', state)
+            try:
+                save_data_checked(state, is_initial=True)
+            except Exception as save_e:
+                print(f"❌ [방송 종료 저장 실패] {save_e}", flush=True)
+                return jsonify({"status": "error",
+                                "message": f"방송은 종료했지만 저장에 실패했습니다 — 서버를 재시작하면 설정이 사라질 수 있어요. "
+                                           f"DB 연결을 확인하고 [방송 종료] 를 한 번 더 눌러 주세요: {save_e}"}), 500
 
         return jsonify({"status": "success", "message": "방송이 종료되고 오늘의 데이터가 리셋되었습니다."})
     except Exception as e:
@@ -2817,33 +2966,15 @@ def start_broadcast():
         with file_lock:
             # 0. ⚠️ 방송 시작도 장부를 지우므로, 지우기 전에 지난 기록을 영구 보관한다.
             session_label = time.strftime('%Y-%m-%d %H:%M:%S') + " 방송 시작 전"
+            # 1. 장부 보관 + DB 비우기 — 한 트랜잭션(_archive_and_clear_broadcast)
             try:
-                with get_db_connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(db_query("""
-                        INSERT INTO donation_archive
-                            (archived_at, session_label, timestamp, name, amount, current_total, message, source, tx_id)
-                        SELECT ?, ?, timestamp, name, amount, current_total, message, source, tx_id
-                        FROM donation_history
-                    """), (time.strftime('%Y-%m-%d %H:%M:%S'), session_label))
+                _archive_and_clear_broadcast(session_label, '방송 시작')
             except Exception as arch_e:
-                print(f"❌ [장부 보관 실패 - 방송 시작 중단] {arch_e}")
+                print(f"❌ [장부 보관·초기화 실패 - 방송 시작 중단] {arch_e}")
                 return jsonify({"status": "error",
-                                "message": f"장부 백업에 실패해 방송 시작을 중단했습니다: {arch_e}"}), 500
+                                "message": f"장부 백업·초기화에 실패해 방송 시작을 중단했습니다(아무것도 지우지 않았습니다): {arch_e}"}), 500
 
-            # 1. Clear database tables (donation history, snapshots, players)
-            with get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute(db_query("DELETE FROM players"))
-                cursor.execute(db_query("DELETE FROM donation_history"))
-                cursor.execute(db_query("DELETE FROM snapshots"))
-                # Delete kv_store keys that are NOT persistent configurations
-                cursor.execute(
-                    db_query("DELETE FROM kv_store WHERE key NOT IN (%s)" % ', '.join('?' * len(BROADCAST_KEEP_KEYS))),
-                    BROADCAST_KEEP_KEYS
-                )
-            
-            # 2. Get current state from database (which will have only configurations preserved)
+            # 2. Get current statefrom database (which will have only configurations preserved)
             state = load_data()
             
             # 3. Set broadcast_active to True and initialize players
@@ -2853,6 +2984,9 @@ def start_broadcast():
             state['bottom_fixed']['score'] = 0
             state.setdefault('fundjar', {})['score'] = 0     # 🏺 종잣돈은 그대로, 후원분만 0
             state['reaction_mode'] = False
+            # 🎬 리액션 대기줄도 방송 1회분이다. 안 비우면 지난주에 못 튼 시그니처가
+            #    다음 방송을 시작하자마자 방송판에서 재생됐다(reaction_mode 는 큐가 있으면 다시 켜진다).
+            state['reaction_queue'] = []
             state['match_data'] = {"active": False, "players": [], "time_left_ms": 180000,
                                    "is_running": False, "team_mode": False}
             state['pending_donations'] = []
@@ -2876,10 +3010,16 @@ def start_broadcast():
                 _ss['mode'] = 'off'
 
             # kv_store 행을 위에서 지웠으므로 전체 키를 다시 기록해야 설정이 살아남는다
-            
-            save_data(state, is_initial=True, sync=True)
+            # ⚠️ 이 저장이 실패하면 '성공' 이라고 답하면 안 된다(save_data_checked 설명 참고).
             broadcast_event('update', state)
-            
+            try:
+                save_data_checked(state, is_initial=True)
+            except Exception as save_e:
+                print(f"❌ [방송 시작 저장 실패] {save_e}", flush=True)
+                return jsonify({"status": "error",
+                                "message": f"방송은 시작했지만 저장에 실패했습니다 — 서버를 재시작하면 설정이 사라질 수 있어요. "
+                                           f"DB 연결을 확인하고 [방송 시작] 을 한 번 더 눌러 주세요: {save_e}"}), 500
+
         return jsonify({"status": "success", "message": "방송이 활성화되었습니다."})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -2889,74 +3029,21 @@ def start_broadcast():
 # ==========================================
 @app.route('/api/time_machine/restore_by_time', methods=['POST'])
 def restore_by_time():
-    try:
-        req_data = request.get_json(silent=True) or {}
-        time_str = req_data.get('time', '').strip()
-        if not time_str:
-            return jsonify({'status': 'error', 'message': '이동할 시간을 입력해주세요.'}), 400
-            
-        # 🕘 사장님이 치는 시각은 **한국 시각**이다. 그런데 장부의 timestamp 는
-        #    서버 지역시(운영 서버는 UTC)로 적혀 있다. 그대로 비교하면 9시간 어긋난 자리로
-        #    돌아가거나 '장부가 없습니다' 가 뜬다. 그래서 KST → 서버시로 되돌려 묻는다.
-        _shift = _bc_shift_hours()
-        if len(time_str.split(':')) == 2:
-            time_str_full = time_str + ':00'
-        else:
-            time_str_full = time_str
-        today_kst = time.strftime('%Y-%m-%d', time.localtime(time.time() + _shift * 3600))
-        try:
-            _t = datetime.datetime.strptime(today_kst + ' ' + time_str_full, '%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            return jsonify({'status': 'error', 'message': '시간 형식이 올바르지 않습니다 (예: 21:30)'}), 400
-        target_ts = (_t - datetime.timedelta(hours=_shift)).strftime('%Y-%m-%d %H:%M:%S')
-        shown_ts = today_kst + ' ' + time_str_full   # 사람에게 보여줄 때는 한국 시각 그대로
-            
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(db_query("""
-                SELECT name, current_total 
-                FROM donation_history 
-                WHERE id IN (
-                    SELECT MAX(id) 
-                    FROM donation_history 
-                    WHERE timestamp <= ? 
-                    GROUP BY name
-                )
-            """), (target_ts,))
-            history_rows = cursor.fetchall()
-            
-            if not history_rows:
-                return jsonify({'status': 'error', 'message': f'[{shown_ts}] 시점 또는 그 이전에 기록된 장부가 없습니다.'}), 404
-                
-            cursor.execute(db_query("SELECT key, value FROM kv_store WHERE key = 'target_goal'"))
-            goal_row = cursor.fetchone()
-            target_goal = json.loads(goal_row[1]) if goal_row else 50000
-            
-        current_state = load_data()
-        restored_state = copy.deepcopy(current_state)
-        restored_state['target_goal'] = target_goal
-        restored_state['bjs'] = []
-        
-        for name, score in history_rows:
-            restored_state['bjs'].append({
-                'name': name,
-                'score': score,
-                'contribution': score
-            })
-            
-        restored_state['bjs'].sort(key=lambda x: x['contribution'], reverse=True)
-        
-        global MEMORY_STATE
-        MEMORY_STATE = restored_state
-        save_data(restored_state, sync=True)
-        broadcast_event('update', restored_state)
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'⏳ [시간여행 성공]\n오늘 {time_str} 시점의 플레이어 상태로 안전하게 원복되었습니다!'
-        })
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+    """⏪ [막아 둠] 시각으로 되돌리기 — 410 으로 답하고 아무것도 바꾸지 않는다.
+
+    ⚠️ 이 기능은 명단을 **후원 장부(donation_history)** 로 다시 만들었다. 그런데 그 표의
+       name 은 '후원한 사람'이고 current_total 은 '후원 금액' 이다. 누르는 순간 점수판이
+       선수 대신 후원자 이름들로 바뀌고, 점수 칸엔 원 단위 금액이 들어갔다(감사에서 재현).
+       게다가 00~03시에는 '오늘' 날짜로 찾아서 방송이 시작한 어제 저녁을 못 찾았고,
+       file_lock 없이 상태를 통째로 갈아끼워 그 사이 들어온 후원·점수를 덮었다.
+    ⚠️ 제대로 하려면 선수별 점수 원장(bank_ledger)의 score_balance 로 다시 짜야 하는데,
+       이름 바꾸기·백업 복구처럼 원장을 안 거치는 길이 있어 그것도 믿을 수 없다.
+       → 되돌리기는 **스냅샷 되돌리기**(타임머신 목록)만 쓴다. 그쪽은 그 순간 상태를 통째로 떠 둔 것이다.
+    """
+    print("⛔ [시간여행 복원] 막아 둔 기능이 호출됐습니다 — 스냅샷 되돌리기를 안내합니다", flush=True)
+    return jsonify({'status': 'error',
+                    'message': '시각으로 되돌리기는 점수판을 후원자 이름으로 바꿔 버리는 문제가 있어 꺼 두었습니다. '
+                               '같은 창의 [스냅샷 되돌리기] 목록에서 원하는 시점을 골라 주세요.'}), 410
 
 
 # 설정 패치로는 건드릴 수 없는 필드.
@@ -3012,6 +3099,8 @@ def api_settings_patch():
             state = load_data()
             _was_match = bool((state.get('match_data') or {}).get('active'))
             _was_roulette = copy.deepcopy(state.get('roulette'))
+            # ⚔️ 폰 타이머 버튼이 match_data 를 통째로 보낸다 — 점수만은 서버 값을 지킨다
+            _keep_match_scores(body.get('match_data'), state.get('match_data'))
             state.update(body)
             # 📺 폰은 대결 켜기/끄기·룰렛 돌리기를 이 길로 보낸다 — 무대가 따라가게
             _prev_stage = showmod.ensure(state)['stage']

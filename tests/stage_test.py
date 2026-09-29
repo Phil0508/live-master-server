@@ -213,7 +213,9 @@ print('=' * 74)
 print('⑥ 방송 시작·종료 SQL')
 print('=' * 74)
 chk('남길 설정 칸 물음표를 손으로 세지 않는다', 'NOT IN (?, ?' not in SV
-    and SV.count("', '.join('?' * len(BROADCAST_KEEP_KEYS))") == 2)
+    # (2026-09-30) 시작·종료가 한 도우미(_archive_and_clear_broadcast)를 같이 쓴다 — 한 번 이상이면 된다
+    and SV.count("', '.join('?' * len(BROADCAST_KEEP_KEYS))") >= 1
+    and 'NOT IN (%s)' in SV)
 _keep = re.search(r'BROADCAST_KEEP_KEYS = \(([^)]*)\)', SV)
 chk('테마·테마 연출은 방송을 끝내도 남는다', _keep is not None and "'theme'" in _keep.group(1) and "'theme_fx_enabled'" in _keep.group(1))
 
