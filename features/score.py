@@ -172,6 +172,22 @@ def api_score_add():
                                     "message": f"'{name}' 을(를) 찾을 수 없습니다"}), 404
                 targets.append((t, delta, contrib, t.get('name') or name))
 
+            # ↩️ 되돌리기면 원래 줄에 적어 둔 '그때 들어간 팀' 을 쓴다.
+            #    ⚠️ 지금 소속으로 찾으면, A팀일 때 받은 점수를 B팀으로 옮긴 뒤 되돌릴 때 B팀에서 빠졌다
+            #       (A팀은 그대로 · B팀은 받은 적 없는 점수가 빠짐 — 2026-09-30 재현).
+            #    줄에 'team' 칸이 없으면(옛 줄) 예전처럼 지금 소속으로 찾는다.
+            _undo_team = {}
+            if scope == 'rank':
+                for u in ([undo_log] if isinstance(undo_log, dict) else (undo_log or [])):
+                    if not isinstance(u, dict):
+                        continue
+                    for l in (state.get('logs') or []):
+                        if (l.get('time') == u.get('time') and l.get('name') == u.get('name')
+                                and l.get('val') == u.get('val')):
+                            if 'team' in l:
+                                _undo_team[str(l.get('name') or '').strip()] = l.get('team') or ''
+                            break
+
             applied = []
             team_hits = []
             for t, delta, contrib, tname in targets:
@@ -180,11 +196,20 @@ def api_score_add():
                     t['contribution'] = (t.get('contribution') or 0) + contrib
                     # ⚔️ 팀전: 이 사람이 어느 팀 소속이면 그 팀 점수도 같이 올린다.
                     #    대결판이 후원을 따라 실시간으로 움직여야 보는 재미가 있다.
-                    team = _match_team_of(state, tname) if delta else None
+                    _k = str(tname or '').strip()
+                    if delta and _k in _undo_team:
+                        _tn = _undo_team[_k]
+                        _md = state.get('match_data') or {}
+                        team = next((p for p in (_md.get('players') or [])
+                                     if _tn and str(p.get('name') or '').strip() == str(_tn).strip()), None) \
+                            if (_md.get('active') and _md.get('team_mode')) else None
+                    else:
+                        team = _match_team_of(state, tname) if delta else None
                     if team is not None:
                         team['score'] = (team.get('score') or 0) + delta
                         team_hits.append((team.get('name'), tname, delta))
-                applied.append({"name": tname, "delta": delta, "contrib": contrib,
+                _tm = (team.get('name') or '') if (scope == 'rank' and delta and team is not None) else ''
+                applied.append({"name": tname, "delta": delta, "contrib": contrib, "team": _tm,
                                 "score": t.get('score'), "contribution": t.get('contribution')})
             for tn, mn, dv in team_hits:
                 print(f"  ⚔️ [팀전] {mn} 의 {dv:+d} 점이 '{tn}' 팀 점수에도 반영됐습니다", flush=True)
@@ -219,6 +244,9 @@ def api_score_add():
                         # 점수와 기여도가 다르게 움직였으면(나눠주기 · 손 고침) 기여도도 따로 적는다
                         if _ca is not None and a.get('contrib') is not None:
                             _row.update({"cval": a['contrib'], "cbefore": _ca - a['contrib'], "cafter": _ca})
+                        # ⚔️ 이 점수가 들어간 팀(없으면 빈칸) — 되돌리기가 이걸 보고 그 팀에서 뺀다
+                        if scope == 'rank' and a['delta']:
+                            _row["team"] = a.get('team') or ''
                         logs.insert(0, _row)
             # 되돌리기: '-3점' 줄을 새로 남기는 대신 원래 줄을 지운다(장부가 깔끔하게 남는다).
             # 반반·N분할을 되돌릴 때는 지울 줄이 여러 개라 목록도 받는다.

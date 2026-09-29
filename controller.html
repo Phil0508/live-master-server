@@ -2268,6 +2268,16 @@
                 <button onclick="modifyTimer(5, 'min')" style="background:var(--surface-2); border-color:var(--line);">+5분</button>
                 <button onclick="modifyTimer(-1, 'min')" style="background: rgba(255,69,58,0.1); color: var(--danger); border-color: rgba(255,69,58,0.2);">-1분</button>
             </div>
+            <!-- ⌨️ 시간을 키보드로 바로 넣는다 — 대표님(2026-09-30): "타이머 설정이 불편한데 냅다 키보드로 · 분 단위 초 단위로".
+                 분 칸에 쓰고 Tab(또는 →)으로 초 칸, Enter 면 그 시간으로 맞춘다. 돌고 있으면 그 시간부터 이어서 돈다. -->
+            <form onsubmit="event.preventDefault(); setTimerFromInputs();" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,0.02); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-light); margin: 0;">
+                <label for="timer-set-m" style="font-weight: 800; color: var(--text-muted);">시간 넣기</label>
+                <input id="timer-set-m" type="number" inputmode="numeric" min="0" max="180" placeholder="3" style="width: 76px; height: 40px; text-align: right; font-size: var(--fs-4); font-weight: 800;" onkeydown="if(event.key==='ArrowRight' && this.selectionStart===this.value.length){event.preventDefault();document.getElementById('timer-set-s').focus();}">
+                <span style="font-weight: 800;">분</span>
+                <input id="timer-set-s" type="number" inputmode="numeric" min="0" max="59" placeholder="00" style="width: 76px; height: 40px; text-align: right; font-size: var(--fs-4); font-weight: 800;">
+                <span style="font-weight: 800;">초</span>
+                <button type="submit" class="primary" style="height: 40px; padding: 0 18px;">맞추기 (Enter)</button>
+            </form>
         </div>
 
 
@@ -7209,6 +7219,30 @@
                 md.paused_time_left = md.time_left_ms;
             }
             pushAPI();
+        }
+
+        /* ⌨️ 분 · 초 칸에 넣은 시간으로 맞춘다. 빈 칸은 0 — '3' 분만 쓰고 Enter 면 3분 00초.
+           초 칸에 60 이상을 넣으면 분으로 넘긴다(90초 = 1분 30초). 돌고 있으면 그 시간부터 이어서 돈다. */
+        function setTimerFromInputs() {
+            if (!gd || !gd.match_data) return;
+            const mEl = document.getElementById('timer-set-m'), sEl = document.getElementById('timer-set-s');
+            const rd = el => { const v = String((el && el.value) || '').trim(); return v === '' ? 0 : Number(v); };
+            const m = rd(mEl), s = rd(sEl);
+            if (!Number.isInteger(m) || !Number.isInteger(s) || m < 0 || s < 0) {
+                acctToast('분 · 초는 0 이상의 정수로 넣어 주세요', 'warn'); return;
+            }
+            const ms = (m * 60 + s) * 1000;
+            if (ms <= 0) { acctToast('0초로는 맞출 수 없어요 — 시간을 넣어 주세요', 'warn'); return; }
+            if (ms > 180 * 60000) { acctToast('세 시간(180분)까지만 넣을 수 있어요', 'warn'); return; }
+            const md = gd.match_data;
+            if (md.is_running) md.end_time_ms = (Date.now() + serverTimeOffset) + ms;
+            else { md.time_left_ms = ms; }
+            md.paused_time_left = ms;
+            pushAPI();
+            if (mEl) mEl.value = '';
+            if (sEl) sEl.value = '';
+            const tot = ms / 1000;
+            acctToast('⏱️ ' + Math.floor(tot / 60) + '분 ' + String(tot % 60).padStart(2, '0') + '초로 맞췄어요', 'ok');
         }
 
         function resetTimer() {

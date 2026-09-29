@@ -1986,6 +1986,51 @@ def save_data(new_data, is_initial=False, sync=False, wait=True):
     return _save_data_real(new_data, is_initial=is_initial, sync=sync, wait=wait)
 
 
+_LAST_REACTION_MODE = None   # 지난 저장 때의 리액션 모드 — 켜지고 꺼지는 순간을 알아챈다
+
+
+def _match_follow_reaction(state):
+    """⏱️ 리액션 모드가 켜지면 대결 타이머를 얼리고, 꺼지면 이어서 돌린다 — **누가 켰든** 같다.
+
+    대표님(2026-09-30): "후원으로 리액션모드로 진입하면 타이머가 자동으로 안 멈추는데,
+    손으로 직접 리액션모드 누르면 멈춰 — 이상하지?"
+    ⚠️ 예전엔 멈추는 코드가 조종실 화면(enterContentMode · triggerNeon)에만 있었다. 후원 시그니처는
+       서버(enqueue_signature)가 리액션 모드를 켜서 그 코드를 안 탔다 — 시그가 도는 동안 대결 시간이 흘렀다.
+       서버가 리액션 모드를 켜고 끄는 곳이 여덟 군데라, 한 곳씩 고치면 또 빠진다. 저장하는 이 한 곳에서 본다.
+    ⚠️ 조종실이 이미 얼려 보냈으면(was_running_before_reaction) 여기선 할 일이 없다 — 두 번 얼리지 않는다.
+       이어 돌리기도 '리액션 때문에 멈춘 것'(그 표시)일 때만 한다. 손으로 멈춘 타이머는 안 건드린다.
+    ⚠️ 시각은 서버 시계(ms)다. 조종실도 서버 시계(serverTimeOffset)로 맞춘 값을 보낸다.
+    """
+    global _LAST_REACTION_MODE
+    if not isinstance(state, dict):
+        return
+    now_rx = bool(state.get('reaction_mode'))
+    was_rx = _LAST_REACTION_MODE
+    _LAST_REACTION_MODE = now_rx
+    if was_rx is None or was_rx == now_rx:
+        return
+    md = state.get('match_data')
+    if not isinstance(md, dict):
+        return
+    now_ms = int(time.time() * 1000)
+    if now_rx and md.get('is_running'):
+        left = max(0, int(md.get('end_time_ms') or 0) - now_ms)
+        md['time_left_ms'] = left
+        md['is_running'] = False
+        md['was_running_before_reaction'] = True
+        md['paused_time_left'] = left or md.get('paused_time_left') or 180000
+        print(f'  ⏸️ [대결 타이머] 리액션 모드 — {left // 1000}초 남기고 멈춤', flush=True)
+    elif not now_rx and md.get('was_running_before_reaction'):
+        left = int(md.get('time_left_ms') or 0)
+        if left <= 0:
+            left = int(md.get('paused_time_left') or 180000)
+        md['time_left_ms'] = left
+        md['end_time_ms'] = now_ms + left
+        md['is_running'] = True
+        md['was_running_before_reaction'] = False
+        print(f'  ▶️ [대결 타이머] 리액션 끝 — {left // 1000}초부터 이어서', flush=True)
+
+
 def _save_data_real(new_data, is_initial=False, sync=False, wait=True):
     """상태 저장.
 
@@ -1995,6 +2040,10 @@ def _save_data_real(new_data, is_initial=False, sync=False, wait=True):
     sync=False: 슬라이더·전광판 문구 같은 잦은 UI 갱신은 기존대로 백그라운드 처리.
     """
     global MEMORY_STATE
+    try:
+        _match_follow_reaction(new_data)
+    except Exception as _e:
+        print(f'⚠️ [대결 타이머 · 리액션] 맞추기 실패 — 저장은 계속합니다: {_e}', flush=True)
     # 메모리 캐시는 즉시 최신화하여 조종실과 오버레이에 0ms로 반영
     MEMORY_STATE = new_data
     # ⚠️ 큐에 넣는 것은 스냅샷(깊은 복사)이어야 한다.
@@ -3103,8 +3152,16 @@ def api_settings_patch():
             state = load_data()
             _was_match = bool((state.get('match_data') or {}).get('active'))
             _was_roulette = copy.deepcopy(state.get('roulette'))
-            # ⚔️ 폰 타이머 버튼이 match_data 를 통째로 보낸다 — 점수만은 서버 값을 지킨다
-            _keep_match_scores(body.get('match_data'), state.get('match_data'))
+            # ⚔️ 폰 타이머 버튼이 match_data 를 통째로 보낸다 — 대결자 명단(이름 · 팀원 · 점수)은
+            #    **서버 값을 통째로** 지킨다. 이 길로 대결자를 고치는 화면은 없다(폰은 켜기 · 타이머뿐).
+            #    ⚠️ 점수만 지켰더니, 조종실에서 철수를 B팀으로 옮긴 뒤 폰이 옛 사본으로 타이머를 누르면
+            #       팀원이 옛 구성으로 돌아가 철수 점수가 다시 A팀으로 들어갔다(2026-09-30 재현).
+            _pm = body.get('match_data')
+            _cm = state.get('match_data')
+            if isinstance(_pm, dict) and isinstance(_cm, dict) and isinstance(_cm.get('players'), list):
+                _pm['players'] = copy.deepcopy(_cm['players'])
+            else:
+                _keep_match_scores(_pm, _cm)
             state.update(body)
             # 📺 폰은 대결 켜기/끄기·룰렛 돌리기를 이 길로 보낸다 — 무대가 따라가게
             _prev_stage = showmod.ensure(state)['stage']

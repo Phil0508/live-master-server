@@ -87,11 +87,18 @@ st, r = post('/api/settings/patch', {'match_data': md})   # 폰 타이머 버튼
 s = get()
 chk('폰 패치 뒤에도 A팀 500', mscore(s, 'A팀') == 500, (st, mscore(s, 'A팀')))
 chk('폰 패치 타이머 시작은 받아들인다', s['match_data'].get('is_running') is True)
+_mdx = json.loads(json.dumps(stale['match_data']))
+_mdx['players'][0]['name'] = '폰에서바꾼이름'
+post('/api/settings/patch', {'match_data': _mdx})
+chk('폰 창구로는 대결자 이름 · 팀원이 안 바뀐다 (서버 명단 그대로)', mscore(get(), 'A팀') == 500 and mscore(get(), '폰에서바꾼이름') is None)
 
 post('/api/score/add', {'scope': 'match', 'name': 'B팀', 'delta': 70})
-md = json.loads(json.dumps(stale['match_data']))
-md['players'][0]['name'] = 'A팀장'            # 이름만 바꾼다(낡은 점수 0 이 실려 간다)
-st, r = post('/api/settings/patch', {'match_data': md})
+# ⚠️ 2026-09-30 — 폰 창구(/api/settings/patch)는 이제 대결자 명단을 통째로 서버 값으로 지킨다
+#    (옛 사본 타이머가 팀원 구성을 되돌려 점수가 옛 팀으로 가던 것). 이름은 조종실 창구로만 바꾼다.
+_st = get()
+_st['match_data'] = json.loads(json.dumps(stale['match_data']))
+_st['match_data']['players'][0]['name'] = 'A팀장'   # 이름만 바꾼다(낡은 점수 0 이 실려 간다)
+st, r = post('/api/data', _st)
 s = get()
 chk('이름 바꾼 대결자는 옛 점수를 물려받는다', mscore(s, 'A팀장') == 500, s['match_data'].get('players'))
 chk('B팀 70 그대로', mscore(s, 'B팀') == 70, mscore(s, 'B팀'))
