@@ -34,6 +34,8 @@ mimetypes.add_type('application/wasm', '.wasm')
 import re       # 후원 메시지에서 별명 후보 토막내기
 import random   # 시그게임 카드 배치·섞기, 슬롯 당첨 뽑기
 import math     # 시그게임 판을 정사각형에 가깝게 잡을 때
+import select
+import socket
 import threading
 import uuid
 import logging
@@ -882,6 +884,87 @@ sse_lock = threading.Lock()
 # 클라이언트 1대가 밀렸을 때 쌓아둘 최대 메시지 수.
 # state 전체가 실리므로(수십 KB) 이 값이 곧 '밀린 클라 1대당 최대 메모리'다.
 SSE_QUEUE_MAX = 120
+
+# 🧹 죽은 연결 치우기 (2026-09-30 방송 중 실제 사고 — 끊긴 연결 161개 · 실 가닥 235개)
+#    붙은 연결을 지우는 곳이 finally 뿐이라, 조용히 사라진 브라우저는 영영 안 치워졌다.
+#    ⚠️ 셋 다 넉넉하게 잡는다. 방송 중 멀쩡한 화면을 실수로 끊는 쪽이 훨씬 나쁘다.
+SSE_MAX_CLIENTS = int(os.environ.get('SSE_MAX_CLIENTS', '60'))   # 이보다 많으면 가장 오래된 것부터
+SSE_STALE_SEC = int(os.environ.get('SSE_STALE_SEC', '120'))      # 이 동안 한 줄도 안 받아 가면 죽은 것
+SSE_SOCKET_TIMEOUT = int(os.environ.get('SSE_SOCKET_TIMEOUT', '90'))   # 소켓이 이만큼 막히면 끊는다
+_sse_evicted = 0          # 지금까지 내보낸 죽은 연결 수(상태 페이지에 보여준다)
+
+
+def _sse_drop(q, why):
+    """죽은 연결 하나를 목록에서 빼고, 기다리는 제너레이터를 깨워 빠져나가게 한다.
+       ⚠️ sse_lock 을 쥔 채로 부른다."""
+    global _sse_evicted
+    if q in sse_clients:
+        sse_clients.remove(q)
+        _sse_evicted += 1
+    q._evict = why
+    try:
+        q.put_nowait(None)          # None = '이제 그만' 표시. 제너레이터가 이걸 보고 끝낸다
+    except Exception:
+        pass
+    # ⚠️ 소켓도 닫아 준다. 안 닫으면 CLOSE-WAIT 로 그대로 남아(오늘 161개가 그랬다)
+    #    실 가닥이 안 풀린다. 닫으면 그 실이 쓰기에서 깨어나 finally 까지 간다.
+    sk = getattr(q, '_sock', None)
+    if sk is not None:
+        try:
+            sk.shutdown(socket.SHUT_RDWR)
+        except Exception:
+            pass
+        try:
+            sk.close()
+        except Exception:
+            pass
+
+
+def _peer_gone(sock):
+    """상대가 연결을 끊었는가 — 소켓에서 직접 본다.
+       브라우저가 탭을 닫으면 FIN 이 와서 '읽을 게 있는데 읽으면 0바이트' 가 된다.
+       (이게 CLOSE-WAIT 로 쌓이던 그 상태다. 글자를 써 넣는 것만으로는 절대 알 수 없다 —
+        상대가 사라져도 운영체제 버퍼에는 잘 들어가기 때문이다.)
+       ⚠️ 엿보기(MSG_PEEK)라 읽어도 없어지지 않는다. 확실할 때만 True — 애매하면 살려 둔다."""
+    if sock is None:
+        return False
+    try:
+        r, _, _ = select.select([sock], [], [], 0)
+        if not r:
+            return False                      # 읽을 게 없다 = 잘 붙어 있다
+        return sock.recv(1, socket.MSG_PEEK) == b''    # 0바이트 = 저쪽이 끊었다
+    except (BlockingIOError, InterruptedError):
+        return False
+    except OSError:
+        return True                           # 소켓이 이미 망가졌다
+    except Exception:
+        return False
+
+
+def _sse_janitor():
+    """30초마다 죽은 연결을 치운다.
+       ① 상대가 끊은 것(제일 흔하다 — 탭 닫기 · 새로고침 연타)
+       ② 오래 아무것도 못 받아 간 것(소켓이 막힌 경우)
+       ③ 그래도 넘치면 오래된 것부터"""
+    while True:
+        time.sleep(30)
+        try:
+            now = time.time()
+            with sse_lock:
+                for q in list(sse_clients):
+                    if _peer_gone(getattr(q, '_sock', None)):
+                        _sse_drop(q, 'closed')
+                for q in [x for x in sse_clients
+                          if now - getattr(x, '_drained', now) > SSE_STALE_SEC]:
+                    _sse_drop(q, 'stale')
+                # 상한을 넘으면 오래된 것부터 (새 화면이 못 붙는 일을 막는다)
+                while len(sse_clients) > SSE_MAX_CLIENTS:
+                    _sse_drop(sse_clients[0], 'over')
+        except Exception as e:
+            print(f'⚠️ [실시간 연결 청소] 한 번 걸렀습니다: {e}', flush=True)
+
+
+threading.Thread(target=_sse_janitor, daemon=True, name='sse-janitor').start()
 
 # '나머지 까보기' 를 열어두는 시간. 오버레이의 SG_PEEK_MS 와 같아야 한다.
 #  ⚠️ mask_siggame 이 이 값을 쓰므로 그 함수보다 위에 있어야 한다.
@@ -2117,8 +2200,16 @@ def sse_stream():
     #    오버레이(무인증)에는 민감 항목을 뺀 것을 보내기 위해서다.
     #    (제너레이터 안에서는 요청 컨텍스트가 없어 session 을 다시 볼 수 없다)
     q._authed = request_is_authed()
+    q._evict = None
+    q._drained = time.time()      # 마지막으로 이 화면이 한 줄 받아 간 때(청소부가 본다)
+    # 🔌 이 연결의 소켓. 청소부가 '상대가 끊었나' 를 여기서 직접 본다.
+    #    (werkzeug 개발 서버가 넣어 준다. 다른 서버로 바꾸면 없을 수 있어 없으면 그냥 넘어간다)
+    q._sock = request.environ.get('werkzeug.socket')
     with sse_lock:
         sse_clients.append(q)
+        # 상한을 넘으면 가장 오래된 것부터 내보낸다 — 새 화면이 못 붙는 일이 없게
+        while len(sse_clients) > SSE_MAX_CLIENTS:
+            _sse_drop(sse_clients[0], 'over')
 
     def event_generator():
         try:
@@ -2140,7 +2231,12 @@ def sse_stream():
                     msg = q.get(timeout=15.0)
                 except queue.Empty:
                     msg = "event: ping\ndata: {}\n\n"   # 무음 15초마다 연결 유지 신호
+                if msg is None or q._evict:      # 청소부가 '이제 그만' 이라고 했다
+                    break
                 yield msg
+                # ⚠️ yield 가 돌아왔다 = 저쪽이 실제로 받아 갔다. 이 시각이 '살아 있음' 의 증거다.
+                #    소켓이 막히면 여기서 멈춰 있다가 시간제한에 걸려 예외가 나고 finally 로 간다.
+                q._drained = time.time()
         finally:
             # ⚠️ 반드시 finally 여야 한다.
             #    예전에는 while 을 정상적으로 빠져나올 때만 정리했는데, ping 은 `except queue.Empty:`
@@ -2150,6 +2246,9 @@ def sse_stream():
             with sse_lock:
                 if q in sse_clients:
                     sse_clients.remove(q)
+            if q._evict:
+                print(f'🧹 [실시간 연결] 죽은 것 하나 치웠습니다 ({q._evict}) — 남은 {len(sse_clients)}개',
+                      flush=True)
                 
     response = app.response_class(event_generator(), mimetype='text/event-stream')
     response.headers['X-Accel-Buffering'] = 'no'
@@ -2239,6 +2338,7 @@ def api_health():
     out['standby'] = STANDBY   # 🛰️ 대기 모드면 이 서버는 DB 를 건드리지 않는다
     with sse_lock:
         out['sse_clients'] = len(sse_clients)
+        out['sse_evicted'] = _sse_evicted      # 지금까지 치운 죽은 연결 수
 
     # 여기부터는 로그인한 사람에게만. 남이 보면 공격 힌트가 되는 것들이다.
     if session.get('authenticated'):
@@ -3245,6 +3345,14 @@ def run_flask():
     #    (실제로 Vultr 서울 서버에서 8080 이 밖에서 응답하는 것을 확인했다)
     #    그런 곳에서는 BIND_HOST=127.0.0.1 을 넣어 Caddy 를 거치게 강제한다.
     host = (os.environ.get('BIND_HOST') or '0.0.0.0').strip()
+    # ⚠️ 소켓에 시간제한을 건다. 이게 없으면 사라진 브라우저에 쓰다가 그 자리에서 영영 멈춰
+    #    실 가닥이 하나씩 쌓인다(2026-09-30 방송 중 235개까지 갔다).
+    #    SSE 는 15초마다 신호를 보내므로 90초 제한에 멀쩡한 화면이 걸릴 일은 없다.
+    try:
+        from werkzeug.serving import WSGIRequestHandler
+        WSGIRequestHandler.timeout = SSE_SOCKET_TIMEOUT
+    except Exception as e:
+        print(f'⚠️ [소켓 시간제한] 못 걸었습니다 — 그대로 켭니다: {e}', flush=True)
     app.run(host=host, port=port, debug=False, use_reloader=False)
 
 def has_gui_support():

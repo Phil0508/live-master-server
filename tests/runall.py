@@ -286,6 +286,7 @@ run('🧮 로그 — 몇 + 몇 = 몇', [PY, 'log_math_test.py'], HERE, kind='pt'
 run('모니터 모드(폰 미리보기)', [PY, 'monitor_test.py'], HERE)
 run('지난 방송 후원내역', [PY, 'archive_test.py'], HERE, kind='pt')
 run('안내 전광판', [PY, 'notice_test.py'], HERE, kind='pt')
+run('🧹 죽은 실시간 연결 치우기', [PY, 'sse_cleanup_test.py'], HERE, kind='pt')
 run('배치 왕복', [PY, 'layout_test.py'], HERE, kind='pt')
 run('시그니처 연출', ['node', 'sigfx_test.js'], HERE)
 run('룰렛 상시부담', ['node', 'roulette_test.js'], HERE)
