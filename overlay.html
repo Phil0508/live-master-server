@@ -4711,7 +4711,7 @@
             // 올클리어 신호가 새로 왔을 때만 한 번 재생한다
             if (act.type === 'ALLCLEAR' && act.ts !== sgAllClearTs && (now - act.ts) < 8000) {
                 sgAllClearTs = act.ts;
-                try { if (clipAuto()) clipSave(20000, '올클리어', 'allclear:' + act.ts); } catch (e) {}
+                try { if (clipAuto()) clipSave(CLIP_AFTER, '올클리어', 'allclear:' + act.ts); } catch (e) {}
                 shown.forEach(c => { if (c.doneAt) sgSeenDone.add(c.id + ':' + c.doneAt); });
                 sgPlayAllClear(grid, box.querySelector('.sg-board') || box, goals.length);
             }
@@ -7999,7 +7999,7 @@
             console.log('Playing reaction:', data, isRepeat ? '(🔁 반복 ' + (rxRep.n) + ')' : '');
             if (!isRepeat || rxRep.id !== data.id) rxRep = { id: data.id, n: 1 };
             // ✂️ 기준 금액 이상 시그가 실제로 재생된다 — 반응까지 담기게 25초 뒤 저장
-            try { const _m = clipAuto(); if (_m && Number(data && data.amount) >= _m) clipSave(CLIP_AUTO_WAIT, (data.donator || '') + ' ' + data.amount, data.id); } catch (e) {}
+            try { const _m = clipAuto(); if (_m && Number(data && data.amount) >= _m) clipSave(CLIP_AFTER, (data.donator || '') + ' ' + data.amount, data.id); } catch (e) {}
             
             const overlay = document.getElementById('reaction-screen-overlay');
             const img = document.getElementById('reaction-screen-image');
@@ -8603,15 +8603,21 @@
 
 
         /* ✂️ 쇼츠 클립 — 이 방송판이 OBS 의 '리플레이 버퍼 저장' 담당이다 (2026-09-28)
-           OBS 는 최근 90초를 늘 기억한다(블랙박스). 명장면이면 이 화면이 OBS 에 "방금 90초 저장" 이라고 말한다.
+           OBS 는 최근 몇 분을 늘 기억한다(블랙박스). 명장면이면 이 화면이 OBS 에 "저장" 이라고 말한다.
+           ⏱ 2026-09-30 대표님: "누르는 순간 기준 전 90초 ~ 후 90초". 그래서 그 순간에서 **90초 뒤에** 저장한다
+              → OBS 가 기억하는 180초 = 앞 90초 + 뒤 90초. 조종실 [✂ 클립] · 큰 시그 · 올클리어 모두 같다.
+              ⚠️ OBS 리플레이 버퍼 '최대 시간' 이 180초여야 한다(90초로 두면 뒤 90초만 남는다). 방송판은 이 값을 못 바꾼다.
            ⚠️ OBS 브라우저 소스 속성 → 페이지 권한 → 'OBS 에 대한 고급 접근 권한'(4) 이상일 때만 된다.
               권한 준 방송판 하나만 저장한다 — 장면마다 방송판이 있어도 클립이 여러 개 안 생긴다.
               OBS 밖(미리보기 창·폰)에는 window.obsstudio 가 없어 아무 일도 안 한다.
-           ⚠️ 두 순간이 30초 안에 겹치면 한 번에 담는다(뒤 순간까지 기다려 저장, 처음부터 60초까지만).
-              그보다 멀면 다음 저장을 따로 건다 — 버리지 않는다. */
-        const CLIP = { level: -1, rb: null, err: '', timer: null, due: 0, first: 0, later: 0,
-                       refs: [], laterRefs: [], firedRefs: null, confirmT: null };
-        const CLIP_AUTO_WAIT = 25000;     // 시그 재생 뒤 25초 — 앞 65초 + 반응 25초가 담긴다(버퍼 90초 기준)
+           ⚠️ 두 순간이 30초 안에 붙으면 파일 하나로 담는다(뒤 순간 기준으로 저장 — 앞 순간은 앞쪽이 그만큼 덜 담긴다).
+              그보다 멀면 따로 저장한다 — 버리지 않는다.
+           💾 기다리는 저장은 이 방송판(OBS 안) 저장소에 적어 둔다. 90초를 기다리는 사이 방송판이
+              새로고침되거나(OBS 재시작 · 장면 전환 때 새로고침 설정) 꺼졌다 켜져도 되살려 저장한다. */
+        const CLIP_AFTER = 90000;          // 순간 뒤 90초에 저장 = 앞 90초 + 뒤 90초 (버퍼 180초 기준)
+        const CLIP_MERGE = 30000;          // 이만큼 안에 붙은 순간은 파일 하나로
+        const CLIP_PEND_KEY = 'lm_clip_pend';
+        const CLIP = { level: -1, rb: null, err: '', timer: null, pend: [], firedRefs: null, confirmT: null, restored: false };
         function clipObs() { return (window.obsstudio && typeof window.obsstudio === 'object') ? window.obsstudio : null; }
         function clipHello(extra) {
             if (!clipObs()) return;
@@ -8628,6 +8634,7 @@
                 o.getControlLevel(function (lv) {
                     CLIP.level = Number(lv);
                     if (!(CLIP.level >= 4)) { CLIP.err = '페이지 권한이 낮아요'; CLIP.rb = null; clipHello(); return; }
+                    clipRestore();   // 권한이 확인된 첫 순간 — 새로고침 전에 기다리던 저장을 되살린다
                     o.getStatus(function (st) {
                         CLIP.rb = !!(st && st.replaybuffer);
                         CLIP.err = '';
@@ -8650,44 +8657,60 @@
             clipHello({ saved: true, refs: CLIP.firedRefs.slice(0, 10) });
             CLIP.firedRefs = null;
         }
+        function clipPersist() { try { localStorage.setItem(CLIP_PEND_KEY, JSON.stringify(CLIP.pend)); } catch (e) {} }
+        // 다음 저장 시각에 맞춰 건다. ⚠️ 방금 저장한 것의 확인(4초)이 끝나기 전에 또 저장하지 않게 5초는 띄운다
+        function clipArm() {
+            if (CLIP.timer) { clearTimeout(CLIP.timer); CLIP.timer = null; }
+            const p = CLIP.pend[0];
+            if (!p) return;
+            CLIP.timer = setTimeout(clipFire, Math.max(p.due - Date.now(), CLIP.firedRefs ? 5000 : 0, 0));
+        }
         function clipFire() {
             CLIP.timer = null;
+            const p = CLIP.pend.shift();
+            clipPersist();
             const o = clipObs();
-            if (o) {
+            if (p && o) {
                 try {
-                    o.saveReplayBuffer(); console.log('✂️ [클립] 리플레이 저장');
-                    CLIP.firedRefs = CLIP.refs.slice(); CLIP.refs = [];
+                    if (CLIP.firedRefs) clipConfirm();   // 앞 저장 확인이 아직이면 먼저 알린다(열쇠가 섞이지 않게)
+                    o.saveReplayBuffer(); console.log('✂️ [클립] 리플레이 저장 (앞 90초 + 뒤 90초)');
+                    CLIP.firedRefs = (p.refs || []).slice();
                     CLIP.confirmT = setTimeout(clipConfirm, 4000);
                 }
                 catch (e) { CLIP.err = '저장 실패'; clipHello(); }
             }
-            if (CLIP.later) {
-                const wait = Math.max(0, CLIP.later - Date.now());
-                CLIP.later = 0;
-                CLIP.refs = CLIP.laterRefs; CLIP.laterRefs = [];
-                CLIP.first = Date.now(); CLIP.due = Date.now() + wait;
-                CLIP.timer = setTimeout(clipFire, wait);
-            }
+            clipArm();
         }
         function clipSave(delayMs, why, ref) {
             if (!clipObs() || !(CLIP.level >= 4)) return;
             const now = Date.now(), at = now + Math.max(0, delayMs || 0);
-            const take = function (arr) { if (ref && arr.indexOf(String(ref)) < 0) arr.push(String(ref)); };
+            const r = ref ? String(ref) : '';
             console.log('✂️ [클립] 저장 예약 +' + Math.round((at - now) / 1000) + '초 · ' + (why || ''));
-            if (CLIP.timer) {
-                if (at <= CLIP.due) { take(CLIP.refs); return; }              // 이미 담긴다
-                if (at - CLIP.due <= 30000 && at - CLIP.first <= 60000) {     // 겹친다 — 뒤까지 기다려 한 번에
-                    take(CLIP.refs);
-                    clearTimeout(CLIP.timer); CLIP.due = at; CLIP.timer = setTimeout(clipFire, at - now);
-                } else {
-                    take(CLIP.laterRefs);
-                    CLIP.later = Math.max(CLIP.later, at);                    // 멀다 — 다음 저장으로
-                }
-                return;
+            const last = CLIP.pend[CLIP.pend.length - 1];
+            if (last && at - last.first <= CLIP_MERGE) {        // 붙은 순간 — 뒤 순간까지 기다려 파일 하나로
+                if (r && last.refs.indexOf(r) < 0) last.refs.push(r);
+                if (at > last.due) last.due = at;
+            } else {
+                CLIP.pend.push({ due: at, first: at, refs: r ? [r] : [] });
             }
-            take(CLIP.refs);
-            CLIP.first = now; CLIP.due = at;
-            CLIP.timer = setTimeout(clipFire, at - now);
+            clipPersist();
+            clipArm();
+        }
+        // 새로고침 뒤 — 기다리던 저장을 되살린다. 저장 시각이 2분 30초 넘게 지난 것은 버퍼(180초)에 거의 안 남아 버린다
+        function clipRestore() {
+            if (CLIP.restored) return;
+            CLIP.restored = true;
+            let old = [];
+            try { old = JSON.parse(localStorage.getItem(CLIP_PEND_KEY) || '[]'); } catch (e) {}
+            const now = Date.now();
+            old = (Array.isArray(old) ? old : []).filter(function (p) {
+                return p && typeof p.due === 'number' && typeof p.first === 'number' && Array.isArray(p.refs) && now - p.due < 150000;
+            });
+            if (!old.length) { clipPersist(); return; }
+            console.log('✂️ [클립] 새로고침 전에 기다리던 저장 ' + old.length + '개를 되살림');
+            CLIP.pend = old.concat(CLIP.pend).sort(function (a, b) { return a.due - b.due; });
+            clipPersist();
+            clipArm();
         }
         function clipAuto() {
             const c = (globalData && globalData.clip) || {};
@@ -8750,7 +8773,7 @@
             });
 
             sseSource.addEventListener('clip', function(e) {
-                try { const d = e.data ? JSON.parse(e.data) : {}; clipSave(Number(d.delay_ms) || 0, d.label || '조종실', d.id); }
+                try { const d = e.data ? JSON.parse(e.data) : {}; clipSave(CLIP_AFTER + (Number(d.delay_ms) || 0), d.label || '조종실', d.id); }
                 catch (err) { console.error('clip 처리 오류:', err); }
             });
 
