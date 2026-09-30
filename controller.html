@@ -130,6 +130,11 @@
             content: '순서 고정'; margin-left: 8px; font-size: var(--fs-1); font-weight: 700;
             color: var(--gold); opacity: .75; letter-spacing: .3px;
         }
+        /* ⚠️ 글씨는 제목줄 오른쪽 빈 자리 위에 띄운다(자리를 차지하지 않게).
+              제목줄 안에 끼우면 제목이 두 줄이 되며 카드가 16px 아래로 밀렸다 — 그것도 마우스가
+              대기함에 들어가는 바로 그 순간이라, 누르려던 단추가 손 밑에서 빠졌다(새 옷 1440 실측). */
+        #pending-box .group-title { position: relative; }
+        #pending-box.order-frozen .group-title::after { position: absolute; right: 0; top: 50%; transform: translateY(-50%); margin-left: 0; pointer-events: none; }
         /* 접었을 때 — 제목줄만 남고 목록은 사라진다. 화면을 넓게 쓰고 싶을 때. */
         #pending-box.folded #pending-list { display: none; }
         #pending-box.folded { max-height: none; overflow: visible; }
@@ -881,6 +886,16 @@
         .ai-toast .t-ok { flex:1; background:var(--accent); color:#1a1508; }
         .ai-toast .t-ok:hover { filter:brightness(1.12); }
         .ai-toast .t-no { flex:0 0 66px; background:rgba(255,255,255,0.07); color:#9fb0c9; }
+        /* 대기함 안 맨 위에 끼운다(toastPlace). 떠 있지 않으니 아무것도 안 가린다 */
+        #ai-assign-toasts.in-box { position:static; width:auto; max-height:none; overflow:visible; pointer-events:auto; gap:8px; margin:0 0 10px; }
+        #ai-assign-toasts.in-box:empty { display:none; }
+        /* 대기함 안에서는 한 줄로 작게 — 셋만 떠도 카드가 첫 화면 밖으로 밀렸다(한 장 130px). 메시지는 카드에 있으니 뺀다 */
+        #ai-assign-toasts.in-box .ai-toast { display:grid; grid-template-columns:minmax(0,1fr) auto; column-gap:10px; row-gap:1px; align-items:center; padding:8px 10px 8px 12px; }
+        #ai-assign-toasts.in-box .t-src { grid-column:1; font-size:var(--fs-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #ai-assign-toasts.in-box .t-src br, #ai-assign-toasts.in-box .t-src i { display:none; }
+        #ai-assign-toasts.in-box .t-q { grid-column:1; margin:0; font-size:var(--fs-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #ai-assign-toasts.in-box .t-btns { grid-column:2; grid-row:1 / span 2; }
+        #ai-assign-toasts.in-box .t-ok, #ai-assign-toasts.in-box .t-no { flex:none; padding:8px 12px; }
         /* 🤖 AI 도우미 패널 (왼쪽 끝 중앙 화살표) — B안(2026-09-29): 조종실 색 · 위 상황판 네 칸 · 아래 대화.
               ⚠️ 예전 파랑·보라 그라데이션은 조종실(검정·금색)과 따로 놀았다. 색은 전부 조종실 토큰에서 가져온다. */
         #ai-drawer-toggle { position:fixed; left:0; top:50%; transform:translateY(-50%); z-index:4001;
@@ -1799,8 +1814,282 @@
         body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.035;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
     </style>
+    <style id="skin-glass-css">
+        /* ═══════════════════════════════════════════════════════
+           🎨 새 옷 · 유리 스튜디오 (2026-09-30) — 대표님: "와 A 너무 좋은데? 난 저런 디자인을 바랬어"
+           흐린 사진 바탕 위 반투명 판 · 흰 카드 · 오렌지 강조 · 왼쪽 아이콘 줄(릴스 대시보드 느낌).
+           ⚠️ 겉모습만 바꾼다. 단추 자리 · 동작 · id 는 그대로다.
+           ⚠️ body.skin-glass 가 붙고 넓은 화면(1280px 이상)일 때만 걸린다. 왼쪽 줄 맨 아래 [옛 모습] 으로 끈다
+              (이 컴퓨터에만 기억 — localStorage 'ctl_skin'). 좁은 화면 · 폰은 예전 그대로다.
+           ⚠️ 바탕 그림은 미리 흐리게 구워 뒀다(vendor/stage/ctl_bg.jpg = 방송 시작 화면 그림).
+              backdrop-filter 를 안 쓴다 — 방송 PC 가 OBS 와 같이 돌려도 무겁지 않게.
+           흰 카드 안에서는 색 이름표(--text-main · --gold …)를 카드 안에서만 다시 정한다.
+              줄마다 박힌 style="color:var(--gold)" 같은 색도 그래서 흰 바탕에 맞게 따라 바뀐다.
+           ═══════════════════════════════════════════════════════ */
+        .skin-flip { display: none; }
+        #sk-head { display: none; }
+        @media (min-width: 1280px) {
+            .skin-flip { display: inline-flex; align-self: center; margin: 0 0 0 6px; height: 30px; padding: 0 10px; gap: 6px;
+                         font-size: var(--fs-2); color: var(--text-muted); border-radius: 999px; background: transparent; }
+            /* 옛 모습에서는 그림(🎨)만 — 글자까지 넣으면 아랫줄 탭이 한 줄 밑으로 떨어진다(실측 1440) */
+            body:not(.skin-glass) .skin-flip { padding: 0 8px; }
+            body:not(.skin-glass) .skin-flip span { display: none; }
+            body.skin-glass {
+                --accent: #f07b3f; --accent-glow: rgba(240, 123, 63, 0.28);
+                --gold: #ff9a5c; --gold-glow: rgba(240, 123, 63, 0.25);
+                --bg-body: #1a1411; --bg-panel: #221a16; --bg-card: #2b221d; --bg-input: rgba(0, 0, 0, 0.26);
+                --border-light: rgba(255, 255, 255, 0.10); --line: rgba(255, 255, 255, 0.14); --surface-2: rgba(255, 255, 255, 0.09);
+                --edge: rgba(255, 255, 255, 0.08); --edge-2: rgba(255, 255, 255, 0.13);
+                --text-main: #f6f1ec; --text-muted: #bcb0a6; --text-dim: #8c8078;
+                --r-2: 12px; --r-3: 22px;
+                --font-num: 'Pretendard', sans-serif;
+                --lift: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+                --sk-glass: rgba(24, 18, 15, 0.55); --sk-glass-hi: rgba(24, 18, 15, 0.68); --sk-line: rgba(255, 255, 255, 0.13);
+                --sk-o: #f07b3f; --sk-o-hi: #ff8f57; --sk-ink: #1d1a17;
+                background: #1a1411;
+                padding: 20px 20px 20px 124px;
+            }
+            /* 바탕 그림은 따로 고정된 한 겹에 — body 에 background-attachment: fixed 를 걸면
+               크롬이 스크롤할 때마다 화면 전체를 다시 칠한다(방송 PC 부하). 이 겹은 한 번 그리고 끝이다 */
+            body.skin-glass::after { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+                                     background: url('/vendor/stage/ctl_bg.jpg') center / cover no-repeat; will-change: transform; }
+            body.skin-glass::before { opacity: 0.05; }
+            /* 방송 전 화면에는 왼쪽 줄(탭)이 없다 — 그 자리를 비워 두지 않는다 */
+            body.skin-glass:has(#active-broadcast-area[style*="none"]) { padding-left: 20px; }
+
+            /* ── 맨 윗줄: 유리 막대 + 알약 단추 ── */
+            body.skin-glass .header { background: var(--sk-glass); border: 1px solid var(--sk-line); border-radius: 26px;
+                                      padding: 10px 12px 10px 18px; margin-bottom: 16px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+            body.skin-glass .header h1 i { color: var(--sk-o); }
+            body.skin-glass .header-buttons > div, body.skin-glass #lbl-reaction-wrapper, body.skin-glass .hdr-timer,
+            body.skin-glass #btn-clip, body.skin-glass #btn-editor {
+                background: rgba(255, 255, 255, 0.07) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important;
+                border-radius: 999px !important; box-shadow: none !important; }
+            body.skin-glass .header-buttons button, body.skin-glass .hdr-timer button { border-radius: 999px !important; }
+            body.skin-glass #btn-editor { color: var(--text-main) !important; }
+            body.skin-glass .hdr-timer { height: 44px; padding: 0 6px 0 16px; }
+            body.skin-glass .hdr-timer .hdr-go { color: #fff; }
+            body.skin-glass #yt-play-btn { box-shadow: none !important; }
+
+            /* ── 왼쪽 아이콘 줄 = 탭 (자리만 옮긴다. 누르는 동작은 그대로) ── */
+            body.skin-glass .tabs.tabs-2row {
+                position: fixed; left: 20px; top: 20px; bottom: 20px; width: 84px; z-index: 600; box-sizing: border-box;
+                display: flex; flex-direction: column; flex-wrap: nowrap; align-items: center; gap: 3px;
+                padding: 14px 0 88px !important; overflow-y: auto; overflow-x: hidden; scrollbar-width: none;
+                background: var(--sk-glass-hi) !important; border: 1px solid var(--sk-line) !important; border-radius: 34px !important;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 40px rgba(0, 0, 0, 0.25) !important; }
+            body.skin-glass .tabs.tabs-2row::-webkit-scrollbar { display: none; }
+            body.skin-glass .tabs.tabs-2row::before {
+                content: ''; flex: none; width: 44px; height: 44px; margin-bottom: 12px; border-radius: 15px;
+                background: var(--sk-o) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z' fill='%23ffffff'/%3E%3C/svg%3E") center / 22px no-repeat;
+                box-shadow: 0 8px 22px rgba(240, 123, 63, 0.45); }
+            body.skin-glass .tabs-2row .tab-row2 { display: contents !important; }
+            body.skin-glass .tabs-2row .tab-glabel { display: none !important; }
+            body.skin-glass .tabs-2row .tab-btn, body.skin-glass .tabs-2row .tab-btn.tab-minor, body.skin-glass .tabs-2row .tab-btn.tab-minor.active {
+                flex: none; width: 66px; min-height: 0; margin: 0; padding: 8px 0 6px !important;
+                flex-direction: column; justify-content: center; gap: 5px;
+                border-radius: 18px !important; font-size: 0 !important; line-height: 1;
+                color: rgba(246, 241, 236, 0.72) !important; transform: none !important; }
+            body.skin-glass .tabs-2row .tab-btn i { font-size: 17px; color: inherit !important; }
+            body.skin-glass .tabs-2row .tab-btn::after { content: attr(data-s); font-size: 11px; font-weight: 700; letter-spacing: -0.4px; white-space: nowrap; }
+            body.skin-glass .tabs-2row .tab-btn.active { background: var(--sk-o) !important; color: #fff !important;
+                                                         box-shadow: 0 8px 20px rgba(240, 123, 63, 0.38) !important; }
+            body.skin-glass .tabs-2row .tab-btn:hover:not(.active) { background: rgba(255, 255, 255, 0.08) !important; color: #fff !important; }
+            body.skin-glass .tabs-2row .tab-glabel + .tab-btn { margin-top: 12px; }   /* 자주 · 가끔 사이 */
+            body.skin-glass .tabs-2row .tab-dots::before { content: '⋯'; font-size: 20px; line-height: 0.8; }
+            /* ⋯ 를 펴면 줄이 두 칸으로 넓어져 판 위에 잠깐 겹친다(누르고 나면 다시 ⋯ 로 접는다) */
+            body.skin-glass.tabs-open .tabs.tabs-2row { width: 160px; display: grid; grid-template-columns: 66px 66px;
+                                                        justify-content: center; align-content: start; column-gap: 6px; row-gap: 3px; }
+            body.skin-glass.tabs-open .tabs.tabs-2row::before, body.skin-glass.tabs-open #skin-flip { grid-column: 1 / -1; justify-self: center; }
+            body.skin-glass.tabs-open .tabs-2row .tab-glabel + .tab-btn { margin-top: 0; }
+            body.skin-glass.tabs-open .tabs-2row a.tab-x { display: contents !important; }
+            body.skin-glass #skin-flip { margin: auto 0 0; flex: none; width: 62px; height: auto; padding: 8px 0 6px; flex-direction: column;
+                                         justify-content: center; gap: 4px; border-radius: 16px; font-size: 10.5px; font-weight: 700;
+                                         color: rgba(246, 241, 236, 0.62); background: transparent; border: 1px dashed rgba(255, 255, 255, 0.2); }
+            body.skin-glass #skin-flip i { font-size: 15px; }
+            /* 떠 있는 [백업] 은 왼쪽 줄 맨 아래로(끌어서 옮긴 적이 있으면 그 자리 그대로) */
+            body.skin-glass #float-backup-btn[style*="right:22px"], body.skin-glass #float-backup-btn[style*="right: 22px"] {
+                right: auto !important; left: 34px !important; bottom: 34px !important; }
+            body.skin-glass #float-backup-btn { width: 56px; height: 56px !important; padding: 0 !important; flex-direction: column; justify-content: center;
+                gap: 3px !important; font-size: 10.5px !important; border-radius: 18px !important; background: rgba(255, 255, 255, 0.09) !important;
+                color: #f6f1ec !important; border: 1px solid rgba(255, 255, 255, 0.18) !important; box-shadow: none !important; }
+            body.skin-glass #float-backup-btn i { font-size: 17px !important; }
+            /* AI 도우미 손잡이 — 왼쪽 줄 오른쪽 틈에 */
+            body.skin-glass #ai-drawer-toggle:not(.open) { left: 104px; width: 18px; border-radius: 0 10px 10px 0; color: #fff; }
+            body.skin-glass #ai-drawer-toggle { background: var(--sk-o); }
+
+            /* ── 가운데 판 · 오른쪽 판 ── */
+            body.skin-glass .shell { gap: 16px; }
+            body.skin-glass .shell-main { background: var(--sk-glass); border: 1px solid var(--sk-line); border-radius: 32px;
+                                          padding: 20px 22px 24px; box-sizing: border-box; min-height: calc(100vh - 124px);
+                                          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); }
+            /* ⚠️ 높이 = 화면 − 맨 윗줄(--sk-hdr, JS 가 잰다) — 예전(100vh − 40)은 스크롤 안 한 상태에서
+                  칸 아래 64px 이 화면 밖이라 재생 대기열 단추가 반쯤 잘렸다 */
+            body.skin-glass .shell-rail { background: var(--sk-glass-hi); border: 1px solid var(--sk-line); border-radius: 32px;
+                                          padding: 16px 14px 20px; top: 20px; max-height: calc(100vh - var(--sk-hdr, 84px) - 56px); box-sizing: border-box;
+                                          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06); scrollbar-width: none; }
+            body.skin-glass #sticky-top { background: transparent !important; padding-top: 0; margin-bottom: 14px; }
+            body.skin-glass .shell-main .group-box, body.skin-glass .shell-main .group-box:hover {
+                background: rgba(255, 255, 255, 0.055) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                border-radius: 24px !important; box-shadow: none !important; }
+            body.skin-glass .group-title { border-bottom-color: rgba(255, 255, 255, 0.08) !important; }
+            body.skin-glass .group-title i { color: var(--sk-o) !important; }
+            body.skin-glass .gx-act, body.skin-glass .stage-box { background: rgba(255, 255, 255, 0.07) !important; border-color: rgba(255, 255, 255, 0.12) !important; }
+            body.skin-glass .gx-tile, body.skin-glass button.gx-tile { background: rgba(0, 0, 0, 0.24); border-color: rgba(255, 255, 255, 0.12); }
+            body.skin-glass button.gx-tile:hover { background: rgba(255, 255, 255, 0.08); }
+            body.skin-glass button.gx-tile.go { background: linear-gradient(160deg, #ff9a5c, #e8662a); border-color: #ffb07e; box-shadow: 0 10px 26px rgba(240, 123, 63, 0.3); }
+            body.skin-glass button.gx-tile.go:hover { background: linear-gradient(160deg, #ffa66c, #f07034); border-color: #ffc29a; }
+            body.skin-glass button.gx-tile.go .ic, body.skin-glass button.gx-tile.go .nm, body.skin-glass button.gx-tile.go .sub { color: #fff; }
+            body.skin-glass button.primary, body.skin-glass button.shb-next, body.skin-glass .ai-toast .t-ok { color: #fff; }
+            body.skin-glass button.primary:hover, body.skin-glass button.shb-next:hover { background: var(--sk-o-hi); border-color: var(--sk-o-hi); color: #fff; }
+            body.skin-glass input:focus, body.skin-glass select:focus, body.skin-glass textarea:focus { background: rgba(0, 0, 0, 0.42); }
+
+            /* ── 랭킹 첫 화면: 인사 + 숫자 칸 넷 → 점수판(흰 카드) → 기본 설정(접힌 판)은 맨 아래로 ── */
+            body.skin-glass #tab-ranking.active { display: flex; flex-direction: column; gap: 16px; }
+            body.skin-glass #tab-ranking > #sk-head { order: 1; display: flex; flex-direction: column; gap: 14px; }
+            body.skin-glass #tab-ranking > .table-responsive { order: 2; }
+            body.skin-glass #tab-ranking > .group-box { order: 3; margin-bottom: 0; }
+            .sk-meta { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text-muted); }
+            .sk-live { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+                       background: rgba(63, 212, 138, 0.16); color: #7ff0b4; }
+            .sk-live::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #3fd48a; }
+            #sk-greet { margin: 5px 0 0; font-size: 26px; font-weight: 800; letter-spacing: -0.6px; color: #fff; }
+            .sk-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+            .sk-stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 14px 16px; border-radius: 22px;
+                       background: #fff; color: var(--sk-ink); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14); }
+            .sk-stat .k { display: flex; align-items: center; justify-content: space-between; gap: 6px;
+                          font-size: 12.5px; font-weight: 700; color: #6d655e; white-space: nowrap; }
+            .sk-stat .k i { flex: none; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+                            font-size: 12px; background: #fff0e8; color: var(--sk-o); }
+            .sk-stat .v { font-size: 26px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.2; font-variant-numeric: tabular-nums;
+                          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .sk-stat .v small { font-size: 14px; font-weight: 700; margin-left: 3px; color: #6d655e; letter-spacing: 0; }
+            .sk-stat .s { font-size: 12px; font-weight: 600; color: #8a817a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .sk-stat.hot { background: var(--sk-o); color: #fff; box-shadow: 0 12px 28px rgba(240, 123, 63, 0.32); }
+            .sk-stat.hot .k, .sk-stat.hot .s, .sk-stat.hot .v small { color: rgba(255, 255, 255, 0.9); }
+            .sk-stat.hot .k i { background: rgba(255, 255, 255, 0.22); color: #fff; }
+            .sk-stat .bar { display: block; height: 6px; margin-top: 3px; border-radius: 3px; background: #f1ece7; overflow: hidden; }
+            .sk-stat .bar[hidden] { display: none; }
+            .sk-stat .bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: #2f9a5f; transition: width 0.4s var(--ease); }
+            /* 점수판 = 흰 카드 */
+            body.skin-glass #tab-ranking .table-responsive {
+                --text-main: #1d1a17; --text-muted: #8a817a; --text-dim: #b3aaa2; --accent: #d2601f; --gold: #d2601f;
+                --bg-input: #faf7f4; --bg-card: #ffffff; --surface-2: #f3eee9; --border-light: #f1ece7; --line: #e6dfd8;
+                --edge: #efe9e3; --edge-2: #e6dfd8;
+                background: #fff !important; border: 0 !important; border-radius: 26px; padding: 6px 18px 6px; margin: 0;
+                box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2); color: var(--text-main); }
+            body.skin-glass .rk-table th { background: transparent !important; color: #9a918a; font-size: 12px; letter-spacing: 0;
+                                           text-transform: none; padding: 12px 10px 8px; border-bottom: 1px solid #f1ece7; }
+            body.skin-glass .rk-table td { padding: 9px 10px !important; border-bottom: 1px solid #f3eee9; }
+            body.skin-glass .rk-table tbody tr:last-child td { border-bottom: 0; }
+            body.skin-glass .rk-table tbody tr:hover { background: #fcfaf8; }
+            body.skin-glass .rk-table .score-display { color: var(--sk-ink); font-size: 18px; font-weight: 800; }
+            body.skin-glass .rk-table td input { background: #faf7f4 !important; color: var(--sk-ink) !important; border: 1px solid #ebe4dd !important;
+                                                 border-radius: 12px !important; height: 36px; box-shadow: none !important; }
+            body.skin-glass .rk-table td input:focus { background: #fff !important; border-color: var(--sk-o) !important;
+                                                       box-shadow: 0 0 0 3px rgba(240, 123, 63, 0.18) !important; }
+            body.skin-glass .rk-table input::placeholder { color: #b3aaa2; }
+            body.skin-glass .rk-table .rk-nm input { background: transparent !important; border-color: transparent !important;
+                                                     font-size: 16px; font-weight: 800; height: 30px; }
+            body.skin-glass .rk-table .rk-nm input:hover { border-color: #ebe4dd !important; }
+            body.skin-glass .rk-table .rk-nm input:focus { background: #faf7f4 !important; border-color: var(--sk-o) !important; }
+            body.skin-glass .rk-meter { height: 5px; background: #f3eee9; max-width: 260px; }
+            body.skin-glass .rk-meter i { background: var(--sk-o); }
+            body.skin-glass .rk-table .rank-badge { width: 28px; height: 28px; border-radius: 10px; border: 0; background: #f3eee9; color: var(--sk-ink); font-size: 13px; }
+            body.skin-glass .rk-table .rank-badge.badge-1st { background: var(--sk-o); color: #fff; }
+            body.skin-glass .rk-table td button { background: #faf7f4; border: 1px solid #ebe4dd; color: var(--sk-ink); border-radius: 10px; }
+            body.skin-glass .rk-table td:last-child button { background: transparent; border-color: transparent; color: #b9afa7; }
+            body.skin-glass .rk-table td:last-child button:hover { color: #e5484d; background: #fdecec; border-color: transparent; }
+
+            /* ── 오른쪽 판: 대기함 카드는 흰 카드, 나머지는 옅은 유리 카드 ── */
+            body.skin-glass .shell-rail > .group-box, body.skin-glass .shell-rail > #recent-strip {
+                background: rgba(255, 255, 255, 0.06) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                box-shadow: none !important; border-radius: 22px !important; }
+            body.skin-glass .shell-rail #pending-box { background: transparent !important; border: 0 !important; padding: 2px 0 0 !important; }
+            body.skin-glass .shell-rail #pending-box .group-title { color: #fff !important; font-size: 18px !important; font-weight: 800 !important;
+                                                                    border: 0 !important; padding: 2px 4px 0 !important; margin-bottom: 10px !important; }
+            body.skin-glass .shell-rail #pending-box .group-title .fa-inbox { display: none; }
+            body.skin-glass #pending-count-badge { background: var(--sk-o) !important; color: #fff !important; }
+            body.skin-glass #pending-fold { border-radius: 10px !important; background: rgba(255, 255, 255, 0.08) !important;
+                                            border-color: rgba(255, 255, 255, 0.16) !important; color: #fff !important; }
+            body.skin-glass .shell-rail .pending-item {
+                --text-main: #1d1a17; --text-muted: #6d655e; --text-dim: #9a918a; --accent: #d2601f; --gold: #d2601f;
+                --bg-card: #faf7f4; --surface-2: #f3eee9; --edge-2: #ebe4dd; --line: #ebe4dd; --border-light: #ebe4dd;
+                background: #fff !important; border: 0 !important; border-radius: 20px !important; padding: 14px !important;
+                margin: 0 0 10px !important; color: var(--sk-ink); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14); }
+            body.skin-glass .shell-rail .pending-item + .pending-item { border-top: 0 !important; padding-top: 14px !important; }
+            body.skin-glass .shell-rail .pending-info { color: #3d3833; }
+            body.skin-glass .shell-rail .pending-info b { color: var(--sk-ink) !important; }
+            body.skin-glass .shell-rail .pending-amount { color: #d2601f !important; }
+            body.skin-glass .shell-rail .bj-btn:not([onclick^="assignSplitEqual"]):not([onclick^="assignPendingToJar"]):not([onclick^="broadcastOffWorkCardById"]) {
+                background: #faf7f4 !important; border: 1px solid #ebe4dd !important; color: var(--sk-ink) !important;
+                border-radius: 13px !important; height: 40px; font-weight: 800; }
+            body.skin-glass .shell-rail .bj-btn:not([onclick^="assignSplitEqual"]):not([onclick^="assignPendingToJar"]):not([onclick^="broadcastOffWorkCardById"]):hover {
+                background: var(--sk-o) !important; border-color: var(--sk-o) !important; color: #fff !important; transform: none; }
+            body.skin-glass .shell-rail .audit-badge { color: #2c5fb8; background: #eef4ff; border-color: #cfdcf7; border-radius: 10px; }
+            body.skin-glass .shell-rail .audit-badge b { color: inherit; }
+            body.skin-glass .shell-rail .audit-badge.lv-auto { color: #1f8a52; background: #e9f8ef; border-color: #bfe6cf; }
+            body.skin-glass .shell-rail .audit-badge.lv-unknown { color: #9a6200; background: #fff4e0; border-color: #f3d9a6; }
+            body.skin-glass .shell-rail .pd-test { color: #1b6fae; background: #e7f3fc; border-color: #b9dcf5; }
+            /* 기여도 알림(주사위 시그 등)은 후원이 아니다 — 보라 기운을 남겨 헷갈리지 않게 */
+            body.skin-glass .shell-rail .pending-item[style*="9a6bff"] { background: #f6f1ff !important;
+                box-shadow: inset 0 0 0 1px #d9ccff, 0 10px 24px rgba(0, 0, 0, 0.14); }
+            body.skin-glass .shell-rail .pending-item[style*="9a6bff"] .pending-amount { color: #6b45d6 !important; }
+
+            /* ── AI 배정 제안 토스트 ── */
+            body.skin-glass .ai-toast { background: rgba(30, 22, 18, 0.95); border: 1px solid rgba(240, 123, 63, 0.5);
+                                        border-left: 4px solid var(--sk-o); border-radius: 18px; color: #f6f1ec; box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4); }
+            body.skin-glass .ai-toast .t-src { color: rgba(246, 241, 236, 0.7); }
+            body.skin-glass .ai-toast .t-src i { color: #ffb48a; }
+            body.skin-glass .ai-toast .t-q b { color: #ffb48a; }
+            body.skin-glass .ai-toast button { border-radius: 12px; }
+            body.skin-glass .ai-toast .t-no { color: #f6f1ec; background: rgba(255, 255, 255, 0.1); }
+
+            /* 🩹 실측(데모 1440·1280)으로 고친 것 */
+            /* 점수 칸 — 높이 36 에 안쪽 여백이 더해져 58px 이 됐다(줄이 77px). 테두리 안으로 잰다 */
+            body.skin-glass #tab-ranking .table-responsive, body.skin-glass .rk-table td input { box-sizing: border-box; }
+            body.skin-glass .rk-table td input { padding: 0 12px !important; }
+            /* 운영비 이름 칸은 선수 이름처럼 글자로 보이게 */
+            body.skin-glass .rk-table tbody td:first-child > div > input[type="text"] { background: transparent !important; border-color: transparent !important; font-weight: 700; }
+            body.skin-glass .rk-table tbody td:first-child > div > input[type="text"]:focus { background: #faf7f4 !important; border-color: var(--sk-o) !important; }
+            /* AI 손잡이 — 단추 기본 여백 때문에 32px 로 벌어졌다 */
+            body.skin-glass #ai-drawer-toggle:not(.open) { width: 18px !important; min-width: 0; padding: 0 !important; box-sizing: border-box; }
+            /* 윗줄 — 음악 칸이 76px 까지 눌려 옆 글자와 겹쳤다. 음악 칸은 190px 아래로 안 줄이고, 모자라면 다음 줄로 내린다 */
+            body.skin-glass .header .header-buttons { flex-wrap: wrap !important; row-gap: 8px; }
+            body.skin-glass .header-buttons > * { flex-shrink: 0; }
+            body.skin-glass .header-buttons > #ios-mini-media-panel { flex: 1 1 190px; min-width: 190px !important; overflow: hidden; }   /* ⚠️ 기준 폭을 글자 길이(343px)로 잡으면 옆 단추들이 먼저 밀려 내려간다 */
+            body.skin-glass .rk-table th:last-child { white-space: nowrap; }
+            /* ⋯ 를 펴면 뒤 글자가 비쳤다 — 펼친 동안만 불투명하게 */
+            body.skin-glass.tabs-open .tabs.tabs-2row { background: rgba(28, 21, 18, 0.97) !important; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55) !important; }
+            body.skin-glass.tabs-open #ai-drawer-toggle:not(.open) { left: 180px; }
+        }
+        /* 1280~1679px — [클립]·[에디터] 는 그림만, 볼륨 숫자 · 음악 소리 막대는 접는다(BGM 탭에 다 있다) */
+        @media (min-width: 1280px) and (max-width: 1679px) {
+            body.skin-glass .header > h1 > i { display: none; }
+            body.skin-glass #btn-clip, body.skin-glass #btn-editor { position: relative; width: 44px; padding: 0 !important; justify-content: center;
+                                                                     gap: 0 !important; font-size: 0 !important; }
+            body.skin-glass #btn-clip i, body.skin-glass #btn-editor i { font-size: 15px; }
+            body.skin-glass #btn-clip .clip-dot { position: absolute; top: 9px; right: 9px; margin: 0; }
+            body.skin-glass #reaction-vol-text, body.skin-glass #yt-volume-slider { display: none; }
+        }
+        /* 키 작은 화면(800px 안팎) — 왼쪽 줄 칸을 줄여 맨 아래 [백업] 과 안 겹치게 */
+        @media (min-width: 1280px) and (max-height: 860px) {
+            body.skin-glass .tabs.tabs-2row { gap: 1px; padding-top: 10px !important; padding-bottom: 82px !important; }
+            body.skin-glass .tabs.tabs-2row::before { width: 38px; height: 38px; margin-bottom: 6px; border-radius: 13px; background-size: 19px; }
+            body.skin-glass .tabs-2row .tab-btn, body.skin-glass .tabs-2row .tab-btn.tab-minor, body.skin-glass .tabs-2row .tab-btn.tab-minor.active {
+                padding: 5px 0 4px !important; gap: 3px; }
+            body.skin-glass .tabs-2row .tab-btn i { font-size: 15px; }
+            body.skin-glass .tabs-2row .tab-glabel + .tab-btn { margin-top: 6px; }
+            body.skin-glass #skin-flip { padding: 5px 0 4px; }
+        }
+    </style>
 </head>
 <body>
+<script>
+    /* 🎨 새 옷(유리 스튜디오)을 그리기 전에 입힌다 — 늦게 입히면 옛 모습이 한 번 번쩍인다. 기본은 새 옷. */
+    try { if (localStorage.getItem('ctl_skin') !== 'classic') document.body.classList.add('skin-glass'); }
+    catch (e) { document.body.classList.add('skin-glass'); }
+</script>
 
 <!-- 🩹 패치 진행 중 — 서버가 재시작되는 동안 덮어씌운다 -->
 <div id="patch-screen">
@@ -1963,26 +2252,29 @@
              ⚠️ 로그 탭은 '방금 들어온 후원' 을 보러 48번 오갔다 → 대기함 밑 🆕 줄(#recent-strip)이 대신한다.
              ⚠️ 아랫줄은 .tab-row2 한 덩어리다(두 줄이 섞이지 않게). -->
         <div class="tabs tabs-2row">
-            <button class="tab-btn tab-key active" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
-            <button class="tab-btn tab-key" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
+            <button class="tab-btn tab-key active" data-s="랭킹" onclick="openTab(event, 'tab-ranking')"><i class="fa-solid fa-ranking-star"></i> 랭킹</button>
+            <button class="tab-btn tab-key" data-s="BGM" onclick="openTab(event, 'tab-youtube')"><i class="fa-brands fa-youtube"></i> BGM</button>
+            <button class="tab-btn" data-s="대결" onclick="openTab(event, 'tab-match')"><i class="fa-solid fa-gamepad"></i> 대결</button>
+            <button class="tab-btn" data-s="룰렛" onclick="openTab(event, 'tab-roulette')"><i class="fa-solid fa-circle-notch"></i> 룰렛</button>
+            <button class="tab-btn" data-s="슬롯" onclick="openTab(event, 'tab-slot'); loadSlotCandidates();"><i class="fa-solid fa-gem"></i> 슬롯머신</button>
+            <button class="tab-btn" data-s="주사위" onclick="openTab(event, 'tab-dicegame'); dgcSync(true);"><i class="fa-solid fa-dice"></i> 주사위</button>
+            <button class="tab-btn" data-s="시그뒤집기" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
             <div class="tab-row2">
             <span class="tab-glabel">가끔</span>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
-            <button class="tab-btn tab-minor" onclick="openTab(event, 'tab-logs'); renderLogFeed(true);"><i class="fa-solid fa-list-ul"></i> 로그</button>
+            <button class="tab-btn tab-minor" data-s="지옥·퇴근" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
+            <button class="tab-btn tab-minor" data-s="핀볼" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
+            <button class="tab-btn tab-minor" data-s="로그" onclick="openTab(event, 'tab-logs'); renderLogFeed(true);"><i class="fa-solid fa-list-ul"></i> 로그</button>
             <!-- ⋯ 뒤 — 넓은 화면(한 창)에서는 접어 둔다. 후원 콘솔은 오른쪽 칸이 대신하므로 여기로 -->
-            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
-            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
-            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-            <button class="tab-btn tab-minor tab-x" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
-            <a class="tab-x" href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
-            <a class="tab-x" href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn tab-minor"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
-            <button type="button" class="tab-btn tab-minor tab-dots" onclick="document.body.classList.toggle('tabs-open')" title="나머지 탭 펴기/접기">⋯</button>
+            <button class="tab-btn tab-minor tab-x" data-s="시스템" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
+            <button class="tab-btn tab-minor tab-x" data-s="이펙트" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
+            <button class="tab-btn tab-minor tab-x" data-s="특별후원" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <button class="tab-btn tab-minor tab-x" data-s="진행봇" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
+            <a class="tab-x" href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" data-s="후원콘솔" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
+            <a class="tab-x" href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn tab-minor" data-s="전광판"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
+            <button type="button" class="tab-btn tab-minor tab-dots" data-s="더보기" onclick="document.body.classList.toggle('tabs-open')" title="나머지 탭 펴기/접기">⋯</button>
+            <!-- 🎨 새 옷 ↔ 옛 모습 (넓은 화면에서만 보인다 · 이 컴퓨터에만 기억).
+                 ⚠️ 아랫줄(.tab-row2) 안에 둔다 — 밖에 두면 옛 모습에서 탭 밑에 한 줄을 따로 먹는다 -->
+            <button type="button" id="skin-flip" class="skin-flip" onclick="skinFlip()" title="조종실 옷 바꾸기"><i class="fa-solid fa-palette"></i><span>옛 모습</span></button>
             </div>
         </div>
         <!-- 후원 결재 대기함 (탭과 무관하게 항상 보인다) -->
@@ -2182,6 +2474,21 @@
     </div>
 
     <div id="tab-ranking" class="tab-content active">
+
+        <!-- 🎨 새 옷 첫 화면 — 인사 + 숫자 칸 넷. 새 옷(넓은 화면)에서만 보인다. 값은 skinStatsPaint 가 채운다.
+             ⚠️ 못 잰 값은 지어내지 않는다 — '이번 방송 후원' 은 서버 장부에서 받기 전까지 '—' 다. -->
+        <section id="sk-head" aria-label="오늘 한눈에">
+            <div>
+                <div class="sk-meta"><span class="sk-live">방송 중</span><span id="sk-since"></span></div>
+                <h2 id="sk-greet">좋은 저녁이에요, 대표님</h2>
+            </div>
+            <div class="sk-stats">
+                <div class="sk-stat" id="sk-today"><span class="k">이번 방송 후원 <i class="fa-solid fa-won-sign"></i></span><b class="v">—</b><span class="s">불러오는 중</span></div>
+                <div class="sk-stat" id="sk-top"><span class="k">지금 1등 <i class="fa-solid fa-crown"></i></span><b class="v">—</b><span class="s"></span></div>
+                <div class="sk-stat" id="sk-wait"><span class="k">배정 기다리는 후원 <i class="fa-solid fa-bell"></i></span><b class="v">—</b><span class="s"></span></div>
+                <div class="sk-stat" id="sk-goal"><span class="k">목표까지 <i class="fa-solid fa-flag"></i></span><b class="v">—</b><span class="s"></span><span class="bar" hidden><i></i></span></div>
+            </div>
+        </section>
 
         <!-- 💾 세이브 슬롯은 '방송 화면' 칸의 순서표로 옮겼다(모든 탭 위, 2026-09-29) -->
 
@@ -3329,9 +3636,9 @@
     </div>
     </div><!-- /.shell-main -->
     <aside class="shell-rail" id="shell-rail">
-        <!-- 대기함 · 🆕 줄 · 되돌리기는 넓은 화면이면 railPlace() 가 여기로 옮겨 온다 -->
+        <!-- 맨 위 후원 콘솔(시그니처 송출). 대기함 · 🆕 줄 · 되돌리기는 넓은 화면이면 railPlace() 가 그 밑(재생 대기열 앞)으로 옮겨 온다 -->
         <div class="group-box rail-only" id="rail-send">
-            <div class="rail-h"><span><i class="fa-solid fa-music"></i> 시그니처 송출</span><a href="/manual" target="_blank" title="후원 콘솔 전체 열기">후원 콘솔 ▸</a></div>
+            <div class="rail-h"><span><i class="fa-solid fa-paper-plane"></i> 후원 콘솔 · 시그니처 송출</span><a href="/manual" target="_blank" title="후원 콘솔 전체 창 열기(순위 · 시그니처 관리까지)">전체 열기 ▸</a></div>
             <div class="rs2">
                 <div class="rs2-thumb" id="rs-thumb"><span id="rs-thumb-t" style="display:none;"></span></div>
                 <div>
@@ -3766,7 +4073,7 @@
                 setTimeout(() => { toast.classList.remove('show'); }, 3000);
             }
         }
-        let lastRHtml = ""; let lastMHtml = ""; let lastColorHtml = ""; let lastRankLogHtml = ""; let lastMatchLogHtml = ""; let lastPendingHtml = "";
+        let lastRHtml = ""; let lastTHtml = ""; let lastMHtml = ""; let lastColorHtml = ""; let lastRankLogHtml = ""; let lastMatchLogHtml = ""; let lastPendingHtml = "";
 
 
 
@@ -4538,6 +4845,7 @@
             //    후원이 화면에 아예 안 나타났다(돈이 밀려 있는데 모른다).
             //    대기함은 입력칸과 아무 상관이 없으므로 반환 전에 먼저 그린다.
             try { renderPending(); } catch(e) {}
+            try { skinStatsPaint(); } catch(e) {}   // 🎨 새 옷 첫 화면 숫자 칸 — 입력 중이어도 맞춘다
             try { renderStageStatus(); } catch(e) {}   // 🎬 입력 중이어도 켜짐/꺼짐 표시는 맞춘다
             if(document.activeElement.tagName === "INPUT" && !document.activeElement.id.startsWith("chk") && !document.activeElement.classList.contains("setup-player-input") || document.activeElement.tagName === "TEXTAREA") return;
             
@@ -4693,7 +5001,9 @@
                     <th><button onclick="bulkImportBJs()" style="padding: 4px 8px; font-size: var(--fs-2); background: rgba(226, 182, 75, 0.2); border-color: var(--accent); color: var(--accent); margin-right: 5px;" title="BJ 목록 일괄 가져오기"><i class="fa-solid fa-file-import"></i> 일괄등록</button><button onclick="addRankPlayer()" style="padding: 4px 8px; font-size: var(--fs-2);"><i class="fa-solid fa-plus"></i></button></th>
                 </tr>`;
             }
-            document.getElementById('ranking-thead').innerHTML = tHeadHtml;
+            // ⚠️ 바뀔 때만 다시 그린다. 매번 새로 그리면 [일괄등록]·[+] 를 누르는 도중(누름과 뗌 사이)에
+            //    단추가 새것으로 바뀌어 그 클릭이 사라졌다(실측: 후원이 들어오는 중 [+] 가 안 먹음). 점수표 몸통과 같은 방식.
+            if (lastTHtml !== tHeadHtml) { document.getElementById('ranking-thead').innerHTML = tHeadHtml; lastTHtml = tHeadHtml; }
 
             // 2. 바디 동적 렌더링
             // 📊 이름 밑 막대 — 1등을 100 으로 두고 얼마나 따라왔나(시안 A)
@@ -6814,6 +7124,88 @@
             const shouldShow = (gd.goal_event_pending || isGoalReached) && !gd.goal_event_approved;
             box.style.display = shouldShow ? 'block' : 'none';
         }
+
+        // 🎨 새 옷 · 유리 스튜디오 (2026-09-30 대표님 시안 A) — 겉모습만 바꾼다. 넓은 화면(1280px 이상)에서만 입는다.
+        //    body.skin-glass 가 켜짐 표시다. 끄고 켜는 건 왼쪽 줄 맨 아래 단추 — 이 컴퓨터(localStorage 'ctl_skin')에만 기억한다.
+        function skinOn() { return document.body.classList.contains('skin-glass'); }
+        function skinFlip() {
+            const on = !skinOn();
+            document.body.classList.toggle('skin-glass', on);
+            try { localStorage.setItem('ctl_skin', on ? 'glass' : 'classic'); } catch (e) {}
+            skinFlipLabel(); skinStatsPaint(); skinTodayRun();
+        }
+        function skinFlipLabel() {
+            const b = document.getElementById('skin-flip');
+            if (!b) return;
+            b.querySelector('span').textContent = skinOn() ? '옛 모습' : '새 옷';
+            b.title = skinOn() ? '예전 조종실 모습으로 돌아갑니다 (이 컴퓨터에만 기억)' : '새 옷(유리 스튜디오)으로 바꿉니다 (이 컴퓨터에만 기억)';
+        }
+        // 💰 '이번 방송 후원' 은 장부에서 센다(/api/ai/board?today=1 — AI 채팅과 같은 셈). 첫 화면이 보일 때만 10초마다.
+        let _skinToday = null, _skinTodayTimer = null, _skinTodayAsked = false;
+        async function skinTodayLoad() {
+            if (!skinOn() || document.hidden || !gd || !gd.broadcast_active) return;
+            const t = document.getElementById('tab-ranking');
+            if (!t || !t.classList.contains('active')) return;
+            try {
+                const r = await fetch('/api/ai/board?today=1').then(x => x.json());
+                if (r && r.status === 'success') { _skinToday = r.today || null; skinStatsPaint(); }
+            } catch (e) {}
+        }
+        function skinTodayRun() {
+            clearInterval(_skinTodayTimer); _skinTodayTimer = null;
+            if (skinOn()) { skinTodayLoad(); _skinTodayTimer = setInterval(skinTodayLoad, 10000); }
+        }
+        // 숫자 칸 넷 — 전부 조종실이 이미 가진 값에서 센다(대기함 · 점수표 · 목표 막대와 같은 셈)
+        function skinStatsPaint() {
+            if (!skinOn() || !gd || !document.getElementById('sk-head')) return;
+            const n = x => (Number(x) || 0).toLocaleString();
+            const put = (id, v, s) => {
+                const el = document.getElementById(id);
+                if (!el) return null;
+                const vv = el.querySelector('.v'), ss = el.querySelector('.s');
+                if (vv.innerHTML !== v) vv.innerHTML = v;
+                if (ss.textContent !== s) ss.textContent = s;
+                return el;
+            };
+            const txt = (id, s) => { const el = document.getElementById(id); if (el && el.textContent !== s) el.textContent = s; };
+            // 인사 · 방송 몇 분째
+            const hr = new Date().getHours();
+            txt('sk-greet', (hr < 5 ? '늦은 밤까지 수고 많아요' : hr < 11 ? '좋은 아침이에요' : hr < 17 ? '좋은 오후예요' : '좋은 저녁이에요') + ', 대표님');
+            const t0 = Number(gd.broadcast_started_at) || 0;
+            const mins = t0 ? Math.max(0, Math.floor((Date.now() - t0) / 60000)) : -1;
+            txt('sk-since', mins < 0 ? '' : (mins >= 60 ? Math.floor(mins / 60) + '시간 ' : '') + (mins % 60) + '분째');
+            // 이번 방송 후원 — 장부 값을 받기 전에는 '—'(지어내지 않는다)
+            const td = _skinToday;
+            if (td) put('sk-today', `${n(td['합계금액'])}<small>원</small>`, `${n(td['건수'])}건`);
+            else put('sk-today', '—', '불러오는 중');
+            // 첫 자료가 들어온 순간 한 번 바로 받는다(10초 간격을 기다리면 첫 화면이 비어 있다)
+            if (!td && !_skinTodayAsked && gd.broadcast_active) { _skinTodayAsked = true; setTimeout(skinTodayLoad, 0); }
+            // 지금 1등 — 점수표 1번 줄과 같은 사람
+            const list = (gd.extra_game_active ? gd.extra_bjs : gd.bjs) || [];
+            const a = list[0];
+            if (a) put('sk-top', escapeHTML(a.name || ''), `점수 ${n(a.score)} · 기여도 ${n(a.contribution)}`);
+            else put('sk-top', '—', '선수가 없어요');
+            // 배정 기다리는 후원 — 대기함과 같은 목록(방금 누른 건 빼고, 기여도 알림 · 퇴근 카드는 후원이 아니다)
+            const pend = (gd.pending_donations || []).filter(d => !removedPendingIds.has(d.id) && d.type !== 'off_work' && d.kind !== 'contrib');
+            const sum = pend.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+            const w = put('sk-wait', pend.length ? `${pend.length}<small>건</small>` : '비어 있음',
+                pend.length ? `합계 ${n(sum)}원 · 제일 먼저 ${String(pend[0].time || '').slice(0, 5)}` : '새 후원이 오면 여기 떠요');
+            if (w) w.classList.toggle('hot', pend.length > 0);
+            // 목표 — 방송판 막대와 같은 셈(점수 + 운영비 + 보정). renderGoalAchievementNotice 와 같다.
+            const tgt = Number(gd.target_goal) || 0;
+            const cur = ((gd.bottom_fixed || {}).score || 0) + (gd.bjs || []).reduce((s, b) => s + (b.score || 0), 0) + (parseInt(gd.goal_offset) || 0);
+            if (tgt > 0) put('sk-goal', cur >= tgt ? '달성!' : `${n(tgt - cur)}<small>점 남음</small>`, `${n(cur)} / ${n(tgt)}`);
+            else put('sk-goal', '목표 없음', '아래 기본 설정에서 정해요');
+            const bar = document.querySelector('#sk-goal .bar');
+            if (bar) { bar.hidden = !(tgt > 0); bar.firstElementChild.style.width = (tgt > 0 ? Math.min(100, Math.round(cur * 100 / tgt)) : 0) + '%'; }
+        }
+        document.addEventListener('DOMContentLoaded', () => { try { skinFlipLabel(); skinTodayRun(); } catch (e) {} });
+        // 맨 윗줄 높이를 잰다(오른쪽 칸 높이에 쓴다) — 좁으면 윗줄이 두 줄이 되므로 고정값으로 못 둔다
+        (function () {
+            const h = document.querySelector('.header');
+            if (!h || !window.ResizeObserver) return;
+            new ResizeObserver(() => document.body.style.setProperty('--sk-hdr', h.offsetHeight + 'px')).observe(h);
+        })();
         function addRankPlayer() {
             if (gd.bjs.length >= 10) {
                 premiumAlert("플레이어는 최대 10명까지만 추가할 수 있습니다.", "추가 불가", "warning");
@@ -7002,14 +7394,16 @@
             const el = document.getElementById('undo-strip');
             if (!el) return;
             const recent = lastScoreActions.slice(-3).reverse();   // 최근 것이 왼쪽
-            if (!recent.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+            if (!recent.length) { el.style.display = 'none'; el.innerHTML = ''; el._sig = ''; return; }
             el.style.display = 'flex';
-            el.innerHTML = '<span class="u-lbl"><i class="fa-solid fa-rotate-left"></i> 방금</span>'
+            const html = '<span class="u-lbl"><i class="fa-solid fa-rotate-left"></i> 방금</span>'
                 + recent.map(a => {
                     // ⚠️ 목록 위치가 아니라 고유 번호로 지목한다(연타해도 옆 기록을 건드리지 않게)
                     return '<button onclick="undoScoreById(' + a.uid + ')" title="이 지급을 취소합니다">'
                          + undoLabel(a) + ' 취소</button>';
                   }).join('');
+            // ⚠️ 바뀔 때만 — 대기함을 그릴 때마다 불려서, [취소] 를 누르는 도중에 단추가 새것으로 바뀌면 클릭이 사라졌다
+            if (el._sig !== html) { el._sig = html; el.innerHTML = html; }
         }
         function showUndoToast(a) {
             const t = document.getElementById('score-undo-toast');
@@ -10097,13 +10491,26 @@ initFoldablePanels();
             const rail = document.getElementById('shell-rail'), top = document.getElementById('sticky-top');
             const anchor = document.getElementById('context-strip');
             if (!rail || !top || !anchor) return;
-            const first = rail.querySelector('.rail-only');
+            // 🔝 순서: 후원 콘솔(시그니처 송출) → 대기함 · 🆕 · 되돌리기 → 재생 대기열.
+            //    대표님(2026-09-30): "미확인 후원 위에 원래 조종실에 있던 후원콘솔을 넣어줘"
+            const first = document.getElementById('rail-queue');
             ['pending-box', 'recent-strip', 'undo-strip'].forEach(function (id) {
                 const el = document.getElementById(id);
                 if (!el) return;
                 if (RAIL_MQ.matches) { if (el.parentElement !== rail) rail.insertBefore(el, first); }
                 else if (el.parentElement !== top) top.insertBefore(el, anchor);
             });
+            toastPlace();
+        }
+        // 🤖 AI 배정 제안 — 대기함 안 맨 위(카드 목록 바로 위)에 끼워 넣는다. 넓은 화면 · 좁은 화면 둘 다.
+        //    ⚠️ 예전엔 오른쪽 아래에 떠 있었다. 제안은 누를 때까지 안 사라지는데, 떠 있으면
+        //       대기함 카드의 [하율][서아]… 단추나(넓은 화면, 후원 콘솔을 위로 올린 뒤 첫 카드까지)
+        //       방송 화면 칸의 [편집](좁은 화면)을 덮었다(실측). 대기함과 같이 움직이게 그 안에 둔다.
+        function toastPlace() {
+            const w = document.getElementById('ai-assign-toasts'), pb = document.getElementById('pending-box'), pl = document.getElementById('pending-list');
+            if (!w || !pb || !pl || pl.parentElement !== pb) return;
+            if (w.nextElementSibling !== pl) pb.insertBefore(w, pl);
+            w.classList.add('in-box');
         }
         try { RAIL_MQ.addEventListener('change', railPlace); } catch (e) { try { RAIL_MQ.addListener(railPlace); } catch (e2) {} }
 
@@ -11712,7 +12119,12 @@ function renderContextStrip() {
               + '<button type="button" class="hdr-go" onclick="toggleTimer()">' + (md.is_running ? '<i class="fa-solid fa-pause"></i> 정지' : '<i class="fa-solid fa-play"></i> 시작') + '</button>'
               + '<button type="button" onclick="modifyTimer(1, \'min\')">+1분</button>'
             : '';
-        if (_hdr.dataset.sig !== hh) { _hdr.dataset.sig = hh; _hdr.innerHTML = hh; }
+        // ⚠️ 비교할 때 시간 글자는 뺀다. 넣으면 초가 바뀔 때마다(1.5초) 단추까지 통째로 새로 그려져
+        //    [▶ 시작]·[+1분] 을 누르는 도중(누름과 뗌 사이)에 단추가 바뀌어 클릭이 사라졌다(실측).
+        //    시간 글자는 아래 1초 타이머가 #hdr-mt 만 고친다.
+        const hsig = hh ? ('run:' + !!md.is_running) : '';
+        if (_hdr.dataset.sig !== hsig) { _hdr.dataset.sig = hsig; _hdr.innerHTML = hh; }
+        else if (hh) { const t = document.getElementById('hdr-mt'), v = cxTimerText(md); if (t && t.textContent !== v) t.textContent = v; }
         _hdr.style.display = hh ? 'flex' : 'none';
     }
     if (md && md.active && !_wideT) {
@@ -11741,7 +12153,10 @@ function renderContextStrip() {
             + '<button onclick="skipCurrentReaction()">건너뛰기</button></span>');
     }
     const html = parts.join('');
-    if (html !== _cxLast) { _cxLast = html; el.innerHTML = html; }
+    // ⚠️ 여기도 대결 시간 글자는 빼고 비교한다(위와 같은 이유 — 칩의 단추가 초마다 새로 그려졌다)
+    const csig = html.replace(/(<span class="cx-num" id="cx-mt">)[^<]*/, '$1');
+    if (csig !== _cxLast) { _cxLast = csig; el.innerHTML = html; }
+    else { const t = document.getElementById('cx-mt'); if (t && md && md.active) { const v = cxTimerText(md); if (t.textContent !== v) t.textContent = v; } }
     el.style.display = parts.length ? 'flex' : 'none';
 }
 // 대결 시간은 초마다 흐른다 — 숫자만 갱신 (통째로 다시 그리면 클릭이 끊긴다)

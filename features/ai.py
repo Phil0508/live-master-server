@@ -554,7 +554,12 @@ def api_ai_board():
         with file_lock:
             state = load_data()
         f = build_facts(state, suggest=_cached_suggest(state))
-        return jsonify({"status": "success", "tiles": board_tiles(f), "ai": ai_health()})
+        out = {"status": "success", "tiles": board_tiles(f), "ai": ai_health()}
+        # 💰 ?today=1 — 조종실 첫 화면 숫자 칸(새 옷)이 '이번 방송 후원 합계·건수' 를 같이 받는다.
+        #    장부에서 센다(AI 채팅과 같은 셈). 실패하면 빠지고 화면은 '—' 로 둔다.
+        if request.args.get('today'):
+            out['today'] = _today_donations()
+        return jsonify(out)
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)[:100]})
 
