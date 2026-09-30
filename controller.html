@@ -1813,37 +1813,6 @@
         /* 바탕에 옅은 결 — 밋밋함을 덜어준다(Midday). 글자 위에는 안 올라온다 */
         body::before { content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.035;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-        /* 📣 공지 탭 */
-        .ntc-status { margin: 12px 0; padding: 10px 12px; border-radius: var(--r-2); background: var(--bg-input);
-                      border: 1px solid var(--border-light); font-size: var(--fs-3); color: var(--text-muted); line-height: 1.6; }
-        .ntc-status b { color: var(--text-main); }
-        .ntc-status .ntc-left { font-variant-numeric: tabular-nums; color: var(--accent); }
-        .ntc-status.off { border-style: dashed; }
-        .ntc-every { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; font-size: var(--fs-3); color: var(--text-muted); }
-        .ntc-every .ntc-lbl { font-weight: 800; color: var(--text-main); }
-        /* ⚠️ [type=number] 로 걸면 안 된다 — comma_input.js 가 열릴 때 글자 칸으로 바꾼다 */
-        .ntc-every input { width: 62px; height: 34px; margin: 0; padding: 0 6px; text-align: center; font-weight: 800; font-size: var(--fs-4); }
-        .ntc-every select { height: 34px; margin: 0 0 0 auto; }
-        .ntc-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
-        .ntc-chips button { margin: 0; height: 30px; padding: 0 11px; border-radius: 999px; font-size: var(--fs-2); }
-        .ntc-chips button.on { border-color: var(--accent); color: var(--accent); }
-        .ntc-list { display: flex; flex-direction: column; gap: 8px; }
-        .ntc-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 8px 7px 10px;
-                   border-radius: var(--r-2); background: var(--bg-card); border: 1px solid var(--border-light); }
-        .ntc-row.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-        .ntc-row .ntc-n { font-weight: 900; color: var(--text-muted); text-align: center; font-variant-numeric: tabular-nums; }
-        .ntc-row input { width: 100%; box-sizing: border-box; margin: 0; height: 36px; }
-        .ntc-row .ntc-b { display: flex; gap: 4px; }
-        .ntc-row .ntc-b button { margin: 0; height: 34px; min-width: 34px; padding: 0 9px; justify-content: center; font-size: var(--fs-2); }
-        .ntc-row .ntc-b button:disabled { opacity: .35; }
-        .ntc-row .ntc-go { color: var(--accent); }
-        .ntc-row .ntc-del:hover { color: var(--danger); }
-        .ntc-add { display: flex; gap: 8px; margin-top: 10px; }
-        .ntc-add input { flex: 1; min-width: 0; margin: 0; height: 40px; }
-        .ntc-add button { margin: 0; height: 40px; white-space: nowrap; }
-        /* ⚠️ 좁은 화면에선 떠 있는 [백업] 단추가 오른쪽 아래에 있다 — 맨 끝 공지의 [지금]·[🗑] 을 덮었다(1024 실측).
-              넓은 화면(새 옷)에서는 [백업] 이 왼쪽 줄로 가므로 이 여백이 필요 없다. */
-        @media (max-width: 1279px) { #ntc-box { padding-bottom: 76px; } }
     </style>
     <style id="skin-glass-css">
         /* ═══════════════════════════════════════════════════════
@@ -2103,9 +2072,8 @@
             body.skin-glass #btn-clip .clip-dot { position: absolute; top: 9px; right: 9px; margin: 0; }
             body.skin-glass #reaction-vol-text, body.skin-glass #yt-volume-slider { display: none; }
         }
-        /* 키 작은 화면(1000px 아래) — 왼쪽 줄 칸을 줄여 맨 아래 [백업] 과 안 겹치게.
-           ⚠️ [공지] 탭이 늘어 900px(1440×900)에서도 겹쳤다 — 860 → 1000 */
-        @media (min-width: 1280px) and (max-height: 1000px) {
+        /* 키 작은 화면(800px 안팎) — 왼쪽 줄 칸을 줄여 맨 아래 [백업] 과 안 겹치게 */
+        @media (min-width: 1280px) and (max-height: 860px) {
             body.skin-glass .tabs.tabs-2row { gap: 1px; padding-top: 10px !important; padding-bottom: 82px !important; }
             body.skin-glass .tabs.tabs-2row::before { width: 38px; height: 38px; margin-bottom: 6px; border-radius: 13px; background-size: 19px; }
             body.skin-glass .tabs-2row .tab-btn, body.skin-glass .tabs-2row .tab-btn.tab-minor, body.skin-glass .tabs-2row .tab-btn.tab-minor.active {
@@ -2231,8 +2199,8 @@
                 <button onclick="stopReaction()" title="리액션 긴급 중단" style="height:30px; padding:0 10px; background:rgba(255,69,58,0.12); border:1px solid rgba(255,69,58,0.4); color:var(--danger); border-radius:var(--r-1); cursor:pointer; font-size:var(--fs-2); font-weight:bold; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-circle-stop"></i> 중단</button>
                 <button id="skip-reaction-btn-main" onclick="skipCurrentReaction()" title="다음 후원 넘기기(Skip)" style="height:30px; padding:0 10px; background:#ff9500; color:#fff; border:none; border-radius:var(--r-1); cursor:pointer; font-size:var(--fs-2); font-weight:bold; display:inline-flex; align-items:center; gap:5px;"><i class="fa-solid fa-forward-step"></i> Skip</button>
             </div>
-            <!-- ✂️ 쇼츠 클립 — 누르면 OBS 가 '누른 순간 앞 90초 + 뒤 90초' 를 파일로 저장한다(90초 뒤에 방송판이 대신 말한다). 점 = OBS 연결 상태 -->
-            <button id="btn-clip" onclick="clipNow()" title="누른 순간 앞 90초 + 뒤 90초(3분)를 OBS 가 저장합니다 — 뒤 90초를 담으려고 90초 뒤에 저장돼요" style="height: 42px;"><span id="clip-dot" class="clip-dot"></span><i class="fa-solid fa-scissors"></i> 클립</button>
+            <!-- ✂️ 쇼츠 클립 — 누르면 OBS 가 '방금 90초' 를 파일로 저장한다(방송판이 대신 말한다). 점 = OBS 연결 상태 -->
+            <button id="btn-clip" onclick="clipNow()" title="방금 90초를 OBS 가 저장합니다 (쇼츠 재료)" style="height: 42px;"><span id="clip-dot" class="clip-dot"></span><i class="fa-solid fa-scissors"></i> 클립</button>
             <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px; background: rgba(255,255,255,0.05); color: #fff; border-color: var(--border-light);"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
         </div>
     </div>
@@ -2296,7 +2264,6 @@
             <button class="tab-btn tab-minor" data-s="지옥·퇴근" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
             <button class="tab-btn tab-minor" data-s="핀볼" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
             <button class="tab-btn tab-minor" data-s="로그" onclick="openTab(event, 'tab-logs'); renderLogFeed(true);"><i class="fa-solid fa-list-ul"></i> 로그</button>
-            <button class="tab-btn tab-minor" data-s="공지" onclick="openTab(event, 'tab-notice'); ntcSync(true);"><i class="fa-solid fa-bullhorn"></i> 공지</button>
             <!-- ⋯ 뒤 — 넓은 화면(한 창)에서는 접어 둔다. 후원 콘솔은 오른쪽 칸이 대신하므로 여기로 -->
             <button class="tab-btn tab-minor tab-x" data-s="시스템" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
             <button class="tab-btn tab-minor tab-x" data-s="이펙트" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
@@ -2421,8 +2388,43 @@
                 <div id="extra-game-btns" style="display: flex; gap: 10px;"></div>
             </div>
         </div>
-        <!-- 📣 안내 전광판은 [공지] 탭으로 옮겼다(2026-09-30) — 여기서 찾던 손을 위해 길만 남긴다 -->
-        <div class="gx-info" style="margin: 0 0 15px;">📣 안내 전광판(공지)은 <button type="button" class="secondary gx-sm" onclick="openTabById('tab-notice')" style="margin:0 4px;">📣 공지 탭</button> 으로 옮겼어요.</div>
+        <!-- 📣 안내 전광판 -->
+        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(246,196,83,0.35); background: rgba(246,196,83,0.03);">
+            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="color:var(--gold);"><i class="fa-solid fa-bullhorn"></i> 📣 안내 전광판</span>
+                <label class="apple-switch" title="켜면 정한 주기마다 저절로 뜹니다">
+                    <input type="checkbox" id="chk-notice" onchange="ntcToggle(this.checked)">
+                    <span class="apple-slider"></span>
+                </label>
+            </div>
+            <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 10px 0 10px; line-height:1.6;">
+                TV 아래 자막처럼 화면 밑에서 <b style="color:var(--gold);">오른쪽 → 왼쪽</b>으로 한 번 흐르고 사라집니다.<br>
+                줄마다 한 문구씩 적으면 차례대로 돌아가요. 뜨는 시간은 문구 길이에 맞춰 저절로 정해집니다.<br>
+                강조하고 싶은 말은 <b style="color:var(--gold);">*별표*</b> 로 감싸면 금색으로 굵게 나옵니다.
+            </div>
+            <textarea id="ntc-msgs" rows="4" placeholder="계좌로 보내주실 때 *닉네임+플레이어* 를 적어주시면 자동으로 올라갑니다&#10;후원은 방송에 큰 힘이 됩니다!"
+                      style="width:100%; box-sizing:border-box; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:var(--r-2); color:#fff; padding:10px; font-size:var(--fs-3); line-height:1.7;"></textarea>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px; font-size:var(--fs-2); color:var(--text-muted);">
+                <button class="secondary" onclick="ntcSave()" style="height:36px; padding:0 16px; border-radius:var(--r-2);"><i class="fa-solid fa-floppy-disk"></i> 문구 저장</button>
+                <span style="width:6px;"></span>
+                <select id="ntc-period" onchange="ntcSave()" style="height:34px;">
+                    <option value="120">2분마다</option><option value="180">3분마다</option>
+                    <option value="300" selected>5분마다</option><option value="600">10분마다</option>
+                    <option value="900">15분마다</option>
+                </select>
+                <select id="ntc-speed" onchange="ntcSave()" style="height:34px;">
+                    <option value="90">느리게 흐름</option><option value="130" selected>보통 속도</option>
+                    <option value="180">빠르게 흐름</option><option value="240">아주 빠르게</option>
+                </select>
+                <span style="width:6px;"></span>
+                <select id="ntc-pick" style="height:34px; min-width:150px;"></select>
+                <button class="secondary" onclick="ntcNow()" style="height:34px; padding:0 14px; border-radius:var(--r-2);"><i class="fa-solid fa-bolt"></i> 지금 띄우기</button>
+            </div>
+            <!-- 💛 소액 후원(시그니처를 안 튼 것)은 여기 모여 전광판 순환에 한 줄로 낀다 -->
+            <div id="ntc-donors" style="margin-top:10px; padding:9px 12px; border-radius:var(--r-2);
+                 background:rgba(255,207,77,0.06); border:1px solid rgba(255,207,77,0.2);
+                 font-size:var(--fs-2); color:var(--text-muted); display:none;"></div>
+        </div>
 
         <!-- 🔥 지옥탈출 (2026-09-21 추석 방송 — 퇴근빵 대신 마지막에) -->
         <div class="group-box" id="hell-box" style="margin-bottom: 15px; border-color: rgba(255, 90, 40, 0.5); background: rgba(255, 90, 40, 0.05);">
@@ -2884,52 +2886,6 @@
             </div>
         </div>
     </div>
-    <!-- 📣 공지 탭 (2026-09-30) — 대표님: "공지도 여러 개를 등록해서 여러 가지 멘트가 순서대로 얼마 만에 한 번씩"
-         방송 화면 아래로 흐르는 안내 전광판이다. 예전엔 지옥·퇴근 탭 안에 글상자 하나로 있어 못 찾았다.
-         한 공지 = 한 칸. 적은 순서대로, 정한 간격마다 하나씩 나온다(화면이 서버 시계로 계산 — overlay renderNotice). -->
-    <div id="tab-notice" class="tab-content">
-        <div class="group-box" id="ntc-box">
-            <div class="group-title" style="display:flex; justify-content:space-between; align-items:center;">
-                <span><i class="fa-solid fa-bullhorn"></i> 공지 — 방송 화면 안내 전광판</span>
-                <label class="apple-switch" title="켜면 정한 간격마다 저절로 나옵니다">
-                    <input type="checkbox" id="chk-notice" onchange="ntcToggle(this.checked)">
-                    <span class="apple-slider"></span>
-                </label>
-            </div>
-            <div class="gx-info" style="line-height:1.7;">
-                방송 화면 아래로 <b>오른쪽 → 왼쪽</b>으로 한 번 흐르고 사라져요. <b>적은 순서대로 하나씩</b>, 정한 간격마다 다음 공지가 나와요.<br>
-                강조할 말은 <b>*별표*</b> 로 감싸면 금색 굵게 나와요.
-            </div>
-            <div id="ntc-status" class="ntc-status">불러오는 중…</div>
-            <div class="ntc-every">
-                <span class="ntc-lbl">간격</span>
-                <input type="number" id="ntc-min" data-no-comma min="0" max="60" inputmode="numeric" onchange="ntcEveryFromInputs()" onkeydown="if(event.key==='Enter')this.blur()"><span>분</span>
-                <input type="number" id="ntc-sec" data-no-comma min="0" max="59" inputmode="numeric" onchange="ntcEveryFromInputs()" onkeydown="if(event.key==='Enter')this.blur()"><span>초마다 하나씩</span>
-                <span class="ntc-chips" id="ntc-chips">
-                    <button type="button" data-sec="60" onclick="ntcSetEvery(60)">1분</button>
-                    <button type="button" data-sec="120" onclick="ntcSetEvery(120)">2분</button>
-                    <button type="button" data-sec="180" onclick="ntcSetEvery(180)">3분</button>
-                    <button type="button" data-sec="300" onclick="ntcSetEvery(300)">5분</button>
-                    <button type="button" data-sec="600" onclick="ntcSetEvery(600)">10분</button>
-                </span>
-                <select id="ntc-speed" onchange="ntcSpeed(this.value)" title="흐르는 빠르기 — 뜨는 시간은 글자 길이에 맞춰 저절로 정해져요">
-                    <option value="90">느리게 흐름</option><option value="130" selected>보통 속도</option>
-                    <option value="180">빠르게 흐름</option><option value="240">아주 빠르게</option>
-                </select>
-            </div>
-            <div id="ntc-list" class="ntc-list"></div>
-            <div class="ntc-add">
-                <input type="text" id="ntc-new" maxlength="120" autocomplete="off"
-                       placeholder="새 공지 — 예) 계좌로 보내실 때 *닉네임+플레이어* 를 적어 주세요" onkeydown="if(event.key==='Enter')ntcAdd()">
-                <button type="button" class="primary" onclick="ntcAdd()"><i class="fa-solid fa-plus"></i> 공지 추가</button>
-            </div>
-            <!-- 💛 소액 후원(시그니처를 안 튼 것)은 여기 모여 전광판 순환에 한 줄로 낀다 -->
-            <div id="ntc-donors" style="margin-top:12px; padding:9px 12px; border-radius:var(--r-2);
-                 background:rgba(255,207,77,0.06); border:1px solid rgba(255,207,77,0.2);
-                 font-size:var(--fs-2); color:var(--text-muted); display:none;"></div>
-        </div>
-    </div>
-
     <div id="tab-logs" class="tab-content">
         <!-- 📋 로그 탭 (2026-09-28 정리) — 대표님: "너무 난잡해".
              예전: 클릭 통계 상자 · 랭킹 로그 · 대결 로그(검은 상자 둘, 큰 비우기 단추 둘) · DB 이력(색 제각각 단추).
@@ -3050,16 +3006,13 @@
             </div>
         </div>
 
-        <!-- ✂️ 쇼츠 클립 (2026-09-28) — 명장면마다 OBS 가 '그 순간 앞 90초 + 뒤 90초' 를 저장한다(2026-09-30). 방송이 끝나면 이 목록으로 파일을 맞춘다 -->
+        <!-- ✂️ 쇼츠 클립 (2026-09-28) — 명장면마다 OBS 가 '방금 90초' 를 저장한다. 방송이 끝나면 이 목록으로 파일을 맞춘다 -->
         <div class="group-box sys-box" id="clip-box">
             <div class="group-title sys-head">
                 <span><i class="fa-solid fa-scissors"></i> 쇼츠 클립</span>
                 <button class="secondary sys-mini" onclick="clipPoll(true)"><i class="fa-solid fa-arrows-rotate"></i> 새로고침</button>
             </div>
             <div id="clip-status" class="clip-status off">불러오는 중…</div>
-            <!-- ⏱ 앞뒤 90초 — OBS 가 180초를 기억해야 앞 90초까지 담긴다. 방송판은 이 값을 못 바꿔서 여기 늘 적어 둔다 -->
-            <div class="gx-info" style="margin-top:6px;">⏱ 누른 순간 <b>앞 90초 + 뒤 90초(3분)</b>가 담겨요 — 뒤 90초를 기다려 <b>90초 뒤에</b> 저장돼요.
-                회사 OBS 리플레이 버퍼 <b>최대 시간은 180초</b>여야 해요(90초면 뒤 90초만 남아요).</div>
             <div class="clip-set">
                 <label class="gx-tg"><input type="checkbox" id="clip-auto" onchange="clipSetAuto()"> 큰 시그 · 올클리어 때 저절로 저장</label>
                 <label class="clip-min">기준
@@ -3100,15 +3053,14 @@
             <details class="gx-fold" style="margin-top:10px;">
                 <summary>회사 컴퓨터에서 처음 한 번만 할 것 <small>세 가지</small></summary>
                 <div class="gx-fold-body gx-note">
-                    ① <b>설정 → 출력 → 리플레이 버퍼</b> — "리플레이 버퍼 사용" 체크, 최대 시간 <b>180초</b>(앞 90초 + 뒤 90초).
+                    ① <b>설정 → 출력 → 리플레이 버퍼</b> — "리플레이 버퍼 사용" 체크, 최대 시간 <b>90초</b>.
                     저장 폴더는 녹화 폴더와 같아요.<br>
                     ② 방송판 <b>브라우저 소스를 더블클릭 → 맨 아래 "페이지 권한" → "OBS에 대한 고급 접근 권한"</b>.
                     방송판이 여러 장면에 있으면 <b>한 곳에만</b> 주세요(여러 곳이면 같은 클립이 여러 개 생겨요).<br>
                     다 하면 위 줄이 <b>초록색 "OBS 연결됨"</b>으로 바뀝니다. 리플레이 버퍼는 방송판이 알아서 켜요.<br>
                     ③ 위 <b>[도우미 받기]</b> 를 회사 컴퓨터에서 받아 풀고 <b>start_clip_helper.bat</b> 더블클릭 → 폴더 두 개(OBS 녹화 폴더 · 클립 모을 폴더)를 고르면 끝.
                     방송 동안 까만 창을 켜 두세요. 리플레이 파일 이름은 OBS 기본("Replay …")으로 두세요.<br>
-                    저장되는 것은 <b>누른 순간 앞 90초 + 뒤 90초</b>예요(누르고 90초 뒤에 저장). 큰 시그는 재생 순간, 올클리어는 그 순간을 가운데 두고 똑같이 담깁니다.
-                    30초 안에 붙은 순간은 파일 하나로, 그보다 멀면 따로 저장해요.
+                    저장되는 것은 <b>누른 순간까지의 90초</b>예요. 큰 시그는 재생 25초 뒤, 올클리어는 20초 뒤에 저장해서 반응까지 담깁니다.
                 </div>
             </details>
         </div>
@@ -4220,7 +4172,7 @@
         // 🏦 계좌 고액후원 영상 — 대기함 카드의 [계좌] 버튼이 부른다.
         //   30만원 이상이면 서버가 금액대 영상을 오버레이에 재생하고, 여기선 작은 알림만 띄운다.
         //   30만원 미만이면 아무 영상도 안 나간다.
-        /* ✂️ 쇼츠 클립 — [✂ 클립] → 서버 → 방송판(회사 OBS 안) → 90초 뒤 OBS 가 '앞 90초 + 뒤 90초' 저장.
+        /* ✂️ 쇼츠 클립 — [✂ 클립] → 서버 → 방송판(회사 OBS 안) → OBS 가 '방금 90초' 저장.
            OBS 연결 상태는 방송판이 1분마다 서버에 알린다(/api/clip/hello) — 여기선 20초마다 읽어 점으로 보여준다. */
         let _clipObs = null;
         function clipAgo(sec) {
@@ -4247,7 +4199,7 @@
                 if (!r.ok) { acctToast('클립 실패: ' + (d.message || r.status), 'warn'); return; }
                 _clipObs = d.obs || _clipObs; clipPaint();
                 const ok = _clipObs && _clipObs.alive && _clipObs.level >= 4 && _clipObs.rb !== false;
-                acctToast(ok ? '✂️ 앞 90초 + 뒤 90초 — 90초 뒤에 OBS 가 저장해요' : '✂️ 목록에만 적었어요 — OBS 연결을 확인하세요 (시스템 탭)', ok ? 'ok' : 'warn');
+                acctToast(ok ? '✂️ 방금 90초를 OBS 가 저장합니다' : '✂️ 목록에만 적었어요 — OBS 연결을 확인하세요 (시스템 탭)', ok ? 'ok' : 'warn');
             } catch (e) { acctToast('통신 실패 — 다시 눌러 주세요', 'warn'); }
         }
         async function clipSetAuto() {
@@ -4309,7 +4261,7 @@
             const dot = document.getElementById('clip-dot');
             if (dot) dot.className = 'clip-dot ' + st;
             const b = document.getElementById('btn-clip');
-            if (b) b.title = '누른 순간 앞 90초 + 뒤 90초를 OBS 가 저장합니다(90초 뒤) — ' + txt;
+            if (b) b.title = '방금 90초를 OBS 가 저장합니다 — ' + txt;
             const sEl = document.getElementById('clip-status');
             if (sEl) { sEl.textContent = txt; sEl.className = 'clip-status ' + st; }
             const c = (typeof gd !== 'undefined' && gd && gd.clip) || {};
@@ -4342,7 +4294,7 @@
                      + '<span class="clip-k ' + (x.kind === 'manual' ? 'm' : 'a') + '">' + (x.kind === 'manual' ? '직접' : '자동') + '</span>'
                      + '<input class="clip-l" type="text" maxlength="60" value="' + escapeHTML(x.name || '') + '" placeholder="' + escapeHTML(x.label || '제목') + '"'
                      + ' data-id="' + escapeHTML(x.id) + '" onchange="clipRename(this.dataset.id, this)" onkeydown="if(event.key===\'Enter\')this.blur()">'
-                     + (x.saved_at ? '<span class="clip-ok" title="OBS 가 저장했어요">저장됨</span>' : '<span class="clip-ok no" title="뒤 90초를 담으려고 기다리는 중이거나, 아직 OBS 저장 확인이 안 왔어요">대기</span>')
+                     + (x.saved_at ? '<span class="clip-ok" title="OBS 가 저장했어요">저장됨</span>' : '<span class="clip-ok no" title="아직 OBS 저장 확인이 안 왔어요">대기</span>')
                      + '</div>';
             }).join('');
         }
@@ -10273,109 +10225,32 @@ function initFoldablePanels() {
 }
 initFoldablePanels();
 
-        // ══ 📣 공지(안내 전광판) ══ — 2026-09-30 공지 탭 · 한 공지 한 칸
-        //    평소에는 방송 화면이 서버 시계로 알아서 띄운다(구간 번호 % 공지 수 = 이번 차례).
-        //    여기서는 목록 · 간격 · 속도만 정하고, '지금 띄우기' 만 서버에 신호를 보낸다.
-        //    ⚠️ 목록은 notice_msgs(글자 배열) 그대로다 — 방송판 · 폰 · 편집기가 이미 이 모양을 읽는다.
-        const NTC_MAX = 20;
-        let _ntcSig = '';
+        // ══ 📣 안내 전광판 ══
+        //    평소에는 화면이 서버 시계로 알아서 띄운다. 여기서는 문구·주기만 정하고,
+        //    "지금 띄우기" 만 서버에 신호를 보낸다.
+        let _ntcFilled = false, _ntcPickSig = '';
 
         function ntcToggle(on) { showSet({ hud: { notice: !!on } }); }   // 📺 고정 자리
-        function ntcMsgs() { return ((typeof gd !== 'undefined' && gd && gd.notice_msgs) || []).map(x => String(x || '')).filter(x => x.trim()); }
-        function ntcEveryText(sec) {
-            sec = Math.round(sec); const m = Math.floor(sec / 60), r = sec % 60;
-            return (m ? m + '분' : '') + (m && r ? ' ' : '') + (r ? r + '초' : '') || '0초';
+
+        function ntcSave() {
+            const ta = document.getElementById('ntc-msgs');
+            const msgs = ta.value.split('\n').map(x => x.trim()).filter(Boolean).slice(0, 20);
+            patchAPI({ notice_msgs: msgs,
+                       notice_period: parseInt(document.getElementById('ntc-period').value) || 300,
+                       notice_speed: parseInt(document.getElementById('ntc-speed').value) || 130 })
+                .then(ok => acctToast(ok ? ('📣 문구 ' + msgs.length + '개 저장') : '저장 실패', ok ? 'ok' : 'warn'));
         }
-        async function ntcSaveList(msgs, toast) {
-            msgs = msgs.map(x => String(x || '').replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean).slice(0, NTC_MAX);
-            gd.notice_msgs = msgs; _ntcSig = ''; ntcSync(true);
-            const ok = await patchAPI({ notice_msgs: msgs });
-            acctToast(ok ? (toast || '📣 저장했어요') : '저장 실패 — 다시 해 주세요', ok ? 'ok' : 'warn');
-        }
-        function ntcAdd() {
-            const el = document.getElementById('ntc-new');
-            const t = (el.value || '').trim();
-            if (!t) { el.focus(); return; }
-            const m = ntcMsgs();
-            if (m.length >= NTC_MAX) { acctToast('공지는 ' + NTC_MAX + '개까지예요', 'warn'); return; }
-            el.value = '';
-            ntcSaveList(m.concat([t]), '📣 ' + (m.length + 1) + '번 공지를 추가했어요');
-        }
-        function ntcEdit(i, el) {
-            const m = ntcMsgs();
-            if (i < 0 || i >= m.length) return;
-            const t = (el.value || '').trim();
-            if (!t) { el.value = m[i]; acctToast('비우려면 🗑 를 누르세요', 'warn'); return; }
-            if (t === m[i]) return;
-            m[i] = t;
-            ntcSaveList(m, '📣 ' + (i + 1) + '번 공지를 고쳤어요');
-        }
-        function ntcMove(i, d) {
-            const m = ntcMsgs(), j = i + d;
-            if (i < 0 || j < 0 || i >= m.length || j >= m.length) return;
-            const x = m[i]; m[i] = m[j]; m[j] = x;
-            ntcSaveList(m, '📣 순서를 바꿨어요');
-        }
-        async function ntcDel(i) {
-            const m = ntcMsgs();
-            if (i < 0 || i >= m.length) return;
-            if (!(await premiumConfirm((i + 1) + '번 공지를 지울까요?\n"' + m[i].slice(0, 50) + '"', '📣 공지 지우기', 'warning'))) return;
-            const now = ntcMsgs();   // 묻는 사이 바뀌었을 수 있다 — 같은 글을 찾아 지운다
-            const k = now.indexOf(m[i]);
-            if (k < 0) return;
-            now.splice(k, 1);
-            ntcSaveList(now, '📣 공지를 지웠어요');
-        }
-        // 간격 — 20초 ~ 60분. 방송판도 20초 아래로는 안 내려간다(renderNotice)
-        function ntcSetEvery(sec) {
-            sec = Math.max(20, Math.min(3600, Math.round(Number(sec) || 0)));
-            gd.notice_period = sec; ntcSync(true);
-            patchAPI({ notice_period: sec }).then(ok => acctToast(ok ? ('📣 ' + ntcEveryText(sec) + '마다 하나씩') : '저장 실패', ok ? 'ok' : 'warn'));
-        }
-        function ntcEveryFromInputs() {
-            const m = parseInt(document.getElementById('ntc-min').value, 10) || 0;
-            const r = parseInt(document.getElementById('ntc-sec').value, 10) || 0;
-            if (m * 60 + r < 20) acctToast('20초보다 짧게는 안 돼요 — 20초로 맞출게요', 'warn');
-            ntcSetEvery(m * 60 + r);
-        }
-        function ntcSpeed(v) {
-            patchAPI({ notice_speed: parseInt(v, 10) || 130 }).then(ok => acctToast(ok ? '📣 흐르는 빠르기를 바꿨어요' : '저장 실패', ok ? 'ok' : 'warn'));
-        }
-        async function ntcNow(idx) {
-            idx = parseInt(idx, 10) || 0;
+
+        async function ntcNow() {
+            const idx = parseInt((document.getElementById('ntc-pick') || {}).value) || 0;
             try {
                 const r = await fetch('/api/notice/now', { method: 'POST',
                     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idx }) });
                 const d = await r.json().catch(() => ({}));
-                acctToast(r.ok ? ('📣 지금 띄워요 — ' + String(d.text || '').slice(0, 26)) : (d.message || '실패'), r.ok ? 'ok' : 'warn');
+                acctToast(r.ok ? ('📣 ' + String(d.text || '').slice(0, 26)) : (d.message || '실패'),
+                          r.ok ? 'ok' : 'warn');
             } catch (e) { acctToast('통신 실패', 'warn'); }
         }
-        /* ⏱ 이번 차례 · 다음 차례 — 방송판과 같은 셈(서버 시계 · 구간 번호 % 개수).
-              💛 소액 후원 줄이 있으면 방송판처럼 맨 끝에 한 칸으로 낀다. */
-        function ntcStatus() {
-            const el = document.getElementById('ntc-status');
-            if (!el || typeof gd === 'undefined' || !gd) return;
-            const msgs = ntcMsgs();
-            const donor = (gd.notice_donors || []).length > 0;
-            const n = msgs.length + (donor ? 1 : 0);
-            const per = Math.max(20, parseInt(gd.notice_period, 10) || 300) * 1000;
-            const nm = i => i < msgs.length ? (i + 1) + '번' : '💛 소액 후원 줄';
-            let html, cls = 'ntc-status', cur = -1;
-            if (!msgs.length) { html = '공지가 아직 없어요 — 아래 칸에 적고 <b>[+ 공지 추가]</b>'; cls += ' off'; }
-            else if (!gd.notice_enabled) { html = '<b>꺼져 있어요</b> — 오른쪽 위 스위치를 켜면 ' + ntcEveryText(per / 1000) + '마다 1번부터 차례대로 나와요'; cls += ' off'; }
-            else {
-                const now = Date.now() + serverTimeOffset, k = Math.floor(now / per);
-                cur = k % n;
-                const left = Math.max(0, Math.ceil(((k + 1) * per - now) / 1000));
-                html = '▶ 방금 나온 것 <b>' + nm(cur) + '</b> · 다음 <b>' + nm((k + 1) % n) + '</b> — <b class="ntc-left">'
-                     + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + '</b> 뒤'
-                     + ' · 한 바퀴 ' + ntcEveryText(n * per / 1000);
-            }
-            if (el.innerHTML !== html) el.innerHTML = html;
-            if (el.className !== cls) el.className = cls;
-            document.querySelectorAll('#ntc-list .ntc-row').forEach(r => r.classList.toggle('now', Number(r.dataset.i) === cur));
-        }
-        setInterval(ntcStatus, 1000);
 
         /* == 🤖 진행봇 ====================================================
            봇은 **다른 프로그램**(bot/announce.py)이다. 서버는 설정을 상태에 적어
@@ -10494,38 +10369,23 @@ initFoldablePanels();
             if (el.innerHTML !== html) el.innerHTML = html;
         }
 
-        function ntcSync(force) {
-            const box = document.getElementById('ntc-box');
-            if (!box || typeof gd === 'undefined' || !gd) return;
-            // ⚠️ setChk 는 다른 함수 안의 지역 함수라 여기서 못 쓴다(부르면 그 줄에서 멈춰 아래가 통째로 안 돈다)
+        function ntcSync() {
+            const ta = document.getElementById('ntc-msgs');
+            if (!ta || typeof gd === 'undefined' || !gd) return;
+            // ⚠️ setChk 는 다른 함수 안의 지역 함수라 여기서 못 쓴다(부르면 그 줄에서 멈춰
+            //    아래가 통째로 안 돈다 — 실제로 스위치·주기·목록이 다 비어 있었다).
             const sw = document.getElementById('chk-notice');
             if (sw && sw.checked !== !!gd.notice_enabled) sw.checked = !!gd.notice_enabled;
-            // 간격 · 속도 — 고치는 중인 칸은 덮지 않는다
-            const per = Math.max(20, parseInt(gd.notice_period, 10) || 300);
-            const setIf = (id, v) => { const e = document.getElementById(id);
-                if (e && document.activeElement !== e && String(e.value) !== String(v)) e.value = v; };
-            setIf('ntc-min', Math.floor(per / 60));
-            setIf('ntc-sec', per % 60);
-            setIf('ntc-speed', gd.notice_speed || 130);
-            document.querySelectorAll('#ntc-chips button').forEach(b => b.classList.toggle('on', Number(b.dataset.sec) === per));
-            // 목록 — 바뀌었을 때만, 그리고 칸을 고치는 중이면 손이 떠난 뒤에(글자가 날아가지 않게)
-            const msgs = ntcMsgs();
-            const list = document.getElementById('ntc-list');
-            const sig = JSON.stringify(msgs);
-            if (list && (force || sig !== _ntcSig) && !list.contains(document.activeElement)) {
-                _ntcSig = sig;
-                list.innerHTML = msgs.length ? msgs.map((m, i) =>
-                    '<div class="ntc-row" data-i="' + i + '">'
-                    + '<span class="ntc-n">' + (i + 1) + '</span>'
-                    + '<input type="text" maxlength="120" value="' + escapeHTML(m) + '" onchange="ntcEdit(' + i + ', this)" onkeydown="if(event.key===\'Enter\')this.blur()" title="고치고 Enter">'
-                    + '<span class="ntc-b">'
-                    + '<button type="button" onclick="ntcMove(' + i + ', -1)" title="앞으로"' + (i === 0 ? ' disabled' : '') + '>↑</button>'
-                    + '<button type="button" onclick="ntcMove(' + i + ', 1)" title="뒤로"' + (i === msgs.length - 1 ? ' disabled' : '') + '>↓</button>'
-                    + '<button type="button" class="ntc-go" onclick="ntcNow(' + i + ')" title="이 공지를 지금 한 번 띄웁니다(순서는 그대로)"><i class="fa-solid fa-bolt"></i> 지금</button>'
-                    + '<button type="button" class="ntc-del" onclick="ntcDel(' + i + ')" title="지우기"><i class="fa-solid fa-trash-can"></i></button>'
-                    + '</span></div>').join('')
-                    : '<div class="gx-info">아직 공지가 없어요.</div>';
+            const msgs = gd.notice_msgs || [];
+            // ⚠️ 적는 중에는 덮지 않는다. 처음 한 번만 채운다.
+            if (!_ntcFilled && msgs.length) { ta.value = msgs.join('\n'); _ntcFilled = true; }
+            if (document.activeElement !== ta) {
+                const setIf = (id, v) => { const e = document.getElementById(id);
+                    if (e && String(e.value) !== String(v)) e.value = v; };
+                setIf('ntc-period', gd.notice_period || 300);
+                setIf('ntc-speed', gd.notice_speed || 130);
             }
+            const sig = msgs.join('|');
             // 💛 소액 후원자 — 전광판에 한 줄로 나가는 그 내용을 조종실에서도 보여준다
             const dbox = document.getElementById('ntc-donors');
             if (dbox) {
@@ -10536,13 +10396,21 @@ initFoldablePanels();
                     const more = ds.length > last.length ? ' 외 ' + (ds.length - last.length) + '분' : '';
                     dbox.style.display = 'block';
                     dbox.innerHTML = '💛 <b style="color:var(--gold);">소액 후원 ' + ds.length
-                        + '건</b> — 공지 순서 맨 끝에 한 줄로 함께 나갑니다<br><span style="color:var(--text-dim);">'
+                        + '건</b> — 전광판에 한 줄로 함께 나갑니다<br><span style="color:var(--text-dim);">'
                         + last.map(x => escapeHTML(String(x.name || '익명')) + ' '
                             + (Number(x.amount) || 0).toLocaleString() + '원').join(' · ')
                         + escapeHTML(more) + '</span>';
                 }
             }
-            ntcStatus();
+            const pick = document.getElementById('ntc-pick');
+            if (pick && sig !== _ntcPickSig) {
+                _ntcPickSig = sig;
+                const keep = pick.value;
+                pick.innerHTML = msgs.length
+                    ? msgs.map((m, i) => '<option value="' + i + '">' + escapeHTML(String(m).slice(0, 30)) + '</option>').join('')
+                    : '<option value="0">(문구 없음)</option>';
+                pick.value = keep;
+            }
         }
 
         // ══ 🎲 주사위게임 조종 ══
@@ -12320,7 +12188,7 @@ function cmdkCommands() {
         { k: '대결', t: '⚔ 대결 타이머 시작/정지', h: '대결', run: () => toggleTimer() },
         { k: '대결 1분', t: '⚔ 대결 +1분', h: '대결', run: () => modifyTimer(1, 'min') },
         { k: '올클리어', t: '🎉 시그뒤집기 올클리어', h: '게임', run: () => sgAllClear() },
-        { k: '클립', t: '✂ 쇼츠 클립 — 앞 90초 + 뒤 90초 저장', h: '녹화', run: () => clipNow() },
+        { k: '클립', t: '✂ 쇼츠 클립 — 방금 90초 저장', h: '녹화', run: () => clipNow() },
         { k: '다음', t: '📺 순서표 다음 단계', h: '화면', run: () => showCue('next') },
         { k: '이전', t: '📺 순서표 이전 단계', h: '화면', run: () => showCue('prev') },
         { k: '무대 비우기', t: '📺 무대 비우기', h: '화면', run: () => showSet({ stage: null }) },

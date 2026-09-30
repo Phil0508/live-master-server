@@ -161,13 +161,11 @@ while ($true) {
             if ($hits.Count -eq 0 -and $age -lt 45) { continue }       # 서버에 '저장됨' 이 아직 안 왔다 — 조금 더 기다린다
             $day = [DateTimeOffset]::FromUnixTimeMilliseconds($tMs).ToOffset($KST).ToString('yyyy-MM-dd')
             $seq = 1 + @($moved.Values | Where-Object { [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$_.t).ToOffset($KST).ToString('yyyy-MM-dd') -eq $day }).Count
-            # ⏱ 이름의 {시각} 은 '그 순간'(목록 줄 시각)으로 — 저장은 순간 90초 뒤라 파일 시각은 1분 30초 늦다
-            $tName = if ($hits.Count) { [int64]$hits[0].ts } else { $tMs - 90000 }
-            $name = Build-Name $fmt $hits $tName $seq
+            $name = Build-Name $fmt $hits $tMs $seq
             $dest = Unique-Path $cfg.target $name $f.Extension
             Move-Item -LiteralPath $f.FullName -Destination $dest
             $key = if ($hits.Count) { [string]$hits[0].id } else { 'f' + $tMs + '_' + $f.Name.GetHashCode() }
-            $moved[$key] = @{ path = $dest; ids = @($hits | ForEach-Object { [string]$_.id }); t = $tName; seq = $seq }
+            $moved[$key] = @{ path = $dest; ids = @($hits | ForEach-Object { [string]$_.id }); t = $tMs; seq = $seq }
             Save-Map
             if ($hits.Count) { Say ("✂ 옮김: " + [IO.Path]::GetFileName($dest)) 'Green' }
             else { Say ("✂ 옮김(목록에 없는 순간): " + [IO.Path]::GetFileName($dest)) 'Yellow' }
