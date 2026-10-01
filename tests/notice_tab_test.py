@@ -68,7 +68,7 @@ for fn in ('ntcAdd', 'ntcEdit', 'ntcMove', 'ntcDel', 'ntcNow', 'ntcSetEvery', 'n
     chk('%s 가 있다' % fn, 'function %s(' % fn in CT or 'async function %s(' % fn in CT)
 chk('한 줄씩 칸으로 그린다(.ntc-row)', "class=\"ntc-row\"" in CT and '.ntc-row {' in CT)
 chk('옛 글상자(ntc-msgs)는 걷어냈다', 'id="ntc-msgs"' not in CT)
-chk('지옥·퇴근 탭에는 공지 탭으로 가는 길만 남겼다', "openTabById('tab-notice')" in CT)
+chk('지옥·퇴근 탭에는 공지로 가는 길만 남겼다(10-02 부터 공지는 ⚙ 설정 화면)', "ctlView('setup', 'tab-notice')" in CT)
 chk('소액 후원 줄은 그대로 보여준다', 'id="ntc-donors"' in CT and 'notice_donors' in CT)
 chk('공지는 20개까지', 'const NTC_MAX = 20;' in CT and '.slice(0, NTC_MAX)' in CT)
 chk('빈 칸으로 고치면 되돌린다(실수로 지워지지 않게)', "el.value = m[i]; acctToast('비우려면" in CT)

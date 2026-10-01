@@ -2132,6 +2132,35 @@
             body.skin-glass #skin-flip { padding: 5px 0 4px; }
         }
     </style>
+    <style id="view-zone-css">
+        /* ⚙ 조종실 ↔ 설정 화면 (2026-10-02) — data-zone="setup" 은 설정 화면에만, data-zone="live" 는 조종실에만 */
+        body:not(.view-setup) [data-zone="setup"] { display: none !important; }
+        body.view-setup [data-zone="live"] { display: none !important; }
+        /* 설정 화면: 방송용 탭 단추 · 오른쪽 칸(대기함 · 콘솔) · 방송 화면 줄은 숨긴다 */
+        body.view-setup .tabs .tab-btn:not([data-zone="setup"]):not(#skin-flip),
+        body.view-setup .tabs a.tab-x, body.view-setup .tabs .tab-glabel { display: none !important; }
+        body.view-setup #tab-mode > :not([data-zone="setup"]) { display: none !important; }
+        /* 원래 ⋯ 뒤에 숨던 단추(tab-x)도 설정 화면에선 늘 보인다 */
+        body.view-setup .tabs-2row .tab-btn.tab-x[data-zone="setup"] { display: inline-flex !important; }
+        body.view-setup #shell-rail, body.view-setup #show-bar, body.view-setup #context-strip,
+        body.view-setup #goal-alert-box, body.view-setup #autopilot-banner { display: none !important; }
+        body.view-setup .shell { grid-template-columns: minmax(0, 1fr) !important; }
+        body.view-setup .shell-main { max-width: 1100px; }
+        /* 방송 시작 전에도 설정 화면은 열린다 */
+        body.view-setup #active-broadcast-area { display: block !important; }
+        body.view-setup #setup-broadcast-area { display: none !important; }
+        /* 조종실: ⋯ 뒤엔 이제 후원 콘솔 · 출연진 전광판 둘뿐 — 접지 않고 늘 보인다(⋯ 를 방송 3번에 65번 눌렀다) */
+        body:not(.view-setup) .tabs .tab-btn.tab-dots { display: none !important; }
+        @media (min-width: 1280px) { body:not(.view-setup) .tabs-2row a.tab-x { display: contents !important; } }
+        .setup-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px;
+                      padding: 14px 18px; border-radius: var(--r-3, 12px); border: 1px solid var(--border-light);
+                      background: rgba(255, 255, 255, 0.04); }
+        .setup-head > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .setup-head b { font-size: var(--fs-4); color: #fff; }
+        .setup-head span { font-size: var(--fs-2); color: var(--text-muted); line-height: 1.5; }
+        .setup-head button { flex: none; height: 40px; padding: 0 16px; }
+        @media (max-width: 640px) { .setup-head { flex-direction: column; align-items: stretch; } }
+    </style>
 </head>
 <body>
 <script>
@@ -2292,6 +2321,12 @@
     <!-- 🪟 한 창 틀 — 왼쪽(.shell-main): 탭·탭 내용 / 오른쪽(.shell-rail): 대기함·🆕·시그 송출·재생 대기열 -->
     <div class="shell">
     <div class="shell-main">
+        <!-- ⚙ 설정 화면 머리말 (2026-10-02) — 조종실에선 안 보인다 -->
+        <div id="setup-head" class="setup-head" data-zone="setup">
+            <div><b><i class="fa-solid fa-gear"></i> 설정</b>
+                <span>방송 중엔 잘 안 쓰는 세부 설정을 모아 둔 곳이에요. 방송 조종은 [조종실로] 를 누르세요.</span></div>
+            <button type="button" class="primary" onclick="ctlView('live')"><i class="fa-solid fa-arrow-left"></i> 조종실로</button>
+        </div>
     <div id="sticky-top">
         <!-- 🗂️ 탭 — 두 줄 (대표님 2026-09-27, 시안 B).
              추석 방송(2026-09-22) 클릭 기록 1,073번을 보고 **많이 연 순서**로 세웠다.
@@ -2310,17 +2345,22 @@
             <button class="tab-btn" data-s="시그뒤집기" onclick="openTab(event, 'tab-siggame'); sgSyncPanel();"><i class="fa-solid fa-clone"></i> 시그뒤집기</button>
             <div class="tab-row2">
             <span class="tab-glabel">가끔</span>
+            <!-- ⚙ 설정 화면에서만 보인다 (2026-10-02 조종실 단순화) -->
+            <button type="button" class="tab-btn tab-minor tab-back" data-s="조종실로" onclick="ctlView('live')" data-zone="setup" title="방송 조종 화면으로 돌아가기"><i class="fa-solid fa-arrow-left"></i> 조종실로</button>
             <button class="tab-btn tab-minor" data-s="지옥·퇴근" onclick="openTab(event, 'tab-mode')" title="🔥 지옥탈출 · 🏃 퇴근빵 · 임시게임판"><i class="fa-solid fa-fire"></i> 지옥탈출·퇴근빵</button>
             <button class="tab-btn tab-minor" data-s="핀볼" onclick="openTab(event, 'tab-pinball'); pbcSync(true);"><i class="fa-solid fa-circle-dot"></i> 핀볼</button>
             <button class="tab-btn tab-minor" data-s="로그" onclick="openTab(event, 'tab-logs'); renderLogFeed(true);"><i class="fa-solid fa-list-ul"></i> 로그</button>
-            <button class="tab-btn tab-minor" data-s="공지" onclick="openTab(event, 'tab-notice'); ntcSync(true);"><i class="fa-solid fa-bullhorn"></i> 공지</button>
+            <button class="tab-btn tab-minor" data-s="공지" onclick="openTab(event, 'tab-notice'); ntcSync(true);" data-zone="setup"><i class="fa-solid fa-bullhorn"></i> 공지</button>
             <!-- ⋯ 뒤 — 넓은 화면(한 창)에서는 접어 둔다. 후원 콘솔은 오른쪽 칸이 대신하므로 여기로 -->
-            <button class="tab-btn tab-minor tab-x" data-s="시스템" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);"><i class="fa-solid fa-server"></i> 시스템</button>
-            <button class="tab-btn tab-minor tab-x" data-s="이펙트" onclick="openTab(event, 'tab-neon')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
-            <button class="tab-btn tab-minor tab-x" data-s="특별후원" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
-            <button class="tab-btn tab-minor tab-x" data-s="진행봇" onclick="openTab(event, 'tab-bot'); abSync(true);"><i class="fa-solid fa-robot"></i> 진행봇</button>
+            <button class="tab-btn tab-minor tab-x" data-s="시스템" onclick="openTab(event, 'tab-system'); loadArchiveSessions(); loadMonthly(true);" data-zone="setup"><i class="fa-solid fa-server"></i> 시스템</button>
+            <button class="tab-btn tab-minor tab-x" data-s="이펙트" onclick="openTab(event, 'tab-neon')" data-zone="setup"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트/전광판</button>
+            <button class="tab-btn tab-minor tab-x" data-s="특별후원" onclick="openTab(event, 'tab-vip'); loadVipList(); loadVipCandidates();" data-zone="setup"><i class="fa-solid fa-crown"></i> 특별 후원자</button>
+            <button class="tab-btn tab-minor tab-x" data-s="진행봇" onclick="openTab(event, 'tab-bot'); abSync(true);" data-zone="setup"><i class="fa-solid fa-robot"></i> 진행봇</button>
             <a class="tab-x" href="/manual" target="_blank" style="text-decoration:none;"><button class="tab-btn tab-minor" data-s="후원콘솔" title="후원 콘솔 열기 (수동송출·대기열·순위·시그니처 관리)"><i class="fa-solid fa-paper-plane"></i> 후원 콘솔</button></a>
             <a class="tab-x" href="/signature-display" target="_blank" style="text-decoration: none;"><button class="tab-btn tab-minor" data-s="전광판"><i class="fa-solid fa-tv"></i> 출연진 전광판</button></a>
+            <button class="tab-btn tab-minor" data-s="모드설정" onclick="openTab(event, 'tab-mode')" data-zone="setup" title="🎤 노래방 · 🏦 계좌 고액후원 영상 · 🧩 번외 임시 게임판"><i class="fa-solid fa-sliders"></i> 모드 설정</button>
+            <!-- ⚙ 조종실 쪽에서만 보인다 — 방송 중엔 잘 안 쓰는 세부 설정을 모은 화면으로 -->
+            <button type="button" class="tab-btn tab-minor tab-gear" data-s="설정" onclick="ctlView('setup')" data-zone="live" title="⚙ 공지 · 시스템 · 진행봇 · 특별 후원자 · 이펙트 · 노래방 같은 세부 설정"><i class="fa-solid fa-gear"></i> 설정</button>
             <button type="button" class="tab-btn tab-minor tab-dots" data-s="더보기" onclick="document.body.classList.toggle('tabs-open')" title="나머지 탭 펴기/접기">⋯</button>
             <!-- 🎨 새 옷 ↔ 옛 모습 (넓은 화면에서만 보인다 · 이 컴퓨터에만 기억).
                  ⚠️ 아랫줄(.tab-row2) 안에 둔다 — 밖에 두면 옛 모습에서 탭 밑에 한 줄을 따로 먹는다 -->
@@ -2400,8 +2440,8 @@
 
     <!-- 🎮 모드 탭: 임시게임판 + 퇴근전쟁 (랭킹 탭에서 분리해 옮김) -->
     <div id="tab-mode" class="tab-content">
-        <!-- 🎤 노래방 모드 -->
-        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(140,155,255,0.4); background: rgba(120,135,255,0.05);">
+        <!-- 🎤 노래방 모드 — ⚙ 설정 화면으로(방송 3번 동안 0번) -->
+        <div class="group-box" data-zone="setup" style="margin-bottom: 15px; border-color: rgba(140,155,255,0.4); background: rgba(120,135,255,0.05);">
             <div class="group-title"><span style="color:#9fb0ff;"><i class="fa-solid fa-microphone"></i> 노래방 모드</span></div>
             <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 12px; line-height: 1.6;">
                 유튜브 노래방(inst) 링크를 붙여넣고 <b>[노래방 켜기]</b>를 누르면 오버레이 화면에 영상이 떠요. 켜면 배경음(BGM)은 자동으로 멈춥니다.
@@ -2418,8 +2458,8 @@
             </div>
             <div id="karaoke-status" style="margin-top:10px; font-size:var(--fs-2); color:var(--text-muted);">⚫ 꺼짐</div>
         </div>
-        <!-- 🏦 계좌 고액후원 영상 -->
-        <div class="group-box" style="margin-bottom: 15px; border-color: rgba(46,204,113,0.4); background: rgba(46,204,113,0.05);">
+        <!-- 🏦 계좌 고액후원 영상 — ⚙ 설정 화면으로(방송 3번 동안 0번) -->
+        <div class="group-box" data-zone="setup" style="margin-bottom: 15px; border-color: rgba(46,204,113,0.4); background: rgba(46,204,113,0.05);">
             <div class="group-title"><span style="color:#2ecc71;"><i class="fa-solid fa-building-columns"></i> 계좌 고액후원 영상</span></div>
             <div style="font-size: var(--fs-2); color: var(--text-muted); margin: 8px 0 12px; line-height: 1.6;">
                 대기함에서 <b>[🏦 계좌]</b>를 누르면, 금액대에 맞는 유튜브 영상이 오버레이에 재생돼요(30만원 이상, 미만은 재생 안 함). 아래에 금액대별 링크를 넣어두세요.
@@ -2428,7 +2468,7 @@
             <button onclick="saveAccountVideos()" style="margin-top:12px; height:40px; padding:0 18px; border-radius:var(--r-2); border:none; background:linear-gradient(135deg,#27ae60,#2ecc71); color:#fff; font-weight:800; cursor:pointer;"><i class="fa-solid fa-floppy-disk"></i> 영상 링크 저장</button>
             <div id="acct-video-savemsg" style="margin-top:8px; font-size:var(--fs-2); color:var(--text-muted);"></div>
         </div>
-        <div class="group-box" id="extra-game-banner" style="margin-bottom: 15px; border-color: var(--border-light); background: rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
+        <div class="group-box" id="extra-game-banner" data-zone="setup" style="margin-bottom: 15px; border-color: var(--border-light); background: rgba(0, 0, 0, 0.2); transition: all 0.3s ease;">
             <div class="group-title" style="color: #fff; border-bottom-color: var(--border-light); display: flex; justify-content: space-between; align-items: center; width: 100%;">
                 <span><i class="fa-solid fa-rocket"></i> 지능형 번외 임시 게임판 제어 센터</span>
                 <span id="extra-game-status-badge" style="background: var(--surface-2); color: var(--text-dim); font-size: var(--fs-1); padding: 3px 8px; border-radius: var(--r-3); font-weight: bold; transition: all 0.3s ease;">비활성화 🔴</span>
@@ -2439,7 +2479,7 @@
             </div>
         </div>
         <!-- 📣 안내 전광판은 [공지] 탭으로 옮겼다(2026-09-30) — 여기서 찾던 손을 위해 길만 남긴다 -->
-        <div class="gx-info" style="margin: 0 0 15px;">📣 안내 전광판(공지)은 <button type="button" class="secondary gx-sm" onclick="openTabById('tab-notice')" style="margin:0 4px;">📣 공지 탭</button> 으로 옮겼어요.</div>
+        <div class="gx-info" data-zone="live" style="margin: 0 0 15px;">⚙ 공지 · 노래방 · 계좌 고액후원 영상 · 번외 게임판은 설정 화면으로 옮겼어요 <button type="button" class="secondary gx-sm" onclick="ctlView('setup', 'tab-notice')" style="margin:0 4px;">📣 공지</button><button type="button" class="secondary gx-sm" onclick="ctlView('setup', 'tab-mode')" style="margin:0 4px;">🎤 모드 설정</button></div>
 
         <!-- 🔥 지옥탈출 (2026-09-21 추석 방송 — 퇴근빵 대신 마지막에) -->
         <div class="group-box" id="hell-box" style="margin-bottom: 15px; border-color: rgba(255, 90, 40, 0.5); background: rgba(255, 90, 40, 0.05);">
@@ -3939,6 +3979,10 @@
             <button onclick="startBroadcast()" class="primary" style="width: 100%; height: 50px; font-size: var(--fs-4); font-weight: 800; justify-content: center; box-shadow: 0 4px 15px var(--accent-glow); border-radius: var(--radius-md);">
                 <i class="fa-solid fa-circle-play"></i> 🎮 방송 시작 (Start Broadcast)
             </button>
+            <!-- ⚙ 방송 전에 공지 · 특별 후원자 · 진행봇을 손볼 수 있게 (2026-10-02) -->
+            <button type="button" class="secondary" onclick="ctlView('setup')" style="width: 100%; height: 42px; margin-top: 10px; justify-content: center;">
+                <i class="fa-solid fa-gear"></i> 설정 (공지 · 특별 후원자 · 진행봇 · 시스템)
+            </button>
         </div>
     </div>
 
@@ -3980,7 +4024,37 @@
             return originalFetch(resource, init);
         };
 
-        function openTab(evt, tabId) { document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); loadVersions(); try { toonLoad(); } catch (e) {} } if (tabId === 'tab-logs') { loadManualLogs(1); } }
+        function openTab(evt, tabId) { try { ctlZoneFor(tabId); } catch (e) {} document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active')); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); document.getElementById(tabId).classList.add('active'); evt.currentTarget.classList.add('active'); if (tabId === 'tab-system') { refreshSystemStatus(); renderBankPlayerButtons(); loadVersions(); try { toonLoad(); } catch (e) {} } if (tabId === 'tab-logs') { loadManualLogs(1); } }
+        // ⚙ 조종실 ↔ 설정 화면 (2026-10-02) — 대표님 "진짜로 누르는 것들은 조정실에 냅두고 세부사항들은 전용 페이지에"
+        //    방송 3번 클릭 기록(2,515번)으로 나눴다. 어느 칸이 어디로 가는지는 HTML 의 data-zone 이 정한다.
+        //    ⚠️ 같은 화면 안에서 보이는 칸만 바꾼다 — 조종실을 한 번 더 띄우면 둘이 서로 덮어쓸 수 있다.
+        //    ⚠️ 새로 열면 늘 조종실부터(설정 화면을 기억하지 않는다) — 방송 중 엉뚱한 화면이 뜨지 않게.
+        const CTL_SETUP_ONLY = ['tab-system', 'tab-notice', 'tab-neon', 'tab-vip', 'tab-bot'];
+        function ctlZoneFor(tabId) {
+            if (tabId === 'tab-mode') return;          // 지옥·퇴근은 양쪽에 다 칸이 있다
+            const want = CTL_SETUP_ONLY.indexOf(tabId) >= 0;
+            if (want !== document.body.classList.contains('view-setup')) document.body.classList.toggle('view-setup', want);
+        }
+        function ctlView(v, tab) {
+            const on = v === 'setup';
+            document.body.classList.toggle('view-setup', on);
+            const cur = document.querySelector('.tab-content.active');
+            const curId = cur ? cur.id : '';
+            let want = tab || '';
+            if (!want && on && CTL_SETUP_ONLY.indexOf(curId) < 0) want = 'tab-system';
+            // 조종실로 돌아오면 늘 랭킹(집)부터 — 설정에서 [모드 설정](지옥·퇴근 탭)을 열었다 돌아와도
+            if (!want && !on && (CTL_SETUP_ONLY.indexOf(curId) >= 0 || curId === 'tab-mode')) want = 'tab-ranking';
+            if (want) {
+                // 같은 탭을 여는 단추가 둘(지옥·퇴근 / 모드 설정)이면 지금 화면에 보이는 쪽을 누른다
+                const zone = on ? 'setup' : 'live';
+                const btn = [...document.querySelectorAll('.tabs .tab-btn')].find(function (x) {
+                    return (x.getAttribute('onclick') || '').indexOf("'" + want + "'") !== -1
+                        && (x.getAttribute('data-zone') || 'live') === zone;
+                });
+                if (btn) btn.click(); else { try { openTabById(want); } catch (e) {} }
+            }
+            try { window.scrollTo(0, 0); } catch (e) {}
+        }
         let gd = null; let isPushing = false; let lastPushTime = 0;
         // 내 전송과 겹쳐서 버린 SSE 업데이트가 있었는지. true 면 아래 워치독이 다시 받아온다.
         let needsResync = false;

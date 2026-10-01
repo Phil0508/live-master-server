@@ -176,7 +176,10 @@ def run(name, cmd, cwd, kind=None, timeout=900):
 #    그래도 터지지는 않게 폴더는 만들어 둔다 (.gitignore 가 커밋은 막는다).
 for _d in (LT2, PT):
     os.makedirs(_d, exist_ok=True)
-for f in ('server.py', 'show.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.html'):
+# ⚠️ 페이지가 부르는 스크립트도 같이 — 예전엔 comma_input.js 가 빠져 조종실 renderUI 가
+#    'commaFormat is not defined' 로 넘어졌다(실물에선 안 나는 오류. 2026-10-02 ctl_zone_test 가 잡았다)
+for f in ('server.py', 'show.py', 'overlay.html', 'admin.html', 'controller.html', 'mobile.html',
+          'comma_input.js', 'sig-fx.js', 'sig-fx-gl.js'):
     src = os.path.join(PROJ, f)
     if os.path.exists(src):
         for d in (LT2, PT):
@@ -188,6 +191,13 @@ if os.path.isdir(_fsrc):
         _fdst = os.path.join(d, 'features')
         shutil.rmtree(_fdst, ignore_errors=True)
         shutil.copytree(_fsrc, _fdst, ignore=shutil.ignore_patterns('__pycache__'))
+# 🧱 vendor/ — 방송판이 부르는 라이브러리(confetti · box2d · 핀볼 판). 없으면 그 화면만 조용히 깨진다
+_vsrc = os.path.join(PROJ, 'vendor')
+if os.path.isdir(_vsrc):
+    for d in (LT2, PT):
+        _vdst = os.path.join(d, 'vendor')
+        shutil.rmtree(_vdst, ignore_errors=True)
+        shutil.copytree(_vsrc, _vdst)
 # ✂️ 회사 PC 도우미 — 서버가 이 폴더를 묶어 내려준다(/api/clip/helper.zip). 없으면 500 이 난다
 _hsrc = os.path.join(PROJ, 'tools', 'clip_helper')
 if os.path.isdir(_hsrc):
@@ -289,6 +299,7 @@ run('지난 방송 후원내역', [PY, 'archive_test.py'], HERE, kind='pt')
 run('안내 전광판', [PY, 'notice_test.py'], HERE, kind='pt')
 run('📣 공지 탭 — 여러 개 · 순서 · 간격', [PY, 'notice_tab_test.py'], HERE, kind='pt')
 run('🧹 죽은 실시간 연결 치우기', [PY, 'sse_cleanup_test.py'], HERE, kind='pt')
+run('⚙ 조종실 ↔ 설정 화면', [PY, 'ctl_zone_test.py'], HERE, kind='pt')
 run('배치 왕복', [PY, 'layout_test.py'], HERE, kind='pt')
 run('시그니처 연출', ['node', 'sigfx_test.js'], HERE)
 run('룰렛 상시부담', ['node', 'roulette_test.js'], HERE)
