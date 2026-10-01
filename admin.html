@@ -1492,7 +1492,7 @@ body.themed :is(#ranking-container, #donor-rank-container, #best-container)::aft
 
             function connectAdminSSE() {
                 if (adminEs) adminEs.close();
-                adminEs = new EventSource('/api/stream' + (TOKEN ? ('?token=' + encodeURIComponent(TOKEN)) : ''));
+                adminEs = new EventSource('/api/stream?kind=admin' + (TOKEN ? ('&token=' + encodeURIComponent(TOKEN)) : ''));   // 🏷️ 이름표(조종실 시스템 칸)
                 const onState = e => {
                     adminLastMsg = Date.now();
                     try { renderFromStateSafe(JSON.parse(e.data)); } catch (err) {}

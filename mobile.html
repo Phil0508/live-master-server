@@ -913,7 +913,7 @@ function handleState(st) {
     $('sb-ver').textContent = '';
 }
 function connectSSE() {
-    const es = new EventSource('/api/stream' + (TOKEN ? '?token=' + encodeURIComponent(TOKEN) : ''));
+    const es = new EventSource('/api/stream?kind=mobile' + (TOKEN ? '&token=' + encodeURIComponent(TOKEN) : ''));   // 🏷️ 이름표
     es.onopen = () => { $('sb-dot').classList.remove('off'); $('sb-txt').textContent = '연결됨'; };
     const on = e => { try { handleState(JSON.parse(e.data)); } catch (err) {} };
     es.addEventListener('init', on);

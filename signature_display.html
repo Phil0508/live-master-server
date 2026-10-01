@@ -176,7 +176,7 @@
         // (서버는 donation/test_reaction/signature 이벤트를 쏘지 않으므로 그 리스너들은 제거했다.
         //  슬롯 당첨도 reaction_queue 에 실려 'update' 로 오므로 큐 경로가 알아서 처리한다.)
         function initSSE() {
-            const evtSource = new EventSource('/api/stream');
+            const evtSource = new EventSource('/api/stream?kind=sigdisp' + (window.obsstudio ? '&obs=1' : ''));   // 🏷️ 이름표
             const onState = (e) => { try { handleData(JSON.parse(e.data)); } catch (err) {} };
             evtSource.onmessage = onState;
             evtSource.addEventListener('init', onState);    // 연결 즉시 현재 상태 수신(늦게 켜도 지금 시그니처 표시)

@@ -8729,7 +8729,9 @@
             if (sseSource) {
                 sseSource.close();
             }
-            sseSource = new EventSource('/api/stream');
+            // 🏷️ 이름표 — 조종실 시스템 칸에 '방송판 · OBS' / '방송판 미리보기(폰 · 편집기 안)' 로 보인다
+            sseSource = new EventSource('/api/stream?kind=overlay' + (window.obsstudio ? '&obs=1' : '')
+                + (new URLSearchParams(location.search).get('monitor') === '1' ? '&monitor=1' : ''));
             
             sseSource.addEventListener('init', function(e) {
                 lastSseMsgAt = Date.now();

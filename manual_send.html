@@ -752,7 +752,7 @@
     function startQueueStream(){
         try{
             if(queueSse) queueSse.close();
-            queueSse = new EventSource('/api/stream');
+            queueSse = new EventSource('/api/stream?kind=manual');   // 🏷️ 이름표(조종실 시스템 칸)
             const onData = e => { try{ renderQueue(JSON.parse(e.data)); setConn(true); }catch(err){} };
             queueSse.addEventListener('init', onData);
             queueSse.addEventListener('update', onData);

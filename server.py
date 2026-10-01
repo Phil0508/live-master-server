@@ -941,6 +941,65 @@ def _peer_gone(sock):
         return False
 
 
+# 🏷️ 붙은 화면 이름표 (2026-10-02) — 대표님 "오버레이 하나랑 컨트롤러 하나만 띄워놨는데" 6개로 나왔다.
+#    숫자만 있어서 뭐가 뭔지 몰랐다(알고 보니 폰 화면 안에 방송판 미리보기가 숨어 있어 폰 하나가 2개).
+#    화면마다 /api/stream?kind=… 로 자기가 뭔지 알려 준다. 모르는 것(옛 화면 · 바깥 접속)은 'unknown'.
+SSE_KINDS = ('controller', 'overlay', 'mobile', 'manual', 'admin', 'alertbox', 'sigdisp', 'slot')
+# 상한에 걸렸을 때 내보내는 순서 — 작을수록 먼저. ⚠️ 방송에 나가는 화면(방송판 · 알림창 · 전광판)은 맨 나중.
+#    예전엔 '가장 오래된 것' 부터였는데, 가장 오래된 건 보통 방송 시작 때 켠 OBS 방송판이었다.
+_SSE_KEEP_RANK = {'unknown': 0, 'controller': 1, 'mobile': 1, 'manual': 1, 'admin': 1, 'slot': 1,
+                  'alertbox': 2, 'sigdisp': 2, 'overlay': 2}
+_SSE_SHOW_ORDER = ('overlay', 'alertbox', 'sigdisp', 'controller', 'mobile', 'manual', 'admin', 'slot', 'unknown')
+
+
+def _sse_device(ua, obs_hint=False):
+    """어떤 기기인지 대충만 — 이름표용이라 정확할 필요는 없다. 주소·IP 는 안 남긴다."""
+    ua = ua or ''
+    if obs_hint or 'OBS/' in ua:
+        return 'obs'
+    if 'iPhone' in ua:
+        return 'iphone'
+    if 'iPad' in ua:
+        return 'ipad'
+    if 'Android' in ua:
+        return 'android'
+    if 'Windows' in ua:
+        return 'windows'
+    if 'Macintosh' in ua or 'Mac OS X' in ua:
+        return 'mac'
+    return 'other'
+
+
+def _sse_keep_rank(q):
+    k = getattr(q, '_kind', 'unknown')
+    r = _SSE_KEEP_RANK.get(k, 0)
+    if k == 'overlay' and getattr(q, '_monitor', False):
+        r = 1          # 미리보기(폰 · 편집기 안의 방송판)는 방송에 안 나간다
+    return r
+
+
+def _sse_trim_over():
+    """상한을 넘으면 '덜 중요한 것 · 오래된 것' 부터 내보낸다. ⚠️ sse_lock 을 쥔 채로 부른다."""
+    while len(sse_clients) > SSE_MAX_CLIENTS:
+        victim = min(sse_clients, key=lambda x: (_sse_keep_rank(x), getattr(x, '_born', 0)))
+        _sse_drop(victim, 'over')
+
+
+def sse_screens():
+    """지금 붙은 화면 목록 — 조종실 시스템 칸에 보인다(로그인한 쪽에만). 주소 · IP 는 싣지 않는다."""
+    now = time.time()
+    with sse_lock:
+        rows = [{'kind': getattr(q, '_kind', 'unknown'),
+                 'device': getattr(q, '_dev', 'other'),
+                 'monitor': bool(getattr(q, '_monitor', False)),
+                 'authed': bool(getattr(q, '_authed', False)),
+                 'since_sec': max(0, int(now - getattr(q, '_born', now))),
+                 'idle_sec': max(0, int(now - getattr(q, '_drained', now)))} for q in sse_clients]
+    order = {k: i for i, k in enumerate(_SSE_SHOW_ORDER)}
+    rows.sort(key=lambda r: (order.get(r['kind'], 99), r['monitor'], -r['since_sec']))
+    return rows
+
+
 def _sse_janitor():
     """30초마다 죽은 연결을 치운다.
        ① 상대가 끊은 것(제일 흔하다 — 탭 닫기 · 새로고침 연타)
@@ -957,9 +1016,8 @@ def _sse_janitor():
                 for q in [x for x in sse_clients
                           if now - getattr(x, '_drained', now) > SSE_STALE_SEC]:
                     _sse_drop(q, 'stale')
-                # 상한을 넘으면 오래된 것부터 (새 화면이 못 붙는 일을 막는다)
-                while len(sse_clients) > SSE_MAX_CLIENTS:
-                    _sse_drop(sse_clients[0], 'over')
+                # 상한을 넘으면 덜 중요한 것부터 (새 화면이 못 붙는 일을 막는다 · 방송판은 맨 나중)
+                _sse_trim_over()
         except Exception as e:
             print(f'⚠️ [실시간 연결 청소] 한 번 걸렀습니다: {e}', flush=True)
 
@@ -2205,11 +2263,22 @@ def sse_stream():
     # 🔌 이 연결의 소켓. 청소부가 '상대가 끊었나' 를 여기서 직접 본다.
     #    (werkzeug 개발 서버가 넣어 준다. 다른 서버로 바꾸면 없을 수 있어 없으면 그냥 넘어간다)
     q._sock = request.environ.get('werkzeug.socket')
+    # 🏷️ 이 화면이 뭔지 — 조종실 시스템 칸에 '방송판 · OBS · 3시간째' 로 보인다
+    _k = (request.args.get('kind') or '').strip().lower()
+    q._kind = _k if _k in SSE_KINDS else 'unknown'
+    q._monitor = request.args.get('monitor') == '1'
+    q._dev = _sse_device(request.headers.get('User-Agent', ''), request.args.get('obs') == '1')
+    q._born = time.time()
     with sse_lock:
+        # 🧹 새 화면이 붙는 김에, 저쪽이 이미 끊고 간 연결을 바로 치운다.
+        #    새로고침하면 옛 연결이 청소부(30초)를 기다리지 않고 이 자리에서 빠진다.
+        #    ⚠️ _peer_gone 은 '확실히 끊긴 것' 만 True 다 — 살아 있는 화면은 건드리지 않는다.
+        for _old in list(sse_clients):
+            if _peer_gone(getattr(_old, '_sock', None)):
+                _sse_drop(_old, 'closed')
         sse_clients.append(q)
-        # 상한을 넘으면 가장 오래된 것부터 내보낸다 — 새 화면이 못 붙는 일이 없게
-        while len(sse_clients) > SSE_MAX_CLIENTS:
-            _sse_drop(sse_clients[0], 'over')
+        # 상한을 넘으면 덜 중요한 것부터 내보낸다 — 새 화면이 못 붙는 일이 없게(방송판은 맨 나중)
+        _sse_trim_over()
 
     def event_generator():
         try:
@@ -2953,6 +3022,9 @@ def get_server_status():
             'history_count': history_count,
             'snapshot_count': snapshot_count,
             'archive_count': archive_count,
+            # 🏷️ 붙은 화면 목록(2026-10-02) — 로그인한 조종실에만. 공개 /api/health 엔 숫자만 나간다
+            'screens': sse_screens(),
+            'sse_evicted': _sse_evicted,
             'logs': history_list
         })
     except Exception as e:

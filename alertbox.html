@@ -229,7 +229,7 @@
         // SSE 연동 수신 설정
         function connectSSE() {
             console.log("Connecting to SSE /api/stream...");
-            const sse = new EventSource('/api/stream');
+            const sse = new EventSource('/api/stream?kind=alertbox' + (window.obsstudio ? '&obs=1' : ''));   // 🏷️ 이름표(조종실 시스템 칸)
             
             // ⚠️ 서버는 항상 이름 붙은 이벤트(event: init / event: update)로 상태를 보낸다.
             //    onmessage 는 '이름 없는' 이벤트에만 발동하므로 예전 코드는 아무것도 받지 못했고,

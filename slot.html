@@ -191,7 +191,7 @@
         let slotAudio = null;
 
         function connectSSE() {
-            const evtSource = new EventSource('/api/stream');
+            const evtSource = new EventSource('/api/stream?kind=slot' + (window.obsstudio ? '&obs=1' : ''));   // 🏷️ 이름표
 
             // ⚠️ 서버는 이름 붙은 이벤트(event: slot_spin)로 보낸다.
             //    EventSource 의 'message' 리스너는 '이름 없는' 이벤트에만 발동하므로

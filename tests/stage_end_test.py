@@ -200,7 +200,17 @@ finally:
     except Exception:
         pass
     proc.kill()
-    shutil.rmtree(PROF, ignore_errors=True)
+    # ⚠️ 윈도우에선 크롬이 완전히 꺼질 때까지 파일을 쥐고 있어 바로 지우면 일부가 남는다
+    #    (2026-10-01 Temp 에 검사용 크롬 폴더 117개 · 4.6GB 가 쌓였다). 꺼질 때까지 기다렸다 몇 번 지운다.
+    try:
+        proc.wait(timeout=10)
+    except Exception:
+        pass
+    for _ in range(10):
+        shutil.rmtree(PROF, ignore_errors=True)
+        if not os.path.exists(PROF):
+            break
+        time.sleep(0.5)
 
 print()
 print('=' * 74)
