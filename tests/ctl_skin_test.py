@@ -5,7 +5,8 @@
 시안 A·B·C 중 A 를 보고 "와 A 너무 좋은데? 난 저런 디자인을 바랬어"
 
 여기서 지키는 것
-  ① 새 옷 규칙은 전부 body.skin-glass + 넓은 화면(1280px 이상) 안에만 있다 — 끄면(옛 모습) · 폰 · 반쪽 화면은 예전 그대로
+  ① 새 옷 규칙은 전부 body.skin-glass + 900px 이상 안에만 있다 — 끄면(옛 모습) · 폰은 예전 그대로
+     (2026-10-02 1280 → 900: 대표님 "1920 인데 절반 전용으로도 만들어서 유동적으로" — 반 화면 ~950px 에서도 새 옷)
   ② 흐림(backdrop-filter)을 안 쓴다 — 바탕 그림을 미리 흐리게 구웠다(방송 PC 가 OBS 와 같이 돌린다)
   ③ 켜고 끄기: 그리기 전에 입히고, 끈 것은 이 컴퓨터에 기억한다(기본은 새 옷)
   ④ 탭은 자리만 옮긴다 — 모든 탭 단추에 짧은 이름표가 있고, 누르는 동작(onclick)은 그대로
@@ -72,7 +73,8 @@ while i < len(css):
     i += 1
 out_rules = [r.strip() for r in re.findall(r'([^{}]+)\{[^}]*\}', ''.join(outside))]
 chk('미디어 밖에는 숨김 두 줄뿐 (.skin-flip · #sk-head)', sorted(out_rules) == ['#sk-head', '.skin-flip'], out_rules)
-chk('미디어는 전부 1280px 이상', media and all('min-width: 1280px' in q for q, _ in media), [q for q, _ in media])
+chk('미디어는 전부 900px 이상(반 화면부터)', media and all('min-width: 900px' in q for q, _ in media), [q for q, _ in media])
+chk('반 화면(900~1279) 전용 칸이 있다', any('min-width: 900px' in q and 'max-width: 1279px' in q for q, _ in media))
 leak = []
 for q, body in media:
     for sel in re.findall(r'([^{}]+)\{[^}]*\}', body):

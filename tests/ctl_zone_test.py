@@ -13,6 +13,7 @@
   ③ 같은 화면 안에서 바꾼다(조종실을 하나 더 띄우지 않는다) · 새로 열면 늘 조종실부터
   ④ 어디서 불러도(명령창 · 안내 단추) 그 탭이 있는 화면으로 같이 넘어간다
   ⑤ 방송 시작 전에도 설정 화면이 열린다
+  ⑥ 반 화면(1920 의 절반 ~945px)에서도 새 옷 · 오른쪽 칸 — 폭 따라 260~380px
 pt 서버(5199)가 필요하다. 크롬이 없으면 브라우저 부분은 건너뛴다.
 """
 import io
@@ -179,6 +180,28 @@ else:
             ev("openTabById('tab-match')"); time.sleep(0.6)
             chk('[%s] 설정 화면에서 대결을 부르면 조종실로 같이' % tag,
                 not ev("document.body.classList.contains('view-setup')") and ev("(%s)('#tab-match')" % VIS))
+        # 🪟 반 화면 — 대표님(2026-10-02) "1920 인데 절반 전용으로도 만들어서 유동적으로"
+        #    1920 을 둘로 나누면 창 ~945px. 예전엔 1280 아래면 옛 모습이 되고 오른쪽 칸(후원 콘솔)이 사라졌다.
+        MEAS = """(()=>{
+          const tr=document.querySelector('#tab-ranking .table-responsive'), t=tr&&tr.querySelector('table');
+          const rail=document.getElementById('shell-rail'), rb=rail.getBoundingClientRect();
+          const badge=document.querySelector('#pending-list .audit-badge');
+          return { glass: getComputedStyle(document.querySelector('.tabs')).position==='fixed',
+                   rail: getComputedStyle(rail).display!=='none' ? Math.round(rb.width) : 0,
+                   pendingInRail: document.getElementById('pending-box').parentElement.id==='shell-rail',
+                   tableFits: t ? t.scrollWidth <= tr.clientWidth + 1 : null,
+                   pageFits: document.documentElement.scrollWidth <= innerWidth };
+        })()"""
+        for skin, w, want_glass, rail_lo, rail_hi in (('glass', 945, True, 260, 300), ('glass', 1100, True, 300, 340),
+                                                       ('classic', 945, False, 260, 300), ('glass', 1440, True, 380, 380)):
+            send('Emulation.setDeviceMetricsOverride', width=w, height=980, deviceScaleFactor=1, mobile=False)
+            ev("localStorage.setItem('ctl_skin','%s')" % skin)
+            send('Page.navigate', url=B + '/controller'); time.sleep(5)
+            m = ev(MEAS) or {}
+            tag = '%s %d' % ('새 옷' if skin == 'glass' else '옛 모습', w)
+            chk('[%s] %s · 오른쪽 칸(후원 콘솔 · 대기함) %d~%dpx' % (tag, '새 옷이 입혀진다' if want_glass else '옛 모습 그대로', rail_lo, rail_hi),
+                m.get('glass') == want_glass and rail_lo <= (m.get('rail') or 0) <= rail_hi and m.get('pendingInRail'), m)
+            chk('[%s] 점수판이 칸 안에 들어온다 · 가로로 안 넘친다' % tag, m.get('tableFits') and m.get('pageFits'), m)
         chk('JS 오류 없음', not errs, errs[:3])
     finally:
         try:

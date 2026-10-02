@@ -429,7 +429,7 @@
         .rk-table td:last-child button { background: transparent; border-color: transparent; color: var(--text-dim); }
         .rk-table td:last-child button:hover { color: var(--danger); border-color: var(--border-light); }
         /* 오른쪽 칸 */
-        @media (min-width: 1280px) {
+        @media (min-width: 900px) {
             .shell-rail > .group-box, .shell-rail > #recent-strip { background: var(--bg-card) !important; border: 0 !important; border-radius: var(--r-3); }
             .shell-rail #pending-box { background: rgba(226, 182, 75, 0.10) !important; border: 0 !important; }
             .shell-rail #pending-box .group-title { color: var(--accent) !important; border: 0 !important; padding-bottom: 0 !important; margin-bottom: 8px; }
@@ -438,6 +438,8 @@
             .shell-rail .pending-info { font-size: var(--fs-3); }
             .shell-rail .pending-info b { font-size: var(--fs-4); }
             .shell-rail .bj-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+            /* 반 화면 — 오른쪽 칸이 좁아 이름 단추를 셋씩(넷이면 '행복한걸' 이 잘렸다) */
+            @media (max-width: 1279px) { .shell-rail .bj-buttons { grid-template-columns: repeat(3, 1fr); } }
             .shell-rail .bj-buttons > span:first-child { display: none; }
             .shell-rail .bj-btn { margin: 0; height: 36px; justify-content: center; border-color: rgba(226, 182, 75, 0.35); background: var(--bg-card); font-weight: 700; }
             .shell-rail .bj-buttons > button[onclick^="assignSplitEqual"], .shell-rail .bj-buttons .delete-btn {
@@ -486,8 +488,10 @@
            넓은 화면(1280px 이상)에서만. 좁으면 예전처럼 대기함·🆕 줄이 탭 밑(상단 고정)으로 돌아간다(railPlace).
            ⚠️ 오른쪽 칸은 따로 스크롤된다 — 점수표를 내려도 대기함이 늘 보여야 한다. */
         .shell-rail { display: none; }
-        @media (min-width: 1280px) {
-            .shell { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start; }
+        /* 🪟 반 화면(1920 을 둘로 나눈 ~950px)부터 — 대표님 2026-10-02 "절반 전용으로도 만들어서 유동적으로".
+              오른쪽 칸 폭은 화면 따라 260~380px(1280 이상은 예전 그대로 380) */
+        @media (min-width: 900px) {
+            .shell { display: grid; grid-template-columns: minmax(0, 1fr) clamp(260px, 30vw, 380px); gap: 18px; align-items: start; }
             .shell-main { min-width: 0; }
             .shell-rail { display: flex; flex-direction: column; gap: 12px; position: sticky; top: 12px;
                           max-height: calc(100vh - 24px); overflow-y: auto; scrollbar-width: thin;
@@ -498,8 +502,20 @@
         }
         /* 💾 떠 있는 [백업] 단추가 오른쪽 칸(대기열 단추)을 가렸다 — 넓은 화면에선 기본 자리를 칸 왼쪽으로.
               ⚠️ 대표님이 끌어서 옮긴 적이 있으면(right:auto 로 바뀐다) 그 자리를 그대로 둔다 */
-        @media (min-width: 1280px) {
-            #float-backup-btn[style*="right:22px"], #float-backup-btn[style*="right: 22px"] { right: 420px !important; }
+        @media (min-width: 900px) {
+            #float-backup-btn[style*="right:22px"], #float-backup-btn[style*="right: 22px"] { right: calc(clamp(260px, 30vw, 380px) + 40px) !important; }
+            /* 대기함 카드의 안내 글('누구 것인지 모르겠음 …')이 한 줄로 고정돼 카드 밖으로 삐져나갔다(반 화면 실측) */
+            .shell-rail .audit-badge { white-space: normal; max-width: 100%; box-sizing: border-box; }
+        }
+        /* 🪟 반 화면(900~1279px) — 오른쪽 칸이 생겨 가운데가 좁다(~520~750px). 점수판을 칸에 맞춘다(새 옷 · 옛 모습 공통).
+              실측 945px: 표 650px > 칸 516px 이라 맨 오른쪽 휴지통이 잘렸다 */
+        @media (min-width: 900px) and (max-width: 1279px) {
+            #tab-ranking .rk-table { min-width: 0; }          /* ⚠️ 모든 표에 최소 650px 이 걸려 있다(좁은 화면에선 옆으로 밀어 보게) */
+            .rk-table th, .rk-table td { padding-left: 6px; padding-right: 6px; }
+            .rk-table tbody td:first-child input { width: 104px; min-width: 0; }   /* 운영비 이름 · 모금함 종잣돈이 기본 폭(20글자)을 고집했다 */
+            .rk-meter { max-width: 104px; }
+            .rk-table td input[id^="rank-add"] { width: 84px; min-width: 0; }
+            .rk-table th:last-child button[onclick^="bulkImportBJs"] { display: none; }   /* [일괄등록] 방송 3번에 0번 — 반 화면에선 [+] 만 */
         }
         .rail-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px;
                   font-size: var(--fs-2); font-weight: 800; color: var(--text-muted); letter-spacing: 0.02em; }
@@ -1787,7 +1803,7 @@
         .gx-act, .cx-chip, .hdr-timer, #ios-mini-media-panel, #recent-strip, .stage-box {
             background: var(--bg-card) !important; border: 1px solid var(--edge-2) !important; box-shadow: var(--lift) !important; }
         .hdr-timer { border-radius: var(--r-3); padding: 0 14px; height: 42px; }
-        @media (min-width: 1280px) {
+        @media (min-width: 900px) {
             .shell-rail > .group-box, .shell-rail > #recent-strip { background: var(--bg-card) !important; border: 1px solid var(--edge-2) !important; box-shadow: var(--lift) !important; }
             .shell-rail #pending-box { background: var(--bg-card) !important; border: 1px solid rgba(226, 182, 75, 0.35) !important; }
         }
@@ -1867,8 +1883,8 @@
            🎨 새 옷 · 유리 스튜디오 (2026-09-30) — 대표님: "와 A 너무 좋은데? 난 저런 디자인을 바랬어"
            흐린 사진 바탕 위 반투명 판 · 흰 카드 · 오렌지 강조 · 왼쪽 아이콘 줄(릴스 대시보드 느낌).
            ⚠️ 겉모습만 바꾼다. 단추 자리 · 동작 · id 는 그대로다.
-           ⚠️ body.skin-glass 가 붙고 넓은 화면(1280px 이상)일 때만 걸린다. 왼쪽 줄 맨 아래 [옛 모습] 으로 끈다
-              (이 컴퓨터에만 기억 — localStorage 'ctl_skin'). 좁은 화면 · 폰은 예전 그대로다.
+           ⚠️ body.skin-glass 가 붙고 900px 이상일 때만 걸린다(2026-10-02 1280 → 900: 1920 반 화면 ~950px 에서도 입게).
+              왼쪽 줄 맨 아래 [옛 모습] 으로 끈다(이 컴퓨터에만 기억 — localStorage 'ctl_skin'). 폰은 예전 그대로다.
            ⚠️ 바탕 그림은 미리 흐리게 구워 뒀다(vendor/stage/ctl_bg.jpg = 방송 시작 화면 그림).
               backdrop-filter 를 안 쓴다 — 방송 PC 가 OBS 와 같이 돌려도 무겁지 않게.
            흰 카드 안에서는 색 이름표(--text-main · --gold …)를 카드 안에서만 다시 정한다.
@@ -1876,7 +1892,7 @@
            ═══════════════════════════════════════════════════════ */
         .skin-flip { display: none; }
         #sk-head { display: none; }
-        @media (min-width: 1280px) {
+        @media (min-width: 900px) {
             .skin-flip { display: inline-flex; align-self: center; margin: 0 0 0 6px; height: 30px; padding: 0 10px; gap: 6px;
                          font-size: var(--fs-2); color: var(--text-muted); border-radius: 999px; background: transparent; }
             /* 옛 모습에서는 그림(🎨)만 — 글자까지 넣으면 아랫줄 탭이 한 줄 밑으로 떨어진다(실측 1440) */
@@ -2075,7 +2091,7 @@
             body.skin-glass .shell-rail .bj-btn:not([onclick^="assignSplitEqual"]):not([onclick^="assignPendingToJar"]):not([onclick^="broadcastOffWorkCardById"]):hover {
                 background: var(--sk-o) !important; border-color: var(--sk-o) !important; color: #fff !important; transform: none; }
             body.skin-glass .shell-rail .audit-badge { color: #2c5fb8; background: #eef4ff; border-color: #cfdcf7; border-radius: 10px; }
-            body.skin-glass .shell-rail .audit-badge b { color: inherit; }
+            body.skin-glass .shell-rail .audit-badge b { color: inherit; }
             body.skin-glass .shell-rail .audit-badge.lv-auto { color: #1f8a52; background: #e9f8ef; border-color: #bfe6cf; }
             body.skin-glass .shell-rail .audit-badge.lv-unknown { color: #9a6200; background: #fff4e0; border-color: #f3d9a6; }
             body.skin-glass .shell-rail .pd-test { color: #1b6fae; background: #e7f3fc; border-color: #b9dcf5; }
@@ -2111,8 +2127,8 @@
             body.skin-glass.tabs-open .tabs.tabs-2row { background: rgba(28, 21, 18, 0.97) !important; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55) !important; }
             body.skin-glass.tabs-open #ai-drawer-toggle:not(.open) { left: 180px; }
         }
-        /* 1280~1679px — [클립]·[에디터] 는 그림만, 볼륨 숫자 · 음악 소리 막대는 접는다(BGM 탭에 다 있다) */
-        @media (min-width: 1280px) and (max-width: 1679px) {
+        /* 900~1679px — [클립]·[에디터] 는 그림만, 볼륨 숫자 · 음악 소리 막대는 접는다(BGM 탭에 다 있다) */
+        @media (min-width: 900px) and (max-width: 1679px) {
             body.skin-glass .header > h1 > i { display: none; }
             body.skin-glass #btn-clip, body.skin-glass #btn-editor { position: relative; width: 44px; padding: 0 !important; justify-content: center;
                                                                      gap: 0 !important; font-size: 0 !important; }
@@ -2122,7 +2138,7 @@
         }
         /* 키 작은 화면(1000px 아래) — 왼쪽 줄 칸을 줄여 맨 아래 [백업] 과 안 겹치게.
            ⚠️ [공지] 탭이 늘어 900px(1440×900)에서도 겹쳤다 — 860 → 1000 */
-        @media (min-width: 1280px) and (max-height: 1000px) {
+        @media (min-width: 900px) and (max-height: 1000px) {
             body.skin-glass .tabs.tabs-2row { gap: 1px; padding-top: 10px !important; padding-bottom: 82px !important; }
             body.skin-glass .tabs.tabs-2row::before { width: 38px; height: 38px; margin-bottom: 6px; border-radius: 13px; background-size: 19px; }
             body.skin-glass .tabs-2row .tab-btn, body.skin-glass .tabs-2row .tab-btn.tab-minor, body.skin-glass .tabs-2row .tab-btn.tab-minor.active {
@@ -2130,6 +2146,30 @@
             body.skin-glass .tabs-2row .tab-btn i { font-size: 15px; }
             body.skin-glass .tabs-2row .tab-glabel + .tab-btn { margin-top: 6px; }
             body.skin-glass #skin-flip { padding: 5px 0 4px; }
+        }
+        /* 🪟 반 화면(900~1279px) — 1920 을 둘로 나눈 ~950px. 대표님 2026-10-02 "절반 전용으로도 만들어서 유동적으로"
+              왼쪽 줄 · 바깥 여백을 좁히고, 첫 화면 숫자 칸 넷은 둘씩 두 줄로. 오른쪽 칸 폭은 위(.shell)에서 화면 따라 준다 */
+        @media (min-width: 900px) and (max-width: 1279px) {
+            body.skin-glass { padding: 12px 12px 12px 92px; }
+            body.skin-glass:has(#active-broadcast-area[style*="none"]) { padding-left: 12px; }
+            body.skin-glass .tabs.tabs-2row { left: 10px; top: 12px; bottom: 12px; width: 70px; border-radius: 26px !important; padding-bottom: 76px !important; }
+            body.skin-glass .tabs.tabs-2row::before { width: 38px; height: 38px; margin-bottom: 8px; border-radius: 13px; background-size: 19px; }
+            body.skin-glass .tabs-2row .tab-btn, body.skin-glass .tabs-2row .tab-btn.tab-minor, body.skin-glass .tabs-2row .tab-btn.tab-minor.active { width: 58px; }
+            body.skin-glass #skin-flip { width: 56px; }
+            body.skin-glass #float-backup-btn[style*="right:22px"], body.skin-glass #float-backup-btn[style*="right: 22px"] {
+                left: 19px !important; bottom: 22px !important; }
+            body.skin-glass #float-backup-btn { width: 52px; height: 52px !important; }
+            body.skin-glass #ai-drawer-toggle:not(.open) { left: 82px; }
+            body.skin-glass .shell { gap: 12px; }
+            body.skin-glass .shell-main { padding: 14px 14px 18px; border-radius: 26px; min-height: calc(100vh - 100px); }
+            body.skin-glass .shell-rail { padding: 12px 10px 16px; border-radius: 26px; top: 12px; }
+            body.skin-glass .shell-rail > .group-box { padding: 12px; }
+            body.skin-glass .header { padding: 8px 10px 8px 14px; border-radius: 22px; margin-bottom: 12px; }
+            body.skin-glass #sk-greet { font-size: 22px; }
+            body.skin-glass .sk-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+            body.skin-glass #tab-ranking .table-responsive { padding: 4px 12px; border-radius: 22px; }
+            body.skin-glass .rk-table td { padding: 8px 5px !important; }
+            /* 점수판을 칸에 맞추는 규칙(최소 650px 풀기 · 첫 칸 좁히기)은 옛 모습과 같아 위 공통 칸(🪟 반 화면)에 있다 */
         }
     </style>
     <style id="view-zone-css">
@@ -2151,7 +2191,7 @@
         body.view-setup #setup-broadcast-area { display: none !important; }
         /* 조종실: ⋯ 뒤엔 이제 후원 콘솔 · 출연진 전광판 둘뿐 — 접지 않고 늘 보인다(⋯ 를 방송 3번에 65번 눌렀다) */
         body:not(.view-setup) .tabs .tab-btn.tab-dots { display: none !important; }
-        @media (min-width: 1280px) { body:not(.view-setup) .tabs-2row a.tab-x { display: contents !important; } }
+        @media (min-width: 900px) { body:not(.view-setup) .tabs-2row a.tab-x { display: contents !important; } }
         .setup-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px;
                       padding: 14px 18px; border-radius: var(--r-3, 12px); border: 1px solid var(--border-light);
                       background: rgba(255, 255, 255, 0.04); }
@@ -7272,7 +7312,7 @@
             box.style.display = shouldShow ? 'block' : 'none';
         }
 
-        // 🎨 새 옷 · 유리 스튜디오 (2026-09-30 대표님 시안 A) — 겉모습만 바꾼다. 넓은 화면(1280px 이상)에서만 입는다.
+        // 🎨 새 옷 · 유리 스튜디오 (2026-09-30 대표님 시안 A) — 겉모습만 바꾼다. 900px 이상에서 입는다(반 화면 포함).
         //    body.skin-glass 가 켜짐 표시다. 끄고 켜는 건 왼쪽 줄 맨 아래 단추 — 이 컴퓨터(localStorage 'ctl_skin')에만 기억한다.
         function skinOn() { return document.body.classList.contains('skin-glass'); }
         function skinFlip() {
@@ -10756,7 +10796,8 @@ initFoldablePanels();
 
         /* 🪟 한 창 조종실 — 넓으면 대기함·🆕 줄·되돌리기를 오른쪽 칸으로, 좁으면 탭 밑(상단 고정)으로 되돌린다.
               ⚠️ 요소를 **옮긴다**(복사 아님) — id·버튼이 그대로라 다른 코드는 아무것도 몰라도 된다. */
-        var RAIL_MQ = window.RAIL_MQ = window.matchMedia('(min-width: 1280px)');
+        // 🪟 900px 부터 오른쪽 칸을 쓴다(2026-10-02 1280 → 900 — 1920 반 화면 ~950px). CSS 의 .shell 과 같은 기준이어야 한다
+        var RAIL_MQ = window.RAIL_MQ = window.matchMedia('(min-width: 900px)');
         function railPlace() {
             const rail = document.getElementById('shell-rail'), top = document.getElementById('sticky-top');
             const anchor = document.getElementById('context-strip');
