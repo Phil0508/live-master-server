@@ -38,6 +38,7 @@ PT = os.path.join(_SBOX, 'pausetest')
 PY = sys.executable
 
 RESULTS = []
+_T0 = time.time()
 
 
 def sh(cmd, cwd=None, env=None, timeout=900):
@@ -290,6 +291,7 @@ run('대결 팀전', [PY, 'team_test.py'], HERE, kind='pt')
 run('⚔️ 팀 옮긴 뒤 점수 · 되돌리기', [PY, 'team_change_test.py'], HERE, kind='pt')
 run('⏱️ 대결 타이머 — 리액션 멈춤 · 키보드', [PY, 'match_timer_test.py'], HERE, kind='pt')
 run('🎨 조종실 새 옷 — 유리 스튜디오', [PY, 'ctl_skin_test.py'], HERE, kind='pt')
+run('🏺 모금함 깃발 — 점수판 왼쪽 · 오른쪽', [PY, 'fundjar_side_test.py'], HERE, kind='pt')
 run('500 터지는 길 전수', [PY, 'crash_sweep.py'], HERE, kind='pt')
 run('이중배정·집계 보호', [PY, 'guard_test.py'], HERE, kind='pt')
 run('점수 정확성', [PY, 'score_test.py'], HERE, kind='pt')
@@ -338,3 +340,24 @@ print('=' * 72)
 print('문제 있는 항목: %d개' % len(bad))
 for n, v, d, t in bad:
     print('   - %s : %s %s' % (n, v, d))
+
+# 🧪 결과를 파일로 남긴다 — Claude Code 개조(lm-ship)가 읽어 입력창 아래 "검사 ✅ 52/52 · 10분 전" 으로 띄우고,
+#    서버에 올리기 전에 "마지막 검사가 실패했어요 / 검사 뒤에 코드가 바뀌었어요" 를 알려준다. (.gitignore 에 있음)
+def _git(*a):
+    try:
+        return subprocess.run(['git'] + list(a), cwd=PROJ, capture_output=True, text=True, timeout=20).stdout.strip()
+    except Exception:
+        return ''
+try:
+    _rec = {
+        'finished_at': time.time(), 'seconds': round(time.time() - _T0),
+        'sha': _git('rev-parse', 'HEAD'), 'dirty': bool(_git('status', '--porcelain', '--untracked-files=no')),
+        'total': len(RESULTS), 'bad': [n for n, v, d, t in bad],
+    }
+    _p = os.path.join(HERE, '.last_run.json')
+    _data = json.dumps(_rec, ensure_ascii=False).encode('utf-8')   # ⚠️ 먼저 바이트로 — 실패해도 원본은 그대로
+    with open(_p + '.tmp', 'wb') as _f:
+        _f.write(_data)
+    os.replace(_p + '.tmp', _p)
+except Exception as _e:
+    print('(결과 파일을 못 남김: %s)' % _e)

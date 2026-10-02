@@ -120,10 +120,12 @@ chk('기여도에서 글로우를 뺐다 (점수가 주인공)',
     re.search(r'\.r-contrib\s*\{[^}]*text-shadow', css) is None)
 # ⚠️ 번외 점수판이 같은 .excel-row 를 쓰면서 인라인 style 로 색만 덮는다
 chk('칸 개수·순서가 그대로다 (번외 점수판이 같은 줄을 쓴다)',
-    css.count('grid-template-columns: 48px 1fr 140px 112px') == 2)
+    css.count('grid-template-columns: 48px 1fr 124px 111px') == 2)
 # ⚠️ 기여도 칸이 92px 였다 — '540,000'(27px ≈ 98px) 부터 점수 칸으로 넘쳐 '540,000540,000' 으로 붙었다(2026-09-20).
 #    6자리(≈98px + 여백 10) 가 들어가게 112px, 100만이 넘는 줄이 있으면 판 전체를 big-num 으로 더 넓힌다.
-chk('기여도 6자리가 칸에 들어간다 (112px)', 'grid-template-columns: 48px 1fr 140px 112px' in css)
+# 📏 2026-10-03 A안: 점수·기여도는 만원 단위라 많아야 4자리다(대표님). 칸을 4자리 + 빈칸 32 로 줄였다.
+#    '9,999' 은 실제 글꼴로 점수 31px 92px · 기여도 27px 79px (연습 서버 실측).
+chk('점수·기여도 4자리가 빈칸 32 와 함께 칸에 들어간다 (124 · 111px)', 'grid-template-columns: 48px 1fr 124px 111px' in css)
 chk('기여도가 100만을 넘으면 숫자 칸을 넓힌다', '.excel-board.big-num .excel-row { grid-template-columns: 48px 1fr 134px 140px; }' in css
     and "classList.toggle('big-num', bjs.some(b => (Number(b.contribution) || 0) >= 1000000))" in ov)
 

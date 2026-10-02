@@ -58,3 +58,6 @@ bot/dryrun.log
 # 🧪 테스트용 두 번째 투네이션 알림창 주소(열쇠) · 리스너 연결 상태 — 서버마다 다르고, 열쇠는 공개 저장소에 올리면 안 된다
 toon_accounts.json
 toon_listener_status.json
+
+# 🧪 전체 검사 마지막 결과 — Claude Code 개조(lm-ship)가 읽는다. PC 마다 다르다
+tests/.last_run.json

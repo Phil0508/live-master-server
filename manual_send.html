@@ -3,36 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>후원 콘솔</title>
+<title>후원 콘솔 · 라이브 마스터</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <script src="/comma_input.js"></script>
+<!-- 🧥 운영 화면 공통 옷 — 색 · 글꼴은 여기서 온다(2026-10-03). 아래 :root 는 그 색에 잇기만 한다 -->
+<link rel="stylesheet" href="/ops-theme.css">
 <style>
+    /* 🧥 2026-10-03: 보라 옷 → 운영 화면 공통 옷(조종실과 같은 갈색 유리 + 주황). 분홍은 오류, 민트는 성공에만 쓴다. */
     :root{
-        --bg:#0d0e12; --surface:#15171e; --surface-2:#1b1e27; --surface-3:#22252f;
-        --border:rgba(255,255,255,0.07); --border-2:rgba(255,255,255,0.12);
-        --text:#f3f4f6; --muted:#8b8f9c; --faint:#5c6070;
-        --accent:#7c6cff; --accent-2:#9d8bff; --accent-soft:rgba(124,108,255,0.14);
-        --gold:#ffcb45; --mint:#2fe6b0; --pink:#ff5c8a;
-        --shadow:0 12px 40px rgba(0,0,0,0.45);
+        --bg:var(--ops-bg); --surface:var(--ops-panel); --surface-2:var(--ops-card); --surface-3:var(--ops-card-2);
+        --border:var(--ops-line-soft); --border-2:var(--ops-line);
+        --text:var(--ops-text); --muted:var(--ops-muted); --faint:var(--ops-dim);
+        --accent:var(--ops-accent); --accent-2:var(--ops-accent-hi); --accent-soft:var(--ops-accent-soft);
+        --gold:var(--ops-gold); --mint:var(--ops-good); --pink:var(--ops-bad);
+        --shadow:var(--ops-shadow);
     }
     *{box-sizing:border-box;margin:0;padding:0}
-    body{background:radial-gradient(1200px 600px at 50% -10%,rgba(124,108,255,0.10),transparent 55%),var(--bg);color:var(--text);font-family:'Pretendard','Malgun Gothic','Segoe UI',sans-serif;min-height:100vh;padding:28px 22px 60px;-webkit-font-smoothing:antialiased}
+    body{background:var(--ops-bg-glow),var(--bg);color:var(--text);font-family:var(--ops-font);min-height:100vh;padding:28px 22px 60px;-webkit-font-smoothing:antialiased}
     .shell{max-width:1120px;margin:0 auto}
 
     /* ── 헤더 ── */
     .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:14px}
     .brand{display:flex;align-items:center;gap:13px}
-    .brand .logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--pink));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 8px 22px rgba(124,108,255,0.4)}
+    .brand .logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 8px 22px rgba(240,123,63,0.4)}
     .brand h1{font-size:20px;font-weight:800;letter-spacing:-0.4px;line-height:1.15}
     .brand p{font-size:12.5px;color:var(--muted);margin-top:2px}
     .topbar .home{color:var(--muted);text-decoration:none;font-size:13px;font-weight:600;padding:9px 14px;border:1px solid var(--border);border-radius:10px;transition:all .15s}
     .topbar .home:hover{color:var(--text);border-color:var(--border-2);background:var(--surface)}
 
     /* ── 탭바 ── */
-    .tabs{display:inline-flex;gap:4px;padding:5px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:22px}
-    .tab{border:none;background:transparent;color:var(--muted);font-size:14px;font-weight:700;padding:10px 20px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .18s;font-family:inherit}
+    /* ⚠️ 폰에서 칸이 좁아지면 글자가 한 자씩 세로로 꺾였다(2026-10-03 점검) — 줄바꿈 없이 옆으로 민다 */
+    .tabs{display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none;gap:4px;padding:5px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:22px}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{flex:none;white-space:nowrap;border:none;background:transparent;color:var(--muted);font-size:14px;font-weight:700;padding:10px 20px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:all .18s;font-family:inherit}
     .tab:hover{color:var(--text)}
-    .tab.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;box-shadow:0 6px 18px rgba(124,108,255,0.35)}
+    .tab.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--ops-on-accent);box-shadow:0 6px 18px rgba(240,123,63,0.35)}
     .pane{display:none;animation:fade .3s ease}
     .pane.active{display:block}
     @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -44,10 +49,10 @@
     .card-pad{padding:22px}
 
     /* 미리보기(알림 카드 느낌) */
-    .preview{position:relative;overflow:hidden;min-height:440px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;background:linear-gradient(165deg,#191c25,#111219)}
+    .preview{position:relative;overflow:hidden;min-height:440px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:26px;background:linear-gradient(165deg,var(--ops-card),var(--ops-panel))}
     .preview .aura{position:absolute;top:-30%;left:50%;transform:translateX(-50%);width:420px;height:420px;background:radial-gradient(circle,var(--accent-soft),transparent 62%);pointer-events:none}
     .pv-badge{position:absolute;top:16px;left:16px;font-size:11px;font-weight:800;color:var(--accent-2);background:var(--accent-soft);padding:5px 11px;border-radius:20px;letter-spacing:0.3px}
-    .pv-imgwrap{position:relative;width:216px;height:216px;border-radius:20px;overflow:hidden;background:#0c0d12;border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 16px 40px rgba(0,0,0,0.55)}
+    .pv-imgwrap{position:relative;width:216px;height:216px;border-radius:20px;overflow:hidden;background:#120e0c;border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;margin-bottom:18px;box-shadow:0 16px 40px rgba(0,0,0,0.55)}
     .pv-imgwrap img{width:100%;height:100%;object-fit:cover;display:none}
     .pv-empty{color:var(--faint);font-size:13px;line-height:1.7;padding:0 22px}
     .pv-title{font-size:21px;font-weight:800;margin-bottom:3px;display:none;letter-spacing:-0.3px}
@@ -72,8 +77,8 @@
     .chk{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;color:var(--muted);cursor:pointer;margin:4px 0 16px;line-height:1.5}
     .chk input{width:17px;height:17px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
     .chk b{color:#dcdee5}
-    .send-btn{width:100%;height:52px;border:none;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:800;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .1s,box-shadow .2s;box-shadow:0 8px 24px rgba(124,108,255,0.4)}
-    .send-btn:hover{box-shadow:0 10px 30px rgba(124,108,255,0.55)}
+    .send-btn{width:100%;height:52px;border:none;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--ops-on-accent);font-weight:800;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .1s,box-shadow .2s;box-shadow:0 8px 24px rgba(240,123,63,0.4)}
+    .send-btn:hover{box-shadow:0 10px 30px rgba(240,123,63,0.55)}
     .send-btn:active{transform:scale(0.98)}
     .send-btn:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
 
@@ -84,7 +89,7 @@
     .gcell{background:var(--surface-2);border:1px solid var(--border);border-radius:13px;overflow:hidden;cursor:pointer;transition:all .14s;text-align:center}
     .gcell:hover{border-color:var(--border-2);transform:translateY(-2px)}
     .gcell.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
-    .gcell .thumb{width:100%;aspect-ratio:1;object-fit:cover;background:#0c0d12;display:block}
+    .gcell .thumb{width:100%;aspect-ratio:1;object-fit:cover;background:#120e0c;display:block}
     .gcell .gamt{font-size:11.5px;font-weight:800;color:var(--gold);padding:6px 2px 2px}
     .gcell .gtit{font-size:10px;color:var(--muted);padding:0 4px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -114,7 +119,7 @@
     /* ── 대기열 ── */
     .qrow{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 16px}
     .qrow.playing{background:linear-gradient(100deg,rgba(47,230,176,0.14),var(--surface) 60%);border-color:rgba(47,230,176,0.45)}
-    .qrow .qthumb{width:56px;height:56px;border-radius:11px;object-fit:cover;background:#0c0d12;flex-shrink:0;border:1px solid var(--border)}
+    .qrow .qthumb{width:56px;height:56px;border-radius:11px;object-fit:cover;background:#120e0c;flex-shrink:0;border:1px solid var(--border)}
     .qrow .qbody{flex:1;min-width:0}
     .qrow .qtop{display:flex;align-items:center;gap:8px;margin-bottom:3px}
     .qbadge{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:20px;background:var(--surface-3);color:var(--muted);flex-shrink:0}
@@ -123,7 +128,7 @@
     .qrow .qsig{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .qrow .qamt{font-size:16px;font-weight:800;color:var(--gold);flex-shrink:0}
     .qrow .qdel{background:transparent;border:1px solid var(--border);color:var(--pink);width:34px;height:34px;border-radius:10px;cursor:pointer;flex-shrink:0;font-size:14px;transition:all .15s}
-    .qrow .qdel:hover{border-color:var(--pink);background:rgba(255,92,138,0.12)}
+    .qrow .qdel:hover{border-color:var(--pink);background:rgba(255,107,107,0.12)}
 
     /* 토스트 */
     .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:14px;padding:14px 24px;border-radius:30px;box-shadow:0 10px 34px rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:all .3s cubic-bezier(0.16,1,0.3,1);z-index:999}
@@ -158,7 +163,7 @@
         <div class="grid">
             <div class="card preview">
                 <div class="aura"></div>
-                <div class="pv-badge">LIVE PREVIEW</div>
+                <div class="pv-badge">미리보기</div>
                 <div class="pv-imgwrap">
                     <img id="pv-img" alt="">
                     <div class="pv-empty" id="pv-empty">금액을 입력하면<br>매칭되는 시그니처가<br>여기에 표시됩니다</div>
@@ -278,7 +283,7 @@
             <div class="refresh">
                 <button id="btn-pause" onclick="togglePause()" style="border-color:rgba(255,203,69,0.5); color:var(--gold);"><i class="fa-solid fa-pause"></i> 알림 멈춤</button>
                 <button onclick="skipCurrent()" style="border-color:rgba(255,203,69,0.5); color:var(--gold);"><i class="fa-solid fa-forward-step"></i> 건너뛰기</button>
-                <button onclick="clearQueue()" style="border-color:rgba(255,92,138,0.5); color:var(--pink);"><i class="fa-solid fa-trash-can"></i> 전체 비우기</button>
+                <button onclick="clearQueue()" style="border-color:rgba(255,107,107,0.5); color:var(--pink);"><i class="fa-solid fa-trash-can"></i> 전체 비우기</button>
             </div>
         </div>
         <div id="q-paused-note" style="display:none; margin:0 0 10px; padding:10px 14px; border-radius:12px; background:rgba(120,255,170,0.10); border:1px solid rgba(120,255,170,0.35); color:#7effaa; font-weight:700; font-size:14px;">
@@ -523,7 +528,7 @@
         if(!SIGS.length){ g.innerHTML='<div style="color:var(--muted);font-size:12px;grid-column:1/-1;padding:18px;text-align:center">등록된 시그니처가 없습니다</div>'; return; }
         g.innerHTML = SIGS.map(s=>`
             <div class="gcell" data-id="${s.id}" data-amount="${s.amount||0}" title="${escapeHtml(s.title||'')}">
-                ${s.image_url?`<img class="thumb" src="${s.image_url}" alt="">`:`<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:#4a4d5a"><i class="fa-solid fa-music"></i></div>`}
+                ${s.image_url?`<img class="thumb" src="${s.image_url}" alt="">`:`<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:var(--ops-dim)"><i class="fa-solid fa-music"></i></div>`}
                 <div class="gamt">${fmt(s.amount)}원</div>
                 <div class="gtit">${escapeHtml(s.title||'')}</div>
             </div>`).join('');
@@ -565,7 +570,7 @@
                 <div style="display:flex;gap:6px;">
                     <button onclick="playSig(${s.id})" style="flex:1;height:30px;font-size:11px;font-weight:700;border-radius:8px;background:var(--accent-2);color:#04241b;border:none;cursor:pointer;"><i class="fa-solid fa-play"></i> 송출</button>
                     <button onclick="openSigForm(${s.id})" title="편집" style="width:32px;height:30px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;cursor:pointer;"><i class="fa-solid fa-pen"></i></button>
-                    <button onclick="delSig(${s.id})" title="삭제" style="width:32px;height:30px;border-radius:8px;background:rgba(255,92,138,0.15);border:1px solid rgba(255,92,138,0.4);color:var(--pink);cursor:pointer;"><i class="fa-solid fa-trash-can"></i></button>
+                    <button onclick="delSig(${s.id})" title="삭제" style="width:32px;height:30px;border-radius:8px;background:rgba(255,107,107,0.15);border:1px solid rgba(255,107,107,0.4);color:var(--pink);cursor:pointer;"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             </div>`;
         }).join('');
@@ -728,7 +733,7 @@
         box.innerHTML = q.map((it,i)=>{
             const playing = i===0 && !paused;   // 멈춰 있으면 맨 위도 아직 안 나간 것이다
             return `<div class="qrow${playing?' playing':''}">
-                ${it.image_url?`<img class="qthumb" src="${escapeHtml(it.image_url)}" alt="">`:`<div class="qthumb" style="display:flex;align-items:center;justify-content:center;color:#4a4d5a"><i class="fa-solid fa-music"></i></div>`}
+                ${it.image_url?`<img class="qthumb" src="${escapeHtml(it.image_url)}" alt="">`:`<div class="qthumb" style="display:flex;align-items:center;justify-content:center;color:var(--ops-dim)"><i class="fa-solid fa-music"></i></div>`}
                 <div class="qbody">
                     <div class="qtop">
                         <span class="qbadge${playing?' live':''}">${playing?'재생중':(paused&&i===0?'다음 차례':'대기 '+i)}</span>

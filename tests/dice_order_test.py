@@ -271,11 +271,11 @@ try:
     print('=' * 74)
     print('⑤ 주사위 점수판은 숫자가 바뀔 때만 다시 그린다 (세어 올라가던 숫자가 안 끊긴다)')
     print('=' * 74)
-    same = ev("(() => { const g = globalData.dicegame; renderDiceBoard(g); const a = document.querySelector('#dgb-left .excel-row');"
-              " renderDiceBoard(g); const b = document.querySelector('#dgb-left .excel-row'); return !!a && a === b; })()")
+    same = ev("(() => { const g = globalData.dicegame; renderDiceBoard(g); const a = document.querySelector('#dg-strip .dgs-chip');"
+              " renderDiceBoard(g); const b = document.querySelector('#dg-strip .dgs-chip'); return !!a && a === b; })()")
     chk('같은 점수로 또 그려도 줄을 새로 만들지 않는다', same is True, same)
-    changed = ev("(() => { const g = JSON.parse(JSON.stringify(globalData.dicegame)); const a = document.querySelector('#dgb-left .excel-row');"
-                 " g.board[0].pts += 7; renderDiceBoard(g); const b = document.querySelector('#dgb-left .excel-row'); return !!a && a !== b; })()")
+    changed = ev("(() => { const g = JSON.parse(JSON.stringify(globalData.dicegame)); const a = document.querySelector('#dg-strip .dgs-chip');"
+                 " g.board[0].pts += 7; renderDiceBoard(g); const b = document.querySelector('#dg-strip .dgs-chip'); return !!a && a !== b; })()")
     chk('점수가 바뀌면 다시 그린다', changed is True, changed)
 finally:
     try:

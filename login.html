@@ -5,24 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>조종실 로그인 · 라이브 마스터</title>
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
+    <!-- 🧥 운영 화면 공통 옷(2026-10-03) -->
+    <link rel="stylesheet" href="/ops-theme.css">
     <style>
         /* 🔓 로그인 — A안(대표님 2026-09-30): 조종실과 같은 검정·금색.
               폰은 한 줄로 쌓고, PC(900px 이상)는 왼쪽 소개 · 오른쪽 로그인 칸.
               ⚠️ 예전 민트 네온 유리 카드는 조종실(검정·금색)과 따로 놀았다. 색은 조종실 토큰 값을 그대로 쓴다.
               ⚠️ OTP 는 걷어냈다(같은 날) — 비밀번호 하나로 들어간다. */
+        /* 🧥 2026-10-03: 운영 화면 공통 옷(조종실과 같은 갈색 유리 + 주황)에 잇는다 */
         :root {
-            --bg-body: #131315;
-            --bg-panel: #18181b;
-            --bg-input: #0f0f11;
-            --border-light: #26262a;
-            --line: #34343a;
-            --text-main: #ecebe6;
-            --text-muted: #8d8c86;
-            --text-dim: #6f6e69;
-            --accent: #e2b64b;
-            --accent-ring: rgba(226, 182, 75, 0.16);
-            --on-accent: #1a1508;
-            --danger: #ff6b5e;
+            --bg-body: var(--ops-bg);
+            --bg-panel: var(--ops-panel);
+            --bg-input: var(--ops-input);
+            --border-light: var(--ops-line-soft);
+            --line: var(--ops-line);
+            --text-main: var(--ops-text);
+            --text-muted: var(--ops-muted);
+            --text-dim: var(--ops-dim);
+            --accent: var(--ops-accent);
+            --accent-ring: var(--ops-accent-ring);
+            --on-accent: var(--ops-on-accent);
+            --danger: var(--ops-bad);
             --danger-text: #ff8a7f;
             --r-2: 7px;
             --r-3: 10px;

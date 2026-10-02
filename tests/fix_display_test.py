@@ -244,9 +244,8 @@ else:
         head('⑥ 주사위 점수판 — 동점 이름 차례가 서버와 같다')
         board = [{'name': n, 'pts': 3} for n in ('b', 'C', 'a', '하율', 'Z')] + [{'name': '서아', 'pts': 9}]
         order = json.loads(ev("""(function(b){ renderDiceBoard({board: b});
-            const L = [...document.querySelectorAll('#dgb-left .excel-row[id] .r-name')].map(e => e.textContent);
-            const R = [...document.querySelectorAll('#dgb-right .excel-row[id] .r-name')].map(e => e.textContent);
-            return JSON.stringify(L.concat(R)); })(%s)""" % json.dumps(board)) or '[]')
+            const L = [...document.querySelectorAll('#dg-strip .dgs-chip[id] .dgs-name')].map(e => e.textContent);
+            return JSON.stringify(L); })(%s)""" % json.dumps(board)) or '[]')
         want = [r['name'] for r in sorted(board, key=lambda r: (-r['pts'], r['name']))]   # 서버 _dicegame_ranked 와 같은 열쇠
         chk('⭐ 방송판 순서 = 서버 순서 %s' % want, order == want, order)
     finally:

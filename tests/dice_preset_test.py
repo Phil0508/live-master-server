@@ -242,10 +242,16 @@ if mc and m:
     # ⚠️ data-id 와 style 사이에 data-pinned 가 낄 수 있다 (주사위판은 못 박은 것이다 —
     #    편집기에서 끌 수 있었지만 방송은 그 자리를 안 읽었다). 사이를 열어 둔다.
     ma = re.search(r'id="dicegame" data-id="dicegame"[^>]*style="left:(\d+)px; top:(\d+)px', ad)
-    mw = re.search(r'id="dicegame"[\s\S]{0,200}?width:(\d+)px; height:(\d+)px', ad)
+    # ⚠️ 2026-10-03: 점선 상자 앞에 '판 위 점수 띠' 모양이 들어가서 200글자 안에서 못 찾았다 — 넓혀서 찾는다
+    mw = re.search(r'id="dicegame"[\s\S]{0,2500}?width:(\d+)px; height:(\d+)px', ad)
     chk('편집기 점선 상자 자리가 방송판과 같다',
         ma and (int(ma.group(1)), int(ma.group(2))) == (bx, by),
         (ma.groups() if ma else '못 찾음', (bx, by)))
+    # 🎲 2026-10-03 대표님 "주사위 점수판 내가 따로 움직일수 있게" — 띠는 판과 따로 옮기는 위젯이다
+    chk('편집기에 주사위 점수 띠 손잡이가 따로 있다',
+        'id="dgscore" data-id="dgscore"' in ad and "'dgscore': '🎲 주사위 점수 띠'" in ad)
+    chk('방송판이 띠 자리를 편집기에서 읽는다 · 안 잡았으면 판 바로 위에 붙인다',
+        "'dicegame', 'dgscore'" in ov and "window.__dgsLaid = laid('dgscore');" in ov and 'function dgsPlace()' in ov)
     chk('편집기 점선 상자 크기가 실제 판과 같다 (±12px)',
         mw and abs(int(mw.group(1)) - bw) <= 12 and abs(int(mw.group(2)) - bh) <= 12,
         (mw.groups() if mw else '못 찾음', (bw, bh)))

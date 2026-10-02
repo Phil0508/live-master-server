@@ -5,8 +5,9 @@
 시안 A·B·C 중 A 를 보고 "와 A 너무 좋은데? 난 저런 디자인을 바랬어"
 
 여기서 지키는 것
-  ① 새 옷 규칙은 전부 body.skin-glass + 900px 이상 안에만 있다 — 끄면(옛 모습) · 폰은 예전 그대로
+  ① 새 옷 규칙은 전부 body.skin-glass 밑에만 있다 — 끄면(옛 모습) 예전 그대로
      (2026-10-02 1280 → 900: 대표님 "1920 인데 절반 전용으로도 만들어서 유동적으로" — 반 화면 ~950px 에서도 새 옷)
+     (2026-10-03 "하나하나 전부 다": 폰(899 아래)도 같은 색을 입는다 — 단, 왼쪽 줄 · 바탕 그림 같은 배치는 900 이상에만)
   ② 흐림(backdrop-filter)을 안 쓴다 — 바탕 그림을 미리 흐리게 구웠다(방송 PC 가 OBS 와 같이 돌린다)
   ③ 켜고 끄기: 그리기 전에 입히고, 끈 것은 이 컴퓨터에 기억한다(기본은 새 옷)
   ④ 탭은 자리만 옮긴다 — 모든 탭 단추에 짧은 이름표가 있고, 누르는 동작(onclick)은 그대로
@@ -73,7 +74,10 @@ while i < len(css):
     i += 1
 out_rules = [r.strip() for r in re.findall(r'([^{}]+)\{[^}]*\}', ''.join(outside))]
 chk('미디어 밖에는 숨김 두 줄뿐 (.skin-flip · #sk-head)', sorted(out_rules) == ['#sk-head', '.skin-flip'], out_rules)
-chk('미디어는 전부 900px 이상(반 화면부터)', media and all('min-width: 900px' in q for q, _ in media), [q for q, _ in media])
+chk('미디어는 900px 이상(반 화면부터) 아니면 폰(899 아래) 한 칸', media and all('min-width: 900px' in q or q.strip() == '@media (max-width: 899px)' for q, _ in media), [q for q, _ in media])
+_phone = [b for q, b in media if q.strip() == '@media (max-width: 899px)']
+chk('폰 칸은 하나 — 색 · 둥글기만, 왼쪽 줄(tabs-2row) · 바탕 그림(ctl_bg)은 없다',
+    len(_phone) == 1 and 'tabs-2row' not in _phone[0] and 'ctl_bg' not in _phone[0], len(_phone))
 chk('반 화면(900~1279) 전용 칸이 있다', any('min-width: 900px' in q and 'max-width: 1279px' in q for q, _ in media))
 leak = []
 for q, body in media:
@@ -90,7 +94,9 @@ chk('.sk-* 칸은 #sk-head 안에만 있다(새 옷 아니면 #sk-head 가 통�
         for k in ('class="sk-stats"', 'class="sk-stat"', 'class="sk-meta"')))
 
 head('② 흐림 효과 없이 — 바탕 그림을 미리 흐리게')
-chk('새 옷 규칙에 backdrop-filter 가 없다', 'backdrop-filter' not in css)
+# 폰 칸은 음악 칸에 박힌 흐림(blur 20px)을 끄느라 'backdrop-filter: none' 을 쓴다 — 끄는 것만 허락
+chk('새 옷 규칙에 흐림(backdrop-filter)을 켜는 곳이 없다', not re.search(r'backdrop-filter\s*:(?!\s*none)', css),
+    re.findall(r'backdrop-filter\s*:[^;]*', css)[:3])
 bg = os.path.join(ROOT, 'vendor', 'stage', 'ctl_bg.jpg')
 chk('바탕 그림(vendor/stage/ctl_bg.jpg)이 있고 가볍다(200KB 아래)', os.path.exists(bg) and os.path.getsize(bg) < 200 * 1024,
     os.path.getsize(bg) if os.path.exists(bg) else '없음')
@@ -158,6 +164,36 @@ chk('새 옷 오른쪽 칸 높이 = 화면 − 맨 윗줄(맨 아래 단추가 �
     'max-height: calc(100vh - var(--sk-hdr, 84px) - 56px)' in css and "setProperty('--sk-hdr'" in CT)
 
 chk('창 크기가 바뀌면 오른쪽 칸을 다시 짠다(넓은 ↔ 좁은)', "RAIL_MQ.addEventListener('change', railPlace)" in CT)
+
+head('⑦ 단추는 세 가지(주 · 보조 · 위험) — 2026-10-03 운영 화면 점검 4단계')
+assert CT.count('<style id="skin-btn-css">') == 1, '단추 블록이 없다'
+_ba = CT.index('<style id="skin-btn-css">'); _bb = CT.index('</style>', _ba)
+BTN = re.sub(r'/\*.*?\*/', '', CT[_ba + len('<style id="skin-btn-css">'):_bb], flags=re.S)
+_sels = [x.strip() for x in re.findall(r'([^{}]+)\{', BTN) if not x.strip().startswith('@media')]
+def _top_split(t):
+    # 맨 바깥 쉼표로만 자른다 — :is( ) 안 · "rgba(…)" 따옴표 안 쉼표는 건너뛴다
+    out, buf, dep, q = [], '', 0, None
+    for ch in t:
+        if q:
+            q = None if ch == q else q
+        elif ch in '"\'':
+            q = ch
+        elif ch == '(':
+            dep += 1
+        elif ch == ')':
+            dep -= 1
+        elif ch == ',' and dep == 0:
+            out.append(buf); buf = ''; continue
+        buf += ch
+    return out + [buf]
+_bad = [o.strip() for x in _sels for o in _top_split(x) if not o.strip().startswith(('body.skin-glass', ':where(body.skin-glass)'))]
+chk('단추 규칙은 전부 새 옷(body.skin-glass) 밑에만 — 옛 모습은 그대로', _sels and not _bad, _bad[:3])
+_bodies = ' '.join(re.findall(r'\{([^{}]*)\}', BTN))
+chk('단추 색에 옛 노랑이 없다(주 = 주황 · 위험 = 빨강)', not re.search(r'226, ?182, ?75|255, ?207, ?77|#ffcf4d|#e2b64b', _bodies))
+chk('주 · 위험은 박힌 색을 이긴다(!important) — 보조 기본은 :where 로 힘을 뺀다',
+    '--btn-o) !important' in BTN and 'rgba(255, 107, 107, 0.12) !important' in BTN and ':where(body.skin-glass) button {' in BTN)
+for _keep in ('.tab-btn', '.gx-tile', '.shb-chip', '.dgc-pl', '.rk-table td button', '.pending-item button', '#skip-reaction-btn-main'):
+    chk('뜻이 있는 모양은 손대지 않는다: ' + _keep, _keep in BTN.split(':where(:not(', 1)[1].split('))', 1)[0] if ':where(:not(' in BTN else False)
 
 head('⑥ 서버 — /api/ai/board?today=1')
 chk('today 는 물을 때만(장부 조회를 4초마다 하지 않게)', "if request.args.get('today'):" in AI and "out['today'] = _today_donations()" in AI)

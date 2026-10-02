@@ -92,11 +92,12 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
     ⚠️ 말은 여기서 옮기지 않는다 — 부르는 쪽이 착지 처리를 끝낸 뒤 'after' 를 적용한다.
        (착지 처리가 뒤에서 piece['pos'] 를 덮어쓰므로 여기서 옮기면 되돌아간다)
     ⚠️ allow_move=False 는 끌려온 자리에서 뽑은 경우 — 다시 옮기면 끝없이 튕길 수 있다."""
-    out = {'note': '', 'after': None, 'again': False}
+    out = {'note': '', 'after': None, 'again': False, 'kind': None}
     eff = _dicegame_key_effect(text)
     if not eff:
         return out
     k, n = eff['kind'], eff['n']
+    out['kind'] = k
     # ⚠️ 바꾸기·파산·점수는 전부 **주사위 전용 판** 안에서 돈다. 엑셀판(진짜 기여도)은
     #    안 건드린다 — 사장님: "전용 기여도판안에서 해당하는 미션임".
 
@@ -131,8 +132,11 @@ def _dicegame_apply_key(state, g, piece, who, text, cur_pos, allow_move):
         out['again'] = True
         out['note'] = '한 번 더 — 차례가 넘어가지 않는다'
     elif k == 'shield':
+        # 🛡️ 2026-10-03 대표님: "쉴드권 획득! 이라고만 뜨고 사용은 우리가 알아서 할게".
+        #    예전엔 다음 마이너스 칸 · 싱크홀 · 블랙홀에서 저절로 쓰였다. 이제 '가지고 있다' 표시만 남긴다 —
+        #    조종실 차례 단추에 🛡️ 가 붙고, 진행자가 쓰면 [사용함] 으로 지운다(/api/dicegame/shield).
         piece['shield'] = True
-        out['note'] = '실드 획득 — 다음 벌칙 한 번을 막는다'
+        out['note'] = '쉴드권 획득!'
     elif k == 'choose':
         # 조종실이 이 말을 손으로 옮기면 그 칸이 제 일을 한다(/api/dicegame/move).
         # 표시가 없으면 '기여도 10' 칸을 골라 가도 아무것도 못 받는다 — 열쇠가 헛것이 된다.
@@ -659,6 +663,8 @@ def _dicegame_dest_effects(state, g, piece, who, dest, tag):
             ke2 = _dicegame_apply_key(state, g, piece, who, parts['key'], dest, allow_move=False)
             if ke2['note']:
                 parts['key_effect'] = ke2['note']
+            if ke2.get('kind'):
+                parts['key_kind'] = ke2['kind']
             again = bool(ke2['again'])
     return {'parts': parts, 'again': again,
             'tile': {k: t2.get(k) for k in ('id', 'type', 'label', 'points')}}
@@ -798,20 +804,16 @@ def api_dicegame_roll():
                 _ke = _dicegame_apply_key(state, g, piece, contrib_player, action['key'], to, allow_move=True)
                 if _ke['note']:
                     action['key_effect'] = _ke['note']
+                if _ke.get('kind'):
+                    action['key_kind'] = _ke['kind']
                 _ke_after, _key_again = _ke['after'], _ke['again']
                 print('[주사위게임] 황금열쇠 %r -> %s' % (action['key'], _ke['note'] or '효과 없음(글만)'), flush=True)
         # 💯 점수 칸 — 칸에는 '점수' 라고 적혀 있지만 올리는 것은 기여도뿐이다.
         #    사장님: "점수 칸은 점수라고만 써있지 기여도 5점만 올라가는거야"
         #    ⚠️ 예전에는 점수(그날 일당)도 같이 올렸다. 게임에서 5만원어치가 가짜로 붙었다.
         #    기여도라서 시그·한 바퀴와 같이 차례를 기억해 저절로 준다(contrib_player).
-        # 실드권 — 음수 점수 칸을 한 번 막는다. 카드에는 '실드로 막았다' 만 남긴다.
-        if tile.get('type') == 'score' and (_as_int(tile.get('points'), 0) or 0) < 0 and piece.get('shield'):
-            piece['shield'] = False
-            action['shield_used'] = True
-            action['score_note'] = '실드로 막았다 — 기여도 차감 없음'
-            action['tile']['points'] = 0
-            tile = dict(tile)
-            tile['points'] = 0   # 아래 점수 분기가 안 걸리게
+        # 🛡️ 쉴드권은 여기서 저절로 쓰지 않는다(2026-10-03) — 마이너스 칸이어도 그대로 깎이고,
+        #    쓸지 말지는 진행자가 정한다(쓰면 조종실에서 되돌리기 · [사용함]).
         if tile.get('type') == 'score' and tile.get('points'):
             _pts = int(tile['points'])
             if contrib_player:
@@ -896,11 +898,7 @@ def api_dicegame_roll():
         # 🕳️ 말을 다시 옮기는 칸(싱크홀·블랙홀)과 전원 지급 칸.
         #    화면이 두 번째 이동을 이어서 그리도록 action 에 실어 보낸다.
         _tt = tile.get('type')
-        if _tt in ('move', 'goto') and piece.get('shield'):
-            piece['shield'] = False
-            action['shield_used'] = True
-            action['key_effect'] = '실드로 막았다 — 옮겨지지 않는다'
-            _tt = 'shielded'   # 아래 이동 분기가 안 걸리게
+        # 🛡️ 싱크홀 · 블랙홀도 쉴드권이 저절로 막지 않는다(2026-10-03, 위와 같은 이유).
         if _tt in ('move', 'goto'):
             _pts = _as_int(tile.get('points'), 0) or 0
             _dest = (to + _pts) % n if _tt == 'move' else (_pts % n)
@@ -1041,10 +1039,27 @@ def api_dicegame_move():
         g['action'] = action
         _dicegame_save(state, g)
     out = {'status': 'success', 'pos': pos, 'piece': piece['name']}
-    for k in ('tile', 'scored', 'note', 'giveall', 'steal', 'key', 'key_effect', 'choose'):
+    for k in ('tile', 'scored', 'note', 'giveall', 'steal', 'key', 'key_effect', 'key_kind', 'choose'):
         if k in action:
             out[k] = action[k]
     return jsonify(out)
+
+
+@app.route('/api/dicegame/shield', methods=['POST'])
+def api_dicegame_shield():
+    """🛡️ 쉴드권 표시를 켜고 끈다. 진행자가 쉴드권을 쓰면 조종실 [사용함] 이 on:false 로 부른다.
+    점수 · 자리는 건드리지 않는다 — 쓰는 내용(되돌리기 등)은 진행자가 따로 한다."""
+    body = request.get_json(silent=True) or {}
+    with file_lock:
+        state = load_data()
+        g = _dicegame_state(state)
+        _idx = _dicegame_pick(g, body.get('piece'))
+        if _idx is None or not str(body.get('piece') or '').strip():
+            return jsonify({'status': 'error', 'message': "'%s' 말이 없습니다" % (body.get('piece') or '')}), 400
+        piece = g['pieces'][_idx]
+        piece['shield'] = bool(body.get('on'))
+        _dicegame_save(state, g)
+    return jsonify({'status': 'success', 'piece': piece['name'], 'shield': piece['shield']})
 
 
 @app.route('/api/dicegame/enable', methods=['POST'])

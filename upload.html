@@ -3,31 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎯 라이브 마스터 - 리액션 음원/사진 등록 센터</title>
+    <title>음원·사진 등록 · 라이브 마스터</title>
+    <!-- 🧥 운영 화면 공통 옷(2026-10-03) -->
+    <link rel="stylesheet" href="/ops-theme.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
         @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@700&display=swap');
 
+        /* 🧥 2026-10-03: 청록 · 분홍 형광 → 운영 화면 공통 옷(갈색 유리 + 주황) */
         :root {
-            --bg-color: #0c0c0e;
-            --card-bg: rgba(20, 20, 25, 0.6);
-            --border-light: rgba(255, 255, 255, 0.08);
-            --accent: #00ffcc;
-            --accent-glow: rgba(0, 255, 204, 0.3);
-            --danger: #ff3b30;
-            --text-color: #f5f5f7;
+            --bg-color: var(--ops-bg);
+            --card-bg: var(--ops-glass);
+            --border-light: var(--ops-line-soft);
+            --accent: var(--ops-accent);
+            --accent-glow: var(--ops-accent-ring);
+            --danger: var(--ops-bad);
+            --text-color: var(--ops-text);
         }
 
         body {
             margin: 0;
             padding: 0;
             background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(0, 255, 204, 0.05) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(255, 0, 85, 0.05) 0%, transparent 40%);
+            background-image: var(--ops-bg-glow);
             background-attachment: fixed;
-            font-family: 'Pretendard', sans-serif;
+            font-family: var(--ops-font);
             color: var(--text-color);
             min-height: 100vh;
             display: flex;
@@ -60,7 +61,7 @@
             left: 0;
             width: 100%;
             height: 4px;
-            background: linear-gradient(90deg, var(--accent), #ff0055);
+            background: linear-gradient(90deg, var(--accent), var(--ops-accent-hi));
         }
 
         .header {
@@ -70,11 +71,11 @@
 
         .logo-icon {
             font-size: 42px;
-            background: linear-gradient(135deg, var(--accent), #ff0055);
+            background: linear-gradient(135deg, var(--accent), var(--ops-accent-hi));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 12px;
-            filter: drop-shadow(0 0 10px rgba(0, 255, 204, 0.3));
+            filter: drop-shadow(0 0 10px rgba(240, 123, 63, 0.3));
         }
 
         h1 {
@@ -88,7 +89,7 @@
         p.subtitle {
             margin: 6px 0 0 0;
             font-size: 13px;
-            color: #8e8e93;
+            color: var(--ops-muted);
         }
 
         .form-group {
@@ -100,7 +101,7 @@
             font-size: 13px;
             font-weight: bold;
             margin-bottom: 8px;
-            color: #c7c7cc;
+            color: var(--ops-text);
         }
 
         input[type="text"], input[type="number"] {
@@ -136,8 +137,8 @@
 
         .upload-dropzone:hover {
             border-color: var(--accent);
-            background: rgba(0, 255, 204, 0.02);
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.05);
+            background: rgba(240, 123, 63, 0.02);
+            box-shadow: 0 0 15px rgba(240, 123, 63, 0.05);
         }
 
         .upload-dropzone i {
@@ -147,21 +148,21 @@
         }
 
         .upload-dropzone.audio-zone i { color: var(--accent); }
-        .upload-dropzone.image-zone i { color: #ff0055; }
+        .upload-dropzone.image-zone i { color: var(--ops-gold); }
 
         .upload-label {
             font-size: 12px;
-            color: #8e8e93;
+            color: var(--ops-muted);
             word-break: break-all;
         }
 
         .btn-submit {
             width: 100%;
             height: 48px;
-            background: linear-gradient(135deg, var(--accent) 0%, #00cca3 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--ops-accent-hi) 100%);
             border: none;
             border-radius: 14px;
-            color: #000000;
+            color: var(--ops-on-accent);
             font-size: 15px;
             font-weight: 800;
             cursor: pointer;
@@ -171,12 +172,12 @@
             justify-content: center;
             gap: 8px;
             margin-top: 10px;
-            box-shadow: 0 4px 15px rgba(0, 255, 204, 0.3);
+            box-shadow: 0 4px 15px rgba(240, 123, 63, 0.3);
         }
 
         .btn-submit:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 255, 204, 0.4);
+            box-shadow: 0 6px 20px rgba(240, 123, 63, 0.4);
         }
 
         .btn-submit:active:not(:disabled) {
@@ -184,8 +185,8 @@
         }
 
         .btn-submit:disabled {
-            background: #2c2c2e;
-            color: #8e8e93;
+            background: var(--ops-card-2);
+            color: var(--ops-muted);
             cursor: not-allowed;
             box-shadow: none;
         }
@@ -214,7 +215,7 @@
         }
 
         .modal-box {
-            background: rgba(25, 25, 30, 0.95);
+            background: rgba(34, 26, 22, 0.96);
             border: 1px solid var(--border-light);
             border-radius: 20px;
             width: 90%;
@@ -248,7 +249,7 @@
 
         .modal-msg {
             font-size: 13px;
-            color: #a2a2a6;
+            color: var(--ops-muted);
             margin-bottom: 24px;
             line-height: 1.5;
         }
@@ -342,7 +343,7 @@
                 label.style.color = 'var(--accent)';
             } else {
                 label.innerText = "파일 선택 또는 드래그";
-                label.style.color = '#8e8e93';
+                label.style.color = 'var(--ops-muted)';
             }
         }
 
@@ -416,9 +417,9 @@
                     showModal("등록 완료", "리액션 정보가 서버에 안전하게 등록되었습니다! 방송 관리자 화면에 즉각 업데이트됩니다.", true);
                     document.getElementById('upload-form').reset();
                     document.getElementById('audio-label').innerText = "음원 파일 선택 또는 드래그";
-                    document.getElementById('audio-label').style.color = '#8e8e93';
+                    document.getElementById('audio-label').style.color = 'var(--ops-muted)';
                     document.getElementById('image-label').innerText = "이미지 파일 선택 또는 드래그";
-                    document.getElementById('image-label').style.color = '#8e8e93';
+                    document.getElementById('image-label').style.color = 'var(--ops-muted)';
                 } else {
                     showModal("등록 실패", data.message || "서버 오류가 발생했습니다.", false);
                 }

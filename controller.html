@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- (모바일 자동 리다이렉트 제거 — 이제 하나의 반응형 UI로 통합) -->
-    <title>💻 마스터 웹 컨트롤러 V12 (다이내믹 이펙트 매니저 탑재)</title>
+    <title>조종실 · 라이브 마스터</title>
     <script src="/comma_input.js"></script>
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* 🔤 버튼 · 입력칸은 글꼴을 안 물려받는 게 브라우저 기본이다 — 그래서 조종실 버튼 187곳이 Arial 이었다(2026-10-03 점검) */
+        button, input, select, textarea { font-family: inherit; }
         :root { 
             /* 🎨 2026-09-28 시안 A 옷 — 푸른 회색 → 따뜻한 회색, 강조색은 금색 하나(파랑 걷음).
                   대표님이 고른 '조종실 한 창' 시안. 빨강(위험)·초록(연결됨)만 따로 남긴다. */
@@ -263,6 +265,11 @@
         .gx-fold-body { padding: 2px 14px 14px; }
         /* 🎲 주사위 — 차례 단추 · 눈 · 방금 굴린 것 */
         .dgc-players { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        .dgc-shields { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 2px; }
+        .dgc-sh-lbl { font-size: var(--fs-2); font-weight: 800; color: var(--accent); }
+        .dgc-sh { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px;
+                  background: rgba(226, 182, 75, 0.12); border: 1px solid rgba(226, 182, 75, 0.35); }
+        .dgc-sh b { font-size: var(--fs-2); }
         button.dgc-pl { margin: 0; height: auto; min-width: 104px; display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
                         padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--r-2); background: var(--bg-card); }
         button.dgc-pl b { font-size: var(--fs-4); color: var(--text-main); }
@@ -507,6 +514,10 @@
             /* 대기함 카드의 안내 글('누구 것인지 모르겠음 …')이 한 줄로 고정돼 카드 밖으로 삐져나갔다(반 화면 실측) */
             .shell-rail .audit-badge { white-space: normal; max-width: 100%; box-sizing: border-box; }
         }
+        /* 🏺 깃발 자리 단추(모금함 줄 첫 칸 아래 — 점수판 왼쪽 · 오른쪽, 2026-10-03) */
+        .fj-side { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; font-size: var(--fs-1); color: var(--text-muted); }
+        .fj-side span { font-weight: 700; margin-right: 2px; }
+        .fj-side button { height: 26px; min-height: 0; padding: 0 9px; margin: 0; font-size: var(--fs-1); white-space: nowrap; }
         /* 🪟 반 화면(900~1279px) — 오른쪽 칸이 생겨 가운데가 좁다(~520~750px). 점수판을 칸에 맞춘다(새 옷 · 옛 모습 공통).
               실측 945px: 표 650px > 칸 516px 이라 맨 오른쪽 휴지통이 잘렸다 */
         @media (min-width: 900px) and (max-width: 1279px) {
@@ -1468,6 +1479,9 @@
             }
             /* flex 자식은 min-width:auto 라 내용보다 못 줄어든다. 0으로 풀어야 실제로 줄어든다 */
             #ios-mini-media-panel > * { min-width: 0; }
+            /* ⚠️ 2026-10-03: 윗줄이 세로로 쌓이면 위 1024 블록의 flex-basis 260px 가 '높이' 가 된다 → 빈 음악 칸이 260px.
+                  기준 크기를 풀고 내용 높이(두 줄 ≈ 90px)만 쓴다 */
+            #ios-mini-media-panel { flex: none !important; height: auto !important; padding: 8px 14px !important; }
             #yt-video-title { flex: 1 1 100%; max-width: none !important; }
 
             /* 원인 2: 리액션 조작 줄(볼륨·중단·Skip)도 한 줄을 고집했다 */
@@ -2092,6 +2106,7 @@
                 background: var(--sk-o) !important; border-color: var(--sk-o) !important; color: #fff !important; transform: none; }
             body.skin-glass .shell-rail .audit-badge { color: #2c5fb8; background: #eef4ff; border-color: #cfdcf7; border-radius: 10px; }
             body.skin-glass .shell-rail .audit-badge b { color: inherit; }
+
             body.skin-glass .shell-rail .audit-badge.lv-auto { color: #1f8a52; background: #e9f8ef; border-color: #bfe6cf; }
             body.skin-glass .shell-rail .audit-badge.lv-unknown { color: #9a6200; background: #fff4e0; border-color: #f3d9a6; }
             body.skin-glass .shell-rail .pd-test { color: #1b6fae; background: #e7f3fc; border-color: #b9dcf5; }
@@ -2170,6 +2185,111 @@
             body.skin-glass #tab-ranking .table-responsive { padding: 4px 12px; border-radius: 22px; }
             body.skin-glass .rk-table td { padding: 8px 5px !important; }
             /* 점수판을 칸에 맞추는 규칙(최소 650px 풀기 · 첫 칸 좁히기)은 옛 모습과 같아 위 공통 칸(🪟 반 화면)에 있다 */
+        }
+        /* 📱 폰(900px 아래) — 2026-10-03 대표님 "하나하나 전부 다": 폰도 같은 옷(갈색 유리 + 주황)을 입는다.
+              큰 화면의 배치(왼쪽 아이콘 줄 · 오른쪽 칸 · 흰 점수판)는 폰 폭에 안 맞아 빼고, 색 · 둥글기 · 바탕만 가져온다.
+              ⚠️ 색 이름표 값은 위 900px 블록의 body.skin-glass 와 같다(그리고 ops-theme.css 와도) — 바꾸면 셋 다.
+              ⚠️ 바탕 그림(ctl_bg.jpg)은 폰에선 안 받는다 — 데이터 아끼고, 좁은 화면에선 거의 안 보인다. 은은한 주황 빛만. */
+        @media (max-width: 899px) {
+            body.skin-glass {
+                --accent: #f07b3f; --accent-glow: rgba(240, 123, 63, 0.28);
+                --gold: #ff9a5c; --gold-glow: rgba(240, 123, 63, 0.25);
+                --bg-body: #1a1411; --bg-panel: #221a16; --bg-card: #2b221d; --bg-input: rgba(0, 0, 0, 0.26);
+                --border-light: rgba(255, 255, 255, 0.10); --line: rgba(255, 255, 255, 0.14); --surface-2: rgba(255, 255, 255, 0.09);
+                --edge: rgba(255, 255, 255, 0.08); --edge-2: rgba(255, 255, 255, 0.13);
+                --text-main: #f6f1ec; --text-muted: #bcb0a6; --text-dim: #8c8078;
+                --sk-glass: rgba(24, 18, 15, 0.55); --sk-glass-hi: rgba(24, 18, 15, 0.68); --sk-line: rgba(255, 255, 255, 0.13);
+                --sk-o: #f07b3f; --sk-o-hi: #ff8f57; --sk-ink: #1d1a17;
+                background: radial-gradient(700px 420px at 12% -6%, rgba(240, 123, 63, 0.16), transparent 62%), #1a1411;
+                background-attachment: scroll;
+            }
+            body.skin-glass::before { opacity: 0.05; }
+            /* 맨 윗줄 — 유리 판 하나에 담는다 */
+            body.skin-glass .header { background: var(--sk-glass); border: 1px solid var(--sk-line); border-radius: 22px; padding: 10px; }
+            body.skin-glass .header h1 i { color: var(--sk-o); }
+            body.skin-glass #ios-mini-media-panel, body.skin-glass .header-buttons > div, body.skin-glass #lbl-reaction-wrapper,
+            body.skin-glass #btn-clip, body.skin-glass #btn-editor {
+                background: rgba(255, 255, 255, 0.07) !important; border: 1px solid rgba(255, 255, 255, 0.12) !important;
+                border-radius: 18px !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+            body.skin-glass #yt-play-btn { box-shadow: none !important; }
+            /* 윗줄 단추: 한 줄에 하나씩 가운데 → 두 칸 격자(클립 · 에디터는 한 줄에 둘) */
+            body.skin-glass .header-buttons { display: grid !important; grid-template-columns: 1fr 1fr; gap: 8px !important; align-items: stretch !important; }
+            body.skin-glass .header-buttons > * { grid-column: 1 / -1; width: auto !important; margin: 0 !important; }
+            body.skin-glass .header-buttons > #btn-clip, body.skin-glass .header-buttons > #btn-editor { grid-column: auto; justify-content: center; }
+            body.skin-glass #lbl-reaction-wrapper { justify-content: space-between; }
+            /* 탭 줄 — 위에 붙어 있는 동안 뒤 글자가 비치지 않게 거의 불투명한 유리 */
+            body.skin-glass #sticky-top { background: rgba(26, 20, 17, 0.96) !important; }
+            body.skin-glass .tab-btn.active { color: #fff !important; box-shadow: inset 0 -2px 0 var(--sk-o) !important; }
+            body.skin-glass .tab-btn.active i { color: var(--sk-o) !important; }
+            /* 판 — 옅은 유리 카드, 제목 아이콘은 주황 */
+            body.skin-glass .group-box, body.skin-glass .group-box:hover {
+                background: rgba(255, 255, 255, 0.055) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                border-radius: 20px !important; box-shadow: none !important; }
+            body.skin-glass .group-title i { color: var(--sk-o) !important; }
+            body.skin-glass .gx-act, body.skin-glass .stage-box { background: rgba(255, 255, 255, 0.07) !important; border-color: rgba(255, 255, 255, 0.12) !important; }
+            body.skin-glass .gx-tile, body.skin-glass button.gx-tile { background: rgba(0, 0, 0, 0.24); border-color: rgba(255, 255, 255, 0.12); }
+            body.skin-glass button.gx-tile.go { background: linear-gradient(160deg, #ff9a5c, #e8662a); border-color: #ffb07e; }
+            body.skin-glass button.gx-tile.go .ic, body.skin-glass button.gx-tile.go .nm, body.skin-glass button.gx-tile.go .sub { color: #fff; }
+            body.skin-glass button.primary, body.skin-glass button.shb-next, body.skin-glass .ai-toast .t-ok { color: #fff; }
+            body.skin-glass input:focus, body.skin-glass select:focus, body.skin-glass textarea:focus { background: rgba(0, 0, 0, 0.42); }
+            /* 떠 있는 [백업] · AI 손잡이 — 노랑 → 주황 */
+            body.skin-glass #float-backup-btn { background: var(--sk-o) !important; color: var(--sk-ink) !important; border-color: transparent !important; }
+            body.skin-glass #ai-drawer-toggle { background: var(--sk-o); color: #fff; }
+            /* 점수판 — 마지막 칸 [일괄등록]·[+] 가 세로로 쌓여 머리줄이 109px 이었다 → 한 줄로. 막대는 주황 */
+            body.skin-glass .rk-table th:last-child { white-space: nowrap; }
+            body.skin-glass .rk-meter i { background: var(--sk-o); }
+            /* 랭킹 탭 — 방송 중에 만지는 점수판을 위로, 접힌 [기본 설정] 은 아래로(큰 화면 새 옷과 같은 순서) */
+            body.skin-glass #tab-ranking.active { display: flex; flex-direction: column; gap: 14px; }
+            body.skin-glass #tab-ranking > .table-responsive { order: 1; }
+            body.skin-glass #tab-ranking > .group-box { order: 2; margin-bottom: 0; }
+        }
+    </style>
+    <style id="skin-btn-css">
+        /* ═══════════════════════════════════════════════════════
+           🔘 단추는 세 가지만 (2026-10-03 대표님 "하나하나 전부 다" — 운영 화면 점검 4단계)
+           점검 때 조종실 한 화면에 단추 291개 · 모양 98가지(숨은 탭 포함)였다. 기능을 붙일 때마다 그 자리에서 새로 칠해서다.
+           새 옷(body.skin-glass)일 때 — 폭과 상관없이(폰 포함) — 세 가지로 모은다.
+             주(주황 채움)   : 그 칸의 실행 — class="primary" · 처음부터 노랑/금색/그라데이션을 박아 둔 단추
+             위험(빨간 윤곽) : 지우기 · 끄기 · 중단 — class="danger" 무리 · 빨강을 박아 둔 단추
+             보조(옅은 유리) : 나머지 전부(예전 투명 단추 .secondary 도 여기로)
+           모서리는 세 단계 8 · 12 · 22 (작은 단추 · 단추 · 카드).
+           ⚠️ 뜻이 있는 모양은 그대로 둔다(아래 :not 목록): 탭 · 큰 타일(gx-tile) · 켜짐/꺼짐 칩(.on) · 선수 고르기 ·
+              조명 색 견본 · 흰 카드(점수판 · 대기함) 안 단추 · 음악 재생 단추 · 왼쪽 줄 단추 · 무지개 · 오토파일럿 띠.
+           ⚠️ 박힌 색(style="...")은 !important 로만 이긴다 — 그래서 '처음부터 박힌 노랑 · 빨강' 을 글자로 골라서만 건다.
+              JS 가 켜짐 표시로 칠하는 테두리 · 글자색(초록 등)은 안 고르므로 그대로 보인다.
+           ⚠️ 기본(보조)은 :where 로 힘을 빼 둔다 — 칩 · 작은 단추처럼 이름표(class)로 모양을 정한 단추가 이긴다.
+           ⚠️ [옛 모습] 으로 끄면 이 블록은 통째로 안 걸린다.
+           ═══════════════════════════════════════════════════════ */
+        body.skin-glass { --r-1: 8px; --r-2: 12px; --r-3: 22px; --radius-sm: 8px; --radius-md: 12px; --radius-lg: 22px;
+                          --btn-o: #f07b3f; --btn-o-hi: #ff8f57; --btn-bad: #ff8a80; }
+        /* 보조 — 기본. 이름표(class) 규칙이 있으면 그쪽이 이긴다 */
+        :where(body.skin-glass) button { background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.13);
+                                         color: var(--text-main); box-shadow: none; text-shadow: none; }
+        :where(body.skin-glass) button:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.2); color: #fff; }
+        :where(body.skin-glass) button.secondary { background: rgba(255, 255, 255, 0.07); color: var(--text-main); }
+        :where(body.skin-glass) button.secondary:hover { background: rgba(255, 255, 255, 0.12); }
+        body.skin-glass button:is([style*="background: #2a2a2e"], [style*="background:#2a2a2e"], [style*="rgba(46,204,113,0.10)"], [style*="rgba(246,196,83"], [style*="rgba(156, 39, 176"], [style*="background:var(--surface-2)"], [style*="background: var(--surface-2)"]):where(:not(.tab-btn, .gx-tile, .skin-flip, #float-backup-btn, #ai-drawer-toggle, #btn-rainbow, .btn-rainbow-animated, .shb-chip, .gx-seg button, .gx-map, .ntc-chips button, .lg-chips button, .dgc-eye, .dgc-pl, .ai-tile, #ios-mini-media-panel button, .rk-table td button, .pending-item button, .shell-rail .bj-btn, .ai-toast button, #autopilot-banner button, #skip-reaction-btn-main)) {
+            background: rgba(255, 255, 255, 0.07) !important; border-color: rgba(255, 255, 255, 0.13) !important; color: var(--text-main) !important; }
+        /* 주 — 주황 채움 */
+        body.skin-glass button:is([style*="background: rgba(255, 207, 77"], [style*="background:rgba(255,207,77"], [style*="background: rgba(226, 182, 75"], [style*="background:rgba(226,182,75"], [style*="background: var(--accent)"], [style*="background:var(--accent)"], [style*="background: var(--gold)"], [style*="background:var(--gold)"], [style*="background: #ff9500"], [style*="background:#ff9500"], [style*="linear-gradient"], .primary, #rs-send, #ai-chat-send):where(:not(.tab-btn, .gx-tile, .skin-flip, #float-backup-btn, #ai-drawer-toggle, #btn-rainbow, .btn-rainbow-animated, .shb-chip, .gx-seg button, .gx-map, .ntc-chips button, .lg-chips button, .dgc-eye, .dgc-pl, .ai-tile, #ios-mini-media-panel button, .rk-table td button, .pending-item button, .shell-rail .bj-btn, .ai-toast button, #autopilot-banner button, #skip-reaction-btn-main)) {
+            background: var(--btn-o) !important; border-color: var(--btn-o) !important; color: #fff !important; font-weight: 800; }
+        body.skin-glass button:is([style*="background: rgba(255, 207, 77"], [style*="background:rgba(255,207,77"], [style*="background: rgba(226, 182, 75"], [style*="background:rgba(226,182,75"], [style*="background: var(--accent)"], [style*="background:var(--accent)"], [style*="background: var(--gold)"], [style*="background:var(--gold)"], [style*="background: #ff9500"], [style*="background:#ff9500"], [style*="linear-gradient"], .primary, #rs-send, #ai-chat-send):where(:not(.tab-btn, .gx-tile, .skin-flip, #float-backup-btn, #ai-drawer-toggle, #btn-rainbow, .btn-rainbow-animated, .shb-chip, .gx-seg button, .gx-map, .ntc-chips button, .lg-chips button, .dgc-eye, .dgc-pl, .ai-tile, #ios-mini-media-panel button, .rk-table td button, .pending-item button, .shell-rail .bj-btn, .ai-toast button, #autopilot-banner button, #skip-reaction-btn-main)):hover { background: var(--btn-o-hi) !important; border-color: var(--btn-o-hi) !important; }
+        /* 위험 — 빨간 윤곽(채운 빨강은 화면에서 늘 소리친다) */
+        body.skin-glass button:is([style*="rgba(255, 69, 58"], [style*="rgba(255,69,58"], [style*="background: var(--danger)"], [style*="background:var(--danger)"], [style*="color: var(--danger)"], [style*="color:var(--danger)"], [style*="#ff453a"], .danger, .sys-soft-danger, .btn-danger-pulsate, .ps-del, .sg-danger, .danger-soft, .pb-rx):where(:not(.tab-btn, .gx-tile, .skin-flip, #float-backup-btn, #ai-drawer-toggle, #btn-rainbow, .btn-rainbow-animated, .shb-chip, .gx-seg button, .gx-map, .ntc-chips button, .lg-chips button, .dgc-eye, .dgc-pl, .ai-tile, #ios-mini-media-panel button, .rk-table td button, .pending-item button, .shell-rail .bj-btn, .ai-toast button, #autopilot-banner button, #skip-reaction-btn-main)) {
+            background: rgba(255, 107, 107, 0.12) !important; border-color: rgba(255, 107, 107, 0.45) !important; color: var(--btn-bad) !important; }
+        body.skin-glass button:is([style*="rgba(255, 69, 58"], [style*="rgba(255,69,58"], [style*="background: var(--danger)"], [style*="background:var(--danger)"], [style*="color: var(--danger)"], [style*="color:var(--danger)"], [style*="#ff453a"], .danger, .sys-soft-danger, .btn-danger-pulsate, .ps-del, .sg-danger, .danger-soft, .pb-rx):where(:not(.tab-btn, .gx-tile, .skin-flip, #float-backup-btn, #ai-drawer-toggle, #btn-rainbow, .btn-rainbow-animated, .shb-chip, .gx-seg button, .gx-map, .ntc-chips button, .lg-chips button, .dgc-eye, .dgc-pl, .ai-tile, #ios-mini-media-panel button, .rk-table td button, .pending-item button, .shell-rail .bj-btn, .ai-toast button, #autopilot-banner button, #skip-reaction-btn-main)):hover { background: rgba(255, 107, 107, 0.22) !important; border-color: rgba(255, 107, 107, 0.7) !important; }
+        :where(body.skin-glass) button:disabled { opacity: 0.45; cursor: not-allowed; }
+        /* 켜짐 표시에 남아 있던 노랑 → 주황(뜻은 그대로) */
+        body.skin-glass button.gx-map.on { background: rgba(240, 123, 63, 0.12); }
+        body.skin-glass button.dgc-pl.next { border-color: rgba(240, 123, 63, 0.6); }
+        body.skin-glass .lg-chips button.ml-filter-active { background: var(--surface-2) !important; color: var(--text-main) !important; }
+        body.skin-glass #ai-proactive-toggle.on { border-color: rgba(240, 123, 63, 0.45); }
+        /* AI 칸 머리 도구 · [Skip](일부러 눌러 둔 회색) — 보조와 같은 옅은 유리로 */
+        body.skin-glass .ai-tools button { background: rgba(255, 255, 255, 0.07); }
+        body.skin-glass #skip-reaction-btn-main { background: rgba(255, 255, 255, 0.07) !important; border-color: rgba(255, 255, 255, 0.13) !important; }
+        /* 흰 점수판 머리줄의 [+] — 흰 바탕 위 보조 단추 */
+        @media (min-width: 900px) {
+            body.skin-glass .rk-table th button { background: #faf7f4; border: 1px solid #ebe4dd; color: #1d1a17; border-radius: 10px; }
         }
     </style>
     <style id="view-zone-css">
@@ -3450,6 +3570,8 @@
                  ⚠️ 숨긴 <select id="dgc-player"> 가 진짜 값이다 — 굴리기 · 말 옮기기가 이걸 읽는다. -->
             <span class="gx-lbl">누구 차례? <span class="gx-info">금색 테두리 사람이 굴려요 · 굴려도 안 바뀌어요 — 바꿀 때만 이름을 누르세요</span></span>
             <div id="dgc-players" class="dgc-players"></div>
+            <!-- 🛡️ 쉴드권을 가진 사람 — 저절로 쓰이지 않는다(2026-10-03). 진행자가 쓰면 [사용함] 으로 지운다. -->
+            <div id="dgc-shields" class="dgc-shields" hidden></div>
             <select id="dgc-player" class="gx-hide" aria-hidden="true" tabindex="-1"><option value="">(누구 차례?)</option></select>
 
             <!-- 🎵 시그가 재생 중이면 방송판이 가려진다 — 그때 굴리면 굴림이 통째로 안 보인다(dgcSync 가 켠다) -->
@@ -5262,6 +5384,11 @@
                             <input type="number" value="${_fj.seed || 0}" style="flex:1; text-align:right;"
                                    title="회사 종잣돈(상금). 방송을 껐다 켜도 남습니다."
                                    onchange="fundjarSet({seed:this.value})">
+                        </div>
+                        <div class="fj-side" title="방송 화면에서 깃발을 점수판 왼쪽 · 오른쪽 중 어디에 세울지">
+                            <span>깃발</span>
+                            <button onclick="fundjarSide('left')" style="${fjSide === 'left' ? 'background:var(--gold); color:#241a05; font-weight:800;' : ''}">◀ 왼쪽</button>
+                            <button onclick="fundjarSide('right')" style="${fjSide === 'right' ? 'background:var(--gold); color:#241a05; font-weight:800;' : ''}">오른쪽 ▶</button>
                         </div>
                     </td>
                     <td class="score-display" style="color:var(--gold);">${((_fj.seed||0)+(_fj.score||0)).toLocaleString()}</td>
@@ -7469,6 +7596,30 @@
                 return d;
             } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); return null; }
         }
+        /* 🏺 깃발 자리 — 점수판 왼쪽 / 오른쪽 (2026-10-03 대표님 "모금함은 왼쪽 오른쪽 고를 수 있게").
+           서버가 배치 파일에 점수판 · 깃발 자리를 같이 적는다(편집기에서 끈 것과 같은 길 — features/layout.py).
+           ⚠️ 왼쪽을 고르면 점수판이 깃발 폭만큼 오른쪽으로 비킨다. 편집기에서 손으로 옮기면 그게 이긴다('free').
+           fjSide: 'left' · 'right' · 'free'(따로 놓임) · ''(아직 모름) */
+        let fjSide = '';
+        async function fundjarSideLoad() {
+            try {
+                const r = await fetch('/api/fundjar/side');
+                if (!r.ok) return;
+                const d = await r.json().catch(() => ({}));
+                if ((d.side || '') !== fjSide) { fjSide = d.side || ''; try { renderUI(); } catch (e) {} }
+            } catch (e) {}
+        }
+        async function fundjarSide(side) {
+            try {
+                const r = await fetch('/api/fundjar/side', { method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ side }) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || '깃발 자리를 못 바꿨습니다', 'warn'); return; }
+                fjSide = side;
+                try { renderUI(); } catch (e) {}
+                acctToast('🏺 깃발을 점수판 ' + (side === 'left' ? '왼쪽' : '오른쪽') + '에 세웠습니다', 'ok');
+            } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); }
+        }
         async function fundjarReset() {
             if (!await premiumConfirm('모금함의 후원분을 0 으로 되돌립니다.\n회사 종잣돈은 그대로 남습니다.',
                                       '🏺 모금함 초기화', 'warning')) return;
@@ -8072,7 +8223,10 @@
                 updateConnectionStatus('connected');
                 const newData = JSON.parse(e.data);
                 handleStreamData(newData);
+                fundjarSideLoad();   // 🏺 깃발 자리(배치 파일에서 센다)
             });
+            // 🏺 편집기에서 자리를 옮기면 배치가 바뀐다 — 깃발 단추 불빛도 따라 바꾼다
+            sseSource.addEventListener('layout', function() { fundjarSideLoad(); });
             
             sseSource.addEventListener('update', function(e) {
                 updateConnectionStatus('connected');
@@ -11735,8 +11889,8 @@ initFoldablePanels();
             if (!box || !sel) return;
             const g = dgcState();
             const names = (typeof currentPlayerNames === 'function') ? currentPlayerNames() : [];
-            const pos = {}, pts = {};
-            (g.pieces || []).forEach(function (p) { pos[p.name] = p.pos; });
+            const pos = {}, pts = {}, shield = {};
+            (g.pieces || []).forEach(function (p) { pos[p.name] = p.pos; if (p.shield) shield[p.name] = true; });
             (g.board || []).forEach(function (r) { pts[r.name] = Number(r.pts) || 0; });
             const nx = ((g.pieces || [])[g.turn | 0] || {}).name || '';
             const pick = sel.value;
@@ -11744,14 +11898,36 @@ initFoldablePanels();
                 const cls = n === pick ? ' on' : (!pick && n === nx ? ' next' : '');
                 const p = pts[n] || 0;
                 return '<button type="button" class="dgc-pl' + cls + '" data-n="' + escapeHTML(n) + '" onclick="dgcPick(this.dataset.n)">'
-                     + '<b>' + escapeHTML(n) + '</b><span>' + (pos[n] != null ? pos[n] + '번 칸 · ' : '')
+                     + '<b>' + (shield[n] ? '🛡️ ' : '') + escapeHTML(n) + '</b><span>' + (pos[n] != null ? pos[n] + '번 칸 · ' : '')
                      + (p > 0 ? '+' : '') + p + '점</span></button>';
             }).join('') : '<span class="gx-info">엑셀판에 선수를 넣으면 여기에 이름이 나옵니다.</span>';
             if (box.dataset.h !== html) { box.innerHTML = html; box.dataset.h = html; }
+            // 🛡️ 쉴드권 가진 사람 줄 — [사용함] 을 누르면 표시만 지운다(점수 · 자리는 그대로)
+            const sb = document.getElementById('dgc-shields');
+            if (sb) {
+                const holders = names.filter(function (n) { return shield[n]; });
+                const sh = holders.length
+                    ? '<span class="dgc-sh-lbl">🛡️ 쉴드권</span>' + holders.map(function (n) {
+                          return '<span class="dgc-sh"><b>' + escapeHTML(n) + '</b><button type="button" class="secondary gx-sm" data-n="'
+                               + escapeHTML(n) + '" onclick="dgcShieldUsed(this.dataset.n)">사용함</button></span>';
+                      }).join('')
+                    : '';
+                if (sb.dataset.h !== sh) { sb.innerHTML = sh; sb.dataset.h = sh; }
+                sb.hidden = !holders.length;
+            }
             const rb = document.getElementById('dgc-roll-btn');
             const who = pick || nx;
             const rn = document.getElementById('dgc-roll-nm');
             if (rn) rn.textContent = (who ? who + ' ' : '') + '굴리기';
+        }
+        async function dgcShieldUsed(n) {
+            try {
+                const r = await fetch('/api/dicegame/shield', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ piece: n, on: false }) });
+                const j = await r.json().catch(function () { return {}; });
+                if (!r.ok || j.status !== 'success') { acctToast((j && j.message) || '쉴드권을 지우지 못했어요', 'warn'); return; }
+                acctToast('🛡️ ' + n + ' 쉴드권 사용 처리', 'ok');
+            } catch (e) { acctToast('쉴드권을 지우지 못했어요 — 서버 연결을 확인해 주세요', 'warn'); }
         }
         function dgcPick(n) {
             const sel = document.getElementById('dgc-player');

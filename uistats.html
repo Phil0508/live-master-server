@@ -3,13 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>많이 누른 것</title>
+<title>많이 누른 것 · 라이브 마스터</title>
+<!-- 🧥 운영 화면 공통 옷(2026-10-03) -->
+<link rel="stylesheet" href="/ops-theme.css">
 <style>
     /* 📊 조종실에서 무엇을 많이 눌렀나 — 방송별 순위 (대표님 2026-09-22)
        조종실 로그 탭 [많이 누른 것 보기] 에서 연다. 폰으로도 본다. 로그인한 사람만 열린다. */
-    :root { --bg: #111216; --panel: #1b1d23; --line: #2c2f38; --ink: #f2f3f6; --muted: #9aa0ad; --bar: #4f7cff; --bar2: #8b5cf6; --hot: #ffcf4d; }
+    /* 🧥 남색 · 보라 → 운영 화면 공통 옷. 막대는 주황 하나, 1~3등 숫자는 금색 */
+    :root { --bg: var(--ops-bg); --panel: var(--ops-card); --line: var(--ops-line); --ink: var(--ops-text); --muted: var(--ops-muted); --bar: var(--ops-accent); --bar2: var(--ops-accent-hi); --hot: var(--ops-gold); }
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; font-size: 16px; }
+    body { margin: 0; background: var(--ops-bg-glow), var(--bg); color: var(--ink); font-family: var(--ops-font); font-size: 16px; }
     .wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
     h1 { margin: 0; font-size: 24px; }
     .sub { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
@@ -18,7 +21,7 @@
     select:focus-visible, button:focus-visible { outline: 2px solid var(--hot); outline-offset: 2px; }
     .chips { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip { font: inherit; font-size: 14px; background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
-    .chip[aria-pressed="true"] { color: #fff; border-color: var(--bar); background: #1f2b52; }
+    .chip[aria-pressed="true"] { color: var(--ops-text); border-color: var(--bar); background: var(--ops-accent-soft); }
     .sum { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
     ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
     li { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
@@ -27,7 +30,7 @@
     .nm { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
     .nm b { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .nm small { color: var(--muted); font-size: 12px; }
-    .track { height: 6px; border-radius: 999px; background: #262a33; overflow: hidden; }
+    .track { height: 6px; border-radius: 999px; background: var(--ops-card-2); overflow: hidden; }
     .track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--bar), var(--bar2)); }
     .n { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 18px; }
     .empty { color: var(--muted); background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 18px; text-align: center; line-height: 1.6; }

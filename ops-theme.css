@@ -1,0 +1,63 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+/* 🧥 운영 화면 공통 옷 (2026-10-03 대표님 "화면마다 다른 프로그램 같다" → "하나하나 전부 다 진행")
+   조종실 새 옷(시안 A · 유리 스튜디오)과 같은 색 · 같은 글꼴 · 같은 둥글기.
+   운영자가 쓰는 화면(편집기 · 후원 콘솔 · 스트림덱 · 음원 등록 · 서버 상태 · 클릭 통계 · 로그인)이
+   이 한 벌을 불러 쓰고, 각 화면은 자기 색 이름을 여기 --ops-* 에 잇기만 한다.
+   → 여기 한 곳을 바꾸면 운영 화면이 전부 같이 바뀐다.
+   ⚠️ 방송판(overlay) · 알림창 · 슬롯 · 시그니처 표시는 부르지 않는다 — OBS 가 바깥 파일을 못 읽는 순간
+      방송이 민무늬가 된다(build_hud_css.py 머리말). 방송 화면은 테마 14벌이 따로 묶고 있다.
+   ⚠️ 조종실(controller.html)은 이미 같은 값을 body.skin-glass 에 갖고 있다. 값을 바꾸면 거기도 같이. */
+:root {
+    /* 바탕 → 패널 → 카드 순으로 밝아진다 (짙은 갈색 유리) */
+    --ops-bg: #1a1411;
+    --ops-panel: #221a16;
+    --ops-card: #2b221d;
+    --ops-card-2: #342923;
+    --ops-input: rgba(0, 0, 0, 0.26);
+    --ops-glass: rgba(24, 18, 15, 0.62);
+    --ops-line: rgba(255, 255, 255, 0.13);
+    --ops-line-soft: rgba(255, 255, 255, 0.08);
+    /* 글자 */
+    --ops-text: #f6f1ec;
+    --ops-muted: #bcb0a6;
+    --ops-dim: #8c8078;
+    /* 강조는 주황 하나 — 주 버튼 · 고른 탭 · 막대 */
+    --ops-accent: #f07b3f;
+    --ops-accent-hi: #ff8f57;
+    --ops-accent-soft: rgba(240, 123, 63, 0.16);
+    --ops-accent-ring: rgba(240, 123, 63, 0.32);
+    --ops-on-accent: #1d1a17;
+    /* 금액 · 점수는 따뜻한 금색(주황과 한 집안) */
+    --ops-gold: #ffb36b;
+    /* 뜻이 있는 색 — 강조색으로 쓰지 않는다 */
+    --ops-good: #3ddc84;
+    --ops-warn: #f5a524;
+    --ops-bad: #ff6b6b;
+    --ops-info: #7cb2ff;
+    /* 둥글기 세 단계 · 그림자 */
+    --ops-r-s: 8px;
+    --ops-r-m: 14px;
+    --ops-r-l: 22px;
+    --ops-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    --ops-font: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    /* 바탕의 은은한 주황 빛 */
+    --ops-bg-glow: radial-gradient(1100px 560px at 15% -10%, rgba(240, 123, 63, 0.14), transparent 60%);
+}
+
+/* 버튼 · 입력칸은 글꼴을 물려받지 않는 게 브라우저 기본이다 — 안 그러면 Arial 로 떨어진다
+   (2026-10-03 점검: 조종실 버튼 187곳이 Arial 이었다) */
+button, input, select, textarea { font-family: inherit; }
+
+/* 고른 칸 · 단추를 키보드로 옮겨 다닐 때 보이는 테두리 */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--ops-accent-hi); outline-offset: 2px; }
+
+/* 🧩 공통 부품 — 새로 만드는 화면은 이것만 쓰면 같은 모양이 된다 */
+.ops-btn { font: inherit; font-weight: 800; font-size: 15px; border-radius: 999px; padding: 9px 18px;
+           border: 1px solid var(--ops-line); background: rgba(255, 255, 255, 0.08); color: var(--ops-text); cursor: pointer;
+           transition: background .15s ease, border-color .15s ease, transform .1s ease; }
+.ops-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.ops-btn:active { transform: translateY(1px); }
+.ops-btn.pri { background: var(--ops-accent); border-color: transparent; color: var(--ops-on-accent); }
+.ops-btn.pri:hover { background: var(--ops-accent-hi); }
+.ops-btn.dan { background: rgba(255, 107, 107, 0.14); border-color: rgba(255, 107, 107, 0.45); color: var(--ops-bad); }
+@media (prefers-reduced-motion: reduce) { .ops-btn { transition: none; } }
