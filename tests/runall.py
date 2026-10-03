@@ -271,6 +271,7 @@ run('🧾 고친 것 — 후원 접수', [PY, 'fix_donation_test.py'], HERE, kin
 run('🧾 고친 것 — 조종실 · 폰', [PY, 'fix_client_test.py'], HERE, kind='pt')
 run('🧾 고친 것 — 게임', [PY, 'fix_games_test.py'], HERE, kind='pt')
 run('🧾 고친 것 — 방송 화면 · AI', [PY, 'fix_display_test.py'], HERE, kind='pt')
+run('🎬 고액 영상 — 계좌가 영상 뒤로', [PY, 'acct_video_layer_test.py'], HERE, kind='pt')
 run('구슬 핀볼', [PY, 'pinball_test.py'], HERE)
 run('기여도만 지급', [PY, 'contrib_test.py'], HERE, kind='pt')
 run('한 방 최고 후원', [PY, 'best_test.py'], HERE, kind='pt')

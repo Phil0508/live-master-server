@@ -725,6 +725,13 @@
         /* 🏦 계좌는 어떤 테마든 기본 모습(금색 유리판) 그대로 — 대표님 2026-09-22: 테마 옷을 입히니 가독성이 떨어졌다.
               돈이 가는 곳이라 한눈에 읽혀야 한다. 테마 규칙에서 계좌를 전부 뺐고, 테마가 body 에 바꿔 둔
               색 토큰도 계좌 안에서만 기본값으로 되돌린다(:root 값과 같게). */
+        /* 🎬 고액후원 영상이 떠 있는 동안 머리 줄(계좌 · 안내 전광판)을 영상 아래로 내린다.
+              대표님 2026-10-03 "고액영상 틀 때 계좌만 영상 앞으로 나와 있네".
+              머리 줄(#headrow)은 z-index 100000 이라 영상 상자(88000)보다 늘 위에 그려졌다 — 다른 위젯처럼 영상 뒤로 보낸다
+              (겹치지 않는 부분은 그대로 보인다). 시그니처(90000) · 알림은 여전히 영상 위다.
+              acctVideoPlay / acctVideoPlayFile 이 body.acct-video-on 을 켜고 acctVideoStop 이 끈다.
+              ⚠️ 머리 줄의 z-index 는 inline 이라 !important 로만 이긴다. */
+        body.acct-video-on #headrow { z-index: 87000 !important; }
         #account-container {
             --gold: var(--base-gold); --gold-deep: var(--base-gold-deep); --gold-light: var(--base-gold-light); --gold-rgb: var(--base-gold-rgb);
             --gold-glow: var(--base-gold-glow); --on-gold: var(--base-on-gold); --accent: var(--base-gold); --text-highlight: var(--base-gold);
@@ -5347,6 +5354,7 @@
             }
             if (frame) frame.innerHTML = '';   // iframe/video 제거 → 재생·소리 완전 정지
             if (box) box.style.display = 'none';
+            document.body.classList.remove('acct-video-on');   // 🎬 머리 줄(계좌)을 다시 맨 위로
         }
         // 저장된 값이 '유튜브 영상 번호'인지 '영상 파일 주소'인지 판단한다.
         // ⚠️ 이 판단을 화면이 하기 때문에, 나중에 파일을 어디에 두든(서버·Supabase·다른 곳)
@@ -5374,6 +5382,7 @@
             frame.innerHTML = '<iframe width="100%" height="100%" src="' + src
                 + '" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border:0;display:block;"></iframe>';
             box.style.display = 'block';   // 화면을 덮는 flex 배경이 아니라 영상 상자만 띄운다
+            document.body.classList.add('acct-video-on');   // 🎬 계좌 줄이 영상 앞으로 튀어나오지 않게
             // 유튜브가 상태 메시지를 보내오도록 '듣기 시작' 신호를 몇 번 보낸다(iframe 준비 전 명령은 버려지므로).
             let tries = 0;
             const kick = setInterval(() => {
@@ -5408,6 +5417,7 @@
             v.onerror = () => { console.warn('[고액후원 영상] 재생 실패 —', url); acctVideoStop(); };
             frame.appendChild(v);
             box.style.display = 'block';
+            document.body.classList.add('acct-video-on');   // 🎬 계좌 줄이 영상 앞으로 튀어나오지 않게
 
             // ⚠️ OBS 는 자동재생이 열려 있지만 일반 브라우저는 소리 있는 자동재생을 막는다.
             //    막히면 음소거로라도 튼다 — 소리는 없어도 영상은 나가는 편이 통째로 안 나오는 것보다 낫다.
