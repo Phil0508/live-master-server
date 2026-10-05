@@ -875,6 +875,10 @@ def strip_private_state(state):
         g['keys_count'] = len(g.get('keys') or [])
         g['keys'] = []
         out['dicegame'] = g
+    # 🧩 퀴즈 정답 · 분류 · 내 문제는 조종실에만 — 방송판은 네모칸(tiles)만 받는다
+    q = out.get('quiz')
+    if isinstance(q, dict):
+        out['quiz'] = {'tiles': q.get('tiles') or [], 'revealed': bool(q.get('revealed'))}
     return out
 
 
@@ -1450,6 +1454,17 @@ DEFAULT_STATE = {
         #       두 군데서 세면 반드시 어긋난다.
         "balls": [],
         "started_at": 0,        # 시작 시각(ms) — 몇 초 걸렸는지 재려고
+    },
+
+    # 🧩 퀴즈판(초성 · 사자성어, 2026-10-06) — features/quiz.py 가 모양을 맞춘다(_quiz_state).
+    #    방송판에는 네모칸(tiles)만. 정답(cur)은 조종실에만 — strip_private_state 가 뺀다.
+    "quiz": {
+        "kind": "chosung",      # 'chosung' 초성 · 'idiom' 사자성어
+        "cur": None,            # {'kind', 'answer', 'note'} — 지금 문제(정답 · 분류/뜻)
+        "tiles": [],            # 방송판 네모칸 [{'c': 글자, 's': 'q'|'g'|'b'|'h'|'o'}]
+        "revealed": False,
+        "used": {"chosung": [], "idiom": []},     # 이번 방송에 나온 정답 — 방송 시작 · 종료 때 비운다
+        "custom": {"chosung": [], "idiom": []},   # 내 문제 [[정답, 분류/뜻], …] — 방송이 바뀌어도 남는다
     },
 
     "siggame": {
@@ -2065,6 +2080,9 @@ def reset_session_keys(state):
         _dg['last_player'] = ''
     # 🎱 핀볼도 방송 1회분이다. 참가자 명단(names)은 다음에도 쓰므로 남기고,
     #    보이기·굴러가는 중·결과만 걷는다.
+    # 🧩 퀴즈도 방송 1회분 — 지금 문제 · 그날 나온 문제를 비운다(내 문제는 남긴다). 본문은 features/quiz.py
+    from features.quiz import quiz_reset_session
+    quiz_reset_session(state)
     _pb = state.get('pinball')
     if isinstance(_pb, dict):
         _pb.update({'enabled': False, 'running': False, 'result': [], 'started_at': 0})
@@ -2685,7 +2703,7 @@ def api_data():
             #      상금이 어긋난다(운영비 점수를 지키는 것과 똑같은 이유다).
             SERVER_OWNED = ('reaction_queue', 'latest_donation', 'pending_donations',
                             'reaction_paused', 'siggame', 'dicegame', 'sig_tally', 'donor_tally',
-                            'fundjar', 'announce_bot', 'pinball', 'best_single', 'stage_screen', 'hell',
+                            'fundjar', 'announce_bot', 'pinball', 'quiz', 'best_single', 'stage_screen', 'hell',
                             'broadcast_started_at', 'layout_presets', 'layout_rev', 'clip',
                             # 📺 방송 화면 — 무대·고정 자리·알림은 /api/show 로만. 옛 스위치는 show 가 계산한다
                             'show') + showmod.LEGACY_OWNED
@@ -3285,6 +3303,8 @@ PATCH_DENY = frozenset((
     'dicegame',
     # 🎱 핀볼도 같다. 특히 round_id·running 이 밖에서 바뀌면 늦게 온 결과를 못 가려낸다.
     'pinball',
+    # 🧩 퀴즈도 /api/quiz/* 로만 — 낡은 조종실이 통째로 보내면 방금 낸 문제 · 내 문제가 덮인다
+    'quiz',
     # 💥 한 방 최고 후원도 후원 접수·배정 때만 서버가 적는다
     'best_single',
     # 🎬 시작·끝 화면도 /api/screen 으로만 (끝 화면 기록 last_snap 은 방송 종료만 적는다)
@@ -3547,6 +3567,7 @@ import features.logs  # noqa: E402,F401  (주소만 등록)
 import features.notice  # noqa: E402,F401  (주소만 등록)
 import features.offwork  # noqa: E402,F401  (주소만 등록)
 import features.pages  # noqa: E402,F401  (주소만 등록)
+import features.quiz  # noqa: E402,F401  (주소만 등록)
 from features.pinball import (  # noqa: E402
     _pinball_winners,
 )

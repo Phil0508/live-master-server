@@ -116,10 +116,10 @@ chk('단추는 아랫줄(.tab-row2) 안에 있다 — 옛 모습에서 한 줄�
 head('④ 탭은 자리만 옮긴다')
 tabs = CT[CT.index('<div class="tabs tabs-2row">'):CT.index('id="skin-flip"')]
 btns = re.findall(r'<button[^>]*class="tab-btn[^"]*"[^>]*>', tabs)
-chk('탭 단추가 21개(⋯ 포함 · 09-30 [공지] · 10-02 [⚙ 설정] [조종실로] [모드 설정] 늘었다)', len(btns) == 21, len(btns))
+chk('탭 단추가 22개(⋯ 포함 · 09-30 [공지] · 10-02 [⚙ 설정] [조종실로] [모드 설정] · 10-06 [퀴즈] 늘었다)', len(btns) == 22, len(btns))
 chk('탭 단추마다 짧은 이름표(data-s)', all('data-s="' in x for x in btns), [x[:60] for x in btns if 'data-s="' not in x])
-chk('누르는 동작은 예전 그대로(openTab 16 — [모드 설정] 이 지옥·퇴근 탭을 연다 · ⋯ 1)',
-    sum("onclick=\"openTab(event, '" in x for x in btns) == 16 and sum('tabs-open' in x for x in btns) == 1)
+chk('누르는 동작은 예전 그대로(openTab 17 — [모드 설정] 이 지옥·퇴근 탭을 연다 · 10-06 [퀴즈] · ⋯ 1)',
+    sum("onclick=\"openTab(event, '" in x for x in btns) == 17 and sum('tabs-open' in x for x in btns) == 1)
 chk('이름표는 칸에 들어가는 길이(5글자 이하)', all(len(s) <= 5 for s in re.findall(r'data-s="([^"]+)"', tabs)),
     re.findall(r'data-s="([^"]+)"', tabs))
 

@@ -167,8 +167,6 @@ WANT = {                       # 위젯: (왼쪽, 위, 왜)
     'gauge':      (1046, 115, '화면 오른쪽 끝'),
     'account':    (6,   115, '머리 줄 왼쪽 끝'),
     'notice':     (654, 115, '머리 줄에서 계좌(640) + gap 8 다음'),
-    'ticker_top': (0,   115, '안전지대 위 끝'),
-    'ticker_bottom': (0, 882, '안전지대 아래 끝'),
     'dicegame':   (6,   307, '게임 자리'),
     'dgscore':    (6,   191, '🎲 주사위 점수 띠 — 주사위 판(6,307) 바로 위 (띠 높이 116)'),
     'pinball':    (50,  300, '🎱 구슬 핀볼 — 게임 자리'),
@@ -243,7 +241,8 @@ _after = ad.find('</div>' + _nl + ' ' * 12 + '</div>', _last)
 _end = _after if _after > 0 else len(ad)
 _starts = [m.start() for m in re.finditer(r'<div class="widget" id="', ad)
            if _board < m.start() < _end]
-chk('무대 안에서 위젯을 찾았다', len(_starts) == 22, '%d개' % len(_starts))   # 🎲 주사위 점수 띠가 따로 옮기는 위젯이 됐다(10-03)   # 💥 한 방 최고 후원이 늘었다   # 🏺 모금함이 늘었다
+chk('무대 안에서 위젯을 찾았다', len(_starts) == 20, '%d개' % len(_starts))   # 🗑️ 10-03 위·아래 전광판 둘을 지웠다(22 → 20)
+#    # 🎲 주사위 점수 띠가 따로 옮기는 위젯이 됐다(10-03)   # 💥 한 방 최고 후원이 늘었다   # 🏺 모금함이 늘었다
 
 
 def _depth(seg):

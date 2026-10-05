@@ -494,12 +494,6 @@ body.game-on #best-container { opacity: 0 !important; pointer-events: none; }
 .center-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(var(--gold-rgb), 0.5); border-radius: 999px; padding: 16px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); opacity: 0; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); transform: translateY(40px) scale(0.7); }
 .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
-.ticker-bar { width: 1080px; height: 70px; background: var(--glass-bg); border-top: 1px solid rgba(var(--gold-rgb), 0.45); border-bottom: 1px solid rgba(var(--gold-rgb), 0.45); display: flex; align-items: center; overflow: hidden; box-shadow: var(--sh-2); }
-.ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: var(--ts-1); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; }
-.ticker-text-wrap.reac-neon { font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 46px; letter-spacing: 1px; color: #fff; paint-order: stroke fill; -webkit-text-stroke: 0.1em var(--tk-neon, #ff1f56); text-shadow: 0 0 6px rgba(var(--tk-glow, 255, 45, 100), 0.7), 0 0 16px rgba(var(--tk-glow, 255, 45, 100), 0.46), 0 0 34px rgba(var(--tk-glow, 255, 45, 100), 0.26); }
-.reac-neon-mode .ticker-bar { background: var(--glass-bg); border-top: 2px solid rgba(var(--gold-rgb), 0.45); border-bottom: 2px solid rgba(var(--gold-rgb), 0.45); box-shadow: var(--sh-2); }
-.split-top .ticker-bar { animation: splitInTop 0.55s cubic-bezier(0.16, 1, 0.3, 1); }
-.split-bottom .ticker-bar { animation: splitInBottom 0.55s cubic-bezier(0.16, 1, 0.3, 1); }
 .home-race-box { position: relative; /* 틀은 다른 판과 같은 유리판. 파랑은 막대·배지에만 남긴다 — 예전엔 틀까지 파랑이라 이 판만 다른 프로그램 같았다. */ background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); /* ⚠️ 폭을 540 에서 900 으로 넓혔다. 글씨를 폰에서 읽히게 27~32px 로 키우면서 칸 폭은 그대로 뒀더니, 숫자칸 96px 에 '1,234,000'(161px)이 안 들어가 잘렸다. 엑셀판이 698→990 으로 넓어져야 했던 것과 같다. ⚠️ 오른쪽 기준(right:42)이라 폭을 바꾸면 왼쪽 끝이 따라 움직인다 — 편집기 그림자 자리도 같이 고쳐야 한다 (1038 - 947 = 91). */ padding: 22px 22px 16px; width: 900px; }
 .home-race-title { width: max-content; margin: -34px auto 16px; text-align: center; font-size: 30px; font-weight: 900; letter-spacing: 1px; color: #fff; background: linear-gradient(100deg, var(--race), var(--race-2)); border-radius: var(--r-m); padding: 8px 32px; box-shadow: 0 4px 14px rgba(var(--race-rgb), .55); }
 .home-race-row { display: flex; align-items: center; gap: 12px; padding: 8px 2px; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -790,8 +784,6 @@ body.themed :is(#ranking-container, #donor-rank-container, #best-container)::aft
 
                 <div class="widget" id="popup" data-id="popup" style="left:50px; top:1150px;"><div class="center-popup-content" id="popup-preview">알림 팝업 <span style="color:#00E5B5; margin-left:15px;">+100점</span></div></div>
                 <div class="widget" id="takeover" data-id="takeover" style="left:450px; top:1150px;"><div class="takeover-popup-content"><span style="color:var(--theme-neon);">홍길동 1등 탈환! 👑</span></div></div>
-                <div class="widget" id="ticker_top" data-id="ticker_top" style="left:0px; top:115px;"><div class="ticker-bar" id="ticker_top-text">📢 상단 전광판</div></div>
-                <div class="widget" id="ticker_bottom" data-id="ticker_bottom" style="left:0px; top:882px;"><div class="ticker-bar" id="ticker_bottom-text">📢 하단 전광판</div></div>
                 <div class="widget" id="roulette" data-id="roulette" style="left:234px; top:311px; display: none;">
                     <!-- ⚠️ 크기는 방송판에서 직접 잰 값이다 (2026-08-31). 방송판이 이 위젯을
                          JS 로 그려 클래스가 없어, 여기서는 같은 크기의 안내 상자로만 흉내낸다.
@@ -981,7 +973,7 @@ body.themed :is(#ranking-container, #donor-rank-container, #best-container)::aft
 
         document.addEventListener('DOMContentLoaded', () => {
             const canvasWrapper = document.getElementById('canvas-wrapper'); const canvasBoard = document.getElementById('canvas-board'); const mainArea = document.getElementById('main-area'); let scaleRatio = 1;
-            const widgetNames = { 'ranking': '🏆 랭킹판', 'dgscore': '🎲 주사위 점수 띠', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'ticker_top': '📢 상단 전광판', 'ticker_bottom': '📢 하단 전광판', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'best': '💥 한 방 최고 후원', 'fundjar': '🏺 모금함', 'pinball': '🎱 구슬 핀볼', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
+            const widgetNames = { 'ranking': '🏆 랭킹판', 'dgscore': '🎲 주사위 점수 띠', 'gauge': '🔥 목표 게이지', 'account': '🏦 계좌 정보', 'match': '⚔️ 대결 보드', 'home-race': '🏃 퇴근빵', 'popup': '🔔 점수 팝업', 'takeover': '👑 1등 탈환 팝업', 'roulette': '🎡 행운의 룰렛', 'slot': '🎰 시그니처 슬롯머신', 'sig-tally': '📊 오늘의 시그니처', 'donor-rank': '🏅 후원 순위', 'best': '💥 한 방 최고 후원', 'fundjar': '🏺 모금함', 'pinball': '🎱 구슬 핀볼', 'karaoke': '🎤 노래방 영상', 'acct_video': '🎬 고액후원 영상', 'siggame': '🃏 시그 뒤집기', 'dicegame': '🎲 주사위판', 'notice': '📣 안내 전광판' };
 
             // ══ 🎬 소스 목록 (OBS 방식) ══
             //    👁 = 편집 화면 전용 보이기/숨기기(방송과 무관), 🔒 = 캔버스에서 안 집히게.
@@ -1453,7 +1445,6 @@ body.themed :is(#ranking-container, #donor-rank-container, #best-container)::aft
 
 
 
-                    let tText = d.ticker_text || '📢 상단 전광판'; document.getElementById('ticker_top-text').innerText = tText; document.getElementById('ticker_bottom-text').innerText = tText;
                     
                     edLive('roulette', !!d.roulette_enabled);
 
@@ -1617,7 +1608,7 @@ body.themed :is(#ranking-container, #donor-rank-container, #best-container)::aft
             var psLastRev = null, psLastSig = '', psCur = '';
             var PS_BOARD = { roulette: '🎡 룰렛', slot: '🎰 슬롯', siggame: '🃏 시그뒤집기', dicegame: '🎲 주사위', pinball: '🎱 핀볼' };
             var PS_SW = { sig_tally_enabled: '오늘의 시그', donor_rank_enabled: '후원 순위', best_enabled: '한 방 최고',
-                          notice_enabled: '안내', ticker_enabled: '전광판', fundjar: '모금함' };
+                          notice_enabled: '안내', fundjar: '모금함' };
             function psEsc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
             function psSummary(p) {
                 const on = Object.keys(PS_SW).filter(k => p.switches && p.switches[k]).map(k => PS_SW[k]);

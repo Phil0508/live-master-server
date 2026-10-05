@@ -72,7 +72,7 @@
     .amt-wrap{position:relative}
     .amt-wrap .won{position:absolute;right:15px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:14px;font-weight:700;pointer-events:none}
     .match-info{font-size:12.5px;font-weight:700;margin-top:9px;min-height:18px}
-    .match-info.exact{color:var(--mint)}.match-info.roundup{color:var(--gold)}.match-info.none{color:var(--pink)}
+    .match-info.exact{color:var(--mint)}.match-info.roundup{color:var(--gold)}.match-info.none{color:var(--pink)}.match-info.small{color:var(--ops-info)}
 
     .chk{display:flex;align-items:flex-start;gap:10px;font-size:12.5px;color:var(--muted);cursor:pointer;margin:4px 0 16px;line-height:1.5}
     .chk input{width:17px;height:17px;margin-top:1px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
@@ -485,7 +485,12 @@
         });
     });
 
-    /* ── 매칭 (서버 로직과 동일: 입력 이상인 가장 싼 시그니처 → 없으면 최고가) ── */
+    /* ── 매칭 (서버 로직과 동일: 입력 이상인 가장 싼 시그니처 → 없으면 최고가) ──
+       💬 단, 제일 싼 시그니처보다 적으면 시그니처를 안 튼다(투네이션 후원과 같게 — 대표님 2026-10-03).
+          서버(/api/signature/play · /api/donation)가 같은 선으로 거른다 — 선 = min(제일 싼 시그니처 값, 1만 원).
+          ⚠️ 1만 원은 특수 경우라 제일 싼 시그니처를 튼다(대표님 "10000원 같은 경우엔 최저 리액션으로" — server SIG_ROUND_FLOOR). */
+    function sigFloor(){ return SIGS.length ? Math.min(SIGS[0].amount||0, 10000) : 0; }
+    function belowCheapest(amount){ const f = sigFloor(); return f>0 && amount>0 && amount < f; }
     function matchSig(amount){
         if(!SIGS.length || amount<=0) return null;
         for(const s of SIGS){ if((s.amount||0) >= amount) return s; }
@@ -496,10 +501,16 @@
         const amount = rawNum('in-amount');
         const donor = $('in-donor').value.trim() || '수동송출';
         const msg = $('in-msg').value.trim();
-        const sig = matchSig(amount);
+        const small = belowCheapest(amount);
+        const sig = small ? null : matchSig(amount);
         const info = $('match-info');
 
         if(amount<=0){ info.textContent=''; info.className='match-info'; }
+        else if(small){
+            // 방송판: 1만 원 미만은 맨 위 띠(투네이션 1천~9천 원과 같은 길)
+            info.innerHTML = '💬 시그니처 없이 <b>방송판 맨 위 띠</b>로만 뜹니다 — '+fmt(sigFloor())+'원부터 시그니처 · 투네이션과 같음';
+            info.className='match-info small';
+        }
         else if(!sig){ info.textContent='매칭할 시그니처가 없습니다'; info.className='match-info none'; }
         else if((sig.amount||0)===amount){ info.innerHTML='✓ 정확히 일치'; info.className='match-info exact'; }
         else { info.innerHTML='↑ 올림 매칭 → <b>'+fmt(sig.amount)+'원</b> 시그니처'; info.className='match-info roundup'; }
@@ -658,18 +669,19 @@
             ? Array.from({length:cnt},(_,i)=>({ name, amount, message, tx_id:'manual_'+stamp+(cnt>1?'_'+(i+1):'') }))
             : [{ name, amount, message, count:cnt }];
         // ⚠️ okN 은 try 밖에 둔다 — 통신이 도중에 끊겨(catch) 도 몇 건 들어갔는지 알려야 한다.
-        let okN=0, lastErr='';
+        let okN=0, lastErr='', shownOnly=false;
         try{
             for(const payload of payloads){   // 차례로 — 한 번에 쏘면 순서가 섞여 대기열에서 안 묶일 수 있다
                 const res=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
                 const data=await res.json().catch(()=>({}));
-                if(data.status==='success') okN++; else { lastErr=data.message||res.status; break; }
+                if(data.status==='success'){ okN++; if(data.display_only) shownOnly=true; } else { lastErr=data.message||res.status; break; }
             }
         }catch(e){ lastErr='통신 실패 — '+e.message; }
         finally{ btn.disabled=false; }
         if(okN===payloads.length){
             _manualRetry=null;
-            toast('✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
+            toast(shownOnly ? '✓ 방송판에 띄웠습니다 (시그니처 없음 — 제일 싼 시그니처보다 적은 금액)'
+                            : '✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
             $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; if($('in-count')) $('in-count').value='1'; updatePreview();
             refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
         }else{

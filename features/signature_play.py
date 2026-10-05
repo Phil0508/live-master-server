@@ -3,6 +3,7 @@
 
 server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
 """
+import time
 from flask import jsonify, request
 import server  # 연습 서버가 가짜로 바꿔 끼우는 시그니처 조회는 부를 때마다 server 에서 찾는다
 from server import (
@@ -57,6 +58,27 @@ def api_signature_play():
         else:
             if amount <= 0:
                 return jsonify({'status': 'error', 'message': '후원 금액을 입력해주세요.'}), 400
+            # 💬 제일 싼 시그니처보다 적은 금액은 시그니처를 틀지 않는다 — 투네이션 후원과 같게.
+            #    대표님 2026-10-03 "후원 콘솔에서 1000~9999원 틀면 냅다 최저 시그 가격으로 올리던데 투네이션이랑 똑같이 위에 뜨게".
+            #    ⚠️ 예전엔 '올림 매칭'(gte)이라 5,000원에도 제일 싼 시그니처가 걸려 재생됐다(후원 경로는 이미 막혀 있었다).
+            #    방송판은 latest_donation 금액으로 정한다 — 1만 원 미만은 맨 위 띠, 그 이상은 가운데 카드(투네이션과 같은 길).
+            #    재생 전용(장부 없음)이라 display_only 를 붙인다 — 정산 · 순위 · 대기함은 안 건드린다.
+            _floor = server._sig_min_amount()
+            if _floor and amount < _floor:
+                with file_lock:
+                    state = load_data()
+                    _new = {'name': donator, 'amount': amount, 'message': message,
+                            'time': time.time(), 'display_only': True}
+                    # 📒 되살리기 판단용 tx 목록은 이어 붙인다(features/donation.py _tx_log_add 와 같은 뜻 — 끊기면 판단이 틀어진다)
+                    _prev = state.get('latest_donation')
+                    if isinstance(_prev, dict) and isinstance(_prev.get('tx_log'), dict):
+                        _new['tx_log'] = _prev['tx_log']
+                    state['latest_donation'] = _new
+                    save_data(state)
+                    broadcast_event('update', state)
+                print(f"  💬 [수동 송출 · 화면에만] {donator} {amount:,}원 — 제일 싼 시그니처({_floor:,}원)보다 적어 시그니처 없이 띄웁니다")
+                return jsonify({'status': 'success', 'display_only': True,
+                                'message': '제일 싼 시그니처(%s원)보다 적어 시그니처 없이 방송판에 띄웠습니다' % format(_floor, ',')})
             sig = server.supabase_match_signature(amount)
 
         if not sig:

@@ -293,6 +293,7 @@ run('⚔️ 팀 옮긴 뒤 점수 · 되돌리기', [PY, 'team_change_test.py'],
 run('⏱️ 대결 타이머 — 리액션 멈춤 · 키보드', [PY, 'match_timer_test.py'], HERE, kind='pt')
 run('🎨 조종실 새 옷 — 유리 스튜디오', [PY, 'ctl_skin_test.py'], HERE, kind='pt')
 run('🏺 모금함 깃발 — 점수판 왼쪽 · 오른쪽', [PY, 'fundjar_side_test.py'], HERE, kind='pt')
+run('🧩 퀴즈판 — 초성 · 사자성어', [PY, 'quiz_test.py'], HERE, kind='pt')
 run('500 터지는 길 전수', [PY, 'crash_sweep.py'], HERE, kind='pt')
 run('이중배정·집계 보호', [PY, 'guard_test.py'], HERE, kind='pt')
 run('점수 정확성', [PY, 'score_test.py'], HERE, kind='pt')

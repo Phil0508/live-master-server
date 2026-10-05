@@ -24,11 +24,12 @@
 ⚠️ 이 파일은 Flask 를 모른다. 상태 사전만 받아 고친다(잠금·저장·방송은 부르는 쪽 몫).
 """
 
-STAGES = ('match', 'pinball', 'dicegame', 'siggame', 'roulette', 'slot', 'home_race', 'hell')
+STAGES = ('match', 'pinball', 'dicegame', 'siggame', 'roulette', 'slot', 'home_race', 'hell', 'quiz')
 TEMP_STAGES = ('roulette', 'slot')          # 끝나면 원래 무대로 돌아가는 것
 STAGE_LABEL = {
     'match': '대결', 'pinball': '핀볼', 'dicegame': '주사위', 'siggame': '시그뒤집기',
     'roulette': '룰렛', 'slot': '슬롯', 'home_race': '퇴근빵', 'hell': '지옥탈출',
+    'quiz': '퀴즈',
 }
 
 HUD_KEYS = ('ranking', 'gauge', 'account', 'notice', 'ticker', 'donor_rank', 'sig_tally', 'best', 'fundjar')

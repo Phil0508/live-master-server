@@ -41,7 +41,6 @@ SAFE_TOP, SAFE_BOT, W = 115, 960, 1080
 # 인원별 실측(2026-08-31, 안 A 적용 후):
 #      2~6명 3줄 340 · 8명 4줄 399 · 12명 6줄 517
 RANK_W, RANK_H, RANK_H_MAX = 878, 340, 517
-TICKER_H = 74                   # .ticker-bar 70px + 위아래 테두리 2px 씩
 
 
 def chk(name, cond, detail=''):
@@ -182,21 +181,14 @@ chk('엑셀판을 직접 숨기는 옛 코드가 없다',
 
 print()
 print('=' * 74)
-print('④ 전광판 쌍 — 합치지 않고 자리만 바로잡았는가')
+print('④ 위·아래 전광판은 지웠다 (2026-10-03 대표님 "2번 기능은 삭제") — 가운데 「OO업」 배너만 남는다')
 print('=' * 74)
-t1 = pos(r'id="ticker_top-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px')
-t2 = pos(r'id="ticker_bottom-container"[^>]*left:\s*(\d+)px;\s*top:\s*(\d+)px')
-chk('상단 전광판 자리를 찾았다', t1 is not None, t1)
-chk('하단 전광판 자리를 찾았다', t2 is not None, t2)
-chk('둘 다 남아 있다 (합치면 갈라지는 연출이 죽는다)',
-    'revealTickerSplit' in ov and "'ticker_top', 'ticker_bottom'" in ov)
-if t1 and t2:
-    for nm, p in (('상단', t1), ('하단', t2)):
-        chk('%s 전광판이 안전지대 안이다' % nm,
-            p[0] >= 0 and p[0] + W <= W + 1 and p[1] >= SAFE_TOP and p[1] + TICKER_H <= SAFE_BOT,
-            '가로 %d~%d · 세로 %d~%d' % (p[0], p[0] + W, p[1], p[1] + TICKER_H))
-    chk('둘 사이에 큰 배너 자리가 남는다 (400px 이상)',
-        t2[1] - (t1[1] + TICKER_H) >= 400, '%dpx' % (t2[1] - (t1[1] + TICKER_H)))
+chk('전광판 쌍 마크업이 없다', 'id="ticker_top-container"' not in ov and 'id="ticker_bottom-container"' not in ov)
+chk('갈라지는 연출 · 흐르는 문구 코드가 없다',
+    not any(k in ov for k in ('revealTickerSplit', 'scheduleTickerSplit', 'updateTickers', 'hideTickers(', 'setTickerNeon')))
+chk('가운데 배너는 남아 있고 3.5초 뒤 내려간다', 'id="reaction-title-banner"' in ov
+    and "Number(gd.reaction_title_duration) || 3500" in ov)
+chk('편집기에도 전광판 위젯이 없다', 'id="ticker_top"' not in ad and 'id="ticker_bottom"' not in ad)
 
 print()
 print('=' * 74)
@@ -213,7 +205,7 @@ chk('applyLayout 목록을 찾았다 (이제 LAY_IDS 다)', bool(lst), lst[:70])
 # ⚠️ 예전엔 이 여섯이 목록에서 '빠져 있어야' 통과였다. 자리를 코드에 못 박고
 #    편집기로 못 옮기게 했기 때문이다. 사장님이 "화면에 나온 그대로 보이고,
 #    줄이거나 옮기면 움직이게" 해 달라고 해서 반대로 뒤집혔다 — 이제 다 들어 있어야 한다.
-for w in ('gauge', 'ranking', 'account', 'ticker_top', 'ticker_bottom', 'notice'):
+for w in ('gauge', 'ranking', 'account', 'notice'):
     chk("'%s' 도 목록에 있다 (편집기에서 옮기면 방송이 따라온다)" % w,
         ("'" + w + "'") in lst)
 chk('번외 모드에서 엑셀판이 비켜준다 (오른쪽 기준이라 left 로는 안 밀린다)',
@@ -351,7 +343,8 @@ for wid, (w, h) in SIZE.items():
 #    대신 안전지대 밖으로 못 나가게 붙잡는다.
 mm = re.search(r'const LAY_IDS = \[([\s\S]*?)\];', ov)
 _n = len(re.findall(r"'[\w-]+'", mm.group(1))) if mm else 0
-chk('편집기로 옮길 수 있는 위젯이 스물둘이다', _n == 22, '%d개' % _n)   # 🎲 주사위 점수 띠가 따로 옮기는 위젯이 됐다(10-03)   # 💥 한 방 최고 후원이 늘었다   # 🎱 구슬 핀볼이 늘었다   # 🏺 모금함이 늘었다
+chk('편집기로 옮길 수 있는 위젯이 스물이다', _n == 20, '%d개' % _n)   # 🗑️ 10-03 위·아래 전광판 둘을 지웠다(22 → 20)
+#    # 🎲 주사위 점수 띠가 따로 옮기는 위젯이 됐다(10-03)   # 💥 한 방 최고 후원이 늘었다   # 🎱 구슬 핀볼이 늘었다   # 🏺 모금함이 늘었다
 
 print()
 print('=' * 74)

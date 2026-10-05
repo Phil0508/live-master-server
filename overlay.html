@@ -433,6 +433,7 @@
         body.stage-on #dicegame-container,
         body.stage-on #dgscore-container,
         body.stage-on #pinball-container,
+        body.stage-on #quiz-container,
         body.stage-on #match-container { opacity: 0 !important; visibility: hidden !important; }
         /* 🌸 끝 화면 — 엔젤 오락실 B (대표님 2026-09-30 "B로 가자"). 시작 화면(엔젤 오락실 그림)과 짝이다.
            · 분홍 물방울 바탕(불투명) · 흰 알약 '엔젤 오락실 · 오늘 방송 끝' · '오늘도 고마워요'(Jua, 분홍 테두리)
@@ -1663,25 +1664,28 @@
 
         .takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(var(--gold-rgb), 0.5); border-radius: 999px; padding: 16px 60px; font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow); opacity: 0; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); transform: translateY(40px) scale(0.7); } .takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
 
-        .ticker-bar { width: 1080px; height: 70px; background: var(--glass-bg); border-top: 1px solid rgba(var(--gold-rgb), 0.45); border-bottom: 1px solid rgba(var(--gold-rgb), 0.45); display: flex; align-items: center; overflow: hidden; box-shadow: var(--sh-2);} .ticker-text-wrap { white-space: nowrap; display: inline-block; font-size: 38px; font-weight: 800; color: #fff; text-shadow: var(--ts-1); animation: tickerAnim var(--ticker-speed, 15s) linear infinite; } @keyframes tickerAnim { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-50%, 0, 0); } }
-        /* 🔥 시그니처 재생 중 전광판을 '@@업' 네온으로 (반복 스크롤). 색은 --tk-neon/--tk-glow 로 등급 교체 */
-        .ticker-text-wrap.reac-neon {
-            font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 46px; letter-spacing: 1px;
-            color: #fff; paint-order: stroke fill;
-            -webkit-text-stroke: 0.1em var(--tk-neon, #ff1f56);
-            text-shadow:
-                0 0 6px  rgba(var(--tk-glow, 255, 45, 100), 0.7),
-                0 0 16px rgba(var(--tk-glow, 255, 45, 100), 0.46),
-                0 0 34px rgba(var(--tk-glow, 255, 45, 100), 0.26);
-        }
-        /* '@@업' 모드에서도 원래 전광판 위젯처럼 반투명 레터박스(어두운 유리 + 골드 상하 엣지)를 뒤에 깐다 */
-        .reac-neon-mode .ticker-bar { background: var(--glass-bg); border-top: 2px solid rgba(var(--gold-rgb), 0.45); border-bottom: 2px solid rgba(var(--gold-rgb), 0.45); box-shadow: var(--sh-2); }
-        /* 큰 배너가 위/아래로 '갈라지며' 등장 → 그대로 스크롤. (컨테이너 위치/스케일은 안 건드리고 안쪽 바만 연출) */
-        @keyframes splitInTop    { 0% { transform: translateY(96px)  scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
-        @keyframes splitInBottom { 0% { transform: translateY(-96px) scale(1.7); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
-        .split-top    .ticker-bar { animation: splitInTop    0.55s cubic-bezier(0.16, 1, 0.3, 1); }
-        .split-bottom .ticker-bar { animation: splitInBottom 0.55s cubic-bezier(0.16, 1, 0.3, 1); }
-        
+        /* 🗑️ 위·아래 전광판(.ticker-bar · '@@업' 네온 · 갈라지며 등장)은 2026-10-03 지웠다(대표님 "2번 기능은 삭제") */
+
+        /* 🧩 퀴즈판 — 네모칸만(대표님 2026-10-06 "그냥 네모칸만"). 바탕 카드 · 제목 · 분류 · 남은 초 · 정답자는 없다.
+              칸 120 × 120 · 사이 14 · 화면 가운데(위 700). 칸 상태(서버 features/quiz.py):
+              q 초성 · g 처음부터 보여 준 글자 · b 빈칸 · h 힌트로 연 글자 · o 정답 공개
+              ⚠️ 정답 글자는 열린 칸(g · h · o)에만 실려 온다 — 서버가 방송판으로 정답을 안 보낸다. */
+        #quiz-container { position: absolute; left: 0; top: 700px; width: 1080px; display: flex; justify-content: center; gap: 14px;
+                          pointer-events: none; z-index: 100000; opacity: 0; visibility: hidden; perspective: 900px;
+                          transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
+        #quiz-container.on { opacity: 1; visibility: visible; }
+        .qz-tile { width: 120px; height: 120px; box-sizing: border-box; border-radius: var(--r-l); display: flex; align-items: center; justify-content: center;
+                   font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 82px; line-height: 1;
+                   color: var(--gold); background: var(--glass-bg); border: 3px solid rgba(var(--gold-rgb), 0.6);
+                   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); }
+        .qz-tile.s-g, .qz-tile.s-h { color: #fff; border-color: rgba(255, 255, 255, 0.55); }
+        .qz-tile.s-b { color: transparent; }
+        .qz-tile.s-o { background: linear-gradient(180deg, #fff6d8, #ffe08c); color: #2a1c05; border-color: #fff1c1;
+                       box-shadow: 0 0 34px rgba(255, 214, 107, 0.6), 0 14px 34px rgba(0, 0, 0, 0.5); }
+        .qz-tile.pop { animation: qzFlip 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+        @keyframes qzFlip { 0% { transform: rotateY(90deg) scale(0.9); } 100% { transform: rotateY(0) scale(1); } }
+        @media (prefers-reduced-motion: reduce) { .qz-tile.pop { animation: none; } }
+
         #ui-layer { position: absolute; inset: 0; width: 100%; height: 100%; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; color: var(--text-main); pointer-events: none; } 
         /* 대결 컨테이너: 기본 숨김, .match-visible 클래스로만 표시 */
         #match-container { transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
@@ -1695,6 +1699,7 @@
         body.reaction-mode #dicegame-container,
         body.reaction-mode #dgscore-container,
         body.reaction-mode #pinball-container,
+        body.reaction-mode #quiz-container,
         body.reaction-mode #match-container { opacity: 0 !important; visibility: hidden !important; }
 
         .fire-vignette { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease; box-shadow: inset 0 0 150px rgba(255, 30, 0, 0.6), inset 0 0 50px rgba(255, 0, 0, 0.4); animation: firePulse 2s infinite alternate ease-in-out; } body.match-fire-on .fire-vignette { opacity: 1; visibility: visible; } @keyframes firePulse { 0% { box-shadow: inset 0 0 80px rgba(255, 30, 0, 0.4), inset 0 0 20px rgba(255, 0, 0, 0.2); } 100% { box-shadow: inset 0 0 180px rgba(255, 50, 0, 0.8), inset 0 0 70px rgba(255, 20, 0, 0.6); } }
@@ -3336,15 +3341,7 @@
             <!-- ⚠️ z-index 를 룰렛판(100000)보다 위로 — 판이 선 뒤 4초 더 떠 있어서, 같으면 판 뒤에 깔린다 -->
             <div id="roulette-winner-message-layer" class="time-up-message" style="z-index: 100002; color: var(--accent); text-shadow: 0 0 15px var(--accent), 4px 4px 0px #000;">당첨!</div>
 
-            <!-- 📢 전광판 쌍 — 안전지대 위·아래 끝에 못 박는다 (115~187 / 882~954).
-                 ⚠️ 합치면 안 된다. 시그니처 연출에서 큰 배너가 가운데 떴다가 위·아래로
-                    갈라지며 이 둘이 된다(revealTickerSplit). 하나면 갈라질 수가 없다.
-                 ⚠️ 전광판은 리액션 모드에서만 뜨고, 그때 body.reaction-mode 가 #ui-layer 를
-                    통째로 숨긴다 — 계좌·엑셀판·게이지·게임판이 다 내려가므로 겹치지 않는다.
-                 폭이 화면과 같은 1080 이라 좌우로 움직일 이유가 없어 자리를 못 박았다.
-                 (예전 자리: 위 95 — 채널줄 20px 침범, 아래 1346 — 폰에서 안 보임) -->
-            <div id="ticker_top-container" class="widget-container" style="left: 0px; top: 115px; opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_top-text"></div></div></div>
-            <div id="ticker_bottom-container" class="widget-container" style="left: 0px; top: 882px; opacity: 0; visibility: hidden;"><div class="ticker-bar"><div class="ticker-text-wrap" id="ticker_bottom-text"></div></div></div>
+            <!-- 🗑️ 위·아래 전광판 쌍(ticker_top · ticker_bottom)은 2026-10-03 지웠다. 가운데 'OO업' 배너만 남는다. -->
 
             <!-- 🎤 노래방 모드: 붙여넣은 유튜브(inst) 영상을 큰 화면으로 (에디터에서 위치/크기 조절) -->
             <div id="karaoke-container" class="widget-container" style="display:none; left:40px; top:560px; width:1000px; height:563px; border-radius:var(--r-l); overflow:hidden; z-index:90000; background:#000; border:3px solid rgba(var(--gold-rgb), 0.75); box-shadow:var(--sh-4), var(--glow-m);">
@@ -3660,6 +3657,9 @@
                 </div>
             </div>
 
+            <!-- 🧩 퀴즈판 — 네모칸만. qzUpdate 가 칸을 채운다(무대가 'quiz' 일 때만 보인다). -->
+            <div id="quiz-container" aria-hidden="true"></div>
+
             <!-- 🏺 모금함 — 금색 깃발(2026-10-03). 회사 종잣돈 + 시청자 후원을 만원 단위로. -->
             <div id="fundjar-container" class="widget-container">
                 <div class="jar-flag" id="fundjar-box">
@@ -3747,7 +3747,7 @@
         // ==========================================
         // 기존 오버레이 로직
         // ==========================================
-        let previousScores = {}; let previousContribs = {}; let prevMatchScores = {}; let flashed = false; let lastTickerState = ""; let lastUpTriggerTime = 0; let upMessageTimer = null; let lastTakeoverTime = 0;
+        let previousScores = {}; let previousContribs = {}; let prevMatchScores = {}; let flashed = false; let lastUpTriggerTime = 0; let upMessageTimer = null; let lastTakeoverTime = 0;
         
         let lastReactionEnterAlertTime = 0;
         let lastPopupTime = 0;    
@@ -3763,9 +3763,9 @@
         let pendingToonCallback = null;
         // 서버에 pop 요청을 보내둔 리액션 id (왕복 중 재생 방지)
         let poppingId = null;
-        // 💰 고액 후원 기준. 이 금액 이상이면 후원 팝업 대신 '@@업' 전광판으로 연출한다.
-        //    팝업 숨김과 전광판 노출이 반드시 같은 값을 봐야 한다.
-        //    (값이 어긋나면 '팝업도 안 뜨고 전광판도 안 뜨는' 구간이 생긴다)
+        // 💰 고액 후원 기준. 이 금액 이상이면 후원 팝업 없이 곧장 시그니처 + 가운데 '@@업' 배너.
+        //    팝업 숨김과 배너 노출이 반드시 같은 값을 봐야 한다.
+        //    (2026-10-03 위·아래 전광판을 지웠다. 팝업은 대표님이 "팝업 없이 바로 시그니처" 로 그대로 두기로 했다)
         const BIG_DONATION_MIN = 100000;
 
         let lastRosterStr = ""; 
@@ -4820,7 +4820,7 @@
                ⚠️ 배치 파일에 그 위젯이 없으면 HTML 에 적힌 기본 자리를 그대로 둔다.
                   그래서 사장님이 손대기 전까지는 지금 화면과 한 픽셀도 안 달라진다. */
             const LAY_IDS = ['ranking', 'gauge', 'account', 'notice', 'match',
-                             'ticker_top', 'ticker_bottom', 'roulette', 'slot',
+                             'roulette', 'slot',
                              'dicegame', 'dgscore', 'donor-rank', 'sig-tally', 'siggame',
                              'home-race', 'popup', 'takeover', 'karaoke', 'acct_video',
                              'fundjar', 'pinball', 'best'];
@@ -5114,150 +5114,8 @@
             return name + suffix;
         }
 
-        // ===== 전광판(위/아래 티커) 연출 =====
-        // 리액션 '@@업' 표시는 showReactionTitle 이 [큰 배너 → 갈라지며 등장 → 스크롤] 로 연출한다.
-        // updateTickers 는 '정적 전광판(ticker_text)'과 '리액션 종료 시 숨김'만 담당한다.
-        let tickerRevealTimer = null;
-        const TICKER_SPLIT_HOLD = 900;   // 큰 배너를 먼저 보여주는 시간(ms). 이후 갈라지며 전광판 등장.
-
-        function setTickerNeon(upText, tkNeon, tkGlow) {
-            const sep = '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
-            const chunk = Array(10).fill(upText).join(sep) + sep;
-            ['ticker_top', 'ticker_bottom'].forEach(id => {
-                const t = document.getElementById(id + '-text');
-                if (!t) return;
-                t.classList.add('reac-neon');
-                t.style.setProperty('--tk-neon', tkNeon);
-                t.style.setProperty('--tk-glow', tkGlow);
-                t.innerHTML = chunk + chunk;
-            });
-        }
-        function scrollTickers(spd) {
-            ['ticker_top', 'ticker_bottom'].forEach(id => {
-                const t = document.getElementById(id + '-text');
-                if (!t) return;
-                const w = t.scrollWidth / 2; const dur = w / Math.max(30, (spd || 70) * 8);
-                t.style.animation = 'none'; void t.offsetWidth;
-                t.style.animation = `tickerAnim ${dur}s linear infinite`;
-            });
-        }
-        function hideTickers() {
-            if (tickerRevealTimer) { clearTimeout(tickerRevealTimer); tickerRevealTimer = null; }
-            stopNeonShimmer();
-            ['ticker_top', 'ticker_bottom'].forEach(id => {
-                const c = document.getElementById(id + '-container');
-                const t = document.getElementById(id + '-text');
-                const bar = c && c.querySelector('.ticker-bar');
-                if (c) { c.style.opacity = '0'; c.style.visibility = 'hidden'; c.classList.remove('reac-neon-mode', 'split-top', 'split-bottom'); }
-                if (bar) { bar.style.transition = 'none'; bar.style.transform = ''; bar.style.opacity = ''; }
-                if (t) t.classList.remove('reac-neon');
-            });
-        }
-
-        // 🎇 '@@업' 네온 색을 리듬감 있게 반짝이게 한다(느린 맥동 + 빠른 반짝임 + 은은한 색 흔들림).
-        //   스크롤 animation 과 겹치지 않도록 transform 이 아니라 filter 만 프레임마다 흔든다.
-        let neonShimmerRAF = null;
-        function startNeonShimmer() {
-            stopNeonShimmer();
-            const els = ['ticker_top-text', 'ticker_bottom-text'].map(id => document.getElementById(id)).filter(Boolean);
-            if (!els.length) return;
-            const t0 = performance.now();
-            const loop = (now) => {
-                const t = (now - t0) / 1000;
-                const pulse = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 2.0);        // ~2Hz 맥동
-                const flick = 0.5 + 0.5 * Math.sin(t * 2 * Math.PI * 5.5 + 1.3);  // ~5.5Hz 반짝임
-                const bright = 1 + 0.30 * pulse + 0.14 * flick;
-                const hue = 12 * Math.sin(t * 2 * Math.PI * 0.8);                 // 색 은은하게 흔들림
-                const f = `brightness(${bright.toFixed(3)}) hue-rotate(${hue.toFixed(1)}deg)`;
-                for (const e of els) e.style.filter = f;
-                neonShimmerRAF = requestAnimationFrame(loop);
-            };
-            neonShimmerRAF = requestAnimationFrame(loop);
-        }
-        function stopNeonShimmer() {
-            if (neonShimmerRAF) { cancelAnimationFrame(neonShimmerRAF); neonShimmerRAF = null; }
-            ['ticker_top-text', 'ticker_bottom-text'].forEach(id => { const e = document.getElementById(id); if (e) e.style.filter = ''; });
-        }
-        // 큰 배너 → 위/아래로 갈라지며 전광판 등장 → 그대로 스크롤
-        // ⚠️ 안쪽 .ticker-bar 를 인라인 트랜지션으로 움직인다(컨테이너 위치/스케일은 불변).
-        //    visibility 전환과 겹쳐 CSS 애니메이션이 안 먹는 문제를 피하려고 rAF 로 시작상태를 확정한다.
-        function revealTickerSplit(spd) {
-            hideReactionTitle();   // 큰 가운데 배너를 내리고
-            ['ticker_top', 'ticker_bottom'].forEach(id => {
-                const c = document.getElementById(id + '-container');
-                const bar = c && c.querySelector('.ticker-bar');
-                if (!c || !bar) return;
-                c.style.opacity = '1'; c.style.visibility = 'visible';
-                c.classList.add('reac-neon-mode');
-                // 위 티커는 아래에서, 아래 티커는 위에서 → 가운데에서 벌어지는 느낌 + 크게→작게
-                const fromY = (id === 'ticker_top') ? 96 : -96;
-                bar.style.transition = 'none';
-                bar.style.transform = 'translateY(' + fromY + 'px) scale(1.7)';
-                bar.style.opacity = '0';
-                void bar.offsetWidth;   // 시작 상태 강제 반영
-                requestAnimationFrame(() => {
-                    bar.style.transition = 'transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease';
-                    bar.style.transform = 'translateY(0) scale(1)';
-                    bar.style.opacity = '1';
-                });
-            });
-            scrollTickers(spd);
-            startNeonShimmer();   // 🎇 음원 흐르는 동안 네온 색 반짝임
-        }
-        // showReactionTitle 에서 호출: 큰 배너가 뜬 뒤 HOLD 후 갈라지며 전광판 등장 예약
-        function scheduleTickerSplit(upText, amount) {
-            let tkNeon = '#ff1f56', tkGlow = '255, 45, 100';
-            const t = reactionTier(amount);
-            if (t.level >= 4) { tkNeon = '#ffc41f'; tkGlow = '255, 205, 80'; }
-            else if (t.level >= 3) { tkNeon = '#ffb01f'; tkGlow = '255, 190, 60'; }
-            else if (t.level >= 2) { tkNeon = '#ff8f2e'; tkGlow = '255, 150, 60'; }
-            const spd = (globalData && globalData.ticker_speed) || 70;
-            // 내용/색은 미리 채우되(숨긴 채), HOLD 뒤 갈라지며 등장
-            hideTickers();
-            setTickerNeon(upText, tkNeon, tkGlow);
-            lastTickerState = 'R' + upText;   // updateTickers 가 중복 처리하지 않도록 표시
-            if (tickerRevealTimer) clearTimeout(tickerRevealTimer);
-            tickerRevealTimer = setTimeout(() => revealTickerSplit(spd), TICKER_SPLIT_HOLD);
-        }
-
-        function updateTickers(d) {
-            const reac = (d.reaction_queue && d.reaction_queue[0]) || null;
-            const upText = reactionUpText(reac, d);
-            const showReac = !!upText;
-            const showStatic = !showReac && shHud('ticker', d) && d.reaction_mode && !!d.ticker_text;
-
-            if (showReac) {
-                // 리액션 표시는 showReactionTitle→scheduleTickerSplit 이 담당. 여기선 손대지 않는다.
-                // (아직 연출 전이라 정적 티커가 남아 있으면만 잠깐 치운다)
-                ['ticker_top', 'ticker_bottom'].forEach(id => {
-                    const c = document.getElementById(id + '-container');
-                    if (c && !c.classList.contains('reac-neon-mode')) { c.style.opacity = '0'; c.style.visibility = 'hidden'; }
-                });
-                return;
-            }
-
-            const key = 'S' + (showStatic ? d.ticker_text : '') + '|' + d.ticker_speed;
-            if (key === lastTickerState) return;
-            lastTickerState = key;
-
-            if (showStatic) {
-                const sep = '&nbsp;&nbsp;&nbsp;&nbsp;✦&nbsp;&nbsp;&nbsp;&nbsp;';
-                const chunk = Array(15).fill(d.ticker_text).join(sep) + sep;
-                ['ticker_top', 'ticker_bottom'].forEach(id => {
-                    const c = document.getElementById(id + '-container');
-                    const t = document.getElementById(id + '-text');
-                    if (!c || !t) return;
-                    c.style.opacity = '1'; c.style.visibility = 'visible';
-                    c.classList.remove('reac-neon-mode', 'split-top', 'split-bottom');
-                    t.classList.remove('reac-neon');
-                    t.innerHTML = chunk + chunk;
-                    const w = t.scrollWidth / 2; const dur = w / Math.max(30, (d.ticker_speed || 70) * 8);
-                    t.style.animation = 'none'; void t.offsetWidth; t.style.animation = `tickerAnim ${dur}s linear infinite`;
-                });
-            } else {
-                hideTickers();
-            }
-        }
+        // 🗑️ 위·아래 전광판 연출('@@업' 네온 · 갈라지며 등장 · 리액션 모드 때 흐르던 문구)은
+        //    2026-10-03 지웠다(대표님 "2번 기능은 삭제"). 'OO업' 은 가운데 배너(showReactionTitle)만 띄운다.
 
         // 🎤 노래방 모드: karaoke_enabled + karaoke_video 면 유튜브 영상을 큰 화면에 띄운다.
         //   video id가 바뀔 때만 iframe을 새로 만든다(매 업데이트마다 재생이 처음으로 튀는 것 방지).
@@ -5955,7 +5813,7 @@
               shApply 한 곳에서 body 클래스로 켠다. 예전엔 세 군데서 따로 켰고, 하나는 위젯 변화를 몰래 지켜보는 방식이었다.
            ⚠️ 옛 서버(show 를 안 보냄)면 옛 스위치로 읽는다 — 방송판만 먼저 바뀌어도 안 깨지게. */
         const SH_BOARDS = ['dicegame', 'roulette', 'slot', 'siggame', 'pinball'];
-        const SH_HUD_LEGACY = { notice: 'notice_enabled', ticker: 'ticker_enabled', donor_rank: 'donor_rank_enabled',
+        const SH_HUD_LEGACY = { notice: 'notice_enabled', donor_rank: 'donor_rank_enabled',
                                 sig_tally: 'sig_tally_enabled', best: 'best_enabled' };
         const SH_ALERT_LEGACY = { popup: 'popup_enabled', takeover: 'takeover_enabled', reaction_title: 'reaction_title_enabled' };
         function shOf(d) { d = d || globalData || {}; return (d.show && typeof d.show === 'object') ? d.show : null; }
@@ -5970,6 +5828,30 @@
             if (d.home_race_enabled) return 'home_race';
             if (d.match_data && d.match_data.active) return 'match';
             return null;
+        }
+        /* 🧩 퀴즈판 — 네모칸만(2026-10-06). 서버가 칸 상태(quiz.tiles)를 준다. 바뀐 칸만 뒤집는다. */
+        let qzSig = '';
+        function qzUpdate(d) {
+            const box = document.getElementById('quiz-container');
+            if (!box) return;
+            const q = (d && d.quiz) || {};
+            const tiles = Array.isArray(q.tiles) ? q.tiles : [];
+            box.classList.toggle('on', shStage(d) === 'quiz' && tiles.length > 0);
+            const sig = JSON.stringify(tiles);
+            if (sig === qzSig) return;
+            let prev = [];
+            try { prev = qzSig ? JSON.parse(qzSig) : []; } catch (e) { prev = []; }
+            qzSig = sig;
+            const same = prev.length === tiles.length;   // 같은 문제에서 칸이 열린 것인가(새 문제면 통째로 뒤집는다)
+            box.textContent = '';
+            tiles.forEach((t, i) => {
+                const el = document.createElement('div');
+                const st = ['q', 'g', 'b', 'h', 'o'].includes(t && t.s) ? t.s : 'b';
+                el.className = 'qz-tile s-' + st;
+                el.textContent = st === 'b' ? '' : String((t && t.c) || '').slice(0, 1);
+                if (!same || !prev[i] || prev[i].s !== st || prev[i].c !== (t && t.c)) el.classList.add('pop');
+                box.appendChild(el);
+            });
         }
         function shHud(k, d) {
             d = d || globalData || {};
@@ -6057,8 +5939,6 @@
             //    ⚠️ 팝업보다 먼저 받아 둬야 '이 후원으로 1위' 가 그 팝업에 바로 보인다.
             if (d && d.vip_live && typeof d.vip_live === 'object') window.vipLive = d.vip_live;
 
-            // 전광판은 방송 On/Off 와 무관하게(시그니처는 방송무관 재생) 항상 갱신한다.
-            updateTickers(d);
             updateKaraoke(d);   // 🎤 노래방 영상 (방송 On/Off 무관)
             // 🃏 시그 뒤집기 게임도 방송 On/Off 와 무관하다.
             //    ⚠️ 아래 '방송 꺼져 있으면 return' 보다 반드시 앞에 둬야 한다.
@@ -6067,6 +5947,7 @@
             sgUpdate(d.siggame);
             dgUpdate(d.dicegame);   // 🎲 주사위판 — 시그게임과 같은 이유로 이 자리
             pbUpdate(d.pinball);    // 🎱 구슬 핀볼 — 같은 이유로 이 자리
+            qzUpdate(d);            // 🧩 퀴즈판 — 같은 이유로 이 자리
             noticeUpdate(d);        // 📣 안내 전광판
             /* 🎀 테마 — ⚠️ 방송 꺼짐 return 보다 **앞**에 둔다. 예전엔 뒤에 있어서 방송 시작 전에는
                   테마를 골라도 안 바뀌었다(편집기 무대·방송 준비 화면에서 확인할 수가 없었다). */
@@ -6505,8 +6386,6 @@
                     if(!flashed) { flashed = true; const gb = document.getElementById('goal-box-ui'); if(gb) { gb.classList.remove('goal-flash'); void gb.offsetWidth; gb.classList.add('goal-flash'); } } 
                 } else { flashed = false; }
 
-                // (전광판 갱신은 handleData 상단 updateTickers(d) 로 이전 — 방송 On/Off 무관 + '@@업' 지원)
-                
                 // 🎡 룰렛 처리
                 if (d.roulette) {
                     handleRouletteState(d);
@@ -7510,8 +7389,8 @@
 
         // 🔥 시그니처 이름 대형 네온 배너
         let reactionTitleTimeout = null;
-        // 시그니처 재생 시작 시: 큰 가운데 '@@업' 배너가 잠깐 등장 → 위/아래로 갈라지며
-        //   전광판으로 내려가 그대로 스크롤. (연출은 scheduleTickerSplit / revealTickerSplit 담당)
+        // 시그니처 재생 시작 시: 큰 가운데 '@@업' 배너가 3.5초 떴다가 사라진다
+        //   (예전엔 위/아래 전광판으로 갈라져 흘렀다 — 2026-10-03 전광판을 지웠다).
         // 🚨 계엄령 — 25만원짜리 시그니처 하나에만 붙는 특별 연출.
         //    이것만 '@@업' 을 띄우지 않고, 대신 붉은 비상경보를 앞에 세운다.
         //    ⚠️ 후원 금액이 아니라 '시그니처 자신의 값' 으로 가린다. 후원 금액으로
@@ -7629,10 +7508,9 @@
             const suffix = isSlot ? '' : ((gd.reaction_title_suffix !== undefined) ? gd.reaction_title_suffix : '업');
             const text = name + suffix;
 
-            // 🎯 '@@업' 전광판은 고액(BIG_DONATION_MIN) 후원에만 나온다 (슬롯 당첨은 예외로 표시)
+            // 🎯 '@@업' 배너는 고액(BIG_DONATION_MIN) 후원에만 나온다 (슬롯 당첨은 예외로 표시)
             if (!isSlot && (parseInt(amount) || 0) < BIG_DONATION_MIN) {
                 hideReactionTitle();
-                hideTickers();
                 return;
             }
 
@@ -7658,20 +7536,12 @@
                 el.classList.remove('show');
                 void el.offsetWidth;
                 el.classList.add('show');
-                // 배너는 스플릿 등장 때 내려가므로(revealTickerSplit→hideReactionTitle) 백업 타이머만 둔다.
-                reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, TICKER_SPLIT_HOLD + 500);
-                scheduleTickerSplit(text, amount);   // HOLD 뒤 갈라지며 전광판 등장 → 스크롤
+                // ⏱ 3.5초(설정 reaction_title_duration) 보였다가 사라진다.
+                //    예전엔 0.9초 뒤 위·아래 전광판으로 갈라졌다 — 전광판을 지워(2026-10-03 대표님 "띠만 지움") 배너만 남았다.
+                reactionTitleTimeout = setTimeout(() => { el.classList.remove('show'); }, Number(gd.reaction_title_duration) || 3500);
             } else {
-                // 큰 배너 꺼짐 → 전광판만 즉시 갈라지며 등장
+                // 조종실 알림 [시그 제목] 을 껐으면 아무것도 안 띄운다(시그니처 카드에 이름이 나온다)
                 hideReactionTitle();
-                let tkNeon = '#ff1f56', tkGlow = '255, 45, 100';
-                const t = reactionTier(amount);
-                if (t.level >= 4) { tkNeon = '#ffc41f'; tkGlow = '255, 205, 80'; }
-                else if (t.level >= 3) { tkNeon = '#ffb01f'; tkGlow = '255, 190, 60'; }
-                else if (t.level >= 2) { tkNeon = '#ff8f2e'; tkGlow = '255, 150, 60'; }
-                setTickerNeon(text, tkNeon, tkGlow);
-                lastTickerState = 'R' + text;
-                revealTickerSplit((gd.ticker_speed) || 70);
             }
         }
         function hideReactionTitle() {
@@ -7714,8 +7584,6 @@
             _beatToken++;           // 아직 분석 중인 비트 결과가 뒤늦게 켜지지 않도록
             stopBeatBlink();
             hideReactionTitle();   // 리액션이 끝나거나 취소되면 중앙 네온 배너도 같이 정리
-            hideTickers();         // 위/아래 '@@업' 전광판도 함께 내림(예약된 스플릿 등장도 취소)
-            lastTickerState = '';  // 다음 재생 때 전광판이 다시 그려지도록 초기화
             if (audio) {
                 audio.onended = null;
                 audio.onerror = null;
@@ -8057,13 +7925,11 @@
                 if (isMartialLaw(data)) {
                     // 계엄령: 이름을 부르지 않는다. 사이렌이 먼저다.
                     hideReactionTitle();
-                    hideTickers();
                     opFxFire({ kinds: ['warn'], message: '주의 계엄령 발동' });
                 } else if (sigFxKey(data) && sigFxPlay(data)) {
                     // 전용 연출이 있는 시그니처는 계엄령과 같은 대접 — '@@업' 은 띄우지 않는다.
                     // 연출마다 자기 글자('가즈아', '참격', 'CLUB OPEN' …)를 이미 갖고 있어서 겹친다.
                     hideReactionTitle();
-                    hideTickers();
                 } else if (data.source === 'dice') {
                     // 🎲 주사위 시그 — 누가 밟았는지만 제목으로. 금액 · '업' 은 없다(후원이 아니다).
                     //    ⚠️ 예전엔 '주사위게임' 님이 시그 값만큼 후원한 것처럼 떴다(10만 원 이상이면 '주사위게임업').
@@ -8212,14 +8078,14 @@
             //   리액션 카드와 중앙 네온 배너에 그대로 표시되므로 정보가 사라지지 않는다.
             //   마지막 한 개(큐 길이 1)만 남으면 다시 정상적으로 후원 팝업을 보여준다.
             const queueBacklog = !!(globalData && globalData.reaction_queue && globalData.reaction_queue.length > 1);
-            // 💰 고액 후원은 '@@업' 전광판이 훨씬 크게 알리므로 후원 팝업을 겹쳐 띄우지 않는다.
+            // 💰 고액 후원은 팝업 없이 곧장 시그니처 — 가운데 '@@업' 배너와 시그니처 카드가 알린다(2026-10-03 대표님).
             //    ⚠️ 여기(playReaction)에서만 막는 이유: 이 경로는 '시그니처가 매칭된' 후원이라
-            //    팝업을 지워도 전광판이 반드시 대신 나온다. 시그니처가 없는 고액 후원은
+            //    팝업을 지워도 시그니처 카드에 이름 · 금액이 나온다. 시그니처가 없는 고액 후원은
             //    handleData 쪽 경로로 가는데 거기서 팝업까지 막으면 화면에 아무것도 안 뜬다.
             const bigDonation = (parseInt(data.amount) || 0) >= BIG_DONATION_MIN;
             if (data.skip_popup || queueBacklog || bigDonation || isRepeat) {
                 if (queueBacklog && !data.skip_popup) console.log('대기열 밀림 — 후원 팝업 건너뛰고 즉시 재생');
-                if (bigDonation && !data.skip_popup) console.log('고액 후원 — 후원 팝업 대신 전광판으로 연출');
+                if (bigDonation && !data.skip_popup) console.log('고액 후원 — 후원 팝업 없이 곧장 시그니처');
                 startPlayback();
             } else {
                 showToonPopup({

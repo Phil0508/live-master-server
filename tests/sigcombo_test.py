@@ -151,6 +151,33 @@ for x in (req('/api/data')[1].get('pending_donations') or []):
     req('/api/pending/remove/' + x['id'], {})
 req('/api/reaction/stop', {})
 
+print(); print('=' * 74); print('⑦ 후원 콘솔 바로 틀기 — 제일 싼 시그니처보다 적으면 투네이션처럼 화면에만(대표님 2026-10-03)'); print('=' * 74)
+# 연습 서버의 가짜 시그니처는 10,100원부터 — 그보다 적으면 시그니처를 안 튼다(예전엔 올림 매칭으로 10,100원짜리가 나갔다)
+d0 = req('/api/data')[1]
+tx0 = (d0.get('latest_donation') or {}).get('tx_log')
+pend0 = len(d0.get('pending_donations') or [])
+c, r = req('/api/signature/play', {'name': '소액손님', 'amount': 5000, 'message': '화이팅'})
+d1 = req('/api/data')[1]
+ld = d1.get('latest_donation') or {}
+chk('⭐ 5,000원 → 시그니처 없이 화면에만(display_only)', c == 200 and r.get('display_only') is True and not queue(), (c, r, len(queue())))
+chk('방송판이 볼 마지막 후원 = 소액손님 5,000원(1만 원 미만이라 맨 위 띠로 뜬다)',
+    ld.get('name') == '소액손님' and ld.get('amount') == 5000 and ld.get('display_only') is True and ld.get('message') == '화이팅', ld)
+chk('대기함 · 장부는 안 건드린다', len(d1.get('pending_donations') or []) == pend0)
+chk('되살리기 판단용 tx 목록은 이어진다', ld.get('tx_log') == tx0, (tx0, ld.get('tx_log')))
+c, r = req('/api/signature/play', {'name': '구천손님', 'amount': 9999, 'message': ''})
+chk('9,999원도 시그니처 없이 화면에만', c == 200 and r.get('display_only') is True and not queue(), (c, r))
+# 💛 1만 원은 특수 경우 — 제일 싼 시그니처(10,100)보다 적어도 그걸 튼다(대표님 "10000원은 최저 리액션으로" · 투네이션도 같다)
+c, r = req('/api/signature/play', {'name': '만원손님', 'amount': 10000, 'message': ''})
+q = queue()
+chk('1만 원은 제일 싼 시그니처를 튼다(투네이션과 같은 특수 경우)', c == 200 and not r.get('display_only') and len(q) == 1
+    and (r.get('signature') or {}).get('amount') == 10100, (c, r.get('message'), [(x.get('donator'), x.get('amount')) for x in q]))
+c, r = req('/api/signature/play', {'sig_id': 10001, 'name': '번호손님'})
+chk('시그니처를 번호로 고르면(금액 없이) 그대로 튼다', c == 200 and not r.get('display_only') and len(queue()) == 2, (c, r.get('message')))
+req('/api/reaction/stop', {})
+MS0 = io.open(os.path.join(PROJ, 'manual_send.html'), encoding='utf-8').read()
+chk('후원 콘솔 미리보기도 같은 선(제일 싼 시그니처 · 1만 원 중 작은 쪽)으로 알려 준다', 'function belowCheapest(amount)' in MS0
+    and 'Math.min(SIGS[0].amount||0, 10000)' in MS0 and '방송판 맨 위 띠</b>로만 뜹니다' in MS0)
+
 print(); print('=' * 74); print('⑤ 방송판 · 조종실'); print('=' * 74)
 OV = io.open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
 CT = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8').read()
