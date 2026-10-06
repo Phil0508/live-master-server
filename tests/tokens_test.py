@@ -248,7 +248,7 @@ chk('글꼴 조각 파일이 빠짐없이 있다', bool(_files) and not _nofile,
 # ⚠️ 한글 글꼴은 크다 — 구글처럼 글자 묶음으로 나눠 둬야 화면에 나온 글자만 받는다
 chk('글자 묶음으로 나눠 둔다 (한 번에 통째로 안 받는다)', _FC.count('unicode-range') >= len(_have) * 50)
 # ⚠️ 표 안 숫자는 점수 칸(148px)에 들어가야 한다 — 통통한 장식 글꼴은 큰 숫자·이름표에만
-chk('표 숫자에 통통한 장식 글꼴을 안 쓴다', not any(v['num'] in ('Bagel Fat One', 'Black Han Sans', 'Gugi', 'Single Day') for v in _F.values()),
+chk('표 숫자에 통통한 장식 글꼴을 안 쓴다', not any(v['num'] in ('Bagel Fat One', 'Black Han Sans', 'Gugi', 'Single Day', 'Press Start 2P', 'Kirang Haerang') for v in _F.values()),
     [v['num'] for v in _F.values()])
 # ⚠️ 한 굵기뿐인 글꼴에 굵게를 박으면 번져 보인다 — 굵기도 토큰으로
 chk('이름표 굵기를 700 으로 박아 두지 않는다', 'var(--face-label); font-weight: 700' not in THEME)

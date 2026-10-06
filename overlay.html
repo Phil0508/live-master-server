@@ -2775,8 +2775,9 @@
              · 테두리 두께(--frame-w) · 배지 둥글기(--badge-radius)를 테마가 정한다
            ⚠️ 밝은 판(병원 · 뉴스 · 민트초코 · 한지 · 첫눈)은 파스텔처럼 --glass-bg 를 밝히지 않는다 —
               body.themed-light 가 판 안 글씨를 어둡게 한다. 게임판 속은 늘 진하다(--game-fill).
-           ⚠️ 글꼴은 지금 서버(vendor/fonts)에 있는 것만. 시안에서 고른 기랑해랑 · Teko · Orbit · Press Start 2P ·
-              함렛 · 고운돋움은 받아 넣으면 그때 바꾼다. */
+           ⚠️ 글꼴은 서버(vendor/fonts)에 있는 것만. 시안에서 고른 기랑해랑(할로윈) · Teko(스포츠 숫자) · Orbit + Press Start 2P(아케이드) ·
+              함렛(한지) · 고운돋움(첫눈)은 2026-10-06 대표님 허락으로 받아 넣었다. Teko · Press Start 2P 는 영문만 —
+              한글은 그다음 글꼴로 나온다. 한 굵기뿐인 글꼴은 굵기를 400 으로(굵게를 박으면 번진다). */
         body.theme-hospital {
             /* 🏥 병원(엔젤 종합병원) — 흰 진료 차트 판 · 민트 머리띠에 심전도 · 알약 배지 · 1등 빨간 십자. 밝은 판(themed-light) */
             --gold: #13b3a1; --gold-light: #bff3ea; --gold-deep: #0b8577; --gold-rgb: 19, 179, 161; --gold-glow: rgba(19, 179, 161, .45); --on-gold: #ffffff;
@@ -2819,8 +2820,8 @@
             --badge-bg: #231432; --badge-ink: #ffb45c; --badge-ring: #ff8a1f; --badge-radius: 50%;
             --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 800;
             --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
-            --face-big: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 400;
-            --face-label: "Jua", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 400;
+            --face-big: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 900;
+            --face-label: "Kirang Haerang", "Jua", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #f6ecff; --ink-num: #ffb45c; --ink-label: #ffb45c; --ink-soft: #d8c6ee;
             --name-shadow: 0 2px 0 #12081c; --num-color: #ffb45c; --num-fill: none; --num-clip: border-box; --num-shadow: 0 3px 0 #12081c; --num-edge: none;
             --msg-bg: rgba(255, 138, 31, .1); --tip-bg: rgba(24, 12, 34, .96); --rail-bg: rgba(24, 12, 34, .6);
@@ -2870,8 +2871,8 @@
             --rib-bg: #ffd400; --rib-ink: #111316; --rib-cut: polygon(0 0, 100% 0, 94% 100%, 0 100%); --rib-ring: none;
             --badge-bg: #1d2126; --badge-ink: #ffd400; --badge-ring: #ffd400; --badge-radius: 3px;
             --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 800;
-            --face-num: "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --num-weight: 400;
-            --face-big: "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --big-weight: 400;
+            --face-num: "Teko", "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --num-weight: 600;
+            --face-big: "Teko", "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --big-weight: 600;
             --face-label: "Black Han Sans", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #ffffff; --ink-num: #ffffff; --ink-label: #ffd400; --ink-soft: #c9cdd3;
             --name-shadow: none; --num-color: #ffffff; --num-fill: none; --num-clip: border-box; --num-shadow: 0 2px 0 #000000; --num-edge: none;
@@ -2921,10 +2922,10 @@
             --pearl: transparent; --pearl-style: dotted; --skin-row: rgba(79, 240, 255, .05); --skin-line: #2e3280;
             --rib-bg: #ff4fd8; --rib-ink: #14164a; --rib-cut: none; --rib-ring: none;
             --badge-bg: #14164a; --badge-ink: #4ff0ff; --badge-ring: #4ff0ff; --badge-radius: 0;
-            --face-name: "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --name-weight: 400;
-            --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
-            --face-big: "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --big-weight: 400;
-            --face-label: "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 400;
+            --face-name: "Orbit", "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --name-weight: 400;
+            --face-num: "Orbit", "Gothic A1", "Malgun Gothic", sans-serif; --num-weight: 400;
+            --face-big: "Orbit", "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --big-weight: 400;
+            --face-label: "Orbit", "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #ffffff; --ink-num: #ffd23f; --ink-label: #4ff0ff; --ink-soft: #b8bdff;
             --name-shadow: 2px 2px 0 #000000; --num-color: #ffd23f; --num-fill: none; --num-clip: border-box; --num-shadow: 3px 3px 0 #000000; --num-edge: none;
             --msg-bg: rgba(79, 240, 255, .08); --tip-bg: rgba(14, 15, 56, .97); --rail-bg: rgba(14, 15, 56, .7);
@@ -2999,10 +3000,10 @@
             --pearl: transparent; --pearl-style: solid; --skin-row: rgba(31, 28, 25, .03); --skin-line: #ddd0b4;
             --rib-bg: #1f1c19; --rib-ink: #f3ead8; --rib-cut: none; --rib-ring: none;
             --badge-bg: #c8372d; --badge-ink: #f7eedc; --badge-ring: #c8372d; --badge-radius: 3px;
-            --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 800;
+            --face-name: "Hahmlet", "Gothic A1", "Malgun Gothic", sans-serif; --name-weight: 800;
             --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
             --face-big: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 900;
-            --face-label: "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 400;
+            --face-label: "Hahmlet", "Do Hyeon", "Gothic A1", "Malgun Gothic", sans-serif; --label-weight: 700;
             --ink-name: #1f1c19; --ink-num: #1f1c19; --ink-label: #c8372d; --ink-soft: #6b5a44;
             --name-shadow: none; --num-color: #1f1c19; --num-fill: none; --num-clip: border-box; --num-shadow: none; --num-edge: none;
             --msg-bg: rgba(31, 28, 25, .05); --tip-bg: #f3ead8; --rail-bg: rgba(243, 234, 216, .85);
@@ -3025,10 +3026,10 @@
             --pearl: transparent; --pearl-style: solid; --skin-row: #e3eeff; --skin-line: #d6e5fb;
             --rib-bg: #1f3b6f; --rib-ink: #ffffff; --rib-cut: none; --rib-ring: none;
             --badge-bg: #ffffff; --badge-ink: #1f3b6f; --badge-ring: #9cc1f5; --badge-radius: 50%;
-            --face-name: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 700;
+            --face-name: "Gowun Dodum", "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 400;
             --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
             --face-big: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 900;
-            --face-label: "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 700;
+            --face-label: "Gowun Dodum", "Sunflower", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 400;
             --ink-name: #1f3b6f; --ink-num: #1f3b6f; --ink-label: #2f6fc4; --ink-soft: #3a5a92;
             --name-shadow: none; --num-color: #1f3b6f; --num-fill: none; --num-clip: border-box; --num-shadow: none; --num-edge: none;
             --msg-bg: #e8f2ff; --tip-bg: #f6faff; --rail-bg: rgba(246, 250, 255, .85);
@@ -3125,6 +3126,9 @@
             filter: var(--num-edge);
         }
         body.themed :is(.donation-amount, .goal-rail-amt, .best-amt) { font-family: var(--face-big); font-weight: var(--big-weight); }
+        /* 👾 아케이드 픽셀 글꼴(Press Start 2P)은 후원 팝업 금액에만 — 글자 폭이 넓어 점수판 칸(148px) · 한 방 최고 후원 칸에서는
+              옆 칸과 겹쳤다(2026-10-06 실측). 팝업은 넓어서 1,000,000 도 들어간다. 영문만이라 '원' 은 Orbit 으로 */
+        body.theme-arcade .donation-amount { font-family: "Press Start 2P", "Orbit", "Do Hyeon", "Malgun Gothic", sans-serif; font-weight: 400; }
         body.themed .row-bottom .b-score { font-family: var(--face-num); font-weight: var(--num-weight); }
         /* ⚠️ 글자 속 그라데이션은 **칸 안에만** 칠해진다. 점수 칸(148px)은 오른쪽 정렬이라 긴 숫자가
               왼쪽으로 넘치는데, 넘친 부분은 칠이 없어 투명해졌다(실측: 로얄에서 '1,284,000' → ',284,000').
