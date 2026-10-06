@@ -33,6 +33,7 @@ from v2.server.domain import donor_memory as dm
 from v2.server.domain.rules import norm_donor
 
 GAP_SEC = 6 * 3600          # 이만큼 기록이 비면 다른 방송으로 본다
+OLD_SPLIT_SEC = 5           # 옛 기록: 같은 후원자 · 같은 메시지가 이 안에 또 적혔으면 나눠 준 한 건
 KST = 9 * 3600
 OUTCOMES = ('auto_ok', 'auto_bad', 'sug_ok', 'sug_bad', 'unknown')
 
@@ -53,16 +54,26 @@ def load(path):
 
 
 def group(rows):
-    """한 후원이 여러 줄(나눠 줌)이면 한 건으로. v2 는 ref(후원 id)로, 옛 것('old:')은 후원자 · 메시지 · 같은 초로 묶는다."""
-    out, idx = [], {}
+    """한 후원이 여러 줄(나눠 줌)이면 한 건으로. v2 는 ref(후원 id)로, 옛 것('old:')은 바로 앞 건과 후원자 · 메시지가 같고
+       OLD_SPLIT_SEC 안에 적혔으면 묶는다(옛 것은 받은 사람마다 따로 적어 몇 초씩 벌어질 수 있다)."""
+    out, by_ref = [], {}
     for at, donor, player, amount, message, ref in rows:
-        ref = str(ref or '')
-        key = ref if ref and not ref.startswith('old:') else ('old', norm_donor(donor), str(message or ''), int(float(at)))
-        g = idx.get(key)
+        at, ref, msg = float(at), str(ref or ''), str(message or '')
+        g = None
+        if ref and not ref.startswith('old:'):
+            g = by_ref.get(ref)
+        elif out:
+            last = out[-1]
+            if (last['old'] and norm_donor(last['donor']) == norm_donor(donor) and last['message'] == msg
+                    and at - last['at_last'] <= OLD_SPLIT_SEC and player not in last['players']):   # 같은 사람에게 또 = 따로 보낸 후원
+                g = last
         if g is None:
-            g = {'at': float(at), 'donor': donor, 'message': str(message or ''), 'players': [], 'amount': 0}
-            idx[key] = g
+            g = {'at': at, 'at_last': at, 'donor': donor, 'message': msg, 'players': [], 'amount': 0,
+                 'old': not ref or ref.startswith('old:')}
             out.append(g)
+            if not g['old']:
+                by_ref[ref] = g
+        g['at_last'] = at
         if player not in g['players']:
             g['players'].append(player)
         g['amount'] += int(amount or 0)
@@ -153,8 +164,8 @@ def report(r):
         % (auto, _pct(auto, t['n']), t['auto_ok'], t['auto_bad'], _pct(t['auto_ok'], auto)),
         '  추천만 떴을 것    %4d건 (%s) — 맞힘 %d · 틀림 %d'
         % (sug, _pct(sug, t['n']), t['sug_ok'], t['sug_bad']),
-        '  모름(사람이 정함) %4d건 (%s) — 그중 AI 에게 물었을 것 %d건'
-        % (t['unknown'], _pct(t['unknown'], t['n']), t['ai']),
+        '  모름(사람이 정함) %4d건 (%s)' % (t['unknown'], _pct(t['unknown'], t['n'])),
+        '  (규칙으로 못 풀어 AI 에게 물었을 것 %d건 — 이번엔 AI 를 안 불러 글자 힌트로만 추천 · 나머지는 모름에 들어감)' % t['ai'],
         '',
         '단서별(맞힘/틀림): ' + ' · '.join('%s %d' % (k, v) for k, v in sorted(t['src'].items())),
         '',
