@@ -206,7 +206,10 @@ def main(argv=None):
         print('옛 장부를 모릅니다 — --sqlite 파일을 주거나 DATABASE_URL 을 넣어 주세요')
         return 2
     old = Old(a.sqlite, url)
-    p = plan(old, a.db_tz)
+    try:
+        p = plan(old, a.db_tz)
+    finally:
+        old.conn.close()                # 읽기는 여기까지 — 옛 장부를 붙잡고 있지 않는다
     sess = sorted({d['session'] for d in p['donations']})
     print('읽은 것: 후원 %d건(회차 %d개, 못 읽은 줄 %d) · 후원자 기억 %d · 별명 %d · 순위 제외 %d · 직접 준 등급 %d'
           % (len(p['donations']), len(sess), p['skipped'], len(p['memory']), len(p['alias']), len(p['excluded']), len(p['vip'])))

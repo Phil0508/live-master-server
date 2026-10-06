@@ -14,6 +14,12 @@
 | 진행봇 | `livemaster-bot` | `livemaster-bot-v2` — **둘을 같이 켜면 채팅이 두 번씩 올라간다** |
 | 리스너 | `toon-listener` → 8080 | 같은 리스너, 갈아타는 날 `toon-listener.service.d/v2.conf` 로 5300 에 보낸다 |
 
+## 0. 지금 상태 (10-07 아침 시험판으로 올림)
+- `livemaster-v2` 켜짐(127.0.0.1:5300) · 덧붙임 `/etc/systemd/system/livemaster-v2.service.d/trial.conf` = **LM2_TRIAL=1**(시그니처 보관소 · 리스너 설정 · 서버 버전 바꾸기 잠금).
+- Caddy :8443 열림(백업 `/etc/caddy/Caddyfile.bak-before-v2`) · 옛 장부 옮김(후원 1377 · 기억 688 · 별명 393 · 순위 제외 6) · 백업 타이머 켜짐.
+- 리스너 · 진행봇은 아직 옛 서버 쪽 — v2 에는 진짜 후원이 안 온다(후원 콘솔로 시험).
+- ⚠️ 자동 배포(auto-deploy)는 v2 를 다시 켜지 않는다 — v2 코드를 올린 뒤엔 `sudo systemctl restart livemaster-v2`.
+
 ## 1. 나란히 띄우기 (허락 필요: 받기 · 서비스)
 
 ```bash
@@ -31,8 +37,11 @@ curl -s http://127.0.0.1:5300/api/health | head -c 300; echo            # {"ok":
 ## 2. 바깥 주소 열기 (허락 필요: Caddy · 방화벽)
 
 ```bash
+sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-before-v2
 sudo sh -c 'cat /opt/livemaster/v2/deploy/Caddyfile.v2 >> /etc/caddy/Caddyfile'
-sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+sudo chown caddy:caddy /var/log/caddy/livemaster-v2.log      # ⚠️ validate 를 root 로 돌리면 기록 파일이 root 것으로 생겨 reload 가 실패한다(10-07 겪음 — 옛 설정은 그대로 돌아 방송 주소는 멀쩡했다)
+sudo systemctl reload caddy
 sudo ufw status | grep -q active && sudo ufw allow 8443/tcp
 ```
 폰으로 `https://엔젤컴퍼니.메인.한국:8443/health` — 초록 점이면 된다.

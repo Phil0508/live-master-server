@@ -3,3 +3,5 @@
 fastapi==0.139.0
 uvicorn==0.49.0
 python-multipart==0.0.32
+# ⚠️ fastapi 만 묶으면 starlette 가 새 판(1.7)으로 들어온다 — 검사한 판으로 묶는다(10-07 운영 설치 때 1.7 이 깔렸다)
+starlette==1.3.1

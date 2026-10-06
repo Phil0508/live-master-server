@@ -52,8 +52,11 @@ class ImportOld(unittest.TestCase):
         self.old = os.path.join(self.dir, 'old.db')
         self.v2 = os.path.join(self.dir, 'v2.db')
         make_old(self.old)
+        self.clients = []
 
     def tearDown(self):
+        for c in self.clients:                 # ⚠️ 장부를 닫아야 윈도우에서 임시 폴더가 지워진다(안 닫아 74개가 쌓였다)
+            c.app.state.store.close()
         shutil.rmtree(self.dir, ignore_errors=True)
 
     def run_tool(self, *extra):
@@ -67,6 +70,7 @@ class ImportOld(unittest.TestCase):
         self.assertEqual(self.run_tool('--write'), 0)
         self.assertEqual(self.run_tool('--write'), 0)           # 두 번 돌려도 그대로
         c = TestClient(create_app(self.v2, password=PW, secret=SECRET))
+        self.clients.append(c)
         s = {r['session']: r for r in c.get('/api/sessions', headers=H).json()['sessions']}
         self.assertEqual((s['old-2026-10-01 수요일']['n'], s['old-2026-10-01 수요일']['total']), (2, 80000))   # 중복 tx 는 한 번
         self.assertEqual(s['old-current']['total'], 20000)
