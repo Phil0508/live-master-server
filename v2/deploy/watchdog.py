@@ -10,6 +10,7 @@
   ③ 투네이션 리스너 toon_listener_status.json — 3분 넘게 소식이 없거나(멈춤) 10분 넘게 '연결 안 됨'이면 toon-listener 다시 켜기
      (못 보낸 후원은 리스너가 파일에 적어 뒀다 다시 보낸다 — 다시 켜도 후원은 안 사라진다)
   ④ 알림만: 디스크 1GB 미만 · 8080 의 반쯤 끊긴 연결(CLOSE-WAIT) 100개 넘음
+  ⑤ 요약 알림(한국 시각): 수요일 16시 '방송 전 점검' · 목요일 4시 '방송 끝 정리'(밤사이 다시 켠 일 · 지금 상태)
 안전 장치
   - 한 서비스를 1시간에 3번 넘게 다시 켜지 않는다 — 넘으면 멈추고 '사람이 봐야 해요' 만 알린다(다시 켜기를 무한히 돌지 않게).
   - 코드를 바꾸거나 올리지 않는다. 설정도 안 바꾼다. 하는 일은 `systemctl restart <서비스>` 뿐.
@@ -76,13 +77,18 @@ def disk_free_gb(path='/'):
         return 99.0
 
 
-def notify(text):
+PRIORITY = {'gaveup': '5', 'restart_failed': '5', 'restart': '4', 'warn': '4', 'recovered': '3', 'summary': '3'}
+
+
+def notify(text, kind=''):
+    """폰 알림(ntfy 모양 — 본문 한 줄 · Title · Priority). NOTIFY_URL 이 없으면 아무것도 안 한다."""
     url = (os.environ.get('NOTIFY_URL') or '').strip()
     if not url:
         return
     try:
         req = urllib.request.Request(url, data=text.encode('utf-8'), method='POST',
-                                     headers={'Title': 'Live Master', 'Content-Type': 'text/plain; charset=utf-8'})
+                                     headers={'Title': 'Live Master', 'Priority': PRIORITY.get(kind, '3'),
+                                              'Content-Type': 'text/plain; charset=utf-8'})
         urllib.request.urlopen(req, timeout=10).read()
     except Exception as e:
         print('[알림 실패] %s' % type(e).__name__, flush=True)
@@ -123,7 +129,7 @@ def event(kind, text, now):
         f.writelines(rows)
     os.replace(tmp, p)
     print('[%s] %s' % (kind, text), flush=True)
-    notify(text)
+    notify(text, kind)
 
 
 def due(s, key, every, now):
@@ -203,6 +209,37 @@ def check_warnings(s, now):
         event('warn', '🔌 방송 서버에 반쯤 끊긴 연결이 %d개 쌓였어요(9/30 같은 일 조심)' % cw, now)
 
 
+def _restarts_since(s, since):
+    return {u: len([t for t in ts if t >= since]) for u, ts in (s.get('restarts') or {}).items() if any(t >= since for t in ts)}
+
+
+def _status_line(s, now):
+    old = http_ok(OLD_URL)
+    parts = ['방송 서버 ' + ('✅' if old else '❌ 답 없음')]
+    if unit_enabled('livemaster-v2'):
+        parts.append('v2 ' + ('✅' if http_ok(V2_URL) else '❌ 답 없음'))
+    if unit_enabled('toon-listener'):
+        parts.append('투네이션 ' + ('❌ 연결 안 됨 (%d분째)' % ((now - s['listener_down_since']) // 60) if s.get('listener_down_since') else '✅ 연결됨'))
+    parts.append('디스크 %.0fGB' % disk_free_gb())
+    return ' · '.join(parts)
+
+
+def check_summaries(s, now):
+    """수요일 16시 방송 전 점검 · 목요일 4시 방송 끝 정리(한국 시각, 하루에 한 번씩)."""
+    t = time.gmtime(now + 9 * 3600)
+    day = time.strftime('%Y-%m-%d', t)
+    if t.tm_wday == 2 and t.tm_hour == 16 and s.get('sum_pre') != day:
+        s['sum_pre'] = day
+        r = _restarts_since(s, now - 86400)
+        event('summary', '📋 방송 전 점검 — ' + _status_line(s, now)
+              + (' · 하루 사이 다시 켠 일: ' + ', '.join('%s %d번' % kv for kv in r.items()) if r else ' · 하루 사이 다시 켠 일 없음'), now)
+    if t.tm_wday == 3 and t.tm_hour == 4 and s.get('sum_post') != day:
+        s['sum_post'] = day
+        r = _restarts_since(s, now - 12 * 3600)
+        event('summary', '🌙 방송 끝 정리 — ' + ('밤사이 다시 켠 일: ' + ', '.join('%s %d번' % kv for kv in r.items()) if r else '밤사이 다시 켠 일 없음')
+              + ' · 지금 ' + _status_line(s, now), now)
+
+
 def main(now=None):
     now = time.time() if now is None else now
     s = load_state()
@@ -211,6 +248,7 @@ def main(now=None):
         check_http(s, 'v2', V2_URL, 'livemaster-v2', now)
     check_listener(s, now)
     check_warnings(s, now)
+    check_summaries(s, now)
     s['last_run'] = int(now)
     save_state(s)
     return 0

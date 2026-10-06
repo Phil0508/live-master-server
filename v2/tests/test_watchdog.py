@@ -13,7 +13,7 @@ wd = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(wd)
 
 
-class Watchdog(unittest.TestCase):
+class _Base(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix='lm2wd_')
         wd.STATE_DIR = os.path.join(self.dir, 'state')
@@ -24,7 +24,7 @@ class Watchdog(unittest.TestCase):
         wd.http_ok = lambda url, timeout=5: self.up.get(url, False)
         wd.unit_enabled = lambda u: self.enabled.get(u, False)
         wd.restart = lambda u: (self.restarts.append(u) or (0, ''))
-        wd.notify = lambda text: self.notes.append(text)
+        wd.notify = lambda text, kind='': self.notes.append(text)
         wd.disk_free_gb = lambda path='/': 10.0
         wd.close_wait_8080 = lambda: 0
         self.status(updated=1000, state='connected')
@@ -43,6 +43,8 @@ class Watchdog(unittest.TestCase):
         with open(p, encoding='utf-8') as f:
             return [json.loads(l) for l in f if l.strip()]
 
+
+class Watchdog(_Base):
     def test_all_good_does_nothing(self):
         for t in range(5):
             wd.main(now=1000 + t * 60)
@@ -112,3 +114,21 @@ class Watchdog(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Summaries(_Base):
+    def test_wed_16_and_thu_04_once(self):
+        import calendar
+        wed16 = calendar.timegm((2026, 10, 7, 7, 5, 0)) * 1.0      # 10-07(수) 16:05 KST = 07:05 UTC
+        thu04 = calendar.timegm((2026, 10, 7, 19, 2, 0)) * 1.0     # 10-08(목) 04:02 KST
+        for now in (wed16, wed16 + 60):
+            self.status(updated=now, state='connected')
+            wd.main(now=now)
+        pre = [n for n in self.notes if '방송 전 점검' in n]
+        self.assertEqual(len(pre), 1)                               # 한 번만
+        self.assertIn('투네이션 ✅', pre[0])
+        self.status(updated=thu04, state='connected')
+        wd.main(now=thu04)
+        post = [n for n in self.notes if '방송 끝 정리' in n]
+        self.assertEqual(len(post), 1)
+        self.assertIn('밤사이 다시 켠 일 없음', post[0])
