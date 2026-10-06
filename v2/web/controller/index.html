@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1411">
+    <title>조종실 · 라이브 마스터</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23f07b3f'/%3E%3Cpath d='M12 19s-6-3.8-6-8.6a3.4 3.4 0 0 1 6-2.2 3.4 3.4 0 0 1 6 2.2c0 4.8-6 8.6-6 8.6z' fill='%23fff'/%3E%3C/svg%3E">
+    <!-- 🎛 v2 조종실 — 빌드 없이 그대로 돈다(ES 모듈). 바깥(CDN)에서 아무것도 안 불러온다.
+         글꼴은 컴퓨터에 있는 것(Pretendard → 맑은 고딕 → 애플 고딕)을 쓴다. vendor/fonts/fonts.css 는 800KB 라 안 부른다.
+         화면 넷: 연결 중 · 로그인 · 방송 전(이름 적기) · 방송 중(대기함 · 점수판 · 되돌리기 · 시그니처 · 목표) -->
+    <link rel="stylesheet" href="./controller.css">
+    <link rel="stylesheet" href="./css/games.css">
+    <link rel="stylesheet" href="./css/tools.css">
+    <link rel="stylesheet" href="./css/tools_records.css">
+    <link rel="stylesheet" href="./css/tools_ops.css">
+    <link rel="stylesheet" href="./css/tools_more.css"><!-- ✂️ 클립 · 📊 누른 것 · 🗓️ 월별 순위 -->
+    <link rel="stylesheet" href="./css/tools_sig.css"><!-- 💿 시그니처 관리 탭 · 📱 폰 화면 손보기 -->
+    <link rel="stylesheet" href="./css/tools_fx.css"><!-- 💡 조명 탭 -->
+    <link rel="stylesheet" href="./css/tools_ai.css"><!-- 🧠 AI 도우미 탭 · 대기함 배지 · 🚗 띠 -->
+    <script src="/shared/client.js"></script>
+    <script type="module" src="./js/main.js"></script>
+</head>
+<body data-view="splash">
+    <div class="app">
+        <header class="hdr" id="hdr"></header>
+        <div class="down-banner" id="down-banner" role="alert" hidden>서버와 연결이 끊겼어요 — 다시 붙는 중입니다. 지금 누른 것은 서버에 닿지 않을 수 있어요.</div>
+
+        <!-- 연결 중 -->
+        <section class="view v-splash" id="v-splash">
+            <div class="splash-card"><span class="spin" aria-hidden="true"></span><p id="splash-msg">서버에 연결하는 중…</p></div>
+        </section>
+
+        <!-- 로그인 -->
+        <section class="view v-login" id="v-login"></section>
+
+        <!-- 방송 전 -->
+        <section class="view v-setup" id="v-setup"></section>
+
+        <!-- 방송 중 — 넓은 화면: 왼쪽(되돌리기 · 점수판 · 목표 · 기록) + 오른쪽(대기함 · 시그니처)
+             900px 아래(폰): 한 줄 — 대기함이 맨 위 -->
+        <main class="view v-live" id="v-live">
+            <div class="col-main">
+                <section class="sec undo-sec" id="undo" aria-label="되돌리기"></section>
+                <section class="sec scores-sec" id="scores" aria-label="점수판"></section>
+                <section class="sec tabs-sec" id="tabs" aria-label="게임 · 도구"></section>
+                <div class="pair">
+                    <section class="sec goal-sec" id="goal" aria-label="목표"></section>
+                    <section class="sec logs-sec" id="logs" aria-label="최근 기록"></section>
+                </div>
+            </div>
+            <aside class="col-rail">
+                <section class="sec pending-sec" id="pending" aria-label="대기함"></section>
+                <section class="sec queue-sec" id="queue" aria-label="시그니처 대기줄"></section>
+            </aside>
+        </main>
+    </div>
+</body>
+</html>

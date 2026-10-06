@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>서버 상태 · 라이브 마스터</title>
+<link rel="stylesheet" href="/vendor/fonts/fonts.css">
+<style>
+  :root { --bg:#0e1116; --card:#161b22; --line:#262d37; --fg:#e6edf3; --dim:#8b949e; --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 "Pretendard", system-ui, sans-serif; padding:16px; padding-top:calc(16px + env(safe-area-inset-top,0px)) }
+  h1 { font-size:18px; margin:0 0 4px }
+  .sub { color:var(--dim); font-size:13px; margin-bottom:14px }
+  .big { display:flex; align-items:center; gap:10px; padding:14px; border-radius:12px; background:var(--card); border:1px solid var(--line); margin-bottom:12px }
+  .dot { width:14px; height:14px; border-radius:50%; background:var(--dim); flex:none }
+  .dot.ok { background:var(--ok); box-shadow:0 0 10px var(--ok) } .dot.warn { background:var(--warn) } .dot.bad { background:var(--bad); box-shadow:0 0 10px var(--bad) }
+  .big b { font-size:17px }
+  dl { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:12px }
+  dt { color:var(--dim) } dd { margin:0; font-variant-numeric:tabular-nums; text-align:right }
+  .warn-t { color:var(--warn) } .bad-t { color:var(--bad) }
+  .foot { color:var(--dim); font-size:12px; margin-top:12px; text-align:center }
+</style>
+</head>
+<body>
+<h1>🩺 서버 상태</h1>
+<div class="sub">라이브 마스터 v2 · 5초마다 새로 봅니다</div>
+<div class="big"><span class="dot" id="dot"></span><div><b id="head">불러오는 중…</b><div class="sub" id="headsub" style="margin:0"></div></div></div>
+<dl id="rows"></dl>
+<div class="foot" id="foot"></div>
+<script>
+const $ = s => document.querySelector(s);
+const dur = s => s == null ? '—' : s < 60 ? s + '초' : s < 3600 ? Math.floor(s / 60) + '분' : Math.floor(s / 3600) + '시간 ' + Math.floor(s % 3600 / 60) + '분';
+const LIS = { ok: ['연결됨', ''], connecting: ['연결 중', 'warn-t'], down: ['끊김', 'bad-t'], none: ['안 씀', ''] };
+const STAGE = { roulette: '룰렛', slot: '슬롯', dicegame: '주사위', siggame: '시그뒤집기', match: '대결', quiz: '퀴즈', pinball: '핀볼', races: '레이스' };
+function row(k, v, cls) { return `<dt>${k}</dt><dd class="${cls || ''}">${v}</dd>`; }
+async function tick() {
+  try {
+    const r = await fetch('/api/health', { cache: 'no-store' });
+    const h = await r.json();
+    const lv = (h.listener || {}).level || 'none';
+    const bad = lv === 'down' || (h.spool || 0) > 0;
+    $('#dot').className = 'dot ' + (bad ? 'bad' : lv === 'connecting' ? 'warn' : 'ok');
+    $('#head').textContent = bad ? '확인이 필요합니다' : '서버 정상';
+    $('#headsub').textContent = h.live ? '방송 중 · ' + dur(h.live_sec) : '방송 꺼짐';
+    const sc = h.screens || {};
+    const L = LIS[lv] || [lv, ''];
+    $('#rows').innerHTML = [
+      row('가동 시간', dur(h.uptime_sec)),
+      row('리스너(투네이션)', L[0] + (h.listener.age_sec != null ? ' · ' + dur(h.listener.age_sec) + ' 전 소식' : ''), L[1]),
+      row('못 보낸 후원', (h.spool == null ? '?' : h.spool) + '건', h.spool ? 'bad-t' : ''),
+      row('마지막 후원', h.last_donation_sec == null ? '—' : dur(h.last_donation_sec) + ' 전'),
+      row('방송 화면(OBS)', (sc.overlay || 0) + '개', h.live && !sc.overlay ? 'bad-t' : ''),
+      row('조종실 · 미리보기', (sc.controller || 0) + ' · ' + (sc.monitor || 0)),
+      row('지금 무대', h.stage ? (STAGE[h.stage] || h.stage) : '없음'),
+      row('선수 · 대기함', h.counts.players + '명 · ' + h.counts.pending + '건', h.counts.pending ? 'warn-t' : ''),
+      row('시그 대기줄', h.counts.sig_queue + '개'),
+      row('장부 응답', h.db.ping_ms == null ? '실패' : h.db.ping_ms + 'ms', h.db.ping_ms == null ? 'bad-t' : ''),
+      row('메모리', h.rss_mb == null ? '—' : h.rss_mb + 'MB'),
+      row('끊어 낸 화면', h.dropped + '번'),
+    ].join('');
+    $('#foot').textContent = new Date().toLocaleTimeString('ko-KR') + ' 기준';
+  } catch (e) {
+    $('#dot').className = 'dot bad';
+    $('#head').textContent = '서버에 닿지 않습니다';
+    $('#headsub').textContent = String(e.message || e);
+  }
+}
+tick(); setInterval(tick, 5000);
+</script>
+</body>
+</html>

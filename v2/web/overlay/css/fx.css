@@ -1,0 +1,180 @@
+/* 💡 조명 · ✨ 테마 연출 — 옛 overlay.html 의 네온 테두리(#neon-overlay) · 아우디 LED(#audi-overlay) · 추석 보름달(.theme-moon)을
+   숫자 · 시간 · 색까지 **그대로** 옮겼다(대표님이 방송으로 다듬어 온 값). 칸 · 층은 groups/fx.js, 움직이는 일은 widgets/fx/*.js.
+   ⚠️ 여기에는 z-index 를 쓰지 않는다(칸 안의 작은 겹침만 예외) — 층은 layers.js 표에서만.
+   달라진 것: 옛 네온 · 아우디는 화면(뷰포트)에 붙어 있었다(네온은 배율 계산을 따로 했다). v2 는 1080×1920 캔버스 칸 안이라
+              배율이 저절로 맞는다. 아우디 빛기둥 50vh → 960px(OBS 1080×1920 에서 같은 길이). */
+
+/* ══════════════════════════════════════════════════
+   🌈 네온 테두리 — 금액 등급마다 '완전히 다른 연출' 하나씩.
+   등급은 움직임만 담당하고, 색(--nc)은 조명 단추(또는 시그니처 사진 대표색)가 따로 담당한다.
+   (예전엔 conic 그라디언트를 통째로 회전시켜 테두리로 훔쳐봤는데, 그러면 짧은 변에선 느리고 긴 변에선 빠른
+    '속도 불균일'이 생겨서 싸구려로 보였다. 이제는 빛이 테두리 경로를 실제로 등속 주행한다.)
+   ══════════════════════════════════════════════════ */
+@property --nrun { syntax: '<number>'; inherits: true; initial-value: 0; }
+
+.neon-layer {
+    position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none;
+    opacity: 0; visibility: hidden;
+    transition: opacity var(--t-base) ease, visibility var(--t-base) ease;
+    /* ⚠️ --nspd(한 바퀴 시간)는 위젯이 이 칸에 직접 넣는다(조명 속도 × 2초). CSS 에서 선언하지 않는다 */
+    --nc: #ff1f56; --nw: 11;
+}
+.neon-layer.active { opacity: 1; visibility: visible; }
+.neon-layer svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.neon-layer.neon-rainbow { animation: neonHue 6s linear infinite; }
+@keyframes neonHue { to { filter: hue-rotate(360deg); } }
+
+/* 지금 등급의 연출 하나만 보여 준다(겹쳐 쌓지 않는다) */
+.neon-layer > * { display: none; }
+.neon-layer.tier-flow   .nl-flow,
+.neon-layer.tier-sweep  .nl-sweep,
+.neon-layer.tier-spark  .nl-spark,
+.neon-layer.tier-blink  .nl-blink,
+.neon-layer.tier-wave   .nl-wave,
+.neon-layer.tier-pulse  .nl-pulse,
+.neon-layer.tier-charge .nl-charge { display: block; }
+
+.n-tube { fill: none; stroke-linecap: round; }
+.n-base { stroke: var(--nc); stroke-width: calc(var(--nw) * 0.85px); opacity: 0.28;
+          filter: drop-shadow(0 0 14px var(--nc)) drop-shadow(0 0 40px var(--nc)); }
+.n-core { stroke: #fff; stroke-width: calc(var(--nw) * 0.38px); opacity: 0.8;
+          filter: drop-shadow(0 0 5px var(--nc)) drop-shadow(0 0 14px var(--nc)) drop-shadow(0 0 34px var(--nc)); }
+
+/* 🌀 혜성(흐름 · 듀얼 스윕 · 파동 공용):
+   같은 굵기의 얇은 층 18겹이 '머리'를 공유하고 꼬리 쪽으로만 길어진다.
+   반투명이 겹겹이 누적되며 계단 없이 사라져서 한 줄기로 이어져 보인다.
+   층마다 애니메이션을 걸지 않고 부모의 --nrun 하나만 굴린다 = 어긋남 0 */
+.n-comet { filter: drop-shadow(0 0 9px var(--nc)) drop-shadow(0 0 26px var(--nc)); }
+.n-comet > * { fill: none; stroke-linecap: round; stroke-width: calc(var(--nw) * 1px);
+               stroke-dashoffset: calc((var(--L) - var(--nrun)) * 1px); }
+.n-runFull { animation: nRunFull var(--nspd, 3s) linear infinite; }
+.n-runHalf { animation: nRunHalf var(--nspd, 3s) linear infinite; }
+.n-runWave { animation: nRunWave calc(var(--nspd, 3s) * 0.34) linear infinite; }
+@keyframes nRunFull { to { --nrun: 1000; } }
+@keyframes nRunHalf { to { --nrun: 500; } }
+@keyframes nRunWave { to { --nrun: 200; } }
+
+/* ✨ 20만 · 반짝임 — 관 위 고정된 지점들이 제각각 시간차로 튄다(도는 것 없음) */
+.n-spark { filter: drop-shadow(0 0 8px var(--nc)) drop-shadow(0 0 22px #fff); }
+.n-spark > * { fill: none; stroke: #fff; stroke-linecap: round;
+               stroke-width: calc(var(--nw) * 1.9px); opacity: 0;
+               animation: nTwinkle 1.6s ease-in-out infinite; }
+@keyframes nTwinkle { 0%, 72%, 100% { opacity: 0; } 8% { opacity: 1; } 26% { opacity: 0.15; } 34% { opacity: 0.85; } 55% { opacity: 0; } }
+
+/* 💡 30만 · 점멸 — 일정한 깜빡임이 아니라 '짧게짧게-길게' 리듬이라 기계적이지 않다 */
+.nl-blink g { animation: nStrobe calc(var(--nspd, 3s) * 0.8) linear infinite; }
+/* 🥁 비트 동기가 잡히면 고정 리듬을 끄고 위젯이 음원 시각에 맞춰 직접 밝기를 준다 */
+.neon-layer.beat-sync .nl-blink g { animation: none; }
+@keyframes nStrobe {
+    0%, 9%    { opacity: 1; }
+    10%, 15%  { opacity: 0.08; }
+    16%, 25%  { opacity: 1; }
+    26%, 31%  { opacity: 0.08; }
+    32%, 54%  { opacity: 1; }
+    55%, 68%  { opacity: 0.14; }
+    69%, 100% { opacity: 1; }
+}
+
+/* 🫁 100만 · 맥동 — 유일하게 테두리 선이 없다. 화면 가장자리가 안으로 번진다 */
+.nl-pulse { position: absolute; inset: 0; }
+.nl-pulse .np  { position: absolute; inset: 0;
+                 box-shadow: inset 0 0 90px 8px var(--nc), inset 0 0 210px 34px var(--nc);
+                 animation: nPulse calc(var(--nspd, 3s) * 1.3) ease-in-out infinite; }
+.nl-pulse .np2 { position: absolute; inset: 0; box-shadow: inset 0 0 26px 2px #fff; opacity: 0.22;
+                 animation: nPulse calc(var(--nspd, 3s) * 1.3) ease-in-out infinite; }
+@keyframes nPulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* 💥 200만 · 차징→폭발 — 아래 중앙에서 양쪽으로 채워 올라가 위 중앙에서 만나며 터진다 */
+.nl-charge { position: absolute; inset: 0; }
+.nl-charge .nchg { fill: none; stroke: var(--nc); stroke-linecap: round;
+                   stroke-width: calc(var(--nw) * 1.1px); stroke-dasharray: 500 500;
+                   filter: drop-shadow(0 0 10px var(--nc)) drop-shadow(0 0 30px var(--nc));
+                   animation: nCharge calc(var(--nspd, 3s) * 2) ease-in-out infinite; }
+.nl-charge .nchgc { stroke: #fff; stroke-width: calc(var(--nw) * 0.4px); opacity: 0.9; }
+@keyframes nCharge { 0% { stroke-dashoffset: 500; } 42%, 100% { stroke-dashoffset: 0; } }
+.nl-charge .nboom { position: absolute; inset: 0; opacity: 0;
+                    background: radial-gradient(120% 70% at 50% 0%, #fff, rgba(255,255,255,0) 62%);
+                    animation: nBoom calc(var(--nspd, 3s) * 2) ease-out infinite; }
+@keyframes nBoom { 0%, 41% { opacity: 0; } 44% { opacity: 0.85; } 62%, 100% { opacity: 0; } }
+
+/* ══════════════════════════════════════════════════
+   💡 아우디 LED — 아래 양쪽 끝 LED 8개씩이 차례로 하얗게 켜지며 빛기둥이 솟는다(옛 '프리미엄 리얼 LED 아우디 라이트')
+   ⚠️ 켜질 때(active)만 애니메이션이 돈다 — 꺼지면(hide) LED 는 바로 어둡게 돌아가고 0.4초에 걸쳐 사라진다(옛 것과 같다).
+   --audi-speed 는 위젯이 이 칸에 넣는다(조명 속도 × 0.56초).
+   ══════════════════════════════════════════════════ */
+.audi-layer {
+    position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; box-sizing: border-box; pointer-events: none;
+    isolation: isolate;                 /* 아래 ::before(z -1)가 이 판 안에서만 뒤로 가게 — 옛 것은 판 자체가 층(89000)이었다 */
+    opacity: 0; transition: opacity var(--t-base) ease;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding: 0 30px 40px 30px;
+}
+.audi-layer.active { opacity: 1; }
+.audi-layer.hide { opacity: 0; }
+
+.audi-layer.active::before {
+    content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 120px;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.2), transparent);
+    filter: blur(20px); z-index: -1;
+}
+
+.audi-container { display: flex; gap: 15px; }
+.audi-container.right { flex-direction: row-reverse; }
+
+.audi-led {
+    width: 45px; height: 12px; border-radius: 6px;
+    background: rgba(255, 60, 0, 0.1);
+    border: 2px solid rgba(255, 60, 0, 0.3);
+    box-shadow: 0 0 10px rgba(255, 60, 0, 0.2);
+    position: relative;
+}
+.audi-layer.active .audi-led {
+    animation: ledChase var(--audi-speed, 1.4s) infinite;
+    animation-delay: calc(var(--idx) * 0.08s);
+}
+.audi-led::after {
+    content: ''; position: absolute;
+    bottom: 12px; left: 50%; transform: translateX(-50%) scaleY(0);
+    width: 35px; height: 960px;         /* 옛 50vh — OBS 1080×1920 에서 960px */
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.4) 40%, transparent 100%);
+    filter: blur(8px); opacity: 0;
+    transform-origin: bottom;
+    mix-blend-mode: screen;
+}
+.audi-layer.active .audi-led::after {
+    animation: beamChase var(--audi-speed, 1.4s) infinite;
+    animation-delay: calc(var(--idx) * 0.08s);
+}
+@keyframes ledChase {
+    0%, 100% { background: rgba(255, 60, 0, 0.1); border-color: rgba(255, 60, 0, 0.3); box-shadow: 0 0 10px rgba(255, 60, 0, 0.2); }
+    15%, 40% {
+        background: #ffffff;
+        border-color: #ffffff;
+        box-shadow: 0 0 30px #ffffff, 0 0 60px #ffffff, inset 0 0 15px #ffffff;
+    }
+    50% { background: rgba(255, 60, 0, 0.1); border-color: rgba(255, 60, 0, 0.3); box-shadow: 0 0 10px rgba(255, 60, 0, 0.2); }
+}
+@keyframes beamChase {
+    0%, 100% { opacity: 0; transform: translateX(-50%) scaleY(0.2); filter: brightness(1) blur(8px); }
+    15%, 30% { opacity: 1; transform: translateX(-50%) scaleY(1.1); filter: brightness(2) blur(12px); }
+    50% { opacity: 0; transform: translateX(-50%) scaleY(0.5); filter: brightness(1) blur(8px); }
+}
+
+/* ══════════════════════════════════════════════════
+   ✨ 테마 입자 판 — 폭죽(canvas-confetti)을 이 캔버스에만 그린다(옛 것은 화면 전체 위 100006 에 그렸다)
+   ══════════════════════════════════════════════════ */
+.fx-burst { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+/* 🌕 추석 보름달 — 큰 후원이 오면 후원 알림 뒤에서 떠오른다(달토끼 그림은 추석 테마의 --crown).
+   ⚠️ 추석 테마가 아니면 부르지 않는다. 알림 바로 뒤 층(groups/fx.js). 자리는 캔버스 한가운데(옛 50%/50%). */
+.theme-moon { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px;
+    border-radius: 50%; pointer-events: none; opacity: 0; transform: translateY(260px) scale(.7);
+    background: var(--crown, none) center / 88% no-repeat,
+                radial-gradient(circle, rgba(255, 231, 160, .55) 0%, rgba(255, 215, 106, .18) 46%, transparent 70%); }
+.theme-moon.rise { animation: moonRise 3.2s var(--ease) forwards; }
+@keyframes moonRise {
+    0%   { opacity: 0;   transform: translateY(260px) scale(.7); }
+    35%  { opacity: .95; transform: translateY(-120px) scale(1); }
+    75%  { opacity: .9;  transform: translateY(-140px) scale(1); }
+    100% { opacity: 0;   transform: translateY(-170px) scale(1.04); }
+}

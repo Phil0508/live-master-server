@@ -1,0 +1,40 @@
+/* 💡 조명 탭(js/panels/tools_fx.js) — 옛 조종실 '조명' 탭 모습: 큰 단추 셋(끄기 · 무지개 · 아우디) · 속도 막대 · 단색 칸 3×3.
+   ⚠️ 색 단추는 그 색이 곧 켜질 조명이라 색을 그대로 둔다(옛 스트림덱 · 조명 탭과 같다). 나머지는 운영 도구 공통 옷(tools_ops.css). */
+.ops-fx { display: flex; flex-direction: column; gap: 12px; }
+.fx-now .fx-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.5); }
+
+.fx-main { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fx-big { min-height: 52px; border-radius: 14px; font-size: 15.5px; white-space: normal; text-align: center; line-height: 1.25; }
+/* 🌈 무지개 — 꺼져 있을 때 무지개 띠가 흐르는 단추(옛 .btn-rainbow-animated). 켜져 있으면 '무지개 끄기' — 켜진 단추 모습은
+      운영 도구 공통(.ops .btn.on 주황 테두리 — 아우디도 같다) */
+.fx-rainbow:not(.on) {
+    background: linear-gradient(90deg, #ff4d4d, #ffa64d, #ffff4d, #4dff4d, #4d4dff, #b34dff, #ff4dff);
+    background-size: 300% 300%; animation: fxRainbowFlow 4s linear infinite;
+    color: #000; border: none; text-shadow: none;
+}
+.fx-rainbow:not(.on):hover:not(:disabled) { background: linear-gradient(90deg, #ff4d4d, #ffa64d, #ffff4d, #4dff4d, #4d4dff, #b34dff, #ff4dff); background-size: 300% 300%; box-shadow: 0 0 15px rgba(255, 77, 127, 0.6); }
+@keyframes fxRainbowFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+
+.fx-speed-row { gap: 10px; }
+.fx-speed { flex: 1; min-width: 0; accent-color: var(--accent); height: 6px; cursor: pointer; }
+.fx-speed-lbl { min-width: 52px; text-align: right; color: var(--gold); font-weight: 900; font-variant-numeric: tabular-nums; }
+
+.fx-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fx-slot { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px; border-radius: 14px;
+    background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line-soft); }
+.fx-slot.on { border-color: rgba(255, 255, 255, 0.35); }
+.fx-slot input[type="color"] { width: 100%; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: transparent; cursor: pointer; }
+.fx-slot-btn { width: 100%; min-height: 40px; border-radius: 999px; font: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+    background: var(--slot, #888); color: #fff; border: none; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85); }
+.fx-slot-btn.on { background: #222; color: var(--slot, #fff); border: 1px solid var(--slot, #fff); text-shadow: none; }
+.fx-slot-btn.wait { opacity: 0.6; cursor: progress; }
+
+.fx-tiers { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; }
+.fx-tiers li { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; color: var(--muted); }
+.fx-tiers b { color: var(--text); min-width: 64px; font-weight: 800; }
+
+@media (max-width: 520px) {
+    .fx-main { grid-template-columns: 1fr; }
+    .fx-slots { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .fx-rainbow:not(.on) { animation: none; } }

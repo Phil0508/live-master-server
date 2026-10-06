@@ -1,0 +1,10 @@
+# 💾 매일 한국 시각 오전 6시(UTC 21:00) — 방송(수 17시 ~ 목 03시)이 끝난 뒤. 꺼져 있던 동안 놓친 것은 켜지면 한 번 한다.
+[Unit]
+Description=Live Master v2 장부 백업(매일)
+
+[Timer]
+OnCalendar=*-*-* 21:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

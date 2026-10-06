@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1411">
+    <title>스트림덱 · 라이브 마스터</title>
+    <!-- 🎛️ 가상 스트림덱(옛 streamdeck.html 을 v2 로) — 폰 · 태블릿에 띄워 두고 한 번에 누르는 단추판.
+         단추는 GET /api/streamdeck/<이름> 을 부른다(서버 domain/streamdeck.py). 로그인은 조종실 쿠키를 같이 쓴다.
+         ⚠️ 옛 세이브포인트 단추는 v2 에 같은 것이 없어 뺐다 — 서버가 410 과 까닭을 돌려준다.
+         💡 조명 단추(무지개 · 아우디 · 끄기 · 민트 · 내 색)는 /api/streamdeck/neon — 조명은 시그니처가 나올 때만 방송판에 켜진다.
+         바깥(CDN)에서 아무것도 안 불러온다 — 글꼴은 컴퓨터에 있는 것, 그림은 이모지. 색은 조종실(controller.css)과 같다. -->
+    <style>
+        :root {
+            --bg: #1a1411; --card: #2b221d; --glass: rgba(24, 18, 15, 0.62); --line: rgba(255, 255, 255, 0.13);
+            --text: #f6f1ec; --muted: #bcb0a6; --dim: #8c8078;
+            --accent: #f07b3f; --accent-hi: #ff8f57; --accent-ring: rgba(240, 123, 63, 0.32); --gold: #ffb36b;
+            --good: #3ddc84; --warn: #f5a524; --bad: #ff6b6b; --info: #7cb2ff;
+            --font: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            color-scheme: dark;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        html, body { margin: 0; min-height: 100%; }
+        body {
+            background: radial-gradient(900px 480px at 15% -10%, rgba(240, 123, 63, 0.16), transparent 60%), var(--bg);
+            color: var(--text); font: 500 15px/1.45 var(--font); letter-spacing: -0.2px; -webkit-font-smoothing: antialiased;
+            padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+        }
+        .wrap { width: 100%; max-width: 580px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+        header { text-align: center; display: flex; flex-direction: column; gap: 4px; }
+        h1 { margin: 6px 0 0; font-size: 22px; font-weight: 900; }
+        .sub { margin: 0; color: var(--muted); font-size: 13.5px; }
+        .state { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+        .pill {
+            display: inline-flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 12px; border-radius: 999px;
+            border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--muted); font-size: 13px; font-weight: 800;
+        }
+        .pill i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+        .pill[data-lv=ok] { color: #8ef0b8; border-color: rgba(61, 220, 132, 0.35); }
+        .pill[data-lv=warn] { color: #ffd28a; border-color: rgba(245, 165, 36, 0.4); }
+        .pill[data-lv=bad] { color: #ffb8b8; border-color: rgba(255, 107, 107, 0.45); }
+        .pill a { color: inherit; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+        .deck {
+            aspect-ratio: 1.35 / 1; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+            border-radius: 22px; border: 1px solid var(--line); background: var(--glass); color: var(--text); font: inherit; cursor: pointer;
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); -webkit-tap-highlight-color: transparent; position: relative;
+            box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.02), 0 8px 16px rgba(0, 0, 0, 0.3); transition: transform 0.12s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        }
+        .deck:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.08); }
+        .deck:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 3px; }
+        .deck .ic { font-size: 34px; line-height: 1; }
+        .deck b { font-size: 16px; font-weight: 900; }
+        .deck small { color: var(--muted); font-size: 12.5px; font-weight: 700; text-align: center; padding: 0 8px; }
+        .deck.busy { opacity: 0.6; cursor: progress; }
+        .deck.clip { border-color: rgba(240, 123, 63, 0.4); }
+        .deck.clip b { color: var(--accent-hi); }
+        .deck.clip:hover { box-shadow: 0 0 22px rgba(240, 123, 63, 0.35); border-color: var(--accent); }
+        .deck.skip b { color: var(--gold); }
+        .deck.skip:hover { box-shadow: 0 0 22px rgba(255, 179, 107, 0.3); border-color: var(--gold); }
+        .deck.pause b { color: #b9d4ff; }
+        .deck.pause:hover { box-shadow: 0 0 22px rgba(124, 178, 255, 0.3); border-color: var(--info); }
+        .deck.resume b { color: #8ef0b8; }
+        .deck.resume:hover { box-shadow: 0 0 22px rgba(61, 220, 132, 0.3); border-color: var(--good); }
+        details { border-radius: 18px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.2); padding: 4px 14px; }
+        summary { cursor: pointer; padding: 10px 0; font-weight: 800; color: var(--muted); }
+        details p { margin: 0 0 10px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+        details ul { margin: 0 0 12px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+        details li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
+        details li b { font-size: 13.5px; }
+        code { font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; color: var(--gold); overflow-wrap: anywhere; }
+        .toast {
+            position: fixed; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translate(-50%, 40px); width: max-content; max-width: calc(100% - 32px); text-align: center;
+            padding: 12px 22px; border-radius: 999px; background: rgba(34, 26, 22, 0.96); border: 1px solid var(--line);
+            color: #fff; font-size: 14px; font-weight: 800; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            opacity: 0; pointer-events: none; transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 10;
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+        .toast.ok { border-color: rgba(61, 220, 132, 0.45); }
+        .toast.err { border-color: rgba(255, 107, 107, 0.55); color: #ffd0d0; }
+        /* 💡 조명 단추 — 그 색이 곧 켜질 조명이라 색을 그대로 둔다(옛 streamdeck.html) */
+        .deck.lt-rainbow b { background: linear-gradient(45deg, #ff0055, #00ffcc, #ffcc00); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .deck.lt-rainbow:hover { box-shadow: 0 0 22px rgba(0, 255, 204, 0.35); border-color: #00ffcc; }
+        .deck.lt-audi b { color: #fff; }
+        .deck.lt-audi:hover { box-shadow: 0 0 22px rgba(255, 255, 255, 0.3); border-color: #fff; }
+        .deck.lt-off b { color: var(--bad); }
+        .deck.lt-off:hover { box-shadow: 0 0 22px rgba(255, 107, 107, 0.35); border-color: var(--bad); }
+        .deck.lt-mint b { color: #00E5B5; }
+        .deck.lt-mint:hover { box-shadow: 0 0 22px rgba(0, 229, 181, 0.35); border-color: #00E5B5; }
+        .deck.lt-pick b { color: var(--gold); }
+        .deck.lt-pick input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        @media (max-width: 360px) { .grid { gap: 10px; } .deck .ic { font-size: 28px; } }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <header>
+        <h1>🎛️ 가상 스트림덱</h1>
+        <p class="sub">한 번 누르면 바로 됩니다 — 클립 · 시그니처 건너뛰기 · 멈춤 · 조명</p>
+    </header>
+    <div class="state" aria-live="polite">
+        <span class="pill" id="login" data-lv=""><i aria-hidden="true"></i><span>확인 중…</span></span>
+        <span class="pill" id="obs" data-lv="" hidden><i aria-hidden="true"></i><span></span></span>
+    </div>
+    <div class="grid">
+        <button type="button" class="deck clip" data-act="clip" data-ok="✂️ 클립 — 90초 뒤 OBS 가 앞뒤 90초를 저장해요">
+            <span class="ic" aria-hidden="true">✂️</span><b>클립</b><small>누른 순간 앞 90초 + 뒤 90초</small></button>
+        <button type="button" class="deck skip" data-act="skip">
+            <span class="ic" aria-hidden="true">⏭️</span><b>시그 건너뛰기</b><small>지금 나오는 시그니처</small></button>
+        <button type="button" class="deck pause" data-act="pause?on=1">
+            <span class="ic" aria-hidden="true">⏸️</span><b>시그 멈춤</b><small>새 시그니처를 안 틀어요<br>(지금 것은 끝까지)</small></button>
+        <button type="button" class="deck resume" data-act="pause?on=0">
+            <span class="ic" aria-hidden="true">▶️</span><b>시그 다시</b><small>멈춘 대기줄을 다시 틀어요</small></button>
+        <!-- 💡 조명 — 시그니처가 나오는 동안 화면 테두리(네온) · 아래 LED(아우디). 누른 뒤 지금 조명을 알려 준다 -->
+        <button type="button" class="deck lt-rainbow" data-act="neon?color=RAINBOW">
+            <span class="ic" aria-hidden="true">🌈</span><b>무지개 조명</b><small>네온 테두리가 무지개로</small></button>
+        <button type="button" class="deck lt-audi" data-act="neon?color=AUDI">
+            <span class="ic" aria-hidden="true">🚗</span><b>아우디 LED</b><small>누를 때마다 켜기 ↔ 끄기</small></button>
+        <button type="button" class="deck lt-off" data-act="neon?color=OFF">
+            <span class="ic" aria-hidden="true">⛔</span><b>모든 조명 끄기</b><small>네온 · 아우디 둘 다</small></button>
+        <button type="button" class="deck lt-mint" data-act="neon?color=%2300E5B5">
+            <span class="ic" aria-hidden="true">🟢</span><b>민트 조명</b><small>네온 테두리 민트 한 색</small></button>
+        <button type="button" class="deck lt-pick" id="pick-btn">
+            <span class="ic" aria-hidden="true">🎨</span><b>내 색 고르기</b><small>고른 색으로 네온</small>
+            <input type="color" id="pick" value="#ff0055" tabindex="-1" aria-label="조명 색 고르기"></button>
+    </div>
+    <details>
+        <summary>진짜 스트림덱에 넣는 주소</summary>
+        <p>스트림덱 앱 → <b>Website</b> 단추에 아래 주소를 넣으세요. 기본 브라우저에 조종실 로그인이 되어 있으면 그대로 됩니다.
+           로그인 없이 쓰려면 주소 끝에 <code>?token=서버 열쇠(SESSION_SECRET)</code> 를 붙이세요(이 화면에는 열쇠를 보여 주지 않아요 —
+           열쇠가 담긴 주소는 남에게 보이지 않게).</p>
+        <ul id="urls"></ul>
+    </details>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function () {
+    'use strict';
+    const $ = id => document.getElementById(id);
+    const URLS = [['clip', '✂️ 클립'], ['clip?label=명장면', '✂️ 클립(제목 붙여서)'], ['skip', '⏭️ 시그 건너뛰기'],
+                  ['pause', '⏯️ 시그 멈춤 ↔ 다시(누를 때마다 바뀜)'], ['pause?on=1', '⏸️ 시그 멈춤'], ['pause?on=0', '▶️ 시그 다시'],
+                  ['neon?color=RAINBOW', '🌈 무지개 조명'], ['neon?color=AUDI', '🚗 아우디 LED(누를 때마다 바뀜)'], ['neon?color=OFF', '⛔ 모든 조명 끄기'],
+                  ['neon?color=00E5B5', '🎨 한 색 조명(여섯 자리 색 글자 — # 은 빼고)']];
+    const list = $('urls');
+    URLS.forEach(([p, label]) => {
+        const li = document.createElement('li');
+        const b = document.createElement('b'); b.textContent = label;
+        const c = document.createElement('code'); c.textContent = location.origin + '/api/streamdeck/' + p;
+        li.append(b, c);
+        list.append(li);
+    });
+
+    let tt = 0;
+    function toast(msg, ok) {
+        const t = $('toast');
+        t.textContent = msg;
+        t.className = 'toast ' + (ok ? 'ok' : 'err');
+        void t.offsetWidth;
+        t.classList.add('show');
+        clearTimeout(tt);
+        tt = setTimeout(() => t.classList.remove('show'), ok ? 1800 : 3200);
+    }
+    function pill(id, lv, text) {
+        const p = $(id);
+        p.hidden = false;
+        p.dataset.lv = lv;
+        p.querySelector('span').textContent = text;
+    }
+
+    // 로그인 · OBS 저장 담당 상태 — 20초마다(옛 조종실 클립 점과 같은 셈)
+    async function poll() {
+        let r;
+        try { r = await fetch('/api/clip', { cache: 'no-store', credentials: 'same-origin' }); } catch (e) { pill('login', 'bad', '서버에 닿지 않아요'); return; }
+        if (r.status === 401) {
+            const p = $('login');
+            pill('login', 'bad', '');
+            const a = document.createElement('a');
+            a.href = '/controller/'; a.textContent = '로그인이 필요해요 — 조종실에서 먼저 로그인';
+            p.querySelector('span').replaceChildren(a);
+            $('obs').hidden = true;
+            return;
+        }
+        pill('login', 'ok', '로그인됨');
+        let d = {};
+        try { d = await r.json(); } catch (e) { return; }
+        const o = d.obs || {};
+        if (!o.alive) pill('obs', 'bad', 'OBS 저장 담당이 안 보여요 — 클립은 목록에만 적혀요');
+        else if (!(o.level >= 4)) pill('obs', 'warn', 'OBS 방송판 권한이 낮아요');
+        else if (o.rb === false) pill('obs', 'warn', 'OBS 리플레이 버퍼가 꺼져 있어요');
+        else pill('obs', 'ok', 'OBS 연결됨 · 클립 저장 준비');
+    }
+
+    async function press(btn) {
+        if (btn.classList.contains('busy')) return;
+        if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) { /* 진동 없는 기기 */ } }
+        btn.classList.add('busy');
+        try {
+            const r = await fetch('/api/streamdeck/' + btn.dataset.act, { cache: 'no-store', credentials: 'same-origin' });
+            const d = await r.json().catch(() => ({}));
+            if (r.ok && d.status === 'success') toast(btn.dataset.ok || d.message || '했어요', true);
+            else toast('❌ ' + (d.message || ('실패했어요 (' + r.status + ')')), false);
+            if (r.status === 401) poll();
+        } catch (e) {
+            toast('❌ 서버에 닿지 않아요 — 다시 눌러 주세요', false);
+        } finally {
+            btn.classList.remove('busy');
+        }
+    }
+    document.querySelectorAll('.deck[data-act]').forEach(b => b.addEventListener('click', () => press(b)));
+    // 🎨 내 색 — 색을 고르면 그 색으로(옛 커스텀 색상 단추). # 은 주소에서 %23 으로
+    const pickBtn = $('pick-btn'), pick = $('pick');
+    pickBtn.addEventListener('click', () => { try { pick.showPicker(); } catch (e) { pick.click(); } });
+    pick.addEventListener('change', () => { pickBtn.dataset.act = 'neon?color=' + encodeURIComponent(pick.value); press(pickBtn); });
+    poll();
+    setInterval(() => { if (document.visibilityState === 'visible') poll(); }, 20000);
+})();
+</script>
+</body>
+</html>

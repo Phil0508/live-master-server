@@ -1,0 +1,31 @@
+# 🟢 v2 방송 서버(FastAPI · WebSocket) — 옛 livemaster 와 **나란히** 돈다(포트 5300, 자기 장부 v2/data/lm2.db).
+#
+# ⚠️ uvicorn 워커를 여러 개 띄우지 말 것(--workers 금지). 명령은 한 프로세스 · 한 줄로 처리하고
+#    상태(조각)를 메모리에 들고 있다 — 워커가 둘이면 화면마다 점수가 갈라진다(옛 것과 같은 이유).
+# ⚠️ 127.0.0.1 에만 붙는다. 바깥은 Caddy 가 https 로 받아 넘긴다.
+
+[Unit]
+Description=Live Master v2 방송 서버
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=livemaster
+WorkingDirectory=/opt/livemaster
+EnvironmentFile=/etc/livemaster.env
+Environment=LM2_HOST=127.0.0.1
+Environment=LM2_PORT=5300
+Environment=LM2_DB=/opt/livemaster/v2/data/lm2.db
+ExecStart=/opt/livemaster/.venv/bin/python -m v2.server.app
+
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=livemaster-v2
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+[Install]
+WantedBy=multi-user.target

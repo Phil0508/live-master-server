@@ -1,0 +1,179 @@
+/* 💿 시그니처 관리 탭(panels/tools_sig.js · panels/sig/*) — 목록 카드 · 등록/고치기 판 · 최근 바뀐 것
+   + 📱 폰 조종실(옛 mobile.html)을 대신하는 폰 화면 손보기 — 맨 아래 묶음.
+   색은 controller.css 의 이름표(--accent · --line · --muted · --good · --warn · --bad …)만 쓴다. 바깥(CDN) 없음. */
+
+.sg { display: flex; flex-direction: column; gap: 14px; }
+.sg-blk { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 18px; background: rgba(0, 0, 0, 0.16); border: 1px solid var(--line-soft); min-width: 0; }
+.sg-bh { display: flex; align-items: center; gap: 6px 10px; flex-wrap: wrap; }
+.sg-bh h3 { font-size: 16px; font-weight: 800; margin: 0; }
+.sg-bh .sg-mini, .sg-bh .tag { margin-left: auto; }
+.sg-sub { color: var(--muted); font-size: 13px; font-weight: 700; }
+.sg-warn { margin: 0; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.55; color: var(--muted);
+    background: rgba(255, 179, 107, 0.07); border: 1px solid rgba(255, 179, 107, 0.22); }
+.sg-warn b { color: var(--gold); }
+.sg-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.sg-q { flex: 1 1 220px; }
+.sg-add { flex: none; }
+.sg-state { margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 13.5px; font-weight: 700; color: var(--muted); background: rgba(255, 255, 255, 0.05); }
+.sg-state.bad { color: #ffb8b8; background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.35); }
+.sg-mini {
+    min-width: 40px; height: 40px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06);
+    color: var(--text); font: inherit; font-size: 15px; font-weight: 800; cursor: pointer;
+}
+.sg-mini:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+.sg-mini:disabled { opacity: 0.4; cursor: default; }
+.sg .btn.wait, .sg-sheet .btn.wait { opacity: 0.6; cursor: progress; }
+
+/* ── 카드 목록 ── */
+.sg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 10px; }
+.sg-card {
+    display: flex; flex-direction: column; align-items: stretch; gap: 3px; padding: 8px 8px 10px; min-width: 0; text-align: left;
+    border-radius: 16px; border: 1px solid var(--line-soft); background: rgba(255, 255, 255, 0.045); color: var(--text); font: inherit; cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+.sg-card:hover { background: rgba(255, 255, 255, 0.09); border-color: var(--line); }
+.sg-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sg-card.dup { border-color: rgba(245, 165, 36, 0.45); }
+.sg-card.playing { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+.sg-thumb { position: relative; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: #120e0c; border: 1px solid var(--line-soft); display: grid; place-items: center; margin-bottom: 4px; }
+.sg-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sg-noimg { color: var(--dim); font-size: 12.5px; font-weight: 700; }
+.sg-id { position: absolute; top: 6px; left: 6px; padding: 1px 7px; border-radius: 999px; background: rgba(0, 0, 0, 0.62); color: #e8ded6; font-size: 11.5px; font-weight: 800; }
+.sg-play {
+    position: absolute; right: 6px; bottom: 6px; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(0, 0, 0, 0.66); color: #fff; font-size: 15px; font-weight: 900; display: grid; place-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.sg-play:hover { background: var(--accent); color: var(--on-accent); }
+.sg-card.playing .sg-play { background: var(--accent); color: var(--on-accent); }
+.sg-amt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--gold); font-size: 15.5px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.sg-amt .tag { height: 20px; font-size: 11px; padding: 0 7px; }
+.sg-title { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-snd { font-size: 12px; font-weight: 700; }
+.sg-snd.ok { color: #8ef0b8; }
+.sg-snd.no { color: #ffd28a; }
+
+/* ── 최근 바뀐 것 ── */
+.sg-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sg-logrow { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line-soft); }
+.sg-logrow.trash { border-color: rgba(245, 165, 36, 0.45); background: rgba(245, 165, 36, 0.07); }
+.sg-log-ic { text-align: center; font-size: 16px; }
+.sg-log-t { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sg-log-t b { font-size: 14px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-log-t small { color: var(--muted); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.sg-hist > .btn { align-self: flex-start; }
+
+/* ── 등록 · 고치기 판 — 넓은 화면은 가운데 상자, 폰은 화면 가득 ── */
+body.sg-open { overflow: hidden; }
+.sg-sheet-wrap { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(10, 7, 6, 0.66); animation: fade 0.15s ease; }
+.sg-sheet {
+    width: min(540px, 100%); max-height: calc(100vh - 32px); display: flex; flex-direction: column; border-radius: 24px;
+    background: #261d18; border: 1px solid var(--line); box-shadow: var(--shadow); overflow: hidden;
+}
+.sg-sheet.busy { cursor: progress; }
+.sg-sheet-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px 20px; border-bottom: 1px solid var(--line-soft); }
+.sg-sheet-head h2 { margin: 0; font-size: 19px; font-weight: 900; }
+.sg-x { margin-left: auto; }
+.sg-sheet-body { flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding: 14px 20px; display: flex; flex-direction: column; gap: 12px; }
+.sg-sheet-extra { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 20px; border-top: 1px solid var(--line-soft); }
+.sg-sheet-extra .ghost-danger { margin-left: auto; }
+.sg-sheet-foot { display: flex; gap: 10px; padding: 12px 20px 16px; border-top: 1px solid var(--line-soft); background: rgba(0, 0, 0, 0.12); }
+.sg-sheet-foot .btn { flex: 1; }
+.sg-sheet-foot .sg-save { flex: 2; }
+.sg-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: var(--muted); font-size: 13.5px; font-weight: 700; }
+.sg-field em { font-style: normal; color: var(--accent-hi); font-size: 12px; }
+.sg-field input { width: 100%; }
+.sg-row2 { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; }
+input.sg-amtin { font-size: 20px; font-weight: 900; font-variant-numeric: tabular-nums; }
+input.sg-dur { font-variant-numeric: tabular-nums; }
+.sg-hint { margin: 0; color: var(--dim); font-size: 12.5px; line-height: 1.55; }
+.sg-hint b { color: var(--muted); }
+.sg-note { margin: -4px 2px 0; font-size: 13px; font-weight: 700; line-height: 1.5; color: var(--muted); }
+.sg-note.warn { color: #ffd28a; }
+.sg-note.info { color: #b9d4ff; }
+.sg-note.bad, .sg-msg.bad { color: #ffb8b8; }
+.sg-msg { margin: 0; padding: 9px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); font-size: 13.5px; font-weight: 700; color: var(--muted); }
+.sg-msg.bad { background: rgba(255, 107, 107, 0.12); border: 1px solid rgba(255, 107, 107, 0.35); }
+
+.sg-picks { display: flex; flex-direction: column; gap: 8px; }
+.sg-pickrow { display: flex; gap: 8px; align-items: stretch; }
+.sg-pickrow .sg-mini { align-self: center; color: #ff9e9e; }
+.sg-pick {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 16px; cursor: pointer;
+    border: 2px dashed rgba(255, 255, 255, 0.16); background: rgba(0, 0, 0, 0.2); transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sg-pick:hover, .sg-pick:focus-within { border-color: var(--accent); background: rgba(240, 123, 63, 0.05); }
+.sg-pick-box { flex: none; width: 64px; height: 64px; border-radius: 12px; overflow: hidden; background: #120e0c; border: 1px solid var(--line-soft); display: grid; place-items: center; }
+.sg-pick-img { width: 100%; height: 100%; object-fit: cover; }
+.sg-pick-ic { font-size: 26px; }
+.sg-pick-t { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sg-pick-t b { font-size: 15px; }
+.sg-pick-name { color: var(--muted); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.sg-pick-name.new { color: var(--accent-hi); font-weight: 800; }
+/* 파일 칸은 숨기되 키보드 · 화면 읽기는 닿게(display:none 이면 label 눌러도 안 열리는 브라우저가 있다) */
+.sg-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; pointer-events: none; }
+.sg-audio { width: 100%; height: 40px; }
+
+@media (max-width: 899px) {
+    .sg-blk { padding: 12px; }
+    .sg-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .sg-add { flex: 1 1 100%; }
+    /* 판은 화면 가득 — 위아래 단추는 늘 손가락 닿는 자리에 */
+    .sg-sheet-wrap { padding: 0; place-items: stretch; }
+    .sg-sheet { width: 100%; max-height: none; height: 100%; border-radius: 0; border: 0; }
+    .sg-sheet-head { padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 8px 16px; }
+    .sg-sheet-body { padding: 12px 16px; }
+    .sg-sheet-extra { padding: 10px 16px; }
+    .sg-sheet-foot { padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); }
+    .sg-row2 { grid-template-columns: minmax(0, 1fr) 110px; }
+    .sg-logrow { grid-template-columns: 22px minmax(0, 1fr); }
+    .sg-logrow > .btn, .sg-logrow > .tag { grid-column: 2; justify-self: start; }
+}
+
+/* ── 👀 방송 화면 보기(panels/sig/monitor.js) — 1080×1920 비율, 화면 높이의 70% 안 ── */
+.mon-box { position: relative; width: min(100%, calc(70vh * 9 / 16)); aspect-ratio: 9 / 16; margin: 0 auto; border-radius: 18px; overflow: hidden;
+    background: #000; border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35); }
+.mon-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; color-scheme: light; }
+/* ⚠️ 조종실은 color-scheme: dark — 틀(iframe) 쪽과 다르면 크롬이 틀 뒤를 흰색으로 칠한다(투명한 방송판이 하얗게 보였다). 틀만 light 로 맞춘다 */
+.sg a.btn { text-decoration: none; }
+
+/* ── 💿 따로 연 시그니처 관리(sig.html) ── */
+.sg-page main { max-width: 1100px; margin: 0 auto; }
+.sg-page .hdr-right { display: flex; align-items: center; gap: 8px; }
+.sg-page .hdr-right a.btn { text-decoration: none; }
+.sg-login { max-width: 460px; margin: 40px auto; display: flex; flex-direction: column; gap: 12px; }
+.sg-login a.btn, .ph-setup a.btn { text-decoration: none; }
+
+/* ═══ 📱 폰 조종실 손보기(js/phone.js) — 옛 mobile.html 대신 이 조종실을 폰에서 쓴다 ═══ */
+/* 방송 전 화면의 시그니처 관리 바로가기 */
+.ph-setup { width: min(470px, 100%); display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; }
+.ph-setup p { margin: 0; }
+/* 새 후원 알림 띠 — 폰에서 대기함이 화면 밖일 때만(phone.js 가 켠다) */
+.ph-new {
+    /* ⚠️ left:50% + translate 로 가운데 두면 폭이 화면 절반으로 줄어 이름 · 금액이 잘린다 — 양쪽을 잡고 margin auto */
+    position: fixed; left: 12px; right: 12px; top: calc(var(--hdr-h) + 18px); margin: 0 auto; width: fit-content; z-index: 85;
+    display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 24px); min-height: 46px; padding: 0 16px 0 12px;
+    border-radius: 999px; border: 1px solid rgba(255, 179, 107, 0.6); background: rgba(52, 36, 22, 0.97); color: var(--text);
+    font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5); animation: phIn 0.2s ease;
+}
+@keyframes phIn { from { opacity: 0; transform: translateY(-8px); } }
+.ph-new .ph-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-new .ph-t b { color: var(--gold); }
+.ph-new .ph-go { flex: none; color: var(--accent-hi); font-weight: 900; }
+body.sg-open .ph-new { display: none; }
+
+@media (max-width: 899px) {
+    /* ⚠️ 탭(게임 · 도구)이 맨 위에 와서 대기함이 화면 아래로 밀려났다(탭 줄 370px + 열린 탭).
+       대기함 · 점수판 · 되돌리기 · 시그니처 대기줄 다음으로 내린다 — 방송 중 제일 많이 누르는 것이 위에. */
+    .tabs-sec { order: 5; }
+    /* 탭 줄 — 스무 개가 여섯 줄을 차지했다. 한 줄로 옆으로 밀어 본다(끝은 흐리게 — 더 있다는 표시) */
+    .tabbar {
+        position: relative; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+        -webkit-overflow-scrolling: touch; padding: 2px 28px 4px 2px; margin-left: -2px;
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 30px), transparent);
+    }
+    .tabbar::-webkit-scrollbar { display: none; }
+    .tabbar .tab { flex: none; min-height: 42px; }
+    .tabbar .tabsep { flex: none; }
+    .mon-box { width: 100%; max-width: 420px; }
+}

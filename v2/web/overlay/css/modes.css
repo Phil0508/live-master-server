@@ -1,0 +1,22 @@
+/* 🎚️ 판 모드가 다른 칸을 가리는 규칙 — 한 곳에 모은다(묶음마다 흩어 두면 누가 누구를 가리는지 못 찾는다).
+   위젯은 stage.setMode(이름, on) 으로 캔버스에 '<이름>-mode' 표시만 붙이고, 가리는 일은 여기서 칸 겉(.layer-<id>)만 한다.
+   ⚠️ 가린 칸은 게이지 딱지가 피하지 않는다(main.js bands 가 보이지 않는 칸을 뺀다).
+   ⚠️ 시그니처 중(reaction-mode) 규칙은 overlay.css — 칸마다 hideInReaction 으로 정한다. */
+
+/* 🎬 시작 · 끝 화면(stage-mode) — 화면을 덮는 동안 판 위에 아무것도 남지 않게(옛 body.stage-on).
+   남기는 것: 후원 팝업 · 소액 후원 · 시그니처(방송 전에도 후원은 들어온다). 게임판 · 기본2 칸은 각자 내린다(coverOn · basics2.css). */
+#canvas.stage-mode :is(.layer-ranking, .layer-best, .layer-donorRank, .layer-gauge, .layer-scorePopup, .layer-takeover) {
+    opacity: 0 !important; visibility: hidden !important;
+}
+
+/* 🏆 점수판 — 주사위판 · 퇴근빵 · 지옥탈출이 그 자리를 쓴다(옛 rankHiddenBy.dice · race — 주사위 점수는 판 위 띠에 뜬다) */
+#canvas:is(.game-dicegame-mode, .game-home-mode, .game-hell-mode) .layer-ranking { opacity: 0 !important; visibility: hidden !important; }
+
+/* 🏅 후원 순위 · 💥 최고 후원 — 게임판이 떠 있는 동안 내린다(옛 body.game-on).
+   ⚠️ 퀴즈는 옛 것도 game-on 이 아니었다(네모칸만 가운데에 뜬다). */
+#canvas:is(.game-dicegame-mode, .game-siggame-mode, .pinball-game-mode, .roulette-game-mode, .slot-game-mode) :is(.layer-donorRank, .layer-best) {
+    opacity: 0 !important; visibility: hidden !important;
+}
+
+/* 🎯 게이지 금액 딱지 — 핀볼 · 룰렛 · 슬롯 동안 비킨다 */
+#canvas:is(.pinball-game-mode, .roulette-game-mode, .slot-game-mode) .goal-rail-tip { opacity: 0 !important; }

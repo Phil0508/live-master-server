@@ -1,0 +1,5 @@
+# v2 서버(FastAPI)가 더 쓰는 것 — 옛 requirements.txt(flask · requests · websockets …)에 **얹어서** 설치한다.
+# 버전은 이 PC 에서 검사(python -m unittest discover -s v2/tests -t .)를 통과한 그대로 묶는다.
+fastapi==0.139.0
+uvicorn==0.49.0
+python-multipart==0.0.32

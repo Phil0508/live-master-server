@@ -1,0 +1,13 @@
+# 💾 v2 장부 백업 한 번 — livemaster-v2-backup.timer 가 매일 부른다.
+#    바깥(Supabase 보관소)에도 올리려면 ExecStart 끝에 --upload 를 붙인다(backups 버킷을 비공개로 먼저 만든다).
+[Unit]
+Description=Live Master v2 장부 백업
+
+[Service]
+Type=oneshot
+User=livemaster
+WorkingDirectory=/opt/livemaster
+EnvironmentFile=/etc/livemaster.env
+Environment=LM2_DB=/opt/livemaster/v2/data/lm2.db
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/opt/livemaster/.venv/bin/python -m v2.tools.backup_db --keep 14

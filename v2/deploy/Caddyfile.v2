@@ -1,0 +1,24 @@
+# 🌐 v2 를 **같은 주소의 다른 포트(8443)** 로 연다 — DNS 를 안 건드리고 옛 것(443)과 나란히 쓴다.
+#    /etc/caddy/Caddyfile 끝에 이 덩어리를 붙인다(옛 덩어리는 그대로 둔다).
+#    v2 조종실: https://엔젤컴퍼니.메인.한국:8443/controller/   방송판: …:8443/overlay/
+# ⚠️ 서버 방화벽(ufw 를 쓰면)에서 8443 을 열어야 한다: sudo ufw allow 8443/tcp
+# ⚠️ WebSocket(/ws)은 Caddy 가 알아서 넘긴다. 줄 하나가 몇 시간 이어지므로 시간 제한을 끈다.
+
+xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e:8443 {
+	encode gzip
+
+	reverse_proxy 127.0.0.1:5300 {
+		flush_interval -1
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+
+	log {
+		output file /var/log/caddy/livemaster-v2.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

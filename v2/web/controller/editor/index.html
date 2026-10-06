@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1411">
+    <title>위젯 자리 편집기 · 라이브 마스터</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23f07b3f'/%3E%3Cpath d='M5 5h6v6H5zM13 13h6v6h-6z' fill='%23fff'/%3E%3C/svg%3E">
+    <!-- 🧭 v2 위젯 자리 편집기 — 옛 admin.html 편집기의 v2 판.
+         왼쪽: 진짜 방송판(/overlay/?monitor=1)을 그대로 띄운다 — 손으로 베낀 모양이 아니라 방송에 나가는 바로 그 화면.
+         오른쪽(폰은 아래): 위젯 목록 · 고른 위젯의 자리 · 크기.
+         끄는 동안은 이 화면 안에서만 움직이고, 손을 뗄 때 한 번만 서버에 적는다(layout.set) → 열려 있는 방송판이 모두 따라온다.
+         ⚠️ 서버 코드는 안 고쳤다 — /controller 정적 폴더 아래(editor/)에 두어 /controller/editor/ 로 열린다. -->
+    <link rel="stylesheet" href="./editor.css">
+    <script src="/shared/client.js"></script>
+    <script type="module" src="./editor.js"></script>
+    <!-- 🎚️ 세이브 슬롯 · 시그니처 리액션 · 목록 개수 칸(옛 admin.html) — editor.js 다음에 돈다(모듈은 적힌 순서대로) -->
+    <script type="module" src="./settings.js"></script>
+</head>
+<body data-view="splash">
+    <header class="hdr">
+        <a class="back" href="/controller/" title="조종실로">← 조종실</a>
+        <h1>🧭 위젯 자리 편집기</h1>
+        <span class="pill" id="pill-live" hidden></span>
+        <span class="pill" id="pill-conn">연결 중…</span>
+    </header>
+
+    <!-- 연결 중 -->
+    <section class="view v-splash"><div class="card center"><span class="spin" aria-hidden="true"></span><p>서버에 연결하는 중…</p></div></section>
+
+    <!-- 로그인 필요 -->
+    <section class="view v-login">
+        <div class="card center login-card">
+            <h2>로그인이 필요해요</h2>
+            <p class="muted">위젯 자리는 조종실과 같은 비밀번호로 들어가야 바꿀 수 있어요.</p>
+            <a class="btn pri wide" href="/controller/">조종실에서 로그인하기</a>
+            <button class="btn wide" type="button" id="btn-reload">로그인했어요 — 다시 불러오기</button>
+        </div>
+    </section>
+
+    <!-- 편집 -->
+    <main class="view v-edit">
+        <section class="stage-wrap" id="stage-wrap" aria-label="방송판 미리보기">
+            <div class="stage-box" id="stage-box">
+                <div class="stage-inner" id="stage-inner">
+                    <iframe id="frame" title="방송판" tabindex="-1"></iframe>
+                    <div class="glass" id="glass"></div>
+                </div>
+            </div>
+            <p class="stage-hint" id="stage-hint">위젯을 눌러 고르고 끌어서 옮기세요 · 화살표 1px · Shift+화살표 10px</p>
+        </section>
+
+        <aside class="side" aria-label="위젯">
+            <section class="card props" id="props">
+                <p class="muted empty-sel" id="empty-sel">왼쪽 화면이나 아래 목록에서 위젯을 고르세요.</p>
+                <div class="sel-body" id="sel-body" hidden>
+                    <div class="sel-head">
+                        <h2 id="sel-name"></h2>
+                        <span class="chip" id="sel-state"></span>
+                    </div>
+                    <p class="muted small" id="sel-anchor"></p>
+                    <div class="xy">
+                        <label class="field"><span>가로(x)</span><input type="number" id="in-x" step="1" inputmode="numeric"></label>
+                        <label class="field"><span>세로(y)</span><input type="number" id="in-y" step="1" inputmode="numeric"></label>
+                    </div>
+                    <label class="field scale-field">
+                        <span>크기 <b id="scale-val">1.00배</b></span>
+                        <input type="range" id="in-scale" min="0.2" max="4" step="0.01" value="1">
+                    </label>
+                    <div class="scale-quick">
+                        <button class="btn sm" type="button" data-scale="0.5">0.5</button>
+                        <button class="btn sm" type="button" data-scale="0.75">0.75</button>
+                        <button class="btn sm" type="button" data-scale="1">1</button>
+                        <button class="btn sm" type="button" data-scale="1.25">1.25</button>
+                        <button class="btn sm" type="button" data-scale="1.5">1.5</button>
+                    </div>
+                    <div class="row-btns">
+                        <button class="btn" type="button" id="btn-reset-one">기본 자리로</button>
+                        <span class="save-state small" id="save-state" aria-live="polite"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card list-card">
+                <div class="list-head">
+                    <h2>위젯</h2>
+                    <label class="tog" title="방송 꺼짐 · 스위치 꺼짐으로 지금 안 보이는 위젯"><input type="checkbox" id="tog-hidden" checked> 숨은 위젯 테두리</label>
+                    <label class="tog" title="후원 팝업 · 게임판처럼 일이 생길 때만 그려지는 위젯"><input type="checkbox" id="tog-empty"> 빈 칸 테두리</label>
+                    <label class="tog"><input type="checkbox" id="tog-ghost"> 숨은 것 흐리게 그리기</label>
+                </div>
+                <ul class="wlist" id="wlist" role="listbox" aria-label="위젯 목록"></ul>
+                <div class="reset-all">
+                    <button class="btn danger-ghost wide" type="button" id="btn-reset-all">전부 기본 자리로</button>
+                    <div class="confirm" id="confirm-all" hidden role="alertdialog" aria-label="전부 기본 자리로">
+                        <p>옮겨 둔 위젯 <b id="moved-count">0</b>개를 모두 기본 자리 · 기본 크기로 돌릴까요?<br>
+                           <span class="muted small">켜져 있는 방송판이 바로 따라갑니다.</span></p>
+                        <div class="row-btns">
+                            <button class="btn danger" type="button" id="btn-reset-all-yes">돌리기</button>
+                            <button class="btn" type="button" id="btn-reset-all-no">그만두기</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </main>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

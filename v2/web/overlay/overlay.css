@@ -1,0 +1,339 @@
+/* 🎨 v2 방송판 생김새 — 옛 overlay.html 기본 테마(유리 × 금색)에서 이 위젯들에 필요한 것만 옮겼다.
+   숫자 · 색은 옛 것과 같다(대표님이 방송으로 다듬어 온 값 — 옛 주석의 이유도 같이 옮겼다).
+   ⚠️ 여기에는 z-index 를 쓰지 않는다. 층 순서는 layers.js 한 표에서만 정한다(칸 안의 작은 겹침 순서만 예외).
+   ⚠️ 글꼴: 옛 방송판은 Pretendard 를 바깥 CDN(jsdelivr)에서 받았다. v2 는 바깥에 기대지 않으므로 Pretendard 가
+      PC 에 깔려 있으면 그것, 없으면 맑은 고딕으로 그린다(vendor/fonts 에 Pretendard 를 넣으면 똑같아진다). */
+@import url("/vendor/fonts/fonts.css");
+
+/* ═══ 1. 디자인 토큰(옛 :root 그대로 — 기본 테마) ═══ */
+:root {
+    --text-main: #f5f5f7; --text-highlight: #f6c453; --text-secondary: #00E5B5;
+    --gold: #f6c453; --gold-deep: #dfa63e; --gold-glow: rgba(246, 196, 83, 0.45);
+    --glass-bg: linear-gradient(160deg, rgba(30,30,40,0.80), rgba(14,14,20,0.88));
+    --glass-border: rgba(255,255,255,0.14);
+    --glass-top-light: rgba(255,255,255,0.28);
+    --glass-radius: 22px;
+    --glass-shadow: 0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10);
+    --tx-2: rgba(235,235,245,0.62);
+    --tx-3: rgba(235,235,245,0.35);
+    --game-red: #ff3b5c;
+    --theme-neon: #ff0055;
+    --gold-rgb: 246, 196, 83;
+    --gold-light: #ffe9b0;
+    --on-gold: #241a05;
+    --silver: #dfe3ea; --silver-2: #9aa2ae; --on-silver: #1a1c20;
+    --bronze: #d9a066; --bronze-2: #a8703c; --on-bronze: #1a1206;
+    --extra: #ff3366; --extra-rgb: 255, 51, 102;
+    --row-bg: rgba(0,0,0,.42); --row-border: rgba(255,255,255,.10);
+    --sh-1: 0 3px 10px rgba(0,0,0,.5);
+    --sh-2: 0 8px 24px rgba(0,0,0,.55);
+    --sh-3: 0 18px 50px rgba(0,0,0,.55);
+    --sh-4: 0 22px 70px rgba(0,0,0,.75);
+    --glow-s: 0 4px 14px var(--gold-glow);
+    --glow-m: 0 0 24px var(--gold-glow);
+    --glow-l: 0 0 60px var(--gold-glow);
+    --ts-1: 0 2px 5px rgba(0,0,0,.85);
+    --ts-2: 0 2px 4px #000, 0 0 10px rgba(0,0,0,.85);
+    --r-s: 8px; --r-m: 14px; --r-l: 22px;
+    --t-fast: .2s; --t-base: .4s; --t-slow: .8s;
+    --ease: cubic-bezier(.16, 1, .3, 1);
+    --ease-pop: cubic-bezier(.175, .885, .32, 1.275);
+    --font-ui: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+/* ═══ 2. 바탕 · 캔버스 · 칸 ═══ */
+/* 🔍 시스템이 다크 모드면 OBS(CEF)가 페이지를 어두운 색으로 칠한다 — only light 로 투명을 지킨다(옛 것과 같다) */
+:root { color-scheme: only light; }
+html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+    background: transparent !important; background-color: rgba(0,0,0,0) !important;
+    font-family: var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-main); }
+#scale-wrapper { position: absolute; top: 0; left: 0; width: 1080px; height: 1920px; transform-origin: top left; }
+#canvas { position: relative; width: 100%; height: 100%; }
+
+.layer { position: absolute; pointer-events: none;
+    transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
+/* 방송 꺼짐 · 고정 자리 스위치 꺼짐 */
+.layer.off { opacity: 0 !important; visibility: hidden !important; }
+/* 🎵 시그니처가 도는 동안 점수판 · 게이지 · 1등 탈환을 가린다(옛 body.reaction-mode 가 #ui-layer 를 가리던 것) */
+#canvas.reaction-mode .layer.hide-in-reaction { opacity: 0 !important; visibility: hidden !important; }
+
+/* 유리 카드 공통 질감 — OBS 에 블러가 없어도 유리처럼(자체 그라데이션 + 위쪽 한 줄 빛) */
+.excel-board, .best-board, .donor-rank-board, .donation-popup-content { position: relative;
+    background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius);
+    box-shadow: var(--glass-shadow); }
+.excel-board::before, .best-board::before, .donor-rank-board::before, .donation-popup-content::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit;
+    background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+    pointer-events: none; }
+
+/* ═══ 3. 🏆 점수판(옛 엑셀판) ═══
+   이름 · 점수 31px · 줄 높이 58 · 기여도 27px(점수의 조연). 판 폭 876 = 칸 410×2 + 사이 20 + 여백 36.
+   점수 124 = '9,999'(92) + 빈칸 32 · 기여도 111 · 이름 칸은 나머지(5글자부터 … 로 줄어든다). */
+.excel-board { padding: 18px; width: max-content; display: flex; flex-direction: column; gap: 8px; }
+.excel-grid-container { display: flex; gap: 20px; }
+.excel-col { display: flex; flex-direction: column; width: 410px; }
+.excel-header { color: var(--gold); font-weight: 700; font-size: 27px; letter-spacing: 0.04em;
+    display: grid; grid-template-columns: 48px 1fr 124px 111px;
+    padding: 0 6px 9px; margin-bottom: 4px; border-bottom: 2px solid rgba(var(--gold-rgb), 0.5); }
+.excel-header div { display: flex; align-items: center; }
+.excel-header div:nth-child(3), .excel-header div:nth-child(4) { justify-content: flex-end; }
+.excel-row { display: grid; grid-template-columns: 48px 1fr 124px 111px; height: 58px;
+    border-bottom: 1px solid rgba(255,255,255,0.07); font-weight: 800; align-items: center; padding: 0 6px; }
+.excel-row > div { display: flex; align-items: center; min-width: 0; }
+/* 기여도가 100만을 넘는 줄이 있으면 숫자 두 칸을 넓힌다 */
+.excel-board.big-num .excel-header, .excel-board.big-num .excel-row { grid-template-columns: 48px 1fr 134px 140px; }
+.excel-row > div:nth-child(3), .excel-row > div:nth-child(4) { justify-content: flex-end; }
+.excel-col .excel-row:last-child { border-bottom: none; }
+.r-rank { width: 38px; height: 38px; border-radius: var(--r-s); flex: none; justify-content: center;
+    background: rgba(255,255,255,0.07); color: var(--tx-2); font-size: 27px; font-weight: 800; }
+.r-name { color: #fff; font-weight: 800; font-size: 31px; letter-spacing: -0.02em; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; padding-left: 10px; text-shadow: var(--ts-1); }
+.r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+.r-contrib { color: var(--gold); font-weight: 700; font-size: 27px; font-variant-numeric: tabular-nums; padding-left: 10px; }
+.excel-row:nth-child(even) { background: rgba(255,255,255,0.03); }
+.excel-row.rank-1 { background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.20), transparent 70%); }
+.rank-1 .r-rank { background: var(--gold);   color: var(--on-gold); }
+.rank-2 .r-rank { background: var(--silver); color: var(--on-silver); }
+.rank-3 .r-rank { background: var(--bronze); color: var(--on-bronze); }
+.rank-1 .r-score { color: var(--gold); }
+/* 🔀 순위가 바뀌면 줄이 옛 자리에서 새 자리로 미끄러진다(top/left 로 — transform 애니메이션과 안 싸우게) */
+.excel-row.rank-moving, .dr-row.rank-moving { position: relative; }
+.excel-row.rank-moving.rank-go, .dr-row.rank-moving.rank-go { transition: top var(--t-slow) var(--ease), left var(--t-slow) var(--ease); }
+.excel-row.rank-up::after, .dr-row.rank-up::after { content: ""; position: absolute; inset: -2px; border-radius: var(--r-s);
+    pointer-events: none; animation: rankUpGlow 1.3s ease-out forwards; }
+@keyframes rankUpGlow {
+    0%   { box-shadow: 0 0 0 3px rgba(var(--gold-rgb), .95), 0 0 30px var(--gold-glow); opacity: 1; }
+    100% { box-shadow: 0 0 0 2px rgba(var(--gold-rgb), 0), 0 0 0 transparent; opacity: 0; }
+}
+/* 🟢 번외 판 — 같은 판 · 같은 줄에 색만 덮는다(옛 #extra-excel-board 의 인라인 색) */
+.excel-board.is-extra { border-color: var(--extra); box-shadow: var(--glass-shadow), 0 0 24px rgba(var(--extra-rgb), 0.35); }
+.excel-board.is-extra .excel-header { background: var(--extra); color: #fff; }
+.excel-board.is-extra .r-rank { color: #ff3366; }
+.excel-board.is-extra .r-contrib { color: #ff85a2; }
+
+/* ═══ 4. 💰 목표 게이지 — 오른쪽 끝 세로 막대(30px 만 빌리고 세로는 안 쓴다) ═══ */
+.gauge-wrap.no-target { display: none; }
+.goal-rail { position: relative; width: 28px; height: 837px; background: rgba(0,0,0,.5);
+    border: 1px solid rgba(var(--gold-rgb), .45); border-radius: 999px;
+    box-shadow: var(--sh-2), inset 0 0 12px rgba(0,0,0,.7); }
+.goal-rail-fill { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 0; border-radius: 999px;
+    background: linear-gradient(180deg, var(--gold-light), var(--gold) 40%, var(--gold-deep));
+    box-shadow: var(--glow-m); transition: height var(--t-slow) var(--ease); }
+/* 찬 꼭대기에 붙어 같이 올라가는 금액 딱지(수은주처럼) */
+.goal-rail-tip { position: absolute; right: calc(100% + 10px); bottom: 3px; transform: translateY(50%);
+    white-space: nowrap; text-align: right; background: rgba(10,10,14,.9);
+    border: 2px solid var(--gold); border-radius: var(--r-m); padding: 8px 16px; box-shadow: var(--sh-2), var(--glow-m);
+    transition: bottom var(--t-slow) var(--ease), opacity var(--t-base) ease; }
+/* 30px 이라야 폰에서 11px(방송 1080 → 폰 2.7배 작아진다) */
+.goal-rail-amt { display: block; font-size: 30px; font-weight: 900; color: var(--gold); line-height: 1.1;
+    font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+@keyframes goalRailFlash {
+    0%, 100% { box-shadow: var(--sh-2), inset 0 0 12px rgba(0,0,0,.7); border-color: rgba(var(--gold-rgb), .45); }
+    50%      { box-shadow: 0 0 34px var(--gold), 0 0 72px var(--gold-glow); border-color: var(--gold); }
+}
+.goal-rail.goal-flash { animation: goalRailFlash 1.1s ease-in-out 3; }
+
+/* ═══ 5. 🎁 후원 카드(화면 한가운데) ═══ */
+.donation-popup-content { padding: 32px 48px; text-align: center; min-width: 640px; box-sizing: border-box;
+    box-shadow: var(--glass-shadow), 0 0 40px rgba(0,0,0,0.35);
+    opacity: 0; visibility: hidden; transform: scale(0.8) translateY(30px);
+    transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease, visibility var(--t-base);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.donation-popup-content.show { opacity: 1; visibility: visible; transform: scale(1) translateY(0); }
+/* 이름이 주인공. keep-all + anywhere 가 한글에 맞다(break-all 은 '응원합니/다' 로 자른다) */
+.donator-text { font-size: 26px; font-weight: 700; color: var(--tx-2); letter-spacing: -0.3px;
+    word-break: keep-all; overflow-wrap: anywhere; line-height: 1.35; }
+.donator-name { color: #fff; font-size: 40px; font-weight: 900; letter-spacing: -0.5px; }
+.donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: var(--ts-2), 0 0 28px var(--gold-glow);
+    margin: 8px 0 16px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+.donation-amount .won { font-size: 0.56em; font-weight: 800; color: var(--tx-2); margin-left: 4px; letter-spacing: 0; }
+.donation-message { background: rgba(255, 255, 255, 0.07); border: none; border-radius: var(--r-m); padding: 14px 28px;
+    font-size: 29px; font-weight: 600; color: rgba(235,235,245,0.85); max-width: 700px;
+    word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45; }
+
+/* ═══ 6. 💬 소액 후원 띠 — 맨 위 반투명 한 줄(대표님 2026-09-29 A안) ═══
+   이름 · 금액만 청록 #32C3A6, 나머지 흰 글씨에 굵은 검은 테두리(paint-order 로 글자 뒤에). 바탕 35%. */
+.small-don { box-sizing: border-box; width: 100%; padding: 16px 40px 20px; text-align: center; background: rgba(0, 0, 0, 0.35);
+    opacity: 0; visibility: hidden; transform: translateY(-100%);
+    transition: transform var(--t-base) var(--ease), opacity var(--t-base) ease, visibility var(--t-base); }
+.small-don.show { opacity: 1; visibility: visible; transform: none; }
+.small-don .sd-line { font-family: var(--font-ui); font-weight: 900; font-size: 58px; line-height: 1.2; letter-spacing: -0.5px;
+    color: #fff; -webkit-text-stroke: 9px #000; paint-order: stroke fill; word-break: keep-all; overflow-wrap: anywhere; }
+.small-don .sd-hl { color: #32C3A6; }
+.small-don .sd-msg { margin-top: 4px; font-family: var(--font-ui); font-weight: 800; font-size: 40px; line-height: 1.3; color: #fff;
+    -webkit-text-stroke: 7px #000; paint-order: stroke fill; word-break: keep-all; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ═══ 7. 🔔 점수 팝업 · 👑 1등 탈환(알약) ═══ */
+.center-popup-content { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 999px; padding: 16px 60px;
+    font-size: 36px; font-weight: 800; color: white; white-space: nowrap; box-shadow: var(--glass-shadow);
+    display: flex; align-items: center; justify-content: center; opacity: 0;
+    transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); transform: translateY(30px) scale(0.8); }
+.center-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
+.center-popup-content .popup-score { color: var(--text-secondary); margin-left: 15px; }
+.takeover-popup-content { background: var(--glass-bg); border: 1px solid rgba(var(--gold-rgb), 0.5); border-radius: 999px; padding: 16px 60px;
+    font-size: 40px; font-weight: 900; color: var(--gold); white-space: nowrap; box-shadow: var(--glass-shadow), 0 0 34px var(--gold-glow);
+    opacity: 0; transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop); transform: translateY(40px) scale(0.7); }
+.takeover-popup-content.show { opacity: 1; transform: translateY(0) scale(1); }
+.takeover-popup-content .takeover-text { color: var(--theme-neon); }
+
+/* ═══ 8. 💥 한 방 최고 후원 ═══ (이름표 · 메달은 걷어냈다 — 대표님 2026-09-18 "30만원 별빛요정 한 방 최고후원 이런것만") */
+.best-board { box-sizing: border-box; width: 340px; padding: 12px 18px 16px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.best-head { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900; font-size: 27px;
+    padding: 5px 20px; border-radius: 999px; white-space: nowrap; box-shadow: var(--glow-s); }
+.best-amt-row { display: flex; align-items: baseline; justify-content: center; gap: 4px; max-width: 100%; }
+.best-amt { font-size: var(--best-amt-size, 58px); font-weight: 900; line-height: 1.02; letter-spacing: -1px; color: var(--gold-light);
+    font-variant-numeric: tabular-nums; text-shadow: var(--ts-2), 0 0 20px var(--gold-glow); }
+.best-won { font-size: 30px; font-weight: 800; color: var(--tx-2); line-height: 1.1; }
+.best-name { max-width: 100%; font-size: var(--best-name-size, 38px); font-weight: 900; color: #fff; text-shadow: var(--ts-1);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.best-board.best-pop { animation: bestPop .9s var(--ease-pop); }
+@keyframes bestPop { 0% { transform: scale(1); } 30% { transform: scale(1.07); } 100% { transform: scale(1); } }
+.best-wrap { position: relative; }
+.best-flash { position: absolute; left: 50%; top: -34px; transform: translate(-50%, 0) scale(.6); opacity: 0; padding: 8px 30px;
+    border-radius: 999px; white-space: nowrap; pointer-events: none; background: linear-gradient(120deg, var(--game-red), var(--gold));
+    color: #fff; font-size: 34px; font-weight: 900; text-shadow: var(--ts-1); box-shadow: var(--glow-m); }
+.best-flash.show { animation: bestFlash 2.8s var(--ease-pop) forwards; }
+@keyframes bestFlash {
+    0%   { opacity: 0; transform: translate(-50%, 0) scale(.6); }
+    12%  { opacity: 1; transform: translate(-50%, -12px) scale(1.08); }
+    80%  { opacity: 1; transform: translate(-50%, -12px) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -22px) scale(.96); }
+}
+
+/* ═══ 9. 🏅 후원 순위 ═══ (폭 380 에 못 박는다 — 오른쪽 끝 1038, 그 뒤가 목표 막대) */
+.donor-rank-board { box-sizing: border-box; width: 380px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.donor-rank-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900;
+    font-size: 28px; text-align: center; letter-spacing: -0.3px; padding: 8px 0; border-radius: var(--r-m); box-shadow: var(--glow-s); }
+.donor-rank-rows { display: flex; flex-direction: column; gap: 6px; max-height: 466px; overflow: hidden; }
+.dr-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--r-m);
+    border: 1px solid var(--row-border); background: var(--row-bg); }
+.dr-row .dr-no { flex: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 27px; font-weight: 900; color: var(--tx-2); background: rgba(255,255,255,0.10); }
+.dr-row.top1 .dr-no { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); }
+.dr-row.top2 .dr-no { background: linear-gradient(120deg, var(--silver), var(--silver-2)); color: var(--on-silver); }
+.dr-row.top3 .dr-no { background: linear-gradient(120deg, var(--bronze), var(--bronze-2)); color: var(--on-bronze); }
+.dr-row .dr-name { flex: 1; min-width: 0; font-size: var(--dr-name-size, 32px); font-weight: 800; color: #fff;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: var(--ts-1); }
+.dr-row .dr-amt { flex: none; font-size: 30px; font-weight: 900; color: var(--gold); font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+.dr-row .dr-amt.long { font-size: 27px; letter-spacing: -0.5px; }
+.dr-empty { text-align: center; color: var(--tx-3); font-size: 27px; padding: 16px 0; }
+
+/* ═══ 10. 🎵 시그니처 — 카드(사진 · 후원자 · 메시지) · 'OO업' 배너 · 금액 등급 연출 ═══
+   칸이 캔버스 전체라 안에서 % 로 자리 잡는다(옛 것은 화면 기준 position:fixed 였다 — 1080×1920 에서 같다). */
+.sig-root { position: absolute; inset: 0; overflow: hidden; }
+/* 배경 스포트라이트 — 재생 중 가장자리를 살짝 어둡게 */
+.sig-vignette { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 38%, rgba(0,0,0,0.88) 100%);
+    transition: opacity var(--t-base) ease; }
+.sig-vignette.show { opacity: var(--vig-peak, 0.4); }
+/* 등장 플래시(카드 뒤에서 한 번 번쩍) */
+.sig-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 42%, rgba(255,255,255,0.95), rgba(255,255,255,0) 68%); }
+.sig-flash.gold { background: radial-gradient(circle at 50% 42%, rgba(255,224,140,0.97), rgba(255,190,80,0) 68%); }
+.sig-flash.flash-go { animation: reac-flash 0.6s ease-out; }
+@keyframes reac-flash { 0% { opacity: 0; } 14% { opacity: var(--flash-peak, 0.7); } 100% { opacity: 0; } }
+
+.reaction-screen-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8); width: 500px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; visibility: hidden;
+    transition: all var(--t-slow) var(--ease); padding: 0; box-sizing: border-box; }
+.reaction-screen-overlay.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(var(--reac-big, 1)); }
+/* 2.5초 뒤 왼쪽으로 작게 — 방송인 얼굴을 가리지 않게 */
+.reaction-screen-overlay.show.minimize { left: var(--reac-min-x, 180px); top: var(--reac-min-y, 600px);
+    transform: translate(-50%, -50%) scale(var(--reac-small, 0.6)); }
+.reaction-screen-overlay img { max-width: 100%; max-height: 380px; object-fit: contain; border-radius: var(--r-m); box-shadow: var(--sh-2); }
+.reaction-img-box { position: relative; display: inline-block; border-radius: var(--r-m); line-height: 0; }
+.reaction-img-box.no-img { display: none; }
+/* 사진이 없는 시그니처 — 제목 판(옛 것은 사진 없이 글자만 떴다. 무엇이 나가는지 알 수 있게 제목을 단다) */
+.reaction-title-plate { display: none; padding: 18px 40px; border-radius: var(--r-m); background: var(--glass-bg);
+    border: 2px solid rgba(var(--gold-rgb), .6); box-shadow: var(--sh-2), var(--glow-m);
+    font-size: 54px; font-weight: 900; color: var(--gold); text-shadow: var(--ts-2); text-align: center; word-break: keep-all; }
+.reaction-title-plate.on { display: block; }
+.reaction-text-donator { margin-top: 20px; font-size: 36px; font-weight: 900; color: #ffffff; font-family: var(--font-ui);
+    text-shadow: 2.5px 2.5px 0 #000, -2.5px 2.5px 0 #000, 2.5px -2.5px 0 #000, -2.5px -2.5px 0 #000, 0 4px 15px rgba(0,0,0,0.9);
+    text-align: center; letter-spacing: -0.5px; }
+.reaction-text-message { margin-top: 16px; font-size: 32px; font-weight: 700; color: #ffffff; background: var(--glass-bg);
+    border: 2px solid var(--glass-border); padding: 12px 32px; border-radius: var(--r-m); text-shadow: var(--ts-1); font-family: var(--font-ui);
+    text-align: center; max-width: 520px; word-break: break-all; line-height: 1.45; box-shadow: var(--sh-2); display: inline-block; }
+.reaction-text-message:empty { display: none; }
+/* 🔁 같은 사람 · 같은 시그니처 연속 — 사진 모서리 빨간 원에 ×N(대표님 2026-09-29 C안), '다 틀기' 면 '2 / 7' */
+.reaction-combo { position: absolute; top: -34px; right: -34px; display: none; pointer-events: none; line-height: 1; }
+.reaction-combo.burst { display: grid; place-items: center; width: 118px; height: 118px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #ff7a70, #ff3b30 55%, #c4140b); color: #fff;
+    font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-size: 54px; transform: rotate(-8deg);
+    box-shadow: 0 0 0 5px rgba(0, 0, 0, .5), 0 0 34px rgba(255, 59, 48, .55); }
+.reaction-combo.count { display: block; top: -22px; right: -18px; padding: 8px 18px; border-radius: var(--r-m); background: rgba(14, 14, 20, .88);
+    border: 2px solid rgba(255, 255, 255, .25); color: #fff; font-family: var(--font-ui); font-weight: 900; font-size: 42px;
+    font-variant-numeric: tabular-nums; }
+.reaction-combo.count b { color: #ffcf4d; }
+.reaction-combo.pop { animation: rx-combo-pop var(--t-base) var(--ease-pop); }
+@keyframes rx-combo-pop { from { transform: rotate(-8deg) scale(.4); } to { transform: rotate(-8deg) scale(1); } }
+.reaction-img-box.glow { box-shadow: 0 0 0 3px var(--reac-glow, #ff2d78), 0 0 30px var(--reac-glow, #ff2d78), var(--sh-2); }
+.reaction-shine { position: absolute; inset: 0; border-radius: var(--r-m); overflow: hidden; pointer-events: none; }
+.reaction-shine::before { content: ''; position: absolute; top: -20%; left: -70%; width: 45%; height: 140%;
+    background: linear-gradient(115deg, transparent, rgba(255,255,255,0.78), transparent); transform: skewX(-18deg); opacity: 0; }
+.reaction-img-box.shine .reaction-shine::before { animation: reac-shine 0.9s ease-out 0.12s; }
+@keyframes reac-shine { 0% { left: -70%; opacity: 0; } 12% { opacity: 0.9; } 100% { left: 135%; opacity: 0; } }
+.reaction-img-box.shake { animation: reac-shake 0.45s ease-in-out; }
+@keyframes reac-shake {
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-8px, 4px); }  30% { transform: translate(7px, -5px); }
+    45% { transform: translate(-6px, 3px); }  60% { transform: translate(5px, 4px); }
+    75% { transform: translate(-3px, -2px); }
+}
+.reaction-img-box.shake-strong { animation: reac-shake-strong 0.5s ease-in-out; }
+@keyframes reac-shake-strong {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-12px, 6px); }  25% { transform: translate(11px, -8px); }
+    40% { transform: translate(-10px, 5px); }  55% { transform: translate(9px, 6px); }
+    70% { transform: translate(-7px, -4px); }  85% { transform: translate(5px, 3px); }
+}
+
+/* 🔥 'OO업' 대형 네온 배너 — 10만 원 이상만, 3.5초. 굵기는 paint-order:stroke fill(스트로크를 글자 뒤에 깐다) */
+.reaction-title-banner {
+    --neon: #ff1f56; --neon-glow: 255, 45, 100; --neon-bright: #ffa8c0;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.7);
+    font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-size: var(--reac-title-size, 150px); font-weight: 400;
+    letter-spacing: 1px; line-height: 1; white-space: nowrap; color: #fff; paint-order: stroke fill;
+    -webkit-text-stroke: 0.105em var(--neon);
+    text-shadow: 0 0 8px rgba(var(--neon-glow), 0.8), 0 0 26px rgba(var(--neon-glow), 0.6),
+                 0 0 58px rgba(var(--neon-glow), 0.36), 0 0 100px rgba(var(--neon-glow), 0.2);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease); }
+.reaction-title-banner::before, .reaction-title-banner::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%);
+    width: 1080px; height: 2px;
+    background: linear-gradient(90deg, rgba(var(--neon-glow), 0) 0%, var(--neon) 14%, var(--neon-bright) 50%, var(--neon) 86%, rgba(var(--neon-glow), 0) 100%);
+    box-shadow: 0 0 8px rgba(var(--neon-glow), 0.7), 0 0 24px rgba(var(--neon-glow), 0.45); }
+.reaction-title-banner::before { top: -0.30em; }
+.reaction-title-banner::after  { bottom: -0.30em; }
+.reaction-title-banner.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); animation: banner-glow 1.5s ease-in-out infinite; }
+@keyframes banner-glow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.1); } }
+.reaction-title-banner.tier-2 { font-size: calc(var(--reac-title-size, 150px) * 1.08); --neon: #ff8f2e; --neon-glow: 255, 150, 60; --neon-bright: #ffd6a8; }
+.reaction-title-banner.tier-3 { font-size: calc(var(--reac-title-size, 150px) * 1.18); --neon: #ffb01f; --neon-glow: 255, 190, 60; --neon-bright: #ffe6b0; }
+.reaction-title-banner.tier-4 { font-size: calc(var(--reac-title-size, 150px) * 1.28); --neon: #ffc41f; --neon-glow: 255, 205, 80; --neon-bright: #fff0c8; }
+
+/* ═══ 11. 🔌 연결 표시(?debug=1 일 때만 칸이 생긴다) ═══ */
+.conn-pill { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: rgba(0,0,0,.6);
+    color: #fff; font: 600 18px/1.2 var(--font-ui); white-space: nowrap; }
+.conn-dot { width: 12px; height: 12px; border-radius: 50%; background: #888; }
+.conn-pill.live .conn-dot { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+.conn-pill.connecting .conn-dot { background: #f6c453; }
+.conn-pill.down .conn-dot { background: #ff3b5c; }
+
+/* ═══ 📊 시그 집계(옛 sig-tally) — 판 206px · 줄 54px. 사진 위에 어둡게 깔고 몇 개 · 제목 · 금액 ═══ */
+.sig-tally-board { position: relative; width: 206px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+    background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: var(--glass-radius); box-shadow: var(--glass-shadow); }
+.sig-tally-board::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit;
+    background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%); pointer-events: none; }
+.sig-tally-header { background: linear-gradient(120deg, var(--gold), var(--gold-deep)); color: var(--on-gold); font-weight: 900;
+    font-size: 28px; text-align: center; letter-spacing: -0.3px; white-space: nowrap; padding: 8px 0; border-radius: var(--r-m); box-shadow: var(--glow-s); }
+.st-rows { display: flex; flex-direction: column; gap: 6px; }
+.st-row { position: relative; height: 54px; overflow: hidden; border-radius: var(--r-m); border: 1px solid var(--row-border); box-shadow: var(--sh-1); }
+.st-row img, .st-noimg, .st-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
+.st-row img { object-fit: cover; }
+.st-noimg { background: #14141c; }
+.st-shade { background: linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.72) 100%); }
+.st-count { position: absolute; left: 5px; top: 5px; font-size: 12px; font-weight: 900; color: var(--on-gold);
+    background: linear-gradient(120deg, var(--gold), var(--gold-deep)); padding: 1px 8px; border-radius: var(--r-s); box-shadow: 0 2px 8px var(--gold-glow); }
+.st-title { position: absolute; left: 0; right: 0; top: 16px; text-align: center; font-size: 14px; font-weight: 800; color: #fff;
+    text-shadow: var(--ts-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 6px; }
+.st-amt { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font-size: 16px; font-weight: 900; color: var(--gold);
+    font-variant-numeric: tabular-nums; text-shadow: 0 0 10px var(--gold-glow), 0 2px 5px rgba(0,0,0,0.95); letter-spacing: 0.3px; }

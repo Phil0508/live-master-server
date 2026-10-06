@@ -1,0 +1,223 @@
+/* 퀴즈 · 핀볼 · 룰렛 · 슬롯 — 생김새. z-index 는 쓰지 않는다(층 순서는 groups/games_a.js 의 z).
+   ⚠️ 판 안의 작은 겹침 순서(룰렛 원판 · 금테 · 전구 · 바늘)만 예외 — 칸 하나 안에서만 쌓인다.
+   숫자 · 색은 옛 overlay.html 그대로(대표님이 방송으로 다듬어 온 값). 테마 옷은 css/themes.css 가 같은 class 이름에 입힌다. */
+
+/* ═══ 공통 — 판 켜고 끄기(무대 show.stage 를 보고 위젯이 .on 을 붙인다) ═══ */
+.gm-board { opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
+.gm-board.on { opacity: 1; visibility: visible; }
+
+/* 💰 게임판이 떠 있는 동안 다른 칸이 비키는 규칙은 css/modes.css 한 곳에 모았다(위젯은 stage.setMode('<게임>-game') 만 켠다). */
+
+/* ═══ 🧩 퀴즈판 — 네모칸만(대표님 2026-10-06 "그냥 네모칸만"). 칸 120 × 120 · 사이 14 · 화면 가운데(위 700).
+   칸 상태: q 초성 · g 처음부터 보여 준 글자 · b 빈칸 · h 힌트로 연 글자 · o 정답 공개 ═══ */
+.qz-box { width: 1080px; display: flex; justify-content: center; gap: 14px; perspective: 900px;
+          opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
+.qz-box.on { opacity: 1; visibility: visible; }
+/* --qz-s: 칸 크기. 여덟 칸까지는 120, 아홉 칸부터는 위젯이 줄인다(1080 폭을 넘지 않게) */
+.qz-tile { width: var(--qz-s, 120px); height: var(--qz-s, 120px); box-sizing: border-box; border-radius: var(--r-l);
+           display: flex; align-items: center; justify-content: center;
+           font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: calc(var(--qz-s, 120px) * 0.68); line-height: 1;
+           color: var(--gold); background: var(--glass-bg); border: 3px solid rgba(var(--gold-rgb), 0.6);
+           box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); }
+.qz-tile.s-g, .qz-tile.s-h { color: #fff; border-color: rgba(255, 255, 255, 0.55); }
+.qz-tile.s-b { color: transparent; }
+.qz-tile.s-o { background: linear-gradient(180deg, #fff6d8, #ffe08c); color: #2a1c05; border-color: #fff1c1;
+               box-shadow: 0 0 34px rgba(255, 214, 107, 0.6), 0 14px 34px rgba(0, 0, 0, 0.5); }
+.qz-tile.pop { animation: qzFlip 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+@keyframes qzFlip { 0% { transform: rotateY(90deg) scale(0.9); } 100% { transform: rotateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .qz-tile.pop { animation: none; } }
+
+/* ═══ 🎱 구슬 핀볼 — 판은 캔버스 하나(구슬 수십~수백 개가 매 프레임 움직여 DOM 으로 그리면 버벅인다) ═══ */
+.pb-wrap { position: relative; width: 980px; }
+.pb-canvas { display: block; width: 980px; height: 840px;
+    border-radius: var(--r-l); background: rgba(6, 8, 14, .78);
+    border: 2px solid rgba(120, 220, 255, .28);
+    box-shadow: 0 0 34px rgba(60, 180, 255, .18), inset 0 0 60px rgba(0, 0, 0, .6); }
+/* 🏁 결과 딱지 — 판 안에 가두고 줄바꿈을 허락한다(여럿 뽑으면 이름이 판 밖으로 삐져나왔다). 이름 가운데서 안 끊기게 keep-all */
+.pb-winner { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%) scale(.8);
+    padding: 18px 44px; border-radius: var(--r-l);
+    max-width: 860px; white-space: normal; word-break: keep-all;
+    overflow-wrap: anywhere; text-align: center; line-height: 1.24;
+    background: rgba(8, 10, 16, .92); border: 3px solid var(--gold, #ffcf4d);
+    color: var(--gold, #ffcf4d); font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+    font-size: 58px; font-weight: 900; letter-spacing: 1px;
+    text-shadow: 0 0 18px rgba(255, 207, 77, .85), 0 3px 8px #000;
+    box-shadow: 0 0 44px rgba(255, 207, 77, .45);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity var(--t-fast) ease, transform var(--t-fast) var(--ease-pop, ease), visibility var(--t-fast); }
+.pb-winner.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+.pb-winner .pb-w-sub { display: block; margin-top: 6px; font-size: 26px; color: #dfe6f2;
+    font-weight: 800; text-shadow: 0 2px 6px #000; }
+/* 여럿을 뽑으면 글자를 줄인다 — 한 명일 때의 시원한 크기는 그대로 */
+.pb-winner.many { font-size: 34px; padding: 14px 30px; }
+.pb-winner.many .pb-w-sub { font-size: 22px; margin-top: 4px; }
+/* 🎱 대기 딱지 — 굴리기 전 판 위쪽에 '구슬 N개 · 곧 굴러갑니다' */
+.pb-ready { position: absolute; left: 50%; top: 22px; transform: translateX(-50%);
+    padding: 10px 30px; border-radius: 999px; white-space: nowrap; text-align: center;
+    background: rgba(8, 10, 16, .88); border: 2px solid rgba(var(--gold-rgb), .7);
+    color: var(--gold); font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+    font-size: 34px; font-weight: 900; text-shadow: var(--ts-1); box-shadow: var(--sh-2);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity var(--t-base) ease, visibility var(--t-base); }
+.pb-ready.show { opacity: 1; visibility: visible; animation: pbReadyPulse 1.8s ease-in-out infinite; }
+/* 같은 이름은 '밍밍 ×80' 으로 묶어 둘째 줄에 — 줄이 길면 접는다. 이름 앞 작은 구슬 = 그 사람 색 */
+.pb-ready-who { display: block; max-width: 860px; margin-top: 4px; white-space: normal;
+    font-size: 24px; font-weight: 800; color: var(--text-main); line-height: 1.35; }
+.pb-ready-who .pb-dot { display: inline-block; width: .72em; height: .72em; margin: 0 .28em .08em 0;
+    border-radius: 50%; vertical-align: middle; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); }
+.pb-ready-who .pb-one { white-space: nowrap; }
+.pb-ready-who .pb-sep { opacity: .5; margin-left: .35em; }
+@keyframes pbReadyPulse { 0%, 100% { box-shadow: var(--sh-2); } 50% { box-shadow: var(--sh-2), 0 0 24px var(--gold-glow); } }
+
+/* ═══ 🎰 슬롯머신 — 엑셀판 · 계좌와 같은 유리 카드. 겉 상자 660 × 360, 그 안 가운데에 카드.
+   ⚠️ 릴 창 170 × 120 은 절대 건드리지 말 것 — 릴이 멈추는 좌표(15칸 × 120)가 그 숫자에 묶여 있다. ═══ */
+.slot-wrap { position: relative; width: 660px; height: 360px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; box-sizing: border-box;
+    transition: opacity var(--t-base) var(--ease), visibility var(--t-base); }
+.slot-card {
+    position: relative; padding: 24px 24px 20px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    box-shadow: var(--glass-shadow);
+    display: flex; flex-direction: column; align-items: center;
+}
+.slot-card::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit;
+    background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+    pointer-events: none;
+}
+.slot-ttl {
+    width: 100%; margin: 0 0 16px; padding-bottom: 8px;
+    font-size: 27px; font-weight: 700; color: var(--tx-3);
+    letter-spacing: 0.06em; text-align: center;
+    border-bottom: 2px solid rgba(var(--gold-rgb), 0.5);
+}
+.slot-reels { display: flex; gap: 16px; margin-bottom: 16px; }
+.slot-reel {
+    width: 170px; height: 120px; background: #0a0a10;
+    border-radius: var(--r-m); overflow: hidden; position: relative;
+    box-shadow: var(--sh-2), inset 0 0 0 1px rgba(var(--gold-rgb), 0.28);
+}
+.slot-strip { position: absolute; width: 100%; top: 0; left: 0; transition: transform 0.1s linear; will-change: transform; }
+/* 릴 카드 한 장 — 사진을 꽉 채우고 아래에 제목 · 금액. ⚠️ 높이 120 = 릴 창(서는 좌표) */
+.slot-cardi { width: 170px; height: 120px; position: relative; overflow: hidden; box-sizing: border-box;
+    background: #101016; border-bottom: 2px solid rgba(255, 255, 255, 0.12); }
+/* 사진이 없거나 못 받으면 음표(옛 /money.png 는 v2 서버가 안 준다) */
+.slot-cardi::before { content: '🎵'; position: absolute; left: 0; right: 0; top: 18px; text-align: center; font-size: 46px; opacity: .55; }
+.slot-cardi.win { background: #1c1408; border-bottom-color: rgba(var(--gold-rgb), 0.75); }
+.slot-cardi img { position: relative; width: 100%; height: 100%; object-fit: cover; display: block; }
+.slot-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 8px 6px; box-sizing: border-box;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.94) 55%, rgba(0, 0, 0, 0)); }
+.slot-cap-t { font-size: 14px; font-weight: 900; font-style: italic; color: #ffffff;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.6), 0 1px 3px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
+.slot-cap-a { font-size: 12px; font-weight: 800; color: rgba(235, 235, 245, 0.75); text-shadow: 0 1px 3px #000;
+    text-align: center; font-variant-numeric: tabular-nums; }
+.slot-cardi.win .slot-cap-t { color: var(--gold); text-shadow: 0 0 10px var(--gold-glow), 0 1px 3px #000; }
+.slot-cardi.win .slot-cap-a { color: var(--gold-light); }
+/* ⚠️ 23px 이면 시청자 폰에서 8.6px — 제일 중요한 줄인데 못 읽었다. 32px = 폰 11.9px */
+.slot-win {
+    font-size: 32px; font-weight: 800; color: var(--gold);
+    letter-spacing: -0.01em; height: 40px; text-align: center;
+    text-shadow: var(--ts-1);
+}
+
+/* ═══ 🎡 룰렛 — 귀여운 금테 판(Cute X-Punch 룰렛 그림). 금테 · 전구 · 바늘은 그림(vendor/roulette), 원판은 캔버스.
+   판 660 × 740 — 층 표에서 0.87 배. 꺼져 있을 때만 1/1.1 로 작다(켜는 순간 제 크기로 커지는 연출, 옛 ROULETTE_FIT / 1.1). ═══ */
+.roulette-wrap { position: relative; width: 660px; height: 740px; transform-origin: top left; transform: scale(0.909);
+    transition: opacity var(--t-base) var(--ease), transform var(--t-base) var(--ease), visibility var(--t-base); }
+.roulette-wrap.on { transform: scale(1); }
+/* 무대 740 × 740 — 원본 그림 1024px 기준 좌표를 % 로 옮겼다 */
+.rw-stage { position: absolute; left: -40px; top: 56px; width: 740px; height: 740px; pointer-events: none; isolation: isolate; }
+.rw-stage > * { position: absolute; }
+/* 원판: 원본 원판이 1024 중 반지름 374, 가운데 (512, 510) */
+.rw-disc { left: calc(50% - 36.72%); top: calc(49.8% - 36.72%); width: 73.44%; height: 73.44%; z-index: 1; border-radius: 50%;
+    will-change: transform; filter: drop-shadow(0 10px 10px rgba(35, 15, 5, 0.22)); }
+.rw-frame, .rw-frame-glow, .rw-bulbs { inset: 0; width: 100%; height: 100%; }
+.rw-frame { z-index: 3; filter: drop-shadow(0 12px 12px rgba(35, 15, 5, 0.25)); }
+.rw-frame-glow { z-index: 2; opacity: 0; filter: brightness(1.35) saturate(1.25) drop-shadow(0 0 8px rgba(255, 244, 160, 0.65)) drop-shadow(0 0 24px rgba(255, 190, 25, 0.34)); }
+.rw-bulbs { z-index: 4; overflow: visible; opacity: 0; mix-blend-mode: screen; }
+.rw-bulb { opacity: 0; transform-box: fill-box; transform-origin: center; }
+.rw-bulb-spark { fill: none; stroke: rgba(255, 255, 243, 0.96); stroke-width: 2.1; stroke-linecap: round; opacity: .88; }
+.rw-stage.rw-running .rw-frame-glow { opacity: .34; animation: rwFramePulse 620ms ease-in-out infinite alternate; }
+.rw-stage.rw-running .rw-bulbs { opacity: 1; }
+.rw-stage.rw-running .rw-bulb { animation: rwBulbChase 1296ms linear infinite; animation-delay: var(--delay); }
+.rw-stage.rw-win .rw-frame-glow { animation: rwRingBurst 1000ms ease-out both; }
+.rw-stage.rw-win .rw-bulbs { opacity: 1; }
+.rw-stage.rw-win .rw-bulb { animation: rwBulbWin 760ms cubic-bezier(.16, .84, .24, 1) both; animation-delay: var(--burst-delay); }
+.rw-stage.rw-win .rw-frame, .rw-stage.rw-win .rw-pointer { animation: rwWinGlow 950ms ease-out; }
+/* 바늘: 바깥은 칸 경계(못)에 걸려 밀리고, 안쪽은 못을 넘는 순간 튕긴다 */
+.rw-pointer { z-index: 5; left: 40.82%; top: 1.07%; width: 18.36%; transform-origin: 50% 22%; will-change: transform; }
+.rw-pointer-spring { width: 100%; transform-origin: 50% 22%; }
+.rw-pointer-spring.snap { animation: rwPointerRelease var(--snap-duration, 160ms) cubic-bezier(.17, .82, .24, 1) both; }
+.rw-pointer img { display: block; width: 100%; height: auto; }
+/* 제목: 원본 가운데 띠(갈색 나무 + 금테)를 본떴다 */
+.rw-title {
+    position: absolute; z-index: 6; left: 50%; top: 0; transform: translateX(-50%);
+    margin: 0; padding: 8px 30px 11px; white-space: nowrap; max-width: 640px; overflow: hidden; text-overflow: ellipsis;
+    font-family: 'Bagel Fat One', 'Jua', 'Black Han Sans', sans-serif; font-size: 34px; font-weight: 400; line-height: 1.15; letter-spacing: 0.5px;
+    color: #fff6e0; background: linear-gradient(180deg, #b97a4c 0%, #8d522e 100%);
+    border: 4px solid #f2c461; border-radius: var(--r-l);
+    box-shadow: 0 5px 0 #5e3219, 0 10px 20px rgba(0, 0, 0, .35);
+    text-shadow: 0 3px 0 #5a2d14, 2px 0 0 #5a2d14, -2px 0 0 #5a2d14, 0 -2px 0 #5a2d14;
+}
+/* 바늘이 가리키는 칸 이름 — 원판 아래 알약. 돌 때 계속 바뀌고, 서면 분홍으로 굳는다 */
+.rw-now {
+    position: absolute; z-index: 7; left: 50%; bottom: -14px; transform: translateX(-50%);
+    min-width: 180px; max-width: 600px; padding: 6px 26px 8px; box-sizing: border-box; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: 'Jua', 'Black Han Sans', sans-serif; font-size: 32px; line-height: 1.2; color: #5a2d14;
+    background: #fff6e0; border: 4px solid #f2c461; border-radius: 999px;
+    box-shadow: 0 5px 0 #b07a2a, 0 10px 18px rgba(0, 0, 0, .3);
+    transition: background var(--t-fast) ease, color var(--t-fast) ease;
+}
+.rw-now:empty { display: none; }
+.rw-now.won { background: linear-gradient(180deg, #ff8fa3, #e9536c); color: #fff; text-shadow: 0 2px 0 rgba(90, 20, 30, .55); }
+@keyframes rwPointerRelease {
+    0% { transform: rotate(var(--snap-from, -3deg)) translateY(var(--snap-down, 1px)); }
+    20% { transform: rotate(var(--snap-kick, 2.5deg)) translateY(-.45px); }
+    43% { transform: rotate(var(--snap-rebound, -1.15deg)); }
+    66% { transform: rotate(var(--snap-kick-small, .48deg)); }
+    83% { transform: rotate(var(--snap-rebound-small, -.18deg)); }
+    100% { transform: rotate(0deg) translateY(0); }
+}
+@keyframes rwBulbChase {
+    0%, 100% { opacity: 0; transform: scale(.62); }
+    4% { opacity: .34; transform: scale(.82); }
+    8% { opacity: 1; transform: scale(1.48); }
+    13% { opacity: .96; transform: scale(1.22); }
+    22% { opacity: .24; transform: scale(.92); }
+    34%, 96% { opacity: 0; transform: scale(.68); }
+}
+@keyframes rwBulbWin {
+    0% { opacity: 0; transform: scale(.5); }
+    24% { opacity: 1; transform: scale(1.62); }
+    48% { opacity: .86; transform: scale(1.14); }
+    100% { opacity: 0; transform: scale(.78); }
+}
+@keyframes rwFramePulse {
+    0% { opacity: .18; filter: brightness(1.16) saturate(1.16) drop-shadow(0 0 5px rgba(255, 248, 186, .48)) drop-shadow(0 0 14px rgba(255, 190, 25, .20)); }
+    100% { opacity: .52; filter: brightness(1.62) saturate(1.34) drop-shadow(0 0 12px rgba(255, 251, 205, .88)) drop-shadow(0 0 34px rgba(255, 190, 25, .52)); }
+}
+@keyframes rwRingBurst {
+    0% { opacity: 0; filter: brightness(1.2); }
+    30% { opacity: .86; filter: brightness(1.95) saturate(1.45) drop-shadow(0 0 22px rgba(255, 252, 218, .96)) drop-shadow(0 0 52px rgba(255, 184, 20, .72)); }
+    100% { opacity: 0; filter: brightness(1.25); }
+}
+@keyframes rwWinGlow {
+    0% { filter: drop-shadow(0 0 0 rgba(255, 236, 126, 0)); }
+    35% { filter: drop-shadow(0 0 26px rgba(255, 236, 126, .95)); }
+    100% { filter: drop-shadow(0 0 0 rgba(255, 236, 126, 0)); }
+}
+
+/* 🎡 룰렛 뒤 어둡게 — 화면 전체 검정 75%(옛 #roulette-overlay-backdrop). 룰렛 위젯이 판을 띄우는 동안만 */
+.rw-dim { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; background: rgba(0, 0, 0, 0.75);
+    opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
+#canvas.roulette-game-mode .rw-dim { opacity: 1; visibility: visible; }
+
+/* 🎡 '이름 당첨!' — 화면 가운데 큰 글씨(옛 .time-up-message + 룰렛용 색). 커지며 나타나 4초 */
+.rw-winmsg { display: inline-block; white-space: nowrap; font-size: 130px; font-weight: 900; line-height: 1.15;
+    color: var(--accent, var(--gold)); text-shadow: 0 0 15px var(--accent, var(--gold)), 4px 4px 0 #000;
+    opacity: 0; transform: scale(0.3);
+    transition: transform var(--t-base) var(--ease-pop), opacity var(--t-base) ease; }
+.rw-winmsg.show { opacity: 1; transform: scale(1); }

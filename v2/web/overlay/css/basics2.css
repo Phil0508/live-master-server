@@ -1,0 +1,349 @@
+/* 공지 · 계좌 · 시작/끝 화면 · 축하 · 퇴근 연출 · 계좌 영상 · 노래방 · 모금함 — 생김새. z-index 는 쓰지 않는다(층 순서는 groups/basics2.js 의 z).
+   숫자 · 색은 옛 overlay.html 그대로(대표님이 방송으로 다듬어 온 값 — 옛 주석의 이유도 같이 옮겼다).
+   ⚠️ 칸 안의 작은 겹침 순서(z-index 1 · 2 같은 것)만 예외. */
+
+/* ═══ 0. 🎬 시작/끝 화면이 덮는 동안 — 이 묶음의 판들을 내린다(옛 body.stage-on) ═══
+   ⚠️ 다른 묶음의 칸(점수판 · 게이지 · 게임판 …)은 여기서 안 내린다 — 그 칸 주인이 #canvas.stage-mode 를 보고 내린다.
+   계좌 영상 · 노래방 · 퇴근 연출은 남는다(기다리는 동안 틀어 두는 것 · 옛 화면 밖 층). */
+#canvas.stage-mode .layer-fundjar,
+#canvas.stage-mode .layer-account,
+#canvas.stage-mode .layer-accountHead,
+#canvas.stage-mode .layer-notice,
+#canvas.stage-mode .layer-goalBanner { opacity: 0 !important; visibility: hidden !important; }
+
+
+/* ═══ 1. 🏦 계좌 — 한 줄 48px(예전 181px 카드가 게임판 자리를 앗아갔다) ═══
+   테마가 무엇이든 기본 모습(금색 유리판) — 테마가 바꾼 색 토큰을 계좌 안에서만 기본값으로 되돌린다(대표님 09-22). */
+.b2-acc {
+    --gold: #f6c453; --gold-deep: #dfa63e; --gold-light: #ffe9b0; --gold-rgb: 246, 196, 83;
+    --gold-glow: rgba(246, 196, 83, 0.45); --on-gold: #241a05;
+    --glass-bg: linear-gradient(160deg, rgba(30,30,40,0.80), rgba(14,14,20,0.88));
+    --glass-border: rgba(255,255,255,0.14); --glass-top-light: rgba(255,255,255,0.28);
+    --glass-shadow: 0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10);
+    --ts-1: 0 2px 5px rgba(0,0,0,.85);
+}
+.acc-box-v2 {
+    position: relative; background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--glass-shadow);
+    display: flex; align-items: center; gap: 12px;
+    /* ⚠️ 테두리가 높이에 더해지지 않게 border-box — 48 로 적으면 50 이 되어 머리 줄 밖으로 삐져나갔다 */
+    box-sizing: border-box; height: 48px;
+    padding: 0 16px 0 0; width: max-content; max-width: 640px;
+    white-space: nowrap; border-radius: var(--r-s); overflow: hidden;
+    transition: opacity var(--t-base) ease, visibility var(--t-base) ease;
+}
+.acc-box-v2::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 1px; border-radius: inherit;
+    background: linear-gradient(90deg, transparent 8%, var(--glass-top-light) 50%, transparent 92%);
+    pointer-events: none;
+}
+/* 안 보일 때는 칸이 자리를 안 차지한다(칸 상자 = 0) — 게이지 금액 딱지가 빈 계좌 자리를 피해 가지 않게 */
+.acc-box-v2.gone { opacity: 0; visibility: hidden; position: absolute; top: 0; }
+.b2-acc[data-anchor="tr"] .acc-box-v2.gone { right: 0; }
+.b2-acc:not([data-anchor="tr"]) .acc-box-v2.gone { left: 0; }
+.acc-ico {
+    flex: none; align-self: stretch; width: 50px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; line-height: 1;
+    background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+}
+.acc-who { display: flex; align-items: baseline; gap: 8px; }
+/* ⚠️ 예금주는 '돈이 누구에게 가는가' 다 — 폰에서도 읽히게 27~28px(머리 줄 48px 이라 줄높이 1.15 기준 28px 이 한계) */
+.acc-who .acc-bank { font-weight: 900; color: var(--gold); font-size: 27px; }
+.acc-who .acc-holder { font-weight: 900; color: #fff; font-size: 28px; letter-spacing: -0.3px; line-height: 1.15;
+    max-width: 100%; word-break: keep-all; overflow-wrap: anywhere; }
+/* ⚠️ 방송판 1080 은 폰에서 2.7배 작아진다. 30px 이라야 폰에서 11px 이다. */
+.acc-num-v2 { font-size: 30px; font-weight: 900; color: #fff; letter-spacing: 0.5px; word-break: break-all; line-height: 1.22;
+    font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
+
+
+/* ═══ 2. 📣 안내 전광판 — 머리 줄. 아래에서 올라와 자리를 잡고, 글자가 다 지나가면 다시 내려간다 ═══
+   ⚠️ 예전에는 1080×74 화면 폭 띠였고 자리가 y 1680 — 유튜브 고정 UI 에 가려 폰에서 한 글자도 안 보였다. */
+.notice-board {
+    display: flex; align-items: stretch;
+    box-sizing: border-box; width: var(--nb-w, 1068px); margin-left: var(--nb-x, 0px); height: 48px; overflow: hidden;
+    background: var(--glass-bg);
+    border-top: 2px solid var(--gold); border-bottom: 2px solid var(--gold);
+    box-shadow: var(--sh-2), var(--glow-m);
+    opacity: 0; transform: translateY(115%);
+    transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease),
+                margin-left var(--t-slow) var(--ease), width var(--t-slow) var(--ease);
+    pointer-events: none;
+}
+.notice-board.show { opacity: 1; transform: translateY(0); }
+/* 내려가 있을 때는 칸이 자리를 안 차지한다(옛 placeGoalTip 도 띠가 올라와 있을 때만 셌다) */
+.notice-board:not(.show) { position: absolute; left: 0; top: 0; }
+.notice-ico {
+    flex: none; width: 50px; display: flex; align-items: center; justify-content: center;
+    font-size: 28px; line-height: 1;
+    background: linear-gradient(120deg, var(--gold), var(--gold-deep));
+}
+/* 글자가 지나가는 칸. 이 칸 밖(오른쪽)에서 들어와 밖(왼쪽)으로 나간다 */
+.notice-view { position: relative; flex: 1; overflow: hidden; }
+.notice-txt {
+    position: absolute; top: 50%; left: 100%;
+    transform: translate(0, -50%);
+    white-space: nowrap; will-change: transform;
+    font-size: 27px; font-weight: 800; color: #fff; line-height: 1;
+    text-shadow: var(--ts-1);
+}
+.notice-txt b, .notice-txt strong { color: var(--gold); }
+.notice-measure { visibility: hidden; animation: none !important; }
+/* --nw 는 지나가는 칸의 폭(JS 가 재서 넣는다). 칸 폭 + 글자 폭 만큼 왼쪽으로 민다 */
+@keyframes noticeFlow {
+    from { transform: translate(0, -50%); }
+    to   { transform: translate(calc(-100% - var(--nw, 1000px)), -50%); }
+}
+
+
+/* ═══ 3. 🏺 모금함 — 금색 깃발(108×262, 점수판과 같은 키). 바탕은 불투명 금색(밝은 캠에서도 안 묻히게) ═══ */
+.jar-flag { position: relative; width: 108px; height: 262px; filter: drop-shadow(0 10px 18px rgba(0,0,0,.55));
+    opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
+.jar-flag.on { opacity: 1; visibility: visible; }
+.jar-rod {
+    position: absolute; left: -4px; right: -4px; top: 0; height: 14px; z-index: 2;
+    border-radius: 999px; background: linear-gradient(180deg, #4a3a1c, var(--on-gold)); box-shadow: 0 2px 4px rgba(0,0,0,.5);
+}
+/* 아래가 V 로 파인 깃발 천 */
+.jar-cloth {
+    position: absolute; inset: 10px 0 0 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%);
+    background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 42%, var(--gold-deep) 100%);
+    display: flex; flex-direction: column; align-items: center; padding-top: 22px;
+}
+.jar-cloth::before {
+    content: ''; position: absolute; inset: 6px 6px 0 6px; pointer-events: none;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); border: 2px solid rgba(80, 55, 10, .35);
+}
+.jar-label { font-size: 25px; font-weight: 900; color: var(--on-gold); line-height: 1.15; text-align: center; }
+.jar-line { width: 56px; height: 3px; border-radius: 999px; background: rgba(58, 42, 6, .45); margin: 10px 0 12px; }
+.jar-amt { font-size: 46px; font-weight: 900; color: var(--on-gold); line-height: 1; letter-spacing: -1px;
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+.jar-amt.jar-4 { font-size: 32px; letter-spacing: -1.5px; }   /* 1,000만원 넘으면 폭 108 에 맞춰 줄인다 */
+.jar-unit { font-size: 23px; font-weight: 900; color: #5a400c; margin-top: 4px; }
+/* 💰 금액이 오르면 한 번 튀고 반짝 — 동전 대신 */
+@keyframes jarPop {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.06) translateY(-5px); }
+    100% { transform: scale(1); }
+}
+@keyframes jarFlash { 0% { filter: brightness(1.5); } 100% { filter: brightness(1); } }
+.jar-flag.jar-pop { animation: jarPop .42s var(--ease-pop); }
+.jar-flag.jar-pop .jar-cloth { animation: jarFlash .9s ease-out; }
+
+
+/* ═══ 4. 🎯 목표 달성 알림 — 안전지대 한가운데(칸이 가운데를 잡는다) ═══ */
+.goal-banner {
+    transform: scale(.6); opacity: 0;
+    pointer-events: none; white-space: nowrap;
+    font-size: 92px; font-weight: 900; letter-spacing: -2px; color: var(--on-gold);
+    padding: 20px 56px; border-radius: 999px;
+    background: linear-gradient(120deg, var(--gold-light), var(--gold) 45%, var(--gold-deep));
+    box-shadow: var(--sh-4), var(--glow-l);
+    transition: opacity var(--t-base) ease, transform var(--t-base) var(--ease-pop);
+}
+.goal-banner.show { opacity: 1; transform: scale(1); }
+
+
+/* ═══ 5. 🏃 퇴근 · 지옥 탈출 — 금테 유리 상자(옛 #offwork-popup-layer 의 inline style 그대로) ═══ */
+.offwork-layer { opacity: 0; visibility: hidden; transition: all var(--t-base) var(--ease-pop); }
+.offwork-layer.show { opacity: 1; visibility: visible; }
+.offwork-box {
+    background: var(--glass-bg); border: 3px solid var(--gold); border-radius: var(--r-l); padding: 28px 56px;
+    box-shadow: var(--sh-4), var(--glow-l);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    min-width: 440px; text-align: center; white-space: nowrap;
+    transform: scale(0.6); transition: transform var(--t-base) var(--ease-pop);
+}
+.offwork-layer.show .offwork-box { transform: scale(1); }
+.offwork-sub { font-size: 24px; font-weight: 800; color: var(--gold); letter-spacing: -0.5px; text-shadow: var(--ts-1); }
+.offwork-name { font-size: 48px; font-weight: 900; color: #ffffff; text-shadow: var(--ts-1), 0 0 28px var(--gold-glow); word-break: keep-all; }
+
+
+/* ═══ 6. 🎞️ 계좌 영상 · 🎤 노래방 — 가운데 영상 상자만(화면 전체를 덮지 않는다) ═══ */
+.av-box, .kr-box { display: none; width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; background: #000;
+    border-radius: var(--r-l); border: 3px solid rgba(var(--gold-rgb), 0.75); }
+.av-box { box-shadow: var(--sh-4); }
+.kr-box { box-shadow: var(--sh-4), var(--glow-m); }
+.av-box.on, .kr-box.on { display: block; }
+.av-frame, .kr-frame { width: 100%; height: 100%; }
+.av-frame video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000; }
+
+
+/* ═══ 7. 🎬 시작 · 끝 화면 — 캔버스 전체를 덮는다 ═══
+   ⚠️ 바탕은 **불투명**이다(2026-09-30 대표님 "종료화면 반투명한 거 없애줘"). 알파를 넣지 말 것.
+   ⚠️ 글씨는 안전지대(115~954) 가운데에 모은다 — 폰에서는 그 아래가 채팅에 가린다. */
+.ss-root { position: absolute; inset: 0; pointer-events: none;
+    opacity: 0; visibility: hidden; transition: opacity var(--t-slow) ease, visibility var(--t-slow);
+    background: radial-gradient(120% 60% at 50% 26%, rgb(46, 38, 78), rgb(10, 10, 18) 72%); }
+.ss-root.show { opacity: 1; visibility: visible; }
+
+/* 🌸 끝 화면 — 엔젤 오락실 B(대표님 2026-09-30 "B로 가자"). 시작 화면(엔젤 오락실 그림)과 짝이다.
+   분홍 물방울 바탕 · 흰 알약 · '오늘도 고마워요'(Jua, 분홍 테두리) · 흰 카드(1등 분홍 · 한 방 최고 보라 + 후원자 사탕 칩 두 줄씩 넷).
+   ⚠️ 테마 옷을 안 입는다 — 그림이 곧 옷이다. 후원자 여덟 분 + 한 줄 문구까지 넣어도 카드 아래끝이 954 를 안 넘게 크기를 잡았다. */
+.ss-end-bg { position: absolute; inset: 0; z-index: 1; display: none; overflow: hidden;
+    background-color: #ffe1ee; background-image: radial-gradient(#ffffff 5px, transparent 6px); background-size: 52px 52px; }
+.ss-root[data-mode="end"] .ss-end-bg { display: block; }
+.ss-end-bg .se-band { position: absolute; left: 0; right: 0; bottom: 0; height: 240px; background: #ffd0e4; }
+.ss-end-bg .se-heart { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s);
+    animation: seBob var(--d) ease-in-out infinite alternate; }
+.ss-end-bg .se-heart svg { display: block; width: 100%; height: 100%; }
+@keyframes seBob { from { transform: translateY(0) rotate(-6deg); } to { transform: translateY(-22px) rotate(6deg); } }
+.se-wrap { position: absolute; left: 52px; right: 52px; top: 122px; z-index: 2; display: none;
+    flex-direction: column; align-items: center; gap: 12px; text-align: center;
+    font-family: 'Jua', 'Gothic A1', sans-serif; color: #6e2450; }
+.ss-root[data-mode="end"] .se-wrap { display: flex; }
+.ss-root.show[data-mode="end"] .se-wrap { animation: seIn .7s var(--ease) both; }
+@keyframes seIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: none; } }
+.se-pill { padding: 8px 34px; border-radius: 999px; background: #ffffff; color: #c2447f; font-size: 30px; letter-spacing: 3px; }
+.se-title { font-size: 88px; line-height: 1.05; color: #ffffff; letter-spacing: 1px;
+    paint-order: stroke fill; -webkit-text-stroke: 14px #d6508f; }
+.se-sub { max-width: 100%; font-size: 34px; color: #a8527f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se-card { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 24px 26px 20px; border-radius: calc(var(--r-l) * 2.5); background: #ffffff;
+    border: 8px solid #ffffff; box-shadow: 0 0 0 8px #ff9cc9, 0 26px 60px rgba(214, 80, 143, .22);
+    display: flex; flex-direction: column; gap: 14px; }
+.se-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.se-duo.one { grid-template-columns: minmax(0, 1fr); }
+.se-tile { min-width: 0; padding: 12px 18px 14px; border-radius: calc(var(--r-l) * 1.6); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.se-tile.se-top { background: #ffeaf3; --se-ink: #c2447f; }
+.se-tile.se-best { background: #efe8ff; --se-ink: #7a55c9; }
+.se-lab { display: flex; align-items: center; gap: 8px; font-size: 30px; color: var(--se-ink); }
+.se-lab svg { width: 32px; height: 32px; flex: none; }
+.se-big { max-width: 100%; font-size: 58px; line-height: 1.12; color: #6e2450; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se-small { max-width: 100%; font-family: 'Gothic A1', sans-serif; font-size: 29px; font-weight: 800; color: var(--se-ink);
+    font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se-lab2 { font-size: 31px; letter-spacing: 2px; color: #c2447f; }
+.se-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
+.se-chip { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 5px 22px; border-radius: 999px; background: #fff4f9; border: 3px solid #ffd3e6; }
+.se-chip b { min-width: 0; font-weight: 400; font-size: 32px; line-height: 1.15; color: #6e2450;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.se-chip span { flex: none; font-family: 'Gothic A1', sans-serif; font-size: 28px; font-weight: 900; color: #d6508f;
+    font-variant-numeric: tabular-nums; }
+.se-chips.names .se-chip { justify-content: center; }
+.se-more { font-size: 30px; color: #a8527f; }
+
+/* 🌸 시작 전 화면 — 엔젤 오락실 그림(대표님 2026-09-22 A 시안 확정)
+   · 그림: vendor/stage/start_bg.jpg(받은 그림에서 시계를 지운 것)
+   · 움직임: 리본 물결 · 하트 보석 둥실 · 그림 속 반짝이 · 아주 천천히 줌(WebGL) + 천사 링 빛 · 빛줄기 · 반짝이 · 떠오르는 하트(CSS)
+   · 카운트다운은 그림 속 '곧 방송이 시작됩니다' 상자 바로 아래 알약. 0 이 되면 '곧 시작해요!'
+   ⚠️ 테마 옷을 안 입는다. WebGL 을 못 쓰면 그림만 가만히 깔린다(배경 그림). */
+.ss-art { position: absolute; inset: 0; display: none; overflow: hidden; z-index: 1;
+    background: #f6d6e6 url("/vendor/stage/start_bg.jpg") center / cover no-repeat; }
+.ss-root[data-mode="start"] .ss-art { display: block; }
+.ss-art > * { position: absolute; }
+.ss-art .sa-photo { inset: 0; width: 100%; height: 100%; }
+.sa-halo { left: 50%; top: 18.5%; width: 367px; height: 130px; transform: translate(-50%, -50%); border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 240, 200, .75), rgba(255, 210, 150, 0)); mix-blend-mode: screen;
+    animation: saHalo 2.8s ease-in-out infinite alternate; }
+@keyframes saHalo { from { opacity: .25; transform: translate(-50%, -50%) scale(.9); } to { opacity: .9; transform: translate(-50%, -50%) scale(1.1); } }
+.sa-sweep { left: 8%; top: 28%; width: 84%; height: 36%; overflow: hidden; mix-blend-mode: screen; }
+.sa-sweep::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 22%; left: -30%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-18deg);
+    animation: saSweep 5.5s ease-in-out infinite; }
+@keyframes saSweep { 0%, 55% { left: -30%; } 85%, 100% { left: 115%; } }
+.sa-spark { width: var(--s); height: var(--s); left: var(--x); top: var(--y); background: #fff; opacity: 0;
+    clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+    filter: drop-shadow(0 0 16px #fff3c4); animation: saTwinkle var(--d) ease-in-out infinite; animation-delay: var(--dl); }
+@keyframes saTwinkle { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(30deg); } }
+.sa-heart { left: var(--x); bottom: -6%; width: var(--s); height: var(--s); opacity: 0; animation: saRise var(--d) linear infinite; animation-delay: var(--dl); }
+.sa-heart::before { content: '♥'; position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--s);
+    color: #ff8fc3; text-shadow: 0 0 22px rgba(255, 143, 195, .8); }
+@keyframes saRise { 0% { transform: translate(0, 0); opacity: 0; } 10% { opacity: .85; } 50% { transform: translate(32px, -594px); }
+    90% { opacity: .7; } 100% { transform: translate(-22px, -1296px); opacity: 0; } }
+.sa-glow { left: 0; right: 0; bottom: 0; height: 12%; background: linear-gradient(to top, rgba(255, 214, 234, .9), rgba(255, 214, 234, 0)); }
+.sa-pill { left: 50%; top: 88%; transform: translate(-50%, -50%); width: 626px; padding: 19px 0 24px; border-radius: 999px; text-align: center;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(255, 228, 242, .78)); border: 6px solid rgba(255, 255, 255, .95);
+    box-shadow: 0 0 0 5px rgba(255, 143, 195, .45), 0 22px 65px rgba(214, 70, 140, .35); animation: saBreathe 2.4s ease-in-out infinite alternate; }
+.sa-pill:not(.on) { display: none; }
+@keyframes saBreathe { from { box-shadow: 0 0 0 5px rgba(255, 143, 195, .35), 0 22px 65px rgba(214, 70, 140, .25); }
+    to { box-shadow: 0 0 0 13px rgba(255, 143, 195, .55), 0 22px 86px rgba(214, 70, 140, .45); } }
+.sa-lab { display: block; margin-bottom: 11px; font-family: 'Jua', sans-serif; font-weight: 400; font-size: 35px;
+    letter-spacing: 3px; color: #b0417a; max-width: 90%; margin-inline: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sa-num { display: inline-block; font-family: 'Jua', sans-serif; font-size: 119px; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: .02em;
+    background: linear-gradient(180deg, #ff5fa2 10%, #b57cf5 95%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 4px 0 #fff) drop-shadow(0 0 17px rgba(255, 111, 174, .55)); }
+.sa-num.soon { font-size: 93px; }
+.sa-num:empty { display: none; }
+
+
+/* ═══ 8. 👑 특별 후원자(VIP) 후원 카드 — tallies.vip(이번 방송 순위 등급). 후원 카드 위젯(widgets/donation.js)이 클래스를 붙인다 ═══
+   ⚠️ 배경에 **알파를 쓰지 않는다** — 캠이 밝거나 흰 옷 · 흰 벽이 잡히면 카드가 통째로 사라졌다(사장님: "하야면 안보이더라").
+      등급색을 어두운 바탕에 섞은 **불투명 색**(--vip-card-2, JS 가 계산)으로 칠한다. 바깥 2px 검은 테두리도 같은 이유.
+   등급마다 모양이 다르다(사장님: "vip 1등 이런 부분이 너무 강조가 안 되어있는 것 같아"):
+     1위 훈장(메달이 카드 밖으로 튀어나온다) · 2~3위 머리띠(카드 위 등급 바) · 4위 이하 딱지('다이아 6위'). */
+.layer-donation .donation-popup-content.vip-premium-card {
+    border: 4px solid var(--vip-glow-color, var(--gold)) !important;
+    background: linear-gradient(135deg, #1c1c1e 0%, var(--vip-card-2, #2a2620) 100%) !important;
+    box-shadow: 0 0 0 2px rgba(0,0,0,.55),
+                0 0 34px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.45)),
+                0 18px 50px rgba(0,0,0,0.55) !important;
+    /* 등장할 때 한 번만 번쩍이고 가만히 — 계속 깜빡이면 피곤하다 */
+    animation: vip-gold-glow .9s ease-out both !important;
+}
+.layer-donation .vip-premium-card .donator-name {
+    color: var(--vip-glow-color, var(--gold)) !important;
+    text-shadow: 0 0 14px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.6));
+}
+@keyframes vip-gold-glow {
+    0% { box-shadow: 0 0 18px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.35)), inset 0 0 10px var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.08)); }
+    100% { box-shadow: 0 0 38px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.7)), inset 0 0 24px var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.18)); }
+}
+.layer-donation .donator-name.vip-grade-text {
+    color: var(--vip-glow-color, var(--gold)) !important;
+    text-shadow: 0 0 12px var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.7));
+    font-weight: 900 !important;
+}
+/* 이름 위에 제 줄로 — 한 줄에 같이 두면 이름을 밀어낸다. ⚠️ 27px 밑으로 내리지 말 것(폰에서 10px 밑) */
+.layer-donation .vip-badge-tag {
+    display: block; width: max-content; margin: 0 auto 10px;
+    background: var(--vip-glow-color-bg, rgba(var(--gold-rgb), 0.15));
+    color: var(--vip-glow-color, var(--gold));
+    border: 1px solid var(--vip-glow-color-border, rgba(var(--gold-rgb), 0.3));
+    padding: 3px 14px; border-radius: var(--r-s); font-size: 27px; font-weight: 800;
+}
+.layer-donation .toon-vip-deco { display: none; }
+/* ── 1위: 훈장 ── */
+.layer-donation .vip-rank-top { padding-top: 78px; }
+.layer-donation .vip-rank-top .toon-vip-deco {
+    display: block; position: absolute; top: -62px; left: 50%;
+    transform: translateX(-50%);
+    width: 134px; height: 134px; border-radius: 50%; padding: 10px;
+    box-sizing: border-box;
+    background: conic-gradient(from 205deg, var(--vip-c-lite, var(--gold-light)),
+                var(--vip-glow-color, var(--gold)) 25%, var(--vip-c-dark, var(--gold-deep)) 50%,
+                var(--vip-glow-color, var(--gold)) 74%, var(--vip-c-lite, var(--gold-light)));
+    box-shadow: 0 0 0 6px #16161a, 0 12px 28px rgba(0,0,0,.8),
+                0 0 46px var(--vip-glow-color-border, var(--gold-glow));
+}
+/* 메달 속을 어둡게 파야 순위 글자가 읽힌다 */
+.layer-donation .vip-rank-top .toon-vip-deco .medal-in {
+    width: 100%; height: 100%; border-radius: 50%; background: #131317;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: inset 0 3px 12px rgba(0,0,0,.9);
+}
+.layer-donation .medal-em { font-size: 36px; line-height: 1.05; }
+.layer-donation .medal-rk { font-size: 31px; font-weight: 900; line-height: 1;
+    color: var(--vip-glow-color, var(--gold));
+    text-shadow: 0 0 12px var(--vip-glow-color-border, var(--gold-glow)); }
+/* 순위는 메달이 달고 있으니 딱지는 등급 이름만 — 알약을 벗기고 글자만 크게 */
+.layer-donation .vip-rank-top .vip-badge-tag {
+    background: none; border: none; padding: 0; margin: 0 auto 12px;
+    font-size: 32px; font-weight: 900; letter-spacing: 7px;
+    text-shadow: 0 0 16px var(--vip-glow-color-border, var(--gold-glow));
+}
+/* ── 2~3위: 머리띠 ── */
+.layer-donation .vip-rank-mid { padding-top: 76px; }
+.layer-donation .vip-rank-mid .toon-vip-deco {
+    display: flex; position: absolute; top: 0; left: 0; right: 0;
+    align-items: center; justify-content: space-between;
+    padding: 10px 28px; box-sizing: border-box;
+    border-radius: var(--glass-radius) var(--glass-radius) 0 0;
+    background: linear-gradient(90deg, var(--vip-c-dark, var(--gold-deep)),
+                var(--vip-glow-color, var(--gold)) 50%, var(--vip-c-dark, var(--gold-deep)));
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.42), 0 5px 16px rgba(0,0,0,.5);
+    color: var(--vip-ink, var(--on-gold)); font-weight: 900;
+}
+.layer-donation .hdr-g { font-size: 34px; letter-spacing: 2px; }
+.layer-donation .hdr-r { font-size: 38px; letter-spacing: -1px; }
+/* 머리띠가 이미 등급 색을 크게 쓴다 — 이름까지 같은 색이면 둘이 싸운다 */
+.layer-donation .vip-rank-mid .donator-name { color: #fff !important; text-shadow: var(--ts-1); }

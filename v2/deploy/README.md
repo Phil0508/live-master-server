@@ -1,0 +1,103 @@
+# v2 운영 서버에 올리기 · 갈아타기
+
+> ⚠️ **여기 적힌 일은 하나도 저절로 되지 않는다.** 단계마다 대표님 허락을 받고 한다(받기 · 설치 · 서비스 · 주소 바꾸기).
+> ⚠️ **방송 중(수 17:00 ~ 목 03:00)에는 아무것도 하지 않는다.**
+> 옛 서버(livemaster · 포트 8080 · 443)는 끝까지 그대로 둔다 — 되돌릴 길이다.
+
+## 무엇이 어디서 도나
+
+| 것 | 옛 것 | v2 |
+|---|---|---|
+| 서버 | `livemaster` (server.py, 8080) | `livemaster-v2` (`python -m v2.server.app`, 127.0.0.1:5300) |
+| 바깥 주소 | `https://엔젤컴퍼니.메인.한국/` | 같은 주소 **:8443** (`Caddyfile.v2`) — DNS 안 건드림 |
+| 장부 | Postgres(`DATABASE_URL`) | SQLite `v2/data/lm2.db` + 매일 백업(`livemaster-v2-backup.timer`) |
+| 진행봇 | `livemaster-bot` | `livemaster-bot-v2` — **둘을 같이 켜면 채팅이 두 번씩 올라간다** |
+| 리스너 | `toon-listener` → 8080 | 같은 리스너, 갈아타는 날 `toon-listener.service.d/v2.conf` 로 5300 에 보낸다 |
+
+## 1. 나란히 띄우기 (허락 필요: 받기 · 서비스)
+
+```bash
+cd /opt/livemaster
+sudo -u livemaster .venv/bin/pip install -r v2/requirements.txt      # fastapi · uvicorn · python-multipart 받기
+sudo cp v2/deploy/livemaster-v2.service v2/deploy/livemaster-v2-backup.service v2/deploy/livemaster-v2-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now livemaster-v2
+curl -s http://127.0.0.1:5300/api/health | head -c 300; echo            # {"ok":true …} 가 나와야 한다
+```
+- 비밀번호 · 열쇠는 `/etc/livemaster.env` 의 것을 같이 쓴다(ADMIN_PASSWORD · SESSION_SECRET · Supabase · NVIDIA).
+- 버전 되돌리기가 v2 도 재시작하도록 sudoers 에 줄을 더한다(옛 `deploy/README.md` 의 `livemaster-restart` 파일):
+  `/usr/bin/systemctl restart livemaster-v2, /usr/bin/systemctl restart livemaster-bot-v2` (+ `/bin/systemctl …` 같은 두 줄) → `sudo visudo -c`
+
+## 2. 바깥 주소 열기 (허락 필요: Caddy · 방화벽)
+
+```bash
+sudo sh -c 'cat /opt/livemaster/v2/deploy/Caddyfile.v2 >> /etc/caddy/Caddyfile'
+sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy
+sudo ufw status | grep -q active && sudo ufw allow 8443/tcp
+```
+폰으로 `https://엔젤컴퍼니.메인.한국:8443/health` — 초록 점이면 된다.
+
+## 3. 옛 기록 · 설정 옮기기
+
+```bash
+sudo systemctl stop livemaster-v2                                       # 켜진 서버는 순위 제외 · 등급을 덮어쓴다
+cd /opt/livemaster && set -a && . /etc/livemaster.env && set +a
+sudo -E -u livemaster .venv/bin/python -m v2.tools.import_old_db --v2-db v2/data/lm2.db          # 세어 보기만
+sudo -E -u livemaster .venv/bin/python -m v2.tools.import_old_db --v2-db v2/data/lm2.db --write  # 진짜로
+sudo systemctl start livemaster-v2
+```
+- 옮기는 것: 지난 방송 후원(보관 장부) · 후원자 기억 · 별명 기억 · 순위에서 뺀 이름 · 직접 준 등급. **옛 장부는 읽기만 한다.**
+- 설정(공지 · 계좌 · 목표 · 테마 · 게임 판 …)은 옛 조종실 **[💾 백업]** 파일을 v2 조종실 **[옛 설정 옮기기]** 로.
+
+## 4. 연습 방송 (방송 없는 날)
+
+1. OBS 에 브라우저 소스 하나 더: `https://엔젤컴퍼니.메인.한국:8443/overlay/` (1080×1920). 클립을 쓰려면 이 소스에 **'고급 접근 권한'**.
+2. v2 조종실 `…:8443/controller/` 로 방송 시작 → **후원 콘솔**로 테스트 후원 → 배정 · 되돌리기 · 시그니처 · 게임 한 바퀴.
+3. 점검 탭(🛫)이 전부 초록인지. 폰으로 `/health`.
+4. 끝나면 방송 끝 → 장부 탭에서 기록이 남았는지.
+
+## 5. 갈아타는 날 (방송 시작 2시간 전까지 끝낸다)
+
+```bash
+sudo mkdir -p /etc/systemd/system/toon-listener.service.d
+sudo cp /opt/livemaster/v2/deploy/toon-listener.service.d/v2.conf /etc/systemd/system/toon-listener.service.d/
+sudo cp /opt/livemaster/v2/deploy/livemaster-bot-v2.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl disable --now livemaster-bot            # 옛 봇 먼저 끈다(두 번 말하지 않게)
+sudo systemctl restart toon-listener                   # 이제 후원이 v2 로 간다
+sudo systemctl enable --now livemaster-bot-v2 livemaster-v2-backup.timer
+journalctl -u toon-listener -n 20                      # 'connected' · v2 로 보냄 확인
+```
+- OBS 방송판 소스 주소를 `:8443/overlay/` 로, 조종실 북마크를 `:8443/controller/` 로.
+- 자동 배포가 v2 도 다시 켜게 `deploy/auto-deploy.sh` 의 곁다리 목록에 `livemaster-v2 livemaster-bot-v2` 를 더하고,
+  `v2/requirements.txt` 가 바뀌면 pip 를 돌리게 한다(아래 6). 이 고침은 **main 에 push 해야** 서버에 닿는다 — "올려" 때만.
+
+## 6. auto-deploy.sh 에 더할 것 (갈아타는 날 같이 올린다)
+
+```bash
+# requirements 확인 줄 옆에
+if ! run_as git diff --quiet "$LOCAL" "$REMOTE" -- v2/requirements.txt; then NEED_PIP_V2=1; fi
+# pip 줄 옆에
+[ "${NEED_PIP_V2:-0}" = "1" ] && run_as "$APP_DIR/.venv/bin/pip" install --quiet -r "$APP_DIR/v2/requirements.txt"
+# 곁다리 서비스 목록 두 군데(고정 버전 · 새 커밋)
+for svc in toon-listener livemaster-bot livemaster-v2 livemaster-bot-v2; do
+```
+- 배포 잠금: v2 는 방송 중 `GET /api/deploy/ok` 가 409 를 준다. auto-deploy 가 그걸 보고 기다리게 하려면 `git fetch` 앞에
+  `curl -sf http://127.0.0.1:5300/api/deploy/ok >/dev/null || { echo '방송 중 — 다음에'; exit 0; }` (v2 가 꺼져 있으면 curl 이 실패해 배포가 멈추므로 `systemctl is-active --quiet livemaster-v2 &&` 로 감쌀 것).
+
+## 되돌리기 (언제든)
+
+```bash
+sudo rm /etc/systemd/system/toon-listener.service.d/v2.conf
+sudo systemctl daemon-reload && sudo systemctl restart toon-listener
+sudo systemctl disable --now livemaster-bot-v2 && sudo systemctl enable --now livemaster-bot
+```
+OBS · 조종실 주소를 옛 것(:8443 을 뺀 것)으로. 옛 서버는 그동안 계속 떠 있었으므로 바로 쓴다
+(단, v2 에서 받은 후원 · 점수는 옛 장부에 없다 — v2 장부 탭에서 보고 손으로 옮긴다).
+
+## 백업 되살리기
+```bash
+sudo systemctl stop livemaster-v2
+cd /opt/livemaster/v2/data && sudo -u livemaster sh -c 'gunzip -c backups/lm2-YYYYMMDD-HHMM.db.gz > lm2.db.new && rm -f lm2.db-wal lm2.db-shm && mv lm2.db.new lm2.db'
+sudo systemctl start livemaster-v2
+```

@@ -1,0 +1,89 @@
+/* ✂️ 클립 · 📊 많이 누른 것 · 🗓️ 월별 순위 — 생김새(panels/tools_more.js · panels/more/*).
+   색은 controller.css 의 이름표(--accent · --good · --warn · --bad · --paper …)만 쓴다. 바깥에서 불러오는 것 없음.
+   틀(.ops · .ops-blk · .rc-*)은 tools_ops.css · tools_records.css 의 것을 같이 쓴다 — 여기는 이 탭들만의 것. */
+
+.mo-lead { margin: -4px 0 12px; line-height: 1.55; }
+.mo-select {
+    height: 42px; min-width: 0; max-width: 100%; flex: 1 1 220px; border-radius: var(--r-m); border: 1px solid var(--line);
+    background: var(--input); color: var(--text); padding: 0 10px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+.mo-select option { background: #2b221d; color: var(--text); }
+.mo-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+
+/* ── ✂️ 클립 ── */
+.mo-clip-st {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; border-radius: 14px; font-size: 14px; font-weight: 700; line-height: 1.45;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line-soft); color: var(--muted);
+}
+.mo-clip-st i { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--dim); flex: none; }
+.mo-clip-st[data-lv=ok] { color: #8ef0b8; background: rgba(61, 220, 132, 0.08); border-color: rgba(61, 220, 132, 0.3); }
+.mo-clip-st[data-lv=ok] i { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.mo-clip-st[data-lv=warn] { color: #ffd28a; background: rgba(245, 165, 36, 0.1); border-color: rgba(245, 165, 36, 0.38); }
+.mo-clip-st[data-lv=warn] i { background: var(--warn); }
+.mo-clip-now { align-self: flex-start; min-width: 220px; }
+.mo-clip-now span { font-size: 19px; }
+.mo-toks { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.mo-fmt-ex { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.mo-helper { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line-soft); }
+.mo-helper > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mo-helper b { font-size: 14.5px; }
+.mo-helper .btn { flex: none; text-decoration: none; }
+.mo .ops-hint a { color: var(--accent-hi); font-weight: 800; }
+.mo-clip-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 420px; overflow-y: auto; }
+.mo-row {
+    display: grid; grid-template-columns: 70px 100px 44px minmax(0, 1fr) 52px; gap: 8px; align-items: center;
+    padding: 5px 0; border-bottom: 1px solid var(--line-soft);
+}
+.mo-row:last-child { border-bottom: 0; }
+.mo-row time, .mo-at { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.mo-row .tag { justify-content: center; padding: 0; }
+.mo-row input.mo-title { height: 36px; padding: 0 10px; font-size: 14.5px; background: transparent; border-color: transparent; }
+.mo-row input.mo-title:hover { border-color: var(--line); }
+.mo-row input.mo-title:focus { background: var(--input); border-color: var(--accent); }
+.mo-ok { text-align: right; font-size: 12.5px; font-weight: 800; color: var(--dim); }
+.mo-ok.on { color: var(--good); }
+.mo-fold { border-radius: 16px; border: 1px solid var(--line-soft); background: rgba(0, 0, 0, 0.14); padding: 2px 14px; }
+.mo-fold summary { cursor: pointer; padding: 10px 0; font-weight: 800; color: var(--muted); }
+.mo-fold summary small { font-weight: 600; color: var(--dim); }
+.mo-fold p { margin: 0 0 10px; }
+@media (max-width: 640px) {
+    .mo-row { grid-template-columns: 62px 44px minmax(0, 1fr) 48px; }
+    .mo-row .mo-at { display: none; }
+    .mo-clip-now { width: 100%; }
+    .mo-helper { flex-direction: column; align-items: stretch; }
+}
+
+/* ── 📊 많이 누른 것 ── */
+.mo-rank, .mo-month { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mo-rrow {
+    display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+    padding: 10px 12px; border-radius: 14px; background: rgba(0, 0, 0, 0.2); border: 1px solid var(--line-soft);
+}
+.mo-rk { font-weight: 900; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+.mo-rrow.top .mo-rk { color: var(--gold); }
+.mo-nm { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mo-nm b { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mo-nm small { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.mo-track { display: block; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.mo-track i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-hi)); }
+.mo-n { font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; }
+
+/* ── 🗓️ 월별 순위(흰 종이 카드 — 후원자 순위와 같은 결) ── */
+.mo-month { gap: 0; padding: 2px 14px; border-radius: 20px; background: var(--paper); color: var(--ink); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2); }
+.mo-month:empty { display: none; }
+.mo-mrow {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-areas: "rk name total sub";
+    gap: 4px 12px; align-items: center; padding: 10px 2px; border-bottom: 1px solid var(--paper-3);
+}
+.mo-mrow:last-child { border-bottom: 0; }
+.mo-mrow .mo-rk { grid-area: rk; width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: var(--paper-3); color: var(--ink-2); font-size: 13px; }
+.mo-mrow.top .mo-rk { background: #f3e2c6; color: var(--accent-ink); }
+.mo-mrow.first .mo-rk { background: var(--accent); color: #fff; }
+.mo-mname { grid-area: name; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
+.mo-mtotal { grid-area: total; color: var(--accent-ink); font-size: 17px; font-weight: 900; font-variant-numeric: tabular-nums; text-align: right; }
+.mo-msub { grid-area: sub; color: var(--ink-3); font-size: 12.5px; font-weight: 600; text-align: right; min-width: 104px; }
+.mo-foot { margin: 10px 4px 0; }
+@media (max-width: 640px) {
+    .mo-mrow { grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-areas: "rk name total" "rk sub sub"; }
+    .mo-msub { text-align: left; }
+}

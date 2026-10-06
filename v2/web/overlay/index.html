@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>방송판 · 라이브 마스터 v2</title>
+    <!-- 🎨 생김새는 overlay.css(위젯별로 나눠 둠). 글꼴은 우리 서버(/vendor/fonts)에서 — 바깥 CDN 을 안 쓴다. -->
+    <link rel="stylesheet" href="/overlay/overlay.css">
+    <link rel="stylesheet" href="/overlay/css/basics2.css">
+    <link rel="stylesheet" href="/overlay/css/games_a.css">
+    <link rel="stylesheet" href="/overlay/css/games_b.css">
+    <link rel="stylesheet" href="/overlay/css/modes.css">
+    <link rel="stylesheet" href="/overlay/css/fx.css"><!-- 💡 조명(네온 · 아우디) · ✨ 테마 입자 · 🌕 보름달 -->
+    <!-- 🎀 테마는 맨 뒤(같은 무게면 뒤가 이긴다) -->
+    <link rel="stylesheet" href="/overlay/css/themes.css">
+    <!-- 📡 공용 연결(통째 → 바뀐 조각 · 다시 붙기) -->
+    <script src="/shared/client.js"></script>
+    <!-- 🗂️ 칸 · 층 순서는 layers.js 한 표, 위젯은 widgets/*.js 하나씩 -->
+    <script type="module" src="/overlay/main.js"></script>
+</head>
+<body>
+    <!-- 1080×1920 캔버스. 칸(.layer)은 main.js 가 layers.js 를 보고 만든다 — 여기에 손으로 넣지 말 것. -->
+    <div id="scale-wrapper"><div id="canvas"></div></div>
+</body>
+</html>
