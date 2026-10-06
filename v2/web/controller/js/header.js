@@ -10,6 +10,7 @@ import { mountAlarm } from './alarm.js';
 import { mountBgmMini } from './panels/records/bgm.js';
 import { mountTodayPill } from './panels/ai/today.js';   // 💰 이번 방송 후원(장부에서 센 것) — 옛 첫 화면 숫자 칸
 import { mountClipButton } from './clipbtn.js';            // ✂️ 어느 탭에서든 클립(옛 머리줄 단추)
+import { mountAutoPill } from './panels/auto/pill.js';     // 🤖 자동 진행 '그림자 · 켬' 표시(끔이면 숨김) — 누르면 그 탭
 
 const CONN = {
     connecting: ['connecting', '연결 중'],
@@ -33,6 +34,7 @@ export function mountHeader(root, ctx) {
     const alarm = mountAlarm(right, root, ctx);           // 점 두 개는 오른쪽 묶음 바로 앞(폰에서는 로고 줄)
     const bgm = mountBgmMini(right);
     const todayPill = mountTodayPill(onair);               // [방송 중] 바로 앞 · 폰에서는 숨긴다(AI 탭에 같은 숫자)
+    const autoPill = mountAutoPill(onair);
     const clipBtn = mountClipButton(right, ctx);           // 오른쪽 묶음 맨 앞 · 방송 중에만
     // 🧪 시험판(서버 LM2_TRIAL) — 옛 프로그램과 같이 쓰는 기능(시그니처 보관소 · 리스너 설정 · 서버 버전)이 잠겨 있다는 표시
     fetch('/api/health', { cache: 'no-store' }).then(r => r.json()).then(hh => {
@@ -87,6 +89,7 @@ export function mountHeader(root, ctx) {
             try { alarm.render(slices, status, view); } catch (e) { console.error('[점검]', e); }
             try { bgm.render(slices, view); } catch (e) { console.error('[BGM]', e); }
             try { todayPill.render(slices, view); } catch (e) { console.error('[오늘 후원]', e); }
+            try { autoPill.render(slices, view); } catch (e) { console.error('[자동 진행 표시]', e); }
             try { clipBtn.render(slices, view); } catch (e) { console.error('[클립 단추]', e); }
         },
         tick,

@@ -26,6 +26,8 @@ slice_('tallies', True, lambda: {'donors': {}, 'best': None, 'notice_donors': []
 
 ENQUEUE = []        # 시그니처 대기줄에 넣는 함수(reaction 모듈이 건다)
 AFTER_DONATION = []  # 후원 하나가 장부에 들어간 뒤(특별 후원자 등급 다시 매기기 등)
+ON_ASSIGN = []       # 🤖 대기함 카드를 준 뒤 fn(ctx, 그 카드, 받은 items, 보낸 data) — 무인 방송 그림자 채점(autopilot.py)
+ON_IGNORE = []       # 🤖 대기함 카드를 무시한 뒤 fn(ctx, 그 카드) — 같은 곳
 
 
 def _did(now):
@@ -136,6 +138,8 @@ def pending_assign(ctx, data):
     t = ctx.read('tallies')
     if t.get('best') and t['best'].get('id') == pid:
         ctx.edit('tallies')['best']['member'] = ' · '.join(x['name'] for x in items[:3])
+    for fn in ON_ASSIGN:
+        fn(ctx, it, items, data)
 
 
 @command('pending.ignore')
@@ -146,6 +150,8 @@ def pending_ignore(ctx, data):
         return
     if ctx.store.donation(it['id']):
         ctx.store.set_donation(it['id'], status='ignored')
+    for fn in ON_IGNORE:
+        fn(ctx, it)
 
 
 def _undo_back_to_pending(ctx, ref):

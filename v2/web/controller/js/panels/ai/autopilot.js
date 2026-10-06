@@ -71,7 +71,8 @@ export async function sweep() {
         let res;
         try {
             // ⚠️ 번호가 아니라 이름으로 — 화면 단추 순서는 바뀔 수 있다
-            res = await ctx.run('pending.assign', { id: it.id, name: s.target }, { quiet: true });
+            // via:'ap' — 서버 자동 진행(그림자) 채점이 이것을 '사람 판단' 으로 세지 않게(autopilot.py _on_assign)
+            res = await ctx.run('pending.assign', { id: it.id, name: s.target, via: 'ap' }, { quiet: true });
         } finally {
             st.busy = false;
         }

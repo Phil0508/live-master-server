@@ -103,6 +103,7 @@ signature.play(옛 주소 /api/signature/play) · show.stage{stage} · show.hud{
 | announce_bot / announce_status | ❌ | 진행봇 설정(옛 모양) / 봇이 붙으며 알린 모드(dry · live) |
 | sigview | ✅ | 시그니처 카드 크기 · 줄어드는 시간 · 줄어든 자리 · 'OO업' 글자 크기 · 시간 · 붙는 말(옛 reaction_*) — `sigview.set` |
 | presets | ❌ | 💾 세이브 슬롯 = 순서표 단계 list[{id, name, layout, hud, stage, saved_at}] — `preset.save/rename/move/delete/apply` · `show.cue{dir}` · 지금 몇 번째 = show.cue_at |
+| autopilot | ❌ | 🤖 자동 진행(무인 방송) mode(off · shadow 기본 · on) · use_ai · games(금액 → 룰렛 · 슬롯 · 주사위) · stats{session, total} · log(60) — `auto.set` · `auto.games` · `auto.reset_stats`(서버가 스스로: auto.decide · auto.ai · auto.roulette(_stop) · auto.slot · auto.dice). 대기함 카드에 auto{…} 를 붙인다. 흐름 · 채점 규칙은 autopilot.py 맨 위 |
 | lights | ✅ | 💡 조명 color('#rrggbb' · RAINBOW · OFF) · audi · speed(0.3~5초) · colors[9] · at — `lights.color{color}`(옛 단추 하나: AUDI 뒤집기 · OFF 둘 다) · `lights.set` · `lights.slot` · 스트림덱 /api/streamdeck/neon. 방송판은 방송 중 · 시그니처가 나오는 동안만 켠다(groups/fx.js · widgets/fx/) |
 look 에 sig_tally_limit · donor_rank_limit(`look.limits`) · sfx(`look.sfx`, 없으면 켜짐)가, karaoke 에 volume(`karaoke.volume`, 기본 70)이 더해졌다(settings2.py).
 look 에 fx(✨ 테마 연출 — `look.fx`, 없으면 켜짐 · 옛 theme_fx_enabled)가 더해졌다(lights.py).
@@ -134,3 +135,5 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - `LM2_AI_OFF=1` — AI 열쇠를 안 읽는다(서버 계산만). `LM2_NIM_URL` — 가짜 AI 주소. ⚠️ 저장소의 NVIDIA_CREDENTIALS.txt · SUPABASE_CREDENTIALS.txt 를
   저절로 읽으므로 그냥 띄운 시험 서버도 진짜 서비스를 부른다. `.claude/launch.json` 의 v2 는 LM2_AI_OFF=1 로 띄운다.
 - Supabase 는 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` 환경변수가 파일보다 먼저다(검사는 닫힌 포트로 돌려 막는다).
+- `LM2_AUTOPILOT=off|shadow|on` — 🤖 자동 진행의 **처음** 모드(새 DB 일 때만, 기본 shadow). 검사 꾸러미(v2/tests/__init__.py)는 off 로 시작한다.
+- 🧪 `python -m v2.tools.backtest_autopilot --db v2/data/lm2.db` — 지난 후원자 기억(donor_memory)을 시간 순으로 다시 돌려 '그때 기계였다면' 을 채점(읽기만 · AI 안 부름 · 이름 · 금액 안 찍음).

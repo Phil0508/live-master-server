@@ -17,6 +17,7 @@ import * as sug from './suggest.js';
 import * as ap from './autopilot.js';
 import * as watch from './watch.js';
 import { manWon, won } from '../../util.js';
+import { autoBadge } from '../auto/badge.js';            // 🤖 자동 진행(서버 autopilot) 판단 배지
 
 const AUDIT_MIN_CONF = 0.6;      // 배지 '🤖 ○○로 보임' · 오배정 경고
 const ASK_MIN_CONF = 0.75;       // '지급할까요?' — 행동을 권하니 배지보다 엄격하게
@@ -84,6 +85,7 @@ function makeBadge(it) {
     const snap = shown.get(it.id);
     const s = snap ? snap.ans : sug.get(it.id);
     if (!s || s.gone || s.skipped) return null;
+    if (s.auto) return autoBadge(s.auto, s.history);     // 🤖 서버 자동 진행이 판단한 카드 — '자동이라면 …' · '몰라서 보류'
     let cls, main;
     const why = s.why ? h('span', { class: 'ai-why' }, ' · ' + s.why) : null;
     if (s.asking) {

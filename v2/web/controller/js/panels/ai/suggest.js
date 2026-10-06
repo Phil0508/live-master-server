@@ -8,12 +8,25 @@
        그동안 배지는 '⏳ AI 가 붐벼요'. 서버에 닿지 않았을 때도 같은 규칙으로 다시 묻는다.
      · 대기함에 없는 id(404 gone) — 이미 배정 · 무시됨. 조용히 넘긴다.
      · 대기함에서 빠진 후원은 답을 버린다 — 되돌려 돌아오면(되돌리기) 새로 묻는다(서버가 '후원자 기억' 을 잊었다).
-   한꺼번에 많이 들어와도 서버를 두드리지 않게 동시에 3건까지만 묻는다. */
-import { call, isDonation, getCtx } from './common.js';
+   한꺼번에 많이 들어와도 서버를 두드리지 않게 동시에 3건까지만 묻는다.
+   🤖 서버 자동 진행(autopilot.py)이 그 카드를 판단했으면(카드의 auto) **묻지 않고** 그 판단을 답으로 쓴다 —
+      배지 · '지급할까요?' · 오배정 경고 · 🚗 가 그대로 돈다. auto.asking(서버가 판단 중)이면 기다린다.
+      그 표시가 60초 넘게 묵었으면(서버를 다시 켜 예약이 사라졌다 등) 예전처럼 직접 묻는다. */
+import { call, isDonation, getCtx, serverNow } from './common.js';
 
 const MAX_RETRY = 3;
 const RETRY_MS = 20000;
 const PARALLEL = 3;
+const AUTO_STALE_MS = 60000;   // 🤖 서버 '판단 중' 표시가 이만큼 묵으면 직접 묻는다
+const fromAuto = new Map();    // 후원 id → 서버 자동 진행 판단에서 온 답의 서명(바뀌면 다시 넣는다)
+
+/** 카드의 서버 판단(auto) — 쓸 수 있는 것만. 게임 표시만 있는 것 · 묵은 '판단 중' 은 null */
+function autoOf(it) {
+    const a = it && it.auto;
+    if (!a || typeof a !== 'object') return null;
+    if (a.asking) return serverNow() - (Number(a.at) || 0) > AUTO_STALE_MS ? null : a;
+    return 'target' in a ? a : null;
+}
 
 const answers = new Map();     // 후원 id → 답 {target, confidence, tier, source, why, history, retry, retryIn, asking, gone, skipped}
 const asked = new Set();       // 물었거나 묻는 중인 id
@@ -42,7 +55,28 @@ export function sync(pend) {
     (pend || []).forEach(it => {
         if (!it || !it.id) return;
         ids.add(it.id);
-        if (!isDonation(it) || asked.has(it.id)) return;
+        if (!isDonation(it)) return;
+        const a = autoOf(it);
+        if (a) {                                       // 🤖 서버가 판단했다(또는 판단 중) — 묻지 않는다
+            const key = JSON.stringify(a);
+            if (fromAuto.get(it.id) === key) return;
+            fromAuto.set(it.id, key);
+            asked.add(it.id);
+            answers.set(it.id, a.asking ? { asking: true, auto: a } : {
+                target: a.target || null, confidence: Number(a.confidence) || 0, tier: a.tier || 'unknown',
+                source: a.source || null, why: a.why || null, history: Array.isArray(a.history) ? a.history : [],
+                retry: !!a.retry, retryIn: !!a.retry, auto: a,
+            });
+            bump(it.id);
+            tell(it.id);
+            return;
+        }
+        if (fromAuto.has(it.id)) {                     // 서버 판단이 걷혔다(자동 진행을 껐다 · 묵었다) — 이제 직접 묻는다
+            fromAuto.delete(it.id);
+            asked.delete(it.id);
+            retries.delete(it.id);
+        }
+        if (asked.has(it.id)) return;
         asked.add(it.id);
         answers.set(it.id, { asking: true });
         bump(it.id);
@@ -54,6 +88,7 @@ export function sync(pend) {
         asked.delete(id);
         retries.delete(id);
         ver.delete(id);
+        fromAuto.delete(id);
     }
 }
 
@@ -73,7 +108,7 @@ function pump() {
 
 async function ask(id) {
     const r = await call('/api/audit/suggest', { id });
-    if (!asked.has(id)) return;                       // 그새 대기함에서 빠졌다
+    if (!asked.has(id) || fromAuto.has(id)) return;   // 그새 대기함에서 빠졌다 · 그새 서버 자동 진행이 판단했다
     let res;
     if (r.status === 404 && r.data && r.data.gone) {
         answers.set(id, { gone: true });              // 이미 배정 · 무시됨 — 배지 없이 조용히
@@ -100,7 +135,7 @@ async function ask(id) {
         if (n <= MAX_RETRY) {
             res.retryIn = true;                       // '⏳ 곧 다시 물어봐요' — '모름' 과 섞지 않는다
             setTimeout(() => {
-                if (!asked.has(id) || !stillPending(id)) return;     // 그새 배정 · 무시됐으면 안 묻는다
+                if (!asked.has(id) || !stillPending(id) || fromAuto.has(id)) return;     // 그새 배정 · 무시됐으면 · 서버가 판단했으면 안 묻는다
                 enqueue(id);
             }, RETRY_MS * n);
         }
