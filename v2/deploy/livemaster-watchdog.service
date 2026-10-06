@@ -1,0 +1,11 @@
+# 🩹 감시 장치 한 번 — livemaster-watchdog.timer 가 1분마다 부른다(v2/deploy/watchdog.py 머리말).
+#    하는 일은 '죽은 것 다시 켜기(systemctl restart)' 뿐 — 그래서 root 로 돈다. 코드 · 설정은 안 바꾼다.
+[Unit]
+Description=Live Master 감시 장치(죽은 것만 다시 켜기)
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/livemaster.env
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/usr/bin/python3 /opt/livemaster/v2/deploy/watchdog.py
+TimeoutStartSec=150

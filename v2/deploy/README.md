@@ -20,6 +20,16 @@
 - 리스너 · 진행봇은 아직 옛 서버 쪽 — v2 에는 진짜 후원이 안 온다(후원 콘솔로 시험).
 - ⚠️ 자동 배포(auto-deploy)는 v2 를 다시 켜지 않는다 — v2 코드를 올린 뒤엔 `sudo systemctl restart livemaster-v2`.
 
+## 🩹 감시 장치 (대표님 결정 10-07: 죽은 것은 방송 중에도 다시 켠다)
+```bash
+sudo cp /opt/livemaster/v2/deploy/livemaster-watchdog.service /opt/livemaster/v2/deploy/livemaster-watchdog.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now livemaster-watchdog.timer
+sudo systemctl start livemaster-watchdog.service && journalctl -u livemaster-watchdog -n 5 --no-pager
+```
+- 1분마다: 옛 서버 · v2 · 리스너가 '켜져 있는데 답을 안 하면' 다시 켠다(3분 기다림 · 1시간에 3번까지 · 넘으면 알림만).
+- 하는 일은 `systemctl restart` 뿐 — 코드 · 설정은 안 바꾼다. 기록은 /var/lib/livemaster-watchdog/events.jsonl → 폰 상태판(/health)에 보인다.
+- 폰 알림: /etc/livemaster.env 에 `NOTIFY_URL=https://ntfy.sh/<비밀 주제>` (없으면 기록만).
+
 ## 1. 나란히 띄우기 (허락 필요: 받기 · 서비스)
 
 ```bash

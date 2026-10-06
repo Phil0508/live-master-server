@@ -7,7 +7,29 @@ GET /api/health  JSON
           지금 무대 · 방송 중인지 · 마지막 후원 몇 초 전 · 리스너 상태
 ⚠️ 담지 않는 것: 후원자 이름 · 금액 · 메시지 · 비밀번호 · 키 · 파일 경로. 무인증이라 남이 봐도 되는 것만.
 """
+import json
+import os
 import time
+
+WATCHDOG_DIR = os.environ.get('WATCHDOG_DIR', '/var/lib/livemaster-watchdog')
+
+
+def _watchdog():
+    """🩹 서버 감시 장치(v2/deploy/watchdog.py)가 한 일 — 마지막으로 돈 때 · 최근 5줄(무엇을 다시 켰나). 개인 정보는 안 적혀 있다."""
+    out = {'last_run_sec': None, 'events': []}
+    try:
+        with open(os.path.join(WATCHDOG_DIR, 'state.json'), encoding='utf-8') as f:
+            lr = json.load(f).get('last_run')
+        out['last_run_sec'] = int(time.time() - lr) if lr else None
+    except Exception:
+        return None                                  # 감시 장치가 없는 곳(이 PC 등)
+    try:
+        with open(os.path.join(WATCHDOG_DIR, 'events.jsonl'), encoding='utf-8') as f:
+            rows = [json.loads(l) for l in f if l.strip()][-5:]
+        out['events'] = [{'at': int(r.get('at') or 0), 'kind': str(r.get('kind') or ''), 'text': str(r.get('text') or '')[:160]} for r in reversed(rows)]
+    except Exception:
+        pass
+    return out
 
 from .preflight import listener, spool
 
@@ -58,4 +80,4 @@ def view(bus, boot):
                        'sig_queue': len(st.get('queue').get('items') or []), 'logs': len(st.get('logs') or [])},
             'last_donation_sec': last,
             'listener': {k: lis.get(k) for k in ('level', 'age_sec', 'state', 'connected_sec', 'last_donation_sec')},
-            'spool': spool()}
+            'spool': spool(), 'watchdog': _watchdog()}

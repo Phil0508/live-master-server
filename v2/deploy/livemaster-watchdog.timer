@@ -1,0 +1,11 @@
+# 🩹 1분마다 — 방송 중에도(대표님 결정 10-07). 서버가 켜지면 2분 뒤부터.
+[Unit]
+Description=Live Master 감시 장치(1분마다)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1min
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

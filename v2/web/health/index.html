@@ -57,6 +57,10 @@ async function tick() {
       row('장부 응답', h.db.ping_ms == null ? '실패' : h.db.ping_ms + 'ms', h.db.ping_ms == null ? 'bad-t' : ''),
       row('메모리', h.rss_mb == null ? '—' : h.rss_mb + 'MB'),
       row('끊어 낸 화면', h.dropped + '번'),
+      h.watchdog ? row('🩹 감시 장치', h.watchdog.last_run_sec == null ? '안 돎' : dur(h.watchdog.last_run_sec) + ' 전에 확인',
+                       h.watchdog.last_run_sec == null || h.watchdog.last_run_sec > 300 ? 'bad-t' : '') : '',
+      ...((h.watchdog && h.watchdog.events) || []).map(e => row(new Date(e.at * 1000).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                       String(e.text).replace(/[<>&]/g, ''), e.kind === 'gaveup' || e.kind === 'restart_failed' ? 'bad-t' : '')),
     ].join('');
     $('#foot').textContent = new Date().toLocaleTimeString('ko-KR') + ' 기준';
   } catch (e) {
