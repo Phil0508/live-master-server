@@ -294,6 +294,8 @@ run('⏱️ 대결 타이머 — 리액션 멈춤 · 키보드', [PY, 'match_tim
 run('🎨 조종실 새 옷 — 유리 스튜디오', [PY, 'ctl_skin_test.py'], HERE, kind='pt')
 run('🏺 모금함 깃발 — 점수판 왼쪽 · 오른쪽', [PY, 'fundjar_side_test.py'], HERE, kind='pt')
 run('🧩 퀴즈판 — 초성 · 사자성어', [PY, 'quiz_test.py'], HERE, kind='pt')
+run('🧱 방송판 짜임 — 판이 후원 팝업 위로 안 올라가게', [PY, 'overlay_structure_test.py'], HERE)
+run('🛫 방송 전 점검 · 방송 중 경보', [PY, 'preflight_test.py'], HERE, kind='pt')
 run('500 터지는 길 전수', [PY, 'crash_sweep.py'], HERE, kind='pt')
 run('이중배정·집계 보호', [PY, 'guard_test.py'], HERE, kind='pt')
 run('점수 정확성', [PY, 'score_test.py'], HERE, kind='pt')

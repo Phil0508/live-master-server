@@ -244,6 +244,13 @@ rows = screens()[0] or []
 chk('상한을 지킨다', len(rows) <= cap, len(rows))
 chk('가장 오래된 방송판(OBS)이 살아남았다', any(r['kind'] == 'overlay' and r['device'] == 'obs' for r in rows))
 chk('모르는 연결(②의 날것)이 먼저 나갔다', not any(r['kind'] == 'unknown' for r in rows))
+lone = open_kind('/api/stream')          # 상한이 꽉 찬 채로 이름표 없는 화면이 붙는다
+time.sleep(1)
+rows = screens()[0] or []
+chk('⭐ 상한에서 막 붙은 화면은 자기를 내보내지 않는다(이름표가 없어도 — 다시 붙고 또 밀리는 고리 막기, 10-06)',
+    any(r['kind'] == 'unknown' for r in rows) and len(rows) <= cap
+    and any(r['kind'] == 'overlay' and r['device'] == 'obs' for r in rows), len(rows))
+crowd.append(lone)
 for c in crowd + [ov]:
     try:
         c.close()

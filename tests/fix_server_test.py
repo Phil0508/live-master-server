@@ -246,6 +246,33 @@ missing = [k for k in server.DEFAULT_STATE if k not in st]
 say(r.status_code == 200 and not missing and st['bjs'][0]['name'] == '옛', '7) 옛 스냅샷 복원 뒤 빠진 칸이 없다', (r.status_code, missing[:5]))
 r2 = c.get('/api/data', headers=H)
 say(r2.status_code == 200, '7) 복원 뒤 상태 읽기 정상', r2.status_code)
+
+# 8) 시그니처 최저가 — Supabase 가 죽어도 후원마다 10초씩 기다리지 않는다(10-06 점검)
+calls = {'n': 0}
+def _ok():
+    calls['n'] += 1
+    return [{'amount': 10300}, {'amount': 20000}]
+def _bad():
+    calls['n'] += 1
+    raise RuntimeError('supabase down')
+os.environ.pop('SIG_MIN_AMOUNT', None)
+server._SIG_CHEAPEST.update({'amount': None, 'at': 0.0})
+server.supabase_list_signatures = _ok
+v1 = server._sig_min_amount()
+server._SIG_CHEAPEST['at'] = 0.0
+server.supabase_list_signatures = _bad
+n0 = calls['n']
+v2 = server._sig_min_amount()
+v3 = server._sig_min_amount()
+say(v1 == 10000 and v2 == 10000 and v3 == 10000 and calls['n'] - n0 == 1,
+    '8) 최저가 조회가 실패하면 전에 알던 값 · 1분 동안 다시 안 묻는다', (v1, v2, v3, calls['n'] - n0))
+server._SIG_CHEAPEST.update({'amount': None, 'at': 0.0})
+say(server._sig_min_amount() == 0, '8) 처음부터 모르면 최저선 없이(예전처럼)')
+
+# 9) 상태가 기본값 객체(DEFAULT_STATE)를 그대로 물고 있지 않다 — 물면 복원 · 초기화가 방금 내용을 가져온다
+s_ = server.load_data()
+shared = [k for k, v in server.DEFAULT_STATE.items() if isinstance(v, (dict, list)) and k != 'bjs' and s_.get(k) is v]
+say(not shared, '9) 상태가 기본값 객체를 물고 있지 않다', shared[:5])
 '''
 
 src = os.environ.get('LM_SANDBOX_DIR')

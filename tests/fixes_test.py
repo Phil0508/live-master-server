@@ -289,7 +289,8 @@ chk('전체에서 제일 싼 값을 본다',
     [x.strip()[:50] for x in _mn_code if 'gte' in x])
 chk('갈아끼울 수 있는 함수를 쓴다 (검사에서도 걸리게)', 'supabase_list_signatures()' in mn)
 chk('환경변수로 끌 수 있다 (SIG_MIN_AMOUNT)', "os.environ.get('SIG_MIN_AMOUNT')" in mn)
-chk('조회 실패하면 최저선 없이 간다', 'except Exception' in mn and 'return 0' in mn)
+chk('조회 실패하면 전에 알던 값으로(처음부터 모르면 최저선 없이) · 1분 동안은 다시 안 묻는다(10-06)',
+    'except Exception' in mn and 'old if old is not None else 0' in mn and 'now - 540' in mn)
 chk('값을 잠깐 기억한다', "now - _SIG_CHEAPEST['at'] < 600" in mn)
 # 💛 만원 특수 취급 — 제일 싼 시그니처가 10,300원이라 만원 후원이 통째로 빠졌다
 chk('최저선이 만원을 못 넘는다 (만원은 최저 시그를 튼다)',

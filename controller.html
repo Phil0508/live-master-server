@@ -1908,6 +1908,58 @@
         .qz-add-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
         .qz-msg { font-size: var(--fs-2); color: var(--text-muted); }
         #qz-add { width: 100%; box-sizing: border-box; min-height: 110px; }
+        /* ⚡ 지금 바로 띄우기 · 📋 다음 순서 */
+        .qz-nowrow { display: flex; gap: 8px; align-items: center; margin: 10px 0 0; }
+        .qz-nowrow input { flex: 1; min-width: 0; height: 42px; margin: 0; box-sizing: border-box; }
+        .qz-nowrow button { flex: none; height: 42px; margin: 0; white-space: nowrap; }
+        .qz-orderhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .qz-orderhead button { height: 32px; min-height: 0; margin: 0; padding: 0 12px; font-size: var(--fs-2); }
+        .qz-order { list-style: none; margin: 6px 0 0; padding: 0; max-height: 340px; overflow-y: auto;
+                    border: 1px solid var(--border-light); border-radius: var(--r-2, 8px); }
+        .qz-order li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+                       padding: 6px 8px; border-bottom: 1px solid var(--border-light); }
+        .qz-order li:last-child { border-bottom: 0; }
+        .qz-order li:first-child:not(.qz-o-empty) { background: rgba(240, 123, 63, 0.12); }   /* 다음에 나갈 것 */
+        .qz-o-n { text-align: right; font-weight: 800; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+        .qz-o-a { min-width: 0; font-weight: 800; color: var(--text-main); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .qz-o-a small { margin-left: 6px; font-weight: 600; color: var(--text-muted); }
+        .qz-o-b { display: flex; gap: 4px; }
+        .qz-o-b button { height: 30px; min-height: 0; min-width: 32px; margin: 0; padding: 0 8px; font-size: var(--fs-2); justify-content: center; }
+        .qz-o-empty { display: block !important; color: var(--text-muted); font-size: var(--fs-3); }
+    </style>
+    <style id="preflight-css">
+        /* 🛫 방송 전 점검 · 방송 중 경보 (2026-10-06) — 소리는 안 낸다(대표님) */
+        .pf-chip { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; margin-left: 6px;
+                   border-radius: 999px; border: 1px solid var(--border-light); background: rgba(255, 255, 255, 0.04);
+                   color: var(--text-muted); font-size: var(--fs-1); font-weight: 700; white-space: nowrap; cursor: pointer; vertical-align: middle; }
+        .pf-chip i { width: 7px; height: 7px; border-radius: 50%; background: #8e8e93; display: inline-block; }
+        .pf-chip.ok { color: var(--success); border-color: rgba(53, 208, 127, 0.45); }
+        .pf-chip.ok i { background: var(--success); }
+        .pf-chip.warn { color: #ffcc00; border-color: rgba(255, 204, 0, 0.5); }
+        .pf-chip.warn i { background: #ffcc00; }
+        .pf-chip.bad { color: #fff; background: rgba(255, 69, 58, 0.85); border-color: var(--danger); }
+        .pf-chip.bad i { background: #fff; }
+        .pf-alarm { display: none; margin: 0 0 10px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--danger);
+                    background: rgba(255, 69, 58, 0.16); color: #fff; }
+        .pf-alarm.on { display: block; }
+        .pf-alarm .pf-row { display: flex; align-items: flex-start; gap: 10px; }
+        .pf-alarm .pf-row + .pf-row { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 69, 58, 0.35); }
+        .pf-alarm b { font-size: var(--fs-3); font-weight: 900; }
+        .pf-alarm small { display: block; margin-top: 3px; font-size: var(--fs-2); color: rgba(255, 255, 255, 0.85); line-height: 1.5; }
+        .pf-alarm .pf-row.warn { color: #ffe08a; }
+        .pf-alarm button { flex: none; margin: 0 0 0 auto; height: 32px; min-height: 0; padding: 0 12px; font-size: var(--fs-2); }
+        .pf-list { margin: 0 0 18px; padding: 14px 16px; border: 1px solid var(--border-light); border-radius: 12px; background: rgba(255, 255, 255, 0.03); text-align: left; }
+        .pf-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+        .pf-head b { font-size: var(--fs-3); color: #fff; }
+        .pf-head span { font-size: var(--fs-2); font-weight: 800; }
+        .pf-item { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; padding: 7px 0; border-top: 1px solid var(--border-light); }
+        .pf-item:first-of-type { border-top: 0; }
+        .pf-item .pf-ic { font-size: var(--fs-3); line-height: 1.4; text-align: center; }
+        .pf-item .pf-t { min-width: 0; font-size: var(--fs-2); color: #fff; font-weight: 700; line-height: 1.45; }
+        .pf-item .pf-t small { display: block; font-weight: 500; color: var(--text-muted); }
+        .pf-item.bad .pf-t { color: #ff8a80; }
+        .pf-item.warn .pf-t { color: #ffe08a; }
+        .pf-item label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 700; }
     </style>
     <style id="skin-glass-css">
         /* ═══════════════════════════════════════════════════════
@@ -2122,7 +2174,7 @@
             body.skin-glass .shell-rail .bj-btn:not([onclick^="assignSplitEqual"]):not([onclick^="assignPendingToJar"]):not([onclick^="broadcastOffWorkCardById"]):hover {
                 background: var(--sk-o) !important; border-color: var(--sk-o) !important; color: #fff !important; transform: none; }
             body.skin-glass .shell-rail .audit-badge { color: #2c5fb8; background: #eef4ff; border-color: #cfdcf7; border-radius: 10px; }
-            body.skin-glass .shell-rail .audit-badge b { color: inherit; }
+            body.skin-glass .shell-rail .audit-badge b { color: inherit; }
 
             body.skin-glass .shell-rail .audit-badge.lv-auto { color: #1f8a52; background: #e9f8ef; border-color: #bfe6cf; }
             body.skin-glass .shell-rail .audit-badge.lv-unknown { color: #9a6200; background: #fff4e0; border-color: #f3d9a6; }
@@ -2320,7 +2372,15 @@
         /* 원래 ⋯ 뒤에 숨던 단추(tab-x)도 설정 화면에선 늘 보인다 */
         body.view-setup .tabs-2row .tab-btn.tab-x[data-zone="setup"] { display: inline-flex !important; }
         body.view-setup #shell-rail, body.view-setup #show-bar, body.view-setup #context-strip,
-        body.view-setup #goal-alert-box, body.view-setup #autopilot-banner { display: none !important; }
+        body.view-setup #autopilot-banner { display: none !important; }
+        /* ⚠️ 목표 달성 알림(#goal-alert-box)은 설정 화면에서도 보인다 · 미확인 후원은 위 머리줄에 [🔔 N건]으로(10-06 점검 —
+              방송 중에 공지를 고치러 설정 화면에 가 있으면 대기함이 통째로 숨어 후원이 안 들어오는 것처럼 보였다) */
+        #setup-pend { flex: none; height: 40px; padding: 0 16px; margin-left: auto; border: 0 !important; border-radius: 10px;
+                      background: #f07b3f !important; color: #fff !important; font-weight: 800; cursor: pointer;
+                      animation: setupPendPulse 1.6s ease-in-out infinite; }
+        #setup-pend b { color: #fff; font-size: inherit; }
+        @keyframes setupPendPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240, 123, 63, 0.55); } 50% { box-shadow: 0 0 0 8px rgba(240, 123, 63, 0); } }
+        @media (prefers-reduced-motion: reduce) { #setup-pend { animation: none; } }
         body.view-setup .shell { grid-template-columns: minmax(0, 1fr) !important; }
         body.view-setup .shell-main { max-width: 1100px; }
         /* 방송 시작 전에도 설정 화면은 열린다 */
@@ -2416,6 +2476,9 @@
             <span id="connection-status-badge" style="font-size: var(--fs-1); font-weight: 700; background: rgba(52, 199, 89, 0.15); border: 1px solid var(--success); color: var(--success); padding: 3px 10px; border-radius: var(--r-3); display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; vertical-align: middle; transition: all 0.3s ease;">
                 <span style="width: 7px; height: 7px; background: var(--success); border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite;"></span> 연결됨 · <span id="latency-val">--ms</span>
             </span>
+            <!-- 🛫 방송 화면(OBS) · 후원 받기(투네이션 리스너)가 살아 있나 — 10초마다(누르면 자세히) -->
+            <span id="pf-chip-ov" class="pf-chip" onclick="pfExplain('ov')" title="방송 화면(OBS)이 서버에 붙어 있나"><i></i>방송 화면</span>
+            <span id="pf-chip-li" class="pf-chip" onclick="pfExplain('li')" title="투네이션 후원을 받아 오는 프로그램이 살아 있나"><i></i>후원 받기</span>
         </h1>
         <!-- ⏱ 대결 타이머 — 대결 중에만 뜬다(시안 A·B: 제일 많이 누른 ▶ 시작 56번 · +1분 46번) -->
         <div id="hdr-timer" class="hdr-timer" style="display:none;"></div>
@@ -2502,9 +2565,12 @@
         <div id="setup-head" class="setup-head" data-zone="setup">
             <div><b><i class="fa-solid fa-gear"></i> 설정</b>
                 <span>방송 중엔 잘 안 쓰는 세부 설정을 모아 둔 곳이에요. 방송 조종은 [조종실로] 를 누르세요.</span></div>
+            <button type="button" id="setup-pend" onclick="ctlView('live')" style="display:none" title="조종실로 돌아가 대기함을 봅니다"><i class="fa-solid fa-bell"></i> 미확인 후원 <b>0</b>건</button>
             <button type="button" class="primary" onclick="ctlView('live')"><i class="fa-solid fa-arrow-left"></i> 조종실로</button>
         </div>
     <div id="sticky-top">
+        <!-- 🚨 방송 중 경보 (2026-10-06) — 방송 화면(OBS)이 끊기거나 후원 받기가 멈추면. 소리는 안 낸다 -->
+        <div id="pf-alarm" class="pf-alarm" role="alert"></div>
         <!-- 🗂️ 탭 — 두 줄 (대표님 2026-09-27, 시안 B).
              추석 방송(2026-09-22) 클릭 기록 1,073번을 보고 **많이 연 순서**로 세웠다.
                윗줄(자주): 랭킹 79 · BGM 28 · 대결 25 · 룰렛 18 · 슬롯 16 · 주사위 14 · 시그뒤집기 12
@@ -3128,7 +3194,7 @@
             <div id="ntc-list" class="ntc-list"></div>
             <div class="ntc-add">
                 <input type="text" id="ntc-new" maxlength="120" autocomplete="off"
-                       placeholder="새 공지 — 예) 계좌로 보내실 때 *닉네임+플레이어* 를 적어 주세요" onkeydown="if(event.key==='Enter')ntcAdd()">
+                       placeholder="새 공지 — 예) 계좌로 보내실 때 *닉네임+플레이어* 를 적어 주세요" onkeydown="if(event.key==='Enter'&&!event.isComposing)ntcAdd()">
                 <button type="button" class="primary" onclick="ntcAdd()"><i class="fa-solid fa-plus"></i> 공지 추가</button>
             </div>
             <!-- 💛 소액 후원(시그니처를 안 튼 것)은 여기 모여 전광판 순환에 한 줄로 낀다 -->
@@ -3457,6 +3523,12 @@
                 <button type="button" data-v="chosung" onclick="qzKind('chosung')">초성 <small id="qz-n-chosung"></small></button>
                 <button type="button" data-v="idiom" onclick="qzKind('idiom')">사자성어 <small id="qz-n-idiom"></small></button>
             </div>
+            <div class="qz-nowrow">
+                <input type="text" id="qz-now-in" maxlength="24" autocomplete="off"
+                       placeholder="지금 바로 띄울 정답 — 예: 떡볶이 → 방송엔 ㄸㅂㅇ (초성만 적어도 됨)"
+                       onkeydown="if (event.key === 'Enter' && !event.isComposing) qzNowSend()">
+                <button type="button" class="primary" onclick="qzNowSend()">바로 띄우기</button>
+            </div>
             <div class="qz-now" id="qz-now"><span class="qz-empty">불러오는 중…</span></div>
             <div class="gx-act gx-deck">
                 <div class="gx-tiles gx-tiles-4">
@@ -3466,6 +3538,12 @@
                     <button type="button" class="gx-tile" onclick="qzShow(false)"><i class="ic fa-solid fa-eye-slash"></i><span><span class="nm">퀴즈판 내리기</span><span class="sub">방송 화면에서</span></span></button>
                 </div>
             </div>
+            <!-- 📋 다음 순서 — [다음 문제]는 맨 위부터. ▲ ▼ · 맨 위로 · 지금 띄우기 · 오늘은 빼기 · 섞기로 고친다 -->
+            <div class="qz-orderhead">
+                <span class="gx-lbl">다음 순서 <b id="qz-order-n"></b> — [다음 문제]는 맨 위부터 나갑니다</span>
+                <button type="button" onclick="qzOrder('shuffle')" title="남은 순서를 다시 섞습니다"><i class="fa-solid fa-shuffle"></i> 섞기</button>
+            </div>
+            <ol class="qz-order" id="qz-order" onclick="qzOrderClick(event)"><li class="qz-o-empty">불러오는 중…</li></ol>
             <details class="gx-fold">
                 <summary>내 문제 더하기</summary>
                 <div class="gx-fold-body">
@@ -3944,7 +4022,7 @@
                     <div class="rs2-match" id="rs-match"></div>
                 </div>
             </div>
-            <input type="text" id="rs-donor" placeholder="후원자명 (비우면 '수동송출')" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter')railSend()">
+            <input type="text" id="rs-donor" placeholder="후원자명 (비우면 '수동송출')" maxlength="20" autocomplete="off" onkeydown="if(event.key==='Enter'&&!event.isComposing)railSend()">
             <!-- 💬 후원 메시지 — 화면에 시그와 함께 뜬다(후원 콘솔과 같다). 줄바꿈은 Enter, 바로 송출은 Ctrl+Enter -->
             <textarea id="rs-msg" rows="2" maxlength="120" placeholder="후원 메시지 (선택 · Ctrl+Enter 로 송출)" autocomplete="off"
                       onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();railSend();}"></textarea>
@@ -4160,6 +4238,8 @@
             </div>
             
             <div class="control-group stage-box" style="margin-bottom: 15px; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);"><label style="color:var(--text-muted); font-size: var(--fs-3); font-weight:600;" title="방송판 전체를 덮는 화면입니다. 기다리는 동안 들어온 후원 알림·시그니처는 그 위에 그대로 뜹니다.">🎬 시작·끝 화면:</label><input type="number" id="ss-min-setup" min="0" max="180" placeholder="분" style="width: 70px;" title="시작 전 화면에 띄울 카운트다운(분). 비우거나 0 이면 카운트다운 없이 문구만 뜹니다."><input type="text" id="ss-title-setup" maxlength="40" placeholder="한 줄 문구 (예: 오늘은 추석 특집!)" style="flex: 1; min-width: 180px;"><button type="button" onclick="stageScreen('start', 'setup')" title="곧 시작합니다 + 카운트다운 + 멤버 이름">시작 전 화면</button><button type="button" onclick="stageScreen('end', 'setup')" title="오늘도 고마워요 + 오늘의 1등 · 한 방 최고 · 후원해 주신 분">끝 화면</button><button type="button" onclick="stageScreen('off', 'setup')">끄기</button><span id="ss-state-setup" style="font-size: var(--fs-3); font-weight: 700; color: var(--text-muted);"></span></div>
+            <!-- 🛫 방송 전 점검 (2026-10-06) — 다 초록이면 시작. 막지는 않는다(급할 땐 그냥 시작할 수 있어야 한다) -->
+            <div class="pf-list" id="pf-list"><div class="pf-head"><b>🛫 방송 전 점검</b><span id="pf-sum">확인하는 중…</span></div><div id="pf-items"></div></div>
             <button onclick="startBroadcast()" class="primary" style="width: 100%; height: 50px; font-size: var(--fs-4); font-weight: 800; justify-content: center; box-shadow: 0 4px 15px var(--accent-glow); border-radius: var(--radius-md);">
                 <i class="fa-solid fa-circle-play"></i> 🎮 방송 시작 (Start Broadcast)
             </button>
@@ -5028,6 +5108,14 @@
             const _badge = document.getElementById('pending-count-badge');
             const _cnt = (gd.pending_donations || []).filter(d => !removedPendingIds.has(d.id)).length;
             if (_badge) _badge.textContent = _cnt + '건';
+            // ⚙ 설정 화면에서는 대기함이 숨는다 — 머리줄에 [🔔 미확인 후원 N건] 을 띄운다(누르면 조종실로)
+            const _sp = document.getElementById('setup-pend');
+            if (_sp) {
+                const _on = _cnt > 0;
+                if ((_sp.style.display !== 'none') !== _on) _sp.style.display = _on ? '' : 'none';
+                const _b = _sp.querySelector('b');
+                if (_b && _b.textContent !== String(_cnt)) _b.textContent = String(_cnt);
+            }
             if (gd.pending_donations && gd.pending_donations.length > 0) {
                 if(pbox.style.display !== 'block') pbox.style.display = 'block';
                 let pHtml = '';
@@ -7629,6 +7717,8 @@
             } catch (e) {}
         }
         async function fundjarSide(side) {
+            if (fjSide === 'free' && !await premiumConfirm('편집기에서 손으로 옮겨 둔 점수판 · 깃발 자리가 바뀝니다.\n방송 화면에서 바로 움직입니다.',
+                                                          '🏺 깃발 ' + (side === 'left' ? '왼쪽' : '오른쪽') + '으로', 'warning')) return;
             try {
                 const r = await fetch('/api/fundjar/side', { method: 'POST',
                     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ side }) });
@@ -11041,6 +11131,8 @@ initFoldablePanels();
             });
         }
         async function railSend() {
+            const _rb = document.getElementById('rs-send');
+            if (_rb && _rb.disabled) return;           // ⚠️ 보내는 중 — 엔터 두 번 · 연타로 두 번 나가지 않게(10-06 점검)
             const a = rsAmount();
             if (a <= 0) { acctToast('금액을 넣어 주세요', 'warn'); document.getElementById('rs-amount').focus(); return; }
             const name = (document.getElementById('rs-donor').value || '').trim() || '수동송출';
@@ -11537,23 +11629,77 @@ initFoldablePanels();
         let qzKindSel = '';
         function qzKindNow() { return qzKindSel || qzState().kind || 'chosung'; }
         async function qzCall(path, body) {
+            // ⚠️ 무대는 하나 — 슬롯 · 룰렛이 돌거나 핀볼 한 판이 굴러가는 중에 퀴즈를 띄우면 그 판이 화면에서 잘린다. 한 번 묻는다(10-06 점검)
+            const _takes = path === 'next' || path === 'now' || (path === 'order' && body && body.action === 'play') || (path === 'show' && body && body.on);
+            const _st = (typeof gd !== 'undefined' && gd && gd.show) ? gd.show.stage : null;
+            const _busy = _st === 'slot' ? '슬롯이 돌고' : _st === 'roulette' ? '룰렛이 돌고' : (_st === 'pinball' && gd.pinball && gd.pinball.running) ? '핀볼이 굴러가고' : '';
+            if (_takes && _busy && !await premiumConfirm(_busy + ' 있어요.\n지금 퀴즈를 띄우면 그 판이 방송 화면에서 사라집니다.', '🧩 퀴즈 띄우기', 'warning')) return null;
             try {
                 const r = await fetch('/api/quiz/' + path, { method: 'POST',
                     headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
                 const d = await r.json().catch(() => ({}));
-                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); qzSync(true); return null; }
+                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); if (r.status === 404) qzLoad(); qzSync(true); return null; }
                 if (d.quiz && typeof gd !== 'undefined' && gd) {
-                    gd.quiz = Object.assign({}, gd.quiz || {}, d.quiz);
+                    gd.quiz = qzMerge(gd.quiz, d.quiz);
                     if (gd.show) {
                         if (d.on !== undefined) gd.show.stage = d.on ? 'quiz' : (gd.show.stage === 'quiz' ? null : gd.show.stage);
-                        else if (path === 'next') gd.show.stage = 'quiz';
+                        else if (path === 'next' || path === 'now' || (path === 'order' && body && body.action === 'play')) gd.show.stage = 'quiz';
                     }
+                    qzTakeView(d.quiz);
                     qzSync(true);
                 }
                 return d;
             } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); return null; }
         }
         function qzKind(k) { qzKindSel = k; qzSync(true); }
+        // 퀴즈 API 가 돌려준 것(문제 수 포함)을 실시간 상태 모양으로 — custom · counts · left 는 qzView 에만 둔다
+        function qzMerge(cur, v) {
+            const out = Object.assign({}, cur || {});
+            ['kind', 'cur', 'tiles', 'revealed', 'order'].forEach(k => { if (v && v[k] !== undefined) out[k] = v[k]; });
+            return out;
+        }
+        /* 📋 순서 · 분류/뜻 — 실시간 상태(gd.quiz)에는 순서(정답 목록)만 있고 분류 · 뜻 · 문제 수는 없다.
+              그래서 퀴즈 API 가 돌려주는 것(qzView)에서 분류/뜻을 모아 둔다(qzNotes). 탭을 처음 열 때 한 번 받아 온다. */
+        let qzView = null, qzLoading = false, qzOrderHtml = '', qzRetryAt = 0;
+        const qzNotes = { chosung: {}, idiom: {} };
+        function qzTakeView(v) {
+            if (!v) return;
+            qzView = v;
+            ['chosung', 'idiom'].forEach(k => (((v.order || {})[k]) || []).forEach(x => {
+                if (Array.isArray(x)) qzNotes[k][x[0]] = x[1] || '';
+            }));
+        }
+        async function qzLoad() {
+            if (qzLoading) return;
+            qzLoading = true;
+            try {
+                const r = await fetch('/api/quiz/state');
+                const d = await r.json().catch(() => ({}));
+                if (r.ok && d.quiz) { qzTakeView(d.quiz); if (typeof gd !== 'undefined' && gd) gd.quiz = qzMerge(gd.quiz, d.quiz); }
+                else qzRetryAt = Date.now() + 15000;      // ⚠️ 실패하면 15초 쉰다(예전엔 곧바로 또 불러 서버를 쉬지 않고 두드렸다)
+            } catch (e) { qzRetryAt = Date.now() + 15000; }
+            qzLoading = false;
+            qzSync(true);
+        }
+        const QZ_INI = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+        function qzIni(w) {
+            return [...String(w || '')].map(c => { const k = c.charCodeAt(0) - 0xAC00; return (k >= 0 && k < 11172) ? QZ_INI[Math.floor(k / 588)] : c; }).join('');
+        }
+        async function qzOrder(action, answer) { await qzCall('order', { kind: qzKindNow(), action, answer: answer || '' }); }
+        function qzOrderClick(ev) {
+            const b = ev.target.closest('button[data-act]');
+            const li = b && b.closest('li[data-a]');
+            if (li) qzOrder(b.dataset.act, li.dataset.a);
+        }
+        async function qzNowSend() {
+            const el = document.getElementById('qz-now-in');
+            const t = ((el && el.value) || '').trim();
+            if (!t) { acctToast('띄울 정답(또는 초성)을 적어 주세요', 'warn'); return; }
+            const d = await qzCall('now', { kind: qzKindNow(), text: t });
+            if (!d) return;
+            if (el) { el.value = ''; try { el.blur(); } catch (e) {} }
+            if (d.jamo_only) acctToast('초성만 띄웠어요 — 정답을 몰라 힌트 · 정답 공개는 안 됩니다', 'ok');
+        }
         async function qzNext() {
             const d = await qzCall('next', { kind: qzKindNow() });
             if (d && d.wrapped) acctToast('이 종류 문제를 한 바퀴 다 냈어요 — 처음부터 다시 나옵니다', 'ok');
@@ -11572,7 +11718,7 @@ initFoldablePanels();
         }
         async function qzClear() {
             const k = qzKindNow();
-            const n = ((qzState().custom || {})[k]) || 0;
+            const n = Number(((qzView && qzView.custom) || {})[k]) || 0;
             if (!n) { acctToast('비울 내 문제가 없습니다', 'warn'); return; }
             if (!await premiumConfirm((k === 'idiom' ? '사자성어' : '초성') + ' 내 문제 ' + n + '개를 비웁니다.\n기본 문제집은 그대로 남습니다.', '🧩 내 문제 비우기', 'warning')) return;
             const d = await qzCall('custom', { kind: k, mode: 'clear' });
@@ -11581,15 +11727,36 @@ initFoldablePanels();
         function qzSync(force) {
             const tab = document.getElementById('tab-quiz');
             if (!tab) return;
-            if (!force && tab.style.display === 'none') return;   // 안 보이는 탭은 안 그린다
+            if (!force && !tab.classList.contains('active')) return;   // 안 보이는 탭은 안 그린다(탭은 class 로 숨는다)
             const q = qzState();
             const kind = qzKindNow();
             document.querySelectorAll('#qz-kind-seg button').forEach(b => b.classList.toggle('on', b.dataset.v === kind));
-            const cnt = q.counts || {}, left = q.left || {};
+            if (!qzView && !qzLoading && Date.now() >= qzRetryAt) { qzLoad(); }
+            const cnt = (qzView && qzView.counts) || {};
+            const ord = q.order || {};
+            const ordOf = k => (ord[k] || []).map(x => Array.isArray(x) ? x[0] : x).filter(x => typeof x === 'string');
             ['chosung', 'idiom'].forEach(k => {
                 const el = document.getElementById('qz-n-' + k);
-                if (el) el.textContent = cnt[k] != null ? ('남은 ' + left[k] + ' / ' + cnt[k]) : '';
+                if (el) el.textContent = cnt[k] != null ? ('남은 ' + ordOf(k).length + ' / ' + cnt[k]) : '';
             });
+            const ol = document.getElementById('qz-order');
+            if (ol) {
+                const list = ordOf(kind);
+                const nEl = document.getElementById('qz-order-n');
+                if (nEl) nEl.textContent = list.length + '개';
+                const html = list.length ? list.map((a, i) => {
+                    const n = qzNotes[kind][a] || '';
+                    const look = kind === 'idiom' ? (a.slice(0, 2) + '○○') : qzIni(a);
+                    return '<li data-a="' + escapeHtml(a) + '"><span class="qz-o-n">' + (i + 1) + '</span>'
+                        + '<span class="qz-o-a">' + escapeHtml(a) + '<small>' + escapeHtml(look) + (n ? ' · ' + escapeHtml(n) : '') + '</small></span>'
+                        + '<span class="qz-o-b"><button type="button" data-act="up" title="한 칸 위로">▲</button>'
+                        + '<button type="button" data-act="down" title="한 칸 아래로">▼</button>'
+                        + '<button type="button" data-act="top" title="맨 위로(다음에 나감)">⤒</button>'
+                        + '<button type="button" data-act="play" title="지금 띄우기">▶</button>'
+                        + '<button type="button" data-act="remove" title="오늘은 빼기">✕</button></span></li>';
+                }).join('') : '<li class="qz-o-empty">남은 문제가 없습니다 — [다음 문제]를 누르면 처음부터 다시 섞습니다</li>';
+                if (html !== qzOrderHtml) { ol.innerHTML = html; qzOrderHtml = html; }
+            }
             const on = !!(typeof gd !== 'undefined' && gd && gd.show && gd.show.stage === 'quiz');
             const sw = document.getElementById('qz-on');
             if (sw && sw.checked !== on) sw.checked = on;
@@ -11601,7 +11768,8 @@ initFoldablePanels();
                 ? '<span class="qz-empty">[다음 문제]를 누르면 문제가 나오고 방송 화면 가운데에 네모칸이 뜹니다.</span>'
                 : '<div class="qz-tiles">' + tiles.map(t => '<span class="qz-t s-' + escapeHtml(t.s || 'b') + '">'
                       + (t.s === 'b' ? '' : escapeHtml(t.c || '')) + '</span>').join('') + '</div>'
-                  + '<div class="qz-ans">' + (cur.kind === 'idiom' ? '사자성어' : '초성') + ' · 정답 <b>' + escapeHtml(cur.answer || '') + '</b>'
+                  + '<div class="qz-ans">' + (cur.kind === 'idiom' ? '사자성어' : '초성') + ' · '
+                  + (cur.answer ? '정답 <b>' + escapeHtml(cur.answer) + '</b>' : '<b>초성만 띄움</b> — 정답을 몰라 힌트 · 정답 공개는 안 됩니다')
                   + (cur.note ? ' · ' + escapeHtml(cur.note) : '')
                   + (q.revealed ? ' · <span style="color:var(--success);">공개함</span>' : '')
                   + (on ? '' : ' · <span style="color:var(--text-dim);">방송에 안 떠 있음</span>')
@@ -12912,5 +13080,128 @@ document.addEventListener("keydown", (e) => {
         });
     })();
     </script>
+<script>
+/* 🛫 방송 전 점검표 · 🚨 방송 중 경보 · 머리줄 상태 점 (대표님 2026-10-06 "사고 막기 — 소리는 안 나도 돼")
+   서버 GET /api/preflight (features/preflight.py) — 읽기만 한다.
+   · 방송 전(점검표가 보일 때): 5초마다 · 시그니처 서버까지(deep)
+   · 그 밖에: 10초마다 · 방송 화면 · 후원 받기만
+   경보는 방송 중에만 — 방송 화면이 15초 넘게 없거나, 후원 받기가 30초 넘게 멈춰 있을 때. 다시 붙으면 저절로 내려간다.
+   [알겠어요] 를 누르면 그 건은 내려가고, 다시 붙었다 또 끊기면 새로 뜬다. */
+var pfLast = null, pfBusy = false, pfAt = 0;
+var pfDown = { ov: 0, li: 0, sp: 0 }, pfAck = { ov: -1, li: -1, sp: -1 };
+var PF_GRACE = { ov: 15000, li: 30000, sp: 30000 };
+function pfEsc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function pfAgo(sec) {
+    if (sec == null) return '';
+    if (sec < 60) return sec + '초';
+    if (sec < 3600) return Math.floor(sec / 60) + '분';
+    return Math.floor(sec / 3600) + '시간 ' + Math.floor((sec % 3600) / 60) + '분';
+}
+function pfListVisible() {
+    var a = document.getElementById('setup-broadcast-area');
+    return !!(a && a.style.display !== 'none' && a.offsetParent !== null);
+}
+async function pfPoll(force) {
+    var deep = pfListVisible();
+    var gap = deep ? 5000 : 10000;
+    if (pfBusy || (!force && Date.now() - pfAt < gap - 300)) return;
+    pfBusy = true; pfAt = Date.now();
+    try {
+        var r = await fetch('/api/preflight' + (deep ? '?deep=1' : ''), { cache: 'no-store' });
+        if (r.ok) { var d = await r.json(); if (d && d.status === 'success') { pfLast = d; pfRender(d); } }
+    } catch (e) {}
+    pfBusy = false;
+}
+function pfLevels(d) {
+    var sc = d.screens || {}, li = d.listener || {};
+    var on = !!d.broadcast_active;
+    var ov = sc.overlay > 0 ? 'ok' : (on ? 'bad' : 'warn');
+    var lv = li.level === 'ok' ? 'ok' : li.level === 'connecting' ? 'warn' : li.level === 'none' ? 'none' : 'bad';
+    return { on: on, ov: ov, li: lv };
+}
+function pfChip(id, lv, text) {
+    var el = document.getElementById(id); if (!el) return;
+    var cls = 'pf-chip' + (lv === 'ok' ? ' ok' : lv === 'warn' ? ' warn' : lv === 'bad' ? ' bad' : '');
+    if (el.className !== cls) el.className = cls;
+    var b = el.lastChild; if (b && b.nodeType === 3 && b.nodeValue !== text) b.nodeValue = text;
+}
+function pfRender(d) {
+    var L = pfLevels(d), sc = d.screens || {}, li = d.listener || {};
+    pfChip('pf-chip-ov', L.ov, sc.overlay > 0 ? '방송 화면' : '방송 화면 없음');
+    pfChip('pf-chip-li', L.li, L.li === 'ok' ? '후원 받기' : L.li === 'warn' ? '후원 연결 중' : L.li === 'none' ? '후원 받기 —' : '후원 받기 멈춤');
+    // 🚨 경보(방송 중에만) — 처음 나빠진 때를 기억해 두고, 잠깐(재연결 · 새로고침)은 넘어간다
+    var now = Date.now();
+    function track(k, bad) { if (!L.on || !bad) { pfDown[k] = 0; return false; } if (!pfDown[k]) pfDown[k] = now; return now - pfDown[k] >= PF_GRACE[k] && pfAck[k] !== pfDown[k]; }
+    var showOv = track('ov', L.ov === 'bad');
+    var showLi = track('li', L.li === 'bad' || L.li === 'warn');
+    var showSp = track('sp', (d.spool || 0) > 0);
+    var rows = [];
+    if (showOv) rows.push('<div class="pf-row"><div><b>📺 방송 화면(OBS)이 서버와 끊겼어요 · ' + pfAgo(Math.round((now - pfDown.ov) / 1000)) + '째</b>'
+        + '<small>점수 · 후원 · 시그니처가 방송에 안 나갈 수 있어요. OBS 에서 방송판 소스를 고르고 [새로고침] 을 눌러 주세요.'
+        + (sc.overlay_idle ? ' (붙어 있는데 멈춘 화면 ' + sc.overlay_idle + '개)' : '') + '</small></div>'
+        + '<button type="button" onclick="pfDismiss(\'ov\')">알겠어요</button></div>');
+    if (showLi) rows.push('<div class="pf-row"><div><b>🎧 후원 받기가 ' + (L.li === 'warn' ? '다시 붙는 중이에요' : '멈췄어요') + ' · ' + pfAgo(Math.round((now - pfDown.li) / 1000)) + '째</b>'
+        + '<small>투네이션 후원이 조종실에 안 들어올 수 있어요(서버가 스스로 다시 붙이는 중). 투네이션 알림창에는 떴는데 대기함에 없으면 후원 콘솔로 직접 넣어 주세요.'
+        + (li.note ? ' — ' + pfEsc(li.note) : '') + '</small></div>'
+        + '<button type="button" onclick="pfDismiss(\'li\')">알겠어요</button></div>');
+    if (showSp) rows.push('<div class="pf-row warn"><div><b>📮 서버로 못 보낸 후원 ' + d.spool + '건이 기다리는 중</b>'
+        + '<small>서버가 받으면 저절로 들어갑니다(10초마다 다시 보냄). 오래 남아 있으면 후원 콘솔로 확인해 주세요.</small></div>'
+        + '<button type="button" onclick="pfDismiss(\'sp\')">알겠어요</button></div>');
+    var al = document.getElementById('pf-alarm');
+    if (al) {
+        var html = rows.join('');
+        if (al._h !== html) { al.innerHTML = html; al._h = html; }
+        al.classList.toggle('on', rows.length > 0);
+    }
+    pfList(d, L);
+}
+function pfDismiss(k) { pfAck[k] = pfDown[k]; if (pfLast) pfRender(pfLast); }
+function pfObsKey() { var t = new Date(); return 'pf_obs_rb_' + t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate(); }
+function pfObsChecked() { try { return localStorage.getItem(pfObsKey()) === '1'; } catch (e) { return false; } }
+function pfObsToggle(el) { try { localStorage.setItem(pfObsKey(), el.checked ? '1' : '0'); } catch (e) {} if (pfLast) pfList(pfLast, pfLevels(pfLast)); }
+function pfList(d, L) {
+    var box = document.getElementById('pf-items'), sum = document.getElementById('pf-sum');
+    if (!box || !pfListVisible()) return;
+    var sc = d.screens || {}, li = d.listener || {}, sg = d.sig, st = d.storage || {}, sv = d.server || {};
+    var items = [];
+    function add(lv, icon, title, sub) { items.push({ lv: lv, html: '<div class="pf-item ' + lv + '"><div class="pf-ic">' + icon + '</div><div class="pf-t">' + title + (sub ? '<small>' + sub + '</small>' : '') + '</div></div>' }); }
+    var others = [];
+    if (sc.alertbox) others.push('알림창 ' + sc.alertbox);
+    if (sc.sigdisp) others.push('시그니처 화면 ' + sc.sigdisp);
+    if (sc.slot) others.push('슬롯 화면 ' + sc.slot);
+    if (sc.overlay > 0) add('ok', '✅', '방송 화면(OBS) 붙음 — ' + (sc.overlay_obs ? 'OBS ' + sc.overlay_obs + '개' : '브라우저 ' + sc.overlay + '개'), others.join(' · '));
+    else add('warn', '⚠️', '방송 화면(OBS)이 아직 안 붙었어요', 'OBS 를 켜고 방송판 소스를 [새로고침] 해 주세요' + (others.length ? ' · 지금 붙은 것: ' + others.join(' · ') : ''));
+    if (li.level === 'ok') add('ok', '✅', '후원 받기(투네이션) 연결됨' + (li.connected_sec != null ? ' — ' + pfAgo(li.connected_sec) + '째' : ''),
+        li.last_donation_sec != null ? '마지막 후원 ' + pfAgo(li.last_donation_sec) + ' 전' : '');
+    else if (li.level === 'connecting') add('warn', '⏳', '후원 받기 — 투네이션에 붙는 중', pfEsc(li.note || ''));
+    else if (li.level === 'none') add('', '➖', '후원 받기 프로그램이 이 서버엔 없어요', '투네이션 알림창(OBS · 템퍼몽키)으로 받는 중이면 괜찮아요');
+    else add('bad', '❌', '후원 받기가 멈췄어요', pfEsc(li.note || '') + ' — 서버가 스스로 다시 붙입니다. 계속되면 알려 주세요');
+    if (d.spool > 0) add('warn', '📮', '서버로 못 보낸 후원 ' + d.spool + '건 대기 중', '서버가 받으면 저절로 들어갑니다');
+    if (sg) {
+        if (sg.ok) add('ok', '✅', '시그니처 목록 ' + sg.count + '개 — 제일 싼 ' + (sg.cheapest != null ? Number(sg.cheapest).toLocaleString() + '원' : '?'), (sg.ms != null ? (sg.ms / 1000).toFixed(1) + '초 만에 답함' : ''));
+        else if (sg.ok === null) add('', '⏳', '시그니처 목록 확인하는 중', '');
+        else add('bad', '❌', '시그니처 목록 서버가 답하지 않아요', pfEsc(sg.note || '') + ' — 후원은 들어오지만 시그니처가 안 나갈 수 있어요');
+    }
+    add(st.ok ? 'ok' : 'bad', st.ok ? '✅' : '❌', st.ok ? '저장소 정상' : '저장소가 답하지 않아요', st.ok ? (st.ms + 'ms') : pfEsc(st.error || ''));
+    add('ok', '✅', '서버 정상 — 붙은 화면 ' + (sc.total || 0) + '개' + (sv.rss_mb != null ? ' · 메모리 ' + sv.rss_mb + 'MB' : ''), '');
+    var obs = pfObsChecked();
+    items.push({ lv: obs ? 'ok' : 'warn', html: '<div class="pf-item ' + (obs ? 'ok' : 'warn') + '"><div class="pf-ic">🎬</div><div class="pf-t">'
+        + '<label><input type="checkbox" ' + (obs ? 'checked ' : '') + 'onchange="pfObsToggle(this)"> OBS 리플레이 버퍼 180초 확인했어요</label>'
+        + '<small>클립 앞뒤 90초를 남기려면 필요해요(OBS 설정 → 출력 → 리플레이 버퍼). 오늘만 기억합니다.</small></div></div>' });
+    var html = items.map(function (x) { return x.html; }).join('');
+    if (box._h !== html) { box.innerHTML = html; box._h = html; }
+    var todo = items.filter(function (x) { return x.lv === 'bad' || x.lv === 'warn'; }).length;
+    if (sum) { sum.textContent = todo ? '확인할 것 ' + todo + '개' : '모두 준비됐어요'; sum.style.color = todo ? '#ffcc00' : 'var(--success)'; }
+}
+function pfExplain(k) {
+    var d = pfLast; if (!d) { pfPoll(true); return; }
+    var sc = d.screens || {}, li = d.listener || {};
+    if (k === 'ov') acctToast(sc.overlay > 0 ? '📺 방송 화면 붙음 — ' + (sc.overlay_obs ? 'OBS ' + sc.overlay_obs + '개' : '브라우저 ' + sc.overlay + '개') : '📺 방송 화면(OBS)이 안 붙어 있어요 — OBS 에서 방송판 소스를 새로고침해 주세요', sc.overlay > 0 ? 'ok' : 'warn');
+    else acctToast(li.level === 'ok' ? '🎧 후원 받기 연결됨' + (li.connected_sec != null ? ' · ' + pfAgo(li.connected_sec) + '째' : '') + (li.last_donation_sec != null ? ' · 마지막 후원 ' + pfAgo(li.last_donation_sec) + ' 전' : '')
+        : li.level === 'none' ? '🎧 이 서버엔 후원 받기 프로그램이 없어요' : '🎧 후원 받기 ' + (li.level === 'connecting' ? '붙는 중' : '멈춤') + (li.note ? ' — ' + li.note : ''), li.level === 'ok' ? 'ok' : 'warn');
+}
+setInterval(function () { pfPoll(false); }, 1000);
+setTimeout(function () { pfPoll(true); }, 800);
+</script>
 </body>
 </html>

@@ -68,6 +68,7 @@ for fn in ('ntcAdd', 'ntcEdit', 'ntcMove', 'ntcDel', 'ntcNow', 'ntcSetEvery', 'n
     chk('%s 가 있다' % fn, 'function %s(' % fn in CT or 'async function %s(' % fn in CT)
 chk('한 줄씩 칸으로 그린다(.ntc-row)', "class=\"ntc-row\"" in CT and '.ntc-row {' in CT)
 chk('옛 글상자(ntc-msgs)는 걷어냈다', 'id="ntc-msgs"' not in CT)
+chk('새 공지 칸: 한글 조합 중 엔터로 두 번 들어가지 않는다(isComposing)', "if(event.key==='Enter'&&!event.isComposing)ntcAdd()" in CT)
 chk('지옥·퇴근 탭에는 공지로 가는 길만 남겼다(10-02 부터 공지는 ⚙ 설정 화면)', "ctlView('setup', 'tab-notice')" in CT)
 chk('소액 후원 줄은 그대로 보여준다', 'id="ntc-donors"' in CT and 'notice_donors' in CT)
 chk('공지는 20개까지', 'const NTC_MAX = 20;' in CT and '.slice(0, NTC_MAX)' in CT)

@@ -1674,8 +1674,9 @@
                           pointer-events: none; z-index: 100000; opacity: 0; visibility: hidden; perspective: 900px;
                           transition: opacity var(--t-base) ease, visibility var(--t-base) ease; }
         #quiz-container.on { opacity: 1; visibility: visible; }
-        .qz-tile { width: 120px; height: 120px; box-sizing: border-box; border-radius: var(--r-l); display: flex; align-items: center; justify-content: center;
-                   font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: 82px; line-height: 1;
+        /* --qz-s: 칸 크기. 여덟 칸까지는 120, 아홉 칸부터는 qzUpdate 가 줄인다(1080 폭을 넘지 않게 · 10-06 점검) */
+        .qz-tile { width: var(--qz-s, 120px); height: var(--qz-s, 120px); box-sizing: border-box; border-radius: var(--r-l); display: flex; align-items: center; justify-content: center;
+                   font-family: 'Black Han Sans', 'Malgun Gothic', sans-serif; font-weight: 400; font-size: calc(var(--qz-s, 120px) * 0.68); line-height: 1;
                    color: var(--gold); background: var(--glass-bg); border: 3px solid rgba(var(--gold-rgb), 0.6);
                    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55); }
         .qz-tile.s-g, .qz-tile.s-h { color: #fff; border-color: rgba(255, 255, 255, 0.55); }
@@ -3672,7 +3673,6 @@
                     </div>
                 </div>
             </div>
-            </div>
 
             <!-- 🎱 구슬 핀볼. 자리·크기는 편집기에서 옮긴다(LAY_IDS 에 'pinball' 있음). -->
             <div id="pinball-container" class="widget-container" style="position: absolute; left: 50px; top: 300px; z-index: 100000; opacity: 0; visibility: hidden; transition: opacity var(--t-base) ease, visibility var(--t-base) ease; pointer-events: none;">
@@ -4898,6 +4898,12 @@
                   도로 붙었다(대표님: "밑으로 안내려가네"). */
             window.__dgLaid = laid('dicegame');
             window.__dgsLaid = laid('dgscore');   // 🎲 점수 띠 — 잡았으면 그 자리, 아니면 판 바로 위(dgsPlace)
+            /* ⚠️ 편집기는 저장할 때 위젯 자리를 통째로 적는다 — 띠를 한 번도 안 옮겨도 기본 자리(6, 191 · 배율 1)가 적힌다.
+                  그 자리는 '안 잡은 것' 으로 본다. 안 그러면 주사위판을 옮겼을 때 띠만 옛 자리에 남는다(10-06 점검) */
+            if (window.__dgsLaid) {
+                const _g = ly.dgscore || {};
+                if (Number(_g.x_px) === 6 && Number(_g.y_px) === 191 && (Number(_g.scale) || 1) === 1) window.__dgsLaid = false;
+            }
 
             const rankEl = document.getElementById('ranking-container');
             if (rankEl) {
@@ -5843,6 +5849,9 @@
             try { prev = qzSig ? JSON.parse(qzSig) : []; } catch (e) { prev = []; }
             qzSig = sig;
             const same = prev.length === tiles.length;   // 같은 문제에서 칸이 열린 것인가(새 문제면 통째로 뒤집는다)
+            // 칸 크기 — 120 칸 여덟 개(+ 사이 14)가 폭 1080 에 딱 맞는다. 아홉 칸부터는 줄여서 화면 밖으로 안 나가게
+            const n = tiles.length;
+            box.style.setProperty('--qz-s', Math.max(48, Math.min(120, Math.floor((1064 - 14 * Math.max(0, n - 1)) / Math.max(1, n)))) + 'px');
             box.textContent = '';
             tiles.forEach((t, i) => {
                 const el = document.createElement('div');

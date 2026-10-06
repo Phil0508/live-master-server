@@ -81,6 +81,11 @@ chk('조종실에선 설정 칸을, 설정 화면에선 방송 칸을 숨긴다'
 chk('설정 화면: 오른쪽 칸 · 방송 화면 줄 숨김 · 한 칸으로 넓게',
     'body.view-setup #shell-rail' in css and '#show-bar' in css and 'grid-template-columns: minmax(0, 1fr) !important' in css)
 chk('설정 화면: 방송 전에도 열린다', 'body.view-setup #active-broadcast-area { display: block !important; }' in css)
+chk('후원 콘솔 [송출]: 보내는 중엔 또 안 보낸다 · 이름 칸 엔터는 한글 조합이 끝난 뒤',
+    "if (_rb && _rb.disabled) return;" in CT[CT.index('async function railSend()'):CT.index('async function railSend()') + 300]
+    and "onkeydown=\"if(event.key==='Enter'&&!event.isComposing)railSend()\"" in CT)
+chk('설정 화면: 목표 달성 알림은 안 숨긴다 · 미확인 후원 [🔔 N건] 단추가 있다',
+    'body.view-setup #goal-alert-box' not in css and 'id="setup-pend"' in CT and "document.getElementById('setup-pend')" in CT)
 chk('조종실: ⋯ 를 없애고 후원 콘솔 · 전광판을 늘 보인다(⋯ 를 방송 3번에 65번 눌렀다)',
     'body:not(.view-setup) .tabs .tab-btn.tab-dots { display: none !important; }' in css
     and 'body:not(.view-setup) .tabs-2row a.tab-x { display: contents !important; }' in css)
@@ -177,6 +182,19 @@ else:
             ev("openTabById('tab-bot')"); time.sleep(0.6)
             chk('[%s] 조종실에서 진행봇을 부르면 설정 화면으로 같이' % tag,
                 ev("document.body.classList.contains('view-setup')") and ev("(%s)('#tab-bot')" % VIS))
+            # ⭐ 설정 화면에선 대기함(오른쪽 칸)이 숨는다 — 미확인 후원이 들어오면 머리줄에 [🔔 N건] (10-06 점검)
+            st_ = ev("fetch('/api/donation',{method:'POST',headers:{'Content-Type':'application/json'},"
+                     "body:JSON.stringify({name:'설정점검',amount:1000,message:'',tx_id:'zone_'+Date.now()})}).then(r=>r.status)")
+            sp_ = None
+            for _ in range(16):
+                time.sleep(0.4)
+                sp_ = ev("(() => { const e = document.getElementById('setup-pend'); if (!e) return null; const r = e.getBoundingClientRect();"
+                         " return [getComputedStyle(e).display !== 'none' && r.width > 0 && r.height > 0, (e.querySelector('b') || {}).textContent,"
+                         " (document.getElementById('pending-count-badge') || {}).textContent]; })()")
+                if sp_ and sp_[0]:
+                    break
+            chk('[%s] ⭐ 설정 화면에서도 미확인 후원이 보인다(머리줄 🔔 N건 = 대기함 수)' % tag,
+                st_ == 200 and bool(sp_) and sp_[0] and (sp_[1] or '') + '건' == sp_[2], (st_, sp_))
             ev("openTabById('tab-match')"); time.sleep(0.6)
             chk('[%s] 설정 화면에서 대결을 부르면 조종실로 같이' % tag,
                 not ev("document.body.classList.contains('view-setup')") and ev("(%s)('#tab-match')" % VIS))

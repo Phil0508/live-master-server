@@ -80,13 +80,23 @@ chk('무대 목록에 퀴즈', "'hell', 'quiz')" in SH and "'quiz': '퀴즈'" in
 chk('통째 저장 · 설정 패치로 못 바꾼다', "'pinball', 'quiz', 'best_single'" in SV and "\n    'quiz',\n" in SV)
 QZ = io.open(os.path.join(ROOT, 'features', 'quiz.py'), encoding='utf-8').read()
 chk('방송 시작 · 종료 때 나온 문제 목록을 비운다(내 문제는 남긴다)', 'quiz_reset_session(state)' in SV.split('def reset_session_keys(')[1].split('\ndef ')[0]
-    and "g.update({'cur': None, 'tiles': [], 'revealed': False, 'used': {k: [] for k in KINDS}})" in QZ)
+    and "'used': {k: [] for k in KINDS}, 'order': {k: [] for k in KINDS}})" in QZ)
 chk('방송판: 시그니처 재생 · 시작/끝 화면 때 숨긴다', 'body.reaction-mode #quiz-container' in OV and 'body.stage-on #quiz-container' in OV)
 chk('방송판: 방송 꺼짐 return 보다 앞에서 그린다', OV.index('qzUpdate(d);') < OV.index('pbUpdate(d.pinball);') + 200)
 chk('방송판: 바탕 · 제목 · 남은 초 없이 칸만', '<div id="quiz-container" aria-hidden="true"></div>' in OV)
 chk('조종실: 퀴즈 탭 · 단추 넷 · 무대 칩', 'id="tab-quiz"' in CT and "onclick=\"qzNext()\"" in CT and "qzCall('hint')" in CT
     and "qzCall('reveal')" in CT and 'onclick="qzShow(false)"' in CT and "['quiz', '퀴즈']" in CT)
 chk('조종실: 주기 갱신 훅', 'try { qzSync(); } catch(e) {}' in CT)
+chk('조종실: 퀴즈 불러오기가 실패하면 15초 쉰다(쉬지 않고 서버를 두드리지 않게) · 퀴즈 탭이 열려 있을 때만 그린다',
+    'qzRetryAt = Date.now() + 15000' in CT and 'Date.now() >= qzRetryAt' in CT
+    and "if (!force && !tab.classList.contains('active')) return;" in CT[CT.index('function qzSync('):CT.index('function qzSync(') + 400])
+chk('조종실: 슬롯 · 룰렛이 돌거나 핀볼이 굴러가는 중에 퀴즈를 띄우면 한 번 묻는다(그 판이 화면에서 잘린다)',
+    "_st === 'slot' ? '슬롯이 돌고'" in CT and "premiumConfirm(_busy + ' 있어요." in CT[CT.index('async function qzCall('):CT.index('async function qzCall(') + 1200])
+chk('조종실: 퀴즈 API 답을 실시간 상태에 합칠 때 문제 수(custom)는 빼고(qzMerge)',
+    'function qzMerge(' in CT and 'Object.assign({}, gd.quiz || {}, d.quiz)' not in CT)
+chk('조종실: 지금 바로 띄우기 칸 · 다음 순서 목록(▲ ▼ 맨 위로 지금 띄우기 빼기 · 섞기)', 'id="qz-now-in"' in CT and 'id="qz-order"' in CT
+    and 'onclick="qzOrderClick(event)"' in CT and all(('data-act="%s"' % k) in CT for k in ('up', 'down', 'top', 'play', 'remove'))
+    and "qzOrder('shuffle')" in CT)
 chk('조종실: 방송 화면 줄이 무대 이름을 안다(예전엔 "무대 비어 있음" 으로 떴다)', "hell: '지옥탈출', quiz: '퀴즈' };" in CT)
 chk('조종실: 점수 · 정답자 · 남은 초가 없다', '정답!' not in CT[CT.index('id="tab-quiz"'):CT.index('id="tab-pinball"')]
     and '+10초' not in CT[CT.index('id="tab-quiz"'):CT.index('id="tab-pinball"')])
@@ -171,6 +181,83 @@ else:
     chk('다시 띄우기 → 무대에 오른다', c == 200 and r.get('on') is True)
     c, r = call('POST', '/api/quiz/next', {}, auth=False)
     chk('로그인 없이 문제를 못 낸다', c not in (200, 0), c)
+
+    head('⑦ 순서 — 보기 · 고치기 (대표님 "순서를 내가 볼 수 있게, 수정 가능하게")')
+    call('POST', '/api/quiz/show', {'on': False})
+    c, r = call('GET', '/api/quiz/state')
+    q = r.get('quiz') or {}
+    o = [x[0] for x in (q.get('order') or {}).get('chosung', [])]
+    chk('순서를 받아 온다(분류 · 뜻 같이)', c == 200 and len(o) > 10 and all(len(x) == 2 for x in (q.get('order') or {}).get('chosung', [])), (c, len(o)))
+    c, r2 = call('GET', '/api/quiz/state')
+    chk('다시 받아도 같은 순서(열 때마다 섞이지 않는다)', [x[0] for x in (r2.get('quiz') or {}).get('order', {}).get('chosung', [])] == o)
+    c, r = call('POST', '/api/quiz/next', {'kind': 'chosung'})
+    chk('⭐ [다음 문제] = 순서 맨 위', ((r.get('quiz') or {}).get('cur') or {}).get('answer') == o[0], (o[:3], (r.get('quiz') or {}).get('cur')))
+    o = [x[0] for x in (r.get('quiz') or {}).get('order', {}).get('chosung', [])]
+    chk('낸 문제는 순서에서 빠진다', o and ((r.get('quiz') or {}).get('cur') or {}).get('answer') not in o)
+    def order_of(r):
+        return [x[0] for x in (r.get('quiz') or {}).get('order', {}).get('chosung', [])]
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'down', 'answer': o[0]})
+    chk('▼ 한 칸 아래로', order_of(r)[:2] == [o[1], o[0]], order_of(r)[:3])
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'up', 'answer': o[0]})
+    chk('▲ 한 칸 위로(제자리)', order_of(r)[:2] == [o[0], o[1]], order_of(r)[:3])
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'top', 'answer': o[5]})
+    chk('⤒ 맨 위로', order_of(r)[0] == o[5] and order_of(r)[1:6] == o[0:5], order_of(r)[:7])
+    c, r = call('POST', '/api/quiz/next', {'kind': 'chosung'})
+    chk('⭐ 맨 위로 올린 것이 다음에 나간다', ((r.get('quiz') or {}).get('cur') or {}).get('answer') == o[5])
+    oo = order_of(r)
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'remove', 'answer': oo[0]})
+    chk('✕ 오늘은 빼기 — 순서에서 사라지고 하나 준다', oo[0] not in order_of(r) and len(order_of(r)) == len(oo) - 1)
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'play', 'answer': oo[3]})
+    q = r.get('quiz') or {}
+    chk('▶ 지금 띄우기 — 그 문제가 바로 뜨고 순서에서 빠진다', (q.get('cur') or {}).get('answer') == oo[3] and oo[3] not in order_of(r)
+        and (call('GET', '/api/data')[1].get('show') or {}).get('stage') == 'quiz', q.get('cur'))
+    before = order_of(r)
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'shuffle'})
+    chk('섞기 — 같은 문제들, 순서만 바뀐다', sorted(order_of(r)) == sorted(before) and order_of(r) != before)
+    c, r = call('POST', '/api/quiz/order', {'kind': 'chosung', 'action': 'up', 'answer': '없는말'})
+    chk('순서에 없는 것은 404', c == 404, c)
+    c, r = call('POST', '/api/quiz/custom', {'kind': 'chosung', 'text': '검사순서 | 검사'})
+    chk('내 문제는 순서 맨 끝에 붙는다', order_of(r)[-1:] == ['검사순서'], order_of(r)[-3:])
+    call('POST', '/api/quiz/custom', {'kind': 'chosung', 'mode': 'clear'})
+    c, r = call('GET', '/api/quiz/state')
+    chk('내 문제를 비우면 순서에서도 빠진다', '검사순서' not in order_of(r))
+    cp, pub = call('GET', '/api/data', auth=False)
+    chk('⭐ 방송판(로그인 없음)으로 순서가 안 간다', 'order' not in (pub.get('quiz') or {}), list(pub.get('quiz') or {}))
+
+    head('⑧ 지금 바로 띄우기 (대표님 "지금 당장 띄울 초성을 적을 수 있게")')
+    c, r = call('POST', '/api/quiz/now', {'kind': 'chosung', 'text': ' 떡 볶이 '})
+    q = r.get('quiz') or {}
+    chk('⭐ 정답을 적으면 초성으로 뜬다(띄어쓰기 무시)', c == 200 and [t['c'] for t in q.get('tiles') or []] == ['ㄸ', 'ㅂ', 'ㅇ']
+        and (q.get('cur') or {}).get('answer') == '떡볶이' and (q.get('cur') or {}).get('note') == '음식', q.get('cur'))
+    cp, pub = call('GET', '/api/data', auth=False)
+    chk('바로 띄운 것도 방송판엔 정답이 안 간다', '떡볶이' not in json.dumps(pub, ensure_ascii=False))
+    c, r = call('POST', '/api/quiz/hint')
+    chk('바로 띄운 것도 힌트 · 공개가 된다', c == 200 and ((r.get('quiz') or {}).get('tiles') or [{}])[0].get('c') == '떡')
+    c, r = call('POST', '/api/quiz/now', {'kind': 'chosung', 'text': 'ㅅㄱㅁㅅ'})
+    q = r.get('quiz') or {}
+    chk('⭐ 초성만 적어도 그대로 뜬다', c == 200 and r.get('jamo_only') is True and [t['c'] for t in q.get('tiles') or []] == list('ㅅㄱㅁㅅ'), q.get('tiles'))
+    c1, _ = call('POST', '/api/quiz/hint')
+    c2, _ = call('POST', '/api/quiz/reveal')
+    chk('초성만 띄운 것은 힌트 · 공개가 거절된다(정답을 모름)', c1 == 400 and c2 == 400, (c1, c2))
+    c, r = call('POST', '/api/quiz/now', {'kind': 'idiom', 'text': '일석이조'})
+    chk('사자성어를 고른 채 네 글자 → 앞 둘 + 빈칸 둘', [t['s'] for t in (r.get('quiz') or {}).get('tiles') or []] == ['g', 'g', 'b', 'b'])
+    c, r = call('POST', '/api/quiz/now', {'kind': 'chosung', 'text': 'abc'})
+    chk('한글이 없으면 400', c == 400, c)
+    c, r = call('POST', '/api/quiz/now', {'kind': 'chosung', 'text': '가' * 13})
+    chk('너무 길면 400(방송 화면 폭)', c == 400, c)
+    c, r = call('POST', '/api/quiz/now', {'text': '떡볶이'}, auth=False)
+    chk('로그인 없이 못 띄운다', c not in (200, 0), c)
+    call('POST', '/api/quiz/show', {'on': False})
+
+    head('⑨ 이상한 요청 · 저장본에도 안 넘어진다 (10-06 점검)')
+    c, r = call('POST', '/api/quiz/next', [1, 2, 3])
+    chk('본문이 JSON 목록이어도 500 이 아니다', c in (200, 400), c)
+    c, r = call('POST', '/api/quiz/order', 'abc')
+    chk('본문이 글자여도 500 이 아니다', c in (200, 400), c)
+    c1, r1 = call('GET', '/api/quiz/state')
+    c2, r2 = call('GET', '/api/quiz/state')
+    chk('순서 받기를 두 번 해도 같은 순서', c1 == c2 == 200 and (r1.get('quiz') or {}).get('order') == (r2.get('quiz') or {}).get('order'))
+    call('POST', '/api/quiz/show', {'on': False})
 
     # ⑥ 방송판에 실제로 뜨는가
     def chrome_path():
@@ -257,6 +344,28 @@ else:
                     break
             s3 = json.loads(ev(SNAP) or '{}')
             chk('퀴즈판 내리기 → 방송판에서 사라진다', s3.get('on') is False, s3)
+            call('POST', '/api/quiz/now', {'kind': 'chosung', 'text': '가나다라마바사아자차카타'})
+            for _ in range(40):
+                time.sleep(0.25)
+                if ev("document.querySelectorAll('#quiz-container .qz-tile').length === 12"):
+                    break
+            time.sleep(0.6)
+            FIT = """JSON.stringify((() => { const b = document.getElementById('quiz-container').getBoundingClientRect();
+                const t = [...document.querySelectorAll('#quiz-container .qz-tile')].map(e => e.getBoundingClientRect());
+                return { n: t.length, w: Math.round(t[0] ? t[0].width : 0), l: Math.round(t[0] ? t[0].left - b.left : -1),
+                         r: Math.round(t.length ? b.right - t[t.length - 1].right : -1) }; })())"""
+            f12 = json.loads(ev(FIT) or '{}')
+            chk('⭐ 열두 칸도 방송판 폭(1080) 안에 들어간다 — 칸이 줄어든다', f12.get('n') == 12 and 0 < f12.get('w', 0) < 120
+                and f12.get('l', -1) >= 0 and f12.get('r', -1) >= 0, f12)
+            call('POST', '/api/quiz/now', {'kind': 'chosung', 'text': '떡볶이'})
+            for _ in range(40):
+                time.sleep(0.25)
+                if ev("document.querySelectorAll('#quiz-container .qz-tile').length === 3"):
+                    break
+            time.sleep(0.6)                 # 뒤집히는 연출(0.45초)이 끝난 뒤에 잰다
+            f3 = json.loads(ev(FIT) or '{}')
+            chk('세 칸이면 다시 120', f3.get('n') == 3 and f3.get('w') == 120, f3)
+            call('POST', '/api/quiz/show', {'on': False})
         finally:
             try:
                 if ws:

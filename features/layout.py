@@ -5,6 +5,8 @@ server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구
 """
 import json
 import os
+import tempfile
+import threading
 from flask import jsonify, request
 from server import (
     LAYOUT_FILE, app, broadcast_event,
@@ -41,15 +43,29 @@ def _layout_read():
     return {}
 
 
+# 🔒 배치 파일 쓰기는 한 번에 하나 — 편집기 자동 저장과 [모금함 왼쪽/오른쪽]이 같은 순간에 오면
+#    한쪽이 지워지거나(같은 임시 파일 이름) 섞인 파일이 남을 수 있었다(10-06 점검). 다시 들어와도 되는 자물쇠(RLock).
+_LAYOUT_LOCK = threading.RLock()
+
+
 def _layout_write(data):
     # ② 임시 파일에 다 쓴 뒤 갈아끼운다. 쓰는 도중에 서버가 죽어도
     #    예전 배치가 그대로 남는다(반쯤 쓰인 파일은 읽을 수 없다).
-    tmp = LAYOUT_FILE + '.tmp'
-    with open(tmp, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, LAYOUT_FILE)
+    #    임시 파일 이름은 쓸 때마다 새로 — 두 요청이 같은 임시 파일을 두고 다투지 않게.
+    with _LAYOUT_LOCK:
+        fd, tmp = tempfile.mkstemp(prefix='layout.', suffix='.tmp', dir=os.path.dirname(LAYOUT_FILE) or '.')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, LAYOUT_FILE)
+        except Exception:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise
     broadcast_event('layout', data)
 
 
@@ -91,10 +107,20 @@ def _fj_side_now(ly):
 def api_fundjar_side():
     if request.method == 'GET':
         return jsonify({'side': _fj_side_now(_layout_read())})
-    body = request.get_json(silent=True) or {}
-    side = body.get('side')
+    body = request.get_json(silent=True)
+    side = body.get('side') if isinstance(body, dict) else None
     if side not in ('left', 'right'):
         return jsonify({'status': 'error', 'message': "side 는 'left' 나 'right' 여야 합니다"}), 400
+    # 🔒 읽고 → 고치고 → 쓰는 동안 편집기 저장이 끼어들지 않게
+    with _LAYOUT_LOCK:
+        try:
+            return _fj_side_set(side)
+        except (TypeError, ValueError, KeyError) as e:
+            # 배치 파일에 숫자가 아닌 자리값이 있으면 — 500 대신 알려 준다
+            return jsonify({'status': 'error', 'message': '배치 파일 값이 이상합니다 — 편집기에서 한 번 저장해 주세요 (%s)' % e}), 409
+
+
+def _fj_side_set(side):
     ly = _layout_read()
     # 옛 배치 파일(판 번호 2 미만)은 방송판이 통째로 무시한다 — 여기서 판 번호만 올리면 옛 자리들이 살아난다
     if any(not str(k).startswith('__') for k in ly) and (ly.get('__v') or 0) < 2:

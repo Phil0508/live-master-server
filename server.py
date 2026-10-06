@@ -314,8 +314,13 @@ def _sig_min_amount():
         if amounts:
             val = max(0, min(amounts))
     except Exception as e:
-        print(f'⚠️ [시그니처 최저가 조회 실패 — 최저선 없이 진행] {e}')
-        return 0
+        # ⚠️ 실패도 1분 기억한다 — 안 그러면 Supabase 가 죽어 있는 동안 후원이 올 때마다 10초씩 기다린다(10-06 점검).
+        #    전에 알아 둔 값이 있으면 그걸 쓴다(낡은 값이 '최저선 없음' 보다 낫다). 처음부터 모르면 예전처럼 0(최저선 없음).
+        old = _SIG_CHEAPEST['amount']
+        val = old if old is not None else 0
+        _SIG_CHEAPEST.update({'amount': val, 'at': now - 540})     # 600 - 540 = 60초 뒤에 다시 물어본다
+        print(f'⚠️ [시그니처 최저가 조회 실패 — {"전에 알던 " + format(val, ",") + "원으로" if val else "최저선 없이"} 진행 · 1분 뒤 다시] {e}', flush=True)
+        return val
     # 💛 '만원'은 특수 취급한다(사장님: "10000원 같은 경우엔 특수경우로 최저 리액션으로").
     #    제일 싼 시그니처가 10,300원이면 만원을 낸 사람은 아무것도 못 받고 전광판으로만 갔다.
     #    최저선을 SIG_ROUND_FLOOR 위로 못 올라가게 눌러서 10,000~10,299원 구간을 연다.
@@ -982,10 +987,13 @@ def _sse_keep_rank(q):
     return r
 
 
-def _sse_trim_over():
-    """상한을 넘으면 '덜 중요한 것 · 오래된 것' 부터 내보낸다. ⚠️ sse_lock 을 쥔 채로 부른다."""
+def _sse_trim_over(keep=None):
+    """상한을 넘으면 '덜 중요한 것 · 오래된 것' 부터 내보낸다. ⚠️ sse_lock 을 쥔 채로 부른다.
+       keep — 방금 붙은 화면. 이건 내보내지 않는다(10-06 점검: 이름표 없는 화면이 붙자마자 자기를 내보내고,
+       다시 붙고, 또 내보내는 고리가 될 수 있었다)."""
     while len(sse_clients) > SSE_MAX_CLIENTS:
-        victim = min(sse_clients, key=lambda x: (_sse_keep_rank(x), getattr(x, '_born', 0)))
+        pool = [x for x in sse_clients if x is not keep] or list(sse_clients)
+        victim = min(pool, key=lambda x: (_sse_keep_rank(x), getattr(x, '_born', 0)))
         _sse_drop(victim, 'over')
 
 
@@ -1465,6 +1473,7 @@ DEFAULT_STATE = {
         "revealed": False,
         "used": {"chosung": [], "idiom": []},     # 이번 방송에 나온 정답 — 방송 시작 · 종료 때 비운다
         "custom": {"chosung": [], "idiom": []},   # 내 문제 [[정답, 분류/뜻], …] — 방송이 바뀌어도 남는다
+        "order": {"chosung": [], "idiom": []},    # 그날 낼 순서(남은 것) — 조종실에서 고친다. 방송 시작 · 종료 때 새로 섞는다
     },
 
     "siggame": {
@@ -1788,7 +1797,9 @@ def load_data():
         elif key in kv_data: 
             state[key] = kv_data[key]
         else: 
-            state[key] = default_val
+            # ⚠️ 기본값 **객체를 그대로** 넣으면 안 된다(복사본을 넣는다) — 저장본에 없던 키(새로 생긴 퀴즈 등)를
+            #    고치면 DEFAULT_STATE 자체가 바뀌어, 복원 · 초기화가 방금 내용을 물고 오고 저장 비교도 틀린다(10-06 점검)
+            state[key] = copy.deepcopy(default_val)
             
     # 🏺 모금함 보정 — 옛 저장본에는 이 키가 없다.
     # ⚠️ 위 반복문은 없는 키에 기본값 **객체를 그대로** 넣는다. 그 뒤 score 를 더하면
@@ -2296,7 +2307,7 @@ def sse_stream():
                 _sse_drop(_old, 'closed')
         sse_clients.append(q)
         # 상한을 넘으면 덜 중요한 것부터 내보낸다 — 새 화면이 못 붙는 일이 없게(방송판은 맨 나중)
-        _sse_trim_over()
+        _sse_trim_over(keep=q)
 
     def event_generator():
         try:
@@ -3584,6 +3595,7 @@ import features.streamdeck  # noqa: E402,F401  (주소만 등록)
 import features.uistats  # noqa: E402,F401  (주소만 등록)
 import features.versions  # noqa: E402,F401  (주소만 등록)
 import features.toon_accounts  # noqa: E402,F401  (주소만 등록)
+import features.preflight  # noqa: E402,F401  (주소만 등록 · 🛫 방송 전 점검 · 방송 중 경보)
 # ── ✂️ 끝 ──
 
 if __name__ == '__main__':

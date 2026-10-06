@@ -252,6 +252,8 @@ if mc and m:
         'id="dgscore" data-id="dgscore"' in ad and "'dgscore': '🎲 주사위 점수 띠'" in ad)
     chk('방송판이 띠 자리를 편집기에서 읽는다 · 안 잡았으면 판 바로 위에 붙인다',
         "'dicegame', 'dgscore'" in ov and "window.__dgsLaid = laid('dgscore');" in ov and 'function dgsPlace()' in ov)
+    chk('편집기가 통째로 저장한 기본 자리(6, 191)는 안 잡은 것으로 — 판을 옮기면 띠도 따라간다',
+        "Number(_g.x_px) === 6 && Number(_g.y_px) === 191" in ov and 'window.__dgsLaid = false' in ov)
     chk('편집기 점선 상자 크기가 실제 판과 같다 (±12px)',
         mw and abs(int(mw.group(1)) - bw) <= 12 and abs(int(mw.group(2)) - bh) <= 12,
         (mw.groups() if mw else '못 찾음', (bw, bh)))
