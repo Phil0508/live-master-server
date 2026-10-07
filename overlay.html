@@ -2161,6 +2161,8 @@
             font-weight: 900; font-size: 58px; line-height: 1.2; letter-spacing: -0.5px; color: #fff;
             -webkit-text-stroke: 9px #000; paint-order: stroke fill; word-break: keep-all; overflow-wrap: anywhere; }
         #small-don .sd-hl { color: #32C3A6; }
+        #toon-popup #toon-name > .dtag { display: flex; width: max-content; margin: 0 auto 10px; font-size: .6em; }   /* 🏷️ 팝업은 칭호를 이름 위 한 줄에 — 문장 중간에 끼면 '후원하셨습니다!' 가 다음 줄로 밀린다(1위 카드도 같은 자리) */
+        #small-don .dtag { font-size: .46em; padding: .4em .8em .44em; margin-right: .3em; vertical-align: .18em; }   /* 🏷️ 띠 글씨(58px)가 커서 칭호 알약은 작게 — 한 줄에 들어가게 */
         #small-don .sd-msg { margin-top: 4px; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             font-weight: 800; font-size: 40px; line-height: 1.3; color: #fff; -webkit-text-stroke: 7px #000; paint-order: stroke fill;
             word-break: keep-all; overflow-wrap: anywhere;
@@ -2335,22 +2337,58 @@
 
         /* 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액) 흔들림 */
         .reaction-img-box { position: relative; display: inline-block; border-radius: var(--r-m); line-height: 0; }
-        /* 🏷️ 후원자 칭호 · 레벨 — 시안 C(대표님 2026-10-08): 시그니처 그림 아래 가장자리에 칭호 리본, 이름 옆에 Lv.
-              색은 칭호 이름으로 정한 색(--rb — 블랙 다이아 검정 · 블루 다이아 파랑 …), 글자 색은 바탕 밝기로 고른다(--rb-ink). */
-        #reaction-title-ribbon { position: absolute; left: 50%; bottom: -22px; transform: translateX(-50%); z-index: 5;
-            display: none; align-items: center; gap: 8px; padding: 8px 40px; line-height: 1.15; white-space: nowrap;
-            background: var(--rb, #E2B64B); color: var(--rb-ink, #1b1404); font-size: 26px; font-weight: 900; letter-spacing: -0.3px;
-            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-            clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%, 18px 50%); }
-        #reaction-title-ribbon.on { display: inline-flex; }
-        .reaction-screen-overlay.has-title .reaction-text-donator { margin-top: 42px; }   /* 리본 자리만큼 */
+        /* 🏷️ 후원자 칭호 · 레벨 — 시안 A 보석 알약(대표님 2026-10-08): 이름 앞에 알약, 이름 옆에 Lv.
+              투네이션 **공식** 칭호만 온다. 단계(0~6)가 오를수록 앞 단계 효과를 모두 갖고 하나씩 더해진다:
+              dt-g 보석 결 → dt-sh 빛 지나감 → dt-gl 은은한 빛 · 반짝이 → dt-cr 왕관 · dt-bd 도는 테두리 → 도는 별 → dt-rb 무지개 글자 · 빛 줄기.
+              색(--c1 · --c2)과 글자 색(--ink)은 donorTag 가 칭호 이름으로 정한다. 크기는 전부 em — 줄 글씨 크기를 따라간다.
+              움직임은 transform · opacity · 배경 위치 · filter 만(방송 화면이 버벅이지 않게). */
+        @property --dt-ang { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+        .dtag { position: relative; display: inline-flex; align-items: center; justify-content: center; isolation: isolate;
+            margin-right: .45em; padding: .42em .95em .46em; vertical-align: .12em; white-space: nowrap; line-height: 1;
+            font-size: .66em; font-weight: 900; letter-spacing: -0.3px; color: var(--ink, #1b1404); -webkit-text-fill-color: currentColor;
+            text-shadow: none; -webkit-text-stroke: 0; paint-order: normal; }   /* 이름 줄의 검은 외곽선 · 그림자를 안 물려받게 */
+        .dtag .dt-fill { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: 999px; background: var(--c1, #E2B64B);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }   /* 어두운 칭호도 어두운 바탕에서 보이게 */
+        .dtag .dt-lbl { position: relative; display: inline-flex; align-items: center; gap: .3em; }
+        .dtag .dt-crown { width: 1.05em; height: 1.05em; flex: none; }
+        .dtag.dt-g .dt-fill { background: linear-gradient(135deg, var(--c1) 0%, var(--c2) 100%);
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+        .dtag.dt-prism .dt-fill { background: linear-gradient(135deg, #8a8ea6 0%, var(--c2) 45%, #2a2c38 70%, #9aa0c0 100%); }   /* 블랙 — 검은 보석 결 */
+        .dtag.dt-sh .dt-fill::after { content: ''; position: absolute; inset: -20% -60%;
+            background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.75) 50%, transparent 60%);
+            transform: translateX(-60%); animation: dt-sh 2.8s ease-in-out infinite; }
+        @keyframes dt-sh { 0%, 30% { transform: translateX(-60%); } 70%, 100% { transform: translateX(60%); } }
+        .dtag.dt-gl { animation: dt-gl 2.4s ease-in-out infinite; }
+        @keyframes dt-gl { 0%, 100% { filter: drop-shadow(0 0 0 transparent); } 50% { filter: drop-shadow(0 0 .45em var(--c1)) drop-shadow(0 0 .1em var(--c1)); } }
+        .dtag .dt-st { position: absolute; width: .45em; height: .45em; z-index: 2; opacity: 0; background: #fff;
+            clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: dt-tw 2s ease-in-out infinite; }
+        .dtag .dt-st:nth-of-type(1) { left: -.3em; top: -.3em; }
+        .dtag .dt-st:nth-of-type(2) { right: -.25em; top: 30%; width: .35em; height: .35em; animation-delay: .7s; }
+        .dtag .dt-st:nth-of-type(3) { left: 30%; bottom: -.35em; animation-delay: 1.3s; }
+        .dtag .dt-st:nth-of-type(4) { right: 18%; top: -.4em; width: .3em; height: .3em; animation-delay: .35s; }
+        @keyframes dt-tw { 0%, 100% { opacity: 0; transform: scale(.3) rotate(0deg); } 45% { opacity: 1; transform: scale(1) rotate(45deg); } 70% { opacity: 0; transform: scale(.4) rotate(90deg); } }
+        .dtag.dt-bd::before { content: ''; position: absolute; inset: -3px; z-index: -2; border-radius: 999px;
+            background: conic-gradient(from var(--dt-ang), transparent 0deg, var(--c1) 70deg, #fff 110deg, var(--c2) 160deg, transparent 220deg);
+            animation: dt-spin 2.6s linear infinite; }
+        @keyframes dt-spin { to { --dt-ang: 360deg; } }
+        .dtag .dt-orb { position: absolute; inset: -.7em -.5em; z-index: 3; pointer-events: none; animation: dt-rot 4.5s linear infinite; }
+        .dtag .dt-orb i { position: absolute; width: .3em; height: .3em; border-radius: 50%; background: #fff; box-shadow: 0 0 .4em .1em var(--c1); }
+        .dtag .dt-orb i:nth-child(1) { left: 0; top: 50%; }
+        .dtag .dt-orb i:nth-child(2) { right: 0; top: 20%; width: .25em; height: .25em; }
+        .dtag .dt-orb i:nth-child(3) { left: 50%; bottom: 0; width: .2em; height: .2em; }
+        @keyframes dt-rot { to { transform: rotate(360deg); } }
+        .dtag.dt-rb .dt-txt { background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bff95, #4dd8ff, #b06bff, #ff6b6b); background-size: 200% 100%;
+            -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; animation: dt-hue 3s linear infinite; }
+        @keyframes dt-hue { to { background-position: 200% 0; } }
+        .dtag .dt-ray { position: absolute; left: 50%; top: 50%; width: 260%; aspect-ratio: 1; z-index: -3; pointer-events: none;
+            transform: translate(-50%, -50%); border-radius: 50%;
+            background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.2) 0 7deg, transparent 7deg 20deg);
+            -webkit-mask: radial-gradient(circle, #000 0%, transparent 62%); mask: radial-gradient(circle, #000 0%, transparent 62%);
+            animation: dt-ray 14s linear infinite; }
+        @keyframes dt-ray { to { transform: translate(-50%, -50%) rotate(360deg); } }
         .donor-lv { display: inline-block; margin-left: 12px; padding: 1px 10px; vertical-align: 0.2em; border-radius: var(--r-s);
             font-size: 22px; font-weight: 900; letter-spacing: 0; color: #fff; background: rgba(0, 0, 0, 0.55);
             border: 2px solid rgba(255, 255, 255, 0.45); text-shadow: none; -webkit-text-stroke: 0; font-variant-numeric: tabular-nums; }
-        .donor-tag { display: inline-block; margin-right: 10px; padding: 2px 14px; vertical-align: 0.15em; border-radius: 999px;
-            font-size: 0.62em; font-weight: 900; letter-spacing: -0.3px; background: var(--rb, #E2B64B); color: var(--rb-ink, #1b1404);
-            text-shadow: none; -webkit-text-stroke: 0; paint-order: normal;
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }   /* 블랙 다이아처럼 어두운 칭호도 어두운 바탕에서 보이게 */
         /* 🔁 같은 사람 · 같은 시그니처 연속 — 한 번 틀면 그림 모서리 빨간 원에 ×N 이 톡톡 올라간다(대표님 2026-09-29 C안).
               조종실 [N번 다 틀기]면 대신 '2 / 7' 처럼 몇 번째인지 보인다. */
         #reaction-combo { position: absolute; top: -34px; right: -34px; z-index: 6; display: none; pointer-events: none; line-height: 1; }
@@ -7937,10 +7975,11 @@
                 let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
                 if (donatorEl) {
                     donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
+                    const _tg = donorTag(data.donor_title);          // 🏷️ 이름 앞 칭호 알약
+                    if (_tg) donatorEl.prepend(_tg);
                     const _lv = donorLv(data.donor_level);          // 🏷️ 이름 옆 Lv
                     if (_lv) donatorEl.appendChild(_lv);
                 }
-                setReactionTitle(data);                              // 🏷️ 그림 아래 칭호 리본(없으면 걷는다)
                 let msgText = data.message || '';
                 if (messageEl) {
                     if (msgText && msgText !== '수동 후원 송출') {
@@ -8265,22 +8304,75 @@
             return amt > 0 && amt < max && !String((don && don.message) || '').startsWith('[시그니처 신청:');
         }
         /* 🏷️ 후원자 칭호 · 레벨 — 투네이션 **공식** 칭호(다이아 · 블랙 다이아 · 노블레스 …)를 서버가 donor_title {name, color}
-              · donor_level 로 싣는다(대표님 2026-10-08, 시안 C). 크리에이터 칭호는 서버에서 걸러져 안 온다.
-              ⚠️ 글자는 textContent 로만. 색은 #RRGGBB 일 때만. 칭호 그림은 투네이션 자산이라 안 쓴다(색으로만). */
+              · donor_level 로 싣는다. 크리에이터 칭호는 서버에서 걸러져 안 온다.
+              모양은 시안 A 보석 알약(대표님 2026-10-08) — 단계가 오를수록 화려해진다(CSS .dtag 머리말).
+              표에 없는 공식 칭호는 이름에 든 말(노블레스 · 다이아)로 단계를 고르고, 그것도 없으면 서버 색 단색 알약.
+              ⚠️ 글자는 textContent 로만. 색은 #RRGGBB 일 때만. 칭호 그림은 투네이션 자산이라 안 쓴다(색 · 효과로만). */
+        const DONOR_TIERS = {   // 칭호 이름(띄어쓰기 뺌) → [밝은 색, 짙은 색, 단계 0~6, 블랙 보석 결]
+            '금수저': ['#FFD76A', '#C8961E', 0],
+            '다이아': ['#E9FBFF', '#8FDDF5', 1],
+            '블루다이아': ['#7CC0FF', '#1F5FE0', 1],
+            '그린다이아': ['#6EEAB6', '#0E9F6E', 2],
+            '레드다이아': ['#FF8A8A', '#C81E3A', 2],
+            '골드다이아': ['#FFE08A', '#D99A00', 3],
+            '블랙다이아': ['#7B7F96', '#0B0B10', 3, true],
+            '노블레스': ['#E3D2FF', '#8F63E8', 4],
+            '블루노블레스': ['#8FC8FF', '#2A4FD6', 4],
+            '그린노블레스': ['#8BF0C4', '#0B8F64', 5],
+            '레드노블레스': ['#FF9C9C', '#B3122F', 5],
+            '골드노블레스': ['#FFE7A1', '#C98A00', 5],
+            '블랙노블레스': ['#8D90A8', '#07070B', 6, true],
+        };
+        // 단계별 효과 — 앞 단계 것을 모두 갖고 하나씩 더한다(spk 반짝이 · orb 도는 별 · ray 빛 줄기는 덧붙이는 조각)
+        const DONOR_TIER_FEATS = [[], ['g'], ['g', 'sh'], ['g', 'sh', 'gl', 'spk'], ['g', 'sh', 'gl', 'spk', 'cr', 'bd'],
+            ['g', 'sh', 'gl', 'spk', 'cr', 'bd', 'orb'], ['g', 'sh', 'gl', 'spk', 'cr', 'bd', 'orb', 'rb', 'ray']];
         function donorColor(t) { return (t && /^#[0-9A-Fa-f]{6}$/.test(String(t.color || ''))) ? t.color : '#E2B64B'; }
-        function donorInk(hex) {
+        function donorLum(hex) {
             const n = parseInt(String(hex).slice(1), 16);
-            const l = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-            return l > 0.6 ? '#1b1404' : '#ffffff';
+            return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+        }
+        function donorTier(t) {
+            const key = String(t.name).replace(/\s+/g, '');
+            const row = DONOR_TIERS[key]
+                || (key.indexOf('노블레스') >= 0 ? DONOR_TIERS['노블레스'] : key.indexOf('다이아') >= 0 ? DONOR_TIERS['다이아'] : null);
+            if (row) return { c1: row[0], c2: row[1], lv: row[2], prism: !!row[3] };
+            const c = donorColor(t);
+            return { c1: c, c2: c, lv: 0, prism: false };
+        }
+        function donorPart(cls, tag) { const e = document.createElement(tag || 'span'); e.className = cls; return e; }
+        function donorCrown() {
+            const NS = 'http://www.w3.org/2000/svg';
+            const s = document.createElementNS(NS, 'svg');
+            s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'dt-crown'); s.setAttribute('aria-hidden', 'true');
+            const p = document.createElementNS(NS, 'path');
+            p.setAttribute('d', 'M3 8l4.5 4L12 5l4.5 7L21 8l-1.8 10.5H4.8L3 8z');
+            p.setAttribute('fill', '#FFD24A'); p.setAttribute('stroke', '#5a3d00'); p.setAttribute('stroke-width', '1.4'); p.setAttribute('stroke-linejoin', 'round');
+            s.appendChild(p);
+            return s;
         }
         function donorTag(t) {
             if (!t || !t.name) return null;
-            const s = document.createElement('span');
-            const c = donorColor(t);
-            s.className = 'donor-tag';
-            s.style.setProperty('--rb', c);
-            s.style.setProperty('--rb-ink', donorInk(c));
-            s.textContent = String(t.name);
+            const tr = donorTier(t);
+            const f = DONOR_TIER_FEATS[tr.lv] || [];
+            const has = k => f.indexOf(k) >= 0;
+            const s = donorPart('dtag' + f.map(k => ' dt-' + k).join('') + (tr.prism ? ' dt-prism' : ''));
+            s.style.setProperty('--c1', tr.c1);
+            s.style.setProperty('--c2', tr.c2);
+            s.style.setProperty('--ink', (donorLum(tr.c1) + donorLum(has('g') ? tr.c2 : tr.c1)) / 2 > 0.55 ? '#1b1404' : '#ffffff');
+            if (has('ray')) s.appendChild(donorPart('dt-ray'));
+            s.appendChild(donorPart('dt-fill'));
+            const lbl = donorPart('dt-lbl');
+            if (has('cr')) lbl.appendChild(donorCrown());
+            const tx = donorPart('dt-txt');
+            tx.textContent = String(t.name);
+            lbl.appendChild(tx);
+            s.appendChild(lbl);
+            if (has('spk')) for (let i = 0; i < (tr.lv >= 5 ? 4 : 3); i++) s.appendChild(donorPart('dt-st', 'i'));
+            if (has('orb')) {
+                const o = donorPart('dt-orb');
+                for (let i = 0; i < 3; i++) o.appendChild(document.createElement('i'));
+                s.appendChild(o);
+            }
             return s;
         }
         function donorLv(lv) {
@@ -8290,24 +8382,6 @@
             s.className = 'donor-lv';
             s.textContent = 'Lv.' + n;
             return s;
-        }
-        function setReactionTitle(data) {
-            const ov = document.getElementById('reaction-screen-overlay');
-            const box = document.getElementById('reaction-img-box');
-            if (!ov || !box) return;
-            let rb = document.getElementById('reaction-title-ribbon');
-            if (!rb) { rb = document.createElement('div'); rb.id = 'reaction-title-ribbon'; box.appendChild(rb); }
-            rb.replaceChildren();
-            const t = data && data.donor_title;
-            if (!t || !t.name) { rb.classList.remove('on'); ov.classList.remove('has-title'); return; }
-            const c = donorColor(t);
-            rb.style.setProperty('--rb', c);
-            rb.style.setProperty('--rb-ink', donorInk(c));
-            const sp = document.createElement('span');
-            sp.textContent = String(t.name);
-            rb.appendChild(sp);
-            rb.classList.add('on');
-            ov.classList.add('has-title');
         }
 
         function showSmallDon(don) {

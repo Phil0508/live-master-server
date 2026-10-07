@@ -160,11 +160,13 @@ print('=' * 74)
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
 ov = open(os.path.join(ROOT, 'overlay.html'), encoding='utf-8').read()
 ct = open(os.path.join(ROOT, 'controller.html'), encoding='utf-8').read()
-chk('방송판: 그림 아래 리본 · 이름 옆 Lv(시안 C)', 'function setReactionTitle' in ov and 'setReactionTitle(data);' in ov
-    and 'donorLv(data.donor_level)' in ov and '#reaction-title-ribbon' in ov)
-chk('방송판: 팝업 · 소액 띠에도 칭호 이름표', ov.count('donorTag(') >= 3)
-chk('방송판: 칭호 글자는 textContent 로만', 'sp.textContent = String(t.name)' in ov and 's.textContent = String(t.name)' in ov)
-chk('방송판: 칭호 그림은 안 쓴다(투네이션 자산)', 't.icon' not in ov and 'DONOR_TITLE_ICON' not in ov)
+chk('방송판: 시그니처 카드 — 이름 앞 칭호 알약 · 이름 옆 Lv(시안 A)', 'donorTag(data.donor_title)' in ov
+    and 'donorLv(data.donor_level)' in ov and 'setReactionTitle' not in ov and 'reaction-title-ribbon' not in ov)
+chk('방송판: 팝업 · 소액 띠에도 칭호 알약', ov.count('donorTag(') >= 4)
+chk('방송판: 단계 13개 · 효과 7단계(앞 단계 효과를 모두 갖고 더한다)', "'블랙노블레스': ['#8D90A8', '#07070B', 6, true]" in ov
+    and "'금수저': ['#FFD76A', '#C8961E', 0]" in ov and "['g', 'sh', 'gl', 'spk', 'cr', 'bd', 'orb', 'rb', 'ray']]" in ov)
+chk('방송판: 칭호 글자는 textContent 로만', 'tx.textContent = String(t.name)' in ov and 'innerHTML' not in ov[ov.find('function donorTag'):ov.find('function donorLv')])
+chk('방송판: 칭호 그림은 안 쓴다(투네이션 자산)', 't.icon' not in ov and 'DONOR_TITLE_ICON' not in ov and '__special_title_img__' not in ov)
 chk('조종실: 대기함 카드 칭호 · Lv (escapeHTML)', 'function pdTitleHtml' in ct and 'escapeHTML(String(t.name))' in ct and 'class="pd-lv"' in ct)
 
 print('\n' + '=' * 74)
