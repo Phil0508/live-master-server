@@ -61,25 +61,39 @@ def looks_like_proxy_name(prefix, rest):
     return True
 _HEX6 = re.compile(r'^#[0-9A-Fa-f]{6}$')
 _HEX16 = re.compile(r'^[0-9a-f]{16}$')
-_TITLE_ICON_PREFIX = 'https://cache.cdn.toona.xyz/prod/uploaded/__special_title_img__/'
+# 🏷️ 투네이션 공식 칭호 색 — 이름에 든 낱말로 고른다(먼저 맞는 것). 그림은 투네이션 자산이라 안 쓰고 색으로만 보인다.
+#    ⚠️ 크리에이터 칭호(방송인이 만든 것, type 301~)는 안 받는다(대표님 2026-10-08 "개인방 칭호 말고 공식만").
+_OFFICIAL_TITLE_COLORS = (('블랙', '#3A3A44'), ('블루', '#4DA3FF'), ('그린', '#34D399'), ('레드', '#FF5A5A'),
+                          ('골드', '#F5C542'), ('금수저', '#F5C542'), ('노블레스', '#C9A7FF'), ('다이아', '#9EE7FF'))
+_OFFICIAL_TITLE_WORDS = ('다이아', '노블레스', '금수저', '투네이션', '후원왕')
+
+
+def _official_title_color(name):
+    n = str(name or '').replace(' ', '')
+    for w, c in _OFFICIAL_TITLE_COLORS:
+        if w in n:
+            return c
+    return None
 
 
 def _donor_extras(new_don):
     """🏷️ 리스너가 붙여 보낸 칭호 · 레벨 · VIP · 번호표를 다시 다듬는다(대표님 2026-10-08).
        돌려받는 값: (화면에 실어도 되는 것, 대기함 · 장부에만 둘 것). 번호표는 화면 쪽에 절대 안 싣는다.
-       ⚠️ 칭호 그림은 투네이션 칭호 그림 주소로 시작할 때만 받는다(아무 주소나 방송판에 띄우지 않게)."""
+       칭호는 투네이션 공식 칭호만(type 101~300, 비어 오면 이름으로) — 색은 이름으로 정한다(블랙 다이아 = 검정 …)."""
     pub, priv = {}, {}
     t = new_don.get('title')
     if isinstance(t, dict):
         nm = ' '.join(str(t.get('name') or '').split())[:24]
-        if nm:
+        try:
+            ttype = int(t.get('type') or 0)
+        except (TypeError, ValueError):
+            ttype = 0
+        official = ttype < 301 and (101 <= ttype <= 300 or any(w in nm.replace(' ', '') for w in _OFFICIAL_TITLE_WORDS))
+        if nm and official:
             tt = {'name': nm}
-            col = str(t.get('color') or '').strip()
+            col = _official_title_color(nm) or str(t.get('color') or '').strip()
             if _HEX6.match(col):
                 tt['color'] = col.upper()
-            icon = str(t.get('icon') or '')
-            if icon.startswith(_TITLE_ICON_PREFIX) and len(icon) <= 300 and re.fullmatch(r'[A-Za-z0-9_\-=./:]+', icon):
-                tt['icon'] = icon
             pub['donor_title'] = tt
     try:
         lv = int(new_don.get('level'))

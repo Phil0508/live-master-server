@@ -16,7 +16,8 @@
   DONOR_KEY_SECRET  후원자 번호표를 만드는 열쇠(없으면 SESSION_SECRET). 바꾸면 번호표가 전부 새로 바뀐다
 
 후원 하나에 같이 넘기는 것(2026-10-08 — 신호 안에 원래 있었는데 버리던 것):
-  title     칭호 {name, color, type, icon} — 투네이션 title_info. icon 은 크리에이터 칭호(type 301~)의 그림 주소
+  title     칭호 {name, color, type} — 투네이션 title_info 중 **투네이션 공식 칭호만**(다이아 · 블랙 다이아 · 노블레스 · 금수저 …).
+            방송인이 만든 크리에이터 칭호(type 301~)는 안 넘긴다(대표님 2026-10-08 "개인방 칭호 말고 공식만"). 칭호 그림도 안 쓴다
   level     투네이션 후원자 레벨(숫자)
   vip       투네이션 VIP 등급 이름
   donor_key 후원자 번호표 — 계정(이메일형)을 HMAC 으로 바꾼 16자. ⚠️ 이메일 자체는 서버에 보내지도 · 로그에 찍지도 않는다
@@ -147,10 +148,19 @@ def _replay_guard_active(now, acct=None):
     return (now - at) < REPLAY_GUARD_AFTER_RECONNECT
 
 DONOR_SECRET = (os.environ.get("DONOR_KEY_SECRET") or os.environ.get("SESSION_SECRET") or "").encode("utf-8")
-# 투네이션 알림창이 칭호 그림을 부르는 주소(그쪽 host.upload() + __special_title_img__) — 크리에이터 칭호(type 301~)만
-TITLE_ICON_BASE = "https://cache.cdn.toona.xyz/prod/uploaded/__special_title_img__/"
 _HEX6 = re.compile(r"^#[0-9A-Fa-f]{6}$")
-_ICON_HASH = re.compile(r"^[A-Za-z0-9_\-=.]{8,200}$")
+# 🏷️ 투네이션 공식 칭호 — 그쪽 알림창 코드가 type 101~300 을 공식(다이아 · 노블레스 · 금수저 …)으로 다룬다.
+#    type 이 비어 오면 이름으로 본다. 301~ 은 방송인이 만든 크리에이터 칭호라 이름이 '다이아' 여도 안 받는다.
+OFFICIAL_TITLE_WORDS = ("다이아", "노블레스", "금수저", "투네이션", "후원왕")
+
+
+def is_official_title(name, ttype):
+    if ttype >= 301:
+        return False
+    if 101 <= ttype <= 300:
+        return True
+    n = str(name or "").replace(" ", "")
+    return any(w in n for w in OFFICIAL_TITLE_WORDS)
 
 
 def donor_key(account):
@@ -166,18 +176,17 @@ def donor_extras(c):
     out = {}
     ti = c.get("title_info")
     if isinstance(ti, dict) and str(ti.get("name") or "").strip():
-        t = {"name": " ".join(str(ti.get("name")).split())[:24]}
-        col = str(ti.get("color") or "").strip()
-        if _HEX6.match(col):
-            t["color"] = col.upper()
         try:
-            t["type"] = int(ti.get("type") or 0)
+            ttype = int(ti.get("type") or 0)
         except (TypeError, ValueError):
-            t["type"] = 0
-        h = str(ti.get("hash") or "")
-        if t["type"] > 300 and _ICON_HASH.match(h):          # 다이아 · 노블레스(101~300)는 투네이션 내장 그림이라 주소가 다르다
-            t["icon"] = TITLE_ICON_BASE + h + ".img"
-        out["title"] = t
+            ttype = 0
+        nm = " ".join(str(ti.get("name")).split())[:24]
+        if is_official_title(nm, ttype):                     # 크리에이터 칭호(밍밍 · 화이트삭사단 같은 것)는 버린다
+            t = {"name": nm, "type": ttype}
+            col = str(ti.get("color") or "").strip()
+            if _HEX6.match(col):
+                t["color"] = col.upper()
+            out["title"] = t
     try:
         lv = int(c.get("level"))
         if 0 < lv < 1000:

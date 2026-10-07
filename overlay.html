@@ -2336,22 +2336,21 @@
         /* 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액) 흔들림 */
         .reaction-img-box { position: relative; display: inline-block; border-radius: var(--r-m); line-height: 0; }
         /* 🏷️ 후원자 칭호 · 레벨 — 시안 C(대표님 2026-10-08): 시그니처 그림 아래 가장자리에 칭호 리본, 이름 옆에 Lv.
-              색은 투네이션 칭호 색(--rb), 글자 색은 바탕 밝기로 고른다(--rb-ink). 그림은 투네이션 칭호 그림(크리에이터 칭호만). */
+              색은 칭호 이름으로 정한 색(--rb — 블랙 다이아 검정 · 블루 다이아 파랑 …), 글자 색은 바탕 밝기로 고른다(--rb-ink). */
         #reaction-title-ribbon { position: absolute; left: 50%; bottom: -22px; transform: translateX(-50%); z-index: 5;
             display: none; align-items: center; gap: 8px; padding: 8px 40px; line-height: 1.15; white-space: nowrap;
             background: var(--rb, #E2B64B); color: var(--rb-ink, #1b1404); font-size: 26px; font-weight: 900; letter-spacing: -0.3px;
             font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
             clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%, 18px 50%); }
         #reaction-title-ribbon.on { display: inline-flex; }
-        .reaction-screen-overlay #reaction-title-ribbon img { width: 30px; height: 30px; max-height: none; object-fit: contain;
-            border-radius: 0; box-shadow: none; }
         .reaction-screen-overlay.has-title .reaction-text-donator { margin-top: 42px; }   /* 리본 자리만큼 */
         .donor-lv { display: inline-block; margin-left: 12px; padding: 1px 10px; vertical-align: 0.2em; border-radius: var(--r-s);
             font-size: 22px; font-weight: 900; letter-spacing: 0; color: #fff; background: rgba(0, 0, 0, 0.55);
             border: 2px solid rgba(255, 255, 255, 0.45); text-shadow: none; -webkit-text-stroke: 0; font-variant-numeric: tabular-nums; }
         .donor-tag { display: inline-block; margin-right: 10px; padding: 2px 14px; vertical-align: 0.15em; border-radius: 999px;
             font-size: 0.62em; font-weight: 900; letter-spacing: -0.3px; background: var(--rb, #E2B64B); color: var(--rb-ink, #1b1404);
-            text-shadow: none; -webkit-text-stroke: 0; paint-order: normal; }
+            text-shadow: none; -webkit-text-stroke: 0; paint-order: normal;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3); }   /* 블랙 다이아처럼 어두운 칭호도 어두운 바탕에서 보이게 */
         /* 🔁 같은 사람 · 같은 시그니처 연속 — 한 번 틀면 그림 모서리 빨간 원에 ×N 이 톡톡 올라간다(대표님 2026-09-29 C안).
               조종실 [N번 다 틀기]면 대신 '2 / 7' 처럼 몇 번째인지 보인다. */
         #reaction-combo { position: absolute; top: -34px; right: -34px; z-index: 6; display: none; pointer-events: none; line-height: 1; }
@@ -8265,9 +8264,9 @@
             const max = Number((d || {}).small_don_max) || SMALL_DON_MAX;
             return amt > 0 && amt < max && !String((don && don.message) || '').startsWith('[시그니처 신청:');
         }
-        /* 🏷️ 후원자 칭호 · 레벨 — 투네이션 칭호를 리스너 → 서버가 donor_title {name, color, icon} · donor_level 로 싣는다
-              (대표님 2026-10-08, 시안 C). ⚠️ 글자는 textContent 로만. 색은 #RRGGBB 일 때만, 그림은 투네이션 칭호 그림 주소일 때만. */
-        const DONOR_TITLE_ICON = 'https://cache.cdn.toona.xyz/prod/uploaded/__special_title_img__/';
+        /* 🏷️ 후원자 칭호 · 레벨 — 투네이션 **공식** 칭호(다이아 · 블랙 다이아 · 노블레스 …)를 서버가 donor_title {name, color}
+              · donor_level 로 싣는다(대표님 2026-10-08, 시안 C). 크리에이터 칭호는 서버에서 걸러져 안 온다.
+              ⚠️ 글자는 textContent 로만. 색은 #RRGGBB 일 때만. 칭호 그림은 투네이션 자산이라 안 쓴다(색으로만). */
         function donorColor(t) { return (t && /^#[0-9A-Fa-f]{6}$/.test(String(t.color || ''))) ? t.color : '#E2B64B'; }
         function donorInk(hex) {
             const n = parseInt(String(hex).slice(1), 16);
@@ -8304,13 +8303,6 @@
             const c = donorColor(t);
             rb.style.setProperty('--rb', c);
             rb.style.setProperty('--rb-ink', donorInk(c));
-            if (typeof t.icon === 'string' && t.icon.startsWith(DONOR_TITLE_ICON)) {
-                const im = new Image();
-                im.alt = '';
-                im.onerror = () => im.remove();
-                im.src = t.icon;
-                rb.appendChild(im);
-            }
             const sp = document.createElement('span');
             sp.textContent = String(t.name);
             rb.appendChild(sp);
