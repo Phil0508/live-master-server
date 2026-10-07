@@ -554,6 +554,16 @@
         .rs2-chk input { margin: 0; accent-color: var(--accent); }
         #rs-send { margin: 0; height: 36px; padding: 0 18px; background: var(--accent); border-color: var(--accent); color: #1b1404; font-weight: 800; }
         #rs-send:disabled { opacity: 0.5; }
+        /* 💬 화면에 한마디 — 얇은 한 줄. 오른쪽 칸이 따로 스크롤돼도 맨 위에 붙어 있게(sticky) 바탕을 채운다 */
+        #rail-say { position: sticky; top: 0; z-index: 3; padding: 8px 10px !important; }
+        #rail-say .say-row { display: flex; align-items: center; gap: 8px; }
+        #rail-say .say-ico { flex: none; font-size: 15px; line-height: 1; }
+        #say-input { flex: 1; min-width: 0; height: 34px; margin: 0; box-sizing: border-box; font-size: var(--fs-3); }
+        #say-log { margin-top: 5px; font-size: var(--fs-1); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #say-log:empty { display: none; }
+        #say-log.err { color: var(--danger, #ff6b6b); }
+        body.skin-glass .shell-rail > #rail-say { background: rgba(36, 28, 24, 0.94) !important; border-radius: 18px !important;
+            -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
         .rs2-quick { display: flex; gap: 6px; overflow-x: auto; margin-top: 10px; padding-bottom: 2px; scrollbar-width: thin; }
         .rs2-quick button { flex: none; margin: 0; height: 28px; padding: 0 10px; border-radius: var(--r-full); font-size: var(--fs-2); }
         .rs2-quick button b { margin-right: 4px; }
@@ -4011,6 +4021,15 @@
     </div>
     </div><!-- /.shell-main -->
     <aside class="shell-rail" id="shell-rail">
+        <!-- 💬 화면에 한마디 — 쓰고 Enter 면 방송판 한가운데 1초(궁서체 · 흰 글씨 · 검은 테두리). 칸을 내려도 맨 위에 붙어 있다 -->
+        <div class="group-box rail-only" id="rail-say">
+            <div class="say-row">
+                <span class="say-ico" aria-hidden="true">💬</span>
+                <input type="text" id="say-input" maxlength="60" placeholder="화면에 한마디 — 쓰고 Enter" autocomplete="off"
+                       enterkeyhint="send" onkeydown="sayKey(event)" aria-label="방송 화면에 잠깐 띄울 글">
+            </div>
+            <div class="say-log" id="say-log" aria-live="polite"></div>
+        </div>
         <!-- 맨 위 후원 콘솔(시그니처 송출). 대기함 · 🆕 줄 · 되돌리기는 넓은 화면이면 railPlace() 가 그 밑(재생 대기열 앞)으로 옮겨 온다 -->
         <div class="group-box rail-only" id="rail-send">
             <div class="rail-h"><span><i class="fa-solid fa-paper-plane"></i> 후원 콘솔 · 시그니처 송출</span><a href="/manual" target="_blank" title="후원 콘솔 전체 창 열기(순위 · 시그니처 관리까지)">전체 열기 ▸</a></div>
@@ -11085,6 +11104,30 @@ initFoldablePanels();
             w.classList.add('in-box');
         }
         try { RAIL_MQ.addEventListener('change', railPlace); } catch (e) { try { RAIL_MQ.addListener(railPlace); } catch (e2) {} }
+
+        /* 💬 화면에 한마디 — 오른쪽 칸 맨 위. Enter 면 방송판 한가운데 1초(서버 features/say.py → 방송판 sayShow).
+              ⚠️ 한글은 조합 중 Enter 가 두 번 온다 — isComposing · 229 는 건너뛴다(안 그러면 마지막 글자만 한 번 더 간다) */
+        function sayKey(e) {
+            if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229) return;
+            e.preventDefault();
+            saySend();
+        }
+        function saySend() {
+            const inp = document.getElementById('say-input'), log = document.getElementById('say-log');
+            if (!inp || !log) return;
+            const text = (inp.value || '').trim();
+            if (!text) return;
+            inp.value = '';
+            const fail = function (msg) { log.textContent = '⚠ ' + msg; log.classList.add('err'); if (!inp.value) inp.value = text; };
+            fetch('/api/say', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
+                .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+                .then(function (x) {
+                    if (!x.ok) return fail(x.j.message || '못 띄웠어요');
+                    log.classList.remove('err');
+                    log.textContent = '✓ 띄웠어요 · ' + (x.j.text || text);
+                })
+                .catch(function () { fail('서버에 못 보냈어요 — 다시 Enter'); });
+        }
 
         /* 🎵 시그니처 송출 — 후원 콘솔(manual_send.html)의 수동 송출과 같은 길(/api/signature/play · 장부면 /api/donation) */
         var RS_SIGS = [];

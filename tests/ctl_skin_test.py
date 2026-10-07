@@ -125,8 +125,11 @@ chk('이름표는 칸에 들어가는 길이(5글자 이하)', all(len(s) <= 5 f
 
 head('④-2 오른쪽 칸 순서 — 후원 콘솔이 미확인 후원 위')
 aside = CT[CT.index('<aside class="shell-rail" id="shell-rail">'):CT.index('</aside>')]
-chk('오른쪽 칸 첫 판이 후원 콘솔(시그니처 송출)', aside.index('id="rail-send"') < aside.index('id="rail-queue"')
-    and not re.search(r'<div[^>]*id="(?!rail-send)[^"]*"', aside[:aside.index('id="rail-send"')]))
+# 💬 10-07 '화면에 한마디' 얇은 한 줄(rail-say)만 그 위에 둔다(대표님 "오른쪽에 얇은 채팅칸") — 판(카드)으로는 후원 콘솔이 첫째
+_pre = re.sub(r'<div class="group-box rail-only" id="rail-say">.*', '', aside[:aside.index('id="rail-send"')], flags=re.S)
+chk('오른쪽 칸 첫 판이 후원 콘솔(시그니처 송출) — 위에는 💬 한마디 한 줄만', aside.index('id="rail-send"') < aside.index('id="rail-queue"')
+    and aside.index('id="rail-say"') < aside.index('id="rail-send"')
+    and not re.search(r'<div[^>]*id="(?!rail-send)[^"]*"', _pre))
 rp = CT[CT.index('function railPlace()'):CT.index("RAIL_MQ.addEventListener('change', railPlace)")]
 chk('대기함 · 🆕 · 되돌리기는 재생 대기열 앞(= 후원 콘솔 밑)으로 옮겨 온다',
     "const first = document.getElementById('rail-queue');" in rp and 'rail.insertBefore(el, first)' in rp)

@@ -4,7 +4,7 @@
 어디에 무엇이 있나
   게임     pinball · dicegame · siggame · hell · extra_game · offwork(퇴근빵)
   방송판   show_api(/api/show · 세이브 슬롯) · screens(시작·끝 화면) · notice(전광판) · reaction(리액션 대기줄 · 슬롯)
-           effects(효과 · 룰렛 당첨 · 모금함 · 대결 시간 끝) · layout(위젯 자리)
+           effects(효과 · 룰렛 당첨 · 모금함 · 대결 시간 끝) · layout(위젯 자리) · say(💬 화면에 한마디)
   후원     donation(후원 접수) · score(점수 넣기) · donor_memory(후원자 기억) · vip · excluded(순위에서 뺄 이름)
            account_video(계좌 영상) · ranking(이번 방송 순위) · bjs(선수 일괄 등록)
   시그니처 signatures(등록 · 수정 · 삭제) · signature_play(목록 · 바로 틀기)

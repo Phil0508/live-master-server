@@ -3596,6 +3596,7 @@ import features.uistats  # noqa: E402,F401  (주소만 등록)
 import features.versions  # noqa: E402,F401  (주소만 등록)
 import features.toon_accounts  # noqa: E402,F401  (주소만 등록)
 import features.preflight  # noqa: E402,F401  (주소만 등록 · 🛫 방송 전 점검 · 방송 중 경보)
+import features.say  # noqa: E402,F401  (주소만 등록 · 💬 화면에 한마디)
 # ── ✂️ 끝 ──
 
 if __name__ == '__main__':

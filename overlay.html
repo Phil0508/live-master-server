@@ -2168,6 +2168,23 @@
                             border-radius: var(--r-m); padding: 14px 28px; font-size: 29px;
                             font-weight: 600; color: rgba(235,235,245,0.85); max-width: 700px;
                             word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45; }
+        /* 💬 화면에 한마디 — 조종실 오른쪽 칸에서 쓴 글이 한가운데 스윽 떴다가 1초 뒤 스윽 사라진다(대표님 2026-10-07).
+           궁서체 · 흰 글씨 · 검은 테두리 · 배경 없음. 테두리는 소액 띠처럼 paint-order 로 글자 '뒤'에 깐다.
+           ⚠️ 궁서는 윈도우에 기본으로 있다(batang.ttc) — OBS 를 돌리는 PC 의 글꼴을 쓴다. 없으면 바탕 → 명조로 내려간다. */
+        #say-layer { position: fixed; inset: 0; z-index: 100060; pointer-events: none; display: flex;
+            align-items: center; justify-content: center; padding: 0 4vw; box-sizing: border-box; }
+        #say-layer .say-text { font-family: 'Gungsuh', '궁서', 'GungsuhChe', '궁서체', 'GungSeo', 'Batang', '바탕', serif;
+            font-weight: 400; font-size: 120px; line-height: 1.25; color: #fff; text-align: center;
+            -webkit-text-stroke: 0.14em #000; paint-order: stroke fill;   /* em — 긴 글로 글자가 작아져도 테두리 굵기가 비례 */
+            word-break: keep-all; overflow-wrap: anywhere; max-width: 100%; margin-top: -6vh;
+            opacity: 0; animation: say-in-out 1.8s ease-in-out forwards; }
+        /* 0.35초 스윽 나타남 → 1초 그대로 → 0.45초 스윽 사라짐 */
+        @keyframes say-in-out {
+            0%      { opacity: 0; transform: translateY(28px); filter: blur(6px); }
+            19.4%   { opacity: 1; transform: none; filter: none; }
+            75%     { opacity: 1; transform: none; filter: none; }
+            100%    { opacity: 0; transform: translateY(-28px); filter: blur(6px); }
+        }
 
         /* 🔥 시그니처 이름 대형 네온 배너 (화면 정중앙)
            크기/노출시간은 admin 에디터 값(--reac-title-size)으로 조절한다. */
@@ -3417,6 +3434,8 @@
                 <div class="se-wrap" id="ss-card"></div>
             </div>
             <div id="theme-moon" class="theme-moon" aria-hidden="true"></div>
+            <!-- 💬 화면에 한마디 — 조종실에서 쓴 글이 한가운데 1초 (sayShow) -->
+            <div id="say-layer" aria-hidden="true"></div>
             <!-- 💬 소액 후원 띠 (1천~9천 원) — 맨 위 한 줄 -->
             <div id="small-don" aria-hidden="true">
                 <div class="sd-line"><span class="sd-hl" id="sd-name"></span>님이 <span class="sd-hl" id="sd-amt"></span>원 후원했습니다!</div>
@@ -8582,6 +8601,24 @@
             setInterval(clipCheck, 60000);
         }
 
+        /* 💬 화면에 한마디 — 새 글이 오면 앞 글은 바로 걷고 새 글만 띄운다(1.8초 = 0.35 나타남 + 1 + 0.45 사라짐).
+              긴 글은 글자를 줄여 한두 줄에 들게 한다. ⚠️ 애니메이션이 멈춰 있어도(가려진 창) 2.3초 뒤엔 꼭 걷는다 */
+        function sayShow(d) {
+            const layer = document.getElementById('say-layer');
+            const text = String((d && d.text) || '').trim();
+            if (!layer || !text) return;
+            layer.replaceChildren();
+            const el = document.createElement('div');
+            el.className = 'say-text';
+            el.textContent = text;
+            const n = text.length;
+            el.style.fontSize = (n <= 10 ? 120 : n <= 18 ? 100 : n <= 30 ? 80 : 62) + 'px';
+            const done = function () { if (el.parentNode) el.parentNode.removeChild(el); };
+            el.addEventListener('animationend', done);
+            setTimeout(done, 2300);
+            layer.appendChild(el);
+        }
+
         let sseSource = null;
         function initSSE() {
             if (sseSource) {
@@ -8630,6 +8667,11 @@
                     const data = JSON.parse(e.data);
                     handleSlotSpinOverlay(data);
                 } catch(err){ console.error("Error in slot_spin handler:", err); }
+            });
+
+            sseSource.addEventListener('say', function(e) {
+                try { sayShow(e.data ? JSON.parse(e.data) : {}); }
+                catch (err) { console.error('say 처리 오류:', err); }
             });
 
             sseSource.addEventListener('clip', function(e) {
