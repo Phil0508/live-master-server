@@ -38,6 +38,7 @@ def clock(t):
 def _ai_guard(case, key=''):
     """바깥 호출 막기 · 키(기본: 없음 = AI 꺼짐) · 기억 · 한도 · 상태 비우기."""
     for p in (mock.patch.object(ai, '_http_post', _no_network),
+              mock.patch.object(ai, '_claude_call', _no_network),
               mock.patch.object(ai, 'nim_key', lambda: key),
               mock.patch.object(ai, 'NIM_HEALTH', {'ok': None, 'ms': 0, 'at': 0.0, 'model': '', 'code': 0}),
               mock.patch.object(ai, '_nim_calls', [])):

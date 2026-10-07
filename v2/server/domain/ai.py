@@ -14,6 +14,8 @@ v2 에서 바뀐 것
   - 제안은 대기함 id 로도 물을 수 있다({id}) — 서버가 대기함에서 이름 · 금액 · 메시지를 읽는다.
 
 설정(옛 것과 같은 이름 · 같은 기본값)
+  🆕 ANTHROPIC_API_KEY — 있으면 **Claude 를 먼저** 부른다(CLAUDE_MODEL, 기본 claude-haiku-4-5 — 10-07 대표님 "엔비디아 말고 너(Claude)").
+     Claude 가 막히면 NVIDIA 키가 있을 때만 NVIDIA 로 넘어간다. 없으면 옛 것처럼 NVIDIA 만. 부품: pip 의 anthropic(v2/requirements.txt).
   NVIDIA_API_KEY (없으면 저장소 루트 NVIDIA_CREDENTIALS.txt 의 NVIDIA_API_KEY=… — git 제외 파일)
   NIM_MODEL · NIM_MODEL_BACKUP (제안) / NIM_CHAT_MODEL · NIM_CHAT_BACKUP (채팅) — 모델이 내려가면(410) 이것만 바꾸고 재시작.
   ⚠️ 키는 어디에도 찍지 않는다(로그 · 답 · 오류 글자).
@@ -102,8 +104,12 @@ _KEY = None
 
 
 # ── 열쇠 · 호출 ─────────────────────────────────────────
+def _ai_off():
+    return (os.environ.get('LM2_AI_OFF') or '').strip().lower() in ('1', 'on', 'true', 'yes')
+
+
 def _load_key():
-    if (os.environ.get('LM2_AI_OFF') or '').strip().lower() in ('1', 'on', 'true', 'yes'):
+    if _ai_off():
         return ''
     key = (os.environ.get('NVIDIA_API_KEY') or '').strip()
     if key:
@@ -181,11 +187,131 @@ def nim_post(models, body, timeout):
     return None, last, (tried[-1] if tried else "")
 
 
+# ── Claude(Anthropic) — 키가 있으면 먼저 부른다. 막히면 NVIDIA(키가 있을 때) ──────────
+CLAUDE_MODEL = (os.environ.get('CLAUDE_MODEL') or 'claude-haiku-4-5').strip()
+# Claude 가 '잠깐 막힘' 으로 답하는 것 — 529 는 붐빔(overloaded), 0 은 연결 실패 · 시간 넘김
+CLAUDE_RETRYABLE = (0, 408, 429, 500, 502, 503, 504, 529)
+_CLAUDE_KEY = None
+_CLAUDE = None
+
+
+def _load_claude_key():
+    """⚠️ 환경변수로만 받는다(운영: /etc/livemaster.env). 어디에도 찍지 않는다. LM2_AI_OFF=1 이면 안 읽는다."""
+    if _ai_off():
+        return ''
+    return (os.environ.get('ANTHROPIC_API_KEY') or '').strip()
+
+
+def claude_key():
+    global _CLAUDE_KEY
+    if _CLAUDE_KEY is None:
+        _CLAUDE_KEY = _load_claude_key()
+    return _CLAUDE_KEY
+
+
+def ai_on():
+    """AI 를 부를 수 있나 — Claude · NVIDIA 어느 쪽이든 키가 있으면."""
+    return bool(claude_key() or nim_key())
+
+
+def _claude_client():
+    """한 번 만들어 계속 쓴다(연결을 다시 쓴다). 재시도는 ai_post 가 직접 한다(시한을 우리가 쥔다) — SDK 는 0번."""
+    global _CLAUDE
+    if _CLAUDE is None:
+        import anthropic
+        _CLAUDE = anthropic.Anthropic(api_key=claude_key(), max_retries=0)
+    return _CLAUDE
+
+
+def _claude_call(system, messages, max_tokens, temperature, timeout):
+    """Claude 를 한 번 부른다 — 바깥으로 나가는 곳(검사는 이것을 막는다). 예외를 던지지 않는다.
+       돌려받는 값: (답 글자 or None, 상태 코드). 0 = 연결 실패 · 시간 넘김 · 부품(anthropic)이 없음."""
+    try:
+        import anthropic
+        client = _claude_client()
+    except Exception as e:
+        print('⚠️ [Claude] 연결 부품을 못 불러 Claude 를 건너뜁니다 (%s) — pip install -r v2/requirements.txt'
+              % type(e).__name__, flush=True)
+        return None, 0
+    kw = {'system': system} if system else {}
+    try:
+        msg = client.with_options(timeout=timeout).messages.create(
+            model=CLAUDE_MODEL, max_tokens=max_tokens, temperature=temperature, messages=messages, **kw)
+    except anthropic.RateLimitError:
+        return None, 429
+    except anthropic.APIStatusError as e:              # 400 · 401(키) · 404(모델 없음) · 529(붐빔) …
+        return None, int(getattr(e, 'status_code', 0) or 0)
+    except anthropic.APIConnectionError:               # 시간 넘김(APITimeoutError)도 여기
+        return None, 0
+    text = ''.join(b.text for b in msg.content if getattr(b, 'type', '') == 'text').strip()
+    return text, 200
+
+
+class _Reply:
+    """Claude 답을 NVIDIA(OpenAI 꼴) 답 모양으로 감싼다 — 뒤 코드(JSON 꺼내기 · 깨짐 검사)를 그대로 쓰려고."""
+
+    def __init__(self, code, text=''):
+        self.status_code = code
+        self._text = text
+
+    def json(self):
+        return {'choices': [{'message': {'content': self._text}}]}
+
+
+def _claude_messages(msgs):
+    """OpenAI 꼴 대화 → Claude 꼴: system 은 따로 · 빈 말은 빼고 · 첫 말은 사용자 것이어야 한다."""
+    system = '\n\n'.join(str(m.get('content') or '') for m in msgs if m.get('role') == 'system').strip()
+    rest = [{'role': m['role'], 'content': str(m.get('content') or '')} for m in msgs
+            if m.get('role') in ('user', 'assistant') and str(m.get('content') or '').strip()]
+    while rest and rest[0]['role'] != 'user':
+        rest.pop(0)
+    return system, rest
+
+
+def ai_post(models, body, timeout):
+    """AI 에게 한 번 묻기 — nim_post 와 같은 모양으로 돌려준다: (응답 or None, 마지막 상태 코드, 실제로 답한 모델).
+       Claude 키가 있으면 Claude 먼저(NVIDIA 예비가 있으면 한 번, 없으면 두 번까지), 막히면 NVIDIA. 없으면 NVIDIA 만.
+       ⚠️ 다른 갈래(asyncio.to_thread · PREFETCH)에서만 부른다 — 막히는 호출이다."""
+    if not claude_key():
+        return nim_post(models, body, timeout)
+    system, rest = _claude_messages(body.get('messages') or [])
+    backup = bool(nim_key())
+    last = 0
+    for i in range(1 if backup else 2):
+        t0 = time.time()
+        text, code = _claude_call(system, rest, int(body.get('max_tokens') or 400),
+                                  float(body.get('temperature', 0.2)), timeout)
+        NIM_HEALTH.update(ok=code == 200, ms=int((time.time() - t0) * 1000), at=time.time(), model=CLAUDE_MODEL, code=code)
+        if code == 200:
+            return _Reply(200, text), 200, CLAUDE_MODEL
+        last = code
+        print('⚠️ [Claude 막힘] %s 응답 %s' % (CLAUDE_MODEL, code or '연결 실패 · 시간 넘김'), flush=True)
+        if code not in CLAUDE_RETRYABLE:
+            break                       # 키 · 모델 · 요청이 틀렸다 — 다시 해도 같다
+        if not backup and i == 0:
+            time.sleep(0.8)
+    if backup:
+        print('🔁 [AI 예비] Claude 가 막혀 NVIDIA 로 넘어갑니다', flush=True)
+        return nim_post(models, body, timeout)
+    if last in CLAUDE_RETRYABLE:
+        return None, (last or 503), CLAUDE_MODEL
+    return _Reply(last), last, CLAUDE_MODEL
+
+
+def model_setting(used, chat=False):
+    """그 모델을 바꾸려면 서버 설정의 어느 이름을 고쳐야 하나 — 실제로 답한 모델 기준."""
+    if used == CLAUDE_MODEL:
+        return 'CLAUDE_MODEL'
+    if chat:
+        return 'NIM_CHAT_BACKUP' if used == NIM_CHAT_BACKUP else 'NIM_CHAT_MODEL'
+    return 'NIM_MODEL_BACKUP' if used == NIM_MODEL_BACKUP else 'NIM_MODEL'
+
+
 def nim_suggest_target(name, amount, message, names, history=None, context=None, hints=None):
     """후원 메시지가 지목하는 선수를 AI 에게 묻는다(④ 단계). 예외를 던지지 않는다.
        돌려받는 값: {target, confidence} · 못 물었으면 skipped / error / gone / reason:'rate' · 잠깐 막힘이면 retry=True"""
     names = [n for n in (names or []) if n]
-    if not nim_key() or not str(message or '').strip() or not names:
+    if not ai_on() or not str(message or '').strip() or not names:
         return {"target": None, "confidence": 0.0, "skipped": True}
     if not nim_allowed():
         return {"target": None, "confidence": 0.0, "skipped": True, "reason": "rate", "retry": True}
@@ -199,13 +325,13 @@ def nim_suggest_target(name, amount, message, names, history=None, context=None,
     }
     body.update(NIM_NO_THINK)
     try:
-        r, code, _used = nim_post([NIM_MODEL, NIM_MODEL, NIM_MODEL_BACKUP], body, SUGGEST_TIMEOUT)
+        r, code, used = ai_post([NIM_MODEL, NIM_MODEL, NIM_MODEL_BACKUP], body, SUGGEST_TIMEOUT)
         if r is None:
             return {"target": None, "confidence": 0.0, "error": code or "no-response", "retry": True}
         if r.status_code != 200:
             if r.status_code in (404, 410):      # 고장이 아니라 '그 모델이 없어졌다' — 운영자가 할 일이 다르다
-                print("❌ [AI 모델 없음] '%s' 응답 %s — 서버 설정 NIM_MODEL 을 살아 있는 모델로 바꿔주세요."
-                      % (NIM_MODEL, r.status_code), flush=True)
+                print("❌ [AI 모델 없음] '%s' 응답 %s — 서버 설정 %s 을 살아 있는 모델로 바꿔주세요."
+                      % (used, r.status_code, model_setting(used)), flush=True)
                 return {"target": None, "confidence": 0.0, "error": r.status_code, "gone": True}
             return {"target": None, "confidence": 0.0, "error": r.status_code, "retry": r.status_code in NIM_RETRYABLE}
         content = (r.json()["choices"][0]["message"].get("content") or "").strip()
@@ -231,13 +357,14 @@ def nim_suggest_target(name, amount, message, names, history=None, context=None,
 
 def ai_health():
     """AI 가 지금 어떤가 — 마지막 호출 결과. 조종실 AI 패널 머리의 점 색과 글자."""
-    if not nim_key():
+    if not ai_on():
         return {'state': 'off', 'text': 'AI 꺼짐 · 칸과 단추는 돼요'}
     h = NIM_HEALTH
     if not h['at']:
-        return {'state': 'idle', 'text': 'AI 대기 중'}
+        return {'state': 'idle', 'text': 'AI 대기 중' + (' · Claude' if claude_key() else '')}
     if h['ok']:
-        return {'state': 'ok', 'text': 'AI 연결됨 · %.1f초' % (h['ms'] / 1000)}
+        who = 'Claude' if h.get('model') == CLAUDE_MODEL else 'AI'
+        return {'state': 'ok', 'text': '%s 연결됨 · %.1f초' % (who, h['ms'] / 1000)}
     mins = int((time.time() - h['at']) // 60)
     return {'state': 'busy', 'text': 'AI 붐빔' + (' · %d분 전' % mins if mins else '')}
 
@@ -389,8 +516,8 @@ async def ai_chat(req, bus, authed, answer):
                 return {'status': 'success', 'source': 'calc', 'reply': fallback + '\n\n(%s — 서버 계산으로 답했어요)' % msg}
             return {'status': 'success', 'source': 'none', 'reply': msg}
 
-        if not nim_key():
-            return no_ai('AI 키가 설정되지 않았어요 (서버 환경변수 NVIDIA_API_KEY)')
+        if not ai_on():
+            return no_ai('AI 키가 설정되지 않았어요 (서버 환경변수 ANTHROPIC_API_KEY 또는 NVIDIA_API_KEY)')
         if not nim_allowed():
             return no_ai('지금 AI 호출이 몰려서 잠시 후 다시 물어봐 주세요')
         msgs = [{'role': 'system', 'content': af.chat_system_prompt(facts, question)}]
@@ -402,7 +529,7 @@ async def ai_chat(req, bus, authed, answer):
         req_body = dict({'messages': msgs, 'temperature': 0.2, 'max_tokens': af.CHAT_MAX_TOKENS}, **NIM_NO_THINK)
         try:
             r, _code, used = await asyncio.wait_for(
-                asyncio.to_thread(nim_post, [NIM_CHAT_MODEL, NIM_CHAT_MODEL, NIM_CHAT_BACKUP], req_body, CHAT_TIMEOUT),
+                asyncio.to_thread(ai_post, [NIM_CHAT_MODEL, NIM_CHAT_MODEL, NIM_CHAT_BACKUP], req_body, CHAT_TIMEOUT),
                 CHAT_DEADLINE)
         except asyncio.TimeoutError:
             r, used = None, ''
@@ -411,11 +538,13 @@ async def ai_chat(req, bus, authed, answer):
         if r.status_code != 200:
             if r.status_code in (404, 410):
                 # ⚠️ 주 모델이 아니라 '실제로 답한 모델' 을 댄다 — 예비가 410 인데 멀쩡한 주 모델을 고치러 간 적이 있다
-                which = 'NIM_CHAT_BACKUP' if used == NIM_CHAT_BACKUP else 'NIM_CHAT_MODEL'
+                which = model_setting(used, chat=True)
                 print("❌ [AI 모델 없음] '%s' 응답 %s (%s 를 바꿔야 합니다)" % (used, r.status_code, which), flush=True)
                 return {'status': 'success', 'source': 'none',
                         'reply': "이 AI 모델('%s')이 종료됐습니다.\n서버 설정의 %s 을(를) 살아 있는 모델로 바꾸고 재시작해주세요. "
                                  "(후원·점수에는 영향 없습니다)" % (used, which)}
+            if r.status_code in (401, 403):
+                return no_ai('AI 키가 맞지 않아요 (서버 설정 %s)' % ('ANTHROPIC_API_KEY' if used == CLAUDE_MODEL else 'NVIDIA_API_KEY'))
             return no_ai('AI 오류 %s' % r.status_code)
         msg = r.json()['choices'][0]['message']
         reply = af.clean_reply(msg.get('content') or '')

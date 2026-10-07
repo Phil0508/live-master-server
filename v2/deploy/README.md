@@ -30,6 +30,16 @@ sudo systemctl start livemaster-watchdog.service && journalctl -u livemaster-wat
 - 하는 일은 `systemctl restart` 뿐 — 코드 · 설정은 안 바꾼다. 기록은 /var/lib/livemaster-watchdog/events.jsonl → 폰 상태판(/health)에 보인다.
 - 폰 알림: /etc/livemaster.env 에 `NOTIFY_URL=https://ntfy.sh/<비밀 주제>` (없으면 기록만).
 
+## 🤖 AI 를 Claude 로 (대표님 결정 10-07: NVIDIA 말고 Claude Haiku 4.5, v2 시험판부터)
+- 키는 **대표님이** console.anthropic.com 에서 만든다(가입 · 충전 · 'API 키'). 채팅에 붙여 넣지 말 것.
+- 서버에 넣기 — 아래 한 줄을 PC 터미널에서 돌리면 키를 **화면에 안 보이게** 묻고, v2 만 다시 켠다(옛 서버는 이 키를 안 읽는다):
+```bash
+ssh -t live 'read -rsp "Claude API 키 붙여넣기: " K; echo; sudo sed -i "/^ANTHROPIC_API_KEY=/d" /etc/livemaster.env; printf "\nANTHROPIC_API_KEY=%s\n" "$K" | sudo tee -a /etc/livemaster.env >/dev/null; unset K; sudo systemctl restart livemaster-v2; echo 넣었어요'
+```
+- 확인: 조종실 AI 패널 머리 글자가 'AI 대기 중 · Claude' → 한 번 물으면 'Claude 연결됨 · 0.7초'. 서버 기록 `journalctl -u livemaster-v2 | grep Claude`.
+- 모델 바꾸기: /etc/livemaster.env 에 `CLAUDE_MODEL=…`(기본 claude-haiku-4-5). 끄기: ANTHROPIC_API_KEY 줄을 지우고 v2 재시작 → NVIDIA 로 돌아간다.
+- Claude 가 막히면(붐빔 · 연결 실패) NVIDIA 키가 있을 때 NVIDIA 로 넘어간다. 키 · 모델이 틀리면(401 · 404) 다시 안 묻고 도우미가 무엇을 고칠지 말한다.
+
 ## 1. 나란히 띄우기 (허락 필요: 받기 · 서비스)
 
 ```bash

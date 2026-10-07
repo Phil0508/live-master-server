@@ -4,3 +4,5 @@
 import os
 
 os.environ['LM2_AUTOPILOT'] = 'off'
+# 🤖 Claude — 이 PC 에 ANTHROPIC_API_KEY 가 있어도 검사는 절대 진짜 Claude 를 부르지 않는다(Claude 를 쓰는 검사는 claude_key 를 가짜로 바꾼다)
+os.environ.pop('ANTHROPIC_API_KEY', None)

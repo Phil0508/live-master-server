@@ -60,6 +60,7 @@ class FakeNim:
 def _guard(case, key=FAKE_KEY):
     """모든 검사 앞에 — 바깥 호출 막기 · 가짜 키 · 기억(캐시) · 한도 · 상태 비우기."""
     for p in (mock.patch.object(ai, '_http_post', _no_network),
+              mock.patch.object(ai, '_claude_call', _no_network),
               mock.patch.object(ai, 'nim_key', lambda: key),
               mock.patch.object(ai, 'NIM_HEALTH', {'ok': None, 'ms': 0, 'at': 0.0, 'model': '', 'code': 0}),
               mock.patch.object(ai, '_nim_calls', [])):

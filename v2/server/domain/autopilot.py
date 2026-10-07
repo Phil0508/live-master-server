@@ -368,7 +368,7 @@ def decide(ctx, data):
     if res is None:
         res, pre = dm.suggest_rules(ctx.store, name, message, names)
         if res is None:
-            if ap.get('use_ai', True) and ai.nim_key():
+            if ap.get('use_ai', True) and ai.ai_on():
                 # ④ AI — 명령 밖 · 다른 갈래(PREFETCH)에서 부른다. 장부는 거기서 안 읽으므로 재료를 지금 싸서 넘긴다
                 ctx.later(0, 'auto.ai', {'id': pid, 'attempt': attempt, 'name': name, 'amount': amount, 'message': message,
                                          'names': names, 'known': [list(x) for x in pre['known']], 'hints': pre['hints'],
