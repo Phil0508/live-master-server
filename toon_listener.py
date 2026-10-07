@@ -12,7 +12,16 @@
   🧪 테스트 계정  두 번째 투네이션 — 조종실 시스템 탭에서 주소를 넣으면 서버가 toon_accounts.json 에 적고,
                  여기서 10초마다 읽어 붙는다. 수 · 목(방송하는 날, 한국 시간)에는 저절로 쉰다.
   DONATION_URL   방송 서버 접수 주소 (기본 http://127.0.0.1:8080/api/donation)
-  INCLUDE_TEST   '1' 이면 '후원 테스트'도 서버로 전달(기본은 전달 안 함, 로그만)
+  INCLUDE_TEST   '1' 이면 '후원 테스트'도 서버로 전달(기본은 전달 안 함, 로그만) — test 표시를 붙여 화면에만 뜬다
+  DONOR_KEY_SECRET  후원자 번호표를 만드는 열쇠(없으면 SESSION_SECRET). 바꾸면 번호표가 전부 새로 바뀐다
+
+후원 하나에 같이 넘기는 것(2026-10-08 — 신호 안에 원래 있었는데 버리던 것):
+  title     칭호 {name, color, type, icon} — 투네이션 title_info. icon 은 크리에이터 칭호(type 301~)의 그림 주소
+  level     투네이션 후원자 레벨(숫자)
+  vip       투네이션 VIP 등급 이름
+  donor_key 후원자 번호표 — 계정(이메일형)을 HMAC 으로 바꾼 16자. ⚠️ 이메일 자체는 서버에 보내지도 · 로그에 찍지도 않는다
+  test / replay  '후원 테스트' · 대시보드 '다시 보기'(replay=1) — 서버는 화면에만 띄우고 장부 · 대기함 · 순위엔 안 넣는다
+                 (예전엔 다시 보기가 진짜 후원으로 장부에 또 들어갔다 — 10-08 실측 80만 원짜리가 두 번)
 
 실행:
   ALERTBOX_URL=https://toon.at/widget/alertbox/<키> python toon_listener.py
@@ -21,7 +30,7 @@
 ⚠️ 투네이션의 비공개 규격이라 그쪽이 바꾸면 끊길 수 있다(공식 API 아님).
    기존 템퍼몽키+OBS 방식을 폴백으로 남겨두는 것을 권장.
 """
-import os, sys, re, json, time, asyncio, hashlib, threading, urllib.request
+import os, sys, re, json, time, asyncio, hashlib, hmac, threading, urllib.request
 
 try:
     import websockets
@@ -137,6 +146,57 @@ def _replay_guard_active(now, acct=None):
         return False
     return (now - at) < REPLAY_GUARD_AFTER_RECONNECT
 
+DONOR_SECRET = (os.environ.get("DONOR_KEY_SECRET") or os.environ.get("SESSION_SECRET") or "").encode("utf-8")
+# 투네이션 알림창이 칭호 그림을 부르는 주소(그쪽 host.upload() + __special_title_img__) — 크리에이터 칭호(type 301~)만
+TITLE_ICON_BASE = "https://cache.cdn.toona.xyz/prod/uploaded/__special_title_img__/"
+_HEX6 = re.compile(r"^#[0-9A-Fa-f]{6}$")
+_ICON_HASH = re.compile(r"^[A-Za-z0-9_\-=.]{8,200}$")
+
+
+def donor_key(account):
+    """계정(이메일형)을 되돌릴 수 없는 번호표로. 열쇠가 없으면 만들지 않는다(열쇠 없는 해시는 이메일을 맞혀 볼 수 있다)."""
+    a = str(account or "").strip().lower()
+    if not a or not DONOR_SECRET:
+        return None
+    return hmac.new(DONOR_SECRET, a.encode("utf-8"), hashlib.sha256).hexdigest()[:16]
+
+
+def donor_extras(c):
+    """후원 신호 content 에서 칭호 · 레벨 · VIP · 번호표만 꺼낸다(값은 다듬어서). ⚠️ account 원문은 돌려주지 않는다."""
+    out = {}
+    ti = c.get("title_info")
+    if isinstance(ti, dict) and str(ti.get("name") or "").strip():
+        t = {"name": " ".join(str(ti.get("name")).split())[:24]}
+        col = str(ti.get("color") or "").strip()
+        if _HEX6.match(col):
+            t["color"] = col.upper()
+        try:
+            t["type"] = int(ti.get("type") or 0)
+        except (TypeError, ValueError):
+            t["type"] = 0
+        h = str(ti.get("hash") or "")
+        if t["type"] > 300 and _ICON_HASH.match(h):          # 다이아 · 노블레스(101~300)는 투네이션 내장 그림이라 주소가 다르다
+            t["icon"] = TITLE_ICON_BASE + h + ".img"
+        out["title"] = t
+    try:
+        lv = int(c.get("level"))
+        if 0 < lv < 1000:
+            out["level"] = lv
+    except (TypeError, ValueError):
+        pass
+    for k in ("donator_vip_tier", "vip_effect"):
+        tier = c.get(k)
+        if isinstance(tier, dict):
+            nm = str(tier.get("tierName") or tier.get("tierCode") or "").strip()
+            if nm:
+                out["vip"] = nm[:12]
+                break
+    key = donor_key(c.get("account"))
+    if key:
+        out["donor_key"] = key
+    return out
+
+
 def to_donation(msg, acct=None):
     """투네이션 packet → (방송 서버 후원 형식, 테스트여부, 건너뛸사유).
        후원이 아니면 payload=None. 소켓 재전송이면 skip='replay'.
@@ -176,6 +236,12 @@ def to_donation(msg, acct=None):
     tx = stable or hashlib.md5("{}|{}".format(ident, now).encode("utf-8")).hexdigest()[:16]
     prefix = acct.prefix if acct is not None else "toon_"
     payload = {"name": name, "amount": amount, "message": message, "tx_id": prefix + tx}
+    payload.update(donor_extras(c))
+    if is_test:
+        payload["test"] = True
+    # 🔁 대시보드 '다시 보기' — 투네이션 알림창도 replay==1 이면 다시 틀기만 한다. 서버는 화면에만 띄운다
+    if msg.get("replay") in (1, True, "1"):
+        payload["replay"] = True
     return payload, is_test, None
 
 def post_donation(payload):
@@ -347,8 +413,11 @@ async def listen(token, acct=None):
             tag = lab + ("[테스트] " if is_test else "")
             # ⚠️ 계좌/투네이션 구분용 힌트. 내일 진짜 계좌 후원이 들어오면 이 값으로 식별한다.
             c = msg.get("content") or {}
-            hint = "acctype={} level={} code={}".format(
-                c.get("acctype"), c.get("level"), msg.get("code"))
+            hint = "acctype={} level={} code={}{}{}{}".format(
+                c.get("acctype"), c.get("level"), msg.get("code"),
+                " 칭호=" + payload["title"]["name"] if payload.get("title") else "",
+                " 번호표=있음" if payload.get("donor_key") else "",
+                " [다시 보기 — 화면에만]" if payload.get("replay") else "")
             log("💰 후원 감지:", tag + payload["name"], payload["amount"], "캐시",
                 repr(payload["message"][:30]), "|", hint)
             # ⚠️ 서버(/api/donation)는 음수만 막고 소액은 안 거른다. 예전에는 템퍼몽키가

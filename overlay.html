@@ -2335,6 +2335,23 @@
 
         /* 이미지 박스: 테두리 글로우 + 샤인(빛 스윕) + (고액) 흔들림 */
         .reaction-img-box { position: relative; display: inline-block; border-radius: var(--r-m); line-height: 0; }
+        /* 🏷️ 후원자 칭호 · 레벨 — 시안 C(대표님 2026-10-08): 시그니처 그림 아래 가장자리에 칭호 리본, 이름 옆에 Lv.
+              색은 투네이션 칭호 색(--rb), 글자 색은 바탕 밝기로 고른다(--rb-ink). 그림은 투네이션 칭호 그림(크리에이터 칭호만). */
+        #reaction-title-ribbon { position: absolute; left: 50%; bottom: -22px; transform: translateX(-50%); z-index: 5;
+            display: none; align-items: center; gap: 8px; padding: 8px 40px; line-height: 1.15; white-space: nowrap;
+            background: var(--rb, #E2B64B); color: var(--rb-ink, #1b1404); font-size: 26px; font-weight: 900; letter-spacing: -0.3px;
+            font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%, 18px 50%); }
+        #reaction-title-ribbon.on { display: inline-flex; }
+        .reaction-screen-overlay #reaction-title-ribbon img { width: 30px; height: 30px; max-height: none; object-fit: contain;
+            border-radius: 0; box-shadow: none; }
+        .reaction-screen-overlay.has-title .reaction-text-donator { margin-top: 42px; }   /* 리본 자리만큼 */
+        .donor-lv { display: inline-block; margin-left: 12px; padding: 1px 10px; vertical-align: 0.2em; border-radius: var(--r-s);
+            font-size: 22px; font-weight: 900; letter-spacing: 0; color: #fff; background: rgba(0, 0, 0, 0.55);
+            border: 2px solid rgba(255, 255, 255, 0.45); text-shadow: none; -webkit-text-stroke: 0; font-variant-numeric: tabular-nums; }
+        .donor-tag { display: inline-block; margin-right: 10px; padding: 2px 14px; vertical-align: 0.15em; border-radius: 999px;
+            font-size: 0.62em; font-weight: 900; letter-spacing: -0.3px; background: var(--rb, #E2B64B); color: var(--rb-ink, #1b1404);
+            text-shadow: none; -webkit-text-stroke: 0; paint-order: normal; }
         /* 🔁 같은 사람 · 같은 시그니처 연속 — 한 번 틀면 그림 모서리 빨간 원에 ×N 이 톡톡 올라간다(대표님 2026-09-29 C안).
               조종실 [N번 다 틀기]면 대신 '2 / 7' 처럼 몇 번째인지 보인다. */
         #reaction-combo { position: absolute; top: -34px; right: -34px; z-index: 6; display: none; pointer-events: none; line-height: 1; }
@@ -7921,7 +7938,10 @@
                 let donationAmount = data.amount ? formatNum(data.amount) + '원' : '';
                 if (donatorEl) {
                     donatorEl.innerText = donatorName + (donationAmount ? ' · ' + donationAmount : '');
+                    const _lv = donorLv(data.donor_level);          // 🏷️ 이름 옆 Lv
+                    if (_lv) donatorEl.appendChild(_lv);
                 }
+                setReactionTitle(data);                              // 🏷️ 그림 아래 칭호 리본(없으면 걷는다)
                 let msgText = data.message || '';
                 if (messageEl) {
                     if (msgText && msgText !== '수동 후원 송출') {
@@ -8245,6 +8265,59 @@
             const max = Number((d || {}).small_don_max) || SMALL_DON_MAX;
             return amt > 0 && amt < max && !String((don && don.message) || '').startsWith('[시그니처 신청:');
         }
+        /* 🏷️ 후원자 칭호 · 레벨 — 투네이션 칭호를 리스너 → 서버가 donor_title {name, color, icon} · donor_level 로 싣는다
+              (대표님 2026-10-08, 시안 C). ⚠️ 글자는 textContent 로만. 색은 #RRGGBB 일 때만, 그림은 투네이션 칭호 그림 주소일 때만. */
+        const DONOR_TITLE_ICON = 'https://cache.cdn.toona.xyz/prod/uploaded/__special_title_img__/';
+        function donorColor(t) { return (t && /^#[0-9A-Fa-f]{6}$/.test(String(t.color || ''))) ? t.color : '#E2B64B'; }
+        function donorInk(hex) {
+            const n = parseInt(String(hex).slice(1), 16);
+            const l = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+            return l > 0.6 ? '#1b1404' : '#ffffff';
+        }
+        function donorTag(t) {
+            if (!t || !t.name) return null;
+            const s = document.createElement('span');
+            const c = donorColor(t);
+            s.className = 'donor-tag';
+            s.style.setProperty('--rb', c);
+            s.style.setProperty('--rb-ink', donorInk(c));
+            s.textContent = String(t.name);
+            return s;
+        }
+        function donorLv(lv) {
+            const n = Math.floor(Number(lv) || 0);
+            if (n <= 0) return null;
+            const s = document.createElement('span');
+            s.className = 'donor-lv';
+            s.textContent = 'Lv.' + n;
+            return s;
+        }
+        function setReactionTitle(data) {
+            const ov = document.getElementById('reaction-screen-overlay');
+            const box = document.getElementById('reaction-img-box');
+            if (!ov || !box) return;
+            let rb = document.getElementById('reaction-title-ribbon');
+            if (!rb) { rb = document.createElement('div'); rb.id = 'reaction-title-ribbon'; box.appendChild(rb); }
+            rb.replaceChildren();
+            const t = data && data.donor_title;
+            if (!t || !t.name) { rb.classList.remove('on'); ov.classList.remove('has-title'); return; }
+            const c = donorColor(t);
+            rb.style.setProperty('--rb', c);
+            rb.style.setProperty('--rb-ink', donorInk(c));
+            if (typeof t.icon === 'string' && t.icon.startsWith(DONOR_TITLE_ICON)) {
+                const im = new Image();
+                im.alt = '';
+                im.onerror = () => im.remove();
+                im.src = t.icon;
+                rb.appendChild(im);
+            }
+            const sp = document.createElement('span');
+            sp.textContent = String(t.name);
+            rb.appendChild(sp);
+            rb.classList.add('on');
+            ov.classList.add('has-title');
+        }
+
         function showSmallDon(don) {
             smallDonQ.push(don);
             if (!smallDonBusy) smallDonNext();
@@ -8255,7 +8328,10 @@
             smallDonBusy = true;
             const don = smallDonQ.shift();
             try {
-                document.getElementById('sd-name').textContent = don.name || '익명';
+                const _sdName = document.getElementById('sd-name');
+                _sdName.textContent = don.name || '익명';
+                const _sdTag = donorTag(don.donor_title);            // 🏷️ 이름 앞 칭호 이름표
+                if (_sdTag) _sdName.prepend(_sdTag);
                 document.getElementById('sd-amt').textContent = formatNum(don.amount);
                 const m = document.getElementById('sd-msg');
                 const msg = String(don.message || '').trim();
@@ -8381,6 +8457,13 @@
             } else {
                 document.getElementById('toon-name').innerText = finalName;
             }
+            // 🏷️ 칭호 이름표(이름 앞) · Lv(이름 뒤) — VIP 딱지와 같이 붙어도 된다
+            try {
+                const _nmEl = document.getElementById('toon-name');
+                const _tg = donorTag(donation.donor_title), _lv = donorLv(donation.donor_level);
+                if (_nmEl && _tg) _nmEl.prepend(_tg);
+                if (_nmEl && _lv) _nmEl.appendChild(_lv);
+            } catch (e) { console.error('칭호 붙이기 실패:', e); }
 
 
             const actionTextEl = document.getElementById('toon-action-text');

@@ -1775,6 +1775,11 @@
         /* 🧪 투네이션 연결 (시스템 탭) · 대기함 테스트 계정 표시 */
         .pd-test { display: inline-block; font-size: var(--fs-1); font-weight: 800; color: #b9e7ff; background: rgba(90, 180, 255, .16);
             border: 1px solid rgba(90, 180, 255, .45); border-radius: var(--r-2); padding: 1px 8px; margin-right: 4px; }
+        /* 🏷️ 투네이션 칭호 · 레벨(2026-10-08) — 대기함 카드 이름 앞 · 뒤. 색은 칭호 색(서버가 #RRGGBB 만 넘긴다) */
+        .pd-title { display: inline-block; font-size: var(--fs-1); font-weight: 800; border-radius: 999px; padding: 1px 9px;
+            margin-right: 4px; vertical-align: 1px; }
+        .pd-lv { display: inline-block; font-size: var(--fs-1); font-weight: 800; color: var(--text-muted); border: 1px solid var(--line);
+            border-radius: var(--r-1); padding: 0 6px; margin-left: 4px; vertical-align: 1px; font-variant-numeric: tabular-nums; }
         .toon-rows { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 8px; }
         .toon-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: var(--fs-3); }
         .toon-lbl { width: 110px; flex: none; color: var(--text-muted); font-size: var(--fs-2); font-weight: 700; }
@@ -5215,7 +5220,7 @@
                     const _jarBtn = (!_isC && gd.fundjar && gd.fundjar.enabled)
                         ? `<button class="bj-btn" style="background:rgba(246,196,83,0.15); color:var(--gold); border-color:var(--gold);" onclick="assignPendingToJar('${don.id}')">🏺 모금함</button>`
                         : '';
-                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> ${don.test_acct ? '<span class="pd-test">🧪 테스트 계정</span> ' : ''}<b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}${_jarBtn}<button class="bj-btn" style="background:transparent; color:var(--text-main); border-color:var(--line);" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
+                    pHtml += `<div class="pending-item"${_isC ? ' style="border-color:#9a6bff; background:rgba(122,90,255,0.08);"' : ''}><div class="pending-info"><span style="color:var(--text-dim);">[${don.time}]</span> ${don.test_acct ? '<span class="pd-test">🧪 테스트 계정</span> ' : ''}${pdTitleHtml(don)}<b style="color:#fff; font-size:var(--fs-4);">${escapeHTML(don.name)}</b>${(don.level | 0) > 0 ? `<span class="pd-lv">Lv.${don.level | 0}</span>` : ''}${_isC ? '' : '님'} - ${_isC ? `<span class="pending-amount" style="color:#c0a8ff;">기여도 ${_cN}</span>` : `<span class="pending-amount">${don.amount.toLocaleString()}원</span>`}<br><span style="color:var(--text-muted); font-style:italic;">"${escapeHTML(don.message)}"</span><span class="audit-badge" id="audit-${don.id}"></span><div class="donor-hist" id="hist-${don.id}" style="display:none;"></div></div><div class="bj-buttons"><span style="font-size:var(--fs-2); color:var(--text-dim);">${_isC ? '<i class="fa-solid fa-star"></i> 기여도 지급:' : '<i class="fa-solid fa-hand-holding-dollar"></i> 지급:'}</span>${bjBtns}${_jarBtn}<button class="bj-btn" style="background:transparent; color:var(--text-main); border-color:var(--line);" onclick="assignSplitEqual('${don.id}')">🔢 나눠주기</button><button class="delete-btn" onclick="deletePending('${don.id}')"><i class="fa-solid fa-trash-can"></i> 무시</button></div></div>`;
                 });
                 if (lastPendingHtml !== pHtml) { document.getElementById('pending-list').innerHTML = pHtml; lastPendingHtml = pHtml; }
                 queueAudits(gd.pending_donations);      // 🤖 새 후원은 AI 검증 1회 요청
@@ -11450,6 +11455,16 @@ initFoldablePanels();
             w.classList.add('in-box');
         }
         try { RAIL_MQ.addEventListener('change', railPlace); } catch (e) { try { RAIL_MQ.addListener(railPlace); } catch (e2) {} }
+
+        /* 🏷️ 대기함 카드의 투네이션 칭호 이름표 — 칭호 색 바탕 · 밝기 따라 글자 색. 글자는 escapeHTML, 색은 #RRGGBB 일 때만 */
+        function pdTitleHtml(don) {
+            const t = don && don.title;
+            if (!t || !t.name) return '';
+            const c = /^#[0-9A-Fa-f]{6}$/.test(String(t.color || '')) ? t.color : '#E2B64B';
+            const n = parseInt(c.slice(1), 16);
+            const ink = (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.6 ? '#1b1404' : '#ffffff';
+            return `<span class="pd-title" style="background:${c}; color:${ink};" title="투네이션 칭호">${escapeHTML(String(t.name))}</span>`;
+        }
 
         /* 💬 화면에 한마디 — 오른쪽 칸 맨 위. Enter 면 방송판 한가운데 1초(서버 features/say.py → 방송판 sayShow).
               ⚠️ 한글은 조합 중 Enter 가 두 번 온다 — isComposing · 229 는 건너뛴다(안 그러면 마지막 글자만 한 번 더 간다) */

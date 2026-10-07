@@ -1750,6 +1750,20 @@ def init_db():
                 tx_id TEXT
             )
         """)
+        # 🏷️ [후원자 번호표] 투네이션 계정(이메일형)을 리스너가 되돌릴 수 없는 번호표(HMAC 16자)로 바꿔 보낸다(대표님 2026-10-08).
+        #    ⚠️ 이메일은 서버에 오지도 않는다. 후원 한 건(tx_id)마다 한 줄 — 장부 · 보관 장부와 tx_id 로 잇는다
+        #       (보관 흐름은 손대지 않으려고 따로 둔다). 닉네임을 바꿔도 · 익명이어도 같은 사람을 알아보는 데 쓴다.
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS donor_keys (
+                tx_id TEXT PRIMARY KEY,
+                donor_key TEXT NOT NULL,
+                level INTEGER,
+                title TEXT,
+                vip TEXT,
+                at TEXT
+            )
+        """)
+        cursor.execute("CREATE INDEX IF NOT EXISTS donor_keys_key ON donor_keys(donor_key)")
 
     # 💡 [스키마 마이그레이션 패치] 기존 테이블에 컬럼 동적 추가
     # ⚠️ Postgres는 트랜잭션 안에서 한 문장이 실패하면 그 트랜잭션 전체가 취소된다.

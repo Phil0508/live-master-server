@@ -5,6 +5,7 @@ server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구
 """
 import collections
 import os
+import re
 import secrets
 import threading
 import time
@@ -58,6 +59,43 @@ def looks_like_proxy_name(prefix, rest):
     if not any(ch.isalnum() for ch in prefix):
         return False            # 글자가 하나도 없으면 이름이 아니다
     return True
+_HEX6 = re.compile(r'^#[0-9A-Fa-f]{6}$')
+_HEX16 = re.compile(r'^[0-9a-f]{16}$')
+_TITLE_ICON_PREFIX = 'https://cache.cdn.toona.xyz/prod/uploaded/__special_title_img__/'
+
+
+def _donor_extras(new_don):
+    """🏷️ 리스너가 붙여 보낸 칭호 · 레벨 · VIP · 번호표를 다시 다듬는다(대표님 2026-10-08).
+       돌려받는 값: (화면에 실어도 되는 것, 대기함 · 장부에만 둘 것). 번호표는 화면 쪽에 절대 안 싣는다.
+       ⚠️ 칭호 그림은 투네이션 칭호 그림 주소로 시작할 때만 받는다(아무 주소나 방송판에 띄우지 않게)."""
+    pub, priv = {}, {}
+    t = new_don.get('title')
+    if isinstance(t, dict):
+        nm = ' '.join(str(t.get('name') or '').split())[:24]
+        if nm:
+            tt = {'name': nm}
+            col = str(t.get('color') or '').strip()
+            if _HEX6.match(col):
+                tt['color'] = col.upper()
+            icon = str(t.get('icon') or '')
+            if icon.startswith(_TITLE_ICON_PREFIX) and len(icon) <= 300 and re.fullmatch(r'[A-Za-z0-9_\-=./:]+', icon):
+                tt['icon'] = icon
+            pub['donor_title'] = tt
+    try:
+        lv = int(new_don.get('level'))
+        if 0 < lv < 1000:
+            pub['donor_level'] = lv
+    except (TypeError, ValueError):
+        pass
+    vip = ' '.join(str(new_don.get('vip') or '').split())[:12]
+    if vip:
+        priv['vip'] = vip
+    key = str(new_don.get('donor_key') or '')
+    if _HEX16.match(key):
+        priv['donor_key'] = key
+    return pub, priv
+
+
 def donation_source_allowed():
     """후원 접수를 받아줄 상대인가.
 
@@ -251,6 +289,8 @@ def receive_donation():
         #    계좌로 같은 사람이 같은 금액 · 같은 메시지를 연달아 보내면 두 번째가 12초 필터에 걸려 사라졌다.
         #    사람이 일부러 누른 것이라 '재전송'이 아니다. 송출 단추는 보내는 동안 잠겨 두 번 눌리지 않는다.
         from_manual = str(tx_id or '').startswith('manual_') and request_is_authed()
+        # 🏷️ 칭호 · 레벨(화면에 실어도 됨) / VIP · 번호표(대기함 · 장부에만) — 리스너가 보낸 것만 믿는다
+        _pub, _priv = _donor_extras(new_don) if from_listener else ({}, {})
         dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
         # ⚠️ 되살리는 중(_recover)이면 거르지 않는다 — 장부로 '진짜 한 건' 이 확인된 후원이다.
         if not from_listener and not from_manual and not _recover and is_duplicate_donation(dup_key):
@@ -275,6 +315,7 @@ def receive_donation():
                 _new_latest = {'name': _nm, 'amount': amount,
                                'message': str(new_don.get('message') or '').strip(),
                                'time': time.time(), 'display_only': True}
+                _new_latest.update(_pub)
                 # 📒 '상태까지 들어간 tx' 목록은 이어 붙인다(여기서 끊기면 되살리기 판단이 틀어진다).
                 #    화면에만 후원은 장부에 안 적으므로 목록에 넣을 필요는 없다.
                 _tx_log_add(_new_latest, state.get('latest_donation'), None)
@@ -307,6 +348,31 @@ def receive_donation():
                     matched_sig = server.supabase_match_signature(amount)
             except Exception as e:
                 print(f"⚠️ [자동 시그니처 매칭 오류] {e}")
+
+        # 🧪🔁 '후원 테스트' · 대시보드 '다시 보기' — 화면에만 띄운다(대표님 2026-10-08).
+        #    ⚠️ 예전엔 둘 다 진짜 후원처럼 대기함 · 정산 장부 · 후원 순위에 들어갔다. 다시 보기는 지난 후원을 한 번 더
+        #       보내는 것이라 80만 원 후원이 장부에 두 번 적혔다(실측). 시그니처 · 팝업은 그대로 보여 준다(그게 누른 목적이다).
+        #    시그 순위도 안 센다(count_tally=False). 리스너(tx_id toon_)가 붙여 보낸 것만 이 길로 받는다.
+        _show_only = 'replay' if new_don.get('replay') is True else ('test' if new_don.get('test') is True else '')
+        if _show_only and from_listener:
+            _nm = ' '.join(str(new_don.get('name') or '').split()) or '익명'
+            _msg = str(new_don.get('message') or '').strip()
+            with file_lock:
+                state = load_data()
+                _latest = {'name': _nm, 'amount': amount, 'message': _msg, 'time': time.time(), 'show_only': _show_only}
+                _latest.update(_pub)
+                if matched_sig:
+                    enqueue_signature(state, matched_sig, amount, _nm, _msg, count_tally=False, extra=dict(_pub) or None)
+                elif amount < SMALL_DISPLAY_MAX:
+                    _latest['display_only'] = True
+                _tx_log_add(_latest, state.get('latest_donation'), None)
+                state['latest_donation'] = _latest
+                save_data(state)
+                broadcast_event('update', state)
+            _handled = True
+            print(f"  {'🔁 [다시 보기]' if _show_only == 'replay' else '🧪 [후원 테스트]'} {_nm} {amount:,}원 "
+                  f"— 화면에만 띄웁니다(대기함 · 장부 · 순위엔 안 넣음)", flush=True)
+            return jsonify({'status': 'success', 'show_only': _show_only})
 
         with file_lock:
             state = load_data()
@@ -358,6 +424,12 @@ def receive_donation():
                 'message': cleaned_msg,
                 'time': now_hms()
             }
+            # 🏷️ 칭호 · 레벨 · VIP · 번호표 — 대기함은 조종실만 본다(번호표가 방송판으로 안 나간다)
+            if _pub.get('donor_title'):
+                parsed_don_entry['title'] = _pub['donor_title']
+            if _pub.get('donor_level'):
+                parsed_don_entry['level'] = _pub['donor_level']
+            parsed_don_entry.update(_priv)
             # 🧪 테스트용 두 번째 투네이션(리스너가 toon_t2_ 를 붙인다) — 대기함 · 장부에 표시해 구분한다
             _test_acct = str(tx_id or '').startswith('toon_t2_')
             if _test_acct:
@@ -374,6 +446,7 @@ def receive_donation():
                 'message': cleaned_msg,
                 'time': time.time()
             }
+            _new_latest.update(_pub)          # 칭호 · 레벨(방송판 팝업 · 띠)
             # 📒 이 tx 가 '상태까지 들어갔다' 고 적는다 — 대기함 줄과 **같은 저장**에 실려야 의미가 있다(위 설명).
             _tx_log_add(_new_latest, state.get('latest_donation'), _tx or None)
             state['latest_donation'] = _new_latest
@@ -482,10 +555,22 @@ def receive_donation():
                     print(f"[장부 기록 오류] {dbe}")
                     LAST_DB_ERROR["message"] = f"후원 장부 기록 실패({parsed_name} {amount}원): {dbe}"
                     LAST_DB_ERROR["time"] = time.strftime('%Y-%m-%d %H:%M:%S')
-                
+
+            # 🏷️ 번호표 한 줄(tx_id 로 장부와 잇는다). 실패해도 후원은 그대로 간다 — 부가 정보다.
+            if _priv.get('donor_key') and tx_id and not _recover:
+                try:
+                    with get_db_connection() as conn:
+                        conn.cursor().execute(
+                            db_query("INSERT INTO donor_keys (tx_id, donor_key, level, title, vip, at) VALUES (?, ?, ?, ?, ?, ?)"),
+                            (str(tx_id), _priv['donor_key'], _pub.get('donor_level'),
+                             (_pub.get('donor_title') or {}).get('name'), _priv.get('vip'),
+                             time.strftime('%Y-%m-%d %H:%M:%S')))
+                except Exception as _ke:
+                    print(f"⚠️ [번호표 기록 실패 — 후원은 정상] {type(_ke).__name__}", flush=True)
+
             # 🎵 자동 시그니처 리액션 연동 (매칭은 위에서 락 밖에 끝냈고, 여기서는 큐에만 넣는다)
             if matched_sig:
-                enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg)
+                enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg, extra=dict(_pub) or None)
                 print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{matched_sig.get('title')}' (#{matched_sig.get('id')}, {matched_sig.get('amount')}원) 큐 추가 완료")
 
 
