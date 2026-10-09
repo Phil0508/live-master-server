@@ -36,8 +36,10 @@ def api_signatures():
         return jsonify({'status': 'error', 'message': str(e), 'signatures': []}), 500
 
 
-# 📜 시그리스트(공개) — 크루 사이트 '시그리스트 → 엑셀방송'이 읽는다(2026-10-10 대표님).
-#    금액 · 이름만 준다. 번호 · 그림 · 소리가 없어서 시그게임 카드(번호로 나간다)와 이어 볼 수 없다.
+# 📜 시그리스트(공개) — 크루 사이트 시그리스트(엔젤오락실, rgfamily 처럼 그림 카드)가 읽는다(2026-10-10 대표님).
+#    금액 · 이름 · 그림 · 소리. 번호(id)는 안 준다.
+#    그림을 같이 주는 까닭: 시그 그림에 이름 · 금액이 크게 적혀 있어서, 번호→그림(위 공개 목록)만으로도 이미 알 수 있었다.
+#    그러니 여기서 그림을 빼 봐야 시그게임 카드를 더 감추지 못하고, 사이트만 휑해진다.
 #    1분 동안은 같은 답 — 누가 자꾸 불러도 Supabase 를 매번 부르지 않게. 못 읽으면 지난 답을 준다.
 _board = {'t': 0.0, 'rows': None}
 
@@ -51,7 +53,8 @@ def api_signature_board():
             for s in server.supabase_list_signatures():
                 amt = _as_int(s.get('amount')) if isinstance(s, dict) else None
                 if amt and amt > 0:
-                    rows.append({'amount': amt, 'title': str(s.get('title') or '').strip()})
+                    rows.append({'amount': amt, 'title': str(s.get('title') or '').strip(),
+                                 'image_url': s.get('image_url') or '', 'sound_url': s.get('sound_url') or ''})
             rows.sort(key=lambda r: (r['amount'], r['title']))
             _board.update(t=now, rows=rows)
         except Exception as e:
