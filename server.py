@@ -764,6 +764,7 @@ def require_login():
         '/api/clip/hello',
         '/api/match/timeup',
         '/api/signatures',
+        '/api/signatures/board',   # 📜 시그리스트 — 금액 · 이름만(크루 사이트가 읽는다)
         '/api/reaction/next',
         '/sfx/list',        # 🔊 어떤 효과음이 있나 — 오버레이는 세션이 없다
         '/toonation_tampermonkey.user.js',

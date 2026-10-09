@@ -160,6 +160,16 @@ chk('로그인 안 하면 목록은 열리되', st == 200 and len(pub) == len(fu
 chk('이름·금액은 빠진다', all('title' not in s and 'amount' not in s for s in pub), pub[:1])
 chk('오버레이 미리받기에 필요한 것은 남는다',
     all('image_url' in s and 'sound_url' in s and 'id' in s for s in pub), pub[:1])
+# 📜 시그리스트(크루 사이트) — 금액 · 이름만, 번호 · 그림은 없다. 공개 목록은 순서를 섞어 줄 맞추기로 이어 보지 못하게
+st, d = req('/api/signatures/board', auth=False)
+rows = d.get('rows') or []
+chk('시그리스트는 로그인 없이 열린다', st == 200 and len(rows) == len([s for s in full if (s.get('amount') or 0) > 0]), (st, len(rows), len(full)))
+chk('시그리스트는 금액 · 이름만', rows and all(set(r) == {'amount', 'title'} for r in rows), rows[:1])
+chk('시그리스트는 금액 순', [r['amount'] for r in rows] == sorted(r['amount'] for r in rows))
+by_amount = [s['id'] for s in full]
+if len(by_amount) >= 5:
+    orders = [[s['id'] for s in (req('/api/signatures', auth=False)[1].get('signatures') or [])] for _ in range(3)]
+    chk('공개 목록은 금액 순이 아니다(섞임)', any(o != by_amount for o in orders), orders[0][:5])
 
 print('\n10) 목표 장수 제한')
 sigs2 = full or pub

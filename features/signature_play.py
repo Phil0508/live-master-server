@@ -3,6 +3,7 @@
 
 server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
 """
+import random
 import time
 from flask import jsonify, request
 import server  # 연습 서버가 가짜로 바꿔 끼우는 시그니처 조회는 부를 때마다 server 에서 찾는다
@@ -27,10 +28,39 @@ def api_signatures():
         if not request_is_authed():
             sigs = [{k: s.get(k) for k in _PUBLIC_SIG_FIELDS if k in s}
                     for s in sigs if isinstance(s, dict)]
+            # 순서도 섞는다 — 금액순 그대로면 아래 시그리스트(금액순 · 이름)와 줄을 맞춰 번호→이름을 알아낼 수 있다
+            random.shuffle(sigs)
         return jsonify({'status': 'success', 'signatures': sigs, 'count': len(sigs)})
     except Exception as e:
         print(f"[시그니처 목록 조회 오류] {e}")
         return jsonify({'status': 'error', 'message': str(e), 'signatures': []}), 500
+
+
+# 📜 시그리스트(공개) — 크루 사이트 '시그리스트 → 엑셀방송'이 읽는다(2026-10-10 대표님).
+#    금액 · 이름만 준다. 번호 · 그림 · 소리가 없어서 시그게임 카드(번호로 나간다)와 이어 볼 수 없다.
+#    1분 동안은 같은 답 — 누가 자꾸 불러도 Supabase 를 매번 부르지 않게. 못 읽으면 지난 답을 준다.
+_board = {'t': 0.0, 'rows': None}
+
+
+@app.route('/api/signatures/board')
+def api_signature_board():
+    now = time.time()
+    if _board['rows'] is None or now - _board['t'] > 60:
+        try:
+            rows = []
+            for s in server.supabase_list_signatures():
+                amt = _as_int(s.get('amount')) if isinstance(s, dict) else None
+                if amt and amt > 0:
+                    rows.append({'amount': amt, 'title': str(s.get('title') or '').strip()})
+            rows.sort(key=lambda r: (r['amount'], r['title']))
+            _board.update(t=now, rows=rows)
+        except Exception as e:
+            print(f"[시그리스트 조회 오류] {e}")
+            if _board['rows'] is None:
+                return jsonify({'status': 'error', 'message': '시그 목록을 못 읽었어요', 'rows': []}), 502
+    resp = jsonify({'status': 'success', 'rows': _board['rows'], 'count': len(_board['rows'])})
+    resp.headers['Cache-Control'] = 'public, max-age=60'
+    return resp
 
 @app.route('/api/signature/play', methods=['POST'])
 def api_signature_play():
