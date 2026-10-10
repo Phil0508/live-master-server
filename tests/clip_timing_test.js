@@ -26,7 +26,7 @@ function chk(name, cond, detail) {
 function hr(t) { console.log('='.repeat(74)); console.log(t); console.log('='.repeat(74)); }
 
 const SRC = [path.join(__dirname, '..', 'overlay.html'),
-             'C:/Users/Administrator/Desktop/새로다시시작/overlay.html']
+             path.join(process.env.LM_PROJECT_ROOT || '.', 'overlay.html')]
             .filter(function (p) { return fs.existsSync(p); })[0];
 if (!SRC) { console.log('  [!!] overlay.html 을 못 찾았다'); process.exit(1); }
 const OV = fs.readFileSync(SRC, 'utf8');
