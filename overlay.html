@@ -9243,7 +9243,11 @@
         /* 🏆 딱지에 이름을 몇까지 쓸까 — 199명을 줄짓어 쓰면 화면을 넘친다. */
         const PB_BANNER_MAX = 8;
         const PB_STEP = 10;                    // 물리 한 걸음(ms) — 원본과 같다(_updateInterval 10). 고정이어야 결과가 같다
-        const PB_MAX_MS = 180000;              // 3분이 넘으면 강제로 끝낸다(끼었을 때 대비)
+        /* ⛔ 시간으로 자르는 상한(3분 · 걸음 수)은 **없앴다**. 대표님 2026-10-11: "제한 없이 끝까지".
+              10-08 52판(구슬 186개 · 끝까지 남기)이 멀쩡히 굴러가는데 정확히 180.0초에 잘려,
+              2개가 남은 채 '밍밍 우승'이 뜨고 판이 굳었다. 구슬이 많으면 정상 판도 3분을 넘는다.
+              또 벽시계로 자르면 화면마다 다르다 — 가려졌다 돌아온 화면이 혼자 '3분 지남'으로 끊는다.
+              ⚠️ 끼인 판은 아래 PB_STALL_STEPS(물리 걸음으로 센다 · 화면마다 같다)가 끝낸다. 그것만 남긴다. */
         const PB_STUCK_MS = 5000;              // 이만큼 거의 안 움직이면 흔든다(원본 STUCK_DELAY)
         /* ⚠️ 속도만 보면 **항아리 안에서 쌩쌩 튀는 구슬**을 못 잡는다. 빠르니까
               '안 움직이는 것'에 안 걸리는데, 깊이는 한 뼘도 안 는다.
@@ -9304,7 +9308,6 @@
               예전엔 0.0016 을 고정으로 썼는데, 이는 배율 64 기준 **원본의 2.5배**였다.
               대표님: "너무 빨리 떨어져". 이제 맵 배율에서 계산한다. */
         const PB_G_MPS2 = 10;
-        const PB_MAX_STEPS = 100 * 200;        // 물리 걸음(10ms) 상한 — 슬로모션이 껴도 반드시 끝난다
         const PB_COLS = ['#ff4d6d', '#ffd166', '#4dd6a8', '#4da3ff', '#c77dff', '#ff9e4d',
                          '#7bed9f', '#ff6ec7', '#5ee7df', '#ffe066', '#a29bfe', '#fd79a8'];
 
@@ -9319,7 +9322,7 @@
         let pbRule = 'first';      // 'first' 먼저 골인하면 우승 / 'last' 끝까지 남으면 우승
         let pbPicks = 1;           // 몇 명 뽑을까 (1이면 한 명)
         let pbCamX = 0, pbCamY = 0, pbZoom = 1;    // 카메라 — 그릴 때만 쓴다
-        let pbSteps = 0;           // 민 물리 걸음 수(상한을 두어 안 끝나는 판을 막는다)
+        let pbSteps = 0;           // 민 물리 걸음 수(세기만 한다 — 이걸로 판을 끊지 않는다)
         let pbOverAt = 0;          // 승부가 갈린 시각 — 잠깐 더 보여주고 보고한다
         let pbPops = [];           // 깨지는 모습 — 그리기용일 뿐이다
         let pbStall = 0;           // 아무도 더 깊이 못 간 걸음 수
@@ -9812,7 +9815,7 @@
         }
 
         /* 📤 결과를 서버에 보낸다. 먼저 보낸 화면 하나만 받아들여진다(나머지는 409). */
-        function pbReport(roundId) {
+        function pbReport(roundId, cut) {
             if (pbReported) return;
             pbReported = true;
             const order = pbFinish.slice();
@@ -9820,7 +9823,8 @@
             pbActive().forEach(function (b) { order.push(b.pbName); });
             fetch('/api/pinball/result', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ round_id: roundId, result: order })
+                // cut: 'stall' = 구슬이 껴서 그 자리 순위로 끝냈다 — 우승 딱지에 그렇게 밝힌다
+                body: JSON.stringify({ round_id: roundId, result: order, cut: cut || '' })
             }).catch(function () { /* 다른 화면이 이미 보고했을 수 있다 — 조용히 넘어간다 */ });
         }
 
@@ -9851,9 +9855,12 @@
             if (decided && !pbOverAt) { pbOverAt = now; pbBoom(); }
             /* ⚠️ 판이 멎었으면 **지금 순위 그대로** 끝낸다. 억지가 아니다 —
                   '끝까지 남기' 의 우승자는 곧 제일 덜 내려간 구슬이고, 그건 이미 정해져 있다. */
+            /* ⛔ 시간으로는 끊지 않는다(위 PB_STUCK_MS 앞 설명) — 끼었을 때만 끝낸다. */
             const stalled = pbStall > PB_STALL_STEPS;
-            const timeout = stalled || (now - pbStartedAt > PB_MAX_MS) || (pbSteps > PB_MAX_STEPS);
-            if (!pbReported && ((pbOverAt && now - pbOverAt > 700) || timeout)) pbReport(pbRound);
+            if (!pbReported) {
+                if (pbOverAt && now - pbOverAt > 700) pbReport(pbRound, '');
+                else if (stalled) pbReport(pbRound, 'stall');
+            }
         }
 
         /* 🎥 카메라 — 원본을 그대로 따라 만들었다.
@@ -10095,11 +10102,14 @@
             return (pbRule === 'last') ? order.slice(order.length - k).reverse() : order.slice(0, k);
         }
 
-        function pbShowWinner(list) {
+        function pbShowWinner(list, cut) {
             const el = document.getElementById('pb-winner');
             if (!el) return;
             if (!list || !list.length) { el.classList.remove('show'); el.innerHTML = ''; return; }
-            const sub = (pbRule === 'last')
+            /* ⏱ 구슬이 껴서 끊은 판은 그렇다고 밝힌다. 구슬이 남았는데 그냥 '우승'만 뜨면
+                  보는 사람은 고장 난 줄 안다(대표님 10-11: "공이 2개 있는데 우승이 떠서 이상해"). */
+            const sub = (cut === 'stall') ? '⏱ 구슬이 껴서 지금 자리로 결정'
+                : (pbRule === 'last')
                 ? (list.length > 1 ? ('끝까지 남은 ' + list.length + '명') : '끝까지 살아남음')
                 : (list.length > 1 ? ('먼저 들어온 ' + list.length + '명') : '1등');
             /* ⚠️ 방송판에는 escText 가 **없다**. escapeSlotText 가 그 일을 한다.
@@ -10194,7 +10204,7 @@
                 } else {
                     pbShowReady(0);
                 }
-                pbShowWinner(pbWinnersOf(res));
+                pbShowWinner(pbWinnersOf(res), g.cut);
             }
         }
 

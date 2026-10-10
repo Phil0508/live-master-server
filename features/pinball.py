@@ -214,6 +214,7 @@ def api_pinball_setup():
             if body.get('skills') is not None:
                 g['skills'] = bool(body.get('skills'))
             g['result'] = []
+            g['cut'] = ''
             _pinball_save(state, g)
         return jsonify({'status': 'success', 'pinball': g})
     except Exception as e:
@@ -272,6 +273,7 @@ def api_pinball_start():
             _stage_log(_prev, 'pinball')
             g['running'] = True
             g['result'] = []
+            g['cut'] = ''
             g['round_id'] = int(g.get('round_id') or 0) + 1
             # 🌱 씨앗 — 모든 화면이 이걸로 같은 경기를 굴린다
             g['seed'] = random.randint(1, 2000000000)
@@ -314,17 +316,20 @@ def api_pinball_result():
                 return jsonify({'status': 'error', 'message': '결과가 비어 있습니다'}), 400
             g['running'] = False          # 🚪 여기서 문을 닫는다 — 다음 보고는 409
             g['result'] = order
+            # ⏱ 구슬이 껴서 끊은 판인가 — 아는 값만 받는다(모르는 글자는 '제대로 갈림')
+            g['cut'] = 'stall' if str(body.get('cut') or '') == 'stall' else ''
+            _cut = ' (구슬이 껴서 그 자리로 결정)' if g['cut'] else ''
             # 🏆 규칙에 맞는 진짜 1등. ⚠️ order[0] 이 아니다 — '끝까지 남기' 면 그건 꼴찌다.
             _win = _pinball_winners(order, g.get('rule'), g.get('picks'))
             _top = _win[0] if _win else order[0]
             took = max(0, int(time.time() * 1000) - int(g.get('started_at') or 0))
             logs = state.setdefault('logs', [])
             logs.insert(0, {'time': now_hms(),
-                            'name': "🎱 핀볼 1등: %s" % _top, 'val': 0})
+                            'name': "🎱 핀볼 1등: %s%s" % (_top, _cut), 'val': 0})
             del logs[LOG_MAX:]
             _pinball_save(state, g)
-        print("🎱 [핀볼] %d판 끝 — 1등 %s (%.1f초)"
-              % (g['round_id'], _top, took / 1000.0), flush=True)
+        print("🎱 [핀볼] %d판 끝 — 1등 %s (%.1f초)%s"
+              % (g['round_id'], _top, took / 1000.0, _cut), flush=True)
         return jsonify({'status': 'success', 'pinball': g, 'took_ms': took})
     except Exception as e:
         print(f'[핀볼 결과 오류] {e}', flush=True)
@@ -338,7 +343,7 @@ def api_pinball_reset():
         with file_lock:
             state = load_data()
             g = _pinball_state(state)
-            g.update({'running': False, 'result': [], 'started_at': 0})
+            g.update({'running': False, 'result': [], 'started_at': 0, 'cut': ''})
             _pinball_save(state, g)
         return jsonify({'status': 'success', 'pinball': g})
     except Exception as e:

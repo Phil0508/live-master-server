@@ -107,8 +107,9 @@ print('=' * 74)
 chk('끼인 구슬을 흔든다 (원본 흔들기)', 'function pbShake(' in OV and 'pbShake();' in OV)
 chk('5초 거의 안 움직이면 (원본 STUCK_DELAY)', 'const PB_STUCK_MS = 5000' in OV and 'dx * dx + dy * dy < 0.00001' in OV)
 chk('흔드는 방향도 씨앗 난수', 'pbRandom() * 10 - 5' in OV)
-# ⚠️ 그래도 안 끝나면 강제로 끝낸다. 안 그러면 방송이 그 판에 갇힌다.
-chk('아무리 오래 걸려도 끝난다', 'PB_MAX_MS' in OV)
+# ⛔ 2026-10-11 대표님: "제한 없이 끝까지". 시간(3분)으로 자르면 구슬이 많은 멀쩡한 판이
+#    잘린다(10-08 52판: 구슬 186개 · 180.0초에 2개 남은 채 끝남). 끼인 판은 ⑪ 의 정체 감시가 끝낸다.
+chk('시간으로 판을 자르지 않는다 (3분 상한 없음)', 'PB_MAX_MS' not in OV and 'pbStartedAt > ' not in OV)
 # ⚠️ 화면이 드물게 그려지면 따라잡기 한도에 막혀 물리가 굶는다(실측: 8로 뒀더니 14초에 68px).
 _g = re.search(r'guard\+\+ < (\d+)', OV)
 chk('따라잡기 한도가 넉넉하다', bool(_g) and int(_g.group(1)) >= 16,
@@ -274,7 +275,16 @@ chk('아무도 못 나아가면 그 자리 순위로 끝낸다',
 chk('구슬마다 따로 잰다', 'b.pbTop === undefined' in OV)
 # ⚠️ 정상 판의 최장 정체는 7초였다. 20초면 멀쩡한 판은 안 끊는다(한 걸음 10ms).
 chk('정상 판을 끊지 않을 만큼 넉넉하다', 'const PB_STALL_STEPS = 100 * 20;' in OV)
-chk('걸음 수 상한도 있다', 'PB_MAX_STEPS' in OV)
+chk('걸음 수 상한으로도 자르지 않는다', 'PB_MAX_STEPS' not in OV)
+# ⏱ 끼어서 끊은 판은 우승 딱지에 그렇다고 밝힌다 — 구슬이 남았는데 '우승'만 뜨면 고장으로 보인다
+chk('끼어서 끊으면 서버에 그렇게 알린다', "pbReport(pbRound, 'stall')" in OV and 'cut: cut ||' in OV)
+chk('우승 딱지가 끊긴 판을 밝힌다',
+    "cut === 'stall'" in OV and '구슬이 껴서 지금 자리로 결정' in OV and 'pbShowWinner(pbWinnersOf(res), g.cut)' in OV)
+_pb_src = io.open(os.path.join(ROOT, 'features', 'pinball.py'), encoding='utf-8').read()
+chk('서버가 끊긴 판 표시를 받아 적는다',
+    "g['cut'] = 'stall' if str(body.get('cut') or '') == 'stall' else ''" in _pb_src
+    and '"cut": ""' in SRV)
+chk('새 판 · 명단 · 초기화 때 표시를 지운다', _pb_src.count("g['cut'] = ''") >= 2 and "'cut': ''" in _pb_src)
 
 print()
 print('=' * 74)
@@ -538,7 +548,7 @@ chk('서버가 규칙대로 당첨자를 고른다', 'def _pinball_winners(' in 
 chk('저장할 때 한 군데에서 센다',
     "g['winners'] = _pinball_winners(g.get('result')" in SRV)
 chk('기록에 result[0] 을 안 쓴다',
-    '"\U0001F3B1 핀볼 1등: %s" % _top' in SRV and '% order[0]' not in SRV)
+    '"\U0001F3B1 핀볼 1등: %s%s" % (_top, _cut)' in SRV and '% order[0]' not in SRV)
 chk('조종실이 서버가 고른 당첨자를 읽는다', 'g.winners && g.winners.length' in CTL)
 # ⚠️ 옷 저장본에는 winners 칸이 없다. 올리고 나서 판을 한 번 굴리기 전까지
 #    조종실이 옷 방식으로 보여준다 — 그 한 판 동안 거짓말을 한다. 읽을 때 채운다.
