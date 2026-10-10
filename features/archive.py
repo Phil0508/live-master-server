@@ -116,6 +116,88 @@ def api_ranking_monthly():
         return jsonify({'status': 'error', 'message': str(e), 'rows': []}), 500
 
 
+# ==========================================
+# 🏆 엔젤오락실 후원 순위(공개) — 크루 사이트 랭킹이 읽는다(2026-10-11 대표님)
+#   수요일 방송 시간(_bc_window) 안 후원만, **방송 날 × 사람** 별 합계.
+#   → {"rows": [{"day": "2026-10-08", "name": "구름빵", "amount": 700000, "count": 12}, ...]}
+#   ⚠️ 로그인 없이 열린 길이다. 금액 · 이름 · 건수만 — 메시지 · 시각 · 출처 · tx 는 안 준다.
+#   ⚠️ 셈은 월별 순위(위)와 같다: 지난 방송분(archive) + 이번 방송분(history),
+#      _norm_donor 로 묶고 보여줄 이름은 원래 이름, is_excluded(익명 · 빼둔 이름)는 뺀다.
+#   ⚠️ 테스트용 두 번째 투네이션(source='toonation_test')은 뺀다 — 진짜 후원이 아니다.
+#   1분 동안은 같은 답 — 누가 자꾸 불러도 장부 전체를 매번 읽지 않게. 못 읽으면 지난 답을 준다.
+#   💸 장부는 **바뀌었을 때만** 다시 읽는다. 운영 DB 가 Supabase(무료 · 전송량 한도)라
+#      1분마다 장부 전체를 끌어오면 그만큼 전송량이 샌다. 표마다 (개수 · 마지막 번호)를 먼저 묻고
+#      같으면 들고 있던 줄을 쓴다 — 지난 방송분은 방송 종료 때만, 이번 방송분은 방송 중에만 바뀐다.
+#      ⚠️ 장부 줄은 고쳐 쓰지 않는다(넣기 · 지우기만 — UPDATE 없음). 그래서 개수 · 번호로 충분하다.
+# ==========================================
+DONORS_TTL = 60
+DONOR_TABLES = ('donation_archive', 'donation_history')   # 지난 방송분 먼저(보여줄 이름 = 처음 쓴 이름)
+_donors = {'t': 0.0, 'rows': None, 'raw': {}}             # raw: 표 → (개수 · 마지막 번호, 줄들)
+
+
+def _oraksil_donor_rows():
+    """장부 두 개를 읽어 (방송 날, 사람) 별로 묶는다. 실패하면 예외를 던진다(지난 답을 쓰게)."""
+    shift = _bc_shift_hours()
+    got = {}
+    with get_db_connection() as conn:
+        cur = conn.cursor()
+        # ⚠️ 한 표라도 못 읽으면 통째로 실패로 본다 — 반쪽 순위를 1분 동안 공개하느니 지난 답이 낫다.
+        for tbl in DONOR_TABLES:
+            cur.execute(db_query("SELECT COUNT(*), MAX(id) FROM %s" % tbl))
+            _r = cur.fetchone() or (0, None)
+            key = (int(_r[0] or 0), _r[1])
+            old = _donors['raw'].get(tbl)
+            if old is not None and old[0] == key:
+                got[tbl] = old
+                continue
+            cur.execute(db_query(
+                "SELECT timestamp, name, amount, source FROM %s ORDER BY id ASC" % tbl))
+            got[tbl] = (key, [tuple(x) for x in cur.fetchall()])
+    # 다 읽은 뒤에만 기억을 바꾼다 — 중간에 실패하면 예전 것을 그대로 둔다
+    _donors['raw'] = got
+
+    tally = {}
+    for ts, name, amount, source in [x for tbl in DONOR_TABLES for x in got[tbl][1]]:
+        if str(source or '') == 'toonation_test':
+            continue
+        day = _bc_window(ts, shift)
+        if not day:
+            continue                          # 방송 시간 밖 — 안 센다
+        if is_excluded(name):
+            continue
+        try:
+            amt = int(amount or 0)
+        except (TypeError, ValueError):
+            continue
+        if amt <= 0:
+            continue
+        key = (str(day), _norm_donor(name))
+        row = tally.get(key)
+        if row is None:
+            row = tally[key] = {'day': str(day),
+                                'name': ' '.join(str(name or '').split()) or key[1],
+                                'amount': 0, 'count': 0}
+        row['amount'] += amt
+        row['count'] += 1
+    # 최근 방송부터, 그 안에서는 많이 낸 순
+    return sorted(tally.values(), key=lambda r: (r['day'], r['amount']), reverse=True)
+
+
+@app.route('/api/oraksil/donors')
+def api_oraksil_donors():
+    now = time.time()
+    if _donors['rows'] is None or now - _donors['t'] > DONORS_TTL:
+        try:
+            _donors.update(t=now, rows=_oraksil_donor_rows())
+        except Exception as e:
+            print(f'[엔젤오락실 후원 순위 조회 오류] {e}')
+            if _donors['rows'] is None:
+                return jsonify({'rows': [], 'message': '후원 장부를 못 읽었어요'}), 502
+    # ⚠️ Cache-Control 은 안 단다 — add_header 가 /api/ 전부를 no-store 로 덮는다.
+    #    기억은 위 _donors(서버 안 1분)와 크루 사이트 쪽 기억이 맡는다.
+    return jsonify({'rows': _donors['rows']})
+
+
 @app.route('/api/archive/sessions')
 def api_archive_sessions():
     """회차 목록. 언제 방송분이 몇 건이고 얼마인지."""

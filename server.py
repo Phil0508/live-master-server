@@ -780,6 +780,9 @@ def require_login():
         #  전광판에 아무 문구나 띄울 수 있었다. 오버레이가 쓰던 유일한 POST 용도인
         #  '대결 타이머 종료'는 /api/match/timeup 이라는 좁은 전용 엔드포인트로 옮겼다)
         '/api/data': ('GET',),
+        # 🏆 엔젤오락실 후원 순위 — 크루 사이트 랭킹이 읽는다. 방송 날 · 이름 · 금액 · 건수만
+        #    (메시지 · 시각 없음, features/archive.py). 읽기 전용 · 1분 기억.
+        '/api/oraksil/donors': ('GET',),
     }
     if path in method_exempt and request.method in method_exempt[path]:
         return
