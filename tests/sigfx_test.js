@@ -20,7 +20,7 @@ dom.install();
       옆에 있으면 옆에서, 없으면 저장소에서 가져온다. */
 const fs = require('fs'), pth = require('path');
 const SRC = [pth.join(__dirname, '..', 'sig-fx.js'),
-             path.join(process.env.LM_PROJECT_ROOT || '.', 'sig-fx.js')]
+             pth.join(process.env.LM_PROJECT_ROOT || '.', 'sig-fx.js')]
             .filter(function (p) { return fs.existsSync(p); })[0];
 if (!SRC) { console.log('  [!!] sig-fx.js 를 못 찾았다'); process.exit(1); }
 console.log('대상: ' + SRC);
