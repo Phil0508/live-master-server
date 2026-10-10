@@ -178,11 +178,47 @@ MS0 = io.open(os.path.join(PROJ, 'manual_send.html'), encoding='utf-8').read()
 chk('후원 콘솔 미리보기도 같은 선(제일 싼 시그니처 · 1만 원 중 작은 쪽)으로 알려 준다', 'function belowCheapest(amount)' in MS0
     and 'Math.min(SIGS[0].amount||0, 10000)' in MS0 and '방송판 맨 위 띠</b>로만 뜹니다' in MS0)
 
+print(); print('=' * 74); print('⑧ 묶여도 메시지는 후원마다 — 아버지 → 어머니(대표님 2026-10-11)'); print('=' * 74)
+# 예전엔 묶이면 첫 메시지만 남아 '어머니' 가 화면 어디에도 안 떴다
+req('/api/reaction/stop', {})
+don('홍길동', 12000, '아버지')
+q = queue()
+chk('혼자인 줄은 메시지 목록 없이 message 하나', len(q) == 1 and 'msgs' not in q[0] and q[0].get('message') == '아버지',
+    q[0] if q else None)
+don('홍길동', 12000, '어머니')
+don('홍길동', 12000, '')
+q = queue()
+chk('묶이면 메시지를 후원마다 차례대로 모은다(빈 메시지도 자리를 지킨다)', len(q) == 1 and q[0].get('count') == 3
+    and q[0].get('msgs') == ['아버지', '어머니', ''], q[0].get('msgs') if q else None)
+chk('첫 메시지(message)는 그대로 — 후원 팝업이 쓴다', bool(q) and q[0].get('message') == '아버지')
+old_id = q[0]['id'] if q else ''
+req('/api/reaction/next', {'id': old_id}, auth=False)               # 방송판이 한 번 틀고 넘긴 것처럼
+req('/api/reaction/queue/playall/' + old_id, {'on': True})
+nw = next((x for x in queue() if x.get('again_of') == old_id), None)
+chk('이어 틀기 줄도 메시지 목록을 들고 간다(방송판은 seq_base 만큼 건너뛴다)',
+    nw is not None and nw.get('msgs') == ['아버지', '어머니', ''] and nw.get('seq_base') == 1,
+    nw and (nw.get('msgs'), nw.get('seq_base')))
+req('/api/reaction/stop', {})
+for i in range(33):
+    don('많이보냄', 12000, 'm%d' % i)
+q = queue()
+chk('메시지 목록은 30개까지(큐 전체가 모든 화면에 나간다) · 횟수는 그대로', bool(q) and q[-1].get('count') == 33
+    and len(q[-1].get('msgs') or []) == 30 and (q[-1].get('msgs') or [''])[-1] == 'm29',
+    q and (q[-1].get('count'), len(q[-1].get('msgs') or [])))
+for x in (req('/api/data')[1].get('pending_donations') or []):
+    req('/api/pending/remove/' + x['id'], {})
+req('/api/reaction/stop', {})
+
 print(); print('=' * 74); print('⑤ 방송판 · 조종실'); print('=' * 74)
 OV = io.open(os.path.join(PROJ, 'overlay.html'), 'rb').read().replace(b'\x00', b'').decode('utf-8')
 CT = io.open(os.path.join(PROJ, 'controller.html'), encoding='utf-8').read()
 SV = io.open(os.path.join(PROJ, 'server.py'), encoding='utf-8').read()
 chk('그림 모서리에 ×N 자리', '<div id="reaction-combo" aria-hidden="true"></div>' in OV and '#reaction-combo.burst' in OV)
+chk('💬 카드 메시지는 rxMsgFor — [N번 다 틀기]면 이번 차례 것, 한 번만이면 전부',
+    'function rxMsgFor(data)' in OV and 'rxMsgPaint(messageEl, rxMsgFor(data));' in OV
+    and "(Number(data.seq_base) || 0) + (rxRep.id === data.id ? rxRep.n : 1) - 1" in OV
+    and "shown.slice(0, RX_MSG_LINES).join('\\n')" in OV)
+chk('💬 틀고 있는 사이 더 들어온 메시지도 카드에 바로 붙는다', 'try { rxMsgRefresh(it); } catch (e) {}' in OV)
 chk('처음 뜰 때 ×1 → ×N 으로 올라가고, 틀던 중 늘면 바로 올린다', 'let k = 1; bump(1);' in OV and 'bump(cnt);' in OV)
 chk('[N번 다 틀기]면 몇 번째인지(2 / 7)', "el.className = 'count';" in OV and "'</b> / ' + total;" in OV)
 chk('[N번 다 틀기]면 끝날 때 남은 만큼 같은 시그니처를 다시 튼다(큐는 안 넘김)',

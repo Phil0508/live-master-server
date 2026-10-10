@@ -7345,6 +7345,36 @@
             return left;
         }
 
+        /* 💬 묶음의 메시지 — 같은 사람이 같은 시그를 메시지만 바꿔 연달아 보내면 서버가 후원마다 msgs 에 모은다.
+           [N번 다 틀기]면 이번 차례 메시지(대표님 2026-10-11 "틀 때마다 메시지를 바꿔서 보여줘"),
+           한 번만 틀고 ×N 이면 놓치지 않게 다 보여준다. 묶이지 않은 줄은 message 그대로.
+           ⚠️ 이어 틀기(again_of)는 서버가 옛 줄의 msgs 를 그대로 싣고 seq_base(이미 튼 수)를 준다 — 그만큼 건너뛴다. */
+        const RX_MSG_LINES = 4;
+        let rxMsgLast = null;                    // 카드에 지금 적혀 있는 메시지
+        function rxMsgFor(data) {
+            const msgs = Array.isArray(data && data.msgs) ? data.msgs : null;
+            if (!msgs || msgs.length < 2) return (data && data.message) || '';
+            if (data.play_all) {
+                const i = (Number(data.seq_base) || 0) + (rxRep.id === data.id ? rxRep.n : 1) - 1;
+                return i >= 0 && i < msgs.length ? String(msgs[i] || '') : '';   // 상한(서버 30개) 넘은 차례는 비운다
+            }
+            const shown = msgs.map(m => String(m || '').trim()).filter(m => m && m !== '수동 후원 송출');
+            return shown.slice(0, RX_MSG_LINES).join('\n')
+                + (shown.length > RX_MSG_LINES ? '\n… 외 ' + (shown.length - RX_MSG_LINES) + '개' : '');
+        }
+        function rxMsgPaint(el, text) {
+            rxMsgLast = text;
+            if (!el) return;
+            if (text && text !== '수동 후원 송출') { el.innerText = text; el.style.display = 'block'; }
+            else { el.innerText = ''; el.style.display = 'none'; }
+        }
+        // 틀고 있는 사이 같은 시그가 더 들어오면 메시지도 바로 덧붙인다(rxComboSync 가 부른다)
+        function rxMsgRefresh(it) {
+            if (!it || !Array.isArray(it.msgs) || it.msgs.length < 2) return;
+            const t = rxMsgFor(it);
+            if (t !== rxMsgLast) rxMsgPaint(document.getElementById('reaction-message-info'), t);
+        }
+
         /* 🔁 묶음 표시 — 지금 틀고 있는 항목(큐 머리)의 count · play_all 을 그림 모서리에 그린다. */
         let rxRep = { id: null, n: 0 };          // 지금 틀고 있는 묶음이 몇 번째 재생인가([N번 다 틀기] 때 씀)
         let rxComboShown = { id: null, count: 0, all: false, n: 0 };
@@ -7354,6 +7384,7 @@
             if (!el) return;
             const q = (globalData && globalData.reaction_queue) || [];
             const it = (currentPlayingId && q.length && q[0].id === currentPlayingId) ? q[0] : null;
+            try { rxMsgRefresh(it); } catch (e) {}   // 💬 묶음에 새 메시지가 붙었으면 카드에도
             const cnt = it ? (Number(it.count) || 1) : 0;
             // 이미 한 번 나간 묶음을 이어 트는 것이면 앞에서 튼 만큼(seq_base)을 더해 '2 / 3' 부터 센다
             const total = it ? (Number(it.seq_total) || cnt) : 0;
@@ -7980,16 +8011,8 @@
                     const _lv = donorLv(data.donor_level);          // 🏷️ 이름 옆 Lv
                     if (_lv) donatorEl.appendChild(_lv);
                 }
-                let msgText = data.message || '';
-                if (messageEl) {
-                    if (msgText && msgText !== '수동 후원 송출') {
-                        messageEl.innerText = msgText;
-                        messageEl.style.display = 'block';
-                    } else {
-                        messageEl.innerText = '';
-                        messageEl.style.display = 'none';
-                    }
-                }
+                // 💬 묶음이면 이번 차례 메시지(또는 전부) — rxMsgFor
+                rxMsgPaint(messageEl, rxMsgFor(data));
                 
                 if (data.image_url) {
                     img.src = data.image_url;

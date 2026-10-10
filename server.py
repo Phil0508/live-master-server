@@ -444,6 +444,7 @@ def compress_image_to_webp(file_storage, max_dim=1280, quality=82):
 # 오버레이가 안 돌고 있을 때 리액션 큐가 무한정 쌓이는 것을 막는 상한.
 # 전체 큐가 매 update 마다 모든 클라이언트로 나가므로 메모리·트래픽에 직접 영향을 준다.
 REACTION_QUEUE_MAX = 40
+REACTION_MSGS_MAX = 30      # 🔁 묶음 한 줄에 모아 둘 메시지 수(같은 사람 · 같은 시그 연속, enqueue_signature)
 # 💛 전광판에 올릴 소액 후원자 수. 넘으면 오래된 것부터 흘려보낸다.
 #    ⚠️ 무한히 쌓으면 전광판 한 줄이 끝없이 길어져 다음 회차를 밀어낸다.
 NOTICE_DONORS_MAX = 20
@@ -517,6 +518,16 @@ def enqueue_signature(state, sig, amount, donator, message, skip_popup=False, co
             and str(_last.get('item_id')) == str(sig.get('id'))
             and _norm_donor(_last.get('donator')) == _norm_donor(donator)):
         _last['count'] = int(_last.get('count') or 1) + 1
+        # 💬 메시지는 후원마다 따로 모은다(msgs) — 예전엔 첫 메시지만 남아 '아버지' 다음 '어머니' 가
+        #    화면 어디에도 안 떴다(대표님 2026-10-11). 방송판이 [N번 다 틀기]면 차례마다 바꿔 보여주고,
+        #    한 번만 틀면 다 같이 보여준다. 묶일 때만 만든다(혼자인 줄은 message 하나로 충분).
+        #    ⚠️ 상한을 둔다 — 큐 전체가 update 마다 모든 화면에 나간다.
+        _msgs = _last.get('msgs')
+        if not isinstance(_msgs, list):
+            _msgs = [str(_last.get('message') or '')]
+        if len(_msgs) < REACTION_MSGS_MAX:
+            _msgs.append(str(message or ''))
+        _last['msgs'] = _msgs
         reaction_uuid = _last['id']
         state['reaction_mode'] = True
         print(f"  🔁 [시그 묶음] {donator} '{sig.get('title')}' ×{_last['count']}", flush=True)
