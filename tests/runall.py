@@ -275,6 +275,8 @@ run('🎬 고액 영상 — 계좌가 영상 뒤로', [PY, 'acct_video_layer_tes
 run('구슬 핀볼', [PY, 'pinball_test.py'], HERE)
 run('🎱 핀볼 — 끼어서 끊은 판 표시 · 시간 상한 없음', [PY, 'pinball_cut_test.py'], HERE, kind='pt')
 run('🏆 엔젤오락실 후원 순위(공개) — 크루 사이트 랭킹', [PY, 'oraksil_donors_test.py'], HERE)
+run('🏦 입금확인 확장 — 표 읽는 규칙', ['node', 'bankwatch_test.js'], HERE)
+run('🏦 입금확인 확장 — 가짜 은행 화면에서 자동 조회', [PY, 'bankwatch_e2e.py'], HERE)
 run('기여도만 지급', [PY, 'contrib_test.py'], HERE, kind='pt')
 run('한 방 최고 후원', [PY, 'best_test.py'], HERE, kind='pt')
 run('🔥 지옥탈출', [PY, 'hell_test.py'], HERE, kind='pt')

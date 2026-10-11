@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "엔젤 입금확인 (기업은행) — 시험판",
+  "version": "0.1.0",
+  "description": "기업은행 거래내역조회 화면에서 [조회]를 대신 눌러 새 입금을 찾는다. 시험판은 화면 상자에만 보여주고 아무 데도 보내지 않는다.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://mybank.ibk.co.kr/*", "https://www.ibk.co.kr/*"],
+      "js": ["page_hook.js"],
+      "all_frames": true,
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://mybank.ibk.co.kr/*", "https://www.ibk.co.kr/*"],
+      "js": ["content.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ]
+}

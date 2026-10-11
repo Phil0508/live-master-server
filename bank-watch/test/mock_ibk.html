@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>[가짜] 거래내역조회 | 시험용</title>
+<style>
+  body { font: 13px 'Malgun Gothic', sans-serif; margin: 16px; }
+  #gnb a { margin-right: 8px; }
+  table { border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #aaa; padding: 3px 6px; }
+</style>
+</head>
+<body>
+<!-- 🧪 bank-watch 시험용 가짜 은행 화면. 진짜 은행이 아니다. 숫자 · 이름은 전부 지어낸 것.
+     ?split=1 이면 머리줄과 몸통을 서로 다른 표로 나눈다(은행 화면에 흔한 모양).
+     ?alert=1 이면 조회할 때마다 alert 를 띄운다(자동 조회 중엔 page_hook 이 삼켜야 한다). -->
+<div id="gnb"><a href="javascript:void(0)" onclick="uf_goAfterLogin('/x/CINQ101000_i.jsp')">조회</a><a href="#">이체</a></div>
+<h2>거래내역조회</h2>
+<div>남은시간 <span id="left">12:00</span> <button type="button" onclick="left=720">연장</button></div>
+<form onsubmit="return false">
+  기간 <input type="text" value="2026.10.12"> ~ <input type="text" value="2026.10.12">
+  정렬 <select><option>최근순</option></select>
+  <input type="button" class="btn_inq" value="조회" onclick="doQuery()">
+</form>
+<div id="grid"></div>
+<script>
+  function uf_goAfterLogin(u) { document.title = 'NAV ' + u; }
+  let left = 720;
+  setInterval(() => { left = Math.max(0, left - 1); document.getElementById('left').textContent = String(Math.floor(left / 60)).padStart(2, '0') + ':' + String(left % 60).padStart(2, '0'); }, 1000);
+  const Q = new URLSearchParams(location.search);
+  const SPLIT = Q.get('split') === '1';
+  const HEAD = ['거래일시', '출금(원)', '입금(원)', '잔액(원)', '거래내용', '상대계좌예금주명', '거래구분'];
+  let bal = 500000;
+  // 처음부터 있던 거래 — 자동 조회를 켜도 이건 알리면 안 된다
+  let rows = [
+    ['2026.10.12 09:10:11', '', '30,000', '', '김예전', '김예전', '타행이체'],
+    ['2026.10.12 08:01:02', '12,000', '', '', '편의점', '', '체크카드'],
+    ['2026.10.11 22:30:45', '', '50,000', '', '박어제/화이팅', '박어제', '모바일'],
+  ];
+  // 조회할 때마다 차례로 하나씩 새 거래가 생긴다
+  const plan = [
+    null,                                                                      // 1번째 조회: 변화 없음
+    ['', '1,000', '', '테스트/안녕', '홍길동', '타행이체'],                       // 2번째: 입금(메모 있음)
+    ['8,000', '', '', '배달앱', '', '체크카드'],                                // 3번째: 출금 — 알리면 안 됨
+    ['', '1,000', '', '테스트/안녕', '홍길동', '타행이체'],                       // 4번째: 똑같은 입금 한 번 더(잔액이 달라 다른 줄)
+    ['', '20,000', '', '구름빵', '구름빵', '모바일'],                            // 5번째: 메모 없이 이름만
+  ];
+  let nQuery = 0;
+  function recomputeBal() {
+    let b = bal;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const out = parseInt((rows[i][1] || '0').replace(/,/g, ''), 10) || 0;
+      const inn = parseInt((rows[i][2] || '0').replace(/,/g, ''), 10) || 0;
+      b = b - out + inn; rows[i][3] = b.toLocaleString();
+    }
+  }
+  function draw() {
+    recomputeBal();
+    const head = '<thead><tr>' + HEAD.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
+    const body = '<tbody>' + rows.map(r => '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</tbody>';
+    document.getElementById('grid').innerHTML = SPLIT
+      ? '<table id="h">' + head + '</table><div style="max-height:200px;overflow:auto"><table id="b">' + body + '</table></div>'
+      : '<table id="t">' + head + body + '</table>';
+  }
+  function doQuery() {
+    nQuery++;
+    window.__queries = nQuery;
+    left = 720;                                   // 은행처럼 조회하면 12분이 다시 시작된다
+    const p = plan[nQuery - 1];
+    if (p) {
+      const d = new Date(2026, 9, 12, 14, 0, nQuery);
+      const ts = d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' '
+        + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+      rows.unshift([ts, p[0], p[1], '', p[3], p[4], p[5]]);
+    }
+    if (Q.get('alert') === '1') alert('조회가 완료되었습니다');
+    draw();
+  }
+  draw();
+  /* 🧪 ?harness=1 — 확장을 끼울 수 없는 시험용 크롬에서 확장과 **같은 파일**(page_hook.js · content.js)을 직접 싣는다.
+     확장의 저장소(chrome.storage.local)만 브라우저 저장소(localStorage)로 흉내 낸다. 이 파일은 확장에 안 들어간다. */
+  if (Q.get('harness') === '1') {
+    window.chrome = window.chrome || {};
+    window.chrome.storage = { local: {
+      get(k, cb) { let v = null; try { v = JSON.parse(localStorage.getItem('h_' + k) || 'null'); } catch (e) {} setTimeout(() => cb(v ? { [k]: v } : {}), 0); },
+      set(o, cb) { Object.keys(o).forEach((k) => localStorage.setItem('h_' + k, JSON.stringify(o[k]))); setTimeout(() => cb && cb(), 0); },
+    } };
+    ['../page_hook.js', '../content.js'].forEach((src) => { const s = document.createElement('script'); s.src = src; s.async = false; document.head.appendChild(s); });
+  }
+</script>
+</body>
+</html>
