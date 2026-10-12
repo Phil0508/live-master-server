@@ -82,7 +82,7 @@ chk('딱지는 사진 상자 안(사진 옆)에 있다', '<div id="reaction-via"
 css = re.search(r'#reaction-via \{([^}]*)\}', OV)
 css = css.group(1) if css else ''
 chk('투네이션 대표 파랑 #519CFF 바탕 · 흰 글자 · 흰 테두리 · 조금 둥근 네모',
-    'background: #519CFF' in css and 'color: #fff' in css and 'border: 3px solid #fff' in css and 'border-radius: 12px' in css, css[:160])
+    'background: #519CFF' in css and 'color: #fff' in css and 'border: 3px solid #fff' in css and 'border-radius: var(--r-s)' in css, css[:160])
 chk('왼쪽 위(오른쪽 위는 ×N 연속 딱지 자리)', 'left: -16px' in css and 'top: -16px' in css)
 chk('평소엔 숨기고 .on 일 때만', 'display: none' in css and '#reaction-via.on { display: block; }' in OV)
 chk("재생할 때 via 가 'toon' 이면 켜고 아니면 끈다", "_viaEl.classList.toggle('on', data.via === 'toon')" in OV)
