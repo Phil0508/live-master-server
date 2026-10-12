@@ -130,6 +130,46 @@
     .qrow .qdel{background:transparent;border:1px solid var(--border);color:var(--pink);width:34px;height:34px;border-radius:10px;cursor:pointer;flex-shrink:0;font-size:14px;transition:all .15s}
     .qrow .qdel:hover{border-color:var(--pink);background:rgba(255,107,107,0.12)}
 
+    /* ── 🏦 계좌 입금 추천 (2026-10-13) ── */
+    [hidden]{display:none!important}
+    .bank{margin-bottom:20px;padding:16px 18px}
+    .bank-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    .bank-head h2{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+    .bank-head .sp{flex:1}
+    .bank-link{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:20px;background:var(--surface-3);color:var(--muted)}
+    .bank-link.ok{background:rgba(47,230,176,0.14);color:var(--mint)}
+    .bank-link.stale{background:rgba(255,203,69,0.14);color:var(--gold)}
+    .bank-tool{background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;padding:6px 11px;border-radius:9px;cursor:pointer;font-family:inherit}
+    .bank-tool:hover{color:var(--text);border-color:var(--border-2)}
+    .bank-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;max-height:360px;overflow-y:auto;padding:2px}
+    .bank-empty{grid-column:1/-1;color:var(--faint);font-size:13px;padding:10px 4px;line-height:1.6}
+    .bank-card{background:var(--surface-2);border:1px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:7px;min-width:0}
+    .bank-card.picked{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+    .bk-top{display:flex;align-items:baseline;gap:8px}
+    .bk-amt{font-size:19px;font-weight:800;color:var(--gold);letter-spacing:-0.3px;font-variant-numeric:tabular-nums}
+    .bk-time{font-size:11.5px;color:var(--muted);margin-left:auto;white-space:nowrap}
+    .bk-sug{display:flex;align-items:baseline;gap:8px;min-width:0}
+    .bk-name{font-size:15px;font-weight:800;color:var(--accent-2);flex-shrink:0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bk-name.none{color:var(--faint);font-weight:700;font-size:12.5px}
+    .bk-msg{font-size:13.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+    .bk-meta{display:flex;gap:6px;flex-wrap:wrap}
+    .bk-how,.bk-tgt{font-size:11px;font-weight:800;padding:2px 8px;border-radius:20px;background:var(--surface-3);color:var(--muted)}
+    .bk-how.ok{color:var(--mint)}
+    .bk-how.warn{color:var(--gold)}
+    .bk-tgt{color:var(--accent-2);background:var(--accent-soft)}
+    .bk-raw{font-size:11.5px;color:var(--faint);word-break:break-all;line-height:1.5}
+    .bk-btns{display:flex;gap:6px;margin-top:2px}
+    .bk-btns button{height:34px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+    .bk-fill{flex:1;border:none;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:var(--ops-on-accent)}
+    .bk-hide,.bk-back{flex:0 0 78px;background:transparent;border:1px solid var(--border);color:var(--muted)}
+    .bk-hide:hover,.bk-back:hover{color:var(--text);border-color:var(--border-2)}
+    .bank-setup{margin-bottom:12px;padding:12px 14px;border:1px dashed var(--border-2);border-radius:12px;font-size:12.5px;color:var(--muted);line-height:1.6}
+    .bank-key-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+    .bank-key-row code{flex:1;min-width:0;font-family:ui-monospace,Consolas,monospace;font-size:13px;color:var(--text);background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:8px 10px;word-break:break-all}
+    .bank-hidden{margin-top:10px}
+    .bank-pick-note{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--accent-2);background:var(--accent-soft);border-radius:10px;padding:8px 12px;margin:-4px 0 12px}
+    .bank-pick-note button{margin-left:auto;background:transparent;border:1px solid var(--border-2);color:var(--muted);border-radius:8px;font-size:11.5px;font-weight:700;padding:3px 9px;cursor:pointer;font-family:inherit}
+
     /* 토스트 */
     .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-weight:700;font-size:14px;padding:14px 24px;border-radius:30px;box-shadow:0 10px 34px rgba(0,0,0,0.5);opacity:0;pointer-events:none;transition:all .3s cubic-bezier(0.16,1,0.3,1);z-index:999}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -150,7 +190,7 @@
     </div>
 
     <div class="tabs">
-        <button class="tab active" id="tab-btn-send" onclick="switchTab('send')"><i class="fa-solid fa-paper-plane"></i> 수동 송출</button>
+        <button class="tab active" id="tab-btn-send" onclick="switchTab('send')"><i class="fa-solid fa-paper-plane"></i> 수동 송출 <span id="tab-bank-badge" hidden style="background:var(--gold); color:#2a1a00; font-size:11px; padding:1px 7px; border-radius:10px; margin-left:2px;">0</span></button>
         <button class="tab" id="tab-btn-queue" onclick="switchTab('queue')"><i class="fa-solid fa-list-ol"></i> 대기열 <span id="tab-queue-badge" style="display:none; background:var(--pink); color:#fff; font-size:11px; padding:1px 7px; border-radius:10px; margin-left:2px;">0</span></button>
         <button class="tab" id="tab-btn-rank" onclick="switchTab('rank')"><i class="fa-solid fa-trophy"></i> 후원 순위</button>
         <button class="tab" id="tab-btn-fx" onclick="switchTab('fx')"><i class="fa-solid fa-wand-magic-sparkles"></i> 이펙트</button>
@@ -160,6 +200,27 @@
 
     <!-- ═══ 수동 송출 ═══ -->
     <div class="pane active" id="pane-send">
+        <!-- 🏦 계좌 입금 추천 — 은행 확장이 잡은 입금. 송출은 안 한다: [채우기] → 아래 칸에서 보고 고쳐서 [송출] -->
+        <div class="card bank" id="bank-box">
+            <div class="bank-head">
+                <h2>🏦 계좌 입금 추천</h2>
+                <span class="bank-link" id="bank-link">불러오는 중…</span>
+                <span class="sp"></span>
+                <button class="bank-tool" id="bank-hidden-btn" hidden>숨긴 입금</button>
+                <button class="bank-tool" id="bank-setup-btn"><i class="fa-solid fa-gear"></i> 은행 확장 연결</button>
+            </div>
+            <div class="bank-setup" id="bank-setup" hidden>
+                크롬의 <b>엔젤 입금확인</b> 상자에 있는 <b>열쇠</b> 칸에 아래 열쇠를 붙여 넣으세요.
+                이 열쇠로는 이 칸에 추천 카드만 만들 수 있어요(송출 · 점수는 여기서 눌러야 가요).
+                <div class="bank-key-row">
+                    <code id="bank-key">••••••••••••••••</code>
+                    <button class="bank-tool" id="bank-key-copy">복사</button>
+                    <button class="bank-tool" id="bank-key-new">새 열쇠</button>
+                </div>
+            </div>
+            <div class="bank-list" id="bank-list"><div class="bank-empty">불러오는 중…</div></div>
+            <div class="bank-hidden" id="bank-hidden" hidden><div class="bank-list" id="bank-hidden-list"></div></div>
+        </div>
         <div class="grid">
             <div class="card preview">
                 <div class="aura"></div>
@@ -201,6 +262,7 @@
                     <input type="checkbox" id="in-ledger">
                     <span><b>정산 장부에 기록</b> — 체크하면 실제 후원처럼 장부·승인대기함·후원 순위에 반영되고, 안 하면 재생만 됩니다.</span>
                 </label>
+                <div class="bank-pick-note" id="bank-pick-note" hidden><span id="bank-pick-text"></span><button type="button" id="bank-pick-clear">비우기</button></div>
                 <button class="send-btn" id="btn-send"><i class="fa-solid fa-paper-plane"></i> 시그니처 송출</button>
 
                 <div class="gal-head"><i class="fa-solid fa-compact-disc" style="color:var(--accent-2)"></i> 빠른 선택 <span class="count" id="gal-count">0개</span></div>
@@ -650,9 +712,11 @@
     async function send(){
         const amount=rawNum('in-amount');
         if(amount<=0){ toast('후원 금액을 입력해주세요',true); $('in-amount').focus(); return; }
-        const name=$('in-donor').value.trim()||'수동송출';
+        // 🏦 계좌 입금에서 채웠는데 닉네임을 비워 두면 '수동송출' 이 아니라 '익명'(순위에서도 빠진다)
+        const name=$('in-donor').value.trim()||(_bankPick?'익명':'수동송출');
         const message=$('in-msg').value.trim();
         const ledger=$('in-ledger').checked;
+        const pick=_bankPick;
         // 🔁 × 몇 번 — 장부에 넣을 때는 후원 N건을 따로 적고(정산 · 대기함 · 순위가 실제와 같게), 시그니처는 서버가 ×N 으로 묶는다
         const cnt=Math.max(1,Math.min(30,parseInt(($('in-count')||{}).value||'1',10)||1));
         const btn=$('btn-send'); btn.disabled=true;
@@ -665,8 +729,10 @@
         const sig=JSON.stringify([name,amount,message,cnt]);
         const reuse = ledger && _manualRetry && _manualRetry.sig===sig;
         const stamp = reuse ? _manualRetry.stamp : Date.now();
+        // 🏦 계좌 입금에서 채운 것은 그 입금 번호를 쓴다 — 두 번 눌러도 장부의 tx_id 검사가 한 번만 넣는다
+        const base = pick ? 'manual_bank_'+pick.id : 'manual_'+stamp;
         const payloads = ledger
-            ? Array.from({length:cnt},(_,i)=>({ name, amount, message, tx_id:'manual_'+stamp+(cnt>1?'_'+(i+1):'') }))
+            ? Array.from({length:cnt},(_,i)=>({ name, amount, message, tx_id:base+(cnt>1?'_'+(i+1):'') }))
             : [{ name, amount, message, count:cnt }];
         // ⚠️ okN 은 try 밖에 둔다 — 통신이 도중에 끊겨(catch) 도 몇 건 들어갔는지 알려야 한다.
         let okN=0, lastErr='', shownOnly=false;
@@ -684,6 +750,7 @@
                             : '✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
             $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; if($('in-count')) $('in-count').value='1'; updatePreview();
             refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
+            if(pick) bankMarkUsed(pick.id, name);
         }else{
             if(ledger) _manualRetry={sig, stamp};   // 입력칸은 그대로 둔다 — 그대로 다시 누르면 빠진 것만 들어간다
             if(okN) refreshQueueOnce();
@@ -840,6 +907,162 @@
             refreshQueueOnce();
         }catch(e){ toast('실패: '+e.message, true); }
     };
+
+    /* ── 🏦 계좌 입금 추천 (2026-10-13) ──
+       은행 확장이 잡은 입금이 카드로 뜬다. 송출은 안 한다 — [채우기] 로 아래 칸을 채우면 대표님이 보고 고쳐서 [송출].
+       대표님 10-13: "바로 다 송출하면 누가 누구인지 · 누구 플러스인지 모른다". 배정은 지금처럼 대기함에서 — '＋?' 는 예상만.
+       메모를 닉네임 · 할 말로 나눈 건 추천이라 원래 메모를 늘 같이 보여준다. 실명이 들어 있어 로그인한 이 화면만 읽는다. */
+    let BANK = {items:[], hidden:[], link:{}, key_set:false};
+    let _bankPick = null;          // {id, amount} — [채우기] 로 고른 입금. 송출하면 그 입금에 '씀' 표시
+    let _bankSig = '';             // 목록이 그대로면 다시 그리지 않는다(누르는 중에 단추가 바뀌지 않게)
+    const BANK_HOW = {
+        known:['✓ 예전 닉네임','ok'], first:['첫 낱말을 닉네임으로 — 확인','warn'], ai:['AI 가 나눔 — 확인','warn'],
+        message:['닉네임 없음 — 할 말만','warn'], name_only:['이름만 — 실명일 수 있어요','warn'],
+        no_memo:['메모 없이 보냄 — 입금자명','warn'], empty:['메모 없음','warn']
+    };
+    function bankAgo(sec){
+        sec=Math.max(0,Math.round(sec||0));
+        if(sec<10) return '방금'; if(sec<60) return sec+'초 전';
+        if(sec<3600) return Math.floor(sec/60)+'분 전'; return Math.floor(sec/3600)+'시간 전';
+    }
+    function bankClock(it){
+        const m=String(it.when||'').match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*$/);
+        return m ? m[1].padStart(2,'0')+':'+m[2] : '';
+    }
+    function bankCard(it, hidden){
+        const how=BANK_HOW[it.how]||['',''];
+        const ago=bankAgo(Date.now()/1000-(it.at||0));
+        const clock=bankClock(it);
+        const nm=it.name ? '<span class="bk-name">'+escapeHtml(it.name)+'</span>' : '<span class="bk-name none">닉네임 없음</span>';
+        const msg=it.message ? '<span class="bk-msg">'+escapeHtml(it.message)+'</span>' : '';
+        let tgt='';
+        if(it.target) tgt='<span class="bk-tgt" title="'+escapeHtml(it.target_why||'')+'">→ '+escapeHtml(it.target)+' ＋? 예상</span>';
+        else if(it.ai==='pending' && it.message) tgt='<span class="bk-tgt">예상 중…</span>';
+        const raw=[];
+        if(it.memo) raw.push('메모 원문: '+escapeHtml(it.memo));
+        if(it.holder && it.holder!==it.name) raw.push('예금주 '+escapeHtml(it.holder));
+        const btns=hidden
+            ? '<button class="bk-back" data-act="restore">되살리기</button>'
+            : '<button class="bk-fill" data-act="fill"><i class="fa-solid fa-arrow-down"></i> 채우기</button><button class="bk-hide" data-act="dismiss">숨기기</button>';
+        return '<div class="bank-card'+(_bankPick&&_bankPick.id===it.id?' picked':'')+'" data-id="'+escapeHtml(it.id)+'">'
+            +'<div class="bk-top"><span class="bk-amt">'+fmt(it.amount)+'원</span><span class="bk-time">'+(clock?clock+' · ':'')
+            +'<span class="bk-ago" data-at="'+(Number(it.at)||0)+'">'+ago+'</span>'+(it.source==='phone'?' · 폰':'')+'</span></div>'
+            +'<div class="bk-sug">'+nm+msg+'</div>'
+            +'<div class="bk-meta">'+(how[0]?'<span class="bk-how '+how[1]+'">'+how[0]+'</span>':'')+tgt+'</div>'
+            +(raw.length?'<div class="bk-raw">'+raw.join(' · ')+'</div>':'')
+            +'<div class="bk-btns">'+btns+'</div></div>';
+    }
+    function renderBankLink(){
+        const L=BANK.link||{}, chip=$('bank-link');
+        const best=[L.web,L.phone].filter(Boolean).sort((a,b)=>a.age_sec-b.age_sec)[0];
+        if(!BANK.key_set){ chip.className='bank-link'; chip.textContent='은행 확장 연결 전 — 오른쪽 [은행 확장 연결]'; }
+        else if(!best){ chip.className='bank-link'; chip.textContent='은행 확장 소식 없음'; }
+        else if(best.age_sec<90){ chip.className='bank-link ok'; chip.textContent='은행 확장 연결됨 · '+bankAgo(best.age_sec)+(best.note?' · '+best.note:''); }
+        else { chip.className='bank-link stale'; chip.textContent='은행 확장 소식 끊김 · 마지막 '+bankAgo(best.age_sec); }
+    }
+    function renderBank(force){
+        renderBankLink();
+        const n=BANK.items.length, badge=$('tab-bank-badge');
+        badge.hidden=!n; badge.textContent='🏦 '+n;
+        const hb=$('bank-hidden-btn');
+        hb.hidden=!BANK.hidden.length; hb.textContent='숨긴 입금 '+BANK.hidden.length;
+        // ⚠️ 목록은 내용이 바뀔 때만 다시 그린다 — 통째로 다시 그리면 누르려던 단추가 그 사이에 바뀐다.
+        //    '3분 전' 같은 시각 글자는 그 자리에서만 고친다.
+        document.querySelectorAll('#bank-box .bk-ago').forEach(el=>{ el.textContent=bankAgo(Date.now()/1000-Number(el.dataset.at||0)); });
+        const sig=JSON.stringify([BANK.items,BANK.hidden,_bankPick&&_bankPick.id]);
+        if(!force && sig===_bankSig) return;
+        _bankSig=sig;
+        $('bank-list').innerHTML = n ? BANK.items.map(it=>bankCard(it,false)).join('')
+            : '<div class="bank-empty">아직 들어온 계좌 입금이 없어요. 은행 확장이 30초마다 확인해서, 새 입금이 오면 여기 카드로 떠요.</div>';
+        $('bank-hidden-list').innerHTML = BANK.hidden.map(it=>bankCard(it,true)).join('');
+        if(!BANK.hidden.length) $('bank-hidden').hidden=true;
+        bankPickNote();
+    }
+    async function loadBank(){
+        try{
+            const r=await fetch('/api/bank/inbox');
+            if(!r.ok){ $('bank-link').textContent='추천 목록을 못 읽었어요 (HTTP '+r.status+')'; return; }
+            const d=await r.json();
+            if(d.status!=='success') return;
+            BANK={items:d.items||[], hidden:d.hidden||[], link:d.link||{}, key_set:!!d.key_set};
+            if(_bankPick && !BANK.items.some(it=>it.id===_bankPick.id)) _bankPick=null;   // 다른 화면에서 송출 · 숨김
+            renderBank();
+        }catch(e){ $('bank-link').textContent='서버에 연결하지 못했어요'; }
+    }
+    function bankPickNote(){
+        const box=$('bank-pick-note');
+        box.hidden=!_bankPick;
+        $('in-donor').placeholder=_bankPick ? "비우면 '익명'" : "비우면 '수동송출'";
+        if(_bankPick) $('bank-pick-text').textContent='🏦 계좌 입금에서 채움 — '+fmt(_bankPick.amount)+'원 · 송출하면 추천 칸에서 빠져요';
+    }
+    function bankFill(id){
+        const it=BANK.items.find(x=>x.id===id); if(!it) return;
+        $('in-amount').value=String(it.amount); if(window.commaFormat) commaFormat('in-amount');
+        $('in-donor').value=it.name||'';
+        $('in-msg').value=it.message||'';
+        $('in-ledger').checked=true;
+        if($('in-count')) $('in-count').value='1';
+        _bankPick={id:it.id, amount:it.amount};
+        _manualRetry=null;
+        updatePreview(); renderBank(true);
+        $('in-donor').scrollIntoView({behavior:'smooth', block:'center'});
+        $('in-donor').focus();
+        toast(it.name ? '채웠어요 — 확인하고 [시그니처 송출]' : '채웠어요 — 닉네임을 적고 [시그니처 송출]');
+    }
+    async function bankAct(id, act){
+        try{
+            const r=await fetch('/api/bank/inbox/'+encodeURIComponent(id)+'/'+act,{method:'POST'});
+            if(!r.ok){ toast('처리하지 못했어요 (HTTP '+r.status+')',true); return; }
+            if(act==='dismiss'){ if(_bankPick&&_bankPick.id===id) _bankPick=null; toast('숨겼어요 — [숨긴 입금]에서 되살릴 수 있어요'); }
+            if(act==='restore') toast('되살렸어요');
+            loadBank();
+        }catch(e){ toast('서버에 연결하지 못했어요',true); }
+    }
+    async function bankMarkUsed(id, name){
+        _bankPick=null; bankPickNote();
+        try{
+            await fetch('/api/bank/inbox/'+encodeURIComponent(id)+'/used',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+        }catch(e){}
+        loadBank();
+    }
+    async function bankShowKey(){
+        try{
+            const r=await fetch('/api/bank/key'); const d=await r.json();
+            $('bank-key').textContent=d.key||'(못 받았어요)';
+        }catch(e){ $('bank-key').textContent='(서버에 연결하지 못했어요)'; }
+    }
+    $('bank-list').addEventListener('click',e=>{
+        const b=e.target.closest('button[data-act]'); if(!b) return;
+        const id=b.closest('.bank-card').dataset.id;
+        if(b.dataset.act==='fill') bankFill(id); else bankAct(id,b.dataset.act);
+    });
+    $('bank-hidden-list').addEventListener('click',e=>{
+        const b=e.target.closest('button[data-act]'); if(!b) return;
+        bankAct(b.closest('.bank-card').dataset.id, b.dataset.act);
+    });
+    $('bank-hidden-btn').addEventListener('click',()=>{ $('bank-hidden').hidden=!$('bank-hidden').hidden; });
+    $('bank-setup-btn').addEventListener('click',()=>{
+        const s=$('bank-setup'); s.hidden=!s.hidden;
+        if(!s.hidden) bankShowKey();
+    });
+    $('bank-key-copy').addEventListener('click',async()=>{
+        const k=$('bank-key').textContent.trim();
+        try{ await navigator.clipboard.writeText(k); toast('열쇠를 복사했어요 — 은행 확장 상자에 붙여 넣으세요'); }
+        catch(e){ const sel=window.getSelection(), rg=document.createRange(); rg.selectNodeContents($('bank-key')); sel.removeAllRanges(); sel.addRange(rg); toast('열쇠를 골라 뒀어요 — Ctrl+C 로 복사하세요'); }
+    });
+    $('bank-key-new').addEventListener('click',async()=>{
+        if(!confirm('새 열쇠를 만들까요? 지금 은행 확장에 넣어 둔 열쇠는 더 이상 안 통해서, 새 열쇠를 다시 붙여 넣어야 해요.')) return;
+        try{ const r=await fetch('/api/bank/key/reset',{method:'POST'}); const d=await r.json(); $('bank-key').textContent=d.key||''; toast('새 열쇠를 만들었어요'); loadBank(); }
+        catch(e){ toast('만들지 못했어요',true); }
+    });
+    // 비우기 — 카드에서 채운 칸을 비우고 그 입금과의 연결도 끊는다(입금 카드는 추천 칸에 그대로 남는다)
+    $('bank-pick-clear').addEventListener('click',()=>{
+        _bankPick=null;
+        $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value='';
+        updatePreview(); renderBank(true);
+    });
+    loadBank();
+    setInterval(()=>{ if(document.visibilityState==='visible') loadBank(); }, 4000);
 
     /* ── 바인딩 ── */
     ['in-amount','in-donor','in-msg'].forEach(id=>$(id).addEventListener('input',updatePreview));
