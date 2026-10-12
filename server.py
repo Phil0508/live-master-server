@@ -762,6 +762,9 @@ def require_login():
         '/terms',
         '/api/health',
         '/api/donation',
+        # 🏦 계좌 입금 추천 — 은행 확장(대표님 크롬)이 보낸다. 로그인 대신 X-Bank-Key 를 본다(features/bank_inbox.py).
+        #    여기로 들어온 입금은 후원 콘솔 '추천' 카드가 될 뿐, 송출 · 장부 · 점수는 대표님이 눌러야 간다.
+        '/api/bank/deposit',
         # ⚠️ /api/streamdeck/* 는 여기에 두면 안 된다. 무인증 GET 만으로 reaction_mode 를
         #    켤 수 있어서, 주소만 아는 사람이 랭킹판·게이지를 숨겨버릴 수 있었다.
         #    큐가 비어 있으면 그걸 끄는 코드가 없어 운영자가 손으로 끌 때까지 돌아오지 않는다.
@@ -3584,6 +3587,7 @@ from features.vip import (  # noqa: E402
     _vip_live, _vip_wipe_legacy_once,
 )
 import features.ai  # noqa: E402,F401  (주소만 등록)
+import features.bank_inbox  # noqa: E402,F401  (주소만 등록 — features.ai 뒤: 배정 예상을 빌려 쓴다)
 import features.announce  # noqa: E402,F401  (주소만 등록)
 import features.archive  # noqa: E402,F401  (주소만 등록)
 import features.bjs  # noqa: E402,F401  (주소만 등록)
