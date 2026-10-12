@@ -3908,6 +3908,12 @@
     </div>
 
     <div id="tab-vip" class="tab-content">
+        <!-- ⏸️ VIP 등급 끔(대표님 2026-10-13) — 서버 features/vip.py VIP_ON. 켜져 있으면 숨는다 -->
+        <div id="vip-off-note" style="display:none; margin-bottom:12px; padding:12px 14px; border-radius:var(--r-2); border:1px solid rgba(255,179,71,0.45); background:rgba(255,179,71,0.1); font-size:var(--fs-2); line-height:1.6; color:var(--text-main);">
+            <b style="color:#ffb347;">⏸️ VIP 등급은 지금 꺼져 있어요 (10-13)</b><br>
+            투네이션 '다이아' 칭호와 헷갈려서 잠시 껐어요. 방송 화면 · 대기함 · AI 어디에도 등급이 안 나오고, 새로 등록도 안 돼요.
+            아래 <b>순위에서 빼기</b>는 그대로 돼요. 다시 켜려면 Claude 에게 말씀하세요.
+        </div>
         <div class="group-box">
             <div class="group-title" style="display: flex; justify-content: space-between; align-items: center;">
                 <span><i class="fa-solid fa-crown" style="color: var(--gold);"></i> 특별 후원자 관리 <span id="vip-count-badge" style="font-size: var(--fs-1); background: rgba(255, 207, 77,0.15); color: var(--gold); padding: 2px 8px; border-radius: var(--r-2); font-weight: bold; margin-left: 6px;">0명</span></span>
@@ -7398,6 +7404,11 @@
             if (!force && tab && tab.style.display === 'none') return;   // 안 보이는 탭은 안 그린다
             const RANGES = [['VVIP', 1, 1], ['VIP', 2, 3], ['DIAMOND', 4, 6], ['BRONZE', 7, 10]];
             const tiersEl = document.getElementById('vip-tiers');
+            // ⏸️ VIP 등급 끔(10-13) — 안내를 띄우고 등급 칸(1위 VVIP …)은 숨긴다. 순위 · 순위에서 빼기는 그대로
+            const vipOff = gd.vip_on === false;
+            const offNote = document.getElementById('vip-off-note');
+            if (offNote) offNote.style.display = vipOff ? '' : 'none';
+            if (tiersEl) tiersEl.style.display = vipOff ? 'none' : 'flex';
             if (tiersEl && !tiersEl.childElementCount) {
                 tiersEl.innerHTML = RANGES.map(([g, lo, hi]) => `
                 <div style="flex:1; min-width:120px; padding:10px 12px; border-radius:var(--r-2);

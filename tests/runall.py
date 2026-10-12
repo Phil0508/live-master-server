@@ -129,6 +129,9 @@ def boot(kind):
     else:
         env = {'HEADLESS': '1', 'PORT': '5199', 'ADMIN_PASSWORD': 'sandboxpw',
                'SESSION_SECRET': 'sandboxsecret123456', 'SELF_PING': 'off'}
+        # ⏸️ VIP 등급은 운영에서 꺼 뒀다(10-13). 'pt_vip' 는 켠 서버 — 등급 계산 검사(vip_test)만 쓴다
+        if kind == 'pt_vip':
+            env['LM_VIP_ON'] = '1'
         e = dict(os.environ); e.update(env)
         e['PYTHONIOENCODING'] = 'utf-8'; e['PYTHONUNBUFFERED'] = '1'
         log = open(os.path.join(d, 'run.log'), 'w', encoding='utf-8', errors='replace')
@@ -332,7 +335,8 @@ run('나눠주기 계산', [PY, 'split_test.py'], HERE)
 run('만원 반올림', [PY, 'rounding_test.py'], HERE)
 run('AI 모델 설정', [PY, 'nim_test.py'], HERE)
 run('월별 후원 순위', [PY, 'monthly_test.py'], HERE, kind='pt')
-run('특별 후원자 등급', [PY, 'vip_test.py'], HERE, kind='pt')
+run('특별 후원자 등급(켠 서버에서 계산 검사)', [PY, 'vip_test.py'], HERE, kind='pt_vip')
+run('⏸️ VIP 등급 끔 — 어디에도 등급이 안 나간다', [PY, 'vip_off_test.py'], HERE)
 run('순위에서 뺄 이름', [PY, 'exclude_test.py'], HERE, kind='pt')
 run('퇴근빵 — 실제 번 돈', [PY, 'homerace_test.py'], HERE, kind='pt')
 run('게이지 보정', [PY, 'goal_offset_test.py'], HERE, kind='pt')

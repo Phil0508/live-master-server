@@ -249,6 +249,9 @@ def _today_donations():
 
 def _ai_vip_list():
     """AI 스냅샷용 VIP 목록 — 이번 방송 순위 등급 + 직접 준 등급. 실패해도 빈 리스트."""
+    import features.vip as _fv
+    if not _fv.VIP_ON:          # ⏸️ VIP 등급 끔(10-13) — AI 도 등급을 말하지 않는다
+        return []
     out = []
     try:
         live = _vip_live(load_data())

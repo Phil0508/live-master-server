@@ -3,6 +3,7 @@
 
 server.py 에서 그대로 옮겨 왔다(본문은 안 바꿨다). 공용 도구는 server 에서 빌려 온다.
 """
+import os
 import time
 from flask import jsonify, request
 from server import (
@@ -35,6 +36,15 @@ from server import (
 #    일반 후원자 이름(#fff)과 똑같아져서 등급이 있는지 없는지 구별이 안 된다.
 # ⚠️ 'GOLD' 는 옛 이름이다. 직접 준 등급(vip_donators)에 남아 있을 수 있으니 화면에 찍는
 #    쪽(overlay·controller)에서는 옛 이름도 계속 알아듣게 둔다.
+# ⏸️ VIP 등급 끔 — 대표님 2026-10-13 "다시 말할 때까지 없애자, 너무 헷갈린다".
+#    투네이션 공식 칭호 '다이아' 알약과 우리 DIAMOND 등급('다이아 5위')이 한 팝업에 같이 뜰 수 있었다.
+#    끄면 순위 등급(vip_live) · 직접 준 등급(/api/vips) 둘 다 비어서 방송판 · 조종실 · AI 어디에도 등급이 안 나온다.
+#    코드 · 직접 준 등급 표(vip_donators)는 그대로 둔다 — 다시 켜려면 이 한 줄을 True 로.
+VIP_ON = False
+# 🧪 검사 서버만 켠다(LM_VIP_ON=1 — tests/runall 의 'pt_vip'). 꺼 둔 동안에도 등급 계산이 그대로인지 vip_test 가 계속 본다.
+if os.environ.get('LM_VIP_ON') == '1':
+    VIP_ON = True
+
 VIP_TIERS = [
     # (등급, 순위 시작, 순위 끝, 색, 뱃지)
     ('VVIP',    1,  1, '#f6c453', '🏆'),   # 금   — 방송판 기본 금색(--gold) 그대로
@@ -57,6 +67,8 @@ def vip_tier_for_rank(rank):
 def _vip_live(state):
     """이번 방송 후원 순위 → 등급. {다듬은 이름: {name, rank, total, grade, custom_color, badge}}
     ⚠️ 순위표는 여기 하나에서만 만든다 — 방송판·조종실·AI 가 서로 다른 순위를 보면 안 된다."""
+    if not VIP_ON:
+        return {}
     tally = (state or {}).get('donor_tally') or {}
     rows = []
     for who, row in tally.items():
@@ -126,6 +138,7 @@ def api_vip_candidates():
             'status': 'success',
             'rows': rows,
             'broadcast_active': bool(state.get('broadcast_active')),
+            'vip_on': VIP_ON,
             'tiers': [{'grade': g, 'from': lo, 'to': hi, 'color': c, 'badge': bd}
                       for g, lo, hi, c, bd in VIP_TIERS],
         })
@@ -136,6 +149,8 @@ def api_vip_candidates():
 
 @app.route('/api/vips', methods=['GET'])
 def get_vips():
+    if not VIP_ON:
+        return jsonify({"status": "success", "vips": [], "off": True})
     try:
         load_data()   # 갓 뜬 서버는 첫 상태 읽기에서 표를 만든다 — 그 전에 오면 '표가 없다' 가 났다
         with get_db_connection() as conn:
@@ -150,6 +165,10 @@ def get_vips():
 
 @app.route('/api/vips', methods=['POST'])
 def add_or_update_vip():
+    # 꺼져 있는 동안 등록을 받으면 저장만 되고 어디에도 안 보여서 '등록이 안 된다' 로 읽힌다 — 이유를 말하고 막는다
+    if not VIP_ON:
+        return jsonify({"status": "error", "off": True,
+                        "message": "VIP 등급은 지금 꺼져 있어요(10-13). 다시 켜려면 말씀해 주세요."}), 409
     try:
         data = request.get_json(silent=True) or {}
         name = (data.get('name') or '').strip()

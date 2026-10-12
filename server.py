@@ -1147,6 +1147,8 @@ def state_for_client(state, authed):
     except Exception as _e:
         print(f'⚠️ [주사위 판] 내보내기 보정 실패: {_e}', flush=True)
     # 👑 이번 방송 순위 등급 — 후원 순위(donor_tally)처럼 공개다. 팝업·순위판·조종실이 같이 본다.
+    #    ⏸️ 끔(VIP_ON False · 10-13)이면 vip_live 가 비고, 조종실이 vip_on 으로 '꺼짐' 안내를 띄운다.
+    out['vip_on'] = bool(VIP_ON)
     try:
         out['vip_live'] = _vip_live(out)
     except Exception as _e:
@@ -3584,7 +3586,7 @@ from features.excluded import (  # noqa: E402
     excluded_names, is_excluded,
 )
 from features.vip import (  # noqa: E402
-    _vip_live, _vip_wipe_legacy_once,
+    VIP_ON, _vip_live, _vip_wipe_legacy_once,
 )
 import features.ai  # noqa: E402,F401  (주소만 등록)
 import features.bank_inbox  # noqa: E402,F401  (주소만 등록 — features.ai 뒤: 배정 예상을 빌려 쓴다)
