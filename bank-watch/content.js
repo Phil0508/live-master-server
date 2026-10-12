@@ -95,8 +95,9 @@
     if (m.dep < 0 && m.amt >= 0 && /입금/.test(kind)) dep = toWon(t[m.amt]);
     const wd = m.wd >= 0 ? toWon(t[m.wd]) : 0;
     const memo = m.memo.map((i) => t[i]).filter(Boolean);
+    const cols = m.memo.map((i) => t[i] || '');      // 이름/내용 칸 값 — m.memo 와 같은 순서(머리글과 짝지어 서버로 보낸다)
     const when = [m.date >= 0 ? t[m.date] : '', m.time >= 0 ? t[m.time] : ''].filter(Boolean).join(' ');
-    return { when, dep, wd, kind, memo, raw: t.join('|') };
+    return { when, dep, wd, kind, memo, cols, raw: t.join('|') };
   }
   function keyRows(rows) {
     const seen = {};
@@ -111,6 +112,15 @@
   /* 이번 표에서 새 줄 고르기.
      · 처음(기준 없음) → 지금 있는 줄은 전부 '본 것'으로 두고 아무것도 안 알린다(예전 입금이 쏟아지지 않게)
      · 아는 줄이 하나도 없는데 줄이 넉넉하다 → 다른 계좌 · 다른 기간으로 바뀐 표다 → 기준을 새로 잡는다 */
+  // 새 입금 줄 → 방송 서버로 보낼 모양. 이름/내용 칸은 [머리글, 값] 으로 — 서버가 메모 칸 · 실명(예금주) 칸을 가른다
+  // ⚠️ 번호(ref)에 시각 · 금액을 붙인다 — 줄 지문(key)은 짧아서 드물게 겹칠 수 있고, 겹치면 서버가 '같은 입금' 으로 보고 버린다
+  function depPayload(r, labels, m) {
+    return {
+      ref: r.key + '@' + (r.when || '') + '@' + r.dep, amount: r.dep, when: r.when,
+      fields: m.memo.map((i, k) => [labels[i] || '', (r.cols || [])[k] || '']).filter((x) => x[1]),
+    };
+  }
+
   function judge(rows, seen, hadBase) {
     if (!hadBase) return { baseline: true, fresh: [] };
     const fresh = rows.filter((r) => !seen[r.key]);
@@ -126,7 +136,7 @@
   }
 
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst };
+    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload };
     return;
   }
 
@@ -266,6 +276,45 @@
     return !!document.querySelector('input[type=password]') || /login|certi/i.test(location.pathname);
   }
 
+  /* ─── 방송 서버로 보내기 (0.2) ───
+     은행 화면 안에서는 우리 서버로 직접 못 보낸다(CORS) → 확장 배경(background.js)에 넘기면 배경이 보낸다.
+     보내는 것: 새 입금(금액 · 시각 · 이름/내용 칸) + 30초마다 '살아 있음' 신호(빈 목록). 받는 쪽은 후원 콘솔의 추천 칸뿐. */
+  const LINKKEY = 'aw-link';
+  const PROD = 'https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e';   // 엔젤컴퍼니.메인.한국
+  let net = { why: 'idle', at: 0, queued: 0 };
+  let lastBeat = 0;
+  const loadLink = () => new Promise((res) => {
+    try { chrome.storage.local.get(LINKKEY, (o) => res(Object.assign({ server: PROD, key: '' }, (o && o[LINKKEY]) || {}))); }
+    catch (e) { res({ server: PROD, key: '' }); }
+  });
+  function sendDeps(deposits) {
+    lastBeat = Date.now();
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) { net = { why: 'ext', at: 0, queued: 0 }; return; }
+    const what = S && S.enabled ? '자동 조회 ' + S.clicks + '번' : '자동 조회 꺼짐';
+    try {
+      chrome.runtime.sendMessage({ t: 'aw-send', deposits, note: what }, (res) => {
+        if (chrome.runtime.lastError || !res) { net = { why: 'ext', at: net.at, queued: net.queued }; tick(); return; }
+        net = res.ok ? { why: 'ok', at: res.at, queued: res.queued } : { why: res.why, code: res.code, at: net.at, queued: res.queued };
+        if (deposits.length && res.ok) note('방송 서버로 보냄 — 입금 ' + deposits.length + '건');
+        tick();
+      });
+    } catch (e) { net = { why: 'ext', at: 0, queued: 0 }; }
+  }
+  // 30초에 한 번 '살아 있음' — 후원 콘솔이 '은행 확장 연결됨 · n초 전' 을 보여준다. 못 보낸 입금도 이때 다시 간다
+  function beat() { if (lastFound && Date.now() - lastBeat > 25000) sendDeps([]); }
+  function netStatus() {
+    switch (net.why) {
+      case 'ok': return ['방송 서버로 보냄 ✓ ' + hhmm(net.at) + (net.queued ? ' · 기다리는 입금 ' + net.queued + '건' : ''), 'ok'];
+      case 'nokey': return ['열쇠를 넣어야 방송 서버로 보내요 — 아래 [방송 서버 연결]' + (net.queued ? ' (기다리는 입금 ' + net.queued + '건)' : ''), 'warn'];
+      case 'key': return ['열쇠가 맞지 않아요 — 후원 콘솔 [은행 확장 연결]에서 다시 복사해 넣어 주세요', 'bad'];
+      case 'net': return ['방송 서버에 연결하지 못했어요 — 30초마다 다시 보내요' + (net.queued ? ' (기다리는 입금 ' + net.queued + '건)' : ''), 'bad'];
+      case 'http': return ['방송 서버가 받지 않았어요(' + net.code + ') — 30초마다 다시 보내요', 'bad'];
+      case 'server': return ['보낼 서버 주소가 이상해요 — [방송 서버 연결]에서 다시 골라 주세요', 'bad'];
+      case 'ext': return ['확장 배경과 연결이 끊겼어요 — 은행 화면을 새로고침해 주세요', 'bad'];
+      default: return ['방송 서버: 아직 안 보냄', ''];
+    }
+  }
+
   /* ─── 표 읽기 ─── */
   // ⚠️ 은행 화면에는 1초마다 바뀌는 '남은 시간' 시계 같은 것이 있다. 그때마다 저장하면 쓰기가 폭주한다 —
   //    표 줄이 그대로면 저장하지 않고(마지막 정상 시각만 30초에 한 번) 넘긴다.
@@ -281,6 +330,7 @@
       S.lastOkAt = now;
       if (now - lastOkSaved > 30000) { lastOkSaved = now; await save(); }
       tick();
+      beat();
       return;
     }
     lastRowsSig = rowsSig;
@@ -293,6 +343,8 @@
     if (j.rebase) { note('표가 통째로 바뀌어(다른 계좌 · 기간?) 기준을 새로 잡았어요'); }
     if (j.baseline || j.rebase) { S.baseAt = now; S.baseSig = sig; }
     const deps = (j.fresh || []).filter((r) => r.dep > 0);
+    if (deps.length) sendDeps(deps.map((r) => depPayload(r, f.labels, f.m)));
+    else beat();
     deps.reverse().forEach((r) => {
       S.found.unshift({ at: now, when: r.when, dep: r.dep, memo: r.memo, kind: r.kind });
       note('새 입금 ' + r.dep.toLocaleString() + '원 ' + (r.memo.join(' · ') || ''));
@@ -362,14 +414,30 @@
         .flash{animation:fl 1.2s ease 2}
         @keyframes fl{0%,100%{box-shadow:0 6px 24px #0008}50%{box-shadow:0 0 0 4px #7ee2a8}}
         ul{margin:0;padding-left:16px}
+        .lk{padding:0 10px 8px}
+        .lk .row{margin-top:6px}
+        .lk input{flex:1;min-width:0;background:#0f131b;color:#e8ecf3;border:1px solid #445066;border-radius:6px;padding:4px 8px;font:inherit}
       </style>
       <div class="bx">
-        <div class="hd">🏦 엔젤 입금확인 <span class="mut">시험판</span><span class="sp"></span><button data-a="fold" title="접기">▾</button></div>
+        <div class="hd">🏦 엔젤 입금확인 <span class="mut">0.2</span><span class="sp"></span><button data-a="fold" title="접기">▾</button></div>
         <div class="bd"></div>
+        <div class="lk">
+          <details><summary class="mut">방송 서버 연결</summary>
+            <div class="mut">후원 콘솔 → 🏦 계좌 입금 추천 → [은행 확장 연결]의 열쇠를 붙여 넣으세요.</div>
+            <div class="row"><input type="password" data-k="key" placeholder="열쇠 붙여 넣기" autocomplete="off"><button data-a="savekey">저장</button></div>
+            <div class="row"><select data-k="server"><option value="${PROD}">방송 서버 (엔젤컴퍼니.메인.한국)</option><option value="http://127.0.0.1:5289">내 PC 시험 (127.0.0.1:5289)</option></select></div>
+            <div class="mut lkmsg"></div>
+          </details>
+        </div>
       </div>`;
     document.documentElement.appendChild(host);
-    ui = { host, root, bx: root.querySelector('.bx'), bd: root.querySelector('.bd') };
+    ui = { host, root, bx: root.querySelector('.bx'), bd: root.querySelector('.bd'), lk: root.querySelector('.lk') };
     root.addEventListener('click', onUiClick);
+    // ⚠️ 열쇠 칸은 상자 몸통(.bd) 밖이다 — 몸통은 조회할 때마다 다시 그려져서, 안에 두면 치던 글자가 지워진다
+    loadLink().then((l) => {
+      ui.root.querySelector('[data-k=server]').value = l.server;
+      ui.root.querySelector('[data-k=key]').placeholder = l.key ? '저장됨 ••••' + l.key.slice(-4) + ' (바꾸려면 새로 붙여 넣기)' : '열쇠 붙여 넣기';
+    });
   }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
@@ -392,12 +460,15 @@
     const [st, cls] = status();
     el.textContent = st;
     el.className = 'st ' + cls;
+    const ln = ui.bd.querySelector('.ln');
+    if (ln) { const [t2, c2] = netStatus(); ln.textContent = t2; ln.className = 'st ln ' + c2; }
   }
 
   function render(flash) {
     if (!ui) return;
-    if (S.folded) { ui.bd.style.display = 'none'; return; }
+    if (S.folded) { ui.bd.style.display = 'none'; ui.lk.style.display = 'none'; return; }
     ui.bd.style.display = '';
+    ui.lk.style.display = '';
     const f = lastFound;
     const now = Date.now();
     const [st, cls] = status();
@@ -410,8 +481,10 @@
         ? '<div class="st warn">⚠️ 조회 기간 날짜 칸을 못 찾았어요. 자정이 지나면 끝 날짜가 어제로 남아 새 입금이 안 보일 수 있어요 — 이 상자를 캡처해 보내 주세요</div>' : '');
     const deps = S.found.slice(0, 8).map((d) => `<div class="dep"><b>${d.dep.toLocaleString()}원</b><span>${esc(d.memo.join(' · ') || '(내용 없음)')}</span><span class="mut">${esc(d.when || '')}</span><span class="mut">찾은 시각 ${hhmm(d.at)}</span></div>`).join('');
     const up = S.enabled && S.startedAt ? '켜 둔 지 ' + dur(now - S.startedAt) + ' · ' : '';
+    const [nt, ncls] = netStatus();
     ui.bd.innerHTML = `
       <div class="st ${cls}">${esc(st)}</div>
+      <div class="st ln ${ncls}">${esc(nt)}</div>
       ${order}
       <div class="row">
         <button data-a="toggle" class="${S.enabled ? 'on' : ''}">${S.enabled ? '자동 조회 끄기' : '자동 조회 켜기'}</button>
@@ -420,16 +493,31 @@
       </div>
       <div class="mut">${up}조회 ${S.clicks}번 · 마지막 정상 ${hhmm(S.lastOkAt)}</div>
       ${cols ? `<div class="mut">${cols}</div>` : ''}
-      <div><b>새 입금</b> <span class="mut">(시험 기록 · 아무 데도 안 보냄)</span></div>
+      <div><b>새 입금</b> <span class="mut">(후원 콘솔 '계좌 입금 추천' 칸으로 보내요 — 송출은 거기서)</span></div>
       ${deps || '<div class="mut">아직 없어요. 다른 통장에서 1,000원을 보내 보세요</div>'}
       <details><summary class="mut">기록</summary><ul class="mut">${S.log.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>
-      <div class="row"><button data-a="clear">시험 기록 지우기</button></div>`;
+      <div class="row"><button data-a="clear">상자 기록 지우기</button></div>`;
     if (flash) { ui.bx.classList.remove('flash'); void ui.bx.offsetWidth; ui.bx.classList.add('flash'); }
+  }
+
+  async function saveLink() {
+    const msg = ui.root.querySelector('.lkmsg');
+    const inp = ui.root.querySelector('[data-k=key]');
+    const server = ui.root.querySelector('[data-k=server]').value;
+    const old = await loadLink();
+    const key = inp.value.trim() || old.key;
+    if (!/^[0-9a-f]{32}$/.test(key)) { msg.textContent = '열쇠 모양이 아니에요 — 후원 콘솔에서 [복사]한 32글자를 그대로 붙여 주세요'; return; }
+    await new Promise((res) => { try { chrome.storage.local.set({ [LINKKEY]: { server, key } }, () => res()); } catch (e) { res(); } });
+    inp.value = '';
+    inp.placeholder = '저장됨 ••••' + key.slice(-4) + ' (바꾸려면 새로 붙여 넣기)';
+    msg.textContent = '저장했어요 — 바로 신호를 보내 볼게요. 위 줄이 "방송 서버로 보냄 ✓" 가 되면 연결된 거예요';
+    sendDeps([]);
   }
 
   async function onUiClick(e) {
     const a = e.target && e.target.getAttribute && e.target.getAttribute('data-a');
     if (!a) return;
+    if (a === 'savekey') { await saveLink(); return; }
     S = await load();
     if (a === 'fold') { S.folded = !S.folded; }
     if (a === 'toggle') {
@@ -506,7 +594,7 @@
     });
     mo.observe(document.body, { childList: true, subtree: true, characterData: true });
     schedule();
-    setInterval(() => { if (S && S.enabled) tick(); }, 1000);   // '다음 n초 뒤' 시계
+    setInterval(() => { if (S && S.enabled) { tick(); beat(); } }, 1000);   // '다음 n초 뒤' 시계 · 살아 있음 신호
   }
   boot();
 })();

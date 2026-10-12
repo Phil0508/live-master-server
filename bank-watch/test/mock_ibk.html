@@ -85,6 +85,14 @@
       get(k, cb) { let v = null; try { v = JSON.parse(localStorage.getItem('h_' + k) || 'null'); } catch (e) {} setTimeout(() => cb(v ? { [k]: v } : {}), 0); },
       set(o, cb) { Object.keys(o).forEach((k) => localStorage.setItem('h_' + k, JSON.stringify(o[k]))); setTimeout(() => cb && cb(), 0); },
     } };
+    // 확장 배경(background.js)으로 넘기는 것만 흉내 낸다 — 무엇을 보냈는지 window.__sent 에 쌓는다.
+    // ?keybad=1 이면 배경이 '열쇠가 틀림' 으로 답한다(상자 문구 확인용). 실제 전송은 하지 않는다.
+    window.__sent = [];
+    window.chrome.runtime = { lastError: undefined, sendMessage(msg, cb) {
+      window.__sent.push(JSON.parse(JSON.stringify(msg)));
+      const res = Q.get('keybad') === '1' ? { ok: false, why: 'key', queued: (msg.deposits || []).length } : { ok: true, queued: 0, at: Date.now() };
+      setTimeout(() => cb && cb(res), 0);
+    } };
     ['../page_hook.js', '../content.js'].forEach((src) => { const s = document.createElement('script'); s.src = src; s.async = false; document.head.appendChild(s); });
   }
 </script>

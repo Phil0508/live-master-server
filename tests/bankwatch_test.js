@@ -74,5 +74,31 @@ console.log('⑥ 정렬');
 chk('최근순이면 통과', W.newestFirst(next));
 chk('오래된 순이면 알아챈다', !W.newestFirst(next.slice().reverse()));
 
+console.log('⑦ 방송 서버로 보낼 모양(0.2)');
+const L = ['거래일시', '출금(원)', '입금(원)', '잔액(원)', '거래내용', '상대계좌예금주명', '거래구분'];
+const p = W.depPayload(j.fresh[0] || next[0], L, m);
+chk('번호(ref) = 줄 지문 + 시각 + 금액(지문이 드물게 겹쳐도 다른 입금은 다른 번호)',
+  p.ref === next[0].key + '@2026.10.12 14:00:02@1000' && p.amount === 1000 && p.when === '2026.10.12 14:00:02', p);
+chk('이름/내용 칸은 [머리글, 값] — 서버가 메모 칸과 예금주 칸을 가른다',
+  JSON.stringify(p.fields) === JSON.stringify([['거래내용', '테스트/안녕'], ['상대계좌예금주명', '홍길동']]), p.fields);
+const e = W.depPayload(W.keyRows([W.rowFrom(['2026.10.12 15:00', '', '5,000', '1', '구름빵', '', '타행'], m)])[0], L, m);
+chk('빈 칸은 안 보낸다(예금주 칸이 비었으면 메모 칸만)', JSON.stringify(e.fields) === JSON.stringify([['거래내용', '구름빵']]), e.fields);
+chk('표 한 줄 전체(잔액 · 출금 칸 등)는 보내지 않는다', Object.keys(p).sort().join(',') === 'amount,fields,ref,when', Object.keys(p));
+
+console.log('⑧ 확장 배경 — 보낼 곳 제한 · 대기줄');
+const B = require(path.join(ROOT, 'bank-watch', 'background.js'));
+chk('방송 서버(엔젤컴퍼니.메인.한국)로는 보낸다', B.allowed('https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e'));
+chk('방송 주소가 맞다(idna 로 만든 값)', B.PROD === 'https://' + require('url').domainToASCII('엔젤컴퍼니.메인.한국'), B.PROD);
+chk('내 PC 시험 서버로는 보낸다', B.allowed('http://127.0.0.1:5289') && B.allowed('http://localhost:5000'));
+chk('다른 주소로는 안 보낸다', !B.allowed('https://evil.example') && !B.allowed('http://10.0.0.5:5000') && !B.allowed('https://127.0.0.1.evil.com') && !B.allowed('javascript:alert(1)') && !B.allowed(''));
+chk('방송 서버도 https 만', !B.allowed('http://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e'));
+let q = B.mergeQueue([{ ref: 'a' }], [{ ref: 'a' }, { ref: 'b' }, null, { amount: 1 }]);
+chk('대기줄: 같은 입금은 한 번 · ref 없는 것은 버린다', q.map((x) => x.ref).join(',') === 'a,b', q);
+q = B.mergeQueue([], Array.from({ length: 250 }, (_, i) => ({ ref: 'r' + i })));
+chk('대기줄은 200건까지(최근 것을 남긴다)', q.length === 200 && q[0].ref === 'r50' && q[199].ref === 'r249');
+const MAN = require(path.join(ROOT, 'bank-watch', 'manifest.json'));
+chk('manifest 의 보낼 곳(host_permissions)과 배경의 제한이 같다',
+  JSON.stringify(MAN.host_permissions) === JSON.stringify([B.PROD + '/*', 'http://127.0.0.1/*', 'http://localhost/*']), MAN.host_permissions);
+
 console.log('\n통과 ' + ok + ' · 실패 ' + bad);
 process.exit(bad ? 1 : 0);

@@ -1,9 +1,15 @@
 {
   "manifest_version": 3,
-  "name": "엔젤 입금확인 (기업은행) — 시험판",
-  "version": "0.1.0",
-  "description": "기업은행 거래내역조회 화면에서 [조회]를 대신 눌러 새 입금을 찾는다. 시험판은 화면 상자에만 보여주고 아무 데도 보내지 않는다.",
+  "name": "엔젤 입금확인 (기업은행)",
+  "version": "0.2.0",
+  "description": "기업은행 거래내역조회 화면에서 [조회]를 대신 눌러 새 입금을 찾고, 방송 서버 후원 콘솔의 '계좌 입금 추천' 칸으로 보낸다. 송출은 후원 콘솔에서 사람이 누른다.",
   "permissions": ["storage"],
+  "host_permissions": [
+    "https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": { "service_worker": "background.js" },
   "content_scripts": [
     {
       "matches": ["https://mybank.ibk.co.kr/*", "https://www.ibk.co.kr/*"],

@@ -18,6 +18,7 @@ import re
 from features.ai_facts import name_forms
 
 MEMO_MAX = 40            # 통장 표시는 짧다 — 이보다 길면 표 칸 여러 개가 붙은 것이니 자른다
+_SEP = re.compile(r'\s*[\s/,·|]\s*')     # 닉네임과 할 말 사이 — 띄어쓰기 · 빗금 · 쉼표
 _EDGE = re.compile(r'^[\s,./!?~\-()\[\]"\'·:;♡♥]*')
 # 닉네임이 아니라 '할 말' 로 시작하는 흔한 말. 첫 낱말이 이것이면 닉네임으로 보지 않는다.
 _CHEER = ('화이팅', '파이팅', '홧팅', '사랑', '응원', '감사', '축하', '최고', '고생', '수고',
@@ -122,12 +123,13 @@ def split_memo(memo, players=(), donors=()):
         return {'name': hit[0], 'message': hit[1], 'how': 'known', 'sure': True}
 
     # ⚠️ 닉네임은 적힌 그대로 둔다 — '새손님' 의 '님' 을 떼면 남의 이름이 된다(뗀 모양은 기억과 맞대 볼 때만 쓴다)
-    words = text.split(' ')
-    first = words[0]
+    # 띄어쓰기뿐 아니라 '영원/밍밍화이팅' · '영원,밍밍' 처럼 빗금 · 쉼표로 나눠 적기도 한다
+    cut = _SEP.search(text)
+    first = text[:cut.start()] if cut else text
     if mentions_player(first, pl) or _cheer(first):
         return {'name': '', 'message': text, 'how': 'message', 'sure': False}
-    if len(words) >= 2:
-        return {'name': first, 'message': ' '.join(words[1:]), 'how': 'first', 'sure': False}
+    if cut:
+        return {'name': first, 'message': text[cut.end():], 'how': 'first', 'sure': False}
     # 한 낱말 — 응원 말이 가운데 섞여 있으면('영원히사랑해') 이름이 아니라 할 말이다
     if any(c in first for c in _CHEER if len(c) >= 2):
         return {'name': '', 'message': text, 'how': 'message', 'sure': False}
@@ -137,7 +139,7 @@ def split_memo(memo, players=(), donors=()):
 def ai_split_ok(memo, name, message):
     """AI 가 나눈 결과를 믿어도 되는가 — 지어낸 글자가 없어야 한다.
        닉네임은 메모의 맨 앞이나 맨 뒤 토막이고, 닉네임 + 메시지 = 메모(띄어쓰기 빼고)."""
-    flat = lambda s: re.sub(r'\s+', '', str(s or ''))
+    flat = lambda s: re.sub(r'[\s/,·|]+', '', str(s or ''))
     m, n, g = flat(memo), flat(name), flat(message)
     if not m:
         return False
