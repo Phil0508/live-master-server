@@ -305,6 +305,9 @@ def receive_donation():
         from_manual = str(tx_id or '').startswith('manual_') and request_is_authed()
         # 🏷️ 칭호 · 레벨(화면에 실어도 됨) / VIP · 번호표(대기함 · 장부에만) — 리스너가 보낸 것만 믿는다
         _pub, _priv = _donor_extras(new_don) if from_listener else ({}, {})
+        # 💙 투네이션에서 온 후원 — 방송판 시그니처 카드 사진 옆에 '투네' 딱지(대표님 2026-10-13).
+        #    리스너(tx_id toon_)가 보낸 것만 — 계좌 · 수동 송출은 안 붙는다.
+        _via = {'via': 'toon'} if from_listener else {}
         dup_key = f"{(new_don.get('name') or '').strip()}|{amount}|{(new_don.get('message') or '').strip()}"
         # ⚠️ 되살리는 중(_recover)이면 거르지 않는다 — 장부로 '진짜 한 건' 이 확인된 후원이다.
         if not from_listener and not from_manual and not _recover and is_duplicate_donation(dup_key):
@@ -376,7 +379,7 @@ def receive_donation():
                 _latest = {'name': _nm, 'amount': amount, 'message': _msg, 'time': time.time(), 'show_only': _show_only}
                 _latest.update(_pub)
                 if matched_sig:
-                    enqueue_signature(state, matched_sig, amount, _nm, _msg, count_tally=False, extra=dict(_pub) or None)
+                    enqueue_signature(state, matched_sig, amount, _nm, _msg, count_tally=False, extra=dict(_pub, **_via) or None)
                 elif amount < SMALL_DISPLAY_MAX:
                     _latest['display_only'] = True
                 _tx_log_add(_latest, state.get('latest_donation'), None)
@@ -584,7 +587,7 @@ def receive_donation():
 
             # 🎵 자동 시그니처 리액션 연동 (매칭은 위에서 락 밖에 끝냈고, 여기서는 큐에만 넣는다)
             if matched_sig:
-                enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg, extra=dict(_pub) or None)
+                enqueue_signature(state, matched_sig, amount, parsed_name, cleaned_msg, extra=dict(_pub, **_via) or None)
                 print(f"  🎵 [자동 시그니처] 후원 {amount}원 → '{matched_sig.get('title')}' (#{matched_sig.get('id')}, {matched_sig.get('amount')}원) 큐 추가 완료")
 
 

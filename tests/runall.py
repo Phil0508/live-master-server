@@ -279,6 +279,7 @@ run('🏦 입금확인 확장 — 표 읽는 규칙', ['node', 'bankwatch_test.j
 run('🏦 입금확인 확장 — 가짜 은행 화면에서 자동 조회', [PY, 'bankwatch_e2e.py'], HERE)
 run('🏦 계좌 입금 메모 나누기 — 닉네임 · 할 말', [PY, 'bank_memo_test.py'], HERE)
 run('🏦 계좌 입금 추천 — 서버 입구 · 열쇠 · 실명 안 새기', [PY, 'bank_inbox_test.py'], HERE)
+run("💙 투네이션 후원 '투네' 딱지 — 시그니처 카드 사진 옆", [PY, 'toon_badge_test.py'], HERE)
 run('기여도만 지급', [PY, 'contrib_test.py'], HERE, kind='pt')
 run('한 방 최고 후원', [PY, 'best_test.py'], HERE, kind='pt')
 run('🔥 지옥탈출', [PY, 'hell_test.py'], HERE, kind='pt')

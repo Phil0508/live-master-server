@@ -2391,6 +2391,13 @@
             border: 2px solid rgba(255, 255, 255, 0.45); text-shadow: none; -webkit-text-stroke: 0; font-variant-numeric: tabular-nums; }
         /* 🔁 같은 사람 · 같은 시그니처 연속 — 한 번 틀면 그림 모서리 빨간 원에 ×N 이 톡톡 올라간다(대표님 2026-09-29 C안).
               조종실 [N번 다 틀기]면 대신 '2 / 7' 처럼 몇 번째인지 보인다. */
+        /* 💙 투네이션에서 온 후원 — 사진 왼쪽 위 '투네' 딱지(대표님 2026-10-13). 투네이션 대표 파랑 · 흰 글자 · 흰 테두리 · 조금 둥근 네모.
+              오른쪽 위는 ×N 연속 딱지 자리라 왼쪽에 둔다. 서버가 리스너(tx_id toon_) 후원에만 via:'toon' 을 싣는다 — 계좌 · 수동은 없다. */
+        #reaction-via { position: absolute; top: -16px; left: -16px; z-index: 6; display: none; pointer-events: none; line-height: 1;
+            padding: 7px 14px 8px; border-radius: 12px; background: #519CFF; border: 3px solid #fff; color: #fff;
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif; font-size: 30px; font-weight: 900; letter-spacing: -0.5px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transform: rotate(-4deg); }
+        #reaction-via.on { display: block; }
         #reaction-combo { position: absolute; top: -34px; right: -34px; z-index: 6; display: none; pointer-events: none; line-height: 1; }
         #reaction-combo.burst { display: grid; place-items: center; width: 118px; height: 118px; border-radius: 50%;
             background: radial-gradient(circle at 40% 35%, #ff7a70, #ff3b30 55%, #c4140b); color: #fff;
@@ -3377,6 +3384,7 @@
     <div id="reaction-screen-overlay" class="reaction-screen-overlay">
         <div id="reaction-img-box" class="reaction-img-box">
             <div id="reaction-combo" aria-hidden="true"></div>
+            <div id="reaction-via" aria-hidden="true">투네</div>
             <img id="reaction-screen-image" src="" alt="Reaction Image">
             <div class="reaction-shine"></div>
         </div>
@@ -8013,6 +8021,9 @@
                 }
                 // 💬 묶음이면 이번 차례 메시지(또는 전부) — rxMsgFor
                 rxMsgPaint(messageEl, rxMsgFor(data));
+                // 💙 투네이션에서 온 후원이면 사진 왼쪽 위 '투네' 딱지
+                const _viaEl = document.getElementById('reaction-via');
+                if (_viaEl) _viaEl.classList.toggle('on', data.via === 'toon');
                 
                 if (data.image_url) {
                     img.src = data.image_url;
