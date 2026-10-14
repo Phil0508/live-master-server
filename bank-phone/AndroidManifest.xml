@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 🏦 엔젤 입금알림 — 기업은행 앱 두 개의 입금 알림만 읽어 방송 서버 '계좌 입금 추천' 칸으로 보낸다 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="me.angelcompany.bankphone"
+    android:versionCode="1"
+    android:versionName="0.1">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <queries>
+        <package android:name="com.ibk.android.ionebank" />
+        <package android:name="com.IBK.SmartPush.app" />
+    </queries>
+
+    <!-- usesCleartextTraffic: 집 안 공유기 주소(시험 서버)로도 보낼 수 있게. 방송 서버는 https 다 -->
+    <application
+        android:label="엔젤 입금알림"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true">
+
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".BankListener"
+            android:exported="true"
+            android:label="엔젤 입금알림"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
