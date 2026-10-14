@@ -21,7 +21,9 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * 📩 폰에 뜨는 알림 중 **기업은행 앱 두 개**의 것만 읽는다. 다른 앱 알림은 보지도 않는다.
+ * 📩 폰에 뜨는 알림 중 **기업은행 앱**의 것만 읽는다. 다른 앱 알림은 남기지도 보내지도 않는다.
+ *    기업은행 앱 = 꾸러미 이름이 com.ibk 로 시작하거나(개인 · 기업 · 스마트알림), 알림 제목에 i-ONE · IBK · 기업은행.
+ *    (10-14 실제 알림은 'i-ONE Bank 기업' 앱 — 꾸러미 이름을 몰라 제목으로도 받는다)
  * 입금이면 대기줄에 넣고 바로 보낸다. 30초마다 '살아 있음' 신호(후원 콘솔: '은행 연결됨 · 폰').
  */
 public class BankListener extends NotificationListenerService {
@@ -63,14 +65,15 @@ public class BankListener extends NotificationListenerService {
         if (n == null) return;
         String text = textOf(n.extras);
         boolean isTest = getPackageName().equals(pkg) && text.contains(TEST_TAG);
-        if (!IBK.contains(pkg) && !isTest) return;
+        if (!isBank(pkg, n.extras) && !isTest) return;
         if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;   // 묶음 머리 알림은 내용이 없다
         if (isTest) text = text.replace(TEST_TAG, "").trim();
 
         long now = System.currentTimeMillis();
         Parser.Result r = Parser.parse(text);
         String when = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss", Locale.KOREA).format(new Date(sbn.getPostTime()));
-        String app = isTest ? "시험" : ("com.IBK.SmartPush.app".equals(pkg) ? "스마트알림" : "i-ONE Bank");
+        String app = isTest ? "시험" : "com.IBK.SmartPush.app".equals(pkg) ? "스마트알림"
+                : "com.ibk.android.ionebank".equals(pkg) ? "i-ONE Bank" : pkg;   // 처음 보는 앱은 꾸러미 이름을 남긴다
 
         JSONObject row = new JSONObject();
         row.put("at", now);
@@ -102,6 +105,14 @@ public class BankListener extends NotificationListenerService {
         row.put("reason", r.reason + " → 방송 서버로 보냄");
         Store.addRecent(this, row);
         Sender.flushAsync(this, note());
+    }
+
+    static boolean isBank(String pkg, Bundle ex) {
+        if (pkg == null) return false;
+        if (IBK.contains(pkg) || pkg.toLowerCase(Locale.ROOT).startsWith("com.ibk")) return true;
+        CharSequence t = ex == null ? null : ex.getCharSequence(Notification.EXTRA_TITLE);
+        String title = t == null ? "" : t.toString();
+        return title.contains("i-ONE") || title.contains("IBK") || title.contains("기업은행");
     }
 
     /** 알림 제목 · 본문 · 펼친 본문 · 여러 줄을 겹치지 않게 이어 붙인다 */

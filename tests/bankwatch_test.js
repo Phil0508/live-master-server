@@ -85,6 +85,27 @@ const e = W.depPayload(W.keyRows([W.rowFrom(['2026.10.12 15:00', '', '5,000', '1
 chk('빈 칸은 안 보낸다(예금주 칸이 비었으면 메모 칸만)', JSON.stringify(e.fields) === JSON.stringify([['거래내용', '구름빵']]), e.fields);
 chk('표 한 줄 전체(잔액 · 출금 칸 등)는 보내지 않는다', Object.keys(p).sort().join(',') === 'amount,fields,ref,when', Object.keys(p));
 
+console.log('⑦-2 실제 표 (10-14 기업 인터넷뱅킹 kiup.ibk.co.kr 거래내역조회)');
+{
+  const KL = W.gridLabels([[{ text: '' }, { text: '' }, { text: '거래일시' }, { text: '출금' }, { text: '입금' }, { text: '거래후 잔액' }, { text: '거래내용' }, { text: '상대계좌번호' }, { text: '상대은행' }]]);
+  const km = W.colMap(KL);
+  chk('칸 찾기: 입금 · 출금 · 잔액 · 일시 · 거래내용', km.ok && KL[km.dep] === '입금' && KL[km.wd] === '출금' && KL[km.bal] === '거래후 잔액' && KL[km.date] === '거래일시' && km.memo.map((i) => KL[i])[0] === '거래내용', km);
+  const rows = W.keyRows([
+    ['1', '', '2026-10-14 16:34:54', '0', '1', '37,449,258', '스트밍밍플러', '', '하나은행'],
+    ['2', '', '2026-10-14 15:08:56', '12,300', '0', '37,449,257', '카카오T일반택시(법인', '5298038078885977', ''],
+    ['3', '', '2026-10-14 14:39:07', '0', '11,800', '37,461,557', '카카오T택시_가승인', '', ''],
+    ['4', '', '2026-10-14 14:38:57', '11,800', '0', '37,449,757', '카카오T택시_가승인', '5298038078885977', ''],
+    ['5', '', '2026-10-14 09:32:38', '1,990', '0', '37,461,557', '배민클럽_우아한형제', '5298038078885977', ''],
+  ].map((c) => W.rowFrom(c, km)));
+  const deps = rows.filter((r) => r.dep > 0 && !W.isRefund(r, rows));
+  chk('입금은 스트밍밍플러 1원 하나만(카드 가승인 취소 11,800 은 뺀다)', deps.length === 1 && deps[0].dep === 1 && deps[0].memo[0] === '스트밍밍플러', deps.map((r) => r.dep + ' ' + r.memo[0]));
+  const kp = W.depPayload(deps[0], KL, km);
+  chk('보내는 칸: 거래내용 · 상대은행 (빈 상대계좌번호는 안 보냄)', JSON.stringify(kp.fields) === JSON.stringify([['거래내용', '스트밍밍플러'], ['상대은행', '하나은행']]), kp.fields);
+  chk('같은 내용 · 같은 금액 출금이 있으면 환불로 본다', W.isRefund({ dep: 5000, memo: ['편의점'] }, [{ wd: 5000, memo: ['편의점'] }]));
+  chk('금액이 다르면 후원으로 둔다', !W.isRefund({ dep: 5000, memo: ['편의점'] }, [{ wd: 4000, memo: ['편의점'] }]));
+  chk('보통 후원 메모는 환불이 아니다', !W.isRefund({ dep: 10000, memo: ['영원 밍밍 화이팅'] }, rows));
+}
+
 console.log('⑧ 확장 배경 — 보낼 곳 제한 · 대기줄');
 const B = require(path.join(ROOT, 'bank-watch', 'background.js'));
 chk('방송 서버(엔젤컴퍼니.메인.한국)로는 보낸다', B.allowed('https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e'));

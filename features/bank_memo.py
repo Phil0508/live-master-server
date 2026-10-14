@@ -8,6 +8,8 @@
 나누는 순서(확실한 것부터)
   ① 예전에 후원한 닉네임(후원자 기억)이 메모 앞이나 뒤에 있다 — 띄어 쓰든 붙여 쓰든 찾는다.
   ② 띄어 썼고 첫 낱말이 선수 이름도, 흔한 응원 말도 아니다 → 첫 낱말을 닉네임으로 본다(확실하지 않음).
+  ②-2 붙여 쓴 한 낱말 가운데에 선수 이름이 있다('스트밍밍플러' = 스트 + 밍밍플러) → 앞은 닉네임(확실하지 않음).
+       10-14 실제 입금: 은행이 통장 표시의 띄어쓰기를 없애고 보여준다.
   ③ 선수를 부르거나 응원 말로 시작한다('밍밍 화이팅' · '밍밍최고') → 할 말만, 닉네임은 모른다.
   ④ 선수와 상관없는 한 낱말('구름빵' · '홍길동') → 이름만. 메모 없이 보내 실명이 찍힌 것일 수도 있다.
 
@@ -126,6 +128,12 @@ def split_memo(memo, players=(), donors=()):
     # 띄어쓰기뿐 아니라 '영원/밍밍화이팅' · '영원,밍밍' 처럼 빗금 · 쉼표로 나눠 적기도 한다
     cut = _SEP.search(text)
     first = text[:cut.start()] if cut else text
+    if not cut:
+        at = [first.find(p) for p in pl if p in first]
+        if at and min(at) > 0:
+            front = _strip_edges(first[:min(at)])
+            if front and not _cheer(front) and not any(c in front for c in _CHEER if len(c) >= 2):
+                return {'name': front, 'message': first[min(at):], 'how': 'player_cut', 'sure': False}
     if mentions_player(first, pl) or _cheer(first):
         return {'name': '', 'message': text, 'how': 'message', 'sure': False}
     if cut:

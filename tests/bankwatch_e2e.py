@@ -50,7 +50,7 @@ tmp = tempfile.mkdtemp(prefix='lmtest_bankwatch_')
 print('⓪ 확장 묶음(manifest)')
 man = json.load(io.open(os.path.join(EXT, 'manifest.json'), encoding='utf-8'))
 cs = man.get('content_scripts') or []
-chk('기업은행 주소에만 붙는다', all(set(c['matches']) == {'https://mybank.ibk.co.kr/*', 'https://www.ibk.co.kr/*'} for c in cs), [c['matches'] for c in cs])
+chk('기업은행 주소에만 붙는다', all(set(c['matches']) == {'https://mybank.ibk.co.kr/*', 'https://www.ibk.co.kr/*', 'https://kiup.ibk.co.kr/*'} for c in cs), [c['matches'] for c in cs])
 chk('알림창 고리는 은행 화면 쪽(MAIN) · 문서 시작 때', any(c['js'] == ['page_hook.js'] and c.get('world') == 'MAIN' and c.get('run_at') == 'document_start' for c in cs))
 chk('틀(iframe) 안에서도 돈다', all(c.get('all_frames') for c in cs))
 chk('권한은 저장소 하나 · 보낼 곳은 방송 서버와 내 PC 시험 서버뿐',

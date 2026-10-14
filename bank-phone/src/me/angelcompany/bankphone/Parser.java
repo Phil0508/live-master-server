@@ -6,8 +6,10 @@ import java.util.regex.Pattern;
 /**
  * 기업은행 입금 알림 글 → 금액 · 보낸 사람.
  *
- * 알려진 모양(2026-10 기준, 실제 알림으로 다시 맞출 것):
- *   "[입금] 50,000원 홍길동"      — 새 모양
+ * 알려진 모양:
+ *   "[입금] 1원\n스트밍밍플러 -> 내 입출금통장(04-011)\n잔액 37,449,258원"
+ *                                 — ✅ 실제 알림(i-ONE Bank 기업, 10-14). 보낸 사람은 다음 줄, ' -> ' 뒤는 내 통장
+ *   "[입금] 50,000원 홍길동"      — 한 줄로 붙어 올 때
  *   "50,000원 입금" (+ 다른 줄)   — 옛 모양
  *   "입금 50,000원"               — 다른 은행에 흔한 모양(예비)
  * 결과는 '추천' 카드가 될 뿐이다(송출은 사람이 누른다). 그래서 애매하면 놓치는 쪽보다 잡는 쪽으로 둔다.
@@ -33,7 +35,10 @@ public final class Parser {
     public static final long AMOUNT_MAX = 100_000_000L;
 
     private static final String AMT = "([1-9][0-9]{0,2}(?:,[0-9]{3})+|[1-9][0-9]*)";
-    private static final Pattern BRACKET = Pattern.compile("\\[입금\\]\\s*" + AMT + "\\s*원(?:[ \\t]+([^\\r\\n]+))?");
+    /** 보낸 사람은 같은 줄 뒤나 바로 다음 줄에 온다(10-14 실제 알림은 다음 줄) */
+    private static final Pattern BRACKET = Pattern.compile("\\[입금\\]\\s*" + AMT + "\\s*원(?:[ \\t]*(?:\\r?\\n)?[ \\t]*([^\\r\\n]+))?");
+    /** ' -> 내 입출금통장(04-011)' — 화살표 뒤는 받는 내 통장이다 */
+    private static final Pattern TO_ACCOUNT = Pattern.compile("\\s*(->|→|▶|=>).*$");
     private static final Pattern AMT_THEN_IN = Pattern.compile(AMT + "\\s*원\\s*입금");
     private static final Pattern IN_THEN_AMT = Pattern.compile("입금\\s*[:：]?\\s*" + AMT + "\\s*원");
     /** 출금 · 결제가 섞인 알림은 입금이 아니다. '입출금 알림' 같은 머리글은 미리 지운다. */
@@ -86,6 +91,7 @@ public final class Parser {
     static String cleanSender(String s) {
         if (s == null) return "";
         String v = s.replace(' ', ' ').trim();
+        v = TO_ACCOUNT.matcher(v).replaceAll("").trim();
         v = SENDER_TAIL.matcher(v).replaceAll("").trim();
         v = v.replaceAll("\\s+", " ");
         return v.length() > 40 ? v.substring(0, 40) : v;

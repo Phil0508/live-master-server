@@ -2,8 +2,8 @@
 <!-- 🏦 엔젤 입금알림 — 기업은행 앱 두 개의 입금 알림만 읽어 방송 서버 '계좌 입금 추천' 칸으로 보낸다 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="me.angelcompany.bankphone"
-    android:versionCode="1"
-    android:versionName="0.1">
+    android:versionCode="2"
+    android:versionName="0.2">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

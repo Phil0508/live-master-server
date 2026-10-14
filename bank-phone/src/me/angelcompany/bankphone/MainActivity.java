@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
             @Override public void onClick(View v) { askBattery(); }
         });
         c1.addView(btnBattery);
-        c1.addView(text("기업은행 앱 두 개(i-ONE Bank · IBK 스마트알림)의 입금 알림을 켜 두고, 이 폰은 충전기에 꽂아 두세요.", 12, MUTED, false));
+        c1.addView(text("기업은행 앱(i-ONE Bank 기업 · 개인, IBK 스마트알림)의 입금 알림을 켜 두고, 이 폰은 충전기에 꽂아 두세요.", 12, MUTED, false));
 
         LinearLayout c2 = card(root, "② 방송 서버 연결");
         c2.addView(text("후원 콘솔 → 🏦 계좌 입금 추천 → [은행 확장 연결]의 열쇠를 붙여 넣으세요.", 12, MUTED, false));

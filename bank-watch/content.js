@@ -121,6 +121,15 @@
     };
   }
 
+  /* 카드 취소 · 환불도 '입금' 줄로 들어온다(10-14 기업 인터넷뱅킹: 입금 11,800 '카카오T택시_가승인').
+     후원이 아니다 → 내용에 가승인 · 취소 · 환불이 있거나, 같은 표에 같은 내용 · 같은 금액의 출금 줄이 있으면 뺀다. */
+  function isRefund(r, rows) {
+    const memo = (r.memo || []).join(' ');
+    if (/가승인|승인취소|취소|환불/.test(memo)) return true;
+    const first = (r.memo || [])[0] || '';
+    return !!first && (rows || []).some((o) => o !== r && o.wd > 0 && o.wd === r.dep && ((o.memo || [])[0] || '') === first);
+  }
+
   function judge(rows, seen, hadBase) {
     if (!hadBase) return { baseline: true, fresh: [] };
     const fresh = rows.filter((r) => !seen[r.key]);
@@ -136,7 +145,7 @@
   }
 
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload };
+    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload, isRefund };
     return;
   }
 
@@ -342,7 +351,7 @@
     if (j.baseline) note('기준 잡음 — 지금 표의 ' + f.rows.length + '줄은 알리지 않아요');
     if (j.rebase) { note('표가 통째로 바뀌어(다른 계좌 · 기간?) 기준을 새로 잡았어요'); }
     if (j.baseline || j.rebase) { S.baseAt = now; S.baseSig = sig; }
-    const deps = (j.fresh || []).filter((r) => r.dep > 0);
+    const deps = (j.fresh || []).filter((r) => r.dep > 0 && !isRefund(r, f.rows));
     if (deps.length) sendDeps(deps.map((r) => depPayload(r, f.labels, f.m)));
     else beat();
     deps.reverse().forEach((r) => {
