@@ -167,7 +167,12 @@ chk('입금 기록 · 열쇠 파일은 저장소에 안 올라간다', 'bank_inb
 MS = open(os.path.join(ROOT, 'manual_send.html'), encoding='utf-8').read()
 chk('후원 콘솔: 계좌 입금에서 채운 송출은 그 입금 번호(manual_bank_)를 쓴다 — 두 번 눌러도 장부엔 한 번',
     "pick ? 'manual_bank_'+pick.id" in MS and 'tx_id:base+' in MS)
-chk('후원 콘솔: 송출하면 추천 칸에 씀 표시', 'if(pick) bankMarkUsed(pick.id, name);' in MS and 'async function bankMarkUsed' in MS)
+chk('후원 콘솔: 송출하면 추천 칸에 씀 표시', 'if(pick) bankMarkUsed(pick.id, name, pick.prevLedger);' in MS and 'async function bankMarkUsed' in MS)
+# 10-14 눌러 보다 찾음: [채우기] 가 켠 '장부 기록' 이 송출 뒤에도 켜진 채 남아, 다음 '재생만' 송출이 진짜 후원으로 들어갔다
+chk('후원 콘솔: [채우기] 전 장부 체크를 기억했다가 송출 · 비우기 · 숨기기 · 다른 화면 처리 뒤 되돌린다',
+    "_bankPick={id:it.id, amount:it.amount, prevLedger};" in MS
+    and "$('in-ledger').checked=!!prevLedger;" in MS
+    and MS.count("$('in-ledger').checked=!!_bankPick.prevLedger") == 3, MS.count("$('in-ledger').checked=!!_bankPick.prevLedger"))
 chk('후원 콘솔: 목록은 내용이 바뀔 때만 다시 그린다(누르는 중에 단추가 안 바뀌게)',
     'JSON.stringify([BANK.items,BANK.hidden,_bankPick&&_bankPick.id])' in MS)
 chk('후원 콘솔: 송출은 [채우기] 뒤 사람이 누른다 — 추천 칸이 스스로 /api/donation 을 부르지 않는다',

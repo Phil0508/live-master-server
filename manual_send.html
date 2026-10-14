@@ -750,7 +750,7 @@
                             : '✓ 송출했습니다'+(cnt>1?' ×'+cnt:'')+(ledger?' (장부 기록됨)':''));
             $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value=''; if($('in-count')) $('in-count').value='1'; updatePreview();
             refreshQueueOnce();   // 방금 넣은 항목을 대기열에 즉시 반영
-            if(pick) bankMarkUsed(pick.id, name);
+            if(pick) bankMarkUsed(pick.id, name, pick.prevLedger);
         }else{
             if(ledger) _manualRetry={sig, stamp};   // 입력칸은 그대로 둔다 — 그대로 다시 누르면 빠진 것만 들어간다
             if(okN) refreshQueueOnce();
@@ -985,7 +985,9 @@
             const d=await r.json();
             if(d.status!=='success') return;
             BANK={items:d.items||[], hidden:d.hidden||[], link:d.link||{}, key_set:!!d.key_set};
-            if(_bankPick && !BANK.items.some(it=>it.id===_bankPick.id)) _bankPick=null;   // 다른 화면에서 송출 · 숨김
+            if(_bankPick && !BANK.items.some(it=>it.id===_bankPick.id)){   // 다른 화면에서 송출 · 숨김
+                $('in-ledger').checked=!!_bankPick.prevLedger; _bankPick=null;
+            }
             renderBank();
         }catch(e){ $('bank-link').textContent='서버에 연결하지 못했어요'; }
     }
@@ -1000,9 +1002,12 @@
         $('in-amount').value=String(it.amount); if(window.commaFormat) commaFormat('in-amount');
         $('in-donor').value=it.name||'';
         $('in-msg').value=it.message||'';
+        // ⚠️ 장부 기록 체크는 채우기 전 상태를 기억했다가 송출 · 비우기 뒤 되돌린다.
+        //    안 그러면 켜진 채 남아, 다음에 '재생만' 하려던 수동 송출이 진짜 후원으로 장부 · 대기함에 들어간다(10-14 눌러 보다 찾음).
+        const prevLedger = _bankPick ? _bankPick.prevLedger : $('in-ledger').checked;
         $('in-ledger').checked=true;
         if($('in-count')) $('in-count').value='1';
-        _bankPick={id:it.id, amount:it.amount};
+        _bankPick={id:it.id, amount:it.amount, prevLedger};
         _manualRetry=null;
         updatePreview(); renderBank(true);
         $('in-donor').scrollIntoView({behavior:'smooth', block:'center'});
@@ -1013,13 +1018,14 @@
         try{
             const r=await fetch('/api/bank/inbox/'+encodeURIComponent(id)+'/'+act,{method:'POST'});
             if(!r.ok){ toast('처리하지 못했어요 (HTTP '+r.status+')',true); return; }
-            if(act==='dismiss'){ if(_bankPick&&_bankPick.id===id) _bankPick=null; toast('숨겼어요 — [숨긴 입금]에서 되살릴 수 있어요'); }
+            if(act==='dismiss'){ if(_bankPick&&_bankPick.id===id){ $('in-ledger').checked=!!_bankPick.prevLedger; _bankPick=null; } toast('숨겼어요 — [숨긴 입금]에서 되살릴 수 있어요'); }
             if(act==='restore') toast('되살렸어요');
             loadBank();
         }catch(e){ toast('서버에 연결하지 못했어요',true); }
     }
-    async function bankMarkUsed(id, name){
+    async function bankMarkUsed(id, name, prevLedger){
         _bankPick=null; bankPickNote();
+        $('in-ledger').checked=!!prevLedger;
         try{
             await fetch('/api/bank/inbox/'+encodeURIComponent(id)+'/used',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
         }catch(e){}
@@ -1057,6 +1063,7 @@
     });
     // 비우기 — 카드에서 채운 칸을 비우고 그 입금과의 연결도 끊는다(입금 카드는 추천 칸에 그대로 남는다)
     $('bank-pick-clear').addEventListener('click',()=>{
+        if(_bankPick) $('in-ledger').checked=!!_bankPick.prevLedger;
         _bankPick=null;
         $('in-amount').value=''; $('in-donor').value=''; $('in-msg').value='';
         updatePreview(); renderBank(true);
