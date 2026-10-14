@@ -94,6 +94,12 @@ def main():
     run([tool('apksigner'), 'sign', '--ks', ks, '--ks-pass', 'file:' + pw_file, '--out', final, aligned])
     run([tool('apksigner'), 'verify', final])
     print('✓ 다 됐어요: %s (%.0f KB)' % (final, os.path.getsize(final) / 1024))
+    # 📥 조종실에서 받게 — 저장소 bank-phone/dist 에 이름을 고정해 둔다(서버 /download/bankphone.apk 가 내려준다)
+    dist = os.path.join(HERE, 'dist')
+    os.makedirs(dist, exist_ok=True)
+    shutil.copy(final, os.path.join(dist, 'angel-bankphone.apk'))
+    open(os.path.join(dist, 'version.txt'), 'w', encoding='utf-8').write(ver + '\n')
+    print('   조종실 받기용으로 복사: bank-phone/dist/angel-bankphone.apk (판 %s) — 커밋 · 올리면 조종실에 새 판이 떠요' % ver)
 
 
 if __name__ == '__main__':

@@ -21,7 +21,7 @@ import re
 import secrets
 import threading
 import time
-from flask import jsonify, request
+from flask import jsonify, request, send_file
 from server import BASE_DIR, app, db_query, file_lock, get_db_connection, load_data
 from features.bank_memo import ai_split_ok, clean, split_memo
 
@@ -319,6 +319,35 @@ def api_bank_inbox_act(iid, act):
         if len(nm) >= 2 and nm not in ('익명', '수동송출'):
             _donors['set'].add(nm)      # 같은 방송에서 다시 보내면 바로 알아본다(대기함 배정 전이라도)
     return jsonify({'status': 'success'})
+
+
+APP_APK = os.path.join(BASE_DIR, 'bank-phone', 'dist', 'angel-bankphone.apk')
+APP_VER = os.path.join(BASE_DIR, 'bank-phone', 'dist', 'version.txt')
+
+
+def _app_version():
+    try:
+        return open(APP_VER, encoding='utf-8').read().strip()[:20]
+    except Exception:
+        return ''
+
+
+@app.route('/download/bankphone.apk', methods=['GET'])
+def download_bankphone():
+    """📱 폰 입금알림 앱 — 로그인 없이 받는다(공기계 브라우저로 QR 찍어 바로). 앱 안에 비밀값은 없다(열쇠는 앱에서 넣는다)."""
+    if not os.path.exists(APP_APK):
+        return jsonify({'status': 'error', 'message': '아직 올라온 앱 파일이 없어요'}), 404
+    ver = _app_version() or 'latest'
+    return send_file(APP_APK, mimetype='application/vnd.android.package-archive', as_attachment=True,
+                     download_name='angel-bankphone-%s.apk' % ver, max_age=0)
+
+
+@app.route('/api/bank/app', methods=['GET'])
+def api_bank_app():
+    """조종실 · 후원 콘솔이 앱 판 번호 · 크기를 보여준다(로그인)."""
+    ok = os.path.exists(APP_APK)
+    return jsonify({'status': 'success', 'ready': ok, 'version': _app_version() if ok else '',
+                    'size': os.path.getsize(APP_APK) if ok else 0, 'url': '/download/bankphone.apk'})
 
 
 @app.route('/api/bank/key', methods=['GET'])

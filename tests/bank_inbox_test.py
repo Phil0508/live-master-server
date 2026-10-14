@@ -148,6 +148,17 @@ dep(K, [{'ref': 'r9', 'amount': 20000, 'fields': [['거래내용', '새손님예
 n2 = next(i for i in inbox()['items'] if i['amount'] == 20000)
 say(n2.get('name') == '새손님' and n2.get('how') == 'known', '방금 송출한 닉네임은 다음 입금에서 알아본다', n2)
 
+# ── 📱 폰 앱 받기(로그인 없이) ──
+apk = open(os.path.join('bank-phone', 'dist', 'angel-bankphone.apk'), 'rb').read()
+r = c.get('/download/bankphone.apk')
+say(r.status_code == 200 and r.data == apk, '폰 앱은 로그인 없이 그대로 받아진다', (r.status_code, len(r.data), len(apk)))
+say(r.headers.get('Content-Type', '').startswith('application/vnd.android.package-archive')
+    and 'angel-bankphone-' in r.headers.get('Content-Disposition', ''), '안드로이드 앱 종류 · 판 번호 붙은 파일 이름으로', dict(r.headers))
+say(c.get('/api/bank/app').status_code == 401, '판 번호 조회는 로그인해야')
+d = c.get('/api/bank/app', headers=H).get_json()
+say(d.get('ready') and d.get('version') == open(os.path.join('bank-phone', 'dist', 'version.txt'), encoding='utf-8').read().strip()
+    and d.get('size') == len(apk), '조종실이 판 번호 · 크기를 본다', d)
+
 # ── 새 열쇠 · 너무 잦은 신호 ──
 K2 = c.post('/api/bank/key/reset', headers=H).get_json()['key']
 say(K2 != K and dep(K, []).status_code == 401 and dep(K2, []).status_code == 200, '새 열쇠를 만들면 옛 열쇠는 막힌다')
@@ -161,7 +172,11 @@ print('🏦 계좌 입금 추천 /api/bank/*')
 print('=' * 74)
 SRV = open(os.path.join(ROOT, 'server.py'), encoding='utf-8').read()
 GI = open(os.path.join(ROOT, '.gitignore'), encoding='utf-8').read()
-chk('입금 받는 길만 로그인 없이 연다(exempt_routes)', "'/api/bank/deposit'," in SRV and "'/api/bank/inbox'" not in SRV)
+chk('입금 받는 길 · 폰 앱 받기만 로그인 없이 연다(exempt_routes)', "'/api/bank/deposit'," in SRV and "'/download/bankphone.apk'," in SRV
+    and "'/api/bank/inbox'" not in SRV and "'/api/bank/app'" not in SRV)
+CT = open(os.path.join(ROOT, 'controller.html'), encoding='utf-8').read()
+chk('조종실 시스템 탭에 폰 앱 받기 칸 · QR', 'id="bankapp-box"' in CT and "location.href='/download/bankphone.apk'" in CT
+    and '<script src="/vendor/qrious.min.js">' in CT and 'new QRious(' in CT and os.path.exists(os.path.join(ROOT, 'vendor', 'qrious.min.js')))
 chk('기능을 등록한다(features.ai 뒤)', SRV.find('import features.bank_inbox') > SRV.find('import features.ai '))
 chk('입금 기록 · 열쇠 파일은 저장소에 안 올라간다', 'bank_inbox.json' in GI and 'bank_key.json' in GI)
 MS = open(os.path.join(ROOT, 'manual_send.html'), encoding='utf-8').read()
@@ -184,6 +199,7 @@ try:
         shutil.copy(os.path.join(ROOT, f), tmp)
     shutil.copytree(os.path.join(ROOT, 'features'), os.path.join(tmp, 'features'),
                     ignore=shutil.ignore_patterns('__pycache__'))
+    shutil.copytree(os.path.join(ROOT, 'bank-phone', 'dist'), os.path.join(tmp, 'bank-phone', 'dist'))
     with open(os.path.join(tmp, '_inproc.py'), 'w', encoding='utf-8') as fh:
         fh.write(INPROC)
     env = dict(os.environ, PYTHONIOENCODING='utf-8')

@@ -6,6 +6,8 @@
     <!-- (모바일 자동 리다이렉트 제거 — 이제 하나의 반응형 UI로 통합) -->
     <title>조종실 · 라이브 마스터</title>
     <script src="/comma_input.js"></script>
+    <script src="/vendor/qrious.min.js"></script><!-- 📱 시스템 탭 '폰 입금알림 앱' QR -->
+
     <style>@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');</style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -3385,6 +3387,27 @@
                 <button onclick="toonSave()"><i class="fa-solid fa-check"></i> 저장</button>
                 <button class="secondary" onclick="toonClear()">주소 지우기</button>
                 <label class="toggle-row" style="margin:0;" title="끄면 주소는 그대로 두고 연결만 끊습니다"><span class="toggle-label">테스트 계정 켜기</span><div class="apple-switch"><input type="checkbox" id="toon-test-on" onchange="toonEnable(this.checked)"><span class="apple-slider"></span></div></label>
+            </div>
+        </div>
+
+        <!-- 📱 폰 입금알림 앱 (2026-10-14) — 공기계에 까는 안드로이드 앱. QR 로 찍어 로그인 없이 받는다(/download/bankphone.apk) -->
+        <div class="group-box sys-box" id="bankapp-box">
+            <div class="group-title sys-head">
+                <span><i class="fa-solid fa-mobile-screen-button"></i> 폰 입금알림 앱 (안드로이드)</span>
+                <span id="bankapp-ver" style="font-size:var(--fs-1); color:var(--text-muted);"></span>
+            </div>
+            <div style="display:flex; gap:14px; align-items:center; flex-wrap:wrap;">
+                <canvas id="bankapp-qr" width="132" height="132" style="background:#fff; border-radius:var(--r-1); padding:6px; flex:none;"></canvas>
+                <div style="flex:1; min-width:200px; font-size:var(--fs-2); line-height:1.6; color:var(--text-muted);">
+                    공기계 카메라로 QR 을 찍거나 아래 단추로 받으세요. 기업은행 앱의 입금 알림을 읽어
+                    <b>후원 콘솔 → 🏦 계좌 입금 추천</b> 칸으로 보내요(송출은 사람이 눌러요).<br>
+                    깐 뒤 앱에서 ① 알림 읽기 권한 ② 배터리 절약 빼기 ③ 후원 콘솔 [은행 확장 연결]의 열쇠 붙여 넣기.
+                    <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
+                        <button class="secondary sys-mini" id="bankapp-dl" onclick="location.href='/download/bankphone.apk'"><i class="fa-solid fa-download"></i> APK 받기</button>
+                        <button class="secondary sys-mini" onclick="bankAppCopy()"><i class="fa-regular fa-copy"></i> 주소 복사</button>
+                    </div>
+                    <div id="bankapp-url" style="margin-top:6px; font-size:var(--fs-1); word-break:break-all;"></div>
+                </div>
             </div>
         </div>
 
@@ -11907,6 +11930,26 @@ initFoldablePanels();
             const sw = document.getElementById('toon-test-on');
             if (sw) { sw.checked = !!T.set && T.enabled !== false; sw.disabled = !T.set; }
         }
+        /* 📱 폰 입금알림 앱 받기 (시스템 탭) — 판 번호 · QR(vendor/qrious) · 주소 복사.
+              앱 파일은 저장소 bank-phone/dist 에 있고 서버가 /download/bankphone.apk 로 로그인 없이 내려준다. */
+        function bankAppUrl() { return location.origin + '/download/bankphone.apk'; }
+        async function bankAppLoad() {
+            const ver = document.getElementById('bankapp-ver');
+            if (!ver) return;
+            const url = bankAppUrl();
+            document.getElementById('bankapp-url').textContent = url;
+            try {
+                const d = await (await fetch('/api/bank/app')).json();
+                ver.textContent = d.ready ? ('판 ' + d.version + ' · ' + Math.max(1, Math.round(d.size / 1024)) + 'KB') : '아직 앱 파일이 없어요';
+            } catch (e) { ver.textContent = ''; }
+            try { if (window.QRious) new QRious({ element: document.getElementById('bankapp-qr'), value: url, size: 132, level: 'M' }); } catch (e) {}
+        }
+        async function bankAppCopy() {
+            try { await navigator.clipboard.writeText(bankAppUrl()); premiumAlert('앱 받는 주소를 복사했어요 — 공기계로 보내 열면 받아져요', '복사 완료', 'success'); }
+            catch (e) { premiumAlert(bankAppUrl(), '이 주소를 공기계에서 여세요', 'info'); }
+        }
+        document.addEventListener('DOMContentLoaded', () => { try { bankAppLoad(); } catch (e) {} });
+
         async function toonLoad() {
             try {
                 const r = await fetch('/api/toon/accounts', { cache: 'no-store' });
