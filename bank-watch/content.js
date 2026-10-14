@@ -97,7 +97,11 @@
     const memo = m.memo.map((i) => t[i]).filter(Boolean);
     const cols = m.memo.map((i) => t[i] || '');      // 이름/내용 칸 값 — m.memo 와 같은 순서(머리글과 짝지어 서버로 보낸다)
     const when = [m.date >= 0 ? t[m.date] : '', m.time >= 0 ? t[m.time] : ''].filter(Boolean).join(' ');
-    return { when, dep, wd, kind, memo, cols, raw: t.join('|') };
+    // ⚠️ 줄 지문엔 뜻 있는 칸만 — 기업 인터넷뱅킹 표는 맨 앞에 1 · 2 · 3 번호 칸이 있어서, 새 입금이 오면 모든 줄 번호가
+    //    하나씩 밀린다 → 모든 줄이 '새 줄' → '표가 통째로 바뀜' 으로 기준을 새로 잡아 입금을 놓쳤다(10-14 실제 1원).
+    const keep = [m.date, m.time, m.dep, m.wd, m.bal, m.amt, m.kind].concat(m.memo).filter((i) => i >= 0);
+    const raw = keep.length >= 2 ? keep.map((i) => t[i] || '').join('|') : t.join('|');
+    return { when, dep, wd, kind, memo, cols, raw };
   }
   function keyRows(rows) {
     const seen = {};
@@ -344,7 +348,7 @@
     }
     lastRowsSig = rowsSig;
     lastOkSaved = now;
-    const sig = f.labels.join('|');
+    const sig = 'k2|' + f.labels.join('|');      // k2 = 번호 칸을 뺀 지문(0.3.1) — 옛 지문과 섞이지 않게 기준을 새로 잡는다
     const hadBase = S.baseAt > 0 && S.baseSig === sig;
     const j = judge(f.rows, S.seen, hadBase);
     f.rows.forEach((r) => { if (!S.seen[r.key]) S.seen[r.key] = now; });

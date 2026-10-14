@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "엔젤 입금확인 (기업은행)",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "기업은행 거래내역조회 화면에서 [조회]를 대신 눌러 새 입금을 찾고, 방송 서버 후원 콘솔의 '계좌 입금 추천' 칸으로 보낸다. 송출은 후원 콘솔에서 사람이 누른다.",
   "permissions": ["storage"],
   "host_permissions": [
