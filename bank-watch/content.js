@@ -71,6 +71,7 @@
     labels.forEach((raw, i) => {
       const l = norm(raw);
       if (!l) return;
+      if (i > 0 && norm(labels[i - 1]) === l) return;   // 합친 칸(colspan)이 펴진 둘째 자리 — 같은 칸이다
       const nameLike = /입금자|입금인|입금처|입금은행|출금처|지급처/.test(l);
       if (m.bal < 0 && /잔액|잔고/.test(l)) { m.bal = i; return; }
       if (!nameLike && m.dep < 0 && /입금|맡기신/.test(l)) { m.dep = i; return; }
@@ -134,6 +135,19 @@
     return !!first && (rows || []).some((o) => o !== r && o.wd > 0 && o.wd === r.dep && ((o.memo || [])[0] || '') === first);
   }
 
+  /* 칸 이름이 진짜 그 칸인가 — 날짜칸엔 날짜, 잔액칸엔 숫자, 입금칸엔 숫자나 빈칸. 0~1 (맞는 줄의 비율) */
+  function sanity(cells, m) {
+    if (!cells || !cells.length) return 0;
+    const isDate = (v) => /\d{4}\D?\d{1,2}\D?\d{1,2}|\d{1,2}[./-]\d{1,2}/.test(norm(v));
+    const isNum = (v) => /^-?\d+$/.test(norm(v).replace(/[,원\s]/g, ''));
+    const numOrEmpty = (v) => norm(v).replace(/[,원\s]/g, '') === '' || isNum(v);
+    let ok = 0;
+    cells.forEach((t) => {
+      if ((m.date < 0 || isDate(t[m.date])) && (m.bal < 0 || isNum(t[m.bal])) && (m.dep < 0 || numOrEmpty(t[m.dep]))) ok++;
+    });
+    return ok / cells.length;
+  }
+
   function judge(rows, seen, hadBase) {
     if (!hadBase) return { baseline: true, fresh: [] };
     const fresh = rows.filter((r) => !seen[r.key]);
@@ -149,7 +163,7 @@
   }
 
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload, isRefund };
+    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload, isRefund, sanity };
     return;
   }
 
@@ -188,6 +202,17 @@
     return st.visibility !== 'hidden' && st.display !== 'none';
   }
 
+  // 칸 합치기(colspan)를 풀어 '자리' 대로 편다. 머리줄도 gridLabels 로 자리마다 펴지므로 몸통도 같은 자리 수가 되어야
+  // 칸 이름과 맞는다 — 기업 인터넷뱅킹(TreeGrid) 몸통은 칸이 2자리씩 합쳐져 있다(10-14 실측: 제목 39자리 · 몸통 칸 20개).
+  function spread(cells) {
+    const out = [];
+    cells.forEach((c) => {
+      out.push(c.innerText || c.textContent || '');
+      for (let k = 1; k < (c.colSpan | 0); k++) out.push('');
+    });
+    return out;
+  }
+  const cellInfo = (r) => Array.from(r.cells).map((c) => ({ text: c.innerText || c.textContent, colspan: c.colSpan, rowspan: c.rowSpan }));
   function headerRows(table) {
     let rows = table.tHead ? Array.from(table.tHead.rows) : [];
     if (!rows.length) {
@@ -196,39 +221,48 @@
         if (c.length && c.every((x) => x.tagName === 'TH')) rows.push(r); else break;
       }
     }
-    return rows.map((r) => Array.from(r.cells).map((c) => ({ text: c.innerText || c.textContent, colspan: c.colSpan, rowspan: c.rowSpan })));
+    return rows.map(cellInfo);
   }
-  function bodyRows(table, nHead) {
-    const trs = table.tBodies && table.tBodies.length
-      ? Array.from(table.tBodies).reduce((a, b) => a.concat(Array.from(b.rows)), [])
-      : Array.from(table.rows).slice(nHead);
-    return trs.map((r) => Array.from(r.cells))
+  function bodyRows(table, skip) {
+    return Array.from(table.rows).slice(skip).map((r) => Array.from(r.cells))
       .filter((c) => c.length >= 3 && c.some((x) => x.tagName === 'TD'))
-      .map((c) => c.map((x) => x.innerText || x.textContent));
+      .map(spread);
   }
 
   /* 거래내역 표 찾기. ⚠️ 은행 화면은 머리줄과 몸통을 **서로 다른 표**로 나눠 두기도 한다(위 고정 · 아래 스크롤).
-     머리만 있고 몸통이 없으면, 뒤따르는 표 중 칸 수가 같은 것을 몸통으로 쓴다. */
+     머리만 있고 몸통이 없으면, 뒤따르는 표 중 자리 수가 같은 것을 몸통으로 쓴다.
+     ⚠️ 기업 인터넷뱅킹(TreeGrid)은 진짜 칸 이름이 '머리 표'의 TD 줄에 있고, 몸통 표 맨 위 TH 줄은 칸 이름이 3칸 밀린
+        크기 맞춤 줄이다(10-14 실측). 그래서 머리 후보를 여럿 만들고, 날짜칸에 날짜 · 잔액칸에 숫자가 실제로 있는 쪽을 고른다. */
   function findTable(doc) {
     const tables = Array.from(doc.querySelectorAll('table'));
     let best = null;
     tables.forEach((tb, idx) => {
+      const cands = [];
       const hr = headerRows(tb);
-      if (!hr.length) return;
-      const labels = gridLabels(hr);
-      const m = colMap(labels);
-      if (!m.ok) return;
-      let body = bodyRows(tb, hr.length);
-      let bodyEl = tb;
-      if (!body.length) {
-        for (let j = idx + 1; j < Math.min(tables.length, idx + 4); j++) {
-          const b = bodyRows(tables[j], 0).filter((c) => c.length === labels.length);
-          if (b.length) { body = b; bodyEl = tables[j]; break; }
+      if (hr.length) cands.push({ hr, skip: hr.length });
+      Array.from(tb.rows).slice(0, 3).forEach((r, k) => {
+        if (k < hr.length) return;
+        const c = Array.from(r.cells);
+        if (c.length >= 3 && c.every((x) => x.tagName === 'TD')) cands.push({ hr: [cellInfo(r)], skip: k + 1 });
+      });
+      cands.forEach((cd) => {
+        const labels = gridLabels(cd.hr);
+        const m = colMap(labels);
+        if (!m.ok) return;
+        let body = bodyRows(tb, cd.skip).filter((c) => c.length === labels.length || c.length === labels.length - 1);
+        let bodyEl = tb;
+        if (!body.length) {
+          for (let j = idx + 1; j < Math.min(tables.length, idx + 8); j++) {
+            const b = bodyRows(tables[j], 0).filter((c) => c.length === labels.length);
+            if (b.length) { body = b; bodyEl = tables[j]; break; }
+          }
         }
-      }
-      body = body.filter((c) => c.length === labels.length || c.length === labels.length - 1);
-      const score = (m.dep >= 0 ? 3 : 0) + (m.bal >= 0 ? 2 : 0) + (m.date >= 0 ? 2 : 0) + m.memo.length + Math.min(body.length, 20) / 20;
-      if (!best || score > best.score) best = { el: tb, bodyEl, labels, m, cells: body, score };
+        const sane = sanity(body, m);
+        const score = (m.dep >= 0 ? 3 : 0) + (m.bal >= 0 ? 2 : 0) + (m.date >= 0 ? 2 : 0) + m.memo.length + Math.min(body.length, 20) / 20 + sane * 10;
+        // 줄을 못 읽을 때 상자에 보여줄 표 모양 — 이것만 캡처해 주시면 고칠 수 있다
+        const diag = '표 ' + tables.length + '개 중 ' + (idx + 1) + '번 · 제목 ' + labels.length + '자리 · 몸통 ' + body.length + '줄' + (bodyEl !== tb ? '(다른 표)' : '') + ' · 맞음 ' + Math.round(sane * 100) + '%';
+        if (!best || score > best.score) best = { el: tb, bodyEl, labels, m, cells: body, score, diag };
+      });
     });
     if (!best) return null;
     best.rows = keyRows(best.cells.map((c) => rowFrom(c, best.m)));
@@ -253,12 +287,12 @@
 
   /* 🌙 자정 넘기기 — 방송은 새벽 3시까지다. 조회 기간 끝 날짜가 '어제'로 남아 있으면
      자정 뒤 입금이 표에 안 나온다. [조회] 앞에 있는 날짜 칸 중 마지막(=끝 날짜)이 오늘보다 앞이면 오늘로 고친다.
-     ⚠️ 미래 날짜거나 날짜 모양이 아니면 손대지 않는다. 년 · 월 · 일이 따로인 고르기 칸은 아직 모른다(시험으로 확인). */
+     ⚠️ 미래 날짜거나 날짜 모양이 아니면 손대지 않는다. 시작 날짜는 그대로 둔다(표가 통째로 바뀌지 않게). */
   const pad2 = (n) => String(n).padStart(2, '0');
   function rollEndDate(doc, btn) {
     const re = /^(\d{4})([.\-/]?)(\d{2})\2(\d{2})$/;
     let ins = Array.from(doc.querySelectorAll('input')).filter((i) => re.test((i.value || '').trim()) && visible(i));
-    if (!ins.length) return { found: false };
+    if (!ins.length) return rollEndSelects(doc, btn);
     if (btn) { const before = ins.filter((i) => i.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING); if (before.length) ins = before; }
     const end = ins[ins.length - 1];
     const mm = end.value.trim().match(re);
@@ -270,6 +304,40 @@
     end.dispatchEvent(new Event('input', { bubbles: true }));
     end.dispatchEvent(new Event('change', { bubbles: true }));
     return { found: true, changed: true, from: cur, to: want };
+  }
+  // 기업 인터넷뱅킹: 조회기간이 [년▾][월▾][일▾] ~ [년▾][월▾][일▾] 고르기 칸이다(10-14 실측). [조회] 앞 마지막 묶음 = 끝 날짜.
+  //  (그 위 '월별조회' 는 [년▾][월▾] 둘뿐이라 묶음이 안 된다)
+  function rollEndSelects(doc, btn) {
+    let sels = Array.from(doc.querySelectorAll('select')).filter(visible);
+    if (btn) { const before = sels.filter((x) => x.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING); if (before.length) sels = before; }
+    const n = (x) => parseInt(x.value, 10);
+    const trip = [];
+    for (let i = 0; i + 2 < sels.length; i++) {
+      const y = sels[i], mo = sels[i + 1], da = sels[i + 2];
+      if (/^\d{4}$/.test((y.value || '').trim()) && n(mo) >= 1 && n(mo) <= 12 && n(da) >= 1 && n(da) <= 31) trip.push([y, mo, da]);
+    }
+    if (!trip.length) return { found: false };
+    const [y, mo, da] = trip[trip.length - 1];
+    const d = new Date();
+    const cur = n(y) * 10000 + n(mo) * 100 + n(da);
+    const want = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    if (cur >= want) return { found: true, changed: false };
+    // ⚠️ 은행 화면은 '오늘'까지만 고르기 칸에 넣어 둔다(14일이면 1~14일). 자정을 넘기면 15일이 목록에 없어서 붙인다.
+    const setTo = (x, v) => {
+      let o = Array.from(x.options).find((op) => parseInt(op.value, 10) === v);
+      if (!o) {
+        const like = (x.options[0] && x.options[0].value) || '';
+        const val = like.length === 2 ? pad2(v) : String(v);
+        o = doc.createElement('option');
+        o.value = val; o.textContent = val;
+        x.appendChild(o);
+      }
+      x.value = o.value;
+      x.dispatchEvent(new Event('change', { bubbles: true }));
+      return parseInt(x.value, 10) === v;
+    };
+    const ok = setTo(y, d.getFullYear()) && setTo(mo, d.getMonth() + 1) && setTo(da, d.getDate());
+    return { found: true, changed: ok, from: String(cur), to: String(want) };
   }
 
   function cssPath(el) {
@@ -432,7 +500,7 @@
         .lk input{flex:1;min-width:0;background:#0f131b;color:#e8ecf3;border:1px solid #445066;border-radius:6px;padding:4px 8px;font:inherit}
       </style>
       <div class="bx">
-        <div class="hd">🏦 엔젤 입금확인 <span class="mut">0.2</span><span class="sp"></span><button data-a="fold" title="접기">▾</button></div>
+        <div class="hd">🏦 엔젤 입금확인 <span class="mut">0.3.2</span><span class="sp"></span><button data-a="fold" title="접기">▾</button></div>
         <div class="bd"></div>
         <div class="lk">
           <details><summary class="mut">방송 서버 연결</summary>
@@ -487,7 +555,7 @@
     const [st, cls] = status();
     const m = f && f.m;
     const lab = (i) => (f && i >= 0 ? esc(f.labels[i]) : '<span style="color:#ff9a9a">없음</span>');
-    const cols = f ? `입금칸 ${lab(m.dep >= 0 ? m.dep : m.amt)} · 잔액칸 ${lab(m.bal)} · 날짜칸 ${lab(m.date)}<br>이름/내용칸 ${m.memo.map((i) => esc(f.labels[i])).join(', ') || '<span style="color:#ff9a9a">없음</span>'} · 지금 ${f.rows.length}줄` : '';
+    const cols = f ? `입금칸 ${lab(m.dep >= 0 ? m.dep : m.amt)} · 잔액칸 ${lab(m.bal)} · 날짜칸 ${lab(m.date)}<br>이름/내용칸 ${m.memo.map((i) => esc(f.labels[i])).join(', ') || '<span style="color:#ff9a9a">없음</span>'} · 지금 ${f.rows.length}줄${f.rows.length ? '' : '<br><span style="color:#ff9a9a">' + esc(f.diag || '') + ' · 제목: ' + f.labels.map(esc).join('|') + '</span>'}` : '';
     const order = (f && f.rows.length >= 2 && !newestFirst(f.rows)
       ? '<div class="st warn">⚠️ 오래된 거래가 위에 있어요. 정렬을 <b>최근순</b>으로 바꿔 주세요 — 새 입금이 다음 쪽으로 밀리면 못 봐요</div>' : '')
       + (S.enabled && S.clicks > 0 && S.dateOk === false

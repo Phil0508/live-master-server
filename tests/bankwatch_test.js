@@ -120,6 +120,33 @@ console.log('⑦-2 실제 표 (10-14 기업 인터넷뱅킹 kiup.ibk.co.kr 거�
   chk('번호가 밀려도 새 줄은 새 1원 하나뿐', (ja.fresh || []).length === 1 && ja.fresh[0].when === '2026-10-14 16:58:10' && ja.fresh[0].dep === 1, (ja.fresh || []).map((r) => r.when));
 }
 
+console.log('⑦-3 기업 인터넷뱅킹 그리드 표(TreeGrid) — 10-14 실제 화면 모양(값은 지어냄)');
+{
+  // 머리 표: TD 줄, 첫 칸 1자리 + 나머지 2자리씩(colspan 2). 몸통 표도 같은 모양. 몸통 표 맨 위 TH 줄은 이름이 3칸 밀린 가짜.
+  const NAMES = ['거래일시', '출금', '입금', '거래후 잔액', '거래내용', '상대계좌번호', '상대은행', '메모', '거래구분', '수표어음금액', 'CMS코드', '상대계좌예금주명', '취소구분'];
+  const head = [[{ text: '', colspan: 1 }].concat(NAMES.map((t) => ({ text: t, colspan: 2 })))];
+  const GL = W.gridLabels(head);
+  const gm = W.colMap(GL);
+  chk('그리드 머리: 칸 찾기(입금 · 출금 · 잔액 · 일시 · 구분)', gm.ok && GL[gm.dep] === '입금' && GL[gm.wd] === '출금' && GL[gm.bal] === '거래후 잔액' && GL[gm.date] === '거래일시' && GL[gm.kind] === '거래구분', gm);
+  chk('합친 칸이 펴져도 이름/내용칸은 한 번씩', JSON.stringify(gm.memo.map((i) => GL[i])) === JSON.stringify(['거래내용', '상대계좌번호', '상대은행', '메모', '상대계좌예금주명']), gm.memo.map((i) => GL[i]));
+  const spreadRow = (vals) => { const out = ['']; vals.forEach((v) => out.push(v, '')); return out; };   // content.js spread() 와 같은 모양
+  const body = [
+    spreadRow(['2026-10-14 17:05:47', '0', '1', '37,449,261', '구름빵', '', '하나은행', '', '타행이체', '0', '', '', '']),
+    spreadRow(['2026-10-14 14:39:07', '0', '11,800', '37,461,557', '카카오T택시_가승인', '', '', '', '카드취소', '0', '', '', '']),
+  ];
+  chk('몸통 자리 수 = 머리 자리 수(39)', GL.length === 27 && body.every((c) => c.length === GL.length), [GL.length, body.map((c) => c.length)]);
+  chk('진짜 머리로 읽으면 맞음 100%', W.sanity(body, gm) === 1, W.sanity(body, gm));
+  // 가짜 TH 줄: 이름이 6자리(3칸) 밀려 있다 → 날짜칸에 금액이 들어 있어 0%
+  const fake = new Array(GL.length).fill('').map((_, i) => (i >= 6 && (i - 1) % 2 === 0 ? GL[i - 6] : ''));
+  const fm = W.colMap(fake);
+  chk('3칸 밀린 가짜 머리는 맞음 0% — 진짜 쪽이 뽑힌다', fm.ok && W.sanity(body, fm) === 0, [fm, W.sanity(body, fm)]);
+  const gr = W.keyRows(body.map((c) => W.rowFrom(c, gm)));
+  chk('그리드 줄 읽기: 1원 · 시각 · 메모', gr[0].dep === 1 && gr[0].when === '2026-10-14 17:05:47' && gr[0].memo[0] === '구름빵', gr[0]);
+  chk('그리드에서도 카드 취소 입금은 뺀다', W.isRefund(gr[1], gr), gr[1]);
+  const gp = W.depPayload(gr[0], GL, gm);
+  chk('그리드 보내는 칸: 빈 자리 · 겹친 이름 없이', JSON.stringify(gp.fields) === JSON.stringify([['거래내용', '구름빵'], ['상대은행', '하나은행']]), gp.fields);
+}
+
 console.log('⑧ 확장 배경 — 보낼 곳 제한 · 대기줄');
 const B = require(path.join(ROOT, 'bank-watch', 'background.js'));
 chk('방송 서버(엔젤컴퍼니.메인.한국)로는 보낸다', B.allowed('https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e'));
