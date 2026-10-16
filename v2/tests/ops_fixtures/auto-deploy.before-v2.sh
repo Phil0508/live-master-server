@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# 🔄 GitHub main 을 확인해 새 커밋이 있으면 자동으로 받아 재시작한다 (Render 의 자동배포처럼).
+#    systemd 타이머(auto-deploy.timer)가 2분마다 이 스크립트를 부른다.
+#    변경이 없으면 아무것도 하지 않고 조용히 끝낸다.
+set -euo pipefail
+
+APP_DIR=/opt/livemaster
+APP_USER=livemaster
+BRANCH=main
+cd "$APP_DIR"
+
+# git·pip 는 코드 주인(livemaster)으로 실행한다. root 로 하면 파일 소유권이 꼬여
+# 다음 배포 때 'dubious ownership' 오류가 난다. 재시작만 root(이 서비스)로 한다.
+run_as() { sudo -u "$APP_USER" "$@"; }
+
+# 🕹️ 조종실에서 버전을 고정해 뒀으면 main 을 따라가지 않는다.
+#    (이 확인이 없으면, 방송 중에 되돌린 버전이 2분 만에 최신으로 도로 올라간다)
+#    조종실이 스스로 재시작하지 못했을 때를 대비해, 아직 안 옮겨져 있으면 여기서 맞춰준다.
+PIN_FILE="$APP_DIR/DEPLOY_PIN"
+if [ -s "$PIN_FILE" ]; then
+  PINNED=$(tr -d "[:space:]" < "$PIN_FILE")
+  if [ -n "$PINNED" ]; then
+    CURRENT=$(run_as git rev-parse HEAD)
+    if [ "$CURRENT" != "$PINNED" ]; then
+      echo "📌 고정된 버전으로 맞춥니다: ${PINNED:0:8}"
+      run_as git fetch --quiet origin "$BRANCH" || true
+      if run_as git checkout --quiet --detach "$PINNED"; then
+        systemctl restart livemaster
+        for svc in toon-listener livemaster-bot; do
+          if systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+            systemctl restart "$svc"
+          fi
+        done
+        echo "✅ 고정 버전 적용: ${PINNED:0:8}"
+      else
+        echo "⚠️ 고정된 버전으로 옮기지 못했습니다: ${PINNED:0:8}"
+      fi
+    fi
+    exit 0
+  fi
+fi
+
+run_as git fetch --quiet origin "$BRANCH"
+LOCAL=$(run_as git rev-parse HEAD)
+REMOTE=$(run_as git rev-parse "origin/$BRANCH")
+if [ "$LOCAL" = "$REMOTE" ]; then
+  exit 0    # 변경 없음
+fi
+
+echo "🔄 새 커밋 감지: ${LOCAL:0:8} → ${REMOTE:0:8}"
+
+# requirements.txt 가 바뀌었을 때만 pip 설치(매번 하면 느리다)
+NEED_PIP=0
+if ! run_as git diff --quiet "$LOCAL" "$REMOTE" -- requirements.txt; then
+  NEED_PIP=1
+fi
+
+# HEAD 가 떨어져 있을 수 있다(고정을 쓰다 풀었을 때) — 갈래로 확실히 되돌린다
+run_as git checkout --quiet -B "$BRANCH" "origin/$BRANCH"
+run_as git reset --hard --quiet "origin/$BRANCH"
+
+if [ "$NEED_PIP" = "1" ]; then
+  echo "   requirements.txt 변경 → 패키지 갱신"
+  run_as "$APP_DIR/.venv/bin/pip" install --quiet -r "$APP_DIR/requirements.txt"
+fi
+
+systemctl restart livemaster
+# 곁다리 서비스들도 코드가 바뀌었을 수 있으니 같이 새로고침.
+# ⚠️ 켜 두지 않은 것은 건드리지 않는다(is-enabled 로 확인) — 안 쓰는 서비스를
+#    배포 때마다 깨우면 로그만 지저분해진다.
+for svc in toon-listener livemaster-bot; do
+  if systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+    systemctl restart "$svc"
+  fi
+done
+echo "✅ 배포 완료: ${REMOTE:0:8}"

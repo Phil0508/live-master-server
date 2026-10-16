@@ -1,0 +1,54 @@
+# 🎧 투네이션 후원 리스너 — **v2 판**. 갈아타는 날 /etc/systemd/system/toon-listener.service 를 **통째로** 이것으로 바꾼다.
+#
+# 옛 판(deploy/toon-listener.service)과 다른 것은 셋뿐이다 — 실행 파일 · 사용자 · 열쇠 파일 · 재시작 규칙은 한 글자도 같다
+# (v2/tests/test_ops_units.py 가 맞대 본다).
+#   ① 옛 서버(livemaster)에 안 묶는다 — Requires=livemaster.service · After=livemaster.service 가 없다.
+#      ⚠️ 덧붙임 파일(toon-listener.service.d/*.conf)로는 이 묶음을 못 끊는다. systemd 는 의존 목록(Requires= · After= …)을
+#         덧붙임에서 비우는 것을 받지 않는다 — 빈 `Requires=` 는 아무 일도 안 하고 넘어간다(systemd.unit(5)
+#         "Dependencies (After=, etc.) cannot be reset to an empty list"). 그래서 10-07 의 v2.conf 덧붙임만 깔면
+#         옛 서버를 끄는 순간 리스너도 꺼지고, 옛 서버를 다시 켤 때마다(자동 배포 · 감시 장치) 리스너도 끊겼다 붙었다.
+#         통째로 바꾸는 것만이 확실하다. (그 덧붙임 파일은 지웠다 — 서버에 깔려 있으면 같이 지운다)
+#   ② v2 에는 Wants= 로만 붙는다(Requires= 아님). v2 를 잠깐 멈춰도(옛 장부 옮기기 · 백업 되살리기 · 다시 켜기)
+#      리스너는 투네이션에 붙은 채로 못 보낸 후원을 파일(donation_spool.jsonl)에 적어 뒀다 10초마다 다시 보낸다 —
+#      v2 가 돌아오면 그대로 들어간다(v2 도 tx_id 로 두 번 받지 않는다). Requires= 였다면 v2 를 멈추는 순간 리스너도
+#      멈추고, v2 를 다시 켜도 리스너는 안 켜진다(그동안 후원은 아무 데도 안 남는다).
+#   ③ 보내는 곳: DONATION_URL=http://127.0.0.1:5300/api/donation (v2)
+#      ⚠️ /etc/livemaster.env 에 DONATION_URL 줄이 있으면 그쪽이 이긴다(EnvironmentFile 이 Environment= 를 덮는다) —
+#         grep '^DONATION_URL' /etc/livemaster.env 가 아무것도 안 나와야 한다.
+#
+# 깔기:     sudo cp /etc/systemd/system/toon-listener.service /root/toon-listener.service.before-v2
+#           sudo rm -f /etc/systemd/system/toon-listener.service.d/v2.conf
+#           sudo cp /opt/livemaster/v2/deploy/toon-listener.service /etc/systemd/system/toon-listener.service
+#           sudo systemctl daemon-reload && sudo systemctl restart toon-listener
+# 확인:     systemctl show toon-listener -p Requires -p After        → livemaster.service 가 없어야 한다
+#           journalctl -u toon-listener -n 30 --no-pager | grep 연결됨  → '→ http://127.0.0.1:5300/api/donation'
+# 되돌리기: sudo cp /opt/livemaster/deploy/toon-listener.service /etc/systemd/system/toon-listener.service
+#           sudo systemctl daemon-reload && sudo systemctl restart toon-listener
+#
+# ⚠️ 동작하려면 /etc/livemaster.env 에 ALERTBOX_URL 이 있어야 한다(옛 판과 같다). 없으면 조용히 종료한다.
+
+[Unit]
+Description=Toonation 후원 리스너 (ws.toon.at → v2 /api/donation)
+After=livemaster-v2.service network-online.target
+Wants=livemaster-v2.service network-online.target
+
+[Service]
+Type=simple
+User=livemaster
+WorkingDirectory=/opt/livemaster
+EnvironmentFile=/etc/livemaster.env
+Environment=DONATION_URL=http://127.0.0.1:5300/api/donation
+ExecStart=/opt/livemaster/.venv/bin/python /opt/livemaster/toon_listener.py
+
+# 끊기면 계속 되살린다(투네이션이 소켓을 끊거나 네트워크가 흔들려도 스스로 재연결)
+Restart=always
+RestartSec=5
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=toon-listener
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+
+[Install]
+WantedBy=multi-user.target

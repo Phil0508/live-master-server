@@ -270,3 +270,20 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 머리줄 '계좌' 점 · 계좌 띠(끊김 빨강 / 새 입금 초록 25초, **소리 없음**) — bankext.js(alarm.js 점 묶음 옆). 시스템 탭 거울 · 폰 앱 QR — panels/ops/bankmirror.js.
 계산은 bankcore.js(화면 안 만짐 → node 검사). tabs.js 에 탭 배지(`badge(slices) → 글자`)를 더했다. 검사: test_bank · test_bank_js.
 백업: v2/tools/backup_db.py 는 백업본에서 bank_inbox · bank_meta 를 비운다(scrub_private · secure_delete + VACUUM) — 옛 프로그램은 실명 든 bank_inbox.json 을 36시간만 두고 백업하지 않았다. 되살린 뒤엔 확장 · 폰이 다음 신호부터 다시 채운다.
+## 10-17 이사 1차 — ops
+> 운영 서버에는 아무것도 안 했다 — 파일 · 글 · 검사만. 적용 순서는 **v2/deploy/README.md '5. 갈아타는 날'**(점검표 ⓪~⑨ · 되돌리는 길).
+- **공개 주소(로그인 없음 · 조각/명령 없음 — 읽기만)** `domain/ops_public.py`: `GET /api/signatures/board`(크루 사이트 시그리스트 — 옛 3715894 · 3477d81 과 같은 칸,
+  번호 없음, 시그 목록은 bus.sigs) · `GET /api/oraksil/donors`(엔젤오락실 순위 — 옛 6076216, monthly.bc_day · rules.norm_donor 재사용,
+  익명 · 뺀 이름 · 테스트 계정 · 화면에만 제외) · `GET /privacy` · `GET /terms`(옛 legal.py 글 그대로). 1분 기억(bus.ops_public_cache). 검사 test_ops_public.
+- **자동 배포** `deploy/auto-deploy.sh`(옛 서버 파일): livemaster-v2 가 enabled 일 때만 — 새 커밋 + `GET /api/deploy/ok` 409 면 기다림 ·
+  v2/requirements.txt 바뀌면 pip · v2 · v2 진행봇 try-restart(돌 때만). 없으면 옛 동작 그대로(검사 test_ops_autodeploy 가 옛 판과 나란히).
+- **리스너** `deploy/toon-listener.service`(v2 판, 통째로 바꿈): 옛 서버 Requires/After 없음 · v2 에 Wants= 만 · DONATION_URL 5300.
+  덧붙임(.service.d)으로는 의존을 비울 수 없어 10-07 v2.conf 는 지웠다. 버전 되돌리기(versions.py)는 v2 자신을 맨 끝에 다시 켠다. 검사 test_ops_units.
+- **Caddy 큰 주소 갈아타기** `deploy/Caddyfile.switch` · `Caddyfile.unswitch` · `caddy_switch.py status|apply|revert`: 큰 주소 덩어리 하나만 바꾼 새 파일을 쓴다
+  (홈페이지 · crew · :8443 은 그대로 — 전후를 맞대 봄). 기계 주소(/api/bank/* · bankphone.apk · 시그리스트 · 오락실 · privacy · terms · /api/streamdeck/* · /api/donation)
+  → 5300, 옛 운영자 화면 → :8443 같은 화면 302, OBS 소스 · 나머지 → 8080. 검사 test_ops_caddy.
+- **장부 바깥 백업** `tools/backup_db.py --upload` / env `LM2_BACKUP_UPLOAD=1`(기본 0): 비공개 backups 버킷이 아니면 안 올린다. 검사 test_ops_backup_upload.
+- **서버 처음 세우기** `deploy/setup.sh --with-v2`(또는 WITH_V2=1): v2 서비스 · 백업 · 감시 · 진행봇 v2(깔기만) · Caddy :8443 · 방화벽 8443 ·
+  `/etc/sudoers.d/livemaster-v2-restart`(visudo 확인 뒤). 안 붙이면 옛 판과 같다(검사 test_ops_setup 이 나란히).
+- 점검표 자체도 검사(test_ops_readme — 단계 순서 · 단계마다 명령 · root validate 금지 · 가리키는 파일이 있는지).
+- 남은 것: 알림창 · 전광판 · 슬롯은 v2 에 같은 화면이 생기면 Caddyfile.switch 의 주석을 푼다. 은행 입구(/api/bank/*)는 은행 갈래가 v2 에 들어온 뒤에야 답한다.
