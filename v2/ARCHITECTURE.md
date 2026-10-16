@@ -138,3 +138,33 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - Supabase 는 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` 환경변수가 파일보다 먼저다(검사는 닫힌 포트로 돌려 막는다).
 - `LM2_AUTOPILOT=off|shadow|on` — 🤖 자동 진행의 **처음** 모드(새 DB 일 때만, 기본 shadow). 검사 꾸러미(v2/tests/__init__.py)는 off 로 시작한다.
 - 🧪 `python -m v2.tools.backtest_autopilot --db v2/data/lm2.db` — 지난 후원자 기억(donor_memory)을 시간 순으로 다시 돌려 '그때 기계였다면' 을 채점(읽기만 · AI 안 부름 · 이름 · 금액 안 찍음).
+
+## 10-17 이사 1차 — sigfx
+> 방송판 시그니처 연출 · 따로 띄우는 화면. 옛 overlay.html · sig-fx.js · sig-fx-gl.js · alertbox.html · signature_display.html · slot.html 을 옮겼다(옛 동작이 정답).
+
+**🎆 시그니처 전용 연출 18가지(옛 17선 + 09-23 진압해) · 🚨 25만 계엄령 경보**
+- 연출 파일은 옛 것을 글자 하나 안 바꾸고 `web/overlay/sigfx/sig-fx.js` · `sig-fx-gl.js` 로(검사 test_sigfx 가 옛 파일과 같은지 본다 — 옛 것을 고치면 같이 고칠 것).
+- 어떤 시그에 무엇: `widgets/sigfx/rules.js` — **시그니처 자신의 값(sig_amount)** 으로 고른다(후원 금액 아님). 10만 진압해 · 100,009 가즈아 · 13만 람바다 · 15만 부티호텔 · 16만 크레이지 러브 · 18만 바운스 · 20만 마티니 · 200,001 뽀카치포 · 30만 푸차 · 35만 EDM · 50만 출항 · 500,001 방패 · 600,001 참격 · 70만 누나누나 · 80만 클럽 · 100만 VIP · 200만 엔젤 VIP · 300만 MVP.
+- 가운데 갈래(옛 순서): 계엄령(sig_amount 250000, 없으면 제목 '계엄령') → 붉은 경보 4초 '주의 계엄령 발동' · 전용 연출이 있으면 그 연출(‘OO업’ 없음) · 못 띄우면 'OO업'.
+  연출이 카드 등장을 맡는 동안은 카드 축소를 연출이 끝난 뒤(+0.12초)로 미룬다(rules.shrinkWait). 시그니처를 끊으면 연출 · 경보도 걷는다(조종실 이펙트는 안 건드림).
+- 🎲 주사위 시그 배너는 '누구 · 시그 칸 도착'(서버 banner, 금액 · '업' 없음 — 옛 reactionUpText).
+- 층(groups/sigfx.js): 시그니처 50 < 전용 연출 `sigfx` 55 < 경보 `sigWarn` 58 < 경고 띠 `sigUnlock` 60. **56 · 57 은 비워 둠** — 옛 후원 콘솔 '이펙트'(번쩍 · 충격파 · 글리치 · 전체 카드)를 옮길 때.
+- 무대 약속: `stage.provide('sigfx', {play(item,{card}) → ms, stop})` · `stage.provide('sigWarn', {fire({message}), clear})` · `stage.provide('autoplayWarn', {show, hide})`.
+  점검: 콘솔 `__lmSigfx.test(300000)` · `__lmSigfx.test('mvp')` — 카드 없이 연출만.
+
+**🔥 미리받기** — 방송판이 켜질 때 `GET /api/sigfx/sigs`(**로그인 없이** · id · amount · title · image_url · sound_url · duration 만 · 못 읽으면 빈 목록 · no-store)로 사진(crossOrigin, 받는 김에 대표색) · 소리(하나씩, force-cache)를 받는다. 경광봉 사진(/vendor/sigfx/baton.webp)도. ?monitor=1 은 소리를 안 받는다(폰 데이터).
+  조종실의 `/api/signatures` 는 그대로 로그인 전용.
+
+**🔊 자동재생 차단** — 막히면 음소거로라도 끝까지(사진 · 길이 · 차례 그대로) · 방송판을 한 번 누르면(클릭 · 키 · 터치) 소리를 살린다(음소거 재생 중이면 그 자리부터, 그마저 막혀 멈췄으면 처음부터). AbortError 는 한 번만 다시.
+  빨간 경고 띠는 **알림창 화면(?only=alert)에만** — 방송판에는 옛 것처럼 안 띄운다(대표님 08-13 요청, 커밋 e4303aa).
+
+**📺 따로 띄우는 화면** — 같은 방송판에서 일부 칸만(`VIEWS` in groups/sigfx.js, layers.js 가 내보냄). `viewOnly` 칸은 그 화면에만(편집기 목록에도 없다).
+| 주소 | 옛 주소(서버가 302 로 넘김, 뒤 ?… 그대로) | 칸 | 연결 이름표 |
+|---|---|---|---|
+| `/overlay/?only=alert` | /alertbox · /alertbox.html | 후원 카드 · 소액 띠 · 시그니처(소리 · done 포함, 클립은 안 맡음) · 전용 연출 · 경보 · 경고 띠 | alertbox |
+| `/overlay/?only=sig` | /signature-display · /signature-display.html · /signature_display.html | 출연진 전광판 카드(sigdisp.js) — 소리 · done 없음 · 줄지 않음 · 창 크기 그대로(native) · 어두운 바탕(`&transparent=1` 투명) | sigdisp |
+| `/overlay/?only=slot` | /slot · /slot.html | 슬롯머신만(방송판과 같은 자리 · 소리는 방송판 시그니처 대기줄이) | slot |
+
+hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이것들을 '방송판' 으로 세지 않는다(total 에만).
+
+검사: `v2/tests/test_sigfx.py`(12) · `v2/tests/js/sigfx_check.mjs`(node — 규칙 · 표 · 층 순서 · VIEWS).
