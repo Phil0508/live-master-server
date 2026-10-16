@@ -16,7 +16,8 @@ const STATUS = {
     ignored: ['무시', 'plain'],
     display: ['화면만', 'info'],
 };
-const SOURCE = { toonation: '투네이션', toonation_test: '시험 후원', manual: '손으로 넣음' };
+const SOURCE = { toonation: '투네이션', toonation_test: '시험 후원', manual: '손으로 넣음',
+    toonation_replay: '🔁 다시 보기(화면만)', toonation_dashtest: '🧪 후원 테스트(화면만)' };   // 다시 보기 · 후원 테스트는 정산에 안 든다
 const COUNTED = new Set(['pending', 'assigned', 'ignored']);     // 합계에 드는 것(서버 /api/ledger 와 같다)
 
 /* 줄 목록 — 키(id)로 줄을 기억해 두고 바뀐 줄만 다시 쓴다 */
@@ -124,7 +125,7 @@ function donationView(ctx, session) {
                 h('span', null, '배정 ', h('b', null, won(sum.assigned))),
                 h('span', null, '대기 ', h('b', null, won(sum.pending))),
                 h('span', null, '무시 ', h('b', null, won(sum.ignored))),
-                h('span', { title: '1만 원 미만 — 화면에만 띄운 후원(합계에 안 들어감)' }, '화면만 ', h('b', null, won(sum.display)), ' (합계 밖)')),
+                h('span', { title: '화면에만 띄운 후원(1만 원 미만 · 투네이션 다시 보기 · 후원 테스트) — 합계에 안 들어감' }, '화면만 ', h('b', null, won(sum.display)), ' (합계 밖)')),
             (qv || filter !== 'all') ? h('div', { class: 'rc-picked' }, `고른 것 ${num(pick.length)}건 · ${won(pickSum)}`) : null].filter(Boolean));
 
         const view = pick.slice(0, shown).map(r => ({

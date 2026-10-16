@@ -1,6 +1,6 @@
 /* 📥 대기함 — 들어온 후원을 플레이어에게 준다. 방송 중 가장 많이 누르는 곳.
 
-   한 장(카드)에 보이는 것: 시각 · 후원자 · 금액(₩) · 몇 점짜리인지 · 메시지 · (되돌려 돌아옴 / 테스트)
+   한 장(카드)에 보이는 것: 시각 · (🏷️ 투네이션 칭호) 후원자 (Lv) · 금액(₩) · 몇 점짜리인지 · 메시지 · (되돌려 돌아옴 / 테스트)
    누르는 것: [플레이어 이름] → pending.assign {id, name}
               [나눠 주기] → 여러 명 고르고 → pending.assign {id, names}(서버가 똑같이 나누고 남는 점수는 앞사람부터)
               [🏺 모금함] → pending.to_jar {id} — 모금함이 켜져 있고(fundjar.enabled) 돈 카드일 때만. 금액(원) 그대로 들어간다
@@ -23,6 +23,7 @@
       손을 빼면 그때 최신 순위 · 순서로 정리된다. */
 import { h, won, num, manWon, splitPoints, clock } from './util.js';
 import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드 배지 · '지급할까요?' 줄 · 🚗 오토파일럿 · 오배정 경고
+import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
 
 const UNFREEZE_AFTER_TOUCH_MS = 1500;
 
@@ -150,7 +151,9 @@ export function mountPending(root, ctx) {
 
         const head = h('div', { class: 'pc-head' },
             h('span', { class: 'pc-time' }, clock(it.at)),
+            titleChip(it.donor_title),
             h('b', { class: 'pc-name' }, it.name || '익명'),
+            lvChip(it.donor_level),
             isC ? h('span', { class: 'pc-amt' }, '기여도 카드')
                 : h('span', { class: 'pc-amt' }, won(it.amount)),
             h('span', { class: 'pc-pts' + (pts ? '' : ' zero'), title: isC ? '점수 없이 기여도만 오릅니다' : '1만 원 = 1점 (6천 원부터 올림)' },
