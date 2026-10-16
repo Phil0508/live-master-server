@@ -5,6 +5,13 @@
 #
 # 여러 번 돌려도 안전하다(이미 된 단계는 건너뛴다).
 # 끝나고 나서 /etc/livemaster.env 에 비밀값을 채우고 서비스를 재시작하면 된다.
+#
+# 🆕 v2(10-17) 도 같이 세우려면 — 선택이다. 안 붙이면 예전과 똑같이 돈다(검사: v2/tests/test_ops_setup.py):
+#   sudo bash setup.sh --with-v2        (또는 sudo WITH_V2=1 bash setup.sh)
+#   → v2 꾸러미 · v2 서비스(127.0.0.1:5300) · 장부 백업 타이머 · 감시 장치 · Caddy :8443 · 방화벽 8443 ·
+#     sudoers(조종실 버전 되돌리기가 v2 도 다시 켜게 — /etc/sudoers.d/livemaster-v2-restart, 옛 파일은 안 건드림).
+#   v2 진행봇은 깔기만 한다(옛 진행봇과 같이 켜면 채팅이 두 번 올라간다). 리스너를 v2 로 돌리는 것은 갈아타는 날 —
+#   v2/deploy/README.md '갈아타는 날'.
 
 set -euo pipefail
 
@@ -14,6 +21,12 @@ APP_DIR="/opt/livemaster"
 ENV_FILE="/etc/livemaster.env"
 APP_USER="livemaster"
 PORT="8080"
+WITH_V2="${WITH_V2:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --with-v2) WITH_V2=1 ;;
+  esac
+done
 
 say() { printf '\n\033[1;36m▶ %s\033[0m\n' "$*"; }
 
@@ -164,6 +177,57 @@ else
   netfilter-persistent save >/dev/null 2>&1 || true
 fi
 
+if [ "$WITH_V2" = "1" ]; then
+  say "+    v2 (선택 — --with-v2)"
+  if [ ! -f "$APP_DIR/v2/requirements.txt" ]; then
+    echo "     ⚠️ 받은 코드에 v2 가 없습니다($APP_DIR/v2) — v2 단계는 건너뜁니다"
+    WITH_V2=0
+  else
+    "$APP_DIR/.venv/bin/pip" install --quiet -r "$APP_DIR/v2/requirements.txt"
+    mkdir -p "$APP_DIR/v2/data"
+    chown -R "$APP_USER:$APP_USER" "$APP_DIR"
+    for unit in livemaster-v2.service livemaster-v2-backup.service livemaster-v2-backup.timer \
+                livemaster-watchdog.service livemaster-watchdog.timer livemaster-bot-v2.service; do
+      install -m 644 "$APP_DIR/v2/deploy/$unit" "/etc/systemd/system/$unit"
+    done
+    systemctl daemon-reload
+    # 켜 두기만(enable) — 비밀값을 채운 뒤 아래 안내대로 켠다. 감시 장치를 지금 켜면 비밀값 없는 서버를 다시 켜려 든다.
+    systemctl enable --quiet livemaster-v2 livemaster-v2-backup.timer livemaster-watchdog.timer
+    echo "     v2 서비스 · 백업 타이머 · 감시 장치 등록(진행봇 v2 는 깔기만 — 갈아타는 날 켠다)"
+
+    # 🌐 Caddy :8443 — 6/7 에서 깐 Caddyfile 끝에 v2 덩어리를 붙인다(이미 있으면 그대로)
+    if ! grep -q ':8443 {' /etc/caddy/Caddyfile; then
+      { echo; cat "$APP_DIR/v2/deploy/Caddyfile.v2"; } >> /etc/caddy/Caddyfile
+      echo "     Caddy 에 :8443 덩어리 붙임"
+    fi
+    # ⚠️ 기록 파일을 caddy 것으로 먼저 만든다 — 'caddy validate' 를 root 로 돌리면 이 파일이 root 것으로 생겨
+    #    reload 가 실패한다(10-07 겪음). 확인은 sudo -u caddy -H caddy validate … 로.
+    touch /var/log/caddy/livemaster-v2.log
+    chown caddy:caddy /var/log/caddy/livemaster-v2.log
+    iptables -C INPUT -p tcp --dport 8443 -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 8443 -j ACCEPT
+    netfilter-persistent save >/dev/null 2>&1 || true
+
+    # 🕹️ 조종실 버전 되돌리기가 v2 · v2 진행봇 · 리스너를 다시 켤 수 있게 — 그 재시작만 허락한다.
+    #    옛 /etc/sudoers.d/livemaster-restart 는 안 건드린다. 문법이 틀리면 깔지 않는다(sudo 전체가 막히는 사고 방지).
+    SUDOERS_TMP=$(mktemp)
+    cat > "$SUDOERS_TMP" <<'SUDOERS'
+livemaster ALL=(root) NOPASSWD: /usr/bin/systemctl restart livemaster-v2, \
+                                /usr/bin/systemctl restart livemaster-bot-v2, \
+                                /usr/bin/systemctl restart toon-listener, \
+                                /bin/systemctl restart livemaster-v2, \
+                                /bin/systemctl restart livemaster-bot-v2, \
+                                /bin/systemctl restart toon-listener
+SUDOERS
+    if visudo -cqf "$SUDOERS_TMP"; then
+      install -m 440 "$SUDOERS_TMP" /etc/sudoers.d/livemaster-v2-restart
+      echo "     sudoers 줄 넣음 → /etc/sudoers.d/livemaster-v2-restart"
+    else
+      echo "     ⚠️ sudoers 문법 확인 실패 — 넣지 않았습니다(버전 되돌리기 뒤에는 sudo systemctl restart livemaster-v2 를 손으로)"
+    fi
+    rm -f "$SUDOERS_TMP"
+  fi
+fi
+
 cat <<EOF
 
 ────────────────────────────────────────────────────────────
@@ -179,3 +243,17 @@ cat <<EOF
    (Vultr 는 방화벽 그룹을 지정하지 않았다면 그냥 열려 있습니다)
 ────────────────────────────────────────────────────────────
 EOF
+if [ "$WITH_V2" = "1" ]; then
+  cat <<EOF
+🆕 v2 도 깔았습니다. 비밀값을 채운 뒤:
+  4) v2 켜기            sudo systemctl restart livemaster-v2
+                        sudo systemctl start livemaster-v2-backup.timer livemaster-watchdog.timer
+  5) 확인               curl -s 127.0.0.1:5300/api/health | head -c 300
+                        sudo -u caddy -H caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+                        sudo systemctl reload caddy
+                        폰으로 https://엔젤컴퍼니.메인.한국:8443/health
+  ⚠️ 업체 콘솔에 방화벽 그룹이 있으면 거기서 8443 도 열어야 합니다.
+  리스너 · 진행봇을 v2 로 돌리는 것은 갈아타는 날 — v2/deploy/README.md '갈아타는 날'.
+────────────────────────────────────────────────────────────
+EOF
+fi
