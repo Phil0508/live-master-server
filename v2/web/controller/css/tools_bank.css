@@ -1,0 +1,117 @@
+/* 🏦 계좌 입금 — 후원 콘솔 '계좌 입금 추천' 칸(panels/ops/bank.js) · 머리줄 '계좌' 점 · 계좌 띠(bankext.js) ·
+   시스템 탭 은행 확장 거울 · 폰 앱 칸(panels/ops/bankmirror.js) · 탭 배지(tabs.js).
+   옛 manual_send.html · controller.html 의 생김새를 v2 색 이름표(--accent · --good · --warn · --bad · --gold …)로 옮겼다. 바깥에서 불러오는 것 없음. */
+
+/* ── 탭 배지 — 후원 콘솔 '🏦 2' (아직 안 쓴 계좌 입금) ── */
+.tab-badge { margin-left: 2px; padding: 1px 8px; border-radius: 999px; background: var(--gold); color: #2a1a00; font-size: 12px; font-weight: 900; line-height: 1.5; font-variant-numeric: tabular-nums; }
+.tabbar .tab.on .tab-badge { background: #fff; color: var(--accent-ink); }
+
+/* ── 후원 콘솔 '계좌 입금 추천' 칸 ── */
+.ops-blk.bank { gap: 12px; }
+.bank-head { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.bank-head h3 { font-size: 16px; font-weight: 800; margin: 0; }
+.bank-head .sp { flex: 1; }
+.bank-link { font-size: 12.5px; font-weight: 800; padding: 4px 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: var(--muted); }
+.bank-link.ok { background: rgba(61, 220, 132, 0.14); color: #8ef0b8; }
+.bank-link.stale { background: rgba(245, 165, 36, 0.14); color: #ffd28a; }
+.bank-tool { min-height: 34px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line); background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+.bank-tool:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+.bank-tool.sm { flex: none; min-height: 28px; padding: 0 10px; font-size: 12.5px; margin-left: auto; white-space: nowrap; }
+.bank-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; max-height: 360px; overflow-y: auto; overscroll-behavior: contain; padding: 2px; }
+.bank-empty { grid-column: 1 / -1; color: var(--dim); font-size: 13.5px; padding: 8px 4px; line-height: 1.6; }
+.bank-card { display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line); }
+.bank-card.picked { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-ring); }
+.bk-top { display: flex; align-items: baseline; gap: 8px; }
+.bk-amt { font-size: 19px; font-weight: 900; color: var(--gold); letter-spacing: -0.3px; font-variant-numeric: tabular-nums; }
+.bk-time { margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.bk-sug { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.bk-name { flex-shrink: 0; max-width: 55%; font-size: 15px; font-weight: 900; color: var(--accent-hi); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-name.none { color: var(--dim); font-weight: 700; font-size: 13px; }
+.bk-msg { min-width: 0; font-size: 14px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bk-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.bk-how, .bk-tgt { font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: var(--muted); }
+.bk-how.ok { color: var(--good); }
+.bk-how.warn { color: var(--warn); }
+.bk-tgt { color: var(--accent-hi); background: var(--accent-soft); }
+.bk-raw { font-size: 12px; color: var(--dim); line-height: 1.5; overflow-wrap: anywhere; }
+.bk-btns { display: flex; gap: 6px; margin-top: 2px; }
+.bk-btns button { min-height: 38px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 900; cursor: pointer; }
+.bk-fill { flex: 1; border: none; background: var(--accent); color: var(--on-accent); }
+.bk-fill:hover { background: var(--accent-hi); }
+.bk-hide, .bk-back { flex: 0 0 84px; background: transparent; border: 1px solid var(--line); color: var(--muted); }
+.bk-back { flex: 1; }
+.bk-hide:hover, .bk-back:hover { color: var(--text); background: rgba(255, 255, 255, 0.07); }
+.bank-setup { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px dashed var(--line); border-radius: 12px; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+.bank-setup p { margin: 0; }
+.bank-setup b { color: var(--text); }
+.bank-key-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.bank-key { flex: 1 1 220px; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--input); color: var(--text); font: 600 13.5px/1.4 ui-monospace, Consolas, monospace; overflow-wrap: anywhere; }
+.bank-a { color: var(--accent-hi); font-weight: 800; }
+.bank-hidden { padding-top: 4px; border-top: 1px dashed var(--line-soft); }
+.bank-pick-note { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--accent-ring); color: var(--text); font-size: 13.5px; font-weight: 800; }
+
+/* ── 머리줄 '계좌' 점 — alarm.js 의 .pf-chip 그대로(data-lv) ── */
+.pf-chip.bank-chip[data-lv=none] { color: var(--muted); }
+
+/* ── 계좌 입금 띠 — 머리줄 맨 아래(경보 띠 밑). 빨강 = 입금을 못 받는 중 · 초록 = 새 입금(25초). 소리는 없다 ── */
+.bank-strips { flex: 1 1 100%; order: 100; display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: 100%; }
+.bank-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; padding: 10px 14px; border-radius: 16px; animation: pfIn 0.2s ease; }
+.bank-strip .bs-txt { flex: 1 1 260px; min-width: 0; }
+.bank-strip b { display: block; font-size: 15.5px; font-weight: 900; overflow-wrap: anywhere; }
+.bank-strip small { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; opacity: 0.88; }
+.bank-strip.dead { background: rgba(255, 69, 58, 0.88); border: 2px solid #ff5a5a; color: #fff; animation: bankBandPulse 1.4s ease infinite; }
+.bank-strip.new { background: rgba(61, 220, 132, 0.14); border: 1px solid rgba(61, 220, 132, 0.5); color: #c8f7dc; }
+.bank-strip.new b { color: #8ef0b8; }
+.bank-strip.new.pop { animation: bankNewUp 0.35s ease; }
+.bank-strip .bs-btn { flex: none; background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.35); color: inherit; }
+.bank-strip .bs-x { flex: none; width: 34px; height: 34px; border: 0; border-radius: 10px; background: transparent; color: inherit; font-size: 16px; cursor: pointer; }
+.bank-strip .bs-x:hover { background: rgba(255, 255, 255, 0.1); }
+@keyframes bankBandPulse { 50% { filter: brightness(1.12); } }
+@keyframes bankNewUp { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* ── 🖥️ 시스템 탭 — 은행 확장 거울 ── */
+.bkx-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--input); border: 1px solid var(--line); }
+.bkx-bar.dead { background: rgba(255, 69, 58, 0.18); border-color: var(--bad); }
+.bkx-dot { width: 14px; height: 14px; border-radius: 50%; background: #8c8078; box-shadow: 0 0 0 4px rgba(140, 128, 120, 0.18); flex: none; }
+.bkx-dot.ok { background: var(--good); box-shadow: 0 0 0 4px rgba(61, 220, 132, 0.18); }
+.bkx-dot.warn { background: var(--warn); box-shadow: 0 0 0 4px rgba(245, 165, 36, 0.2); }
+.bkx-dot.bad { background: var(--bad); box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.25); animation: bkxBlink 1s steps(2) infinite; }
+@keyframes bkxBlink { 50% { opacity: 0.35; } }
+.bkx-t { flex: 1; min-width: 0; }
+.bkx-t b { display: block; font-size: 15px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bkx-t small { display: block; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bkx-cnt { flex: none; padding: 3px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-hi); font-size: 12.5px; font-weight: 900; white-space: nowrap; }
+.bkx .btn.on { background: rgba(61, 220, 132, 0.18); border-color: rgba(61, 220, 132, 0.6); color: var(--good); }
+.bkx .bkx-sel { height: 38px; font-size: 14px; }
+.bkx-found { display: grid; gap: 4px; }
+.bkx-dep { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 2px 10px; align-items: baseline; padding: 6px 10px; border-radius: 10px; background: var(--input); font-size: 13px; }
+.bkx-dep b { color: var(--gold); font-variant-numeric: tabular-nums; }
+.bkx-dep span { min-width: 0; overflow-wrap: anywhere; }
+.bkx-log { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+.bkx details summary { cursor: pointer; }
+
+/* ── 📱 폰 입금알림 앱 ── */
+.bkapp-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.bkapp-qr { flex: none; width: 132px; height: 132px; padding: 6px; border-radius: 12px; background: #fff; box-sizing: content-box; }
+.bkapp-txt { flex: 1 1 220px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.bkapp-txt b { color: var(--text); }
+.bkapp-url { overflow-wrap: anywhere; }
+.bkapp a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+
+@media (prefers-reduced-motion: reduce) {
+    .bank-strip.dead, .bank-strip.new.pop, .bkx-dot.bad { animation: none; }
+}
+
+/* ── 📱 폰(900px 아래) ── */
+@media (max-width: 899px) {
+    .bank-list { grid-template-columns: minmax(0, 1fr); max-height: none; }
+    /* 폰은 머리줄과 같이 위에 붙어 다닌다 — 띠 하나가 화면을 덜 가리게 한 줄씩 · 단추는 오른쪽 */
+    .bank-strips { gap: 6px; }
+    .bank-strip { flex-wrap: nowrap; gap: 6px; padding: 7px 6px 7px 12px; border-radius: 14px; }
+    .bank-strip .bs-txt { flex: 1 1 auto; }
+    .bank-strip b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-strip small { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bank-strip .bs-btn { min-height: 32px; padding: 0 10px; font-size: 12.5px; white-space: nowrap; }
+    .bank-strip .bs-x { width: 30px; height: 30px; }
+    .bkx-dep { grid-template-columns: auto minmax(0, 1fr); }
+}

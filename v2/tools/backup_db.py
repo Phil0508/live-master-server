@@ -24,6 +24,27 @@ V2 = os.path.dirname(HERE)
 BUCKET = 'backups'
 
 
+# 🏦 백업에 넣지 않는 표 — 계좌 입금 카드(입금자 실명 · 메모 원문)와 은행 확장 마지막 신호(메모 조각 · 기록).
+#    옛 프로그램은 이것을 bank_inbox.json 에 36시간만 두고 어디에도 백업하지 않았다(옛 동작이 정답).
+#    백업은 14벌(2주) · 바깥 보관소에도 올라갈 수 있어 실명이 그만큼 오래 남는다 → 백업본에서는 비운다.
+#    되살린 뒤에는 은행 확장 · 폰이 다음 신호부터 다시 채운다(열쇠는 bank_key.json 이라 그대로).
+PRIVATE_TABLES = ('bank_inbox', 'bank_meta')
+
+
+def scrub_private(db):
+    """백업본(db)에서 PRIVATE_TABLES 의 줄을 지우고 VACUUM — 지운 글자가 빈 쪽(free page)에 남지 않게."""
+    have = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    gone = [t for t in PRIVATE_TABLES if t in have]
+    if not gone:
+        return []
+    db.execute('PRAGMA secure_delete = ON')
+    for t in gone:
+        db.execute('DELETE FROM %s' % t)
+    db.commit()
+    db.execute('VACUUM')
+    return gone
+
+
 def snapshot(db_path, out_dir):
     """장부 한 벌 → .db.gz. 돌려주는 값: 만든 파일 경로."""
     os.makedirs(out_dir, exist_ok=True)
@@ -36,6 +57,7 @@ def snapshot(db_path, out_dir):
         dst = sqlite3.connect(tmp)
         with dst:
             src.backup(dst)
+        scrub_private(dst)
         ok = dst.execute('PRAGMA integrity_check').fetchone()[0]
         n = dst.execute('SELECT COUNT(*) FROM donations').fetchone()[0]
         dst.close()

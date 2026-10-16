@@ -2,8 +2,10 @@
    GET /api/health · GET /api/screens · GET/POST /api/toon/accounts · GET /api/events?limit=30
    이 탭이 보이는 동안만 20초마다 다시 읽는다(옛 것과 같다).
    ⚠️ 테스트 계정 주소 끝의 키는 비밀번호 같은 열쇠다 — 비밀번호 칸(가려짐)으로 받고, 서버도 끝 네 글자만 돌려준다
-      (조종실 화면이 방송에 잡혀도 새지 않게). */
+      (조종실 화면이 방송에 잡혀도 새지 않게).
+   🏦 은행 확장 거울(켜기/끄기 · 간격 · 지금 조회 · 기준 다시 잡기) · 📱 폰 입금알림 앱(QR · APK) — bankmirror.js */
 import { h, fill, api, once, onEnter, blockHead, num } from './common.js';
+import { mountBankMirror, mountBankApp } from './bankmirror.js';
 
 const KIND = { overlay: '📺 방송판', controller: '🎛️ 조종실', editor: '📐 편집기', bot: '🤖 진행봇', mobile: '📱 폰', console: '💸 후원 콘솔', other: '❔ 기타',
                alertbox: '🔔 알림창', sigdisp: '🖼️ 출연진 전광판', slot: '🎰 슬롯 화면' };   // 📺 따로 띄우는 방송판(?only=)
@@ -38,6 +40,7 @@ export function mountSystem(el, ctx) {
     testOn.addEventListener('change', () => toonPost({ enabled: testOn.checked }, testOn.checked ? '🧪 테스트 계정을 켰어요 — 10초 안에 붙어요' : '테스트 계정을 껐어요'));
 
     el.classList.add('ops', 'ops-system');
+    const bankMirror = mountBankMirror(ctx), bankApp = mountBankApp(ctx);
     el.append(
         h('section', { class: 'ops-blk' }, h('div', { class: 'ops-bh' }, h('h3', null, '서버 상태'), refresh), srv),
         h('section', { class: 'ops-blk' }, h('div', { class: 'ops-bh' }, h('h3', null, '붙은 화면 '), scrN), scr,
@@ -47,6 +50,8 @@ export function mountSystem(el, ctx) {
             h('p', { class: 'ops-dim small' }, "테스트 계정은 수 · 목(방송하는 날)엔 저절로 쉬어요. 들어온 후원은 대기함에 '🧪 테스트 계정' 으로 표시돼요."),
             h('div', { class: 'ops-row wrap' }, url, save, clear),
             h('label', { class: 'ops-row' }, testOn, h('span', null, '테스트 계정 켜기'))),
+        bankMirror.el,
+        bankApp.el,
         h('section', { class: 'ops-blk' }, blockHead('최근 기록 30건', '조종실 · 리스너 · 방송판이 보낸 명령 — 실패한 것은 안 남아요'), evs),
     );
 
@@ -111,5 +116,10 @@ export function mountSystem(el, ctx) {
 
     // 이 탭이 보이는 동안만 20초마다
     const timer = setInterval(() => { if (!el.isConnected) { clearInterval(timer); return; } if (el.offsetParent) load(false); }, 20000);
-    return { render() { load(false); } };
+    return {
+        render() {
+            load(false);
+            try { bankMirror.render(); bankApp.render(); } catch (e) { console.error('[은행 확장 · 폰 앱]', e); }
+        },
+    };
 }

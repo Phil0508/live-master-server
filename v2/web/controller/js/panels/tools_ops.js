@@ -9,6 +9,7 @@ import { mountFundjar } from './ops/fundjar.js';
 import { mountMedia } from './ops/media.js';
 import { mountConsole } from './ops/console.js';
 import { mountOpFx } from './ops/opfx.js';           // ✨ 이펙트 — 옛 후원 콘솔 '이펙트' 탭(조종실 후원 연출)
+import { bankBadge } from './ops/bank.js';          // 🏦 아직 안 쓴 계좌 입금 수(비공개 조각 bank.new)
 import { mountBot } from './ops/bot.js';
 import { mountVersion } from './ops/version.js';
 import { mountMigrate } from './ops/migrate.js';
@@ -19,7 +20,7 @@ const G = 'tools';
 export const PANELS = [
     { id: 'ops-stage', label: '무대', icon: '📺', group: G, mount: mountStage },
     { id: 'ops-notice', label: '공지', icon: '📣', group: G, mount: mountNotice },
-    { id: 'ops-console', label: '후원 콘솔', icon: '💸', group: G, mount: mountConsole },
+    { id: 'ops-console', label: '후원 콘솔', icon: '💸', group: G, mount: mountConsole, badge: bankBadge },
     { id: 'ops-opfx', label: '이펙트', icon: '✨', group: G, mount: mountOpFx },
     { id: 'ops-fundjar', label: '모금함', icon: '🏺', group: G, mount: mountFundjar },
     { id: 'ops-screen', label: '계좌 · 화면', icon: '🏦', group: G, mount: mountScreen },

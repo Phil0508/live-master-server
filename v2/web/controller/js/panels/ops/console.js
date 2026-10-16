@@ -6,9 +6,13 @@
             제일 싼 시그니처(최대 1만 원)보다 적으면 시그니처 없이 화면에만(장부에 넣으면 대기함 + 소액 띠).
    ⚠️ 보내는 중에는 다시 못 보낸다(두 번 눌러 두 번 들어가는 사고).
    ⚠️ 장부 묶음이 중간에 실패하면 같은 내용으로 다시 누를 때 **같은 번호**를 쓴다 → 이미 들어간 것은 서버가 중복으로 거르고
-      빠진 것만 들어간다(옛 manual_send 와 같다). 내용이 하나라도 다르면 새 번호. */
+      빠진 것만 들어간다(옛 manual_send 와 같다). 내용이 하나라도 다르면 새 번호.
+   🏦 계좌 입금 추천 칸(bank.js)이 맨 위 — 카드 [채우기] → 여기서 보고 고쳐서 [송출]. 채운 송출은 tx_id 'manual_bank_<입금번호>'
+      (두 번 눌러도 장부엔 한 번) · 이름을 비우면 '익명' · 끝나면 그 입금에 '씀' 표시 + '장부에 넣기' 를 채우기 전으로 되돌린다. */
 import { h, num, won, sigOf, onEnter, once, api, parseWon, blockHead } from './common.js';
 import { manWon } from '../../util.js';
+import { mountBankBox } from './bank.js';
+import { sendName, txBase } from '../../bankcore.js';
 
 const SIG_ROUND_FLOOR = 10000;      // 서버 rules.SIG_ROUND_FLOOR — 최저선은 1만 원을 못 넘는다
 
@@ -32,7 +36,9 @@ export function mountConsole(el, ctx) {
     const reload = h('button', { type: 'button', class: 'ops-mini', title: '시그니처 목록 다시 받기', 'aria-label': '시그니처 목록 다시 받기', onclick: () => load(true) }, '↻');
 
     el.classList.add('ops', 'ops-console');
-    el.append(h('div', { class: 'con-grid' },
+    // 🏦 계좌 입금 추천 — [채우기] 가 아래 칸을 채운다(송출은 아래 [송출] 단추만)
+    const bank = mountBankBox(ctx, { amtIn, nameIn, msgIn, cntIn, ledger, onFill: () => { retry = null; lastPv = ''; preview(); } });
+    el.append(bank.el, h('div', { class: 'con-grid' },
         h('section', { class: 'ops-blk con-form' },
             blockHead('💸 후원 콘솔', '계좌 후원 · 놓친 후원을 손으로 넣어요'),
             h('label', { class: 'ops-field' }, h('span', null, '후원 금액 (원)'), amtIn),
@@ -43,6 +49,7 @@ export function mountConsole(el, ctx) {
                 h('span', { class: 'ops-hint inline' }, '같은 시그니처를 여러 번 받았을 때')),
             h('label', { class: 'con-ledger' }, ledger, h('span', null, h('b', null, '장부에 넣기'),
                 ' — 켜면 실제 후원처럼 대기함 · 장부 · 후원 순위에 들어가요. 끄면 시그니처만 틀어요.')),
+            bank.note,
             sendBtn),
         h('section', { class: 'ops-blk con-pv' },
             h('div', { class: 'pv-card' }, h('span', { class: 'pv-badge' }, '미리보기'),
@@ -93,7 +100,7 @@ export function mountConsole(el, ctx) {
     let lastPv = '';
     function preview() {
         const amount = parseWon(amtIn.value) || 0;
-        const name = nameIn.value.trim() || '수동송출';
+        const name = sendName(nameIn.value, bank.pick());
         const msg = msgIn.value.trim();
         const cnt = clampCount();
         const led = ledger.checked;
@@ -144,15 +151,17 @@ export function mountConsole(el, ctx) {
         if (sending) return;
         const amount = parseWon(amtIn.value);
         if (!amount || amount <= 0) { ctx.toast('후원 금액을 원 단위 숫자로 넣어 주세요', 'err'); amtIn.focus(); return; }
-        const name = nameIn.value.trim() || '수동송출';
+        const pick = bank.pick();                       // 🏦 계좌 입금에서 채웠나
+        const name = sendName(nameIn.value, pick);      // 채웠는데 이름을 비우면 '익명'
         const message = msgIn.value.trim();
         const cnt = clampCount();
         const led = ledger.checked;
         const key = sigOf(name, amount, message, cnt);
         const reuse = led && retry && retry.key === key;
         const stamp = reuse ? retry.stamp : Date.now();
+        const base = txBase(pick, stamp);               // 계좌 입금에서 채운 것은 그 입금 번호 — 두 번 눌러도 장부엔 한 번
         const jobs = led
-            ? Array.from({ length: cnt }, (_, i) => ['/api/donation', { name, amount, message, tx_id: 'manual_' + stamp + (cnt > 1 ? '_' + (i + 1) : '') }])
+            ? Array.from({ length: cnt }, (_, i) => ['/api/donation', { name, amount, message, tx_id: base + (cnt > 1 ? '_' + (i + 1) : '') }])
             : [['/api/signature/play', { amount, name, message, count: cnt }]];
         sending = true;
         sendBtn.disabled = true;
@@ -177,6 +186,7 @@ export function mountConsole(el, ctx) {
             ctx.toast(shownOnly ? (led ? `✓ ${name} ${won(amount)} — 대기함에 넣었어요 (시그니처 없음 · 소액)` : '✓ 방송판에 띄웠어요 (시그니처 없음 — 1만 원 미만은 화면에만)')
                 : `✓ 송출했어요${cnt > 1 ? ' ×' + cnt : ''}${led ? ' (장부에 넣음' + (dup ? ` · ${dup}건은 이미 들어가 있어 건너뜀` : '') + ')' : ''}`, 'ok');
             amtIn.value = ''; nameIn.value = ''; msgIn.value = ''; cntIn.value = '1';
+            if (pick) bank.used(pick, name);            // 추천 칸에서 빼고 '장부에 넣기' 를 채우기 전으로
             lastPv = '';
             preview();
             amtIn.focus();
@@ -200,6 +210,7 @@ export function mountConsole(el, ctx) {
         // 서버 조각은 안 쓴다 — 목록은 열 때 한 번 받고 ↻ 로 다시.
         // 단, 로그인 전에 열려(첫 화면이 이 탭) 목록을 못 받았으면 로그인된 뒤 한 번만 다시 받는다
         render(slices) {
+            try { bank.render(slices || ctx.slices); } catch (e) { console.error('[계좌 입금 추천]', e); }
             if (!sigs && !loading && !triedAuthed && ctx.lm.authed) { triedAuthed = true; load(true); }
             // 시그니처 관리에서 바꾸면(sig_admin.ver) 받아 둔 목록을 새로 받는다 — 새로 등록한 시그가 바로 미리보기에 잡히게
             const v = Number(((slices || ctx.slices || {}).sig_admin || {}).ver) || 0;
