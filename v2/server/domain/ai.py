@@ -14,7 +14,7 @@ v2 에서 바뀐 것
   - 제안은 대기함 id 로도 물을 수 있다({id}) — 서버가 대기함에서 이름 · 금액 · 메시지를 읽는다.
 
 설정(옛 것과 같은 이름 · 같은 기본값)
-  🆕 ANTHROPIC_API_KEY — 있으면 **Claude 를 먼저** 부른다(CLAUDE_MODEL, 기본 claude-haiku-4-5 — 10-07 대표님 "엔비디아 말고 너(Claude)").
+  🆕 ANTHROPIC_API_KEY — 있으면 **Claude 를 먼저** 부른다(CLAUDE_MODEL, 기본 claude-haiku-5-5 — 10-07 대표님 "엔비디아 말고 너(Claude)").
      Claude 가 막히면 NVIDIA 키가 있을 때만 NVIDIA 로 넘어간다. 없으면 옛 것처럼 NVIDIA 만. 부품: pip 의 anthropic(v2/requirements.txt).
   NVIDIA_API_KEY (없으면 저장소 루트 NVIDIA_CREDENTIALS.txt 의 NVIDIA_API_KEY=… — git 제외 파일)
   NIM_MODEL · NIM_MODEL_BACKUP (제안) / NIM_CHAT_MODEL · NIM_CHAT_BACKUP (채팅) — 모델이 내려가면(410) 이것만 바꾸고 재시작.
@@ -188,7 +188,7 @@ def nim_post(models, body, timeout):
 
 
 # ── Claude(Anthropic) — 키가 있으면 먼저 부른다. 막히면 NVIDIA(키가 있을 때) ──────────
-CLAUDE_MODEL = (os.environ.get('CLAUDE_MODEL') or 'claude-haiku-4-5').strip()
+CLAUDE_MODEL = (os.environ.get('CLAUDE_MODEL') or 'claude-haiku-5-5').strip()
 # Claude 가 '잠깐 막힘' 으로 답하는 것 — 529 는 붐빔(overloaded), 0 은 연결 실패 · 시간 넘김
 CLAUDE_RETRYABLE = (0, 408, 429, 500, 502, 503, 504, 529)
 _CLAUDE_KEY = None
@@ -233,15 +233,20 @@ def _claude_call(system, messages, max_tokens, temperature, timeout):
         print('⚠️ [Claude] 연결 부품을 못 불러 Claude 를 건너뜁니다 (%s) — pip install -r v2/requirements.txt'
               % type(e).__name__, flush=True)
         return None, 0
+    # 🌡️ temperature 는 안 보낸다 — 새 anthropic 부품(1.x)과 새 모델이 받지 않는다(10-17 운영에서 TypeError 로 확인).
+    #    답의 들쭉날쭉함은 사실표(ai_facts)와 짧은 max_tokens 로 잡는다. 인자는 NVIDIA 길과 모양을 맞추려 남긴다.
     kw = {'system': system} if system else {}
     try:
         msg = client.with_options(timeout=timeout).messages.create(
-            model=CLAUDE_MODEL, max_tokens=max_tokens, temperature=temperature, messages=messages, **kw)
+            model=CLAUDE_MODEL, max_tokens=max_tokens, messages=messages, **kw)
     except anthropic.RateLimitError:
         return None, 429
     except anthropic.APIStatusError as e:              # 400 · 401(키) · 404(모델 없음) · 529(붐빔) …
         return None, int(getattr(e, 'status_code', 0) or 0)
     except anthropic.APIConnectionError:               # 시간 넘김(APITimeoutError)도 여기
+        return None, 0
+    except (TypeError, ValueError) as e:               # 부품이 인자를 안 받음 등 — 예외로 AI 가 멈추지 않게
+        print('⚠️ [Claude] 부르는 모양이 안 맞아 건너뜁니다 (%s)' % type(e).__name__, flush=True)
         return None, 0
     text = ''.join(b.text for b in msg.content if getattr(b, 'type', '') == 'text').strip()
     return text, 200

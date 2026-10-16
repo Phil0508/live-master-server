@@ -133,7 +133,8 @@ class ClaudeSdk(unittest.TestCase):
         self.assertEqual((text, code), ('하율 이에요', 200))
         self.assertEqual(seen['opts'], {'timeout': 8})
         kw = seen['kw']
-        self.assertEqual((kw['model'], kw['max_tokens'], kw['temperature'], kw['system']), ('claude-haiku-4-5', 200, 0.1, '시스템'))
+        self.assertEqual((kw['model'], kw['max_tokens'], kw['system']), (ai.CLAUDE_MODEL, 200, '시스템'))
+        self.assertNotIn('temperature', kw)                                # 새 부품 · 새 모델은 temperature 를 안 받는다(10-17)
         cl, seen = self._client(result=msg)
         with mock.patch.object(ai, '_claude_client', lambda: cl):
             ai._claude_call('', [{'role': 'user', 'content': '누구?'}], 200, 0.1, 8)
