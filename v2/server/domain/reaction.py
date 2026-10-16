@@ -8,6 +8,13 @@ queue 조각(공개): items[{id, sig_id, title, sig_amount, audio_url, image_url
 - 같은 시그니처를 같은 사람이 연달아 보내면 마지막 줄에 ×N 으로 묶는다(옛 것과 같다).
 - 방송판이 다 틀면 reaction.done {id} — **로그인 없이** 부른다. 맨 앞 id 가 맞을 때만 뺀다(늦게 온 보고 · 두 화면 보고는 무시).
 - 대기줄은 40줄까지. 넘치면 재생 중인 것 다음(가장 오래 기다린 것)부터 뺀다.
+- 💬 묶일 때 메시지는 후원마다 msgs 에 차례대로 모은다(빈 메시지도 자리를 지킨다, 30개까지 — 옛 10-11 5d179b0).
+  혼자인 줄은 message 하나. 방송판이 [N번 다 틀기]면 틀 때마다 그 차례 메시지, 한 번만 틀면 다 같이 보여 준다.
+- 🏷️💙 extra — 첫 줄을 만들 때만 실린다(옛 것과 같다): donor_title · donor_level(칭호 · Lv) · via:'toon'(투네 딱지).
+- 🔁 끝난 묶음 기억(reaction_done_recent — 비공개 조각, 옛 features/reaction.py _RECENT_DONE): 다 틀고 빠진(또는 건너뛴)
+  줄 중 ×N(전체 2번 이상)만 30개까지. [N번 다 틀기]를 이미 빠진 줄에 누르면 남은 만큼을 '지금 나오는 것 바로 다음'에
+  이어 틀기 줄(again_of · seq_base(이미 튼 수) · seq_total · skip_popup)로 세운다. 방송 시작 · 끝에 비운다.
+  이어 틀기 줄 필드: 옛 줄을 그대로 베끼고 id 새로 · count = 남은 수 · play_all · seq_base · seq_total · again_of.
 """
 import uuid
 
@@ -17,22 +24,36 @@ from . import donation as dn
 from . import session as ses
 from .rules import QUEUE_MAX, norm_donor
 
+REACTION_MSGS_MAX = 30       # 묶음 한 줄에 모아 둘 메시지 수(옛 server.py 와 같다) — 큐 전체가 쪽지마다 모든 화면에 나간다
+RECENT_DONE_MAX = 30         # 끝난 묶음 기억 수(옛 _RECENT_DONE maxlen)
+
 slice_('queue', True, lambda: {'items': [], 'paused': False, 'volume': 0.5})
+slice_('reaction_done_recent', False, lambda: {'items': []})
 
 
-def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_after=0, count_tally=True):
+def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_after=0, count_tally=True, extra=None):
     q = ctx.edit('queue')
     items = q['items']
     last = items[-1] if items else None
     if (count_tally and not skip_popup and not play_after and last and not last.get('skip_popup') and not last.get('play_after')
             and str(last.get('sig_id')) == str(sig.get('id')) and norm_donor(last.get('donator')) == norm_donor(donator)):
         last['count'] += 1
+        # 💬 메시지는 후원마다 따로 모은다 — 예전엔 첫 메시지만 남아 '아버지' 다음 '어머니' 가 화면 어디에도 안 떴다(대표님 10-11)
+        msgs = last.get('msgs')
+        if not isinstance(msgs, list):
+            msgs = [str(last.get('message') or '')]
+        if len(msgs) < REACTION_MSGS_MAX:
+            msgs.append(str(message or ''))
+        last['msgs'] = msgs
     else:
         items.append({'id': 'rq_' + uuid.uuid4().hex, 'sig_id': sig.get('id'), 'title': sig.get('title') or '시그니처',
                       'sig_amount': int(sig.get('amount') or 0), 'audio_url': sig.get('sound_url') or '',
                       'image_url': sig.get('image_url') or '', 'duration': float(sig.get('duration') or 10),
                       'amount': int(amount or 0), 'donator': donator, 'message': message, 'count': 1, 'play_all': False,
                       'skip_popup': bool(skip_popup), 'play_after': int(play_after or 0)})
+        if isinstance(extra, dict):
+            new = items[-1]
+            new.update({k: v for k, v in extra.items() if k not in new})      # 정해진 칸은 못 덮는다
         while len(items) > QUEUE_MAX:
             items.pop(1)
     if count_tally:
@@ -64,7 +85,24 @@ def done(ctx, data):
         head['count'] -= 1
         head['replay'] = int(head.get('replay') or 0) + 1      # 방송판이 '같은 것을 한 번 더' 로 알아보게
     else:
-        q['items'].pop(0)
+        _remember_done(ctx, q['items'].pop(0))
+
+
+def played_total(it):
+    """이 줄이 빠지는 순간 — (지금까지 튼 수, 모두 몇 번). 이어 틀기 줄은 앞에서 튼 만큼(seq_base)을 더한다.
+       v2 는 '다 틀기' 때 count 를 하나씩 줄이고 replay 를 올리므로: 튼 수 = seq_base + replay + 1, 모두 = seq_base + replay + count."""
+    base, rep, cnt = int(it.get('seq_base') or 0), int(it.get('replay') or 0), max(1, int(it.get('count') or 1))
+    return base + rep + 1, base + rep + cnt
+
+
+def _remember_done(ctx, it):
+    """🔁 방금 끝난 묶음(×N) — 조종실이 '이미 한 번 나갔는데 N번 다 틀어야 했다' 할 때 남은 만큼 이어 틀려고(옛 _RECENT_DONE)."""
+    played, total = played_total(it)
+    if total <= 1:
+        return
+    r = ctx.edit('reaction_done_recent')
+    r['items'] = (r.get('items') or []) + [dict(it, played=played, total=total, ended_at=int(ctx.now * 1000))]
+    del r['items'][:-RECENT_DONE_MAX]
 
 
 @command('reaction.skip')
@@ -72,7 +110,7 @@ def skip(ctx, data):
     q = ctx.edit('queue')
     if not q['items']:
         raise CommandError('재생 중인 시그니처가 없습니다', 404)
-    q['items'].pop(0)
+    _remember_done(ctx, q['items'].pop(0))         # 옛 것도 건너뛰기(/api/reaction/next)를 '끝난 것' 으로 기억했다
 
 
 @command('reaction.stop')
@@ -97,11 +135,34 @@ def remove(ctx, data):
 
 @command('reaction.playall')
 def playall(ctx, data):
+    """🔁 묶인 시그니처(×N)를 N번 다 틀지. on=false 면 다시 '한 번 + ×N'. 지금 틀고 있는 묶음에 눌러도 된다.
+       이미 대기줄에서 빠졌으면(끝난 묶음 기억에 있으면) 남은 만큼을 지금 나오는 것 바로 다음에 이어 튼다(옛 것과 같다)."""
     q = ctx.edit('queue')
-    it = next((x for x in q['items'] if x['id'] == data.get('id')), None)
-    if it is None:
-        raise CommandError('대기줄에 없습니다', 404)
-    it['play_all'] = bool(data.get('on', True))
+    rid = data.get('id')
+    on = bool(data.get('on', True))
+    it = next((x for x in q['items'] if x['id'] == rid), None)
+    if it is not None:
+        it['play_all'] = on
+        ctx.notes.update({'play_all': on, 'count': int(it.get('count') or 1)})
+        return
+    rec = ctx.read('reaction_done_recent').get('items') or []
+    old = next((x for x in reversed(rec) if x.get('id') == rid), None)
+    if old is None:
+        raise CommandError('이 시그니처는 끝난 지 오래돼 이어서 틀 수 없어요 — 시그니처 송출 칸에서 × 몇 번으로 다시 보내 주세요', 404)
+    if not on:
+        ctx.notes.update({'play_all': False, 'count': 0})
+        return
+    played, total = int(old.get('played') or 1), int(old.get('total') or 1)
+    remaining = total - played
+    if remaining <= 0:
+        raise CommandError('이미 %d번 다 틀었어요' % total, 409)
+    nw = {k: v for k, v in old.items() if k not in ('played', 'total', 'ended_at', 'replay')}
+    nw.update({'id': 'rq_' + uuid.uuid4().hex, 'count': remaining, 'play_all': True, 'skip_popup': True,
+               'seq_base': played, 'seq_total': total, 'again_of': rid, 'play_after': 0})
+    q['items'].insert(1 if q['items'] else 0, nw)
+    r = ctx.edit('reaction_done_recent')
+    r['items'] = [x for x in r['items'] if x.get('id') != rid]      # 두 번 눌러 두 번 이어 틀지 않게
+    ctx.notes.update({'id': nw['id'], 'play_all': True, 'count': remaining, 'again': True, 'seq_base': played, 'seq_total': total})
 
 
 @command('reaction.volume')
@@ -116,6 +177,8 @@ def volume(ctx, data):
 def _reset(ctx, data):
     q = ctx.edit('queue')
     q['items'], q['paused'] = [], False
+    if ctx.read('reaction_done_recent').get('items'):
+        ctx.put('reaction_done_recent', {'items': []})      # 지난 방송의 묶음은 이어 틀 일이 없다(옛 것은 서버를 다시 켜면 비었다)
 
 
 ses.ON_START.append(_reset)

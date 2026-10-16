@@ -205,7 +205,10 @@ def today_summary(rows):
 
 
 def vip_list(tallies):
-    """tallies.vip → 옛 _ai_vip_list 모양 [{이름, 등급, 뱃지, 순위}] (순위 순 — 직접 준 등급(rank 0)은 맨 뒤, 순위 '직접')."""
+    """tallies.vip → 옛 _ai_vip_list 모양 [{이름, 등급, 뱃지, 순위}] (순위 순 — 직접 준 등급(rank 0)은 맨 뒤, 순위 '직접').
+       ⏸️ VIP 등급을 꺼 두면(donors.VIP_ON · tallies.vip_on False — 대표님 10-13) AI 도 등급을 말하지 않는다(옛 _ai_vip_list 와 같다)."""
+    if (tallies or {}).get('vip_on') is False:
+        return []
     v = (tallies or {}).get('vip') or {}
     rows = sorted(v.values(), key=lambda x: (bool(x.get('manual')) or not _int(x.get('rank')), _int(x.get('rank'))))
     return [{'이름': x.get('name'), '등급': x.get('grade'), '뱃지': x.get('badge'),

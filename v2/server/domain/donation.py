@@ -2,21 +2,28 @@
 """💰 후원 — 받기 · 대기함 · 선수에게 주기 · 무시 · 집계.
 
 조각
-  pending (비공개) 대기함 [{id, name, orig_name, amount, message, at, kind?, contrib?, test?}]
+  pending (비공개) 대기함 [{id, name, orig_name, amount, message, at, kind?, contrib?, test?, donor_title?, donor_level?, toon_vip?, donor_key?}]
   tallies (공개)  donors{정규화 이름: {name, total, count}} · best(한 방 최고) · notice_donors(소액 띠) · sigs(오늘의 시그니처)
 
 받기(donation.add) 순서 — 옛 것과 같다
   1) 같은 tx_id 가 장부에 있으면 한 번으로(장부 표의 UNIQUE 가 지킨다 — 옛 것은 메모리 목록이라 재시작하면 잊었다)
   2) 리스너(toon_)가 아니면 12초 안의 같은 이름 · 금액 · 메시지는 한 번으로
   3) 화면에만(display_only · 리스너 · 1만 원 미만) → 팝업만, 대기함 · 점수 · 집계 없음
+  3-b) 🔁🧪 다시 보기(replay) · 후원 테스트(test) — 리스너가 붙여 보낸 것만(10-17 이사, 옛 10-08 176db46):
+       팝업 · 시그니처는 그대로 보여 주고(그게 누른 목적이다) 대기함 · 정산 장부 · 후원 순위 · 한 방 최고 · 시그 집계 ·
+       월별 순위 · AI 기억 · 특별 후원자 등급엔 안 넣는다. 장부에는 'display'(화면만 — 합계 밖) 줄 하나만 — 같은 tx_id 재전송을 거르려고.
+       ⚠️ 투네이션 신호엔 고유 번호가 없어 리스너가 tx_id 를 매번 새로 만든다 → tx_id 거르기로는 못 막는다(이 갈래가 막는다)
   4) 이름 보정(이름이 없을 때만 '닉네임: 내용') → 대기함 · 장부 · 팝업 · 집계
   5) 시그니처 — 최저선 미만이면 안 틀고 소액 띠로, 아니면 대기줄(reaction)
+🏷️ 리스너(toon_)가 보낸 칭호 · 레벨(pub — 팝업 · 소액 띠 · 시그니처 카드) / 투네이션 VIP · 번호표(priv — 대기함 · donor_keys 표만)
+   — domain/donor_extras.py. 💙 리스너 후원은 시그니처 대기줄 항목에 via:'toon'(방송판 '투네' 딱지, 옛 97cbc4c).
 """
 import time
 import uuid
 
 from ..bus import CommandError, command
 from ..state import slice_
+from . import donor_extras as dx
 from . import players as pl
 from . import session as ses
 from .rules import DEDUPE_WINDOW, NOTICE_DONORS_MAX, SMALL_DISPLAY_MAX, derive_name, man_won, norm_donor, split_points
@@ -58,25 +65,51 @@ def donation_add(ctx, data):
                 return
     sid = ses.session_id(ctx)
     did = _did(ctx.now)
+    # 🏷️ 칭호 · 레벨(화면에 실어도 됨) / 투네이션 VIP · 번호표(대기함 · 번호표 표에만) — 리스너가 보낸 것만 믿는다
+    pub, priv = dx.clean(data) if from_listener else ({}, {})
+    # 💙 투네이션에서 온 후원 — 방송판 시그니처 카드 사진 왼쪽 위 '투네' 딱지(대표님 2026-10-13). 계좌 · 수동 송출은 안 붙는다.
+    via = {'via': 'toon'} if from_listener else {}
     # 화면에만 — 1만 원 미만(리스너가 표시해 보낸 것)
     if data.get('display_only') and from_listener and 0 < amount < SMALL_DISPLAY_MAX:
         nm = ' '.join(name_in.split()) or '익명'
         ctx.store.add_donation({'id': did, 'tx_id': tx or None, 'at': ctx.now, 'name': nm, 'amount': amount,
                                 'message': msg_in.strip(), 'source': 'display', 'status': 'display', 'player': None, 'session': sid})
-        ctx.edit('popup')['donation'] = {'id': did, 'name': nm, 'amount': amount, 'message': msg_in.strip(),
-                                         'at': int(ctx.now * 1000), 'display_only': True}
+        ctx.edit('popup')['donation'] = dict({'id': did, 'name': nm, 'amount': amount, 'message': msg_in.strip(),
+                                              'at': int(ctx.now * 1000), 'display_only': True}, **pub)
         ctx.notes.update({'id': did, 'display_only': True})
+        return
+    # 🔁🧪 다시 보기 · 후원 테스트 — 화면에만(위 3-b). 이름 보정 · 집계 · 대기함 · 등급 · 자동 진행 고리를 하나도 안 탄다.
+    kind = dx.show_only_kind(data)
+    if kind and from_listener:
+        nm = ' '.join(name_in.split()) or '익명'
+        msg = msg_in.strip()
+        ctx.store.add_donation({'id': did, 'tx_id': tx or None, 'at': ctx.now, 'name': nm, 'amount': amount, 'message': msg,
+                                'source': 'toonation_replay' if kind == 'replay' else 'toonation_dashtest',
+                                'status': 'display', 'player': None, 'session': sid})
+        pop = dict({'id': did, 'name': nm, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000), 'show_only': kind}, **pub)
+        sig = data.get('sig')
+        if sig and amount > 0:
+            # 시그 순위도 안 센다(count_tally=False) — 묶음(×N)에도 안 끼운다(옛 것과 같다)
+            for fn in ENQUEUE:
+                fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra=dict(pub, **via))
+        elif amount < SMALL_DISPLAY_MAX:
+            pop['display_only'] = True
+        ctx.edit('popup')['donation'] = pop
+        ctx.notes.update({'id': did, 'show_only': kind})
         return
     name, orig, msg = derive_name(name_in, msg_in, tx)
     test = tx.startswith('toon_t2_')
     item = {'id': did, 'name': name, 'orig_name': orig, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}
     if test:
         item['test'] = True
+    item.update(pub)          # 🏷️ 대기함 카드 이름 앞 칭호 · 뒤 Lv(조종실만 본다)
+    item.update(priv)         # 투네이션 VIP 글자 · 번호표 — 대기함은 비공개 조각이라 방송판으로 안 나간다
     ctx.edit('pending').append(item)
     ctx.store.add_donation({'id': did, 'tx_id': tx or None, 'at': ctx.now, 'name': name, 'amount': amount, 'message': msg,
                             'source': 'toonation_test' if test else ('toonation' if from_listener else 'manual'),
                             'status': 'pending', 'player': None, 'session': sid})
-    ctx.edit('popup')['donation'] = {'id': did, 'name': name, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}
+    dx.record_key(ctx.store, tx, priv, pub, ctx.now)      # 🏷️ 번호표 한 줄 — 실패해도 후원은 그대로
+    ctx.edit('popup')['donation'] = dict({'id': did, 'name': name, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}, **pub)
     t = ctx.edit('tallies')
     key = norm_donor(name)
     dt = t['donors'].setdefault(key, {'name': name, 'total': 0, 'count': 0})
@@ -92,7 +125,7 @@ def donation_add(ctx, data):
         del t['notice_donors'][:-NOTICE_DONORS_MAX]
     elif sig and amount > 0:
         for fn in ENQUEUE:
-            fn(ctx, sig, amount=amount, donator=name, message=msg)
+            fn(ctx, sig, amount=amount, donator=name, message=msg, extra=dict(pub, **via) or None)
     ctx.notes.update({'id': did})
     for fn in AFTER_DONATION:
         fn(ctx, name, amount)

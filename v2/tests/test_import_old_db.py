@@ -85,7 +85,8 @@ class ImportOld(unittest.TestCase):
         c.post('/api/cmd', json={'type': 'session.start', 'data': {'names': ['하율', '서아']}}, headers=H)
         st = c.get('/api/state', headers=H).json()['slices']
         self.assertEqual(st['donor_rules']['excluded'], ['테스트계정'])
-        self.assertEqual(st['tallies']['vip']['단골손']['grade'], 'GOLD')          # 방송 시작하자마자 등급이 붙는다(열쇠는 끝 '님' 을 뗀 이름 — 옛 규칙)
+        self.assertEqual(st['donor_rules']['manual']['단골손']['grade'], 'GOLD')   # 직접 준 등급은 옮긴다(열쇠는 끝 '님' 을 뗀 이름 — 옛 규칙)
+        self.assertEqual(st['tallies']['vip'], {})                                 # ⏸️ VIP 등급 꺼 둠(10-13) — 방송판에는 안 붙는다
         self.assertNotIn('이상한등급', st['donor_rules'].get('manual', {}))
 
     def test_kst_and_refuse_running(self):
