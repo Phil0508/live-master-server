@@ -138,3 +138,26 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - Supabase 는 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` 환경변수가 파일보다 먼저다(검사는 닫힌 포트로 돌려 막는다).
 - `LM2_AUTOPILOT=off|shadow|on` — 🤖 자동 진행의 **처음** 모드(새 DB 일 때만, 기본 shadow). 검사 꾸러미(v2/tests/__init__.py)는 off 로 시작한다.
 - 🧪 `python -m v2.tools.backtest_autopilot --db v2/data/lm2.db` — 지난 후원자 기억(donor_memory)을 시간 순으로 다시 돌려 '그때 기계였다면' 을 채점(읽기만 · AI 안 부름 · 이름 · 금액 안 찍음).
+
+## 10-17 이사 1차 — games
+옛 프로그램(10-08 ~ 10-16)에만 있던 게임 · 위젯 자리 · 조종 연출을 옮겼다. 옛 동작이 정답이다.
+- 🎱 핀볼(domain/pinball.py · widgets/games/pinball.js) — 시간(3분) · 걸음 수로 판을 **자르지 않는다**(옛 992bf7c, 10-08 52판 사고).
+  끝나는 길은 승부 갈림과 정체 감시(20초, 물리 걸음으로 센다) 둘뿐. pinball 조각에 `cut`('' | 'stall') — 정체로 끊으면 우승 딱지 아랫줄
+  '⏱ 구슬이 껴서 지금 자리로 결정' · 조종실 핀볼 탭 한 줄. 새 판 · 명단 · 초기화 · 방송 시작/끝 때 지운다.
+- 📐 옛 위젯 자리 옮기기(domain/oldlayout.py) — `layout.import_old {layout, sizes?}`. 옛 좌표(왼쪽 위 기준) → v2 기준점(layers.js anchor):
+  tl 그대로 · tr x = 옛 x + 폭×배율 · tc x = 옛 x + 폭×배율÷2 · y 그대로(폭 표는 oldlayout.py 맨 위 — v2 방송판을 잰 값).
+  옛 규칙 그대로: `__v` 2 미만 무시 · `__free` 가 아니면 안전지대 · 전광판 안 옮김. `admin.import_old` 도 상태에 배치가 있으면 같이 옮기고,
+  옛 세이브 슬롯의 자리도 바꿔 담는다. 조종실 [옛 설정 옮기기] 가 layout.json 도 받는다 · 편집기 [📥 옛 배치 가져오기](계좌 폭을 재서 보낸다).
+- 🏺 `fundjar.side {side:'left'|'right'}` — 옛 /api/fundjar/side 셈 그대로(왼쪽이면 점수판이 비킨다). 모금함 탭 [◀ 왼쪽][오른쪽 ▶](panels/ops/fjside.js).
+- 💬 cast 조각(✅ 공개, domain/cast.py) — 방송판에 '한 번 쏘는' 신호. 칸마다 쏠 때마다 id 가 오른다.
+  | 칸 | 명령 | 방송판(groups/cast.js · widgets/cast/) |
+  |---|---|---|
+  | say {id, text, at} | `cast.say {text}` 60자 | castSay z55 — 가운데 궁서 · 흰 글씨 · 검은 테두리 1초(옛 /api/say) |
+  | up {id, text, at} | `cast.up {text}` 60자 | castUp z34 liveOnly — 위 40% 금색 110px 2초(옛 gd.up_trigger) |
+  | fx {id, kinds, name, amount, message, at} | `cast.fx` | castFx z60 — banner · flash · ticker · card · shock · glitch · warn(옛 /api/effect/fire, opFxFire) |
+  | fx_clear {id, at} | `cast.fx_clear` | 쏜 연출을 바로 걷는다(옛 /api/effect/clear) |
+  방송판은 새로 쏜 것만 그린다(widgets/cast/fresh.js — 다시 붙은 창은 3초 넘은 신호를 안 터뜨린다). 흔들림은 무대 모드 `opfx-shake`,
+  다른 위젯이 쓸 수 있게 무대에 `opfx` {fire, clear, clearWarn} 를 내놓는다. 점수 · 장부 · 시그니처 대기줄은 안 건드린다.
+  조종실: 오른쪽 칸 맨 위 두 줄(js/castbox.js — 💬 Enter · ⬆ Enter/[발사]) · 운영 탭 ✨ 이펙트(panels/ops/opfx.js).
+- 🎲 주사위 시그 칸 — 시그니처 'OO업' 자리에 서버가 실은 banner('밍밍 · 시그 칸 도착')를 띄운다(widgets/signature.js, 옛 reactionUpText).
+- 검사: test_pinball_cut · test_oldlayout · test_cast · test_games_js_syntax(v2/web 모든 .js 를 .mjs 로 node --check — 조종실이 통째로 안 뜨는 문법 오류를 막는다).
