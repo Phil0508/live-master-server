@@ -110,5 +110,5 @@ function mountFx(el, ctx) {
 }
 
 export const PANELS = [
-    { id: 'fx-lights', label: '조명', icon: '💡', group: 'sigs', mount: mountFx },
+    { id: 'fx-lights', label: '조명', icon: '💡', group: 'sigs', pre: true, mount: mountFx },
 ];

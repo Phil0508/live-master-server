@@ -10,7 +10,7 @@ import { mountMonthly } from './more/monthly.js';
 try { installClickStats(); } catch (e) { console.error('[클릭 기록]', e); }
 
 export const PANELS = [
-    { id: 'monthly', label: '월별 순위', icon: '🗓️', group: 'records', mount: (el, ctx) => mountMonthly(el, ctx) },
+    { id: 'monthly', label: '월별 순위', icon: '🗓️', group: 'records', pre: true, mount: (el, ctx) => mountMonthly(el, ctx) },
     { id: 'clip', label: '클립', icon: '✂️', group: 'more', mount: (el, ctx) => mountClip(el, ctx) },
-    { id: 'uistats', label: '누른 것', icon: '📊', group: 'more', mount: (el, ctx) => mountUiStats(el, ctx) },
+    { id: 'uistats', label: '누른 것', icon: '📊', group: 'more', pre: true, mount: (el, ctx) => mountUiStats(el, ctx) },
 ];

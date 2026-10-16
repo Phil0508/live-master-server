@@ -2,6 +2,7 @@
    계좌 — account.set {bank, acc_num, name} · 방송판 계좌 자리 켜고 끄기(show.hud account)
    시작/끝 화면 — screen.set {mode:'start', title, minutes, names} · {mode:'end', title} · {mode:'off'}
      시작 전 화면: 한 줄 문구 + 카운트다운(분, 0 = 없이) + 출연자 이름(지금 명단에서 고른다)
+       방송 전(명단이 비어 있을 때)에는 '방송 시작 준비' 칸에 적은 이름(없으면 지난번 이름 — lm2_last_names)을 쓴다(10-17)
      끝 화면: 오늘의 기록 — 방송 중엔 방송판이 지금 조각으로 그리고, 방송을 끝내는 순간 서버가 한 장 얼린다
    ⚠️ 적는 중인 칸 · 고쳐 놓고 아직 저장 안 한 칸은 서버 값으로 덮지 않는다. */
 import { h, sigOf, onEnter, setVal, once, switchEl, blockHead, fill } from './common.js';
@@ -44,6 +45,7 @@ export function mountScreen(el, ctx) {
     const namesBox = h('div', { class: 'ops-chips' });
     const off = new Set();          // 시작 화면에서 뺀 이름(새로 생긴 사람은 기본으로 넣는다)
     const nameBtns = new Map();
+    const preNote = h('p', { class: 'ops-hint', hidden: true }, "방송 전이라 '방송 시작 준비' 칸에 적은 이름을 보여 줘요(그 칸을 고치면 이 탭을 다시 열 때 따라 바뀌어요).");
     const bStart = h('button', { type: 'button', class: 'btn sm', 'data-mode': 'start', onclick: () => once(bStart, () => setScreen('start')) }, '🎬 시작 전 화면');
     const bEnd = h('button', { type: 'button', class: 'btn sm', 'data-mode': 'end', onclick: () => once(bEnd, () => setScreen('end')) }, '🌙 끝 화면');
     const bOff = h('button', { type: 'button', class: 'btn sm', 'data-mode': 'off', onclick: () => once(bOff, () => setScreen('off')) }, '끄기');
@@ -77,12 +79,24 @@ export function mountScreen(el, ctx) {
             h('div', { class: 'ops-row wrap' }, h('span', { class: 'ops-lbl' }, '카운트다운'), minIn, h('span', null, '분'),
                 h('span', { class: 'ops-hint inline' }, '비우거나 0 이면 카운트다운 없이 문구만')),
             h('div', { class: 'ops-lbl-row' }, h('span', { class: 'ops-lbl' }, '시작 화면 출연자'), h('span', { class: 'ops-hint inline' }, '눌러서 빼거나 넣어요')),
+            preNote,
             namesBox,
             h('div', { class: 'ops-row wrap' }, bStart, bEnd, bOff)),
     );
 
     function playerNames(slices) {
-        return (((slices.players || {}).list) || []).map(r => r.name).filter(Boolean);
+        const list = (((slices.players || {}).list) || []).map(r => r.name).filter(Boolean);
+        if (list.length || (slices.session || {}).live) return list;
+        return setupNames();
+    }
+    // 방송 전 — 방송 준비 화면의 이름 칸(지금 적힌 것) → 없으면 이 컴퓨터에 기억한 지난번 이름
+    function setupNames() {
+        const typed = [...document.querySelectorAll('#v-setup .name-list input')].map(i => i.value.trim().replace(/\s+/g, ' ')).filter(Boolean);
+        if (typed.length) return [...new Set(typed)];
+        try {
+            const v = JSON.parse(localStorage.getItem('lm2_last_names') || '[]');
+            return Array.isArray(v) ? [...new Set(v.map(x => String(x).trim()).filter(Boolean))] : [];
+        } catch (e) { return []; }
     }
 
     // 카운트다운 — 시작 화면이 켜져 있을 때만 1초마다 한 줄만 고친다
@@ -130,6 +144,7 @@ export function mountScreen(el, ctx) {
         }
 
         const names = playerNames(slices);
+        preNote.hidden = !!((slices.players || {}).list || []).length || !!(slices.session || {}).live || !names.length;
         const nsig = sigOf(names, [...off]);
         if (nsig !== lastNames) {
             lastNames = nsig;

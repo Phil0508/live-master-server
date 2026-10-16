@@ -22,11 +22,14 @@
     <link rel="stylesheet" href="./css/donate.css"><!-- 🏷️ 대기함 칭호 · Lv · ⏸️ VIP 꺼짐 안내 · 🔁 끝난 묶음 이어 틀기 -->
     <link rel="stylesheet" href="./css/tools_cast.css"><!-- 💬 화면에 한마디 · UP 자막(오른쪽 칸 맨 위) · ✨ 이펙트 탭 -->
     <link rel="stylesheet" href="./css/tools_bank.css"><!-- 🏦 계좌 입금 추천(후원 콘솔) · 머리줄 '계좌' 점 · 계좌 띠 · 은행 확장 거울 · 탭 배지 -->
+    <link rel="stylesheet" href="./css/home.css"><!-- [B] 랭킹 첫 화면 — 숫자 카드 4장(kpis.js) · 무대 줄(stagebar.js) · 점수판 · 기본 설정 -->
+    <link rel="stylesheet" href="./css/side.css"><!-- [C] 오른쪽 칸 — 대기함 카드 한 장 · 추천 단추 · 폰 아래 서랍(drawer.js) -->
     <script src="/shared/client.js"></script>
     <script type="module" src="./js/main.js"></script>
 </head>
 <body data-view="splash">
     <div class="app">
+        <!-- 머리 두 줄(header.js): 상태 줄(.sb — 보기만 · 경보 띠 #sb-band) + 조종 줄(.cb — #ctl-bgm · #ctl-sig(#ctl-rx) · #ctl-misc · 폰 ⋯ 판 #ctl-more) -->
         <header class="hdr" id="hdr"></header>
         <div class="down-banner" id="down-banner" role="alert" hidden>서버와 연결이 끊겼어요 — 다시 붙는 중입니다. 지금 누른 것은 서버에 닿지 않을 수 있어요.</div>
 
@@ -38,26 +41,38 @@
         <!-- 로그인 -->
         <section class="view v-login" id="v-login"></section>
 
-        <!-- 방송 전 -->
-        <section class="view v-setup" id="v-setup"></section>
-
-        <!-- 방송 중 — 넓은 화면: 왼쪽(되돌리기 · 점수판 · 목표 · 기록) + 오른쪽(대기함 · 시그니처)
-             900px 아래(폰): 한 줄 — 대기함이 맨 위 -->
-        <main class="view v-live" id="v-live">
-            <div class="col-main">
-                <section class="sec undo-sec" id="undo" aria-label="되돌리기"></section>
-                <section class="sec scores-sec" id="scores" aria-label="점수판"></section>
-                <section class="sec tabs-sec" id="tabs" aria-label="게임 · 도구"></section>
-                <div class="pair">
-                    <section class="sec goal-sec" id="goal" aria-label="목표"></section>
-                    <section class="sec logs-sec" id="logs" aria-label="최근 기록"></section>
+        <!-- 방송 전 · 방송 중 공통 세 칸(시안 B 10-17) — 왼쪽 줄 · 가운데 · 오른쪽.  v-live 는 옛 이름(css 셀렉터)으로 같이 둔다.
+             900px 아래(폰): 위 탭 한 줄(#rail) → 오른쪽 칸(대기함 …) → 가운데 칸. #drawer 는 [C] 폰 아래 서랍 자리. -->
+        <div class="v-shell v-live" id="v-shell">
+            <nav class="tabbar rail" id="rail" data-old="tabs"></nav>
+            <main class="center" id="center" data-tab="home">
+                <div class="stagebar" id="stagebar"></div><!-- [B] 무대 줄 · 순서표 · 진행 중인 판(stagebar.js) — 탭을 바꿔도 남는다 -->
+                <div class="goal-win-slot" id="goal-win-slot"></div><!-- [B] 목표 달성 상자(goal.js 가 옮긴다) -->
+                <section class="v-setup" id="v-setup"></section><!-- 방송 전 '랭킹' 자리 = 방송 준비 -->
+                <div class="home" id="home"><!-- 방송 중 '랭킹' 첫 화면 -->
+                    <div class="kpis" id="kpis"></div><!-- [B] 숫자 카드 4장(kpis.js) -->
+                    <section class="sec scores-sec" id="scores" aria-label="점수판"></section>
+                    <details class="basic" id="basic" open>
+                        <summary>기본 설정 <small>목표 · 게이지 보정</small></summary>
+                        <section class="sec goal-sec" id="goal" aria-label="목표"></section>
+                    </details>
                 </div>
-            </div>
-            <aside class="col-rail">
+                <div class="tabbody" id="tabbody"></div>
+            </main>
+            <aside class="side" id="side">
+                <div class="say-slot" id="say-slot"></div><!-- 💬 화면에 한마디 · ⬆ UP 자막(castbox.js) -->
+                <div class="con-mini" id="con-mini"></div><!-- [C] 후원 콘솔 미니(console.js {mini:true}) -->
+                <section class="sec undo-sec" id="undo" aria-label="되돌리기"></section><!-- [C] 대기함 제목 줄 오른쪽 작은 단추로 -->
                 <section class="sec pending-sec" id="pending" aria-label="대기함"></section>
-                <section class="sec queue-sec" id="queue" aria-label="시그니처 대기줄"></section>
+                <details class="queue-fold" id="queue-fold" open>
+                    <summary>시그니처 대기줄</summary>
+                    <section class="sec queue-sec" id="queue" aria-label="시그니처 대기줄"></section>
+                </details>
             </aside>
-        </main>
+            <div class="drawer" id="drawer" hidden></div><!-- [C] 폰 아래 서랍(drawer.js) -->
+        </div>
+        <!-- 최근 기록 — undo.js 가 그리고, 왼쪽 줄 '로그' 탭(panels/frame.js)이 열릴 때 그 안으로 옮긴다 -->
+        <section class="sec logs-sec" id="logs" aria-label="최근 기록" hidden></section>
     </div>
 </body>
 </html>

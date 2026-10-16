@@ -4,11 +4,15 @@
    서버 GET /api/preflight[?deep=1] — 읽기만 한다(로그인 쿠키).
      · 점검표가 보일 때: 5초마다 · 시그니처 목록까지(deep)
      · 그 밖에: 10초마다 · 방송 화면 · 후원 받기 · 못 보낸 후원만
-   머리줄 점 두 개 — [방송 화면] [후원 받기] 초록(좋음) · 노랑(살펴볼 것) · 빨강(멈춤) · 회색(모름/없음). 누르면 까닭을 알림으로.
+   상태 줄 점 두 개 — [방송 화면] [후원 받기] 초록(좋음) · 노랑(살펴볼 것) · 빨강(멈춤) · 회색(모름/없음). 누르면 까닭을 알림으로.
    경보(빨간 띠) — 방송 중에만. 방송 화면이 15초 넘게 없거나, 후원 받기가 30초 넘게 끊김/붙는 중이거나,
-     못 보낸 후원이 30초 넘게 남아 있으면 머리줄 밑에 붙는다. 다시 좋아지면 저절로 내려간다.
+     못 보낸 후원이 30초 넘게 남아 있으면 띠가 뜬다. 다시 좋아지면 저절로 내려간다.
      [알겠어요] 는 '그 건' 만 내린다 — 다시 붙었다 또 끊기면 새로 뜬다.
-   점검표 — 방송 전 화면(이름 적기 옆)에 저절로 보이고, 방송 중에는 [점검] 탭에서 본다(mountChecklist).
+   띠 자리(시안 B 10-17) — PC: 상태 줄 **안** 가운데 한 줄(#sb-band, 아래 화면이 안 밀린다) · 폰: 상태 점 줄 밑 30px 한 줄.
+     여러 건이면 첫 건 + '외 N건', [자세히] = 띠 아래 뜬 판(화면 안 밀림)에 줄마다 제목 · 설명 · [알겠어요].
+     다른 파일도 같은 띠에 얹는다 — bandAdd(key, {level:'bad'|'warn'|'ok', title, sub, ttl, act:{label, fn}, close}) · bandRemove(key)
+     (🏦 계좌 입금 띠 = bankext.js). 순서는 빨강 → 노랑 → 초록.
+   점검표 — 방송 전 화면 오른쪽 칸(#side)에 저절로 보이고, 방송 중에는 [점검] 탭(설정 안)에서 본다(mountChecklist).
    ⚠️ 가려진 창(OBS 뒤)에서는 브라우저가 타이머를 늦춘다 — 창이 다시 보이면 바로 한 번 묻는다. */
 import { h, won } from './util.js';
 
@@ -95,6 +99,24 @@ async function poll(force) {
 
 /* ── 그리기 — 점 · 경보 · 점검표(보이는 것만) ── */
 let chips = null, alarm = null, ctxRef = null;
+const extra = new Map();          // bandAdd 로 얹은 띠 — key → {level, title, sub, act, close, until}
+const LV_RANK = { bad: 0, warn: 1, ok: 2 };
+
+/** 다른 파일이 같은 띠에 한 건 얹는다(같은 key 면 고친다). ttl(ms) 이 지나면 저절로 내려간다. ⚠️ 소리는 없다 */
+export function bandAdd(key, o) {
+    o = o || {};
+    const prev = extra.get(key);
+    const next = { level: LV_RANK[o.level] != null ? o.level : 'bad', title: String(o.title || ''), sub: String(o.sub || ''),
+        act: o.act || null, close: !!o.close, until: o.ttl ? Date.now() + o.ttl : 0 };
+    // 같은 내용을 1초마다 다시 얹어도(bankext paint) 그리기 · ttl 을 새로 하지 않는다
+    if (prev && !o.ttl && prev.level === next.level && prev.title === next.title && prev.sub === next.sub) return;
+    extra.set(key, next);
+    paintAlarm();
+}
+/** 얹은 띠 한 건 내리기 */
+export function bandRemove(key) {
+    if (extra.delete(key)) paintAlarm();
+}
 
 function paint() {
     paintChips();
@@ -185,12 +207,11 @@ function paintAlarm() {
         li: track('li', known && (L.li === 'bad' || L.li === 'warn'), now),
         sp: track('sp', known && L.sp === 'warn', now),
     };
-    let any = false, changed = false;
+    const items = [];
     for (const k of ['ov', 'li', 'sp']) {
         const row = alarm.rows[k];
-        if (row.el.hidden === show[k]) { row.el.hidden = !show[k]; changed = true; }
+        if (row.el.hidden === show[k]) row.el.hidden = !show[k];
         if (!show[k]) continue;
-        any = true;
         const tx = ALARM_TEXT[k];
         const title = typeof tx.title === 'function' ? tx.title() : tx.title;
         const since = ' · ' + ago((now - st.down[k]) / 1000) + '째';
@@ -198,10 +219,57 @@ function paintAlarm() {
         if (row.since.textContent !== since) row.since.textContent = since;
         const sub = tx.sub();
         if (row.sub.textContent !== sub) row.sub.textContent = sub;
+        items.push({ key: k, level: k === 'sp' ? 'warn' : 'bad', title, sub, since });
     }
-    if (alarm.el.hidden === any) { alarm.el.hidden = !any; changed = true; }
-    // 띠가 생기거나 없어지면 머리줄 높이가 바뀐다 → main.js 가 --hdr-h 를 다시 잰다(오른쪽 칸이 머리줄 밑에 붙게)
-    if (changed && ctxRef && ctxRef.rerender) ctxRef.rerender();
+    for (const [k, o] of [...extra]) {
+        if (o.until && now > o.until) { extra.delete(k); continue; }
+        items.push({ key: k, level: o.level, title: o.title, sub: o.sub });
+    }
+    // 얹은 띠 줄 — 한 번 만들고 글자만 고친다(누르려던 단추가 날아가지 않게)
+    for (const [k, r] of [...alarm.extraRows]) if (!extra.has(k)) { r.el.remove(); alarm.extraRows.delete(k); }
+    for (const [k, o] of extra) {
+        let r = alarm.extraRows.get(k);
+        if (!r) {
+            r = { title: h('b'), sub: h('small'), act: h('button', { type: 'button', class: 'btn xs pf-act', hidden: true }) };
+            r.act.addEventListener('click', () => { const cur = extra.get(k); if (cur && cur.act && cur.act.fn) cur.act.fn(); });
+            r.x = h('button', { type: 'button', class: 'btn xs pf-ack', hidden: true, onclick: () => bandRemove(k) }, '닫기');
+            r.el = h('div', { class: 'pf-row', 'data-k': k }, h('div', { class: 'pf-txt' }, h('div', { class: 'pf-head' }, r.title), r.sub), r.act, r.x);
+            alarm.extraRows.set(k, r);
+            alarm.pop.append(r.el);
+        }
+        if (r.el.dataset.lv !== o.level) r.el.dataset.lv = o.level;
+        if (r.title.textContent !== o.title) r.title.textContent = o.title;
+        if (r.sub.textContent !== o.sub) r.sub.textContent = o.sub;
+        r.sub.hidden = !o.sub;
+        const al = o.act && o.act.label ? o.act.label : '';
+        if (r.act.textContent !== al) r.act.textContent = al;
+        r.act.hidden = !al;
+        r.x.hidden = !o.close;
+    }
+    items.sort((a, b) => LV_RANK[a.level] - LV_RANK[b.level]);
+    // 한 줄 — 첫 건 + '외 N건'
+    const any = items.length > 0 && st.enabled;      // 로그인 전 · 연결 중에는 띄우지 않는다
+    if (alarm.band.hidden === any) alarm.band.hidden = !any;
+    if (any) {
+        const f = items[0];
+        if (alarm.band.dataset.lv !== f.level) alarm.band.dataset.lv = f.level;
+        if (alarm.lineT.textContent !== f.title) alarm.lineT.textContent = f.title;
+        const s2 = (f.since ? f.since.replace(/^ · /, '') + ' · ' : '') + (f.sub || '');
+        if (alarm.lineS.textContent !== s2) alarm.lineS.textContent = s2;
+        const more = items.length > 1 ? `외 ${items.length - 1}건` : '';
+        if (alarm.lineN.textContent !== more) alarm.lineN.textContent = more;
+        alarm.lineN.hidden = !more;
+    } else if (alarm.band.classList.contains('open')) setOpen(false);
+    // 폰은 띠가 생기고 없어질 때 머리 높이가 바뀐다 → main.js 가 --hdr-h 를 다시 잰다(탭 줄이 머리 밑에 붙게)
+    if (any !== alarm.was) { alarm.was = any; if (ctxRef && ctxRef.rerender) ctxRef.rerender(); }
+}
+
+function setOpen(on) {
+    if (!alarm) return;
+    alarm.band.classList.toggle('open', on);
+    alarm.pop.hidden = !on;
+    alarm.more.textContent = on ? '접기' : '자세히';
+    alarm.more.setAttribute('aria-expanded', on ? 'true' : 'false');
 }
 
 function dismiss(k) {
@@ -209,13 +277,13 @@ function dismiss(k) {
     paintAlarm();
 }
 
-/* ── 머리줄에 붙이기 ──
-   before: 점 두 개를 그 앞에 끼울 머리줄 칸(오른쪽 묶음) — 폰에서는 점이 로고 줄에 같이 선다 · hdrRoot: 머리줄(경보 띠도 여기 맨 아래) */
-export function mountAlarm(before, hdrRoot, ctx) {
+/* ── 상태 줄에 붙이기 ──
+   dotsHost: 상태 점 줄(#sb-dots — 점 두 개를 끝에 붙인다) · bandHost: 띠 자리(#sb-band) */
+export function mountAlarm(dotsHost, bandHost, ctx) {
     ctxRef = ctx;
     const mk = (k, label, short, title) => {
-        const b = h('button', { type: 'button', class: 'pill pf-chip', 'data-lv': 'none', title, onclick: () => explain(k) },
-            h('i', { 'aria-hidden': 'true' }), h('span', { class: 't', 'aria-hidden': 'true' }, label), h('span', { class: 'ts', 'aria-hidden': 'true' }, short));
+        const b = h('button', { type: 'button', class: 'st pf-chip', 'data-lv': 'none', title, onclick: () => explain(k) },
+            h('i', { class: 'dot', 'aria-hidden': 'true' }), h('span', { class: 't', 'aria-hidden': 'true' }, label), h('span', { class: 'ts', 'aria-hidden': 'true' }, short));
         return b;
     };
     chips = {
@@ -223,25 +291,38 @@ export function mountAlarm(before, hdrRoot, ctx) {
         li: mk('li', '후원 받기 ?', '후원 ?', '투네이션 후원을 받아 오는 프로그램이 살아 있나 — 누르면 자세히'),
     };
     chips.wrap = h('span', { class: 'pf-chips', hidden: true }, chips.ov, chips.li);
-    hdrRoot.insertBefore(chips.wrap, before);
+    dotsHost.append(chips.wrap);
 
     const row = k => {
         const r = { title: h('b'), since: h('span', { class: 'pf-since', 'aria-hidden': 'true' }), sub: h('small') };
-        // 폰에서는 설명을 한 줄로 접어 둔다 — 글자를 누르면 펼친다(머리줄과 같이 위에 붙어 있어 화면을 덜 가리게)
-        const txt = h('div', { class: 'pf-txt', onclick: () => r.el.classList.toggle('open') }, h('div', { class: 'pf-head' }, r.title, r.since), r.sub);
-        r.el = h('div', { class: 'pf-row', 'data-k': k, hidden: true }, txt,
-            h('button', { type: 'button', class: 'btn sm pf-ack', onclick: () => dismiss(k) }, '알겠어요'));
+        const txt = h('div', { class: 'pf-txt' }, h('div', { class: 'pf-head' }, r.title, r.since), r.sub);
+        r.el = h('div', { class: 'pf-row', 'data-k': k, 'data-lv': k === 'sp' ? 'warn' : 'bad', hidden: true }, txt,
+            h('button', { type: 'button', class: 'btn xs pf-ack', onclick: () => dismiss(k) }, '알겠어요'));
         return r;
     };
-    alarm = { rows: { ov: row('ov'), li: row('li'), sp: row('sp') } };
-    alarm.el = h('div', { class: 'pf-alarm', role: 'alert', hidden: true }, alarm.rows.ov.el, alarm.rows.li.el, alarm.rows.sp.el);
-    hdrRoot.append(alarm.el);
+    alarm = { rows: { ov: row('ov'), li: row('li'), sp: row('sp') }, extraRows: new Map(), was: false };
+    // 한 줄(누르면 펼침) · [자세히] · 뜬 판(.pf-alarm — 줄마다 제목 · 설명 · [알겠어요])
+    alarm.lineT = h('b', { class: 'sbb-t' });
+    alarm.lineS = h('span', { class: 'sbb-s' });
+    alarm.lineN = h('span', { class: 'sbb-n', hidden: true });
+    alarm.more = h('button', { type: 'button', class: 'btn xs sbb-more', 'aria-expanded': 'false',
+        onclick: () => setOpen(!alarm.band.classList.contains('open')) }, '자세히');
+    alarm.pop = h('div', { class: 'pf-alarm sbb-pop', hidden: true }, alarm.rows.ov.el, alarm.rows.li.el, alarm.rows.sp.el);
+    const line = h('div', { class: 'sbb-line', onclick: () => setOpen(!alarm.band.classList.contains('open')) },
+        h('span', { class: 'sbb-ic', 'aria-hidden': 'true' }, '!'), alarm.lineT, alarm.lineS, alarm.lineN);
+    bandHost.append(line, alarm.more, alarm.pop);
+    bandHost.setAttribute('role', 'alert');
+    alarm.band = bandHost;
+    alarm.band.hidden = true;
 
-    // 방송 전 화면(이름 적기) 옆에 점검표 — setup.js 는 건드리지 않고, 그 화면 칸(#v-setup)에 카드 하나를 더 붙인다
+    // 방송 전 점검표 — 방송 준비 화면의 오른쪽 칸(#side)에 카드 하나
     const preHost = h('section', { class: 'card pf-pre', 'aria-label': '방송 전 점검' });
     const pre = mountChecklist(preHost, ctx, { pre: true });
 
-    setInterval(() => { if (st.enabled) { poll(false); paintAlarm(); } }, 1000);
+    setInterval(() => {
+        if (st.enabled) poll(false);
+        if (st.enabled || extra.size) paintAlarm();
+    }, 1000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(true); });
 
     return {
@@ -251,9 +332,14 @@ export function mountAlarm(before, hdrRoot, ctx) {
             st.enabled = on;
             st.live = !!(slices.session && slices.session.live);
             chips.wrap.hidden = !on;
-            if (!on) { if (!alarm.el.hidden) { alarm.el.hidden = true; } return; }
+            if (!on) {
+                // 로그인 전 · 연결 중 — 띠는 숨긴다(계좌 띠도 로그인한 화면에만)
+                for (const k of ['ov', 'li', 'sp']) st.down[k] = 0;
+                if (!alarm.band.hidden) { alarm.band.hidden = true; setOpen(false); }
+                return;
+            }
             if (view === 'setup') {
-                const host = document.getElementById('v-setup');
+                const host = document.getElementById('side');
                 if (host && preHost.parentNode !== host) host.append(preHost);
             }
             if (!wasOn) poll(true);

@@ -18,15 +18,15 @@ import { mountSystem } from './ops/system.js';
 const G = 'tools';
 
 export const PANELS = [
-    { id: 'ops-stage', label: '무대', icon: '📺', group: G, mount: mountStage },
-    { id: 'ops-notice', label: '공지', icon: '📣', group: G, mount: mountNotice },
-    { id: 'ops-console', label: '후원 콘솔', icon: '💸', group: G, mount: mountConsole, badge: bankBadge },
+    { id: 'ops-stage', label: '무대', icon: '📺', group: G, pre: true, mount: mountStage },
+    { id: 'ops-notice', label: '공지', icon: '📣', group: G, pre: true, mount: mountNotice },
+    { id: 'ops-console', label: '후원 콘솔', short: '후원콘솔', icon: '💸', group: G, rail: true, mount: mountConsole, badge: bankBadge },
     { id: 'ops-opfx', label: '이펙트', icon: '✨', group: G, mount: mountOpFx },
     { id: 'ops-fundjar', label: '모금함', icon: '🏺', group: G, mount: mountFundjar },
-    { id: 'ops-screen', label: '계좌 · 화면', icon: '🏦', group: G, mount: mountScreen },
+    { id: 'ops-screen', label: '계좌 · 화면', icon: '🏦', group: G, pre: true, mount: mountScreen },
     { id: 'ops-media', label: '영상 · 노래방', icon: '🎞️', group: G, mount: mountMedia },
-    { id: 'ops-bot', label: '진행봇', icon: '🤖', group: G, mount: mountBot },
-    { id: 'ops-version', label: '버전', icon: '🕹️', group: G, mount: mountVersion },
-    { id: 'ops-system', label: '시스템', icon: '🖥️', group: G, mount: mountSystem },
-    { id: 'ops-migrate', label: '옛 설정 옮기기', icon: '📦', group: G, mount: mountMigrate },
+    { id: 'ops-bot', label: '진행봇', icon: '🤖', group: G, pre: true, mount: mountBot },
+    { id: 'ops-version', label: '버전', icon: '🕹️', group: G, pre: true, mount: mountVersion },
+    { id: 'ops-system', label: '시스템', icon: '🖥️', group: G, pre: true, mount: mountSystem },
+    { id: 'ops-migrate', label: '옛 설정 옮기기', icon: '📦', group: G, pre: true, mount: mountMigrate },
 ];

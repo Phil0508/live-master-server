@@ -16,12 +16,12 @@ import { useLm } from './games/common.js';
 const withLm = mount => (el, ctx) => { useLm(ctx && ctx.lm); return mount(el, ctx); };
 
 export const PANELS = [
-    { id: 'match', label: '대결', icon: '⚔️', group: 'games', mount: withLm(mountMatch) },
-    { id: 'roulette', label: '룰렛', icon: '🎡', group: 'games', mount: withLm(mountRoulette) },
-    { id: 'slot', label: '슬롯머신', icon: '🎰', group: 'games', mount: withLm(mountSlot) },
-    { id: 'dice', label: '주사위', icon: '🎲', group: 'games', mount: withLm(mountDice) },
-    { id: 'siggame', label: '시그뒤집기', icon: '🃏', group: 'games', mount: withLm(mountSiggame) },
-    { id: 'quiz', label: '퀴즈', icon: '🧩', group: 'games', mount: withLm(mountQuiz) },
-    { id: 'pinball', label: '핀볼', icon: '🎱', group: 'games', mount: withLm(mountPinball) },
-    { id: 'races', label: '지옥탈출 · 퇴근빵', icon: '🔥', group: 'games', mount: withLm(mountRaces) },
+    { id: 'match', label: '대결', icon: '⚔️', group: 'games', rail: true, mount: withLm(mountMatch) },
+    { id: 'roulette', label: '룰렛', icon: '🎡', group: 'games', rail: true, mount: withLm(mountRoulette) },
+    { id: 'slot', label: '슬롯머신', short: '슬롯', icon: '🎰', group: 'games', rail: true, mount: withLm(mountSlot) },
+    { id: 'dice', label: '주사위', icon: '🎲', group: 'games', rail: true, mount: withLm(mountDice) },
+    { id: 'siggame', label: '시그뒤집기', icon: '🃏', group: 'games', rail: true, mount: withLm(mountSiggame) },
+    { id: 'quiz', label: '퀴즈', icon: '🧩', group: 'games', rail: true, mount: withLm(mountQuiz) },
+    { id: 'pinball', label: '핀볼', icon: '🎱', group: 'games', rail: true, mount: withLm(mountPinball) },
+    { id: 'races', label: '지옥탈출 · 퇴근빵', short: '지옥·퇴근', icon: '🔥', group: 'games', rail: true, mount: withLm(mountRaces) },
 ];
