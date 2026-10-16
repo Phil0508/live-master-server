@@ -1,0 +1,60 @@
+/* 🎆 시그니처 전용 연출 · 🚨 계엄령 경보 · 🔊 자동재생 경고 띠 · 🖼️ 출연진 전광판 (widgets/sigfx/*.js)
+   숫자 · 색은 옛 overlay.html · alertbox.html · signature_display.html 그대로.
+   ⚠️ 여기에는 z-index 를 쓰지 않는다 — 층은 groups/sigfx.js(layers.js) 한 곳에서. */
+
+/* ── 🎆 전용 연출 무대 — 방송판(1080×1920)을 그대로 판으로 쓴다(잘라내거나 줄여 얹지 않는다) ── */
+.sigfx-stage, .sigfx-inner { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+
+/* ── 🚨 비상 경보(옛 #op-fx-warn) ── */
+.sfx-warn {
+    position: absolute; inset: 0; pointer-events: none;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 50%, rgba(120,0,0,.30), rgba(60,0,0,.72));
+}
+.sfx-warn.on { display: flex; animation: sfx-warn-pulse 1s ease-in-out infinite; }
+@keyframes sfx-warn-pulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
+.sfx-warn-bar {
+    position: absolute; left: 0; right: 0; height: 56px;
+    background: repeating-linear-gradient(45deg, #d10000 0 26px, #1a1a1a 26px 52px);
+    box-shadow: 0 0 40px rgba(209,0,0,.8);
+}
+.sfx-warn-bar.top { top: 0; animation: sfx-warn-slide 1.4s linear infinite; }
+.sfx-warn-bar.bottom { bottom: 0; animation: sfx-warn-slide 1.4s linear infinite reverse; }
+@keyframes sfx-warn-slide { from { background-position: 0 0; } to { background-position: 104px 0; } }
+.sfx-warn-body { text-align: center; }
+.sfx-warn-title {
+    font-size: 110px; font-weight: 900; color: #ff2d2d; letter-spacing: 8px;
+    text-shadow: 0 0 40px rgba(255,0,0,.9), 0 6px 0 rgba(0,0,0,.6);
+    animation: sfx-warn-blink .55s steps(2, end) infinite;
+}
+@keyframes sfx-warn-blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+.sfx-warn-sub { font-size: 44px; font-weight: 900; color: #fff; margin-top: 12px;
+    text-shadow: 0 0 24px rgba(255,60,60,.8), 0 3px 0 rgba(0,0,0,.6); }
+
+/* ── 🔊 자동재생 차단 경고 띠(옛 alertbox #autoplay-warning-banner) — 알림창 화면(?only=alert)에만 칸이 있다 ── */
+.sfx-unlock {
+    display: none; white-space: nowrap;
+    background: rgba(255, 0, 85, 0.9); color: white;
+    padding: 15px 30px; font-size: 20px; font-weight: 800; border-radius: 50px;
+    box-shadow: 0 10px 30px rgba(255, 0, 85, 0.5); border: 2px solid white;
+    animation: sfx-unlock-bounce 1.5s infinite alternate ease-in-out;
+}
+.sfx-unlock.on { display: block; }
+@keyframes sfx-unlock-bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-10px); } }
+
+/* ── 🖼️ 출연진 전광판(?only=sig, 옛 signature_display.html) — 어두운 바탕 · 창 크기 그대로 · 카드 폭 600 ── */
+html body.view-sig { background: #0c0c12 !important; background-color: #0c0c12 !important; color-scheme: only dark; }
+html body.view-sig.transparent { background: transparent !important; background-color: rgba(0,0,0,0) !important; }
+.sigdisp-card {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.85); width: 600px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden; padding: 0; box-sizing: border-box; user-select: none;
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sigdisp-card.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
+.sigdisp-img { max-width: 100%; max-height: 480px; object-fit: contain; border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 25px rgba(0, 255, 204, 0.35); border: 2px solid rgba(255, 255, 255, 0.15); }
+.sigdisp-donator { margin-top: 24px; font-size: 44px; font-weight: 900; color: #ffffff; text-align: center; letter-spacing: -0.5px;
+    text-shadow: 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000, 0 4px 20px rgba(0,0,0,0.9); }
+.sigdisp-msg { margin-top: 14px; font-size: 32px; font-weight: 800; color: #00ffcc; text-align: center; word-break: break-all; padding: 0 20px;
+    text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 18px rgba(0,255,204,0.7); }
