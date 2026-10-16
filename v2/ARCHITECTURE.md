@@ -167,4 +167,4 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 
 hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이것들을 '방송판' 으로 세지 않는다(total 에만).
 
-검사: `v2/tests/test_sigfx.py`(12) · `v2/tests/js/sigfx_check.mjs`(node — 규칙 · 표 · 층 순서 · VIEWS).
+검사: `v2/tests/test_sigfx.py`(14) · `v2/tests/js/sigfx_check.mjs`(node — 규칙 · 표 · 층 순서 · VIEWS).
