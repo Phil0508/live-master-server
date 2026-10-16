@@ -133,6 +133,8 @@ export function makeRun(lm, onNeedLogin) {
             if (Number(res.code) === 401 && onNeedLogin) onNeedLogin();
             if (!opts.quiet) toast(res.error || '실패했습니다', 'err');
         }
+        // 🔁 답이 늦었던 명령을 다시 눌렀는데 이미 들어가 있었다 — 서버가 다시 하지 않았다(shared/client.js 명령 번호)
+        if (res.ok && res.dup) toast('아까 누른 것이 이미 들어가 있었어요 — 두 번 들어가지 않았어요', 'info');
         return res;
     };
 }

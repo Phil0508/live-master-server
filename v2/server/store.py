@@ -53,7 +53,45 @@ CREATE TABLE IF NOT EXISTS score_log (
     undone INTEGER NOT NULL DEFAULT 0,
     session TEXT NOT NULL DEFAULT ''
 );
+-- ⏰ 잠시 뒤 서버가 스스로 할 명령(ctx.later) — 명령과 같은 묶음으로 적는다. 서버가 다시 켜지면 여기서 다시 건다(sturdy 10-17)
+CREATE TABLE IF NOT EXISTS timers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    due REAL NOT NULL,                 -- 이때(epoch 초) 부른다
+    type TEXT NOT NULL,
+    data TEXT NOT NULL DEFAULT '{}',
+    made REAL NOT NULL
+);
+-- 🔁 조종실 명령 번호(cid) — 같은 번호가 다시 오면 첫 결과를 돌려준다(8초 답 없음 → 다시 눌러도 한 번만, sturdy 10-17)
+CREATE TABLE IF NOT EXISTS cmd_ids (
+    key TEXT PRIMARY KEY,              -- 명령 이름 | 번호
+    at REAL NOT NULL,
+    result TEXT NOT NULL
+);
+-- ⏪ 되살리기 지점 — [방송 끝] 이 바꾼 조각의 바로 전 값(pre) · 바로 뒤 값(post). 장부 표는 손대지 않는다(sturdy 10-17)
+CREATE TABLE IF NOT EXISTS restore_points (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at REAL NOT NULL,
+    kind TEXT NOT NULL,                -- end(방송 끝)
+    session TEXT NOT NULL DEFAULT '',
+    pre TEXT NOT NULL,
+    post TEXT NOT NULL,
+    used_at REAL NOT NULL DEFAULT 0
+);
 """
+
+# 🧯 SQLite 기다림 · 전원 차단 대비 (sturdy 10-17)
+#  busy_timeout — 다른 프로그램(백업 · 옛 장부 옮기기 · sqlite3 셸)이 잠깐 쓰기 잠금을 쥐고 있으면 바로 실패하지 말고 이만큼 기다린다.
+#                 ⚠️ 없으면 그 순간 들어온 명령(후원 · 점수)이 'database is locked' 로 그냥 실패했다.
+#  synchronous  — WAL 에서 NORMAL 은 '프로그램만 죽으면' 안전하지만 **전원이 통째로 나가면** 마지막 몇 건(후원 · 점수)이 사라질 수 있다.
+#                 FULL 은 명령마다 디스크에 확실히 적고(fsync) 넘어간다 — 명령 하나에 수 ms 더 든다(성능과 맞바꿈).
+#                 방송 명령은 1초에 몇 개뿐이라 그 값을 치르고 후원 장부를 지킨다. LM2_SQLITE_SYNC=NORMAL 로 되돌릴 수 있다.
+BUSY_TIMEOUT_MS = 5000
+SYNC_MODES = ('OFF', 'NORMAL', 'FULL', 'EXTRA')
+
+
+def sync_mode():
+    v = (os.environ.get('LM2_SQLITE_SYNC') or 'FULL').strip().upper()
+    return v if v in SYNC_MODES else 'FULL'
 
 
 class Store:
@@ -62,10 +100,12 @@ class Store:
         if path != ':memory:':
             os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         # check_same_thread=False — 명령은 bus 가 한 줄로 넘기므로 동시에 쓰지 않는다
-        self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
+        # timeout — 여는 순간의 잠금 기다림도 같은 값. busy_timeout PRAGMA 는 그 뒤 모든 읽기 · 쓰기에(위 설명)
+        self.db = sqlite3.connect(path, check_same_thread=False, isolation_level=None, timeout=BUSY_TIMEOUT_MS / 1000.0)
         self.db.row_factory = sqlite3.Row
+        self.db.execute('PRAGMA busy_timeout=%d' % BUSY_TIMEOUT_MS)
         self.db.execute('PRAGMA journal_mode=WAL')
-        self.db.execute('PRAGMA synchronous=NORMAL')
+        self.db.execute('PRAGMA synchronous=%s' % sync_mode())
         self.db.executescript(SCHEMA)
 
     # ── 조각 ──
@@ -144,6 +184,63 @@ class Store:
 
     def mark_undone(self, ids):
         self.db.executemany('UPDATE score_log SET undone = 1 WHERE id = ?', [(i,) for i in ids])
+
+    # ── ⏰ 예약(ctx.later) — 명령과 같은 묶음에서 적고, 부른 명령과 같은 묶음에서 지운다 ──
+    def add_timer(self, due, type_, data):
+        cur = self.db.execute('INSERT INTO timers(due, type, data, made) VALUES(?, ?, ?, ?)',
+                              (float(due), type_, json.dumps(data or {}, ensure_ascii=False, default=str), time.time()))
+        return cur.lastrowid
+
+    def drop_timer(self, tid):
+        self.db.execute('DELETE FROM timers WHERE id = ?', (tid,))
+
+    def timers(self):
+        out = []
+        for r in self.db.execute('SELECT * FROM timers ORDER BY due, id'):
+            d = dict(r)
+            try:
+                d['data'] = json.loads(d['data'] or '{}')
+            except ValueError:
+                d['data'] = {}
+            out.append(d)
+        return out
+
+    # ── 🔁 명령 번호(cid) — 성공한 명령의 첫 결과 ──
+    def cmd_result(self, key):
+        r = self.db.execute('SELECT result FROM cmd_ids WHERE key = ?', (key,)).fetchone()
+        if not r:
+            return None
+        try:
+            return json.loads(r['result'])
+        except ValueError:
+            return None
+
+    def put_cmd_result(self, key, result):
+        self.db.execute('INSERT OR IGNORE INTO cmd_ids(key, at, result) VALUES(?, ?, ?)',
+                        (key, time.time(), json.dumps(result, ensure_ascii=False, default=str)))
+
+    def prune_cmd_ids(self, older_than):
+        self.db.execute('DELETE FROM cmd_ids WHERE at < ?', (float(older_than),))
+
+    # ── ⏪ 되살리기 지점 ──
+    def add_restore_point(self, kind, session, pre, post, keep=20):
+        cur = self.db.execute('INSERT INTO restore_points(at, kind, session, pre, post) VALUES(?, ?, ?, ?, ?)',
+                              (time.time(), kind, session or '', json.dumps(pre, ensure_ascii=False),
+                               json.dumps(post, ensure_ascii=False)))
+        self.db.execute('DELETE FROM restore_points WHERE kind = ? AND id NOT IN '
+                        '(SELECT id FROM restore_points WHERE kind = ? ORDER BY id DESC LIMIT ?)', (kind, kind, int(keep)))
+        return cur.lastrowid
+
+    def last_restore_point(self, kind):
+        r = self.db.execute('SELECT * FROM restore_points WHERE kind = ? ORDER BY id DESC LIMIT 1', (kind,)).fetchone()
+        if not r:
+            return None
+        d = dict(r)
+        d['pre'], d['post'] = json.loads(d['pre']), json.loads(d['post'])
+        return d
+
+    def mark_restore_point_used(self, rid, at):
+        self.db.execute('UPDATE restore_points SET used_at = ? WHERE id = ?', (float(at), rid))
 
     def close(self):
         self.db.close()
