@@ -229,6 +229,63 @@ class Undo(Base):
         self.assertEqual(after['pending'], before['pending'])
 
 
+class Review(Base):
+    """검토(10-17) — 보고서에 있었지만 검사가 따로 안 보던 것."""
+
+    def test_undo_needs_login(self):
+        """로그인 없는 화면(방송판 · 아무나)은 방송을 다시 '방송 중' 으로 못 돌린다 — HTTP · WS 둘 다."""
+        self.busy_broadcast()
+        self.ok('session.end')
+        r = self.c.post('/api/cmd', json={'type': 'session.undo_end', 'data': {}, 'cid': 'c-anon-0001'})
+        self.assertEqual(r.status_code, 401, r.text)
+        with self.c.websocket_connect('/ws?kind=overlay') as ws:
+            first = ws.receive_json()                          # 통째(snapshot)
+            self.assertFalse(first.get('authed'))
+            ws.send_json({'t': 'cmd', 'id': 1, 'type': 'session.undo_end', 'data': {}, 'cid': 'c-anon-0002'})
+            while True:
+                m = ws.receive_json()
+                if m.get('t') == 'result':
+                    break
+            self.assertFalse(m['ok'])
+            self.assertEqual(m['code'], 401)
+        s = self.st()
+        self.assertFalse(s['session']['live'])
+        self.assertTrue(s['endundo']['ready'], '로그인 없는 시도가 지점을 써 버렸다')
+        self.ok('session.undo_end')                          # 조종실은 여전히 되살릴 수 있다
+        self.assertTrue(self.st()['session']['live'])
+
+    def test_signature_queued_after_end_is_kept(self):
+        """끝낸 뒤 시그니처 금액 후원이 와서 대기줄에 들어갔으면, 되살린 뒤 끝내기 전 대기줄 뒤에 이어 붙는다."""
+        self.busy_broadcast()
+        pre_q = [x['id'] for x in self.st()['queue']['items']]
+        self.assertTrue(pre_q)
+        self.ok('session.end')
+        self.don('햇빛', 50000, 'toon_q1')
+        mid_q = [x['id'] for x in self.st()['queue']['items']]
+        self.assertTrue([i for i in mid_q if i not in pre_q], '끝낸 뒤 후원이 대기줄에 안 들어갔다(검사가 헛돈다)')
+        self.ok('session.undo_end')
+        got = [x['id'] for x in self.st()['queue']['items']]
+        self.assertEqual(got, pre_q + [i for i in mid_q if i not in pre_q], '끝낸 뒤 들어온 시그니처가 대기줄에서 사라졌다')
+
+    def test_restore_point_never_reaches_overlay(self):
+        """endundo 조각은 로그인 없는 화면의 통째(snapshot) · 바뀐 조각(patch) 어디에도 안 실린다."""
+        with self.c.websocket_connect('/ws?kind=overlay') as ws:
+            snap = ws.receive_json()
+            self.assertNotIn('endundo', snap.get('slices') or {})
+            self.busy_broadcast()
+            self.ok('session.end')
+            self.ok('session.undo_end')
+            ws.send_json({'t': 'resync'})
+            seen = 0
+            while True:
+                m = ws.receive_json()
+                seen += 1
+                self.assertNotIn('endundo', m.get('slices') or {}, m.get('t'))
+                if m.get('t') == 'snapshot':
+                    break
+            self.assertGreater(seen, 3, '바뀐 조각 쪽지를 하나도 못 봤다(검사가 헛돈다)')
+
+
 class Merge(unittest.TestCase):
     def test_merge3(self):
         self.assertEqual(merge3({'a': 1}, {'a': 0}, {'a': 0}), {'a': 1})              # 끝낸 뒤 그대로 → 끝내기 전

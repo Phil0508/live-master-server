@@ -148,12 +148,14 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - 명령 **`session.undo_end`**(로그인) — 마지막 지점으로 점수판 · 대기함 · 점수 기록 · 시그니처 대기줄 · 무대 · 게임판 · 집계를 되살린다.
   장부 표(donations · score_log)는 끝낼 때도 되살릴 때도 안 건드린다. 같은 회차 번호라 score.undo · 장부 보기가 이어진다.
 - 끝낸 뒤 들어온 후원은 잃지 않는다(merge3 · merge_tallies — 대기함 · 대기줄 이어 붙이기, 순위 · 시그 집계는 늘어난 만큼 더하기, 한 방 최고는 큰 쪽, 등급 다시).
+- 로그인 없는 화면(방송판 · HTTP · WS)은 401 — 검사 test_sturdy_endundo Review.
 - 거절: 방송 중 409 · 끝낸 뒤 새 방송 시작 409 · 12시간(UNDO_MAX_SEC) 지나면 409 · 지점 없음/다 씀 404. 끝 화면은 내리고, 서는 중이던 룰렛/슬롯 · 까보기 · 판단 중 카드는 예약을 다시 건다.
 - 조각 **endundo**(비공개) `{ready, at, until, sid, started_at, players, score_total, pending, queue, undone_at}` — 방송 전 화면 맨 위 [⏪ 방송 끝 되돌리기] 상자(확인 상자)가 본다.
 
 ### ⏰ 예약을 장부에 (bus.py · store.py)
 - `ctx.later` 예약을 명령과 같은 묶음으로 장부 표 **timers**(id · due · type · data · made)에 적는다. 부른 명령과 같은 묶음에서 지운다(실패 · 넘어짐도 치운다).
 - 서버가 켜질 때 app lifespan → `bus.arm_timers()` — 남은 시간대로 다시 걸고, 지난 것은 적힌 순서대로 바로 부른다.
+- ⚠️ app.py 는 이제 `lifespan=_life` 를 쓴다 — FastAPI 는 lifespan 이 있으면 `@app.on_event('startup')` 을 **부르지 않는다**. 켜질 때 할 일을 더하려면 `_life` 안에 적을 것(검토 10-17).
 - ⚠️ `ctx.later` 의 data 는 JSON 으로 적힐 수 있는 것만. `run_sync` 로 생긴 예약은 장부에만 적히고 다음에 켜질 때 걸린다.
 
 ### 🔁 명령 번호(cid) — 두 번 안 들어가게 (shared/client.js · bus.py)
