@@ -138,3 +138,34 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - Supabase 는 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` 환경변수가 파일보다 먼저다(검사는 닫힌 포트로 돌려 막는다).
 - `LM2_AUTOPILOT=off|shadow|on` — 🤖 자동 진행의 **처음** 모드(새 DB 일 때만, 기본 shadow). 검사 꾸러미(v2/tests/__init__.py)는 off 로 시작한다.
 - 🧪 `python -m v2.tools.backtest_autopilot --db v2/data/lm2.db` — 지난 후원자 기억(donor_memory)을 시간 순으로 다시 돌려 '그때 기계였다면' 을 채점(읽기만 · AI 안 부름 · 이름 · 금액 안 찍음).
+
+## 10-17 이사 1차 — sturdy
+> 튼튼하게(재시작 · 중복 · 검사 울타리) · 실수 되살리기. 검사는 v2/tests/test_sturdy_*.py.
+
+### ⏪ [방송 끝] 되살리기 (domain/endundo.py · controller/js/endundo.js)
+- 옛 것: server.py end_broadcast 가 끝내기 직전 상태를 '방송 종료 자동 백업' 복구 지점으로 남기고 타임머신 [복구] 로 되돌렸다.
+- `session.end` 가 바꾼 조각의 바로 전(pre) · 바로 뒤(post) 값을 장부 표 **restore_points** 에 같은 묶음으로 적는다(`bus.BEFORE_COMMIT` 훅, 최근 20개). popup · endundo 조각은 안 적는다.
+- 명령 **`session.undo_end`**(로그인) — 마지막 지점으로 점수판 · 대기함 · 점수 기록 · 시그니처 대기줄 · 무대 · 게임판 · 집계를 되살린다.
+  장부 표(donations · score_log)는 끝낼 때도 되살릴 때도 안 건드린다. 같은 회차 번호라 score.undo · 장부 보기가 이어진다.
+- 끝낸 뒤 들어온 후원은 잃지 않는다(merge3 · merge_tallies — 대기함 · 대기줄 이어 붙이기, 순위 · 시그 집계는 늘어난 만큼 더하기, 한 방 최고는 큰 쪽, 등급 다시).
+- 거절: 방송 중 409 · 끝낸 뒤 새 방송 시작 409 · 12시간(UNDO_MAX_SEC) 지나면 409 · 지점 없음/다 씀 404. 끝 화면은 내리고, 서는 중이던 룰렛/슬롯 · 까보기 · 판단 중 카드는 예약을 다시 건다.
+- 조각 **endundo**(비공개) `{ready, at, until, sid, started_at, players, score_total, pending, queue, undone_at}` — 방송 전 화면 맨 위 [⏪ 방송 끝 되돌리기] 상자(확인 상자)가 본다.
+
+### ⏰ 예약을 장부에 (bus.py · store.py)
+- `ctx.later` 예약을 명령과 같은 묶음으로 장부 표 **timers**(id · due · type · data · made)에 적는다. 부른 명령과 같은 묶음에서 지운다(실패 · 넘어짐도 치운다).
+- 서버가 켜질 때 app lifespan → `bus.arm_timers()` — 남은 시간대로 다시 걸고, 지난 것은 적힌 순서대로 바로 부른다.
+- ⚠️ `ctx.later` 의 data 는 JSON 으로 적힐 수 있는 것만. `run_sync` 로 생긴 예약은 장부에만 적히고 다음에 켜질 때 걸린다.
+
+### 🔁 명령 번호(cid) — 두 번 안 들어가게 (shared/client.js · bus.py)
+- client.js 가 명령마다 번호(cid)를 붙인다(POST /api/cmd 의 `cid`, WS `{t:'cmd', cid}`). 답을 못 받은 명령을 1분 안에 **똑같이** 다시 누르면 같은 번호를 다시 쓴다.
+- bus 는 같은 이름 · 같은 번호면 다시 하지 않고 첫 결과에 `dup: true` 를 붙여 돌려준다(메모리 2000개 + 장부 표 **cmd_ids** 하루치, 처리 중이면 기다렸다 같은 결과). 실패한 명령은 기억하지 않는다.
+- 번호가 없으면(리스너 · 옛 화면 · 예약) 예전 그대로. 조종실은 dup 이면 '아까 누른 것이 이미 들어가 있었어요' 알림.
+
+### 🧯 SQLite
+- `busy_timeout` 5000ms(연결 timeout 도 같은 값) — 백업 · sqlite3 셸이 잠깐 잠금을 쥐어도 명령이 바로 실패하지 않는다.
+- `synchronous=FULL`(전원 차단 대비, 명령마다 수 ms 더 듦). 환경변수 `LM2_SQLITE_SYNC=NORMAL` 로 되돌릴 수 있다 — store.py 주석.
+
+### 🧪 검사 울타리 · 층 순서
+- v2/tests/__init__.py 가 SUPABASE_URL · SUPABASE_SECRET_KEY · LM2_NIM_URL 을 닫힌 주소(127.0.0.1:9)로, NVIDIA_API_KEY 를 비운다 — 그냥 돌려도 바깥으로 안 나간다.
+- test_ai NimPost.test_key_from_env_then_file 은 LM2_AI_OFF=1 에서도 통과한다(검사 안에서 끄기 스위치를 빼고 본다).
+- test_sturdy_layers — 진짜 layers.js · groups/*.js 를 node 로 읽어 '후원 카드 · 시그니처 > 게임판' 등 층 규칙을 본다(10-06 사고 재발 방지). 새 칸 · 위젯을 넣으면 이 검사가 먼저 알려 준다.
