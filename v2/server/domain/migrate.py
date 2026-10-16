@@ -129,6 +129,12 @@ def import_old(ctx, data):
     from . import settings2 as _s2
     for name in _s2.import_old(ctx, old):
         did(name)
+    # 📐 위젯 자리 — 백업 상태에 배치(layout)가 담겨 있으면 v2 기준점으로 바꿔 옮긴다(oldlayout.py).
+    #    ⚠️ 옛 [💾 백업] 파일에는 보통 배치가 없다(배치는 서버의 layout.json 따로) → 그 파일은 같은 화면에서 따로 고른다
+    from . import oldlayout as _ol
+    n_lay = _ol.import_from_state(ctx, old)
+    if n_lay:
+        did('위젯 자리 %d칸' % n_lay)
     if not done:
         raise CommandError('옮길 것을 찾지 못했습니다 — 옛 조종실 [💾 백업] 파일이 맞나요?')
     ctx.notes['imported'] = done

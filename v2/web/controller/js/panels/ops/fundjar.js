@@ -5,6 +5,7 @@
    후원분 비우기 → 확인 상자 → fundjar.reset (종잣돈은 그대로)
    대기함 카드의 [🏺 모금함] 은 켜져 있을 때만 보인다(pending.js → pending.to_jar). */
 import { h, won, sigOf, onEnter, setVal, once, switchEl, parseWon, setJar, blockHead } from './common.js';
+import { mountFjSide } from './fjside.js';     // 🏺 깃발 왼쪽 / 오른쪽(fundjar.side)
 
 export function mountFundjar(el, ctx) {
     const sw = switchEl('모금함 쓰기', async on => {
@@ -30,6 +31,7 @@ export function mountFundjar(el, ctx) {
     onEnter(addIn, () => once(addBtn, add));
     onEnter(reasonIn, () => once(addBtn, add));
 
+    const fjSide = mountFjSide(ctx);
     el.classList.add('ops', 'ops-fundjar');
     el.append(
         h('div', { class: 'ops-toprow' }, sw.el),
@@ -41,6 +43,7 @@ export function mountFundjar(el, ctx) {
             h('div', { class: 'ops-row end' }, saveBtn)),
         h('section', { class: 'ops-blk' }, blockHead('후원 얹기', '계좌로 받은 것 등 — 원 단위. [되돌리기] 로 되돌릴 수 있어요'),
             h('div', { class: 'ops-row wrap' }, addIn, reasonIn, addBtn)),
+        fjSide.el,
         h('section', { class: 'ops-blk' }, blockHead('비우기', '후원분만 0 으로 — 종잣돈은 그대로 남아요'), h('div', { class: 'ops-row' }, resetBtn)),
     );
 
@@ -76,6 +79,7 @@ export function mountFundjar(el, ctx) {
         const j = slices.fundjar || {};
         const hudOn = !!((slices.show || {}).hud || {}).fundjar;
         sw.set(!!j.enabled);
+        fjSide.render(slices);
         const sig = sigOf(j, hudOn);
         if (sig === last) return;
         last = sig;

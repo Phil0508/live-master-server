@@ -225,7 +225,11 @@ class Presets(Base):
         self.assertEqual(c, 200, r)
         ps = self.st()['presets']['list']
         self.assertEqual([p['id'] for p in ps], ['pold1', 'pold2'])
-        self.assertNotIn('layout', ps[0])                                    # 옛 좌표는 기준점이 달라 안 옮긴다
+        # 📐 옛 좌표(왼쪽 위 기준)는 v2 기준점으로 바꿔 담는다(oldlayout.py) — 점수판은 오른쪽 위 기준: 10 + 878 = 888,
+        #    위 10 은 옛 안전지대(115~954)로 붙잡는다(__free 가 아니면 옛 방송판도 그랬다). 불러올 때는 슬롯에 있는 위젯만 덮는다
+        self.assertEqual(ps[0]['layout'], {'ranking': {'x': 888.0, 'y': 115.0, 'scale': 1.0}})
+        self.assertTrue(ps[0]['layout_merge'])
+        self.assertNotIn('layout', ps[1])                                    # 자리가 없던 옛 슬롯
         self.assertEqual(ps[0]['hud'], {'best': True})                       # 전광판(ticker)은 v2 에 없다
         self.cmd('show.stage', stage='match')
         self.cmd('layout.set', id='gauge', x=1, y=1)
@@ -233,7 +237,8 @@ class Presets(Base):
         s = self.st()
         self.assertEqual(s['show']['stage'], 'match')
         self.assertTrue(s['show']['hud']['best'])
-        self.assertEqual(s['layout']['widgets'], {'gauge': {'x': 1.0, 'y': 1.0}})     # 자리는 안 건드린다
+        self.assertEqual(s['layout']['widgets'], {'gauge': {'x': 1.0, 'y': 1.0},           # 슬롯에 없던 위젯은 그대로(옛 _cue_apply)
+                                                  'ranking': {'x': 888.0, 'y': 115.0, 'scale': 1.0}})
         self.cmd('preset.apply', id='pold2')
         self.assertEqual(self.st()['show']['stage'], 'roulette')
         self.cmd('admin.import_old', state=old)                               # 두 번 옮겨도 겹치지 않는다

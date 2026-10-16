@@ -185,8 +185,13 @@ def apply_cue(ctx, hit, idx):
     """한 단계를 불러온다 — 자리 · 고정 자리 · 무대. 게임 속 내용 · 점수 · 테마는 그대로."""
     if isinstance(hit.get('layout'), dict):
         # v2 슬롯은 layout.widgets 통째다(기본 자리에 있던 위젯은 안 들어 있다) → 통째로 바꿔야 저장한 그대로가 된다.
-        # ⚠️ 옛 프로그램에서 옮겨 온 슬롯은 layout 이 없다(옛 좌표는 기준점이 달라 옮기지 않았다) → 자리는 안 건드린다
-        ctx.edit('layout')['widgets'] = {str(k): dict(v) for k, v in hit['layout'].items() if isinstance(v, dict)}
+        # ⚠️ 옛 프로그램에서 옮겨 온 슬롯 중 자리를 못 바꾼 것(옛 판 __v<2 등)은 layout 이 없다 → 자리는 안 건드린다
+        new = {str(k): dict(v) for k, v in hit['layout'].items() if isinstance(v, dict)}
+        if hit.get('layout_merge'):
+            # 📐 옛 슬롯에서 바꿔 담은 자리 — 옛 _cue_apply 처럼 슬롯에 있는 위젯만 덮는다(없는 위젯은 지금 자리 그대로)
+            ctx.edit('layout')['widgets'].update(new)
+        else:
+            ctx.edit('layout')['widgets'] = new
     s = ctx.edit('show')
     for k, v in cue_hud(hit).items():
         s['hud'][k] = v
@@ -211,6 +216,7 @@ def preset_save(ctx, data):
         ps[i].update(snap)
         ps[i].pop('switches', None)                     # 옛 슬롯을 덮으면 새 모양만 남긴다
         ps[i].pop('board', None)
+        ps[i].pop('layout_merge', None)                 # 이제 v2 자리 통째다
         if name:
             ps[i]['name'] = name
         hit = ps[i]
@@ -353,7 +359,7 @@ def import_old(ctx, old):
     if isinstance(ops, list) and ops:
         ps = _list(ctx, edit=True)
         have = {x.get('id') for x in ps}
-        n = 0
+        n = laid = 0
         for p in ops:
             if not isinstance(p, dict) or len(ps) >= PRESET_MAX:
                 continue
@@ -371,11 +377,16 @@ def import_old(ctx, old):
                 row['stage'] = cue_stage(p)
             else:
                 row['board'] = cue_stage(p)
-            # ⚠️ 위젯 자리(layout)는 안 옮긴다 — 옛 좌표(x_px · y_px)는 기준점이 v2(layers.js anchor)와 달라 엉뚱한 데로 간다.
-            #    편집기 · 조종실에서 [지금 화면으로 바꾸기] 로 다시 담으면 된다.
+            # 📐 위젯 자리 — 옛 좌표(x_px · y_px · 왼쪽 위 기준)를 v2 기준점(layers.js anchor)으로 바꿔 담는다(oldlayout.py).
+            #    못 바꾸면(옛 판 __v<2 · 자리 없음) 자리는 안 건드리는 슬롯으로 남긴다.
+            from . import oldlayout as _ol
+            wl = _ol.preset_layout(ctx, p.get('layout'))
+            if wl:
+                row['layout'], row['layout_merge'] = wl, True
+                laid += 1
             ps.append(row)
             have.add(pid)
             n += 1
         if n:
-            done.append('세이브 슬롯 %d개(자리 빼고)' % n)
+            done.append('세이브 슬롯 %d개(자리 %s)' % (n, ('%d개 바꿔 담음' % laid) if laid else '빼고'))
     return done
