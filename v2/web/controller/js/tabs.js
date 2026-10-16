@@ -1,6 +1,7 @@
 /* 🗂️ 게임 · 도구 탭 — 대기함 · 점수판 아래에 탭 줄 하나.
 
-   탭(panel) 하나 = { id, label, icon, group, mount(el, ctx) → { render(slices) } }
+   탭(panel) 하나 = { id, label, icon, group, mount(el, ctx) → { render(slices) }, badge?(slices) → 글자 }
+   badge — 탭 단추 옆 작은 숫자(예: 후원 콘솔 '🏦 2' = 아직 안 쓴 계좌 입금). 빈 글자면 숨긴다. 탭이 닫혀 있어도 늘 고친다.
    panels/games.js · panels/tools.js 가 목록(PANELS)을 내보낸다 — 여기는 목록을 받아 줄을 세우기만 한다.
    ⚠️ 열린 탭만 그린다(조각이 올 때마다 모든 탭을 그리면 느려진다). 다른 탭은 열 때 한 번 그린다.
    ⚠️ 탭을 못 그려도(오류) 다른 탭 · 대기함 · 점수판은 그대로 돈다 — 탭마다 따로 감싼다.
@@ -19,6 +20,7 @@ export function mountTabs(root, ctx, panels) {
     root.append(bar, body);
     const made = {};          // id → { el, api }
     const btns = {};
+    const badges = [];        // [panel, 배지 칸]
 
     let lastGroup = null;
     panels.forEach(p => {
@@ -26,8 +28,10 @@ export function mountTabs(root, ctx, panels) {
             if (lastGroup !== null) bar.append(h('span', { class: 'tabsep', 'aria-hidden': 'true' }));
             lastGroup = p.group;
         }
+        const badge = p.badge ? h('span', { class: 'tab-badge', hidden: true }) : null;
+        if (badge) badges.push([p, badge]);
         const b = h('button', { type: 'button', class: 'tab', role: 'tab', 'data-tab': p.id, onclick: () => open(p.id) },
-            p.icon ? h('span', { class: 'tab-ic', 'aria-hidden': 'true' }, p.icon) : null, p.label);
+            p.icon ? h('span', { class: 'tab-ic', 'aria-hidden': 'true' }, p.icon) : null, p.label, badge);
         btns[p.id] = b;
         bar.append(b);
     });
@@ -56,7 +60,17 @@ export function mountTabs(root, ctx, panels) {
         draw(ctx.slices);
     }
 
+    function paintBadges(slices) {
+        for (const [p, el] of badges) {
+            let t = '';
+            try { t = String(p.badge(slices || {}) || ''); } catch (e) { t = ''; }
+            if (el.textContent !== t) el.textContent = t;
+            if (el.hidden !== !t) el.hidden = !t;
+        }
+    }
+
     function draw(slices) {
+        paintBadges(slices);
         if (!active) return;
         const m = ensure(active);
         if (m.api && m.api.render) {

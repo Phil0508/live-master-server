@@ -4,13 +4,15 @@
      · 상태 점 [방송 화면] [후원 받기] · 방송 중 경보 띠(머리줄 맨 아래) · 방송 전 점검표 — alarm.js (소리는 안 낸다)
      · BGM 미니 플레이어(영상이 올라와 있을 때만) — panels/records/bgm.js
      · 💰 이번 방송 후원 칸 — panels/ai/today.js · 🚗 오토파일럿 띠(켜져 있을 때 머리줄 맨 아래) — panels/ai/autopilot.js
-     · ✂ 클립 단추 + OBS 점 — clipbtn.js(방송 중에만) */
+     · ✂ 클립 단추 + OBS 점 — clipbtn.js(방송 중에만)
+     · 🏦 '계좌' 점 + 계좌 입금 띠(끊김 빨강 · 새 입금 초록 25초 — 소리 없음) — bankext.js */
 import { clock } from './util.js';
 import { mountAlarm } from './alarm.js';
 import { mountBgmMini } from './panels/records/bgm.js';
 import { mountTodayPill } from './panels/ai/today.js';   // 💰 이번 방송 후원(장부에서 센 것) — 옛 첫 화면 숫자 칸
 import { mountClipButton } from './clipbtn.js';            // ✂️ 어느 탭에서든 클립(옛 머리줄 단추)
 import { mountAutoPill } from './panels/auto/pill.js';     // 🤖 자동 진행 '그림자 · 켬' 표시(끔이면 숨김) — 누르면 그 탭
+import { mountBankAlarm } from './bankext.js';            // 🏦 은행 확장 점 · 계좌 입금 띠(로그인한 조종실에만)
 
 const CONN = {
     connecting: ['connecting', '연결 중'],
@@ -32,6 +34,7 @@ export function mountHeader(root, ctx) {
     const endBtn = root.querySelector('.end-btn');
     const right = root.querySelector('.hdr-right');
     const alarm = mountAlarm(right, root, ctx);           // 점 두 개는 오른쪽 묶음 바로 앞(폰에서는 로고 줄)
+    const bankAlarm = mountBankAlarm(right, root, ctx);   // '계좌' 점은 그 두 점 옆 · 띠는 경보 띠 밑
     const bgm = mountBgmMini(right);
     const todayPill = mountTodayPill(onair);               // [방송 중] 바로 앞 · 폰에서는 숨긴다(AI 탭에 같은 숫자)
     const autoPill = mountAutoPill(onair);
@@ -87,6 +90,7 @@ export function mountHeader(root, ctx) {
             if (want !== startedAt) { startedAt = want; tick(); }
             // 하나가 넘어져도 머리줄(연결 · 방송 끝)은 그대로 돌게 따로 감싼다
             try { alarm.render(slices, status, view); } catch (e) { console.error('[점검]', e); }
+            try { bankAlarm.render(slices, status, view); } catch (e) { console.error('[계좌 입금 띠]', e); }
             try { bgm.render(slices, view); } catch (e) { console.error('[BGM]', e); }
             try { todayPill.render(slices, view); } catch (e) { console.error('[오늘 후원]', e); }
             try { autoPill.render(slices, view); } catch (e) { console.error('[자동 진행 표시]', e); }
