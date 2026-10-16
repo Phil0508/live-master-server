@@ -146,6 +146,16 @@ class Wiring(unittest.TestCase):
                      "['전체 후원(모든 회차)', 'all', '']", "['이 회차 후원', 'don', sid]", "['이 회차 점수 기록', 'score', sid]"):
             self.assertIn(frag, led)
 
+    def test_cmdk_under_confirm_box(self):
+        """Ctrl+K 상자가 확인 상자(올클리어 · 룰렛 돌려가 묻는 것)를 가리면 [확인] 을 누를 수 없다 — 상자는 확인 상자보다 아래(검토 10-17)"""
+        with open(os.path.join(CTL, 'controller.css'), encoding='utf-8') as f:
+            base = f.read()
+        modal = int(re.search(r'\.modal-wrap\s*\{[^}]*z-index:\s*(\d+)', base).group(1))
+        more = int(re.search(r'#ctl-more\s*\{[^}]*z-index:\s*(\d+)', base).group(1))
+        cmdk = int(re.search(r'\.cmdk\s*\{[^}]*z-index:\s*(\d+)', read('css', 'tools_records.css')).group(1))
+        self.assertLess(cmdk, modal)
+        self.assertGreater(cmdk, more)
+
     def test_overlay_honors_manual(self):
         with open(os.path.join(ROOT, 'v2', 'web', 'overlay', 'widgets', 'signature.js'), encoding='utf-8') as f:
             sig = f.read()

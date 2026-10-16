@@ -116,6 +116,23 @@ export function prevIndex(i, n) {
     return (((Math.floor(Number(i) || 0) - 1) % n) + n) % n;
 }
 
+/** 못 트는 곡을 건너뛸 때 다음 번호 — 🔂 한 곡 반복이어도 **다음 곡**으로(같은 막힌 곡을 다시 부르지 않게).
+    반복 끔이면 마지막에서 멈춤(-1), 전체 반복이면 처음으로. (검토 10-17: 한 곡 반복에서 막힌 곡을 몇 번이고 다시 불렀다) */
+export function skipIndex(mode, i, n) {
+    return nextIndex(mode === 'one' ? 'all' : mode, i, n, false);
+}
+
+/** 나오던 곡을 목록에서 뺀 뒤(gone) 다음 번호 — slot: 그 곡이 있던 자리(뒤 곡이 당겨 와 있다).
+    자리가 목록 끝을 넘었으면(마지막 곡을 뺐다) 반복 끔은 멈춤(-1), 그 밖은 처음으로. 곡이 없으면 -1.
+    (검토 10-17: 마지막 곡을 빼면 바로 앞 곡이 다시 나왔다) */
+export function goneIndex(mode, slot, n, manual) {
+    n = Math.floor(Number(n) || 0);
+    if (n <= 0) return -1;
+    slot = Math.max(0, Math.floor(Number(slot) || 0));
+    if (slot < n) return slot;
+    return mode === 'off' && !manual ? -1 : 0;
+}
+
 /** 목록에 영상 번호들을 더한다(순수 — 검사용) → {list, added, firstNew, dup, over} */
 export function addTo(list, ids, max) {
     const out = list.slice();
@@ -303,7 +320,12 @@ export function playAt(i, autoplay) {
 export function next(manual) {
     const n = B.list.length;
     if (!n) return;
-    if (B.gone) { playAt(B.idx, true); return; }       // 나오던 곡을 뺐다 — 그 자리에 온 곡이 다음이다
+    if (B.gone) {                                      // 나오던 곡을 뺐다 — 그 자리에 온 곡이 다음이다(마지막 곡이었으면 반복 규칙대로)
+        const g = goneIndex(B.mode, B.idx, n, manual);
+        if (g < 0) { B.gone = false; B.idx = n - 1; notify('list'); say('목록 끝까지 다 틀었어요 (반복 끔)'); return; }
+        playAt(g, true);
+        return;
+    }
     const j = nextIndex(B.mode, B.idx, n, manual);
     if (j < 0) { say('목록 끝까지 다 틀었어요 (반복 끔)'); return; }
     if (j === B.idx && !manual && B.player && B.ready && B.id === B.list[j].id) {   // 한 곡 반복 · 한 곡뿐인 전체 반복 — 같은 곡을 처음부터
@@ -331,7 +353,13 @@ function onBad() {
         return;
     }
     say('못 트는 영상이라 다음 곡으로 넘어가요', 'bad');
-    setTimeout(() => next(false), 800);
+    setTimeout(() => {
+        const n = B.list.length;
+        if (!n) return;
+        const j = B.gone ? goneIndex(B.mode, B.idx, n, false) : skipIndex(B.mode, B.idx, n);
+        if (j < 0) { say('목록 끝까지 다 틀었어요 (반복 끔)'); return; }
+        playAt(j, true);
+    }, 800);
 }
 
 export function cycleMode() {
@@ -373,8 +401,9 @@ export function remove(i) {
     if (i === B.idx && !B.gone && isPlaying()) B.gone = true;    // 나오는 곡은 끝까지 두고, 끝나면 이 자리 곡으로
     B.list.splice(i, 1);
     if (i < B.idx) B.idx--;
-    B.idx = Math.max(0, Math.min(B.idx, B.list.length - 1));
-    if (!B.list.length) B.gone = false;
+    // gone 이면 idx 는 '다음에 올 자리' — 마지막 곡을 뺐으면 목록 끝(= 길이)을 그대로 둔다(goneIndex 가 반복 규칙대로 고른다)
+    B.idx = Math.max(0, Math.min(B.idx, B.list.length - (B.gone ? 0 : 1)));
+    if (!B.list.length) { B.gone = false; B.idx = 0; }
     save();
     notify('list');
 }

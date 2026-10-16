@@ -30,6 +30,13 @@ chk('곡 없음: -1', BGM.nextIndex('all', 0, 0) === -1 && BGM.nextIndex('one', 
 chk('손으로 다음: 한 곡 반복이어도 다음 곡', BGM.nextIndex('one', 0, 3, true) === 1);
 chk('손으로 다음: 반복 끔 마지막 → 처음', BGM.nextIndex('off', 2, 3, true) === 0);
 chk('번호가 범위 밖이면 끝으로 붙인다', BGM.nextIndex('all', 9, 3) === 0 && BGM.nextIndex('all', -4, 3) === 1);
+// 못 트는 곡 건너뛰기(skipIndex) — 한 곡 반복이어도 다음 곡(같은 막힌 곡을 다시 부르지 않게, 검토 10-17)
+chk('건너뛰기: 한 곡 반복 → 다음 곡 · 끝이면 처음', eq([0, 1, 2].map(i => BGM.skipIndex('one', i, 3)), [1, 2, 0]));
+chk('건너뛰기: 반복 끔 마지막 → 멈춤 · 전체 반복 → 처음', BGM.skipIndex('off', 2, 3) === -1 && BGM.skipIndex('all', 2, 3) === 0);
+// 나오던 곡을 뺀 뒤(goneIndex) — 그 자리 곡 · 마지막 곡을 뺐으면 반복 규칙(검토 10-17: 바로 앞 곡이 다시 나왔다)
+chk('뺀 뒤: 그 자리에 온 곡', BGM.goneIndex('all', 1, 3) === 1 && BGM.goneIndex('off', 1, 3) === 1 && BGM.goneIndex('one', 0, 2) === 0);
+chk('뺀 뒤: 마지막 곡을 뺐다 → 전체 · 한 곡 반복은 처음, 반복 끔은 멈춤', BGM.goneIndex('all', 2, 2) === 0 && BGM.goneIndex('one', 2, 2) === 0 && BGM.goneIndex('off', 2, 2) === -1);
+chk('뺀 뒤: 손으로 [다음] 은 끝이어도 처음 · 곡 없으면 -1', BGM.goneIndex('off', 2, 2, true) === 0 && BGM.goneIndex('all', 0, 0) === -1);
 chk('이전 곡: 처음에서 → 맨 끝', eq([0, 1, 2].map(i => BGM.prevIndex(i, 3)), [2, 0, 1]) && BGM.prevIndex(0, 0) === -1);
 
 // ── 목록에 넣기(addTo) — 200곡 끝 · 같은 곡 두 번 안 넣음 · 이상한 번호 거름 ──

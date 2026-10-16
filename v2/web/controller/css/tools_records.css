@@ -324,8 +324,9 @@ body[data-view=setup] .v-setup { flex-wrap: wrap; align-items: flex-start; gap: 
     #hdr .cb .rx .t b, #hdr .cb .rx .t em { overflow: hidden; text-overflow: ellipsis; }
 }
 
-/* ── ⌨️ Ctrl+K 빠른 명령(cmdk.js) — 화면 위쪽 가운데 상자 ── */
-.cmdk { position: fixed; inset: 0; z-index: 120; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; background: rgba(10, 7, 6, 0.55); }
+/* ── ⌨️ Ctrl+K 빠른 명령(cmdk.js) — 화면 위쪽 가운데 상자 ──
+   ⚠️ z-index 는 확인 상자(.modal-wrap 100)보다 아래 — '올클리어' · '룰렛 돌려' 가 묻는 확인 상자가 이 상자 뒤에 숨으면 누를 수 없다(검토 10-17). [더보기] 판(95)보다는 위. */
+.cmdk { position: fixed; inset: 0; z-index: 98; display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; background: rgba(10, 7, 6, 0.55); }
 .cmdk[hidden] { display: none !important; }
 .cmdk-box {
     width: min(560px, 100%); max-height: 76vh; display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 18px;
