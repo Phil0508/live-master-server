@@ -180,6 +180,8 @@ export function mountPinball(el, ctx) {
         else if (r.length) {
             const w = (g.winners && g.winners.length) ? g.winners : r;
             kids.push(h('div', { class: 'gm-win' }, '🏆 1등 ', h('b', null, w[0])));
+            // ⏱ 구슬이 껴서 20초 동안 아무도 못 나아가 그 자리 순위로 끝낸 판(방송판 우승 딱지에도 그렇게 뜬다)
+            if (g.cut === 'stall') kids.push(h('div', { class: 'gm-info' }, '⏱ 구슬이 껴서 지금 자리로 결정한 판이에요 — 시간으로는 자르지 않아요'));
             if (w.length > 1) kids.push(h('div', { class: 'gm-info' }, w.slice(1, 20).map((x, i) => `${i + 2}위 ${x}`).join(' · ') + (w.length > 20 ? ` 외 ${w.length - 20}명` : '')));
         } else kids.push(h('div', { class: 'gm-info' }, n ? '[굴리기] 를 누르면 시작해요' : '참가자를 넣고 [굴리기] 를 누르세요'));
         if ((slices.show || {}).stage !== 'pinball') kids.push(h('div', { class: 'gm-info' }, '방송 화면에 안 떠 있어요 — 굴리면 저절로 떠요'));
@@ -209,7 +211,7 @@ export function mountPinball(el, ctx) {
                 setRows(want);
             }
             first = false;
-            paint('state', [g.names, g.balls ? g.balls.length : 0, g.map, g.rule, g.picks, g.skills, g.running, g.result, g.winners, (s.show || {}).stage], paintState);
+            paint('state', [g.names, g.balls ? g.balls.length : 0, g.map, g.rule, g.picks, g.skills, g.running, g.result, g.winners, g.cut, (s.show || {}).stage], paintState);
         },
     };
 }
