@@ -15,7 +15,8 @@ const ARM_MS = 3000;          // 덮어쓰기 · 지우기 — 3초 안에 한 �
 export function mountCues(ctx, stageName) {
     const SN = stageName || {};
     const list = () => (((ctx.slices.presets || {}).list) || []).filter(p => p && p.id);
-    const atNow = () => { const v = Number(((ctx.slices.show || {}).cue_at)); return isFinite(v) ? v : -1; };
+    // 서버 settings2.cue_at 과 같은 셈 — 없거나 null 이면 -1(Number(null) 은 0 이라 방송 시작 직후 '1단계' 로 잘못 보였다 · 10-17 w2center 검토)
+    const atNow = () => { const r = (ctx.slices.show || {}).cue_at, v = Number(r); return r != null && isFinite(v) ? Math.trunc(v) : -1; };
 
     let editing = false, pick = '', delArmed = 0, overArmed = 0;
 

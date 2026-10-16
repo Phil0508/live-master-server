@@ -45,7 +45,8 @@ class ControllerFrame(unittest.TestCase):
         src = read('js', 'main.js')
         for s in ['// [B] import { mountKpis }', '// [B] import { mountStagebar }', '// [C] import { mountDrawer }',
                   '// [D] import { mountCmdk }', '// [D] import { mountRxSwitch }', "// [D] safe(() => mountCmdk(ctx));"]:
-            self.assertIn(s, src)
+            # 자기 줄을 푼 갈래는 주석 표시만 빠진다(10-17 w2center 가 [B] 를 풀었다) — 줄 자체는 남아 있어야 한다
+            self.assertTrue(s in src or re.sub(r'^// \[[BCD]\] ', '', s) in src, s)
         # 방송 전에도 탭을 그린다
         self.assertIn("if (view === 'setup' || view === 'live') safe(() => views.tabs.render(slices, view));", src)
 

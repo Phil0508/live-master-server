@@ -215,6 +215,12 @@ class Facts(unittest.TestCase):
         today = af.today_summary(rows)
         self.assertEqual((today['건수'], today['합계금액']), (3, 60000))
         self.assertEqual(today['많이_쏜_사람'][0], {'이름': '홍길동', '횟수': 2, '금액합': 50000})
+        self.assertEqual(today['가장_큰'], {'이름': '홍길동', '금액': 30000})      # 💰 숫자 카드 ① 아랫줄 — 화면에만(display)은 안 센다
+        self.assertIsNone(af.today_summary([])['가장_큰'])                          # 없으면 None(지어내지 않는다)
+        tie = af.today_summary([{'name': '늦게', 'amount': 50000, 'status': 'assigned', 'at': 20},
+                                {'name': '먼저', 'amount': 50000, 'status': 'pending', 'at': 10},
+                                {'name': '화면만', 'amount': 90000, 'status': 'display', 'at': 5}])
+        self.assertEqual(tie['가장_큰'], {'이름': '먼저', '금액': 50000})           # 같은 금액이면 먼저 온 것
         vip = af.vip_list(tallies)
         self.assertEqual([v['이름'] for v in vip], ['달빛', '별빛'])
         f = af.build_facts(S(tallies=tallies, queue=q, show={'stage': 'slot'},
@@ -555,6 +561,7 @@ class Routes(Base):
         self.assertEqual(b['intents']['rank'], '📊 순위')
         self.assertEqual((b['today']['건수'], b['today']['합계금액']), (2, 50000))
         self.assertEqual(b['today']['많이_쏜_사람'][0]['횟수'], 2)
+        self.assertEqual(b['today']['가장_큰'], {'이름': '별빛', '금액': 30000})
         self.assertNotIn('today', self.c.get('/api/ai/board', headers=H).json())
 
     def test_chat_intent_is_calc(self):

@@ -40,7 +40,7 @@ v2 에서 바뀐 것
 2) 상황판(B안) — GET /api/ai/board[?today=1]   (AI 를 안 부른다 — 패널이 열려 있을 때만 4초마다)
    받음: {status:'success', tiles:[{intent:'pending'|'match'|'goal'|'race', k: 머리글, v: 큰 글자, s: 작은 글자,
           hot: 주황 테두리, pct?: 목표 막대 0~100}], ai:{state:'off'|'idle'|'ok'|'busy', text}, intents:{intent: 단추 이름},
-          today?: {건수, 합계금액, 많이_쏜_사람:[{이름, 횟수, 금액합}]}}
+          today?: {건수, 합계금액, 많이_쏜_사람:[{이름, 횟수, 금액합}], 가장_큰:{이름, 금액}|null}}
    · 칸 네 개는 늘 이 순서 · 이 intent. 칸을 누르면 3)의 {intent} 로 묻는다. ai.text 는 패널 머리 점 옆 글자.
    · ?today=1 — 조종실 첫 화면 '이번 방송 후원' 숫자 칸(장부에서 센 것 — 화면에만 뜬 소액은 빠진다).
 3) AI 에게 물어보기 — POST /api/ai/chat

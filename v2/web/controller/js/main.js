@@ -26,8 +26,8 @@ import { PANELS as GAME_PANELS } from './panels/games.js';
 import { PANELS as TOOL_PANELS } from './panels/tools.js';
 import { mountPhone } from './phone.js';     // 📱 폰 손보기(새 후원 띠 · 탭 줄) · 방송 전 시그니처 관리 바로가기
 import { mountCastBox } from './castbox.js'; // 💬 화면에 한마디 · ⬆ UP 자막 — 오른쪽 칸 맨 위(#say-slot)
-// [B] import { mountKpis } from './kpis.js';
-// [B] import { mountStagebar } from './stagebar.js';
+import { mountKpis } from './kpis.js';         // 🔢 숫자 카드 4장 · 💱 정산 차액(랭킹 탭)
+import { mountStagebar } from './stagebar.js'; // 🎬 무대 줄 · 순서표 · 진행 중인 판 단추(탭을 바꿔도 남는다)
 // [C] import { mountDrawer } from './drawer.js';
 // [D] import { mountCmdk } from './cmdk.js';
 // [D] import { mountRxSwitch } from './rxswitch.js';
@@ -56,8 +56,8 @@ const views = {
     queue: mountQueue($('queue'), ctx),
     goal: mountGoal($('goal'), ctx),
     tabs: mountTabs({ rail: $('rail'), body: $('tabbody'), center: $('center') }, ctx, [...FRAME_PANELS, ...GAME_PANELS, ...TOOL_PANELS]),
-    // [B] kpis: mountKpis($('kpis'), ctx),
-    // [B] stagebar: mountStagebar($('stagebar'), ctx),
+    kpis: mountKpis($('kpis'), ctx),
+    stagebar: mountStagebar($('stagebar'), ctx),
     // [C] drawer: mountDrawer(ctx),
 };
 ctx.tabs = views.tabs;
@@ -69,7 +69,7 @@ safe(() => mountCastBox(ctx));             // 💬 castbox.js — 넘어져도 �
 // 방송 중에만 그리는 칸 — 한 줄에 하나씩(다음 작업자가 자기 줄만 더한다)
 const LIVE = [
     'pending', 'scores', 'undo', 'queue', 'goal',
-    // [B] 'kpis', 'stagebar',
+    'kpis', 'stagebar',
     // [C] 'drawer',
 ];
 
