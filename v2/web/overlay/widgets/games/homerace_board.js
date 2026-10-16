@@ -1,15 +1,19 @@
 /* 🏃 퇴근빵 · 🔥 지옥탈출 공용 판 — 옛 overlay.html renderHomeRace · GOAL 줄 순환 · HellFire 를 옮겼다.
    옛 것은 판 하나(#home-race-container)를 둘이 나눠 썼다(.hell 이면 지옥 옷). v2 는 칸이 둘(homerace · hell)이고 생김새는 이 파일 하나.
 
-   - 퇴근빵(kind 'home'): show.stage == 'home_race' 이고 점수판 선수가 있을 때. 진행 = 점수(score) / 목표(home.goals[이름], 점).
+   - 보이기 · 모양은 race_view.js 한 곳(10-17 무대에서 뺐다 — 다른 게임을 켜도 안 꺼진다):
+     큰 판 · 얇은 판(시그뒤집기 · 핀볼 · 9명 이상 퀴즈 — 제목 + 5초마다 한 사람) · 숨김(주사위판). 둘 다 켜지면 지옥이 먼저.
+   - 퇴근빵(kind 'home'): home.on 이고 점수판 선수가 있을 때. 진행 = 점수(score) / 목표(home.goals[이름], 점).
      오른쪽 배지 = 목표(만 단위 짧게), 아래 GOAL 줄 = 5초마다 다음 사람의 '남은 점수'(다 채우면 '퇴근 완료 🎉').
-   - 지옥탈출(kind 'hell'): show.stage == 'hell' 이고 hell.on. 명단 = 목표 큰 순(= 시작 순간 1등부터 — 서버가 그 순서로 적었다).
+   - 지옥탈출(kind 'hell'): hell.on 이고 hell.shown. 명단 = 목표 큰 순(= 시작 순간 1등부터 — 서버가 그 순서로 적었다).
      진행 = 시작 뒤 받은 점수(score − base) / 목표(점 = 만원) — 숫자에 '만'. 다 채우면 배지 '탈출!'(초록), 모두 채우면 제목 '😇 전원 탈출!'.
      GOAL 줄은 없다(판을 짧게). 판 뒤로 진짜 불(WebGL) · 용암 균열 · 불티 · 열기 — 그래픽카드가 없으면 불만 빠진다.
    - 막대는 줄을 한 번만 만들고 값만 바꾼다(통째로 갈면 0.8초 차오르기가 끊긴다).
-   - 판이 무대에 있으면 stage 모드(game-home / game-hell) — 점수판(ranking)이 이 자리를 비켜 준다(옛 rankHiddenBy.race). */
+   - 판이 보이면(큰 판 · 얇은 판) 모드 game-home / game-hell — 점수판(ranking) · 후원 순위 · 최고 후원이 이 자리를 비켜 준다
+     (옛 rankHiddenBy.race · modes.css). 모금함 깃발이 판과 겹치면 race-jar 모드로 깃발도 잠깐 비킨다. */
 import { formatNum } from '../../util.js';
 import { makeFader, coverOn } from './dice_kit.js';
+import { raceView } from './race_view.js';
 
 // 금액을 '만' 단위 짧은 배지로(260000 → 26만, 아니면 콤마) — 옛 manLabel
 function manLabel(v) {
@@ -144,6 +148,7 @@ export function mountRace(root, lm, opts, kind) {
 
     let rowNames = null;
     let cycle = [], cycleIdx = 0, cycleTimer = null;
+    let thin = false;
 
     function paintGoal(animate) {
         if (!goalLine) return;
@@ -160,13 +165,25 @@ export function mountRace(root, lm, opts, kind) {
         goalLine.querySelector('.hr-goal-count').textContent = (cycleIdx + 1) + '/' + cycle.length;
         if (animate) { goalLine.classList.remove('swap'); void goalLine.offsetWidth; goalLine.classList.add('swap'); }
     }
+    // 얇은 판 — 줄 하나만 보인다(5초마다 다음 사람, GOAL 줄과 같은 박자)
+    function paintThin(animate) {
+        const rows = rowsEl.children;
+        if (cycleIdx >= rows.length) cycleIdx = 0;
+        for (let i = 0; i < rows.length; i++) {
+            const on = thin && i === cycleIdx;
+            rows[i].classList.toggle('hr-cur', on);
+            if (on && animate) { rows[i].classList.remove('swap'); void rows[i].offsetWidth; rows[i].classList.add('swap'); }
+        }
+    }
     function startCycle() {
         paintGoal(false);
-        if (cycleTimer || !goalLine) return;
+        paintThin(false);
+        if (cycleTimer || (!goalLine && !thin)) return;
         cycleTimer = setInterval(() => {
             if (!cycle.length) return;
             cycleIdx = (cycleIdx + 1) % cycle.length;
             paintGoal(true);
+            paintThin(true);
         }, 5000);
     }
     function stopCycle() { if (cycleTimer) { clearInterval(cycleTimer); cycleTimer = null; } }
@@ -174,7 +191,7 @@ export function mountRace(root, lm, opts, kind) {
     function render() {
         const players = lm.get('players') || {};
         const list = Array.isArray(players.list) ? players.list : [];
-        const st = (lm.get('show') || {}).stage;
+        const view = raceView(k => lm.get(k));
         const hell = lm.get('hell') || {};
         const home = lm.get('home') || {};
         let bjs = list;
@@ -190,16 +207,24 @@ export function mountRace(root, lm, opts, kind) {
         }
         const base = hell.base || {};
         const cur = b => hellKind ? Math.max(0, (Number(b.score) || 0) - (parseInt(base[b.name], 10) || 0)) : (Number(b.score) || 0);
-        const onStage = (hellKind ? (st === 'hell' && !!hell.on) : st === 'home_race') && bjs.length > 0;
+        const shape = (view.kind === kind && bjs.length > 0) ? view.shape : null;     // 'big' | 'thin' | null
+        const onStage = !!shape;
         stage.setMode(modeName, onStage);
         const visible = onStage && !coverOn(lm);
+        const wasThin = thin;
+        thin = shape === 'thin';
+        wrap.classList.toggle('thin', thin);
         fade(visible);
-        if (fire) fire.set(visible);
-        if (!onStage) { stopCycle(); return; }
+        if (fire) fire.set(visible && !thin);          // 얇은 판에서는 불을 끈다 — 작은 칸에 불이 번지면 아래 게임판을 가린다
+        if (!onStage) { stopCycle(); jarCheck(false); return; }
+        if (wasThin !== thin) { stopCycle(); stage.layoutChanged(); }
 
         // 모두 채우면 '전원 탈출!' — 판정 · 벌칙은 없다
-        const allOut = hellKind && bjs.every(b => { const g = parseInt(goals[b.name], 10) || 0; return g > 0 && cur(b) >= g; });
-        const titleTxt = hellKind ? (allOut ? '😇 전원 탈출!' : '🔥 지옥탈출') : '🏃 퇴근빵';
+        const isDone = b => { const g = parseInt(goals[b.name], 10) || 0; return g > 0 && cur(b) >= g; };
+        const doneN = bjs.filter(isDone).length;
+        const allOut = hellKind && doneN === bjs.length;
+        let titleTxt = hellKind ? (allOut ? '😇 전원 탈출!' : '🔥 지옥탈출') : '🏃 퇴근빵';
+        if (thin && !allOut) titleTxt += hellKind ? ' · 탈출 ' + doneN + '/' + bjs.length : ' · 퇴근 ' + doneN + '/' + bjs.length;
         if (titleEl.textContent !== titleTxt) titleEl.textContent = titleTxt;
 
         const names = bjs.map(b => b.name).join('\n');
@@ -232,9 +257,28 @@ export function mountRace(root, lm, opts, kind) {
         });
         cycle = bjs.map(b => ({ name: b.name, cur: cur(b), goal: parseInt(goals[b.name], 10) || 0 }));
         startCycle();
+        jarCheck(true);
     }
 
+    /* 🏺 모금함 깃발(기본 40~148 · 167~429)이 판(88~)과 겹치면 판이 떠 있는 동안 깃발을 잠깐 비킨다(race-jar 모드 · modes.css).
+       깃발을 오른쪽으로 옮겼거나 판을 편집기에서 옮겨 안 겹치면 그대로 둔다. 가린 깃발도 칸 상자는 남아 있어 잰 값이 흔들리지 않는다. */
+    let jarOn = false;
+    function jarCheck(on) {
+        let hit = false;
+        if (on) {
+            const jar = document.querySelector('#canvas .layer-fundjar');
+            const box = wrap.firstElementChild;
+            if (jar && box && wrap.style.display !== 'none') {
+                const a = jar.getBoundingClientRect(), b = box.getBoundingClientRect();
+                hit = a.width > 2 && a.height > 2 && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+            }
+        }
+        if (hit !== jarOn) { jarOn = hit; stage.setMode('race-jar-' + kind, hit); }
+    }
+    if (stage.onLayout) stage.onLayout(() => { if (wrap.classList.contains('gb-on')) jarCheck(true); });
+
     lm.on('players', render);
+    lm.on(hellKind ? 'home' : 'hell', render);      // 둘 다 켜지면 지옥이 먼저 — 다른 쪽이 바뀌어도 다시 본다
     lm.on('show', render);
     lm.on('screen', render);
     lm.on(hellKind ? 'hell' : 'home', render);

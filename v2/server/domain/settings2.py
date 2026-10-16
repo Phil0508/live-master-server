@@ -23,6 +23,7 @@ presets 조각(비공개 — 방송판은 몰라도 된다) {list: [{id, name, l
   한 칸 = 위젯 자리 · 크기(layout 조각의 widgets 통째) + 고정 자리(hud) + 무대(stage, 잠깐 판이면 돌아갈 무대).
   ⚠️ 안 담는 것: 게임 속 내용(룰렛 칸 · 핀볼 명단) · 점수 · 테마 · 알림 스위치 — 누르는 순간의 것을 그대로 쓴다.
   ⚠️ 지옥탈출 · 퇴근빵 · 대결의 '진행'(기록 · 점수 · 시계)은 건드리지 않는다 — 무대에 올리고 내리기만(show.stage 와 같다).
+     10-17 부터 퇴근빵 · 지옥탈출은 무대가 아니다 — 옛 단계에 그 무대가 있으면 그 판 스위치만 켠다(안 끈다).
   60칸까지 · 이름 30자. 방송이 바뀌어도 남는다.
 show.cue_at — 순서표의 '지금 몇 번째'(-1 = 아직 없음). 방송 시작 · 끝에 -1. 옮기기 · 지우기 뒤에도 같은 단계를 가리킨다(옛 _keep_cue).
 """
@@ -166,8 +167,9 @@ def cue_hud(cue):
 
 
 def cue_stage(cue):
+    """단계에 담긴 무대. 옛 이름 'hell' · 'home_race' 도 그대로 돌려준다(불러올 때 스위치로 바꿔 받는다 — apply_cue)."""
     st = cue.get('stage') if 'stage' in cue else (cue.get('board') or None)
-    return st if st in sh.STAGES else None
+    return st if (st in sh.STAGES or st in sh.RACE_STAGES) else None
 
 
 def _keep_cue(ctx, before_ids):
@@ -198,8 +200,14 @@ def apply_cue(ctx, hit, idx):
         if k == 'fundjar' and 'fundjar' in ctx.bus.state.slices:
             ctx.edit('fundjar')['enabled'] = v          # 모금함 켜기와 같은 스위치(show.hud 와 같게)
     st = cue_stage(hit)
-    # ⚠️ 옛 슬롯(board 만 있는 것)은 게임판 다섯만 다뤘다 — 판이 없으면 대결 · 지옥탈출 · 퇴근빵 무대는 그대로 둔다(옛 apply_cue)
-    if not ('stage' not in hit and st is None and s.get('stage') in ('match', 'hell', 'home_race')):
+    if st in sh.RACE_STAGES:
+        # 🏃🔥 옛 단계의 무대 '퇴근빵 · 지옥탈출' — 이제 무대가 아니다. 그 판 스위치를 켜고(시작 전 지옥이면 넘어간다) 무대는 비운다
+        #    (저장할 때 화면에 그 판 하나만 있었다)
+        sh.race_on(ctx, st, strict=False)
+        st = None
+    # ⚠️ 옛 슬롯(board 만 있는 것)은 게임판 다섯만 다뤘다 — 판이 없으면 대결 무대는 그대로 둔다(옛 apply_cue).
+    #    퇴근빵 · 지옥탈출은 무대가 아니라서 어느 단계를 불러도 안 꺼진다.
+    if not ('stage' not in hit and st is None and s.get('stage') == 'match'):
         sh.set_stage(ctx, st)
     ctx.edit('show')['cue_at'] = idx
     ctx.notes.update({'at': idx, 'name': hit.get('name') or '', 'stage': ctx.read('show').get('stage')})

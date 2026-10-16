@@ -12,6 +12,13 @@
 /* 🏆 점수판 — 주사위판 · 퇴근빵 · 지옥탈출이 그 자리를 쓴다(옛 rankHiddenBy.dice · race — 주사위 점수는 판 위 띠에 뜬다) */
 #canvas:is(.game-dicegame-mode, .game-home-mode, .game-hell-mode) .layer-ranking { opacity: 0 !important; visibility: hidden !important; }
 
+/* 🏃🔥 퇴근빵 · 지옥탈출 판이 떠 있는 동안 — 후원 순위(숨은 점수판 아래 ≈496 에 붙어 큰 판과 겹친다) · 최고 후원(40~380 · 400~, 큰 판 왼쪽과 겹친다)도 비킨다.
+   모금함 깃발은 판과 실제로 겹칠 때만(위젯이 재서 race-jar-* 모드를 켠다 — 깃발을 오른쪽으로 옮겼으면 그대로) */
+#canvas:is(.game-home-mode, .game-hell-mode) :is(.layer-donorRank, .layer-best),
+#canvas:is(.race-jar-home-mode, .race-jar-hell-mode) .layer-fundjar {
+    opacity: 0 !important; visibility: hidden !important;
+}
+
 /* 🏅 후원 순위 · 💥 최고 후원 — 게임판이 떠 있는 동안 내린다(옛 body.game-on).
    ⚠️ 퀴즈는 옛 것도 game-on 이 아니었다(네모칸만 가운데에 뜬다). */
 #canvas:is(.game-dicegame-mode, .game-siggame-mode, .pinball-game-mode, .roulette-game-mode, .slot-game-mode) :is(.layer-donorRank, .layer-best) {

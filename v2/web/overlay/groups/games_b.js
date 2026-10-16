@@ -3,8 +3,11 @@
 
    층(z) — layers.js 의 순서 규칙(후원 알림 · 시그니처 > 점수 팝업 > 게이지 > 판)을 지킨다:
      대결 불꽃 테두리 1(맨 아래 — 옛 .fire-vignette z 5) < 판(점수판 10 · 최고 후원 11 · 후원 순위 12) <
-     게임판 15(games_a 와 같은 층 — 옛 게임판 100000) < '시간 종료!' · 꽃가루 18(옛 100000, 판보다 뒤에 적혀 위) < 게이지 20 < 알림 30~
-     ⚠️ 무대(show.stage)에는 판이 하나만 오른다 — 게임판끼리 같은 층이어도 겹치지 않는다.
+     퇴근빵 · 지옥탈출 13(늘 붙는 칸) < 게임판 15(games_a 와 같은 층 — 옛 게임판 100000) < '시간 종료!' · 꽃가루 18(옛 100000, 판보다 뒤에 적혀 위)
+     < 게이지 20 < 알림 30~
+     ⚠️ 무대(show.stage)에는 게임판이 하나만 오른다 — 게임판끼리 같은 층이어도 겹치지 않는다.
+        퇴근빵 · 지옥탈출은 10-17 부터 무대가 아니다(다른 게임과 같이 떠 있다) — 그래서 게임판(15) · 룰렛(14 · 16)보다 낮은 13.
+        보이기 · 모양(큰 판 · 얇은 판 · 숨김)은 widgets/games/race_view.js 한 곳.
         주사위판과 점수 띠는 같이 뜬다 — 같은 층이면 표에서 뒤에 적힌 띠가 위(옛 DOM 순서와 같다: '한 바퀴' 배너가 띠 밑으로).
    보이기: 각 위젯이 무대를 보고 판 안에서 켜고 끈다(.gb-wrap.gb-on, 다 숨으면 display:none — 칸 상자가 0 이 되어 게이지 딱지가 안 비킨다).
      시작 · 끝 화면(screen.mode start/end)이면 위젯이 내린다(옛 body.stage-on).
@@ -19,8 +22,8 @@ export const LAYERS = [
     // 🔥 대결 불꽃 테두리 — 수동 불꽃(무대 match) · 피버(남은 60초)
     { id: 'matchFire', widget: 'games/match_fire', z: 1,  x: 0,    y: 0,   w: 1080, h: 1920, liveOnly: true },
     // 🏃 퇴근빵 · 🔥 지옥탈출 — 점수판 자리(오른쪽 기준, 판 폭 946 이 왼쪽으로 자란다)
-    { id: 'homeRace',  widget: 'games/homerace',   z: 15, x: 1038, y: 167, anchor: 'tr', liveOnly: true, hideInReaction: true, solid: true },
-    { id: 'hell',      widget: 'games/hell',       z: 15, x: 1038, y: 167, anchor: 'tr', liveOnly: true, hideInReaction: true, solid: true },
+    { id: 'homeRace',  widget: 'games/homerace',   z: 13, x: 1038, y: 167, anchor: 'tr', liveOnly: true, hideInReaction: true, solid: true },
+    { id: 'hell',      widget: 'games/hell',       z: 13, x: 1038, y: 167, anchor: 'tr', liveOnly: true, hideInReaction: true, solid: true },
     // ⚔️ 대결판 — 게이지 720 + 카드
     { id: 'match',     widget: 'games/match',      z: 15, x: 288,  y: 795,               liveOnly: true, hideInReaction: true, solid: true },
     // 🃏 시그뒤집기 — 판 폭 700(폭은 위젯이 정한다 — 숨었을 때 칸이 0 이 되게)

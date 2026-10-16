@@ -2,7 +2,7 @@
 """📺 무대 · 고정 자리 · 알림 · 공지 · 계좌 · 테마 — 방송판에 '무엇을 띄울지'.
 
 show 조각(공개)
-  stage   지금 무대에 오른 판 하나(None = 비어 있음). 옛 show.py 와 같은 이름들.
+  stage   지금 무대에 오른 판 하나(None = 비어 있음). 옛 show.py 와 같은 이름들 — 단 퇴근빵 · 지옥탈출은 뺐다(RACE_STAGES).
   ret     잠깐 올라온 판(룰렛 · 슬롯)이 끝나면 돌아갈 무대
   hud     고정 자리 켜고 끄기(점수판 · 게이지 · 계좌 · 공지 · 후원 순위 · 시그 순위 · 최고 후원 · 모금함)
   alerts  알림 켜고 끄기(후원 팝업 · 1등 탈환 · 시그 제목 · 1천~9천 띠)
@@ -16,8 +16,12 @@ from ..bus import CommandError, command
 from ..state import slice_
 from . import session as ses
 
-STAGES = ('match', 'pinball', 'dicegame', 'siggame', 'roulette', 'slot', 'home_race', 'hell', 'quiz')
+STAGES = ('match', 'pinball', 'dicegame', 'siggame', 'roulette', 'slot', 'quiz')
 TEMP_STAGES = ('roulette', 'slot')
+# 🏃🔥 퇴근빵 · 지옥탈출은 10-17 부터 무대가 아니다 — 늘 붙는 칸(home.on · hell.shown, races.py).
+#    옛 순서표 · 무대 단추 · 스트림덱이 보내는 이 이름은 무대를 안 건드리고 스위치로 바꿔 받는다(races.py 가 RACE_ON 을 채운다).
+RACE_STAGES = ('home_race', 'hell')
+RACE_ON = {}          # 이름 → fn(ctx, strict=True)
 HUD_DEFAULT = {'ranking': True, 'gauge': True, 'account': True, 'notice': False, 'donor_rank': False,
                'sig_tally': False, 'best': False, 'fundjar': False}
 ALERT_KEYS = ('popup', 'takeover', 'reaction_title', 'small')
@@ -29,8 +33,19 @@ slice_('account', True, lambda: {'bank': '', 'acc_num': '', 'name': ''})
 slice_('look', True, lambda: {'theme': 'default'})
 
 
+def race_on(ctx, stage, strict=True):
+    """옛 무대 이름('hell' · 'home_race') → 그 판 스위치를 켠다. 무대는 그대로."""
+    fn = RACE_ON.get(stage)
+    if fn is not None:
+        fn(ctx, strict)
+
+
 def set_stage(ctx, stage, temp=False):
-    """무대에 올린다(None 이면 비운다). 잠깐 올라오는 판(룰렛 · 슬롯)은 원래 무대를 기억한다."""
+    """무대에 올린다(None 이면 비운다). 잠깐 올라오는 판(룰렛 · 슬롯)은 원래 무대를 기억한다.
+       옛 이름 'hell' · 'home_race' 는 무대를 안 바꾸고 그 판 스위치만 켠다(지금 무대를 돌려준다)."""
+    if stage in RACE_STAGES:
+        race_on(ctx, stage)
+        return ctx.read('show')['stage']
     s = ctx.edit('show')
     if stage is not None and stage not in STAGES:
         raise CommandError('모르는 판입니다: %s' % stage)
@@ -54,7 +69,10 @@ def end_temp(ctx, stage):
 
 @command('show.stage')
 def show_stage(ctx, data):
-    set_stage(ctx, data.get('stage') or None)
+    st = data.get('stage') or None
+    set_stage(ctx, st)
+    if st in RACE_STAGES:
+        ctx.notes['race'] = st          # 무대는 그대로 — 조종실이 '퇴근빵/지옥탈출을 켰어요' 로 알린다
 
 
 @command('show.hud')
