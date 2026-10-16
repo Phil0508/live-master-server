@@ -76,8 +76,7 @@ export function mountMigrate(el, ctx) {
     async function runLayout() {
         const ok = await ctx.confirm({
             title: '옛 위젯 자리를 v2 로 옮길까요?',
-            body: '점수판 · 깃발 · 계좌 같은 위젯 자리가 이 파일대로 바뀌어요(켜져 있는 방송판이 바로 따라가요).
-파일에 없는 위젯은 기본 자리로, v2 에만 있는 위젯은 그대로예요.',
+            body: '점수판 · 깃발 · 계좌 같은 위젯 자리가 이 파일대로 바뀌어요(켜져 있는 방송판이 바로 따라가요).\n파일에 없는 위젯은 기본 자리로, v2 에만 있는 위젯은 그대로예요.',
             ok: '옮기기', cancel: '그만두기', danger: false,
         });
         if (!ok) return;
