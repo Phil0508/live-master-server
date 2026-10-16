@@ -126,6 +126,19 @@ class ShowOnly(Mig):
         self.assertTrue(self.st()['popup']['donation']['display_only'])
         self.assertEqual(self.st()['pending'], [])
 
+    def test_replay_carries_title_but_not_key(self):
+        """다시 보기에도 칭호 · Lv 는 화면에 싣고(옛 _latest.update(_pub)), 번호표는 화면 · 번호표 표 어디에도 안 남긴다(옛 것은 적기 전에 return)."""
+        c, r = self.don('다시손', 50000, 'toon_rk1', replay=True, title=TITLE_BLACK, level=7, vip='골드', donor_key=KEY)
+        self.assertEqual(r.get('show_only'), 'replay')
+        pub = self.st(auth=False)
+        self.assertEqual((pub['popup']['donation']['donor_title']['name'], pub['popup']['donation']['donor_level']), ('블랙 다이아', 7))
+        q = [x for x in pub['queue']['items'] if x['donator'] == '다시손']
+        self.assertEqual((q[0]['donor_title']['name'], q[0]['via']), ('블랙 다이아', 'toon'))
+        dump = json.dumps(self.st(auth=True), ensure_ascii=False)
+        self.assertNotIn(KEY, dump)                                             # 대기함에도 안 들어가니 어디에도 없다
+        self.assertNotIn('toon_vip', dump)
+        self.assertEqual(dx.keys_for(self.c.app.state.store, KEY), [])          # 번호표 표에도 안 적는다(옛 것과 같다)
+
     def test_only_listener_may_ask_for_screen_only(self):
         c, r = self.don('콘솔', 20000, 'manual_x1', replay=True, test=True)        # 조종실 · 바깥이 붙여도 평소대로
         self.assertIn('id', r)
