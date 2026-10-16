@@ -7,6 +7,8 @@
      뺀 이름은 후원 순위 · 한 방 최고 · 소액 띠에서 빠진다(서버). 장부(후원 기록) · 점수는 그대로다.
      다시 넣으면 서버가 이번 방송 장부에서 다시 센다.
    순위: 동점은 같은 순위, 다음은 건너뛴다(1 · 1 · 3) — 서버 donors.recompute_vip 과 같다.
+   ⏸️ VIP 등급 꺼 둠(대표님 10-13 — 서버 donors.VIP_ON): tallies.vip_on 이 false 면 '꺼져 있어요' 안내를 띄우고
+      등급 주기 칸을 숨긴다(옛 #vip-off-note). 순위 · 순위에서 빼기는 그대로.
    ⚠️ 집계 · 뺀 이름 조각이 바뀔 때만 다시 그린다. 줄은 한 번 만들고 바뀐 줄만 고친다. */
 import { h, won, num } from '../../util.js';
 
@@ -41,7 +43,12 @@ export function mountDonors(el, ctx) {
     mvAdd.addEventListener('click', mvSet);
     mvName.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) mvSet(); });
     let lastManual = null;
+    const vipOffNote = h('div', { class: 'dn-vip-off', hidden: true },
+        h('b', null, '⏸️ VIP 등급은 지금 꺼져 있어요 (10-13)'), h('br'),
+        "투네이션 '다이아' 칭호와 헷갈려서 잠시 껐어요. 방송 화면 · 대기함 · AI 어디에도 등급이 안 나오고, 새로 등록도 안 돼요. ",
+        '순위에서 빼기는 그대로 돼요. 다시 켜려면 Claude 에게 말씀하세요.');
     el.append(
+        vipOffNote,
         h('div', { class: 'sec-head' }, h('h2', null, '👑 후원자 순위'), summary),
         h('p', { class: 'muted small dn-lead' }, '이번 방송 후원 합계 순서예요. [순위에서 빼기] 를 누르면 방송판의 후원 순위 · 한 방 최고 · 소액 띠에서 빠집니다(장부 · 점수는 그대로).'),
         h('div', { class: 'rc-bar' }, q),
@@ -101,7 +108,10 @@ export function mountDonors(el, ctx) {
         if (!force && t === lastT && r === lastR) return;
         lastT = t;
         lastR = r;
-        const donors = t.donors || {}, vip = t.vip || {};
+        const vipOff = t.vip_on === false;
+        vipOffNote.hidden = !vipOff;
+        mvBox.hidden = vipOff;
+        const donors = t.donors || {}, vip = vipOff ? {} : (t.vip || {});
         const all = Object.entries(donors)
             .map(([key, v]) => ({ key, name: v.name || key, total: Number(v.total) || 0, count: Number(v.count) || 0 }))
             .filter(d => d.total > 0)

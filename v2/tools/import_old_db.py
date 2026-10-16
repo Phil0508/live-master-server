@@ -8,6 +8,8 @@
   alias_memory                         → alias_memory  별명 → 선수 (같은 줄이 있으면 hits 를 더한다)
   donor_excluded                       → donor_rules.excluded · names   순위에서 뺀 이름
   vip_donators                         → donor_rules.manual             직접 준 등급
+  donor_keys                           → donor_keys     🏷️ 후원자 번호표(10-08 ~ — tx_id · 16자 번호표 · 레벨 · 칭호 · 투네이션 VIP).
+                                                        tx_id 로 옮긴 장부 줄과 이어진다. 같은 tx_id 는 한 번만(INSERT OR IGNORE)
 안 옮기는 것: 점수 · 대기함 · 설정(설정은 조종실 [옛 설정 옮기기] — admin.import_old) · 클릭 기록 · 은행 원장(bank_ledger).
 
 쓰는 법(운영 서버에서 — v2 서버를 **멈춘 채로**)
@@ -85,7 +87,7 @@ def server_running(url):
 # ── 옮기기 ──
 def plan(old, tz):
     """옛 장부를 읽어 v2 에 넣을 줄들을 만든다(아직 안 쓴다)."""
-    out = {'donations': [], 'memory': [], 'alias': [], 'excluded': [], 'vip': [], 'skipped': 0}
+    out = {'donations': [], 'memory': [], 'alias': [], 'excluded': [], 'vip': [], 'keys': [], 'skipped': 0}
     seen_tx = set()
     for r in old.rows('SELECT id, session_label, timestamp, name, amount, message, source, tx_id FROM donation_archive ORDER BY id'):
         at = to_epoch(r['timestamp'], tz)
@@ -133,17 +135,31 @@ def plan(old, tz):
             c = str(r['custom_color'] or '')
             out['vip'].append({'name': n, 'grade': g, 'color': c if len(c) == 7 and c.startswith('#') else GRADES[g][0],
                                'badge': str(r['badge'] or '')[:4] or GRADES[g][1]})
+    # 🏷️ 후원자 번호표 — 옛 표가 없으면(10-08 전 장부) 건너뛴다. 번호표는 16진 16자만(옛 서버도 그것만 적었다)
+    for r in old.rows('SELECT tx_id, donor_key, level, title, vip, at FROM donor_keys'):
+        tx, key = str(r['tx_id'] or '').strip(), str(r['donor_key'] or '').strip()
+        if not tx or len(key) != 16 or any(ch not in '0123456789abcdef' for ch in key):
+            continue
+        try:
+            lv = int(r['level']) if r['level'] is not None else None
+        except (TypeError, ValueError):
+            lv = None
+        out['keys'].append({'tx_id': tx, 'donor_key': key, 'level': lv if lv and 0 < lv < 1000 else None,
+                            'title': (str(r['title'] or '').strip()[:24] or None), 'vip': (str(r['vip'] or '').strip()[:12] or None),
+                            'at': to_epoch(r['at'], tz)})
     return out
 
 
 def write(v2db, p):
     """v2 장부에 넣는다 — 한 번에(하나라도 실패하면 아무것도 안 바뀐다)."""
+    from v2.server.domain import donor_extras as dx
     from v2.server.domain import donor_memory as dm
     from v2.server.store import Store
     st = Store(v2db)
     dm.ensure(st)
+    dx.ensure(st)
     db = st.db
-    got = {'donations': 0, 'memory': 0, 'alias': 0, 'excluded': 0, 'vip': 0}
+    got = {'donations': 0, 'memory': 0, 'alias': 0, 'excluded': 0, 'vip': 0, 'keys': 0}
     db.execute('BEGIN IMMEDIATE')
     try:
         for d in p['donations']:
@@ -183,6 +199,10 @@ def write(v2db, p):
                 got['vip'] += 1
         db.execute('INSERT INTO slices (name, value, at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET value = excluded.value, at = excluded.at',
                    ('donor_rules', json.dumps(rules, ensure_ascii=False), time.time()))
+        for k in p.get('keys') or []:
+            cur = db.execute('INSERT OR IGNORE INTO donor_keys (tx_id, donor_key, level, title, vip, at) VALUES (?, ?, ?, ?, ?, ?)',
+                             (k['tx_id'], k['donor_key'], k['level'], k['title'], k['vip'], k['at']))
+            got['keys'] += cur.rowcount
         db.execute('COMMIT')
     except Exception:
         db.execute('ROLLBACK')
@@ -211,8 +231,9 @@ def main(argv=None):
     finally:
         old.conn.close()                # 읽기는 여기까지 — 옛 장부를 붙잡고 있지 않는다
     sess = sorted({d['session'] for d in p['donations']})
-    print('읽은 것: 후원 %d건(회차 %d개, 못 읽은 줄 %d) · 후원자 기억 %d · 별명 %d · 순위 제외 %d · 직접 준 등급 %d'
-          % (len(p['donations']), len(sess), p['skipped'], len(p['memory']), len(p['alias']), len(p['excluded']), len(p['vip'])))
+    print('읽은 것: 후원 %d건(회차 %d개, 못 읽은 줄 %d) · 후원자 기억 %d · 별명 %d · 순위 제외 %d · 직접 준 등급 %d · 번호표 %d'
+          % (len(p['donations']), len(sess), p['skipped'], len(p['memory']), len(p['alias']), len(p['excluded']), len(p['vip']),
+             len(p['keys'])))
     if p['donations']:
         first, last = min(d['at'] for d in p['donations']), max(d['at'] for d in p['donations'])
         print('  후원 기간(한국 시각): %s ~ %s' % (time.strftime('%Y-%m-%d %H:%M', time.gmtime(first + 9 * 3600)),
@@ -224,7 +245,8 @@ def main(argv=None):
         print('v2 서버가 켜져 있습니다 — 먼저 멈추세요(sudo systemctl stop livemaster-v2). 켜진 서버가 순위 제외 · 등급을 덮어씁니다')
         return 3
     got = write(a.v2_db, p)
-    print('옮긴 것: 후원 %(donations)d건 · 후원자 기억 %(memory)d · 별명 %(alias)d · 순위 제외 %(excluded)d · 직접 준 등급 %(vip)d' % got)
+    print('옮긴 것: 후원 %(donations)d건 · 후원자 기억 %(memory)d · 별명 %(alias)d · 순위 제외 %(excluded)d · 직접 준 등급 %(vip)d'
+          ' · 번호표 %(keys)d' % got)
     return 0
 
 

@@ -2,10 +2,27 @@
 """v2 특별 후원자 등급 · 순위에서 빼기."""
 import unittest
 
+from v2.server.domain import donors as dmod
 from v2.tests.test_flow import Base, H
 
 
-class Donors(Base):
+class VipOn:
+    """⏸️ 운영은 VIP 등급을 꺼 둔다(donors.VIP_ON False — 대표님 10-13). 등급 계산은 여기서 켜고 계속 본다(옛 LM_VIP_ON=1 검사 서버와 같은 뜻).
+       ⚠️ 방송 시작(Base.setUp) 전에 켠다 — 시작할 때 직접 준 등급을 붙인다."""
+
+    def setUp(self):
+        self._vip_was = dmod.VIP_ON
+        dmod.VIP_ON = True
+        super().setUp()
+
+    def tearDown(self):
+        try:
+            super().tearDown()
+        finally:
+            dmod.VIP_ON = self._vip_was
+
+
+class Donors(VipOn, Base):
     def test_vip_ranks_with_ties(self):
         for i, (n, a) in enumerate((('가', 50000), ('나', 50000), ('다', 30000), ('라', 20000))):
             self.don(n, a, 'toon_v%d' % i)
@@ -34,7 +51,7 @@ if __name__ == '__main__':
     unittest.main()
 
 
-class ManualVip(Base):
+class ManualVip(VipOn, Base):
     """직접 준 등급(옛 vip_donators) — 순위에 못 든 사람에게만."""
 
     def test_manual_only_outside_top10(self):

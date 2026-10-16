@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """🔁 옛 주소 — 리스너(toon_listener.py)가 그대로 쓴다.
 
-POST /api/donation {name, amount, message, tx_id, display_only}
+POST /api/donation {name, amount, message, tx_id, display_only, title?, level?, vip?, donor_key?, replay?, test?}
   받아 주는 상대(옛 것과 같다): 이 서버 안(127.0.0.1, 앞단 프록시를 거치지 않은 것) · 로그인 · X-Donation-Key
   답(옛 모양): {status:'success', id} · {status:'success', message:'Duplicate donation ignored.'} · {status:'success', display_only:true}
+              · {status:'success', show_only:'replay'|'test'}(다시 보기 · 후원 테스트 — 화면에만)
 ⚠️ 시그니처 조회(바깥 왕복)는 여기서 — 명령 밖에서 — 하고 결과를 명령에 넘긴다.
 """
 import asyncio
@@ -57,15 +58,22 @@ async def donation(req, bus, authed, answer):
         floor = await asyncio.to_thread(sigs.floor)
         if not (floor and amount < floor):
             sig = await asyncio.to_thread(sigs.match, amount)
-    res = await bus.run('donation.add', {'name': body.get('name'), 'amount': amount, 'message': body.get('message'),
-                                         'tx_id': tx, 'display_only': display, 'sig': sig, 'floor': floor, 'trusted': a},
-                        by='listener' if tx.startswith('toon_') else 'http', authed=True)
+    cmd = {'name': body.get('name'), 'amount': amount, 'message': body.get('message'),
+           'tx_id': tx, 'display_only': display, 'sig': sig, 'floor': floor, 'trusted': a}
+    # 🏷️🔁 리스너가 붙여 보내는 칸(10-08 ~) — 칭호 · 레벨 · 투네이션 VIP · 번호표 · 다시 보기 · 후원 테스트.
+    #    ⚠️ 예전(10-17 전 v2)엔 여기서 버려서 다시 보기가 진짜 후원으로 장부에 들어갔다. 믿을지는 명령이 정한다(리스너 toon_ 만).
+    for k in ('title', 'level', 'vip', 'donor_key', 'replay', 'test'):
+        if k in body:
+            cmd[k] = body[k]
+    res = await bus.run('donation.add', cmd, by='listener' if tx.startswith('toon_') else 'http', authed=True)
     if not res.get('ok'):
         return _err(res.get('error') or '실패', int(res.get('code') or 400))
     if res.get('duplicate'):
         return {'status': 'success', 'message': 'Duplicate donation ignored.'}
     if res.get('display_only'):
         return {'status': 'success', 'display_only': True}
+    if res.get('show_only'):
+        return {'status': 'success', 'show_only': res['show_only']}          # 옛 답 모양 그대로(화면에만)
     return {'status': 'success', 'id': res.get('id')}
 
 

@@ -17,11 +17,16 @@
      6) 틀고 있는데 맨 앞이 바뀌면(조종실 건너뛰기 · 지우기 · 전체 멈춤) 그 자리에서 끊는다(done 은 안 보낸다).
      7) '다 틀기'(play_all) ×N — 서버가 같은 id 에 replay 번호를 올려 준다 → 같은 시그니처를 카드 없이 다시 튼다.
      8) 방송판이 여러 개면 소리 · done 은 담당 창 하나만(audio_lead.js) — 담당이 아니면 소리 없이 그리고, done 은 10초 기다려 본다.
+     9) 🎁 후원 받기 갈래(10-17 이사 — 도구는 ../donate_kit.js):
+        🏷️ 이름 앞 투네이션 칭호 알약 · 뒤 Lv(it.donor_title · donor_level, 옛 44584ff) · 💙 사진 왼쪽 위 '투네' 딱지(it.via 'toon', 옛 97cbc4c)
+        💬 묶음(×N) 메시지 — [N번 다 틀기]면 이번 차례 메시지, 한 번이면 다 같이(it.msgs, 옛 5d179b0). 트는 사이 더 오면 바로 고친다
+        🔁 이어 틀기 줄(seq_base) — '2 / 3' 부터 센다(옛 rxComboSync)
 
    ⚠️ 옛 시그니처 전용 연출(sig-fx 17종 · 계엄령 경보)은 다음 단계. 여기는 사진 · 글 · 소리와
       금액 등급 기본 연출(플래시 · 흔들림 · 테두리 빛 · 가장자리 어둡게)까지만.
       💡 비트 점멸 · 사진 대표색(화면 네온 + 이 카드 테두리)은 widgets/fx/neon.js — 시작 · 끝에 stage 'neon' 을 부른다. */
 import { esc, formatNum, restartClass, BIG_DONATION_MIN } from '../util.js';
+import { paintDonorName, sigMsgFor, comboOf } from '../donate_kit.js';
 // 🔊 방송판을 여러 곳에 띄워도 소리 · '다 틀었다'(done)는 담당 창 하나만 — 옛 isAudioLeader(audio_lead.js 머리말)
 import { isLeader, setPlaying, livePlayingLeader, onLeaderChange, NON_LEADER_GRACE_MS } from '../audio_lead.js';
 
@@ -42,7 +47,8 @@ export function mount(root, lm, opts) {
     root.innerHTML = '<div class="sig-root">'
         + '<div class="sig-vignette"></div><div class="sig-flash"></div>'
         + '<div class="reaction-screen-overlay">'
-        +   '<div class="reaction-img-box"><div class="reaction-combo"></div><img class="reaction-img" alt=""><div class="reaction-shine"></div></div>'
+        +   '<div class="reaction-img-box"><div class="reaction-combo"></div><div class="reaction-via" aria-hidden="true">투네</div>'
+        +     '<img class="reaction-img" alt=""><div class="reaction-shine"></div></div>'
         +   '<div class="reaction-title-plate"></div>'
         +   '<div class="reaction-text-donator"></div>'
         +   '<div class="reaction-text-message"></div>'
@@ -51,7 +57,7 @@ export function mount(root, lm, opts) {
         + '</div>';
     const $ = s => root.querySelector(s);
     const overlay = $('.reaction-screen-overlay'), box = $('.reaction-img-box'), img = $('.reaction-img');
-    const combo = $('.reaction-combo'), plate = $('.reaction-title-plate');
+    const combo = $('.reaction-combo'), plate = $('.reaction-title-plate'), viaEl = $('.reaction-via');
     const donatorEl = $('.reaction-text-donator'), msgEl = $('.reaction-text-message');
     const banner = $('.reaction-title-banner'), vig = $('.sig-vignette'), flash = $('.sig-flash');
     const audio = new Audio();
@@ -150,10 +156,10 @@ export function mount(root, lm, opts) {
 
     /* 🔁 ×N — 같은 사람 · 같은 시그니처가 묶였다. '다 틀기'면 '몇 번째 / 모두' */
     function syncCombo(it) {
-        const cnt = Number(it.count) || 1;
-        const rep = Number(it.replay) || 0;
-        const all = !!it.play_all;
-        const total = cnt + rep;
+        const cb = comboOf(it);             // 이어 틀기 줄은 앞에서 튼 만큼(seq_base)을 더해 센다
+        const cnt = cb.count;
+        const all = cb.all;
+        const total = cb.total;
         if (total <= 1) {
             if (comboShown.key !== null) { clearInterval(comboTimer); combo.className = 'reaction-combo'; combo.textContent = ''; }
             comboShown = { key: null, count: 0, all: false };
@@ -166,7 +172,7 @@ export function mount(root, lm, opts) {
         clearInterval(comboTimer);
         if (all) {
             combo.className = 'reaction-combo count';
-            combo.innerHTML = '<b>' + (rep + 1) + '</b> / ' + total;
+            combo.innerHTML = '<b>' + cb.nth + '</b> / ' + total;
             return;
         }
         const bump = k => { combo.textContent = '×' + k; restartClass(combo, 'pop'); };
@@ -181,9 +187,10 @@ export function mount(root, lm, opts) {
 
     function fill(it) {
         const amt = Number(it.amount) || 0;
-        donatorEl.textContent = (it.donator || '익명') + (amt ? ' · ' + formatNum(amt) + '원' : '');
-        const msg = String(it.message || '');
-        msgEl.textContent = (msg && msg !== '수동 후원 송출') ? msg : '';
+        // 🏷️ 이름 앞 칭호 알약 · 뒤 Lv(없으면 이름만)
+        paintDonorName(donatorEl, (it.donator || '익명') + (amt ? ' · ' + formatNum(amt) + '원' : ''), it.donor_title, it.donor_level);
+        msgEl.textContent = sigMsgFor(it);                         // 💬 묶음이면 이번 차례 메시지(또는 전부)
+        viaEl.classList.toggle('on', it.via === 'toon');           // 💙 투네이션에서 온 후원
         if (it.image_url) {
             img.src = it.image_url;
             img.alt = it.title || '';
@@ -227,7 +234,11 @@ export function mount(root, lm, opts) {
 
         if (cur) {
             if (head && keyOf(head) === cur.key) {
-                if (cur.phase === 'play') { audio.volume = vol(); syncCombo(head); }
+                if (cur.phase === 'play') {
+                    audio.volume = vol(); syncCombo(head);
+                    const m = sigMsgFor(head);                       // 💬 트는 사이 같은 시그가 더 오면 메시지도 바로 덧붙인다(옛 rxMsgRefresh)
+                    if (msgEl.textContent !== m) msgEl.textContent = m;
+                }
                 setReaction(true);
                 return;
             }

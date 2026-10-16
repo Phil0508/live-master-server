@@ -11,7 +11,8 @@
    옛 기본 자리 출처: overlay.html 의 컨테이너 style · tests/acct_video_layer_test.py 의 운영 배치(계좌 영상 0,380 · 0.84). */
 export const LAYERS = [
     // 🏺 모금함 깃발 — 옛 #fundjar-container 40,167(점수판 왼쪽 빈자리, 깃발 108×262). 보이기는 위젯이 정한다(hud.fundjar 또는 fundjar.enabled).
-    { id: 'fundjar',     widget: 'basics2/fundjar',      z: 13, x: 40,   y: 167, liveOnly: true },
+    //    시그니처가 도는 동안은 점수판 · 게이지와 함께 숨는다(대표님 10-07, 옛 77a3aba — 깃발만 혼자 남았다).
+    { id: 'fundjar',     widget: 'basics2/fundjar',      z: 13, x: 40,   y: 167, liveOnly: true, hideInReaction: true },
     // 🏦 계좌(평소) — 점수판 바로 아래, 오른쪽 끝 1038(점수판과 같이). 점수판 키가 바뀌면 따라간다(옛 syncAccountPos).
     //    y 는 점수판을 못 잴 때 값. 후원 순위(donorRank gap 64)가 이 줄(48) + 사이 8 을 비워 두고 붙는다.
     { id: 'account',     widget: 'basics2/account',      z: 14, x: 1038, y: 331, anchor: 'tr', below: 'ranking', gap: 8, place: 'board',
