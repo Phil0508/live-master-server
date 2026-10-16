@@ -684,6 +684,8 @@ details.basic > .sec { margin: 0 10px 10px; }
 .queue-fold > summary::after { content: '▾'; margin-left: auto; }
 .queue-fold[open] > summary::after { content: '▴'; }
 .queue-fold > .queue-sec { max-height: none; overflow: visible; border: 0; background: transparent; padding: 0 10px 10px; }
+/* 대기줄이 비었을 때 [멈춤] 은 흐리게 — 안 쓰는 단추가 제일 진하면 눈이 먼저 간다(10-16 점검 '단추 이름표') */
+.queue-sec:has(.count-badge.zero) .pause-btn:not(.pri) { background: transparent; color: var(--muted); border-color: var(--line); }
 /* 방송 전 오른쪽 = 점검표만 */
 body[data-view=setup] #say-slot, body[data-view=setup] #con-mini, body[data-view=setup] #undo,
 body[data-view=setup] #pending, body[data-view=setup] #queue-fold { display: none; }
