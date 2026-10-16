@@ -12,7 +12,10 @@ GET  /api/patchnotes      (로그인) PATCHNOTES.md 를 '## 날짜' · '- [분�
   - 응답을 먼저 보내고 1초 뒤 재시작한다(재시작이 지금 이 프로세스를 죽인다). 권한이 없으면 자동 배포에 맡긴다.
   - 'V번호' = 그 커밋까지 쌓인 커밋 수.
 v2 에서 다른 것
-  - 재시작할 서비스: LM2_RESTART_UNITS(빈칸으로 나눔) — 기본 'livemaster-v2 toon-listener livemaster-bot-v2'.
+  - 재시작할 서비스: LM2_RESTART_UNITS(빈칸으로 나눔) — 기본 'toon-listener livemaster-bot-v2 livemaster-v2'.
+    ⚠️ v2 자신(livemaster-v2)은 **맨 끝** — 자기를 다시 켜는 순간 이 프로세스가 죽어 뒤의 것은 못 켠다(10-17).
+       옛 것은 리스너 · 봇이 Requires= 로 서버에 묶여 따라 켜졌지만, v2 판 리스너(v2/deploy/toon-listener.service)는
+       v2 에 Wants= 로만 붙어 따라 켜지지 않는다. 지금 안 돌고 있는 것(꺼 둔 v2 진행봇 등)은 깨우지 않는다(is-active).
   - '이 버전에도 버전 화면이 있나' 는 v2 쪽 파일(v2/server/domain/versions.py)에서 찾는다.
     ⚠️ v2 가 없던 옛 버전으로 되돌리면 v2 서비스가 못 뜬다 — 그런 버전은 has_ui=False 로 미리 알린다.
   - git 은 명령 줄(bus) 밖에서(asyncio.to_thread) 부른다 — 느린 fetch 가 방송 명령을 막지 않게.
@@ -34,7 +37,18 @@ UI_FILE = 'v2/server/domain/versions.py'
 
 def _units():
     raw = os.environ.get('LM2_RESTART_UNITS')
-    return [u for u in (raw if raw is not None else 'livemaster-v2 toon-listener livemaster-bot-v2').split() if u]
+    return [u for u in (raw if raw is not None else 'toon-listener livemaster-bot-v2 livemaster-v2').split() if u]
+
+
+SELF_UNIT = 'livemaster-v2'
+
+
+def _active(unit):
+    """지금 돌고 있나 — 권한 없이 묻는다. 모르면(systemctl 이 없는 PC 등) 예전처럼 다시 켜 본다."""
+    try:
+        return subprocess.run(['systemctl', 'is-active', '--quiet', unit], capture_output=True, timeout=10).returncode == 0
+    except Exception:
+        return True
 
 
 def _git(*args, timeout=25):
@@ -123,7 +137,13 @@ def _recent_commits(limit=VERSION_LIST_MAX):
 
 
 def _restart_services():
-    for unit in _units():
+    units = _units()
+    # 자기 자신은 맨 끝으로(목록을 바꿔 줘도) — 먼저 죽으면 뒤의 서비스는 못 켠다
+    units = [u for u in units if u != SELF_UNIT] + [u for u in units if u == SELF_UNIT]
+    for unit in units:
+        if unit != SELF_UNIT and not _active(unit):
+            print('⏭️ [버전 전환] %s 은(는) 꺼져 있어 그대로 둡니다' % unit, flush=True)
+            continue
         try:
             r = subprocess.run(['sudo', '-n', 'systemctl', 'restart', unit], capture_output=True, text=True,
                                encoding='utf-8', errors='replace', timeout=30)
