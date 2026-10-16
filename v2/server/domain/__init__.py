@@ -33,3 +33,4 @@ from . import system  # noqa: F401
 from . import settings2  # noqa: F401  (🎚️ 시그니처 보이는 모습 · 목록 개수 · 효과음 · 세이브 슬롯)
 from . import lights  # noqa: F401  (💡 조명 — 네온 · 아우디 · 속도 · 색 슬롯 / ✨ 테마 연출 look.fx)
 from . import autopilot  # noqa: F401  (🤖 무인 방송 — 후원 배정 · 금액 게임을 기계가: 끔 · 그림자 · 켬)
+from . import ops_public  # noqa: F401  (🌐 10-17 ops — 로그인 없는 바깥 주소: 시그리스트 · 오락실 순위 · 개인정보 · 약관)
