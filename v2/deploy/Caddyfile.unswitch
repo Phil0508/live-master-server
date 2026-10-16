@@ -1,0 +1,28 @@
+# ↩️ 되돌리기 조각 — 갈아탄 큰 주소 덩어리를 **옛 그대로**(deploy/Caddyfile 의 덩어리와 한 글자도 같다 — 검사가 맞대 본다)로 돌린다.
+#      python3 /opt/livemaster/v2/deploy/caddy_switch.py revert /etc/caddy/Caddyfile /tmp/Caddyfile.new
+#    가장 빠른 길은 갈아타기 전에 떠 둔 백업을 도로 복사하는 것(README '되돌리기'). 이 조각은 백업이 없을 때를 위한 것이다.
+#    큰 주소의 모든 요청이 다시 옛 서버(8080)로 간다 — 옛 서버의 '구경만'(STANDBY) 을 먼저 풀어야 상태를 바꾸는 요청이 들어간다.
+
+xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e {
+	encode gzip
+
+	reverse_proxy 127.0.0.1:8080 {
+		# ⚠️ SSE(/api/stream)는 응답이 끝나지 않는 스트림이다. 프록시가 버퍼링하면
+		#    오버레이·조종실이 아무것도 못 받고 멈춘 것처럼 보인다.
+		#    Caddy 는 text/event-stream 을 자동 감지하지만, 명시해서 확실히 못 박는다.
+		flush_interval -1
+
+		# 후원 폭주 때 잠깐 몰려도 끊지 않게 넉넉히
+		transport http {
+			read_timeout 0
+			write_timeout 0
+		}
+	}
+
+	log {
+		output file /var/log/caddy/livemaster.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

@@ -1,0 +1,76 @@
+# 🔀 갈아타기 조각 — 방송 큰 주소(포트 없음) 덩어리 **하나만** 이것으로 바꾼다. 손으로 고치지 말고 도구로:
+#      python3 /opt/livemaster/v2/deploy/caddy_switch.py apply /etc/caddy/Caddyfile /tmp/Caddyfile.new
+#    도구는 이 파일의 덩어리(아래 xn--… { … })만 끼운다 — 이 머리 주석은 안 들어간다.
+#    :8443(v2) · angelcompany.me 홈페이지 · 크루 사이트 덩어리는 한 글자도 안 건드린다(도구가 바꾸기 전후를 맞대 본다).
+#    되돌리기 조각: Caddyfile.unswitch(옛 덩어리 그대로) — caddy_switch.py revert. 순서 · 확인은 README '갈아타는 날'.
+#
+#  ① 기계가 부르는 주소 → v2(127.0.0.1:5300). 주소를 우리가 못 바꾸거나 바꾸기 번거로운 것들:
+#     은행 입금 신호 · 폰 앱 받기(확장 · 앱이 **포트 없는 큰 주소만** 허락하게 만들어져 :8443 으로는 못 보낸다) ·
+#     크루 사이트(시그리스트 · 오락실 순위) · 스트림덱 실물 단추(같은 ?token= 열쇠) · 구글 동의 화면 글(개인정보 · 약관) ·
+#     비상용 템퍼몽키 후원(X-Donation-Key — 리스너가 죽었을 때 쓰던 길. 옛 서버는 '구경만' 이라 거기로 가면 503).
+#     ⚠️ /api/bank/* · /download/bankphone.apk 는 v2 에 은행 입구가 들어온 뒤에야 답한다(그 전엔 404 → 확장 신호등이 빨강.
+#        계좌 후원은 v2 후원 콘솔에 손으로). 확인: curl -s -o /dev/null -w '%{http_code}' 127.0.0.1:5300/api/bank/app
+#  ② 사람이 여는 옛 운영자 화면 → v2 의 같은 화면(:8443)으로 302(잠깐 옮김 — 브라우저가 오래 기억하지 않아 되돌리면 바로 풀린다).
+#     주소 뒤 ?token=… 은 그대로 실어 보낸다(?{query} — 비어 있으면 끝에 '?' 하나가 붙을 뿐 화면은 같다).
+#  ③ 나머지는 전부 옛 서버(8080) 그대로 — 옛 OBS 소스(/ · /overlay.html · /alertbox · /signature-display · /slot)와
+#     그 화면이 쓰는 /api/* · /api/stream · 옛 /login.
+#  ⚠️ OBS 화면은 여기서 v2 로 돌리지 않는다 — 한 장면에 옛 소스와 새 소스가 같이 있으면 둘 다 v2 를 그려 소리 · 팝업이
+#     두 번 나간다. OBS 소스는 사람이 하나씩 바꾼다. 알림창 · 전광판 · 슬롯은 v2 에 같은 화면이 생기면 아래 주석을 푼다.
+#  ⚠️ 기록 파일은 옛 덩어리와 같은 /var/log/caddy/livemaster.log — 새 기록 파일이 안 생겨 'validate 를 root 로 돌리면
+#     기록 파일 주인이 root 가 되어 reload 가 실패' 하는 함정(10-07)을 이 덩어리는 밟지 않는다.
+
+xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e {
+	# lm2-switch: v2 로 갈아탄 덩어리(10-17 v2/deploy/Caddyfile.switch). 되돌리기는 caddy_switch.py revert
+	encode gzip
+
+	# ① 기계가 부르는 주소 → v2
+	@lm2_v2 path /api/bank/* /download/bankphone.apk /api/signatures/board /api/oraksil/donors /privacy /terms /api/streamdeck/* /api/donation
+	handle @lm2_v2 {
+		reverse_proxy 127.0.0.1:5300 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	# ② 옛 운영자 화면 → v2 의 같은 화면(:8443) — 302
+	@lm2_ctl path /controller /controller/ /controller.html /manual /manual_send /manual_send.html /uistats.html
+	redir @lm2_ctl https://{host}:8443/controller/?{query} 302
+	@lm2_mobile path /mobile
+	redir @lm2_mobile https://{host}:8443/mobile?{query} 302
+	@lm2_editor path /admin /admin.html
+	redir @lm2_editor https://{host}:8443/controller/editor/?{query} 302
+	@lm2_sig path /upload /노래등록
+	redir @lm2_sig https://{host}:8443/controller/sig.html?{query} 302
+	@lm2_deck path /streamdeck /streamdeck.html
+	redir @lm2_deck https://{host}:8443/streamdeck/?{query} 302
+	@lm2_health path /health
+	redir @lm2_health https://{host}:8443/health 302
+	# v2 에 같은 화면이 생기면 주석을 푼다(그 전엔 옛 서버가 계속 그린다):
+	# @lm2_alert path /alertbox /alertbox.html
+	# redir @lm2_alert https://{host}:8443/<v2 알림창 주소>?{query} 302
+	# @lm2_sigdisp path /signature-display /signature-display.html /signature_display.html
+	# redir @lm2_sigdisp https://{host}:8443/<v2 전광판 주소>?{query} 302
+	# @lm2_slot path /slot /slot.html
+	# redir @lm2_slot https://{host}:8443/<v2 슬롯 주소>?{query} 302
+
+	# ③ 나머지 → 옛 서버(8080) 그대로
+	handle {
+		reverse_proxy 127.0.0.1:8080 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	log {
+		output file /var/log/caddy/livemaster.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}
