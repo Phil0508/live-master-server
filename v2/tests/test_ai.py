@@ -677,13 +677,18 @@ class NimPost(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp, True)
         with open(os.path.join(tmp, 'NVIDIA_CREDENTIALS.txt'), 'w', encoding='utf-8') as f:
             f.write('# 주석\nOTHER=1\nNVIDIA_API_KEY = file-key-x # 메모\n')
-        env = {k: v for k, v in os.environ.items() if k != 'NVIDIA_API_KEY'}
+        # ⚠️ 검사를 'AI 끄기(LM2_AI_OFF=1)' 로 돌려도 이 검사는 '켜졌을 때 열쇠를 어디서 읽나' 를 본다 — 끄기 스위치는 빼고 본다(sturdy 10-17)
+        env = {k: v for k, v in os.environ.items() if k not in ('NVIDIA_API_KEY', 'LM2_AI_OFF')}
         with mock.patch.object(ai, '_KEY', None), mock.patch.object(ai, 'REPO', tmp), mock.patch.dict(os.environ, env, clear=True):
             self.assertEqual(REAL_NIM_KEY(), 'file-key-x')
-        with mock.patch.object(ai, '_KEY', None), mock.patch.dict(os.environ, {'NVIDIA_API_KEY': ' env-key-y '}):
+        with mock.patch.object(ai, '_KEY', None), mock.patch.dict(os.environ, dict(env, NVIDIA_API_KEY=' env-key-y '), clear=True):
             self.assertEqual(REAL_NIM_KEY(), 'env-key-y')
         with mock.patch.object(ai, '_KEY', None), mock.patch.object(ai, 'REPO', tmp + '_없음'), \
                 mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(REAL_NIM_KEY(), '')
+        # AI 끄기면 환경변수 · 파일 어느 쪽 열쇠도 안 읽는다
+        with mock.patch.object(ai, '_KEY', None), mock.patch.object(ai, 'REPO', tmp), \
+                mock.patch.dict(os.environ, dict(env, NVIDIA_API_KEY='env-key-y', LM2_AI_OFF='1'), clear=True):
             self.assertEqual(REAL_NIM_KEY(), '')
 
     def test_suggest_coroutine_runs_ai_in_thread(self):

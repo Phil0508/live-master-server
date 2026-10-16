@@ -3,6 +3,7 @@
    - 서버가 거절하면(겹치는 이름 · 0명 · 11명 이상) 그 까닭을 단추 바로 위에 보여 준다.
    ⚠️ 방송을 시작하면 서버가 대기함을 비운다. 방송 전에 들어온 후원이 있으면 미리 알려 준다. */
 import { h, won } from './util.js';
+import { mountEndUndo } from './endundo.js';   // ⏪ 방금 끝낸 방송 되살리기(카드 맨 위 · 끝낸 뒤 12시간까지)
 
 const MAX = 10;
 const KEY = 'lm2_last_names';
@@ -36,6 +37,7 @@ export function mountSetup(root, ctx) {
     const err = root.querySelector('.form-err');
     const startBtn = root.querySelector('.start-btn');
     const pre = root.querySelector('.pre-pending');
+    const endUndo = mountEndUndo(form, ctx);
 
     function row(value) {
         const input = h('input', { type: 'text', maxlength: 20, placeholder: '플레이어 이름', autocomplete: 'off', enterkeyhint: 'next' });
@@ -100,6 +102,7 @@ export function mountSetup(root, ctx) {
 
     return {
         render(slices) {
+            try { endUndo.render(slices); } catch (e) { console.error('[방송 끝 되돌리기]', e); }
             const pend = slices.pending || [];
             pre.hidden = !pend.length;
             if (pend.length) {

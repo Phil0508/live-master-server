@@ -5,6 +5,7 @@
 환경:  LM2_DB(기본 v2/data/lm2.db) · LM2_PORT(기본 5300) · ADMIN_PASSWORD · SESSION_SECRET
 """
 import asyncio
+import contextlib
 import os
 import time
 
@@ -35,7 +36,16 @@ def create_app(db_path=None, password=None, secret=None, sig_fetch=None):
     bus = Bus(store, hub)
     from .domain.signatures import Signatures
     bus.sigs = Signatures(fetch=sig_fetch)        # 검사는 가짜 목록을 넣는다
-    app = FastAPI(title='라이브 마스터 v2', docs_url=None, redoc_url=None, openapi_url=None)
+
+    @contextlib.asynccontextmanager
+    async def _life(_app):
+        # ⏰ 다시 켜졌다 — 장부에 남은 예약(룰렛 · 슬롯 끝 무대 돌려놓기 · 까보기 덮기 · 자동 진행)을 다시 건다(sturdy 10-17)
+        n = bus.arm_timers()
+        if n['due'] or n['later']:
+            print('⏰ [예약 다시 걸기] 바로 %d · 나중 %d' % (n['due'], n['later']), flush=True)
+        yield
+
+    app = FastAPI(title='라이브 마스터 v2', docs_url=None, redoc_url=None, openapi_url=None, lifespan=_life)
     app.state.bus, app.state.hub, app.state.store = bus, hub, store
     boot = time.time()
 
@@ -71,7 +81,9 @@ def create_app(db_path=None, password=None, secret=None, sig_fetch=None):
     @app.post('/api/cmd')
     async def cmd(req: Request):
         body = await _json(req)
-        return answer(await bus.run(str(body.get('type') or ''), body.get('data'), by='http', authed=authed(req)))
+        # cid — 조종실이 붙인 명령 번호(같은 번호가 다시 오면 다시 하지 않고 첫 결과를 돌려준다 · bus.py)
+        return answer(await bus.run(str(body.get('type') or ''), body.get('data'), by='http', authed=authed(req),
+                                    cid=body.get('cid')))
 
     # ── 상태판 · 배포 잠금 ──
     from .domain import health as _health
@@ -147,7 +159,8 @@ def create_app(db_path=None, password=None, secret=None, sig_fetch=None):
                 if t == 'resync':
                     hub.send(c, {'t': 'snapshot', 'seq': bus.state.seq, 'now': int(time.time() * 1000), 'authed': a, 'slices': bus.state.snapshot(a)})
                 elif t == 'cmd':
-                    res = await bus.run(str(msg.get('type') or ''), msg.get('data'), by='ws:' + c.kind, authed=a)
+                    res = await bus.run(str(msg.get('type') or ''), msg.get('data'), by='ws:' + c.kind, authed=a,
+                                        cid=msg.get('cid'))
                     hub.send(c, dict(res, t='result', id=msg.get('id')))
         except (WebSocketDisconnect, RuntimeError):
             pass
