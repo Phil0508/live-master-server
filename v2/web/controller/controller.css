@@ -693,6 +693,8 @@ body[data-view=setup] #pending, body[data-view=setup] #queue-fold { display: non
 body[data-view=live] #side > .pf-pre { display: none; }
 /* 알림 — 왼쪽 줄을 가리지 않게 */
 @media (min-width: 900px) { .toasts { left: calc(var(--rail-w) + 34px); } }
+/* '서버와 연결이 끊겼어요' 띠 — 왼쪽 줄이 조종 줄 옆까지 올라가 있어 그 자리를 비켜 선다(안 비키면 첫 글자들이 줄 밑에 가린다 · 10-17 검토) */
+@media (min-width: 900px) { .down-banner { margin: 0 0 var(--gap) calc(var(--rail-w) + var(--gap)); } }
 
 /* ── ⚙ 설정 화면 · 틀 탭(panels/settings_menu.js · panels/frame.js) ── */
 .st-panel { display: flex; flex-direction: column; gap: 16px; }

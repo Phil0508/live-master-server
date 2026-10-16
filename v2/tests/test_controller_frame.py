@@ -84,6 +84,27 @@ class ControllerFrame(unittest.TestCase):
         for i in re.findall(r"'([a-z0-9-]+)'", groups):
             self.assertIn(i, ids, '설정 타일이 가리키는 탭이 없다: ' + i)
 
+    def test_frame_buttons_send_known_commands(self):
+        # 틀이 직접 누르는 단추가 보내는 명령 — 서버에 그 이름이 있어야 눌러도 '모르는 명령' 이 안 난다(이름은 바꾸지 않는다)
+        from v2.server import domain  # noqa: F401  (조각 · 명령 등록)
+        from v2.server.bus import COMMANDS
+        sent = {}
+        for p in [('js', 'header.js'), ('js', 'castbox.js'), ('js', 'endundo.js'), ('js', 'panels', 'frame.js'),
+                  ('js', 'panels', 'settings_menu.js'), ('js', 'tabs.js'), ('js', 'alarm.js'), ('js', 'clipbtn.js')]:
+            for name in re.findall(r"""(?:ctx\.)?run\(\s*'([a-z_]+\.[a-z_]+)'""", read(*p)):
+                sent.setdefault(name, '/'.join(p))
+        sent.update({n: 'js/castbox.js' for n in re.findall(r"'(cast\.[a-z_]+)'", read('js', 'castbox.js'))})
+        for must in ['session.end', 'session.undo_end', 'cast.say', 'cast.up', 'clip.now']:
+            self.assertIn(must, sent, must + ' 를 보내는 단추가 없어졌다')
+        for name, where in sent.items():
+            self.assertIn(name, COMMANDS, '%s 가 보내는 %s 는 서버에 없는 명령' % (where, name))
+
+    def test_down_banner_clears_rail(self):
+        # 왼쪽 줄(#rail)은 조종 줄 옆까지 올라가 있다 — '서버와 연결이 끊겼어요' 띠가 그 밑에 깔려 첫 글자가 가리지 않게 비켜 선다(10-17 검토)
+        css = read('controller.css')
+        self.assertRegex(css, r'@media \(min-width: 900px\) \{ \.down-banner \{ margin: 0 0 var\(--gap\) calc\(var\(--rail-w\) \+ var\(--gap\)\); \} \}')
+        self.assertIn('top: calc(var(--sb-h) - var(--hdr-h))', css)     # 왼쪽 줄이 올라가는 규칙이 있는 동안은 위 비킴도 있어야 한다
+
     def test_logout_calls_existing_route_only(self):
         menu = read('js', 'panels', 'settings_menu.js')
         self.assertIn("fetch('/logout', { method: 'POST'", menu)
