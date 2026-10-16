@@ -8,8 +8,8 @@ import { mountDonors } from './records/donors.js';
 import { mountChecklist } from '../alarm.js';
 
 export const PANELS = [
-    { id: 'bgm', label: 'BGM', icon: '🎵', group: 'bgm', mount: (el, ctx) => mountBgmPanel(el, ctx) },
-    { id: 'ledger', label: '장부', icon: '📒', group: 'records', mount: (el, ctx) => mountLedger(el, ctx) },
+    { id: 'bgm', label: 'BGM', icon: '🎵', group: 'bgm', rail: true, pre: true, mount: (el, ctx) => mountBgmPanel(el, ctx) },
+    { id: 'ledger', label: '장부', icon: '📒', group: 'records', pre: true, mount: (el, ctx) => mountLedger(el, ctx) },
     { id: 'donors', label: '후원자', icon: '👑', group: 'records', mount: (el, ctx) => mountDonors(el, ctx) },
-    { id: 'check', label: '점검', icon: '🛫', group: 'records', mount: (el, ctx) => mountChecklist(el, ctx) },
+    { id: 'check', label: '점검', icon: '🛫', group: 'records', pre: true, mount: (el, ctx) => mountChecklist(el, ctx) },
 ];

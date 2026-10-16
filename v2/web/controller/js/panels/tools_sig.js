@@ -8,6 +8,6 @@ import { mountSigAdmin } from './sig/admin.js';
 import { mountMonitor } from './sig/monitor.js';
 
 export const PANELS = [
-    { id: 'sig-admin', label: '시그니처 관리', icon: '💿', group: 'sigs', mount: mountSigAdmin },
+    { id: 'sig-admin', label: '시그니처 관리', icon: '💿', group: 'sigs', pre: true, mount: mountSigAdmin },
     { id: 'sig-monitor', label: '방송 화면 보기', icon: '👀', group: 'sigs', mount: mountMonitor },
 ];

@@ -1,4 +1,4 @@
-/* ✂️ 머리줄 [✂ 클립] — 옛 조종실처럼 어느 탭에서든 한 번에. 점 색 = OBS 저장 담당 상태(초록 · 노랑 · 회색).
+/* ✂️ 조종 줄 [✂ 클립] — 옛 조종실처럼 어느 탭에서든 한 번에. 점 색 = OBS 저장 담당 상태(초록 · 노랑 · 회색).
    누르면 clip.now — 방송판(OBS)이 90초 뒤 '앞 90초 + 뒤 90초' 를 저장한다. 자세한 것은 ✂️ 클립 탭.
    OBS 상태는 서버 메모리에만 있어 GET /api/clip 으로 읽는다 — 방송 중에만 30초마다(방송 전엔 안 묻는다). */
 import { h } from './util.js';
@@ -6,7 +6,7 @@ import { obsText } from './panels/more/clip.js';
 
 export function mountClipButton(host, ctx) {
     const dot = h('i', { 'aria-hidden': 'true' });
-    const btn = h('button', { type: 'button', class: 'pill clip-btn', 'data-s': 'off', title: 'OBS 상태를 확인하는 중…', hidden: true }, dot, h('span', { class: 't' }, '✂ 클립'));
+    const btn = h('button', { type: 'button', class: 'btn clip-btn', 'data-s': 'off', title: 'OBS 상태를 확인하는 중…', hidden: true }, dot, h('span', { class: 't' }, '✂ 클립'));
     host.prepend(btn);
     let obs = null, last = 0, busy = false, live = false;
 

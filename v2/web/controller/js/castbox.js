@@ -1,4 +1,4 @@
-/* 💬 화면에 한마디 · ⬆ UP 자막 — 오른쪽 칸(대기함 위) 맨 위 얇은 두 줄. 서버는 cast.py(cast 조각).
+/* 💬 화면에 한마디 · ⬆ UP 자막 — 오른쪽 칸 맨 위 얇은 두 줄(시안 B 10-17: #say-slot). 서버는 cast.py(cast 조각).
    💬 한마디: 쓰고 Enter → cast.say {text} → 방송판 한가운데 1초(궁서 · 흰 글씨 · 검은 테두리). 옛 controller.html #rail-say(10-07).
    ⬆ UP 자막: 쓰고 Enter 또는 [발사] → cast.up {text} → 방송판 가운데 금색 큰 글씨 2초(방송 중일 때만 보인다).
               옛 조종실 랭킹 탭 '#in-up-text' · 폰 '📢 전광판' 을 이 한 곳으로 모았다.
@@ -10,7 +10,7 @@ import { h } from './util.js';
 const SAY_MAX = 60, UP_MAX = 60;       // 서버 cast.SAY_MAX · UP_MAX
 
 export function mountCastBox(ctx) {
-    const rail = document.querySelector('.col-rail');
+    const rail = document.getElementById('say-slot');
     if (!rail) return null;
     const sayIn = h('input', { type: 'text', maxlength: String(SAY_MAX), placeholder: '화면에 한마디 — 쓰고 Enter', autocomplete: 'off',
         enterkeyhint: 'send', 'aria-label': '방송 화면에 잠깐 띄울 글' });
@@ -22,7 +22,7 @@ export function mountCastBox(ctx) {
         h('div', { class: 'cb-row' }, h('span', { class: 'cb-ico', 'aria-hidden': 'true' }, '💬'), sayIn),
         h('div', { class: 'cb-row' }, h('span', { class: 'cb-ico', 'aria-hidden': 'true' }, '⬆'), upIn, upBtn),
         log);
-    rail.prepend(box);
+    rail.append(box);
 
     async function send(input, type, okText) {
         const text = (input.value || '').trim();
