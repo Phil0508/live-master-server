@@ -191,6 +191,11 @@ body[data-view=setup] .v-setup { display: flex; justify-content: center; padding
 .name-row .n { color: var(--dim); font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
 .add-name { align-self: flex-start; }
 .pre-pending { padding: 10px 14px; border-radius: 14px; background: rgba(245, 165, 36, 0.14); border: 1px solid rgba(245, 165, 36, 0.35); color: #ffd28a; font-weight: 700; font-size: 14px; }
+/* ⏪ 방송 끝 되돌리기(js/endundo.js) — 방송 전 카드 맨 위 */
+.endundo-box { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 18px; background: rgba(90, 200, 250, 0.12); border: 1px solid rgba(90, 200, 250, 0.4); }
+.endundo-box[hidden] { display: none; }
+.endundo-box .eu-t { font-size: 16px; font-weight: 900; color: #bfe9ff; }
+.endundo-box .eu-d { font-size: 14px; font-weight: 700; color: var(--muted); }
 
 /* ── 방송 중: 넓은 화면은 두 칸(왼쪽 점수 · 오른쪽 대기함/시그니처) ── */
 body[data-view=live] .v-live { display: grid; grid-template-columns: minmax(0, 1fr) clamp(360px, 31vw, 500px); gap: 16px; align-items: start; }

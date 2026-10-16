@@ -55,6 +55,7 @@ export function mountHeader(root, ctx) {
         const lines = ['점수판 · 기록이 비워지고, 방송판의 점수도 0 으로 돌아갑니다.'];
         if (pend) lines.push(`⚠️ 대기함에 아직 ${pend}건이 남아 있어요 — 끝내면 대기함에서 사라집니다(후원 기록 장부에는 남아요).`);
         if (q) lines.push(`시그니처 대기줄 ${q}개도 멈추고 비워집니다.`);
+        lines.push('잘못 끝냈으면 12시간 안에 [방송 끝 되돌리기] 로 끝내기 직전으로 되살릴 수 있어요.');
         const ok = await ctx.confirm({ title: '방송을 끝낼까요?', body: lines.join('\n'), ok: '방송 끝내기', cancel: '계속 방송' });
         if (!ok) return;
         busy = true;
@@ -62,7 +63,7 @@ export function mountHeader(root, ctx) {
         const res = await ctx.run('session.end', {});
         busy = false;
         endBtn.disabled = false;
-        if (res.ok) ctx.toast('방송을 끝냈어요. 수고하셨습니다!', 'ok');
+        if (res.ok) ctx.toast('방송을 끝냈어요. 수고하셨습니다! (잘못 눌렀으면 [방송 끝 되돌리기])', 'ok');
     });
 
     function tick() {
