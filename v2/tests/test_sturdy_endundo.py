@@ -143,7 +143,11 @@ class Undo(Base):
         self.assertEqual((d['별빛']['total'], d['별빛']['count']), (40000, 2))
         self.assertEqual((d['달빛']['total'], d['달빛']['count']), (20000, 1))
         self.assertEqual(s['tallies']['best']['amount'], 30000)
-        self.assertEqual(s['tallies']['vip']['별빛']['rank'], 1)
+        from v2.server.domain import donors as _donors
+        if _donors.VIP_ON:                                  # ⏸️ VIP 꺼 둠(10-13) — 켜져 있을 때만 등급을 본다
+            self.assertEqual(s['tallies']['vip']['별빛']['rank'], 1)
+        else:
+            self.assertFalse(s['tallies'].get('vip'))
         self.assertTrue(s['session']['live'])
 
     def test_rules(self):

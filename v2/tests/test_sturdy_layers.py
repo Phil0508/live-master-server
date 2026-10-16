@@ -32,7 +32,15 @@ ABOVE_DONATION_OK = {
     'fxNeon': '💡 네온 조명 — 같은 곳',
     'fxBurst': '✨ 테마 폭죽 — 잠깐',
     'connection': '점검용(?debug=1 일 때만)',
+    'sigfx': '🎆 시그니처 전용 연출 — 옛 방송판처럼 카드 위 화면 전체(잠깐)',
+    'sigWarn': '🚨 계엄령 경보 — 전용 연출 위 4초',
+    'sigUnlock': '🔇 소리 막힘 띠 — 알림창 화면(?only=alert)에만',
+    'sigDisp': '📺 출연진 전광판 — 따로 띄우는 화면(?only=sig)에만',
+    'castSay': '💬 화면에 한마디 — 1초(옛 궁서 글씨 맨 위)',
+    'castFx': '👑 조종실 후원 연출 — 대표님이 쏘는 연출(잠깐)',
 }
+# 시그니처 카드보다 위에 있어도 되는 칸 — 일부러 화면 전체를 잠깐 덮는 연출 · 따로 띄우는 화면만
+ABOVE_SIGNATURE_OK = {'sigfx', 'sigWarn', 'sigUnlock', 'sigDisp', 'castSay', 'castFx'}
 # 자기 칸을 벗어나 화면 전체에 그리는 곳 — 옛 방송판과 같은 것만
 ESCAPE_OK = {
     os.path.join('games', 'slot-roulette-kit.js'): '룰렛 · 슬롯 · 핀볼 우승 폭죽(canvas-confetti 전역, 옛 방송판과 같이 잠깐 모든 층 위)',
@@ -90,7 +98,7 @@ class Layers(unittest.TestCase):
 
     def test_signature_on_top(self):
         sig = self.z('signature')
-        over = [(L['id'], L['z']) for L in self.layers if L['id'] != 'signature' and not L.get('debugOnly') and L['z'] >= sig]
+        over = [(L['id'], L['z']) for L in self.layers if L['id'] != 'signature' and not L.get('debugOnly') and L['z'] >= sig and L['id'] not in ABOVE_SIGNATURE_OK]
         self.assertEqual(over, [], '시그니처(%d)를 덮는 칸이 있습니다' % sig)
 
     def test_donation_and_signature_above_every_game_board(self):

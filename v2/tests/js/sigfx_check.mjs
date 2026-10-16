@@ -72,7 +72,7 @@ const byId = Object.fromEntries(L.LAYERS.map(x => [x.id, x]));
 eq(byId.sigfx.z > byId.signature.z, true, '전용 연출(55) > 시그니처 카드(50)');
 eq(byId.sigWarn.z > byId.sigfx.z, true, '경보(58) > 전용 연출(55)');
 eq(byId.sigfx.z > Math.max(...L.LAYERS.filter(x => x.id.startsWith('fx')).map(x => x.z)), true, '전용 연출 > 조명 · 입자');
-eq(new Set(L.LAYERS.map(x => x.z)).has(56) || new Set(L.LAYERS.map(x => x.z)).has(57), false, '56 · 57 은 비워 둔다(옛 이펙트 자리)');
+eq(L.LAYERS.filter(x => x.z === 56 || x.z === 57).every(x => x.id.startsWith('cast')), true, '56 · 57 은 조종실 연출(cast) 자리');
 Object.entries(L.VIEWS).forEach(([name, v]) => {
     eq(typeof v.kind === 'string' && v.kind.length > 0, true, name + ' 이름표');
     v.layers.forEach(id => eq(!!byId[id], true, name + ' 화면 칸 ' + id + ' 이 표에 있다'));

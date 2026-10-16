@@ -129,11 +129,12 @@ class Wiring(unittest.TestCase):
 
     def test_dice_banner_text(self):
         """🎲 주사위가 시그 칸에 닿으면 가운데 큰 글씨가 '밍밍 · 시그 칸 도착'(서버가 banner 에 싣는다) — 시그니처 이름이 아니다."""
+        # 합친 뒤(10-17) 배너 글은 sigfx 의 rules.bannerText 한 곳에서 만든다 — signature.js 는 그걸 부른다
         sig = self._src('v2', 'web', 'overlay', 'widgets', 'signature.js')
-        self.assertIn("it.source === 'dice'", sig)
-        self.assertIn("String(it.banner || ((it.donator || '') + ' · 시그 칸 도착')).trim()", sig)
-        i_dice, i_slot = sig.index("it.source === 'dice'"), sig.index('} else if (it.skip_popup)')
-        self.assertLess(i_dice, i_slot)                                            # 주사위 항목도 skip_popup 이라 먼저 가린다
+        self.assertIn('bannerText(it,', sig)
+        rules = self._src('v2', 'web', 'overlay', 'widgets', 'sigfx', 'rules.js')
+        self.assertIn("item.source === 'dice'", rules)
+        self.assertIn("String(item.banner || ((item.donator || '') + ' · 시그 칸 도착')).trim()", rules)
 
 
 if __name__ == '__main__':
