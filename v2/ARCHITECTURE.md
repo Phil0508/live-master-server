@@ -138,3 +138,26 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - Supabase 는 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` 환경변수가 파일보다 먼저다(검사는 닫힌 포트로 돌려 막는다).
 - `LM2_AUTOPILOT=off|shadow|on` — 🤖 자동 진행의 **처음** 모드(새 DB 일 때만, 기본 shadow). 검사 꾸러미(v2/tests/__init__.py)는 off 로 시작한다.
 - 🧪 `python -m v2.tools.backtest_autopilot --db v2/data/lm2.db` — 지난 후원자 기억(donor_memory)을 시간 순으로 다시 돌려 '그때 기계였다면' 을 채점(읽기만 · AI 안 부름 · 이름 · 금액 안 찍음).
+
+## 10-17 이사 1차 — donate
+> 옛 10-08 ~ 10-16 '후원 받기 · 장부 바로잡기' 를 v2 로 옮겼다(옛 동작이 정답). 검사: v2/tests/test_donate_mig.py(node 로 방송판 도구 · 층 표 포함).
+- 🔁🧪 **다시 보기(replay) · 후원 테스트(test)는 화면에만**(옛 features/donation.py, 176db46): `/api/donation` 이 리스너 칸
+  `title · level · vip · donor_key · replay · test` 를 버리지 않고 `donation.add` 로 넘긴다. 리스너(tx_id `toon_`)가 보낸 것만 믿는다.
+  팝업 · 시그니처(시그 집계 안 셈 — count_tally False, 묶음에도 안 낌)만 내고 대기함 · 정산 장부 합계 · 후원 순위 · 한 방 최고 · 월별 순위 ·
+  AI 기억 · 등급 · 자동 진행에는 안 넣는다. 장부엔 status `display`(합계 밖) 줄 하나 — source `toonation_replay` · `toonation_dashtest`.
+  답은 옛 모양 `{status:'success', show_only:'replay'|'test'}`. ⚠️ 투네이션 신호엔 고유 번호가 없어 리스너가 tx_id 를 매번 새로 만든다 —
+  tx_id 중복 거르기로는 못 막는다(검사가 실제 리스너 함수로 보여 준다).
+- ⏸️ **VIP 등급 끔**: `domain/donors.py` 의 `VIP_ON = False` 한 줄(검사 서버만 `LM2_VIP_ON=1`). 꺼지면 tallies.vip 늘 빔 · `tallies.vip_on false`,
+  모든 명령 뒤(bus.AFTER `_vip_guard`) 남은 등급도 비운다. `vip.set` 은 409. 방송판 등급 옷 · 1위 훈장 · 'OO 6위' 딱지, 조종실 등급(안내 문구), AI 사실표 VIP 모두 없음.
+- 💬 **묶음(×N) 메시지**: queue 줄의 `msgs[]`(후원마다 차례대로, 빈 것도 자리, 30개까지). 방송판 시그니처 카드는 [N번 다 틀기]면 그 차례, 한 번이면 다 같이.
+- 🏆 **빼기 · 다시 넣기로 다시 고른 한 방 최고**는 `best.at = 0`(갱신 아님 — 방송판 best.js 는 at 0 이면 '최고 기록 갱신!' 을 안 터뜨린다).
+  다시 넣기는 그 사람 한 방이 지금 기록보다 클 때만 기록을 돌려준다.
+- 🏷️ **칭호 · 레벨 · 투네이션 VIP · 번호표**: `domain/donor_extras.py`(clean → pub/priv). pub(`donor_title{name,color}` · `donor_level`)은
+  대기함 · 팝업 · 시그니처 줄 · 소액 띠에, priv(`toon_vip` · `donor_key`)는 대기함(비공개)과 **표 `donor_keys`**(tx_id · donor_key · level · title · vip · at)에만.
+  표는 이 모듈이 처음 쓸 때 만든다. `v2/tools/import_old_db.py` 가 옛 donor_keys 도 옮긴다(없으면 건너뜀).
+  방송판 도구 `web/overlay/donate_kit.js` · `css/donate.css`(보석 알약 13단계 · Lv), 조종실 `js/donate_tags.js` · `css/donate.css`.
+- 💙 **'투네' 딱지**: 리스너 후원 시그니처 줄에 `via:'toon'` → 시그니처 카드 사진 왼쪽 위(#519CFF, --r-s 8px).
+- 🏺 **시그니처 중 모금함 숨김**: groups/basics2.js 층 fundjar 에 `hideInReaction`.
+- 🔁 **끝난 묶음 이어 틀기**: 비공개 조각 `reaction_done_recent{items[]}`(다 틀었거나 건너뛴 ×N 줄 30개, 방송 시작 · 끝에 비움).
+  `reaction.playall {id}` 가 이미 빠진 줄이면 남은 만큼을 지금 것 바로 다음에 세운다(`again_of · seq_base · seq_total · skip_popup`),
+  답 `{again:true, count, seq_base, seq_total}`. 조종실 대기줄에 45초 동안 [남은 N번 이어 틀기].
