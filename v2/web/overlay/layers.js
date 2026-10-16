@@ -26,6 +26,7 @@ import { LAYERS as BASICS2 } from './groups/basics2.js';
 import { LAYERS as GAMES_A } from './groups/games_a.js';
 import { LAYERS as GAMES_B } from './groups/games_b.js';
 import { LAYERS as FX } from './groups/fx.js';          // 💡 조명(네온 · 아우디) · ✨ 테마 입자 · 🌕 보름달
+import { LAYERS as CAST } from './groups/cast.js';      // 💬 조종 연출 — UP 자막 · 화면에 한마디 · 👑 조종실 후원 연출
 
 export const CANVAS = { w: 1080, h: 1920 };
 
@@ -63,7 +64,7 @@ const BASE = [
 
 // 묶음마다 따로 고친다(여러 사람이 한 파일을 같이 고치다 꼬이지 않게). 같은 id 가 있으면 뒤에 온 것이 이긴다.
 export const LAYERS = (() => {
-    const all = [...BASE, ...BASICS2, ...GAMES_A, ...GAMES_B, ...FX];
+    const all = [...BASE, ...BASICS2, ...GAMES_A, ...GAMES_B, ...FX, ...CAST];
     const seen = new Map();
     all.forEach(L => seen.set(L.id, L));
     return [...seen.values()];

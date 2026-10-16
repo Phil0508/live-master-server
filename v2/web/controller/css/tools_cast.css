@@ -1,0 +1,25 @@
+/* 💬 조종 연출 — 오른쪽 칸 맨 위 '화면에 한마디 · UP 자막'(js/castbox.js) · ✨ 이펙트 탭(js/panels/ops/opfx.js). */
+
+/* ── 오른쪽 칸 맨 위 얇은 두 줄(옛 #rail-say — 칸을 내려도 맨 위에 붙어 있게) ── */
+.cast-sec { flex: 0 0 auto; padding: 8px 10px; position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 6px;
+    background: rgba(36, 28, 24, 0.94); border-radius: 18px; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.cast-sec .cb-row { display: flex; align-items: center; gap: 8px; }
+.cast-sec .cb-ico { flex: none; width: 18px; text-align: center; font-size: 15px; line-height: 1; }
+.cast-sec input[type=text] { flex: 1; min-width: 0; height: 34px; margin: 0; box-sizing: border-box; font-size: 14px; }
+.cast-sec .cb-fire { flex: none; height: 34px; min-height: 0; padding: 0 12px; background: var(--gold, #f6c453); color: #241a05; border-color: transparent; font-weight: 800; }
+.cast-sec .cb-log { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cast-sec .cb-log:empty { display: none; }
+.cast-sec .cb-log.err { color: var(--bad, #ff6b6b); }
+@media (max-width: 899px) {
+    /* 폰은 한 줄 — 대기함(1) · 점수판(2) · 되돌리기(3) 다음, 시그니처 대기줄(4) 앞 */
+    .cast-sec.sec { order: 3; position: static; padding: 8px 10px; }
+}
+
+/* ── ✨ 이펙트 탭 ── */
+.ops-opfx .fx-sub { display: block; margin: 10px 0 6px; }
+.ops-opfx .fx-chks { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.ops-opfx .fx-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+.ops-opfx .fx-chk input { margin: 0; }
+.ops-opfx .fx-btns { margin-top: 12px; gap: 10px; }
+.ops-opfx .fx-fire { flex: 1; min-width: 180px; }
+.ops-opfx .fx-out { margin-top: 8px; min-height: 20px; }

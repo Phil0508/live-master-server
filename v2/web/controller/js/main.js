@@ -20,6 +20,7 @@ import { mountTabs } from './tabs.js';
 import { PANELS as GAME_PANELS } from './panels/games.js';
 import { PANELS as TOOL_PANELS } from './panels/tools.js';
 import { mountPhone } from './phone.js';     // 📱 폰 손보기(새 후원 띠 · 탭 줄) · 방송 전 시그니처 관리 바로가기
+import { mountCastBox } from './castbox.js'; // 💬 화면에 한마디 · ⬆ UP 자막 — 오른쪽 칸 맨 위
 
 const lm = window.LM.connect({ kind: 'controller' });
 let status = 'connecting', snapped = false, slices = {}, scheduled = false;
@@ -46,6 +47,7 @@ const views = {
     tabs: mountTabs($('tabs'), ctx, [...GAME_PANELS, ...TOOL_PANELS]),
 };
 safe(() => mountPhone(ctx));               // 📱 phone.js — 넘어져도 조종실은 그대로
+safe(() => mountCastBox(ctx));             // 💬 castbox.js — 넘어져도 조종실은 그대로
 
 lm.onStatus(s => {
     status = s;
