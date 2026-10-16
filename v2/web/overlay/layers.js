@@ -19,6 +19,7 @@
      below, gap  다른 칸 바로 아래에 붙는다(그 칸의 아래끝 + gap). 사람 수가 바뀌어 기준 칸 높이가 바뀌면 따라 움직인다
      solid     '자리를 차지하는 판' — 게이지 금액 딱지가 이 판들과 겹치면 위나 아래 빈자리로 비킨다(옛 placeGoalTip)
      debugOnly ?debug=1 일 때만 만든다
+     viewOnly  따로 띄우는 화면(/overlay/?only=alert · sig · slot)에서만 만든다 — 평소 방송판에는 없다(VIEWS 는 groups/sigfx.js)
 
    옛 기본 자리 출처: overlay.html 의 컨테이너 style · admin.html 편집기 기본값 · layout.json(점수 팝업 · 1등 탈환).
 */
@@ -26,8 +27,12 @@ import { LAYERS as BASICS2 } from './groups/basics2.js';
 import { LAYERS as GAMES_A } from './groups/games_a.js';
 import { LAYERS as GAMES_B } from './groups/games_b.js';
 import { LAYERS as FX } from './groups/fx.js';          // 💡 조명(네온 · 아우디) · ✨ 테마 입자 · 🌕 보름달
+import { LAYERS as SIGFX, VIEWS as SIGFX_VIEWS } from './groups/sigfx.js';   // 🎆 시그니처 전용 연출 · 🚨 계엄령 · 📺 따로 띄우는 화면(?only=)
 
 export const CANVAS = { w: 1080, h: 1920 };
+
+/* 📺 따로 띄우는 화면 — /overlay/?only=<이름> 이면 그 이름의 칸만 만든다(viewOnly 칸은 그 화면에서만). 이름 · 칸 목록은 groups/sigfx.js */
+export const VIEWS = SIGFX_VIEWS;
 
 const BASE = [
     // ── 판(정보 위젯) ─────────────────────────────────────────
@@ -63,7 +68,7 @@ const BASE = [
 
 // 묶음마다 따로 고친다(여러 사람이 한 파일을 같이 고치다 꼬이지 않게). 같은 id 가 있으면 뒤에 온 것이 이긴다.
 export const LAYERS = (() => {
-    const all = [...BASE, ...BASICS2, ...GAMES_A, ...GAMES_B, ...FX];
+    const all = [...BASE, ...BASICS2, ...GAMES_A, ...GAMES_B, ...FX, ...SIGFX];
     const seen = new Map();
     all.forEach(L => seen.set(L.id, L));
     return [...seen.values()];

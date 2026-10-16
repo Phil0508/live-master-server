@@ -1,0 +1,56 @@
+/* 🖼️ 출연진 전광판 — 시그니처 그림만 크게(옛 /signature-display · signature_display.html 을 그대로 옮겼다).
+   주소: /overlay/?only=sig            어두운 바탕(출연자들이 보는 모니터)
+         /overlay/?only=sig&transparent=1   바탕 투명(OBS 소스로 쓸 때)
+
+   - 대기줄 맨 앞(queue.items[0])이 '지금 나가는 시그니처' 다. 맨 앞이 바뀔 때만 새로 띄우고, 비면 바로 내린다.
+     자기 시계가 없다 = 방송판이 내리는 그 순간 같이 내려가 정확히 맞는다(옛 handleData 미러 그대로).
+   - 소리 없음 · '다 틀었다'(reaction.done) 안 보냄 · 줄어들지 않음(가운데 크게 그대로) · 금액 등급 연출 없음.
+   - 글: '후원자 · 금액' + 메시지(없으면 시그니처 제목). 사진이 없거나 못 받으면 사진 칸을 숨긴다
+     (옛 것은 /money.png 로 대신했다 — v2 는 그 그림을 내주지 않는다).
+   - 화면은 방송판처럼 1080×1920 으로 줄이지 않는다(groups/sigfx.js VIEWS.sig.native) — 옛 것처럼 창 크기 그대로, 카드 폭 600. */
+import { formatNum } from '../../util.js';
+
+export function mount(root, lm, opts) {
+    root.innerHTML = '<div class="sigdisp-card">'
+        + '<img class="sigdisp-img" alt="시그니처 사진">'
+        + '<div class="sigdisp-donator"></div>'
+        + '<div class="sigdisp-msg"></div>'
+        + '</div>';
+    const card = root.firstElementChild;
+    const img = root.querySelector('.sigdisp-img');
+    const donatorEl = root.querySelector('.sigdisp-donator');
+    const msgEl = root.querySelector('.sigdisp-msg');
+    let curId = null, clearTimer = null;
+
+    function hide() {
+        card.classList.remove('show');
+        clearTimeout(clearTimer);
+        clearTimer = setTimeout(() => { img.removeAttribute('src'); }, 600);
+    }
+
+    function show(d) {
+        clearTimeout(clearTimer); clearTimer = null;
+        const amt = Number(d.amount) || 0;
+        donatorEl.textContent = (d.donator || d.nickname || '익명') + (amt ? ' · ' + formatNum(amt) + '원' : '');
+        const msg = String(d.message || d.title || '');
+        const ok = !!(msg && msg !== '수동 후원 송출');
+        msgEl.textContent = ok ? msg : (d.title || '');
+        msgEl.style.display = (ok || d.title) ? 'block' : 'none';
+        img.onerror = () => { img.onerror = null; img.style.display = 'none'; };
+        if (d.image_url) { img.style.display = 'block'; img.src = d.image_url; }
+        else { img.removeAttribute('src'); img.style.display = 'none'; }
+        card.classList.add('show');
+    }
+
+    lm.on('queue', q => {
+        const head = ((q && q.items) || [])[0] || null;
+        if (!head) {
+            if (curId !== null) { curId = null; hide(); }
+            return;
+        }
+        if (curId !== head.id) {          // 같은 시그니처면 다시 그리지 않는다(깜빡임 방지)
+            curId = head.id;
+            show(head);
+        }
+    });
+}

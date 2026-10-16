@@ -28,7 +28,7 @@ const BIG_AREA = 0.85;          // 캔버스를 거의 다 덮는 칸(시그니�
 // 서버(show.py layout.set)와 같은 울타리 — 여기서도 같이 막아야 끈 자리와 서버에 적힌 자리가 같다
 const LIM = { x: [-540, 1620], y: [-960, 2880], scale: [0.2, 4] };
 
-const layers = LAYERS.filter(L => !L.debugOnly);
+const layers = LAYERS.filter(L => !L.debugOnly && !L.viewOnly);   // viewOnly = 따로 띄우는 화면(?only=)에만 있는 칸 — 편집기 방송판에는 없다
 const byId = new Map(layers.map(L => [L.id, L]));
 
 const S = {

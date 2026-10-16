@@ -5,7 +5,12 @@
         ⏸️ 멈춤은 '새로 시작' 만 막는다 — 이미 나가고 있는 것은 끝까지 튼다(돈 낸 후원자의 시그니처를 자르지 않는다).
      2) 시작 전에 후원 카드를 먼저 2초(stage 의 donationCard) — 단 슬롯처럼 자체 연출이 있는 것(skip_popup) ·
         대기줄이 밀린 때(2건 이상) · 10만 원 이상 · '다 틀기' 되풀이는 카드 없이 곧장(옛 것과 같다).
-     3) 사진 + '후원자 · 금액' + 메시지 카드가 가운데에 뜨고 2.5초 뒤 왼쪽(180,600)으로 작게. 10만 원 이상이면 'OO업' 배너 3.5초.
+     3) 사진 + '후원자 · 금액' + 메시지 카드가 가운데에 뜨고 2.5초 뒤 왼쪽(180,600)으로 작게. 가운데에는 하나만(옛 갈래 순서 — sigfx/rules.titlePlan):
+          🚨 25만 원 '계엄령' 시그니처 → 'OO업' 대신 붉은 경보 4초(sigfx/warn.js)
+          🎆 전용 연출이 있는 시그니처(10만~300만 18가지 — 옛 17선 + 진압해) → 그 연출(sigfx/stage.js). 'OO업' 은 안 띄운다(연출마다 자기 글자가 있다).
+             연출이 카드 등장을 맡는 동안은 카드 축소를 연출이 끝난 뒤로 미룬다(rules.shrinkWait — 안 그러면 카드가 '툭' 순간이동한다).
+             연출을 못 띄우면(파일을 아직 못 받음 · 실패) 'OO업' 으로 간다.
+          그 밖에는 10만 원 이상이면 'OO업' 배너 3.5초 · 슬롯 당첨은 시그니처 이름 · 🎲 주사위 시그는 '누구 · 시그 칸 도착'(금액 · '업' 없음).
         🎚️ 크기 · 줄어드는 시간 · 줄어든 자리 · 배너 글자 크기 · 시간 · 붙는 말은 편집기 설정(sigview 조각, 옛 reaction_* 설정)을 따른다.
            숫자는 CSS 변수(--reac-big · --reac-small · --reac-min-x · --reac-min-y · --reac-title-size)로 칸에 붙인다.
      4) 음원을 queue.volume 으로 튼다(?monitor=1 이면 소리 끔). 끝나는 때:
@@ -22,11 +27,16 @@
         💬 묶음(×N) 메시지 — [N번 다 틀기]면 이번 차례 메시지, 한 번이면 다 같이(it.msgs, 옛 5d179b0). 트는 사이 더 오면 바로 고친다
         🔁 이어 틀기 줄(seq_base) — '2 / 3' 부터 센다(옛 rxComboSync)
 
-   ⚠️ 옛 시그니처 전용 연출(sig-fx 17종 · 계엄령 경보)은 다음 단계. 여기는 사진 · 글 · 소리와
-      금액 등급 기본 연출(플래시 · 흔들림 · 테두리 빛 · 가장자리 어둡게)까지만.
-      💡 비트 점멸 · 사진 대표색(화면 네온 + 이 카드 테두리)은 widgets/fx/neon.js — 시작 · 끝에 stage 'neon' 을 부른다. */
+     9) 🔊 자동재생이 막히면(브라우저 정책) 소리 없이라도 끝까지 튼다(사진 · 길이 · 차례 그대로). 방송판을 **한 번 누르면**(클릭 · 키 · 터치)
+        음소거를 풀어 그 자리부터 소리를 살린다 — 음소거 재생마저 막혀 멈춰 있었으면 지금 시그니처 소리를 처음부터 다시 튼다(옛 recoverFromAutoplayBlock).
+        빨간 경고 띠는 알림창 화면(?only=alert)에만 뜬다(sigfx/unlock.js) — 방송판에는 옛 것처럼 안 띄운다(대표님 08-13 요청).
+        재생이 새 요청 · 정지로 끊긴 것(AbortError)이면 같은 시그니처를 한 번만 다시 튼다(옛 tryPlay(true)).
+
+   금액 등급 기본 연출(플래시 · 흔들림 · 테두리 빛 · 가장자리 어둡게)은 여기서, 전용 연출 · 경보는 widgets/sigfx/(stage.provide 'sigfx' · 'sigWarn').
+   💡 비트 점멸 · 사진 대표색(화면 네온 + 이 카드 테두리)은 widgets/fx/neon.js — 시작 · 끝에 stage 'neon' 을 부른다. */
 import { esc, formatNum, restartClass, BIG_DONATION_MIN } from '../util.js';
 import { paintDonorName, sigMsgFor, comboOf } from '../donate_kit.js';
+import { titlePlan, bannerText, bannerAmount, shrinkWait, MARTIAL_LAW_MESSAGE } from './sigfx/rules.js';
 // 🔊 방송판을 여러 곳에 띄워도 소리 · '다 틀었다'(done)는 담당 창 하나만 — 옛 isAudioLeader(audio_lead.js 머리말)
 import { isLeader, setPlaying, livePlayingLeader, onLeaderChange, NON_LEADER_GRACE_MS } from '../audio_lead.js';
 
@@ -67,6 +77,7 @@ export function mount(root, lm, opts) {
     const doneKeys = new Map();   // 다 틀고 done 을 보낸 것(key → id) — 서버가 뺄 때까지 다시 안 튼다
     let tickTimer = null, hideTimer = null, bannerTimer = null, comboTimer = null;
     let comboShown = { key: null, count: 0, all: false };
+    let blocked = false;          // 🔊 브라우저가 소리 있는 재생을 막았다(누르면 살린다 — recover)
 
     const Q = () => lm.get('queue') || { items: [], paused: false, volume: 0.5 };
     // 🎚️ 편집기 설정(sigview) — 값이 없거나 이상하면 옛 기본값
@@ -103,6 +114,10 @@ export function mount(root, lm, opts) {
         clearInterval(comboTimer);
         combo.className = 'reaction-combo'; combo.textContent = '';
         comboShown = { key: null, count: 0, all: false };
+        // 🎆 전용 연출 · 🚨 경보도 같이 걷는다 — 재생을 끊었는데 연출 · 붉은 화면만 남아 돌면 어수선하다(옛 stopReactionVisuals).
+        //    ⚠️ 경보는 이 한 겹만 — 조종실에서 따로 쏜 연출은 건드리지 않는다.
+        try { const fx = opts.stage.use('sigfx'); if (fx) fx.stop(); } catch (e) {}
+        try { const w = opts.stage.use('sigWarn'); if (w) w.clear(); } catch (e) {}
     }
     function hideSoon() { cancelHide(); hideTimer = setTimeout(hideVisuals, HIDE_DELAY_MS); }
     function hideBanner() { clearTimeout(bannerTimer); bannerTimer = null; banner.classList.remove('show'); }
@@ -110,19 +125,10 @@ export function mount(root, lm, opts) {
     function showBanner(it) {
         hideBanner();
         if (!opts.stage.alertOn('reaction_title')) return;
-        let text;
-        if (it.skip_popup) {
-            text = String(it.title || '').trim();                    // 슬롯 당첨 — 시그니처 이름만(접미사 없음)
-        } else {
-            if ((parseInt(it.amount, 10) || 0) < BIG_DONATION_MIN) return;   // '@@업' 은 10만 원 이상만
-            let name = String(it.donator || '').trim();
-            if (name.endsWith('님')) name = name.slice(0, -1);
-            if (!name) return;
-            const sfx = SV().title_suffix;
-            text = name + (typeof sfx === 'string' ? sfx : '업');          // 옛 reaction_title_suffix(비우면 이름만)
-        }
+        // 슬롯 당첨 — 시그니처 이름만 · 🎲 주사위 — '누구 · 시그 칸 도착' · 그 밖에는 10만 원 이상만 '이름 + 업'(옛 reaction_title_suffix, 비우면 이름만)
+        const text = bannerText(it, SV().title_suffix, BIG_DONATION_MIN);
         if (!text) return;
-        const t = tier(it.amount);
+        const t = tier(bannerAmount(it));
         banner.classList.remove('tier-2', 'tier-3', 'tier-4');
         if (t.level >= 4) banner.classList.add('tier-4');
         else if (t.level >= 3) banner.classList.add('tier-3');
@@ -135,6 +141,24 @@ export function mount(root, lm, opts) {
         } catch (e) {}
         restartClass(banner, 'show');
         bannerTimer = setTimeout(() => banner.classList.remove('show'), svNum('title_duration', TITLE_MS));
+    }
+
+    /* 가운데 한 가지 — 🚨 계엄령 경보 · 🎆 전용 연출 · 'OO업' 배너(옛 startPlayback 의 갈래). 연출이 돌면 그 길이(ms), 아니면 0 */
+    function headline(it) {
+        const plan = titlePlan(it);
+        if (plan === 'warn') {
+            hideBanner();                                          // 계엄령: 이름을 부르지 않는다. 사이렌이 먼저다
+            const w = opts.stage.use('sigWarn');
+            if (w) w.fire({ message: MARTIAL_LAW_MESSAGE });
+            return 0;
+        }
+        if (plan === 'fx') {
+            const fx = opts.stage.use('sigfx');
+            const ms = fx ? fx.play(it, { card: overlay }) : 0;
+            if (ms > 0) { hideBanner(); return ms; }               // 연출마다 자기 글자가 있어 'OO업' 과 겹친다
+        }
+        showBanner(it);
+        return 0;
     }
 
     function effects(it) {
@@ -280,25 +304,43 @@ export function mount(root, lm, opts) {
         // ✂️ 기준 금액 이상 시그가 실제로 재생된다 — 쇼츠 클립 예약(조건 · 시각은 widgets/more/clip.js)
         try { const clip = opts.stage.use('clip'); if (clip) clip.bigSig(it); } catch (e) { /* 클립이 넘어져도 재생은 그대로 */ }
         cancelHide();
+        blocked = false;                  // 새 재생마다 '소리 있는 재생' 을 다시 해 본다(옛 startPlayback — 한 번 막혔다고 방송 내내 무음이 되지 않게)
         try {
             fill(it);
             overlay.classList.remove('minimize');
             overlay.classList.add('show');
             syncCombo(it);
             effects(it);
-            showBanner(it);
         } catch (e) { console.error('[시그니처] 그리기 실패 — 소리 · 차례는 계속:', e); }
         // 💡 조명(widgets/fx/neon.js) — 사진 대표색(화면 네온 · 이 카드 테두리) · 30만 등급 비트 맞추기(옛 applySignatureThemeColor · beginBeatSync)
         try {
             const neon = opts.stage.use('neon');
             if (neon) neon.sigPlay(it, audio).then(rgb => { if (rgb && cur && cur.token === token) box.style.setProperty('--reac-glow', rgb); });
         } catch (e) { /* 조명이 넘어져도 재생은 그대로 */ }
-        cur.timers.push(setTimeout(() => overlay.classList.add('minimize'), svNum('shrink_delay', SHRINK_MS)));
+        // 🚨 계엄령 · 🎆 전용 연출 · 'OO업' — 연출이 카드를 붙잡고 있는 동안은 축소를 미룬다
+        let fxMs = 0;
+        try { fxMs = headline(it); } catch (e) { console.error('[시그니처] 가운데 연출 실패 — 소리 · 차례는 계속:', e); }
+        const busyUntil = fxMs > 0 ? Date.now() + fxMs : 0;
+        cur.timers.push(setTimeout(() => overlay.classList.add('minimize'), shrinkWait(svNum('shrink_delay', SHRINK_MS), busyUntil, Date.now())));
 
         const durMs = Math.max(1, Number(it.duration) || 5) * 1000;
-        const after = (ms, why) => { if (cur && cur.token === token) cur.timers.push(setTimeout(() => finish(token, why), Math.max(0, ms))); };
-        if (!it.audio_url) { after(durMs, '사진만(duration)'); return; }
+        if (!it.audio_url) { finishAfter(token, durMs, '사진만(duration)'); return; }
+        playAudio(it, token, durMs);
+    }
 
+    function finishAfter(token, ms, why) {
+        if (!cur || cur.token !== token) return null;
+        const t = setTimeout(() => finish(token, why), Math.max(0, ms));
+        cur.timers.push(t);
+        return t;
+    }
+
+    function setBlocked(on) {
+        blocked = !!on;
+        try { const w = opts.stage.use('autoplayWarn'); if (w) (on ? w.show() : w.hide()); } catch (e) {}
+    }
+
+    function playAudio(it, token, durMs) {
         let safety = null;
         const arm = (ms, why) => {
             if (!cur || cur.token !== token) return;
@@ -312,7 +354,7 @@ export function mount(root, lm, opts) {
             if (!cur || cur.token !== token) return;
             audio.onerror = null;
             clearTimeout(safety);
-            after(durMs - (Date.now() - cur.startedAt), '음원 오류');
+            finishAfter(token, durMs - (Date.now() - cur.startedAt), '음원 오류');
         };
         audio.onloadedmetadata = () => {
             const d = audio.duration;
@@ -322,21 +364,65 @@ export function mount(root, lm, opts) {
         audio.src = it.audio_url;
         audio.volume = vol();
         audio.muted = !!opts.monitor || !isLeader();      // 담당이 아닌 창은 소리 없이 함께 그린다
-        const p = audio.play();
-        if (p && p.catch) p.catch(err => {
-            if (!cur || cur.token !== token) return;
-            if (err && err.name === 'AbortError') return;
-            // 자동재생 차단 — 소리 없이라도 튼다(사진 · 길이 · 차례는 그대로). 그마저 안 되면 길이만큼 보여 주고 넘긴다
-            console.warn('[시그니처] 자동재생 차단 — 음소거로 재생:', err && err.name);
-            cur.forcedMute = true;
-            audio.muted = true;
-            audio.play().catch(() => {
+        const tryPlay = isRetry => {
+            const p = audio.play();
+            if (!p || !p.then) return;
+            p.then(() => {
+                if (cur && cur.token === token && !cur.forcedMute) setBlocked(false);
+            }).catch(err => {
                 if (!cur || cur.token !== token) return;
-                silence(); clearTimeout(safety);
-                after(durMs - (Date.now() - cur.startedAt), '재생 불가');
+                if (err && err.name === 'AbortError') {
+                    // 새 재생 요청 · 정지로 중간에 끊겼다 — 이 시그니처가 여전히 지금 것이고 멈춰 있으면 한 번만 다시(옛 tryPlay(true))
+                    if (!isRetry) setTimeout(() => {
+                        if (cur && cur.token === token && !cur.forcedMute && audio.getAttribute('src') && audio.paused) tryPlay(true);
+                    }, 150);
+                    return;
+                }
+                // 자동재생 차단 — 소리 없이라도 튼다(사진 · 길이 · 차례는 그대로). 방송판을 한 번 누르면 소리가 살아난다(recover).
+                // 그마저 안 되면 길이만큼 보여 주고 넘긴다 — 그 사이 누르면 소리를 처음부터 다시 튼다.
+                console.warn('[시그니처] 자동재생 차단 — 음소거로 재생합니다. 화면을 한 번 누르면 소리가 나옵니다:', err && err.name);
+                setBlocked(true);
+                cur.forcedMute = true;
+                audio.muted = true;
+                audio.play().catch(() => {
+                    if (!cur || cur.token !== token) return;
+                    cur.forcedMute = false;
+                    cur.audioDead = true;
+                    silence(); clearTimeout(safety);
+                    cur.deadTimer = finishAfter(token, durMs - (Date.now() - cur.startedAt), '재생 불가');
+                });
             });
-        });
+        };
+        tryPlay(false);
     }
+
+    /* 🔊 방송판을 한 번 누르면(클릭 · 키 · 터치 = 브라우저가 인정하는 '사람 손') 막힌 소리를 살린다 — 옛 recoverFromAutoplayBlock.
+       ⚠️ 실제로 막혔을 때만(blocked) 손댄다 — 막 로딩 중인 소리를 우연한 클릭이 한 번 더 틀어 두 번 나가던 옛 사고. */
+    function recover() {
+        try { const w = opts.stage.use('autoplayWarn'); if (w) w.hide(); } catch (e) {}
+        if (!blocked) return;
+        if (!cur || cur.phase !== 'play') { blocked = false; return; }
+        if (cur.forcedMute && audio.getAttribute('src') && !audio.paused) {
+            // 음소거로 이미 나가고 있다 — 소리만 켠다(다시 틀면 처음부터 나가 버린다)
+            cur.forcedMute = false;
+            blocked = false;
+            audio.muted = !!opts.monitor || !isLeader();
+            log('누름 — 음소거를 풀어 소리를 살립니다(재생 위치 그대로)');
+            return;
+        }
+        if (cur.audioDead && cur.item.audio_url) {
+            // 음소거 재생마저 막혀 소리가 멈춰 있다 — 지금 시그니처 소리를 처음부터 다시
+            blocked = false;
+            cur.audioDead = false;
+            clearTimeout(cur.deadTimer); cur.deadTimer = null;
+            cur.startedAt = Date.now();
+            log('누름 — 막혔던 소리를 처음부터 다시 틉니다');
+            playAudio(cur.item, cur.token, Math.max(1, Number(cur.item.duration) || 5) * 1000);
+        }
+    }
+    window.addEventListener('click', recover);
+    window.addEventListener('keydown', recover);
+    window.addEventListener('touchstart', recover, { passive: true });
 
     function finish(token, why) {
         if (!cur || cur.token !== token) return;          // 지난 것의 늦은 신호
@@ -410,8 +496,10 @@ export function mount(root, lm, opts) {
     lm.on('queue', () => schedule(0));          // 같은 쪽지 안의 후원 카드가 먼저 자리 잡게 한 박자 뒤에
 
     // ✂️ 쇼츠 클립(OBS 리플레이 저장 담당) — 그리는 것이 없어 칸 없이 여기서 띄운다. 못 불러와도 시그니처는 그대로 돈다.
-    import('./more/clip.js').then(m => m.mountClip(lm, opts)).catch(e => console.error('[클립] 못 불러옴:', e));
+    //    따로 띄우는 화면(?only=alert, 옛 /alertbox)은 클립을 맡지 않는다(옛 알림창에도 없었다 — 저장이 두 번 되지 않게).
+    if (!opts.view) import('./more/clip.js').then(m => m.mountClip(lm, opts)).catch(e => console.error('[클립] 못 불러옴:', e));
 
     // 점검용 — 콘솔에서 지금 상태 보기
-    window.__lmSig = { get cur() { return cur && { key: cur.key, phase: cur.phase, title: cur.item.title }; }, doneKeys, audio };
+    window.__lmSig = { get cur() { return cur && { key: cur.key, phase: cur.phase, title: cur.item.title, forcedMute: !!cur.forcedMute, audioDead: !!cur.audioDead }; },
+                       get blocked() { return blocked; }, doneKeys, audio };
 }

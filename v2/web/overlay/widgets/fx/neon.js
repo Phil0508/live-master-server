@@ -94,7 +94,7 @@ function build(layer) {
 }
 
 // ── 🎨 사진 대표색(옛 vibrantColorFromImage · boostVibrant 그대로) ──
-function vibrantColorFromImage(img) {
+export function vibrantColorFromImage(img) {   // 🎆 시그니처 전용 연출(widgets/sigfx/stage.js)도 같은 색을 쓴다
     const S = 40;
     const cv = document.createElement('canvas'); cv.width = S; cv.height = S;
     const ctx = cv.getContext('2d');

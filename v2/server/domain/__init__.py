@@ -34,3 +34,4 @@ from . import settings2  # noqa: F401  (🎚️ 시그니처 보이는 모습 ·
 from . import lights  # noqa: F401  (💡 조명 — 네온 · 아우디 · 속도 · 색 슬롯 / ✨ 테마 연출 look.fx)
 from . import autopilot  # noqa: F401  (🤖 무인 방송 — 후원 배정 · 금액 게임을 기계가: 끔 · 그림자 · 켬)
 from . import endundo  # noqa: F401  (⏪ [방송 끝] 되살리기 — 끝내기 직전 조각을 장부에 · session.undo_end, sturdy 10-17)
+from . import sigfx  # noqa: F401  (🎆 방송판 시그니처 미리받기 목록 · 📺 옛 /alertbox · /signature-display · /slot 이어주기)
