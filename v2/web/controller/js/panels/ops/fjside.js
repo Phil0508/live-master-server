@@ -28,14 +28,19 @@ export function sideNow(lay) {
     return 'free';
 }
 
-export function mountFjSide(ctx) {
+/** opts.compact — 점수판 모금함 줄(#jar-side-slot, 10-17 w2center)에 [◀ 왼쪽][오른쪽 ▶] 두 단추만(같은 명령 · 같은 확인 상자) */
+export function mountFjSide(ctx, opts) {
+    const compact = !!(opts && opts.compact);
     let side = 'free';
-    const left = h('button', { type: 'button', class: 'btn sm', 'aria-pressed': 'false', onclick: () => once(left, () => go('left')) }, '◀ 왼쪽');
-    const right = h('button', { type: 'button', class: 'btn sm', 'aria-pressed': 'false', onclick: () => once(right, () => go('right')) }, '오른쪽 ▶');
+    const bc = compact ? 'btn xs' : 'btn sm';
+    const left = h('button', { type: 'button', class: bc, 'aria-pressed': 'false', onclick: () => once(left, () => go('left')) }, '◀ 왼쪽');
+    const right = h('button', { type: 'button', class: bc, 'aria-pressed': 'false', onclick: () => once(right, () => go('right')) }, '오른쪽 ▶');
     const now = h('span', { class: 'ops-dim' });
-    const el = h('section', { class: 'ops-blk fj-side' },
-        blockHead('방송판 깃발 자리', '점수판 왼쪽 · 오른쪽에 한 줄로 붙여요 — 왼쪽이면 점수판이 깃발 폭만큼 비켜요'),
-        h('div', { class: 'ops-row wrap' }, left, right, now));
+    const el = compact
+        ? h('span', { class: 'fj-seg', role: 'group', 'aria-label': '방송판 깃발 자리' }, left, right)
+        : h('section', { class: 'ops-blk fj-side' },
+            blockHead('방송판 깃발 자리', '점수판 왼쪽 · 오른쪽에 한 줄로 붙여요 — 왼쪽이면 점수판이 깃발 폭만큼 비켜요'),
+            h('div', { class: 'ops-row wrap' }, left, right, now));
 
     async function go(want) {
         if (side === 'free') {
@@ -54,6 +59,7 @@ export function mountFjSide(ctx) {
             b.setAttribute('aria-pressed', String(side === k));
         });
         now.textContent = side === 'free' ? '지금: 따로 놓임(편집기 자리 · 기본 자리)' : '지금: 점수판 ' + (side === 'left' ? '왼쪽' : '오른쪽');
+        if (compact) el.title = '방송판 깃발 자리 — ' + now.textContent;
     }
     return { el, render };
 }

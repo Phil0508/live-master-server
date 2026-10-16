@@ -190,7 +190,7 @@ def names_in_message(msg, names):
 
 # ── 장부 · 등급 → 사실표 재료 ────────────────────────────
 def today_summary(rows):
-    """이번 방송 후원 장부 줄들 → {건수, 합계금액, 많이_쏜_사람[5]}.
+    """이번 방송 후원 장부 줄들 → {건수, 합계금액, 많이_쏜_사람[5], 가장_큰{이름, 금액}|None}.
        ⚠️ AI 에게 세라고 시키면 틀린다 — 서버가 장부에서 직접 센다. 화면에만 뜬 것(status 'display')은 안 센다
           (/api/ledger 의 total 과 같은 셈). 같은 사람이 '홍길동' · '홍길동님' 으로 갈라지지 않게 묶는다."""
     rows = [r for r in (rows or []) if r.get('status') in ('pending', 'assigned', 'ignored')]
@@ -201,7 +201,14 @@ def today_summary(rows):
         e['횟수'] += 1
         e['금액합'] += _int(r.get('amount'))
     top = sorted(by.values(), key=lambda e: (-e['금액합'], e['이름']))[:5]
-    return {'건수': len(rows), '합계금액': sum(_int(r.get('amount')) for r in rows), '많이_쏜_사람': top}
+    # 💰 가장 큰 후원 한 건 — 조종실 숫자 카드 ① 아랫줄(10-17 w2center). 같은 금액이면 먼저 온 것. 없으면 None(지어내지 않는다)
+    big = None
+    for r in rows:
+        a = _int(r.get('amount'))
+        if a > 0 and (big is None or a > big[0] or (a == big[0] and float(r.get('at') or 0) < big[1])):
+            big = (a, float(r.get('at') or 0), r.get('name') or '익명')
+    return {'건수': len(rows), '합계금액': sum(_int(r.get('amount')) for r in rows), '많이_쏜_사람': top,
+            '가장_큰': {'이름': big[2], '금액': big[0]} if big else None}
 
 
 def vip_list(tallies):
