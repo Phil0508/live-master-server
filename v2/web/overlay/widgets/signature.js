@@ -105,7 +105,11 @@ export function mount(root, lm, opts) {
         hideBanner();
         if (!opts.stage.alertOn('reaction_title')) return;
         let text;
-        if (it.skip_popup) {
+        if (it.source === 'dice') {
+            // 🎲 주사위 시그 — 누가 밟았는지만('밍밍 · 시그 칸 도착', 서버 dicegame 이 banner 에 실어 준다). 금액 · '업' 은 없다
+            //    (후원이 아니다 — 옛 reactionUpText · showReactionTitle(…, true, 0)). 시그니처 이름만 띄우면 누가 밟았는지 모른다.
+            text = String(it.banner || ((it.donator || '') + ' · 시그 칸 도착')).trim();
+        } else if (it.skip_popup) {
             text = String(it.title || '').trim();                    // 슬롯 당첨 — 시그니처 이름만(접미사 없음)
         } else {
             if ((parseInt(it.amount, 10) || 0) < BIG_DONATION_MIN) return;   // '@@업' 은 10만 원 이상만
@@ -116,7 +120,7 @@ export function mount(root, lm, opts) {
             text = name + (typeof sfx === 'string' ? sfx : '업');          // 옛 reaction_title_suffix(비우면 이름만)
         }
         if (!text) return;
-        const t = tier(it.amount);
+        const t = tier(it.source === 'dice' ? 0 : it.amount);        // 🎲 주사위 시그는 금액 등급 없이(옛 것도 0 으로 그렸다)
         banner.classList.remove('tier-2', 'tier-3', 'tier-4');
         if (t.level >= 4) banner.classList.add('tier-4');
         else if (t.level >= 3) banner.classList.add('tier-3');
