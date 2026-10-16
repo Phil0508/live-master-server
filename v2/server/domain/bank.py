@@ -10,6 +10,7 @@
                                     답 {status, added, cmds} — cmds 는 조종실이 넣어 둔 명령(한 번만 넘긴다)
   GET  /api/bank/inbox              (로그인) 아직 안 쓴 입금 · 숨긴 입금(최근 10) · 확장 연결 상태 · key_set
   POST /api/bank/inbox/{id}/{act}   (로그인) used(송출함 · {name}) · dismiss(숨김) · restore(되살림)
+  POST /api/bank/dupcheck           (로그인) 보내기 전 '이미 넣은 입금 같아요' 판정 {id, name, amount, ledger} → {warns} (10-17 · 읽기만)
   GET  /api/bank/key                (로그인) 확장 · 폰 앱에 붙여 넣을 열쇠(없으면 만든다) · POST /api/bank/key/reset 새 열쇠
   GET  /api/bank/ext                (로그인) 🪞 조종실 거울 — 확장이 마지막 신호에 실어 보낸 상자 · 기다리는 명령 · 미처리 수 · 가장 새 카드
   POST /api/bank/ext/cmd            (로그인) 조종실 → 확장 명령 {t: enable(on) · interval(sec 20/30/60) · rebase · press, source?}
@@ -520,6 +521,82 @@ async def bank_inbox_act(req, bus, authed, answer):
             _rt(bus)['donors']['set'].add(nm)      # 같은 방송에서 다시 보내면 바로 알아본다(대기함 배정 전이라도)
     await bus.run('bank.sync', {}, by='http', authed=True)
     return {'status': 'success'}
+
+
+# ── '이미 넣은 입금' 판정(대표님 10-17) ──────────────────────
+# 후원 콘솔에서 계좌 입금 카드를 [채우기] → [송출] 할 때, 보내기 **전에** 조종실이 묻는다.
+#   sent_id       이 입금(카드 번호)을 이미 송출했다 — 장부에 manual_bank_<번호> 줄이 있거나 카드가 '씀' 이다
+#   same_recent   최근 30분 안에 같은 이름 · 같은 금액 장부 줄이 있다(투네이션으로도 들어왔거나 손으로 이미 넣었을 때)
+#   same_card     다른 계좌 입금 카드(같은 금액 · 같은 입금자)를 30분 안에 이미 송출했다 — 폰 앱 · 은행 확장이 같은 입금을 따로 잡으면 번호가 다르다
+#   no_ledger_big '장부에 넣기' 를 끈 채 큰 금액(5만 원 이상) — 시그니처만 나가고 장부 · 대기함에 안 들어간다
+# ⚠️ 막지 않는다 — 조종실이 '그래도 보낼까요?' 를 한 번 묻고 대표님이 정한다. ⚠️ 답에 실명(holder)은 넣지 않는다.
+DUP_WINDOW_SEC = 30 * 60
+NO_LEDGER_BIG = 50_000
+
+
+def _hhmm(ts):
+    try:
+        return time.strftime('%H:%M', time.localtime(float(ts)))
+    except Exception:
+        return ''
+
+
+def _norm(s):
+    return ' '.join(str(s or '').split())
+
+
+def dup_warns(store, iid, name, amount, ledger, now=None):
+    """보내기 전 판정 → [{code, text}] (비었으면 그냥 보낸다). 읽기만 한다."""
+    now = time.time() if now is None else float(now)
+    db = _db(store)
+    out = []
+    iid = str(iid or '')
+    name = _norm(name)
+    try:
+        amount = int(amount)
+    except (TypeError, ValueError):
+        amount = 0
+    card = _item(store, iid) if iid else None
+    mine = 'manual_bank_' + iid if iid else ''
+    if iid:
+        like = mine.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '\\_%'      # manual_bank_<번호>_2 (×N)
+        r = db.execute("SELECT at FROM donations WHERE tx_id = ? OR tx_id LIKE ? ESCAPE '\\' ORDER BY at DESC LIMIT 1", (mine, like)).fetchone()
+        if r:
+            out.append({'code': 'sent_id', 'text': '이 입금은 %s 에 이미 송출해서 장부에 들어가 있어요.' % _hhmm(r['at'])})
+        elif card and card['status'] == 'used':
+            done = db.execute('SELECT done_at FROM bank_inbox WHERE id = ?', (iid,)).fetchone()
+            out.append({'code': 'sent_id', 'text': '이 입금은 %s 에 이미 송출했어요(장부에 넣기 없이).' % _hhmm((done['done_at'] if done else None) or now)})
+    if amount > 0 and name:
+        rows = [dict(r) for r in db.execute('SELECT tx_id, at, name FROM donations WHERE amount = ? AND at >= ? ORDER BY at DESC',
+                                            (amount, now - DUP_WINDOW_SEC))]
+        rows = [r for r in rows if _norm(r['name']) == name and not (mine and str(r['tx_id'] or '').startswith(mine))]
+        if rows:
+            tx = str(rows[0]['tx_id'] or '')
+            where = '투네이션' if tx.startswith('toon_') else ('계좌 입금' if tx.startswith('manual_bank_') else '손으로 넣은 후원')
+            more = ' 외 %d건' % (len(rows) - 1) if len(rows) > 1 else ''
+            out.append({'code': 'same_recent', 'text': '30분 안에 같은 이름 · 같은 금액이 장부에 있어요 — %s %s원 · %s %s%s.'
+                        % (name, format(amount, ','), _hhmm(rows[0]['at']), where, more)})
+    if card and amount > 0 and not any(w['code'] == 'same_recent' for w in out):
+        sql = ("SELECT done_at FROM bank_inbox WHERE status = 'used' AND id != ? AND amount = ? AND done_at >= ?"
+               " AND ((holder != '' AND holder = ?) OR (name != '' AND name = ?)) ORDER BY done_at DESC LIMIT 1")
+        r = db.execute(sql, (iid, amount, now - DUP_WINDOW_SEC, card['holder'] or '', card['name'] or '')).fetchone()
+        if r:
+            out.append({'code': 'same_card', 'text': '같은 금액 · 같은 입금자의 다른 계좌 입금 카드를 %s 에 이미 송출했어요'
+                        '(폰 앱과 은행 확장이 같은 입금을 따로 잡았을 수 있어요).' % _hhmm(r['done_at'])})
+    if not ledger and amount >= NO_LEDGER_BIG:
+        out.append({'code': 'no_ledger_big', 'text': "'장부에 넣기' 가 꺼져 있어요 — %s원인데 시그니처만 나가고 장부 · 대기함 · 후원 순위에는 안 들어가요."
+                    % format(amount, ',')})
+    return out
+
+
+@route('/api/bank/dupcheck')
+async def bank_dupcheck(req, bus, authed, answer):
+    """(로그인) {id, name, amount, ledger} → {warns:[{code, text}]} — 보내기 전 '이미 넣은 것 같아요' 판정. 아무것도 바꾸지 않는다."""
+    bad = _need(req, authed)
+    if bad:
+        return bad
+    b = await _body(req)
+    return {'status': 'success', 'warns': dup_warns(bus.store, b.get('id'), b.get('name'), b.get('amount'), bool(b.get('ledger')))}
 
 
 @route('/api/bank/ext', methods=('GET',))
