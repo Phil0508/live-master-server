@@ -270,3 +270,50 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 머리줄 '계좌' 점 · 계좌 띠(끊김 빨강 / 새 입금 초록 25초, **소리 없음**) — bankext.js(alarm.js 점 묶음 옆). 시스템 탭 거울 · 폰 앱 QR — panels/ops/bankmirror.js.
 계산은 bankcore.js(화면 안 만짐 → node 검사). tabs.js 에 탭 배지(`badge(slices) → 글자`)를 더했다. 검사: test_bank · test_bank_js.
 백업: v2/tools/backup_db.py 는 백업본에서 bank_inbox · bank_meta 를 비운다(scrub_private · secure_delete + VACUUM) — 옛 프로그램은 실명 든 bank_inbox.json 을 36시간만 두고 백업하지 않았다. 되살린 뒤엔 확장 · 폰이 다음 신호부터 다시 채운다.
+## 10-17 이사 2차 — w2races
+🏃 퇴근빵 · 🔥 지옥탈출을 **무대(show.stage)에서 뺐다** — 이제 늘 붙는 칸이다. 대표님 말 '다른 게임을 켜면 꺼진다'의 원인은 무대가 한 번에 하나라서였다
+(대결 · 주사위 · 시그뒤집기 · 핀볼 · 퀴즈가 무대를 가져가면 끝나도 안 돌아왔다). 진행(기록 · 셈 · 카드)은 원래 이어졌고, 보이기만 무대에 묶여 있었다.
+
+| 조각 | 칸 | 뜻 |
+|---|---|---|
+| home | on | 퇴근빵 진행 + 방송판에 보임. 무대를 안 건드린다. **방송 시작 · 끝에 꺼진다**(목표 goals 는 남김 — 옛 2fa794e) |
+| hell | on · **shown** | on = 세는 중, shown = 방송판에 보임. `hell.start` 가 둘 다 켠다(무대 안 건드림) |
+
+명령(새것): `hell.show {on}` 방송판에서 내리기 / 다시 띄우기(셈 · 카드는 계속) · `hell.resume` 끝낸 판을 같은 기준점으로 이어서.
+`hell.off` 는 '끝내기'(on · shown 끔, 기록은 남김). 이름 그대로: home.on · home.goal · hell.start · hell.goal · offwork.send.
+
+**옛 무대 이름 바꿔 받기**(show.py `RACE_STAGES` · `RACE_ON` — races.py 가 채운다):
+- `show.stage {stage:'hell'}` → hell 보이기(끝낸 판이면 이어서 — 옛 /api/show 와 같다, 시작 전이면 409 '먼저 시작'). `'home_race'` → home.on. **무대는 그대로**(대결이 안 내려간다). 답에 `race`.
+- `set_stage(ctx, 'hell' | 'home_race')` 를 누가 불러도 같은 바꿔 받기.
+- 순서표 단계(settings2 `apply_cue`): 무대가 hell/home_race 면 그 판 스위치를 켜고(시작 전 지옥이면 실패 없이 넘어감) 무대는 비운다.
+  `cue_stage` 는 옛 이름을 그대로 돌려준다(옛 슬롯 옮기기에서 잃지 않게). 어느 단계를 불러도 두 판은 안 꺼진다. '지금 화면 저장'(snap_now)은 두 판을 안 담는다.
+- 저장본 옮겨 담기(races `_migrate_stage`, bus.AFTER — 다음 명령 때 한 번): 무대 · ret 에 남은 hell/home_race 를 비우고 스위치로.
+  hell 에 shown 칸이 없는 10-17 전 저장본은 그때 무대에 있던 판만 보이게(옛 보이기 그대로 — 무대에 없던 '켜짐' 퇴근빵은 끈다).
+- 스트림덱: v2 스트림덱 주소에는 무대 단추가 없다(clip · skip · pause · neon) — 옛 단추가 show.stage 를 부르면 위 규칙.
+
+**다시 판정 `_recheck` 하나**(races.py) — 점수(AFTER_SCORE) · 되돌리기(ON_UNDO) · 번외 판 시작/끝/취소 · 선수 넣기/빼기/이름(ON_ROSTER) · hell.goal · home.goal · home.on · hell.start/resume:
+① 목표 밑으로 내려간 사람(또는 목표 0)은 escaped/notified 에서 빼고 **아직 안 보낸** off_work 카드를 걷는다(꺼져 있어도 — 거짓 축하 방지)
+② 목표(>0) 이상인데 없는 사람 → 카드(켜져 있을 때만). 목표 0 = 목표 없음. 명단에서 빠진 사람은 손대지 않는다.
+- 이름 바꾸기(ON_RENAME): hell.base · goals · escaped · home.goals · notified · 대기함 카드 이름을 같이 옮긴다.
+- 번외 판 점수는 **옛 것과 같게 본판만** 센다 — 번외 판을 [끝]내 본판에 합쳐지면 그 자리에서 판정(옛 것은 다음 화면 갱신 때, v2 전엔 다음 점수 때).
+- 등수 · 진행은 점수(score) 순(옛 것 그대로, 대표님 10-17). 목표 숫자는 0~10만, inf · NaN · 글자는 400.
+
+방송판:
+- `widgets/games/race_view.js` 한 곳(node 검사 가능)이 kind · shape 를 정한다 — 지옥(on 이고 shown, 값 없으면 보임) > 퇴근(on). **둘 다 켜지면 지옥 먼저**(대표님 10-17).
+  | 무대 | 모양 |
+  |---|---|
+  | 없음 · 대결 · 룰렛 · 슬롯 · 퀴즈(8명까지) | 큰 판(그대로, 1038,167 tr) — 룰렛 · 슬롯은 몇 초 위에 덮인다 |
+  | 시그뒤집기 · 핀볼 · 퀴즈 9명 이상 | 얇은 판 `.hr-wrap.thin` — 제목 + '탈출 n/m' + 5초마다 한 사람(167~290). 지옥 불은 끈다 |
+  | 주사위 | 숨김(대표님 10-17 — 칩 아님) |
+  시그니처가 나오는 동안은 지금처럼 숨는다(hideInReaction).
+- 층 homeRace · hell **15 → 13**(후원 순위 12 < 판 13 < 룰렛 어둡게 14 < 게임판 15). 이제 게임판과 같이 뜨므로 게임판이 늘 위.
+- 판이 보이면(큰 · 얇은) game-home/game-hell 모드 → 점수판 · **후원 순위 · 최고 후원**이 비킨다(modes.css). 모금함 깃발은 판과 실제로 겹칠 때만
+  `race-jar-home/hell` 모드로 비킨다(위젯이 상자를 잰다 — 깃발을 오른쪽으로 옮겼으면 그대로).
+- 계좌 · 안내 전광판: `account.js accountAway(lm)` = 무대(AWAY_STAGES 주사위 · 룰렛 · 슬롯 · 시그뒤집기) · 번외 판 · **race_view 가 판을 띄움** → 머리 줄(옛 75644ae, 계좌 띠 겹침 B3).
+  `AWAY_SLICES`(show · players · hell · home)가 바뀌면 다시 본다. notice.js 도 같은 함수.
+
+조종실(이 두 파일만): `panels/games/races.js` — [🔥 시작/처음부터 다시] · [화면에서 내리기 / 👁 다시 띄우기](hell.show) · [끝내기 / 이어서 하기](hell.off · hell.resume),
+알약 '진행 중 · 방송판에 보임 / 숨김 · 끝남 · 기록 남음', 주사위 · 지옥 뒤 숨는 때 한 줄. `okToTake`(무대 뺏기 확인)는 뺐다 — 무대를 안 쓴다.
+`panels/ops/stage.js` — 무대 단추에서 두 판을 빼고 '늘 붙는 판' 줄(data-race home/hell 칩 → home.on · hell.show). STAGE_NAME 에는 옛 이름표를 남겼다(순서표 칩 이름).
+검사: `v2/tests/test_races.py`(21 — 조사 재현 사례 undo · goalraise · goalzero · extra · rename · stage · restart · neg + 옛 무대 이름 · 순서표 · 저장본 옮겨 담기)
+· `v2/tests/js/races_check.mjs`(race_view · 계좌 비키기 · 층 순서 — node).

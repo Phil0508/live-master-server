@@ -418,6 +418,10 @@
 .hr-goal-count  { margin-left: auto; color: var(--tx-2); font-weight: 900; font-size: 27px; font-variant-numeric: tabular-nums; }
 @keyframes hrGoalSwap { 0% { opacity: 0; transform: translateY(9px); } 100% { opacity: 1; transform: translateY(0); } }
 .home-race-goal-line.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+/* 얇은 판(race_view.js 'thin') — 시그뒤집기 · 핀볼(아래 300~)이 떠 있는 동안: 제목 + 5초마다 한 사람 한 줄(≈120px, 167~290) */
+.hr-wrap.thin .home-race-row:not(.hr-cur), .hr-wrap.thin .home-race-goal-line { display: none !important; }
+.hr-wrap.thin .home-race-row.hr-cur { border-bottom: none; }
+.hr-wrap.thin .home-race-row.swap { animation: hrGoalSwap 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 
 /* ═══ 8. 🔥 지옥탈출 — 퇴근빵 판에 지옥 옷. 테마를 안 따른다(어떤 테마든 지옥은 지옥) ═══
    ⚠️ 테마 규칙(#canvas.themed .home-race-title = 아이디 하나 + class 둘)보다 세게 — '#canvas .hr-wrap.hell …'(아이디 하나 + class 셋)로 잡는다

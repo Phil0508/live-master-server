@@ -11,7 +11,7 @@
    - 계좌가 머리 줄로 올라와 있으면(게임판이 점수판 자리를 쓰는 동안) 오른쪽으로 물러난다(654 · 폭 388) — 옛 syncAccountPos.
    - 띠가 내려가 있을 때는 칸이 자리를 안 차지한다(게이지 금액 딱지가 비킬 판으로 안 센다 — 옛 placeGoalTip 과 같다). */
 import { serverNow, startClock } from './clock.js';
-import { AWAY_STAGES } from './account.js';
+import { accountAway, AWAY_SLICES } from './account.js';
 
 const DONOR_SHOW = 8;
 const FULL_W = 1068, AWAY_X = 648, AWAY_W = 388;     // 칸이 6 에 있으니 654 - 6 = 648
@@ -61,8 +61,7 @@ export function mount(root, lm, opts) {
 
     function render() {
         // 계좌가 머리 줄에 올라와 있으면 오른쪽으로 물러난다(띠가 내려가 있어도 자리는 미리)
-        const sh = lm.get('show') || {};
-        const away = AWAY_STAGES.includes(sh.stage) || !!(lm.get('players') || {}).extra_active;
+        const away = accountAway(lm);
         if (away !== lastAway) {
             lastAway = away;
             bar.style.setProperty('--nb-x', (away ? AWAY_X : 0) + 'px');
@@ -125,7 +124,7 @@ export function mount(root, lm, opts) {
     }
 
     const safe = () => { try { render(); } catch (e) { console.error('[안내 전광판] 갱신 실패 — 방송은 계속됩니다:', e); } };
-    ['notice', 'tallies', 'show', 'players', 'session'].forEach(k => lm.on(k, safe));
+    ['notice', 'tallies', 'session', ...AWAY_SLICES].forEach(k => lm.on(k, safe));
     // 시계로 판단하므로 상태가 안 와도 스스로 때를 안다(옛 것과 같은 0.25초)
     setInterval(safe, 250);
     // 글꼴이 늦게 받아지면 글자 폭이 바뀐다 — 다시 잰다

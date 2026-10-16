@@ -1,5 +1,6 @@
 /* 📺 무대 — 방송판에 무엇을 띄울지(옛 조종실 '방송 화면' 칸 · 서버 show.py).
    무대(한 번에 하나) → show.stage {stage|null}
+   늘 붙는 판(퇴근빵 · 지옥탈출 — 10-17 무대에서 뺐다, 다른 판이 올라와도 안 내려간다) → home.on {on} · hell.show {on}
    고정 자리(늘 떠 있는 것) → show.hud {key, on}   ⚠️ 모금함은 fundjar.enabled 도 같이 맞춘다(setJar)
    알림(뜨는 것) → show.alert {key, on}
    테마(방송판 옷) → look.theme {theme} — 이름은 옛 overlay.html THEMES 14벌 + 기본
@@ -8,8 +9,10 @@ import { h, sigOf, once, setJar, blockHead, fill, switchEl } from './common.js';
 import { mountCues } from './cues.js';
 
 export const STAGES = [['', '없음'], ['match', '대결'], ['pinball', '핀볼'], ['dicegame', '주사위'], ['siggame', '시그뒤집기'],
-    ['roulette', '룰렛'], ['slot', '슬롯'], ['home_race', '퇴근빵'], ['hell', '지옥탈출'], ['quiz', '퀴즈']];
-export const STAGE_NAME = Object.fromEntries(STAGES.filter(s => s[0]));
+    ['roulette', '룰렛'], ['slot', '슬롯'], ['quiz', '퀴즈']];
+// 옛 이름표 — 옛 순서표 단계에 남은 무대 'home_race' · 'hell' 도 이름으로 보여 준다(cues.js)
+export const STAGE_NAME = Object.assign(Object.fromEntries(STAGES.filter(s => s[0])), { home_race: '퇴근빵', hell: '지옥탈출' });
+export const RACES = [['home', '🏃 퇴근빵'], ['hell', '🔥 지옥탈출']];
 export const HUDS = [['ranking', '점수판'], ['gauge', '게이지'], ['account', '계좌'], ['notice', '공지'],
     ['donor_rank', '후원 순위'], ['sig_tally', '시그 순위'], ['best', '최고 후원'], ['fundjar', '모금함']];
 export const ALERTS = [['popup', '후원 팝업'], ['takeover', '1등 탈환'], ['reaction_title', '시그 제목'], ['small', '1천~9천 알림']];
@@ -18,9 +21,12 @@ export const THEMES = [['default', '기본 (금색 유리판)'], ['rose', '👑 
     ['chuseok', '🌕 추석'], ['hospital', '🏥 병원'], ['halloween', '🎃 할로윈'], ['concert', '💜 콘서트'], ['sports', '🏟️ 스포츠 중계'],
     ['news', '📰 뉴스 속보'], ['arcade', '👾 아케이드'], ['mintchoco', '🍫 민트초코'], ['y2k', '💿 Y2K'], ['hanji', '🏮 한지·먹'], ['winter', '❄️ 첫눈']];
 
+// 지옥탈출 판이 방송판에 보이나(진행 중 + 보이기) — shown 값이 없는 옛 저장본은 보임
+function raceShown(hl) { return !!(hl && hl.on && hl.shown !== false); }
+
 export function mountStage(el, ctx) {
     const sum = h('p', { class: 'ops-now' });
-    const stageBtns = {}, hudBtns = {}, alertBtns = {};
+    const stageBtns = {}, hudBtns = {}, alertBtns = {}, raceBtns = {};
     const seg = h('div', { class: 'ops-seg', role: 'group', 'aria-label': '무대' }, STAGES.map(([k, n]) => {
         const b = h('button', { type: 'button', class: 'ops-segb', 'data-stage': k || 'none', 'aria-pressed': 'false',
             onclick: () => once(b, () => setStage(k)) }, n);
@@ -35,6 +41,8 @@ export function mountStage(el, ctx) {
         return b;
     };
     const hudRow = h('div', { class: 'ops-chips' }, HUDS.map(([k, n]) => chip(hudBtns, 'hud', k, n)));
+    const raceRow = h('div', { class: 'ops-chips' }, RACES.map(([k, n]) => chip(raceBtns, 'race', k, n)));
+    const raceNote = h('p', { class: 'ops-hint' });
     const alertRow = h('div', { class: 'ops-chips' }, ALERTS.map(([k, n]) => chip(alertBtns, 'alert', k, n)));
     const themeSel = h('select', { class: 'ops-select', 'aria-label': '방송판 테마' }, THEMES.map(([k, n]) => h('option', { value: k }, n)));
     themeSel.addEventListener('change', async () => {
@@ -62,7 +70,8 @@ export function mountStage(el, ctx) {
     el.append(
         sum,
         cues.el,
-        h('section', { class: 'ops-blk' }, blockHead('무대', '한 번에 하나 — 올리면 다른 판은 내려가요'), seg, retNote),
+        h('section', { class: 'ops-blk' }, blockHead('무대', '한 번에 하나 — 올리면 다른 판은 내려가요 (퇴근빵 · 지옥탈출은 안 내려가요)'), seg, retNote),
+        h('section', { class: 'ops-blk' }, blockHead('늘 붙는 판', '다른 게임을 켜도 같이 떠 있어요 — 주사위판 · 시그니처 동안만 잠깐 숨어요'), raceRow, raceNote),
         h('section', { class: 'ops-blk' }, blockHead('고정 자리', '방송판에 늘 떠 있는 것 — 눌러서 켜고 끄기'), hudRow),
         h('section', { class: 'ops-blk' }, blockHead('알림', '들어올 때 잠깐 뜨는 것'), alertRow,
             h('div', { class: 'ops-row wrap' }, sfxSw.el,
@@ -77,6 +86,14 @@ export function mountStage(el, ctx) {
 
     async function toggle(kind, k, n) {
         const s = (ctx.slices.show) || {};
+        if (kind === 'race') {
+            // 🏃 퇴근빵 = home.on(보이기 + 셈) · 🔥 지옥탈출 = hell.show(보이기만 — 셈 · 카드는 계속). 지옥은 게임 탭에서 먼저 시작
+            const sl = ctx.slices || {};
+            const on = k === 'home' ? !(sl.home || {}).on : !raceShown(sl.hell);
+            const res = k === 'home' ? await ctx.run('home.on', { on }) : await ctx.run('hell.show', { on });
+            if (res.ok) ctx.toast(`${n} ${on ? '방송판에 띄웠어요' : '내렸어요'}`, on ? 'ok' : 'info');
+            return;
+        }
         if (kind === 'hud') {
             const on = !(s.hud || {})[k];
             const res = k === 'fundjar' ? await setJar(ctx, on) : await ctx.run('show.hud', { key: k, on });
@@ -95,7 +112,8 @@ export function mountStage(el, ctx) {
         fxSw.set((slices.look || {}).fx !== false);        // ✨ 테마 연출 — 값이 없으면 켜짐(옛 theme_fx_enabled !== false)
         const s = slices.show || {};
         const theme = (slices.look || {}).theme || 'default';
-        const sig = sigOf(s.stage, s.ret, s.hud, s.alerts, theme);
+        const hl = slices.hell || {}, hm = slices.home || {};
+        const sig = sigOf(s.stage, s.ret, s.hud, s.alerts, theme, !!hm.on, !!hl.on, hl.shown, Object.keys(hl.goals || {}).length);
         if (sig === lastSig) return;
         lastSig = sig;
         const cur = s.stage || '';
@@ -105,6 +123,13 @@ export function mountStage(el, ctx) {
         retNote.textContent = s.ret ? `잠깐 올라온 판 — 끝나면 ${STAGE_NAME[s.ret] || ''}(으)로 돌아가요` : '';
         retNote.hidden = !s.ret;
         Object.entries(hudBtns).forEach(([k, b]) => { const on = !!(s.hud || {})[k]; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        const raceOn = { home: !!hm.on, hell: raceShown(hl) };
+        Object.entries(raceBtns).forEach(([k, b]) => { const on = raceOn[k]; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
+        const hellReady = Object.keys(hl.goals || {}).length > 0;
+        raceBtns.hell.disabled = !hellReady;
+        raceNote.textContent = !hellReady ? '지옥탈출은 게임 탭 [🔥 지옥탈출 시작] 을 먼저 눌러야 띄울 수 있어요'
+            : (raceOn.hell && raceOn.home) ? '둘 다 켜져 있으면 지옥탈출이 먼저 보여요 — 퇴근빵 셈 · 카드는 계속' : '';
+        raceNote.hidden = !raceNote.textContent;
         Object.entries(alertBtns).forEach(([k, b]) => { const on = (s.alerts || {})[k] !== false; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
         const want = theme === 'pink' ? 'rose' : theme;      // 'pink' = 뺀 옛 네온 핑크
         const known = THEMES.some(t => t[0] === want);
