@@ -4,9 +4,88 @@
    ⚠️ v2 는 방송을 끝내도 장부를 지우지 않는다 — 후원마다 방송 회차가 적혀 있어 회차로 골라 본다.
    다시 불러오기: 대기함 · 집계 · 점수 기록 조각이 바뀌면(새 후원 · 배정 · 되돌리기) 1초 모아서 한 번.
    탭이 닫혀 있으면 아무것도 안 한다(tabs.js 가 열린 탭만 부른다).
-   목록은 줄마다 한 번 만들고, 바뀐 줄만 다시 쓴다(2,000줄까지 받아 100줄씩 보여 준다). */
+   목록은 줄마다 한 번 만들고, 바뀐 줄만 다시 쓴다(2,000줄까지 받아 100줄씩 보여 준다).
+   📥 엑셀(CSV) 내려받기 — 이번 방송 후원 · 이번 방송 점수 기록 · 전체 후원(모든 회차) · 지난 방송 한 회차(후원 · 점수).
+      옛 지난 방송 후원내역 [엑셀](features/archive.py)과 같은 약속: 한국 시각 · 한글 안 깨지게 BOM · 엑셀 수식 막기(csv.js).
+      서버는 안 고쳤다 — 위 GET 들을 그대로 읽어 이 PC 에서 파일을 만든다. */
 import { h, won, num, signed } from '../../util.js';
 import { getJSON, sessionLabel, hms } from './api.js';
+import { donationsCsv, scoresCsv, sessionStamp, fileName, kst } from './csv.js';
+
+const CSV_MAX = 2000;           // 서버가 한 번에 주는 끝(/api/ledger · /api/scores limit)
+
+function saveCsv(text, name) {
+    const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    const a = h('a', { href: URL.createObjectURL(blob), download: fileName(name) });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/** 엑셀로 내려받기 — what: 'don' | 'score' | 'all', session: 회차 번호 · 'current' */
+export async function downloadCsv(ctx, what, session) {
+    const cur = (ctx.slices.session || {}).id || '';
+    const sid = session === 'current' ? cur : session;
+    const q = encodeURIComponent(session || 'current');
+    if (what !== 'all' && !session) {          // '방송 밖' 회차 — 서버 주소로는 고를 수 없다(빈 회차 = 이번 방송으로 읽힌다)
+        ctx.toast('방송 밖(시작 전 · 끝난 뒤) 기록은 엑셀로 따로 못 받아요', 'info');
+        return false;
+    }
+    try {
+        if (what === 'all') {
+            const j = await getJSON('/api/sessions');
+            const list = (j.sessions || []).filter(s => s.session && (s.n || 0) > 0);
+            let rows = [], cut = 0;
+            for (const s of list) {
+                const r = await getJSON('/api/ledger?session=' + encodeURIComponent(s.session) + '&limit=' + CSV_MAX);
+                const got = r.rows || [];
+                if (got.length >= CSV_MAX) cut++;
+                rows = rows.concat(got);
+            }
+            if (!rows.length) { ctx.toast('내려받을 후원 기록이 없어요', 'info'); return false; }
+            saveCsv(donationsCsv(rows), '후원내역_전체_' + kst(Date.now()).slice(0, 10));
+            ctx.toast(`전체 후원 ${num(rows.length)}건(${num(list.length)}회차)을 엑셀로 받았어요` + (cut ? ` — ⚠️ ${cut}회차는 ${num(CSV_MAX)}건까지만` : ''), cut ? 'info' : 'ok');
+            return true;
+        }
+        if (what === 'score') {
+            const r = await getJSON('/api/scores?session=' + q + '&limit=' + CSV_MAX);
+            const rows = r.rows || [];
+            if (!rows.length) { ctx.toast('내려받을 점수 기록이 없어요', 'info'); return false; }
+            saveCsv(scoresCsv(rows), '점수기록_' + sessionStamp(sid));
+            ctx.toast(`점수 기록 ${num(rows.length)}줄을 엑셀로 받았어요` + (rows.length >= CSV_MAX ? ` — ⚠️ ${num(CSV_MAX)}줄까지만` : ''), 'ok');
+            return true;
+        }
+        const r = await getJSON('/api/ledger?session=' + q + '&limit=' + CSV_MAX);
+        const rows = r.rows || [];
+        if (!rows.length) { ctx.toast('내려받을 후원 기록이 없어요', 'info'); return false; }
+        saveCsv(donationsCsv(rows), '후원내역_' + sessionStamp(sid));
+        ctx.toast(`후원 ${num(rows.length)}건을 엑셀로 받았어요` + (rows.length >= CSV_MAX ? ` — ⚠️ ${num(CSV_MAX)}건까지만` : ''), 'ok');
+        return true;
+    } catch (e) {
+        ctx.toast('엑셀을 못 만들었어요 — ' + e.message, 'err');
+        return false;
+    }
+}
+
+/* [⬇ 엑셀] 단추 묶음 — 누르는 동안 잠깐 잠근다(두 번 받지 않게) */
+function csvMenu(ctx, choices) {
+    const pop = h('div', { class: 'rc-csv-pop' });
+    const det = h('details', { class: 'rc-csv' }, h('summary', { class: 'btn sm rc-csv-btn' }, '⬇ 엑셀(CSV)'), pop);
+    for (const [label, what, session] of choices) {
+        const b = h('button', { type: 'button', class: 'btn sm rc-csv-go' }, label);
+        b.addEventListener('click', async () => {
+            if (b.disabled) return;
+            b.disabled = true;
+            await downloadCsv(ctx, what, session);
+            b.disabled = false;
+            det.open = false;
+        });
+        pop.append(b);
+    }
+    pop.append(h('p', { class: 'muted small rc-csv-note' }, '한국 시각 · 엑셀에서 바로 열려요(한글 안 깨짐)'));
+    return det;
+}
 
 const PAGE = 100;
 const REFRESH_MS = 1000;
@@ -315,7 +394,8 @@ function sessionsView(ctx) {
         detailBox.replaceChildren(
             h('div', { class: 'rc-dhead' }, back,
                 h('div', { class: 'rc-dtitle' }, h('b', null, sessionLabel(sid, s.first_at)),
-                    h('span', { class: 'muted small' }, `${num(s.n || 0)}건 · ${won(s.total || 0)}`))),
+                    h('span', { class: 'muted small' }, `${num(s.n || 0)}건 · ${won(s.total || 0)}`)),
+                csvMenu(ctx, [['이 회차 후원', 'don', sid], ['이 회차 점수 기록', 'score', sid]])),
             h('div', { class: 'rc-seg sm', role: 'group', 'aria-label': '무엇을 볼까' }, segDon, segSc),
             body);
         detail = { sid, dv, sv, mode: () => mode };
@@ -348,7 +428,8 @@ export function mountLedger(el, ctx) {
     const seg = h('div', { class: 'rc-seg', role: 'group', 'aria-label': '장부 고르기' });
     const label = h('span', { class: 'muted small rc-sess' });
     const body = h('div', { class: 'rc-body' });
-    el.append(h('div', { class: 'sec-head' }, h('h2', null, '📒 장부'), label), seg, body);
+    const csv = csvMenu(ctx, [['이번 방송 후원', 'don', 'current'], ['이번 방송 점수 기록', 'score', 'current'], ['전체 후원(모든 회차)', 'all', '']]);
+    el.append(h('div', { class: 'sec-head' }, h('h2', null, '📒 장부'), h('span', { class: 'rc-headr' }, label, csv)), seg, body);
 
     let mode = 'cur', sid = null;
     let cur = null, scores = null;

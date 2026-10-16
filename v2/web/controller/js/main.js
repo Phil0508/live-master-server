@@ -29,8 +29,9 @@ import { mountCastBox } from './castbox.js'; // 💬 화면에 한마디 · ⬆ 
 import { mountKpis } from './kpis.js';         // 🔢 숫자 카드 4장 · 💱 정산 차액(랭킹 탭)
 import { mountStagebar } from './stagebar.js'; // 🎬 무대 줄 · 순서표 · 진행 중인 판 단추(탭을 바꿔도 남는다)
 import { mountDrawer } from './drawer.js';   // [C] 🗄 오른쪽 칸 자리(되돌리기 · 콘솔 미니) · 📱 폰 아래 서랍
-// [D] import { mountCmdk } from './cmdk.js';
-// [D] import { mountRxSwitch } from './rxswitch.js';
+import { mountCmdk } from './cmdk.js';                 // [D] import { mountCmdk } — ⌨️ Ctrl+K 빠른 명령(w2feat 채움)
+import { mountRxSwitch } from './rxswitch.js';         // [D] import { mountRxSwitch } — 🙈 조종 줄 리액션 모드 스위치(w2feat 채움)
+import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BGM ▶ 가 BGM 탭을 미리 그리게(ctx.tabs.prepare)
 
 const lm = window.LM.connect({ kind: 'controller' });
 let status = 'connecting', snapped = false, slices = {}, scheduled = false;
@@ -63,8 +64,9 @@ const views = {
 ctx.tabs = views.tabs;
 safe(() => mountPhone(ctx));               // 📱 phone.js — 넘어져도 조종실은 그대로
 safe(() => mountCastBox(ctx));             // 💬 castbox.js — 넘어져도 조종실은 그대로
-// [D] safe(() => mountCmdk(ctx));
-// [D] safe(() => mountRxSwitch($('ctl-rx'), ctx));
+safe(() => mountCmdk(ctx));                // [D] safe(() => mountCmdk(ctx)); — ⌨️ Ctrl+K(w2feat 채움)
+safe(() => mountRxSwitch($('ctl-rx'), ctx)); // [D] 🙈 리액션 모드 스위치(#ctl-rx)
+safe(() => bindBgm(ctx));                  // [D] 🎵 BGM — 조종 줄 ▶ · 제목 누르기
 
 // 방송 중에만 그리는 칸 — 한 줄에 하나씩(다음 작업자가 자기 줄만 더한다)
 const LIVE = [

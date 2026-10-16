@@ -125,3 +125,30 @@ class Lights(Base):
         self.cmd('admin.import_old', state={'neon_speed': 0, 'theme_fx_enabled': True})
         self.assertEqual(self.L()['speed'], 1.5)
         self.assertIs(self.st()['look']['fx'], True)
+
+    # ── 🙈 수동 리액션 모드(조종 줄 스위치 — 대표님 10-17 "가끔 손으로 씀") ──
+    def test_manual_reaction_switch(self):
+        self.assertIs(self.L(auth=False)['manual'], False)                   # 처음엔 꺼짐 · 방송판(로그인 없음)도 받는다
+        c, r = self.cmd('lights.manual', on=True)
+        self.assertEqual((c, r['ok']), (200, True))
+        self.assertIs(self.L(auth=False)['manual'], True)
+        self.assertEqual(self.L()['color'], 'OFF')                           # 조명 색 · 아우디는 안 건드린다
+        c, r = self.cmd('lights.manual', on=True)                            # 두 번 눌러도 그대로(이미 켜짐)
+        self.assertTrue(r.get('already'))
+        self.cmd('lights.manual', on=False)
+        self.assertIs(self.L()['manual'], False)
+
+    def test_manual_needs_on_and_login(self):
+        self.assertEqual(self.cmd('lights.manual')[0], 400)                  # 켤지 끌지 안 적으면 거절
+        r = self.c.post('/api/cmd', json={'type': 'lights.manual', 'data': {'on': True}})
+        self.assertEqual(r.status_code, 401)                                 # 로그인 없이는 못 켠다
+        self.assertIs(self.L()['manual'], False)
+
+    def test_manual_off_at_end_and_kept_through_lights(self):
+        self.cmd('lights.manual', on=True)
+        self.cmd('lights.color', color='RAINBOW')
+        self.assertIs(self.L()['manual'], True)                              # 조명 단추를 눌러도 스위치는 그대로
+        self.cmd('session.end')
+        L = self.L()
+        self.assertIs(L['manual'], False)                                    # 방송 끝 → 꺼짐(다음 방송을 위젯이 숨은 채로 시작하지 않게)
+        self.assertEqual(L['color'], 'RAINBOW')                              # 조명 색은 방송을 넘겨도 남는다(옛 것과 같다)

@@ -2,13 +2,15 @@
      {intent}   빠른 질문 단추 · 상황판 칸 → 서버가 사실표로 바로 센 답(⚡ 서버 계산 — 0초 · 늘 맞다 · AI 가 붐벼도 된다)
      {question, messages}  글로 물은 것 → AI(🤖 AI). AI 가 꺼졌거나 붐비면 서버 계산으로 대신(⚡, 끝에 '(… — 서버 계산으로 답했어요)')
    답 밑에 늘 꼬리표 — '⚡ 서버 계산' · '🤖 AI' · 'ℹ️ 안내'(답 대신 까닭). '모름' 도 그대로 보여 준다(숨기지 않는다).
-   🗣️ 명령 꼴('하율 3점' · '슬롯 돌려' · '룰렛 돌려' · '대결 시작' · '건너뛰어' · '올클리어')은 AI 에게 안 보내고 바로 명령으로(옛 aiTryCommand).
+   🗣️ 명령 꼴('하율 3점' · '슬롯 돌려' · '룰렛 돌려' · '대결 시작' · '+1분' · '건너뛰어' · '올클리어' · '클립' · '다음 단계')은 AI 에게 안 보내고
+     바로 명령으로(옛 aiTryCommand) — 규칙은 commands.js(Ctrl+K 빠른 명령과 같이 쓴다).
      → AI 호출도, 분당 한도도 안 쓴다. 명령이 아니면 AI 에게 넘어간다 — 물어보는 건 여전히 AI 몫.
    한 번에 하나만 묻는다(답을 기다리는 동안 다른 단추 · 보내기는 잠깐 쉰다). */
-import { h, call, replyNodes, SRC, currentNames } from './common.js';
+import { h, call, replyNodes, SRC } from './common.js';
 import * as chat from './chatlog.js';
 import * as ap from './autopilot.js';
-import { okToTake, useLm } from '../games/common.js';
+import { useLm } from '../games/common.js';
+import { runCommand } from './commands.js';
 
 const HISTORY = 6;          // 서버는 마지막 6개만 쓴다
 
@@ -38,7 +40,8 @@ export function mountChat(ctx, board) {
     }
     const row = h('div', { class: 'ai-input-row' }, input, send);
     const hint = h('p', { class: 'ai-cmd-hint' }, '바로 하는 말: ', h('b', null, '하율 3점'), ' · ', h('b', null, '슬롯 돌려'), ' · ', h('b', null, '룰렛 돌려'),
-        ' · ', h('b', null, '대결 시작'), ' · ', h('b', null, '건너뛰어'), ' · ', h('b', null, '올클리어'), ' — AI 를 안 거치고 바로 해요');
+        ' · ', h('b', null, '대결 시작'), ' · ', h('b', null, '+1분'), ' · ', h('b', null, '건너뛰어'), ' · ', h('b', null, '올클리어'),
+        ' · ', h('b', null, '클립'), ' · ', h('b', null, '다음 단계'), ' — AI 를 안 거치고 바로 해요 (Ctrl+K 로 어디서든)');
 
     let busy = false;
     const nodes = new Map();          // 대화 줄 id → 요소
@@ -150,75 +153,12 @@ export function mountChat(ctx, board) {
         }
     }
 
-    /* ── 🗣️ 명령 꼴 — 옛 aiTryCommand ── 맞으면 true(AI 를 안 부른다) */
-    async function tryCommand(q) {
-        const slices = ctx.slices || {};
-        const said = msg => { chat.add('user', q); return chat.add('sys', msg); };
-        const done = (row, msg) => chat.update(row, { text: msg });
-
-        // '하율 3점' · '하율한테 3점 줘' · '하율 +3'
-        const m = q.match(/^([가-힣A-Za-z0-9]+?)\s*(?:한테|에게)?\s*\+?(\d+)\s*점?\s*(?:줘|주기|추가)?$/);
-        if (m) {
-            const P = slices.players || {};
-            const key = P.extra_active ? 'extra' : 'list';
-            const names = currentNames(slices);
-            const hit = names.filter(n => n.indexOf(m[1]) !== -1);
-            if (hit.length === 1) {
-                const nm = hit[0], pts = parseInt(m[2], 10);
-                const row = said(`⏳ ${nm} +${pts}점…`);
-                const res = await ctx.run('score.add', { name: nm, delta: pts, list: key }, { quiet: true });
-                done(row, res.ok ? `✔ ${key === 'extra' ? '[번외] ' : ''}${nm} +${pts}점 — 틀렸으면 맨 위 [되돌리기]` : `⚠️ 못 줬어요 — ${res.error || '서버 전송 오류'}`);
-                if (res.ok) ctx.toast(`${key === 'extra' ? '[번외] ' : ''}${nm} +${pts}점`, 'ok');
-                return true;
-            }
-            if (hit.length > 1) { said(`⚠️ '${m[1]}' 이(가) 여럿이에요: ${hit.join(', ')} — 이름을 정확히 적어 주세요`); return true; }
-            // 선수 이름이 아니면 질문으로 본다(예: '1등 3' 같은 말) — AI 에게 넘긴다
-        }
-        if (/^슬롯\s*(돌려|시작|고)?!?$/.test(q)) {
-            if (!(await okToTake(ctx, 'slot', '슬롯머신'))) { said('🎰 슬롯은 그대로 뒀어요'); return true; }
-            const row = said('🎰 슬롯을 돌려요…');
-            const r = await call('/api/slot/spin', {});
-            const w = r.data && r.data.winner;
-            done(row, r.ok ? `🎰 돌려요${w ? ` — 당첨 ${w.title || ''}` : ''}` : `⚠️ 못 돌렸어요 — ${(r.data && (r.data.message || r.data.error)) || '실패 (' + r.status + ')'}`);
-            return true;
-        }
-        if (/^룰렛\s*(돌려|시작|고)?!?$/.test(q)) {
-            if (!(await okToTake(ctx, 'roulette', '룰렛'))) { said('🎡 룰렛은 그대로 뒀어요'); return true; }
-            const row = said('🎡 룰렛을 돌려요…');
-            const res = await ctx.run('roulette.spin', {}, { quiet: true });
-            done(row, res.ok ? (res.already ? '🎡 이미 돌고 있어요' : '🎡 돌려요 — 룰렛 탭의 [정지!!] 로 세워요') : `⚠️ 못 돌렸어요 — ${res.error || '실패'}`);
-            return true;
-        }
-        const mt = q.match(/^(대결|타이머)\s*(시작|정지|스톱|멈춰)?$/);
-        if (mt) {
-            const tm = ((slices.match || {}).timer) || {};
-            const want = mt[2] ? (mt[2] === '시작' ? 'start' : 'pause') : (tm.running ? 'pause' : 'start');
-            if (want === 'start' && tm.running) { said('⚔️ 대결 타이머는 이미 돌고 있어요'); return true; }
-            if (want === 'pause' && !tm.running) { said('⚔️ 대결 타이머는 이미 멈춰 있어요'); return true; }
-            const row = said(want === 'start' ? '⚔️ 대결 타이머를 켜요…' : '⚔️ 대결 타이머를 멈춰요…');
-            const res = await ctx.run(want === 'start' ? 'match.start' : 'match.pause', {}, { quiet: true });
-            done(row, res.ok ? (want === 'start' ? '⚔️ 대결 타이머 시작!' : '⚔️ 대결 타이머를 멈췄어요') : `⚠️ 못 했어요 — ${res.error || '실패'}`);
-            return true;
-        }
-        if (/^(건너뛰|스킵|넘겨)/.test(q)) {
-            const row = said('⏭ 재생 중인 시그니처를 넘겨요…');
-            const res = await ctx.run('reaction.skip', {}, { quiet: true });
-            done(row, res.ok ? '⏭ 넘겼어요' : `⚠️ 못 넘겼어요 — ${res.error || '실패'}`);
-            return true;
-        }
-        if (/^올\s*클리어|^올클/.test(q)) {
-            const g = slices.siggame || {};
-            const left = (g.cards || []).filter(c => c && c.flippedAt && !c.doneAt).length;
-            if (left > 0) {
-                const ok = await ctx.confirm({ title: '올클리어 할까요?', body: `아직 ${left}장이 남아 있어요.\n남은 목표를 전부 달성 처리하고 올클리어를 터뜨립니다.`, ok: '올클리어', cancel: '아직', danger: false });
-                if (!ok) { said('🃏 올클리어는 안 했어요'); return true; }
-            }
-            const row = said('🎉 올클리어!…');
-            const res = await ctx.run('sig.allclear', {}, { quiet: true });
-            done(row, res.ok ? `🎉 ALL CLEAR!${res.count ? ` (${res.count}장)` : ''}` : `⚠️ 못 했어요 — ${res.error || '실패'}`);
-            return true;
-        }
-        return false;
+    /* ── 🗣️ 명령 꼴 — 옛 aiTryCommand ── 맞으면 true(AI 를 안 부른다). 규칙은 commands.js 한 곳(Ctrl+K 빠른 명령과 같이 쓴다) */
+    function tryCommand(q) {
+        return runCommand(ctx, q, {
+            said: msg => { chat.add('user', q); return chat.add('sys', msg); },
+            done: (row, msg) => chat.update(row, { text: msg }),
+        });
     }
 
     return {

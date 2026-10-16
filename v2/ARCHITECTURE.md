@@ -423,3 +423,29 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 - 검토(10-17 w2side 검토자): 진짜 마우스 · 손가락 입력(CDP Input)으로 눌러 봄 — PC [추천 밍밍] → pending.assign(12→17) · [무시] → 확인 → 빠짐 · [나눠 주기] 2명 → 2점 · 1점 · 제목 줄 [↩] → 되돌아옴 ·
   콘솔 미니(장부에 넣기 켬) [송출] → 대기함에 들어옴 · 조종 줄 [건너뛰기] 3→2 · [중단] 확인 → 0. 폰 서랍 접힘 카드 이름 단추 · [무시] · 서랍 [↩] · [시그 송출] 탭도 손가락으로 명령이 닿음.
   세 폭 × (로그인 · 방송 전 · 방송 중) 가로 넘침 0 · 카드 = 후원 id 수 · `.ai-ask` 0. 고친 것: dupcheck 의 '자기 줄' 빼기가 startswith(번호)라 번호 앞부분만 같은 다른 입금 줄까지 빼던 것 → `번호` 또는 `번호_N` 만(검사 test_own_rows_only_exact_prefix).
+
+## 10-17 이사 2차 — w2feat
+조종실 시안 B **묶음 D(새 기능)**. 설계서 scratchpad/b_v2_spec.md 5장 D. 단추 id · 명령 이름은 그대로, 새 명령은 `lights.manual` 하나.
+- 🎵 BGM 재생 목록(panels/records/bgm.js) — 옛 조종실 '유튜브 재생 목록'을 옮겼다. 목록은 이 브라우저 `lm2_bgm`(소리가 조종실 창에서 나므로 창을 따라간다), 최대 200곡.
+  영상 주소 → 한 곡 · 재생목록 주소(list=) → 안 보이는 플레이어(`cuePlaylist` 대신 `listType: 'playlist'` + `getPlaylist()`)로 통째. 반복 🔁 전체 · 🔂 한 곡 · ➡️ 끔,
+  ⚠️ **곡이 끝나면(ENDED) 다음 곡** — 예전 v2 는 '끝남' 에서 멈췄다. 셈은 `nextIndex(mode, i, n, manual)` 하나(검사가 node 로 부른다). 이전 · 다음 · ↑↓ · 빼기 · 비우기,
+  나오는 곡을 빼면 끝까지 두고 그 자리 곡으로(옛 ytlGone), 못 트는 곡은 건너뛰고 다 막히면 멈춘다. 제목은 재생 때 `getVideoData()` 를 곡에 적어 기억 + 서버 `/api/yt/info`.
+  조종 줄 `#ctl-bgm` = 제목 · 1:42 / 3:58 · ▶/⏸ · ⏭ 다음 곡 · 'BGM 소리'(반 화면은 막대를 탭으로, 폰은 [더보기] 판). 목록에 곡이 있으면 보인다 — 유튜브는 안 부르고 기억한 제목으로.
+  조종 줄 ▶ 를 처음 누르면 `ctx.tabs.prepare('bgm')`(tabs.js 에 한 줄 더함) 으로 BGM 탭을 숨긴 채 그려 거기에 플레이어를 만든다 — 화면은 지금 탭 그대로.
+  ⚠️ 바깥 불러오기는 여전히 IFrame API 하나(탭을 열 때 · ▶ · 주소 넣기 때만). 썸네일(i.ytimg.com)은 안 그린다.
+- 📺 `GET /api/yt/info?id=`(server/domain/yt_info.py, 로그인) — 옛 features/yt_info.py 처럼 유튜브 공식 oEmbed 로 제목만. 6초까지만 기다리고, 받은 것만 기억. `LM2_YT_INFO_OFF=1` 이면 안 묻는다(시험 서버).
+- 📥 장부 엑셀(panels/records/csv.js + ledger.js) — [⬇ 엑셀(CSV)]: 이번 방송 후원 · 이번 방송 점수 기록 · 전체 후원(모든 회차) / 지난 방송 회차마다 후원 · 점수.
+  옛 /api/archive/csv 약속 그대로: BOM(한글) · 한국 시각(PC 시계와 상관없이) · `= + - @` 앞에 '(수식 막기 — 월별 순위 `csvCell` 을 그대로 부름) · 금액 · 점수는 숫자 칸.
+  서버는 안 고쳤다(/api/ledger · /api/scores · /api/sessions 를 읽어 이 PC 에서 만든다). 한 회차 2,000건이 끝(넘으면 알림). '방송 밖' 회차는 따로 못 받는다(빈 회차 = 이번 방송으로 읽히는 주소라).
+- ⌨️ Ctrl+K(⌘K) 빠른 명령(js/cmdk.js) — 입력칸에 커서가 있어도 열린다 · Esc 닫기 · 로그인 전엔 안 열림. '밍밍 5' · '룰렛 돌려' · '대결 시작' · '+1분' · '올클리어' · '클립' · '다음 단계' · 탭 이름 · 'BGM 다음 곡'.
+  말 규칙은 panels/ai/commands.js `runCommand` **한 곳** — AI 대화창(chat.js)의 '바로 하는 말' 도 이것을 부른다(전에는 chat.js 안에 있었다). '+1분'(match.add_time) · '클립'(clip.now) · '다음 단계'(show.cue) 를 더했다.
+- 🙈 리액션 모드 스위치(js/rxswitch.js, `#ctl-rx`) — 옛 '수동 리액션 모드'. `lights.manual {on}` → lights 조각 `manual`(공개). 방송판 signature.js 가
+  `setMode('reaction', 시그 도는 중 || manual)` — 시그니처가 없어도 위젯 숨김 · 조명. 시그가 끝나도 손으로 켠 것은 남고, **방송 끝이면 서버가 끈다**. 스트림덱 조명 단추는 안 건드렸다.
+- main.js 는 [D] 주석 줄 자리를 채웠다(주석 글자는 줄 끝에 남겨 test_controller_frame 이 그대로 통과 — 합칠 때 B · C 줄과 겹치지 않게).
+- 확인(10-17): 검사 v2/tests/test_w2feat.py(+ js/w2feat_check.mjs 38개) · test_lights 3개 더함. 헤드리스 크롬 1440 · 945 · 390 × (로그인 · 방송 전 · 방송 중) 가로 넘침 0 ·
+  BGM 200곡 · 장부 엑셀 메뉴 · Ctrl+K 상자 세 폭 넘침 0, 가짜 유튜브로 조종 줄 ▶(탭 그대로 'home') → ENDED 전체 반복 1→2 · 한 곡 반복 그대로 · 끔 마지막에서 멈춤 · 전체 마지막→처음,
+  재생목록 주소 → 12곡, Ctrl+K '밍 5' Enter → 밍밍 12→17, 리액션 스위치 → 방송판 `.reaction-mode` + 점수판 등 숨김 → 끄면 원래대로 → 방송 끝 manual=false. 콘솔 오류 0(favicon 404 빼고).
+- 검토(10-17) 고친 것: ① Ctrl+K 상자가 확인 상자(.modal-wrap 100)보다 위(120)라 '올클리어' · '룰렛 돌려' 가 묻는 [확인] 을 누를 수 없었다 → 98(더보기 판 95 위 · 확인 상자 아래).
+  ② 🔂 한 곡 반복에서 못 트는 곡이면 같은 곡을 몇 번이고 다시 불렀다 → `skipIndex` 로 다음 곡. ③ 나오던 **마지막** 곡을 빼면 바로 앞 곡이 다시 나왔다 →
+  `goneIndex`(전체 · 한 곡 반복은 처음으로, 반복 끔은 멈춤). 검사: w2feat_check.mjs 5개 · test_cmdk_under_confirm_box. 헤드리스로 진짜 마우스 · 키보드를 눌러
+  리액션 스위치(PC · 폰) · 조종 줄 ▶/⏭ · Ctrl+K '밍밍 5'(점수 +5) · '+1분'(240→300초) · 장부 [⬇ 엑셀] 을 확인, 세 폭 × 로그인 · 방송 전 · 방송 중 가로 넘침 0, 같은 후원(tx) 한 장.
