@@ -2,7 +2,7 @@
      위: 상황판 네 칸(대기함 · 대결 · 목표 · 퇴근빵) + AI 상태 점 + 이번 방송 후원 — 탭이 보일 때만 4초마다(panels/ai/board.js)
      아래: AI 에게 물어보기 — 빠른 질문(⚡ 서버 계산) · 글로 묻기(🤖 AI) · 명령 꼴은 바로 명령(panels/ai/chat.js)
      머리: [🚗 오토파일럿] [🔔 알림] [지우기]
-   대기함 카드의 배지 · '지급할까요?' · 오토파일럿 · 먼저 알림은 이 탭을 안 열어도 돈다(panels/ai/assist.js — 대기함이 부른다).
+   대기함 카드의 AI 한 줄 · 추천 단추 · 오토파일럿 · 먼저 알림은 이 탭을 안 열어도 돈다(panels/ai/assist.js — 대기함이 부른다).
    탭 하나 = { id, label, icon, group, mount(el, ctx) → { render(slices) } } — panels/tools.js 가 끝에 붙인다. */
 import { h, setCtx } from './ai/common.js';
 import { mountBoard } from './ai/board.js';

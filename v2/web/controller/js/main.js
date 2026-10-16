@@ -28,7 +28,7 @@ import { mountPhone } from './phone.js';     // 📱 폰 손보기(새 후원 �
 import { mountCastBox } from './castbox.js'; // 💬 화면에 한마디 · ⬆ UP 자막 — 오른쪽 칸 맨 위(#say-slot)
 import { mountKpis } from './kpis.js';         // 🔢 숫자 카드 4장 · 💱 정산 차액(랭킹 탭)
 import { mountStagebar } from './stagebar.js'; // 🎬 무대 줄 · 순서표 · 진행 중인 판 단추(탭을 바꿔도 남는다)
-// [C] import { mountDrawer } from './drawer.js';
+import { mountDrawer } from './drawer.js';   // [C] 🗄 오른쪽 칸 자리(되돌리기 · 콘솔 미니) · 📱 폰 아래 서랍
 // [D] import { mountCmdk } from './cmdk.js';
 // [D] import { mountRxSwitch } from './rxswitch.js';
 
@@ -58,7 +58,7 @@ const views = {
     tabs: mountTabs({ rail: $('rail'), body: $('tabbody'), center: $('center') }, ctx, [...FRAME_PANELS, ...GAME_PANELS, ...TOOL_PANELS]),
     kpis: mountKpis($('kpis'), ctx),
     stagebar: mountStagebar($('stagebar'), ctx),
-    // [C] drawer: mountDrawer(ctx),
+    drawer: mountDrawer(ctx),     // [C] pending · undo 를 옮기므로 그 둘 뒤에
 };
 ctx.tabs = views.tabs;
 safe(() => mountPhone(ctx));               // 📱 phone.js — 넘어져도 조종실은 그대로
@@ -70,7 +70,7 @@ safe(() => mountCastBox(ctx));             // 💬 castbox.js — 넘어져도 �
 const LIVE = [
     'pending', 'scores', 'undo', 'queue', 'goal',
     'kpis', 'stagebar',
-    // [C] 'drawer',
+    'drawer',     // [C]
 ];
 
 lm.onStatus(s => {

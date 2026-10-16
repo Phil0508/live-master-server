@@ -1,12 +1,19 @@
 /* 📥 대기함 — 들어온 후원을 플레이어에게 준다. 방송 중 가장 많이 누르는 곳.
 
-   한 장(카드)에 보이는 것: 시각 · (🏷️ 투네이션 칭호) 후원자 (Lv) · 금액(₩) · 몇 점짜리인지 · 메시지 · (되돌려 돌아옴 / 테스트)
+   카드 한 장(시안 B 10-17 — 대표님 '어두운 AI 카드 없애고 흰 카드 안 추천 단추로'):
+     q1  시각 · (🏷️ 투네이션 칭호) 후원자 (Lv) · 금액(₩) · 몇 점 · [🏺 모금함] [나눠 주기] [무시]
+     q2  “메시지”(한 줄 말줄임 — 전체는 title) · ✦ AI 판단 한 줄(누르면 까닭 · 지난 배정이 펼쳐진다)
+     (태그 — 되돌려 돌아옴 · 🧪 테스트 · 원래 이름 · 자동 진행 금액 게임: 있을 때만 한 줄)
+     q3  선수 단추 격자 — AI 가 고른 사람 하나만 주황 테두리 + '추천' 딱지(.pbtn.rec). 누르면 다른 단추와 **똑같은** 길.
+   ⚠️ 예전엔 같은 후원이 위 '🤖 지급할까요?' 줄과 아래 카드로 두 번 보였다 → 그 줄(ai.mountAsks)은 없앴다. 따로 '지급' 단추도 없다.
    누르는 것: [플레이어 이름] → pending.assign {id, name}
               [나눠 주기] → 여러 명 고르고 → pending.assign {id, names}(서버가 똑같이 나누고 남는 점수는 앞사람부터)
               [🏺 모금함] → pending.to_jar {id} — 모금함이 켜져 있고(fundjar.enabled) 돈 카드일 때만. 금액(원) 그대로 들어간다
               [무시] → 확인 상자 → pending.ignore {id}
    카드 종류: 후원(돈) · 기여도 카드(kind:'contrib' — 점수 없이 기여도만, 서버가 나눈다)
               · 퇴근 · 탈출 카드(type:'off_work' — 목표를 넘기면 서버가 만든다) → [🚀 송출] offwork.send {id} · [치우기] 확인 → pending.ignore
+   제목 줄: '후원 대기함 · 먼저 온 순서' + 오른쪽 .undo-slot(↩ 되돌리기 작은 단추 — drawer.js 가 PC 에서 section#undo 를 여기로 옮긴다).
+            건수 딱지는 뺐다(숫자 카드 ③ 과 같은 숫자 — 시안 B). 폰은 서랍 머리에 건수가 있다(root.dataset.count).
 
    ⭐ 순서: 먼저 온 것이 위, 새로 온 것은 맨 아래에 붙는다.
       - 먼저 온 것부터 처리하는 줄서기 순서라 읽기 쉽다.
@@ -17,37 +24,38 @@
       이름 단추는 기여도 순(1등부터)이다. 큰 후원 하나를 주면 순위가 바뀌어 모든 카드의 단추가 다시 줄을 선다 —
       연달아 누를 때 손이 기억한 자리에 다른 사람이 와 있으면 그대로 오배정(돈이 걸린 실수)이다.
       그래서 마우스가 대기함 안에 있는 동안(폰은 손가락이 닿은 뒤 1.5초까지)은
-        1) 이름 단추 순서를 붙잡아 두고
+        1) 이름 단추 순서와 '추천' 자리를 붙잡아 두고(assist.js sig · pick 도 얼린 답을 쓴다)
         2) 처리된 카드는 바로 빼지 않고 같은 높이의 '✓ 처리됨' 자리로 남겨 두고(아래 카드가 위로 당겨 올라오지 않게)
         3) 새로 온 카드(되돌려 돌아온 것 포함)는 맨 아래에만 붙인다.
       손을 빼면 그때 최신 순위 · 순서로 정리된다. */
 import { h, won, num, manWon, splitPoints, clock } from './util.js';
-import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드 배지 · '지급할까요?' 줄 · 🚗 오토파일럿 · 오배정 경고
+import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드의 AI 판단 · 추천 · 🚗 오토파일럿 · 오배정 경고
 import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
 
 const UNFREEZE_AFTER_TOUCH_MS = 1500;
+const REC_LEVELS = new Set(['sure', 'maybe']);     // 추천 단추를 다는 판단
 
 export function mountPending(root, ctx) {
     root.innerHTML = `
         <div class="box-head">
-            <h2>대기함 <span class="count-badge" aria-live="polite">0</span></h2>
+            <h2>후원 대기함 <em class="pq-order">먼저 온 순서</em></h2>
             <span class="frozen-hint" hidden>마우스를 빼면 정리돼요</span>
+            <div class="undo-slot"></div>
         </div>
         <p class="extra-note" hidden>번외 판이 켜져 있어요 — 지금 주는 점수는 <b>번외 판</b>에 들어갑니다.</p>
         <div class="plist"></div>
         <p class="empty">기다리는 후원이 없어요</p>`;
     const list = root.querySelector('.plist');
-    const badge = root.querySelector('.count-badge');
     const hint = root.querySelector('.frozen-hint');
     const emptyMsg = root.querySelector('.empty');
     const extraNote = root.querySelector('.extra-note');
-    // 🤖 '지급할까요?' 줄은 카드 목록 바로 위 — [✔ 지급] 은 이름 단추와 같은 길(assign)로 준다
-    ai.mountAsks(list, ctx, (id, name) => { const it = (ctx.slices.pending || []).find(x => x.id === id); return it ? assign(it, [name]) : undefined; });
+    ai.attach(ctx);
 
     const cards = new Map();    // 후원 id → {el, sig, ghost}
     const busy = new Set();     // 보내는 중인 후원 id
     const split = new Map();    // 나눠 주기 고르는 중: 후원 id → Set(이름)
     const doneLabel = new Map();// 처리됨 자리에 쓸 글자(내가 누른 것)
+    const aiOpen = new Set();   // AI 줄을 눌러 까닭을 펼친 카드(폰 — PC 는 title 로도 본다)
     let frozen = false, frozenOrder = null, lastOrder = [], touchTimer = 0;
 
     /* ── 얼리기 ── */
@@ -83,8 +91,7 @@ export function mountPending(root, ctx) {
         lastOrder = names;
         const order = frozen && frozenOrder ? mergeOrder(frozenOrder, names) : names;
 
-        badge.textContent = pend.length;
-        badge.classList.toggle('zero', !pend.length);
+        root.dataset.count = String(pend.length);    // 폰 서랍 머리 '대기함 N' 이 읽는다(drawer.js)
         extraNote.hidden = !P.extra_active;
         root.classList.toggle('has-items', pend.length > 0);
 
@@ -113,7 +120,7 @@ export function mountPending(root, ctx) {
                 list.append(c.el);                     // 새것은 일단 맨 아래(얼려 있으면 그대로 둔다)
             }
             const sel = split.get(it.id);
-            const sig = JSON.stringify([it, order, busy.has(it.id), sel ? [...sel] : null, jarOn, jarName, ai.sig(it.id)]);
+            const sig = JSON.stringify([it, order, busy.has(it.id), sel ? [...sel] : null, jarOn, jarName, ai.sig(it.id), aiOpen.has(it.id)]);
             if (sig !== c.sig) { fill(c.el, it, order, jarOn ? jarName : ''); c.sig = sig; }
         });
         if (!frozen) {
@@ -147,35 +154,57 @@ export function mountPending(root, ctx) {
         const pts = pointsOf(it);
         const isBusy = busy.has(it.id);
         const sel = split.get(it.id);
-        el.className = 'pcard' + (isC ? ' contrib' : '') + (isBusy ? ' busy' : '') + (sel ? ' splitting' : '') + (it.returned ? ' returned' : '');
+        el.className = 'pcard' + (isC ? ' contrib' : '') + (isBusy ? ' busy' : '') + (sel ? ' splitting' : '') + (it.returned ? ' returned' : '')
+            + (aiOpen.has(it.id) ? ' ai-open' : '');
 
-        const head = h('div', { class: 'pc-head' },
+        // 🏺 모금함 — 켜져 있을 때 · 돈 카드일 때만(기여도 카드는 돈이 아니라 넣을 것이 없다)
+        const jarBtn = jar && !isC ? h('button', { class: 'btn xs jar', type: 'button', disabled: isBusy, title: `${won(it.amount)} 을(를) ${jar}에 넣어요 (점수 아님)`,
+            onclick: () => toJar(it, jar) }, '🏺 ', jar) : null;
+        const splitBtn = !sel && order.length > 1 ? h('button', { class: 'btn xs', type: 'button', disabled: isBusy,
+            onclick: () => { split.set(it.id, new Set()); ctx.rerender(); } }, '나눠 주기') : null;
+
+        // q1 — 시각 · 후원자 · 금액 · 점수 · 단추 묶음
+        const q1 = h('div', { class: 'pc-head q1' },
             h('span', { class: 'pc-time' }, clock(it.at)),
             titleChip(it.donor_title),
-            h('b', { class: 'pc-name' }, it.name || '익명'),
+            h('b', { class: 'pc-name', title: it.name || '익명' }, it.name || '익명'),
             lvChip(it.donor_level),
             isC ? h('span', { class: 'pc-amt' }, '기여도 카드')
                 : h('span', { class: 'pc-amt' }, won(it.amount)),
             h('span', { class: 'pc-pts' + (pts ? '' : ' zero'), title: isC ? '점수 없이 기여도만 오릅니다' : '1만 원 = 1점 (6천 원부터 올림)' },
-                isC ? '기여도 ' + num(pts) : pts + '점'));
+                isC ? '기여도 ' + num(pts) : pts + '점'),
+            h('span', { class: 'q1-btns' }, isBusy ? h('span', { class: 'sending' }, '보내는 중…') : null, jarBtn, splitBtn, sel ? null : ignoreBtn(it, isBusy)));
+
+        // q2 — 메시지 한 줄 · ✦ AI 판단 한 줄(누르면 까닭 · 지난 배정)
+        const p = isC ? null : ai.pick(it);
+        const open = aiOpen.has(it.id);
+        const aiEl = p ? h('button', { type: 'button', class: 'pc-ai lv-' + p.level + (p.auto ? ' auto' : ''), title: p.title,
+            'aria-expanded': open ? 'true' : 'false',
+            onclick: () => { open ? aiOpen.delete(it.id) : aiOpen.add(it.id); ctx.rerender(); } },
+            h('span', { class: 'pc-ai-k', 'aria-hidden': 'true' }, '✦'),
+            p.auto ? null : h('span', { class: 'pc-ai-l' }, p.target ? 'AI 추천 ·' : 'AI ·'),
+            h('span', { class: 'pc-ai-t' }, p.text)) : null;
+        const q2 = it.message || aiEl ? h('div', { class: 'q2' },
+            it.message ? h('p', { class: 'pc-msg', title: it.message }, '“' + it.message + '”') : h('span', { class: 'q2-fill' }),
+            aiEl) : null;
+        const more = p && p.more && open ? h('p', { class: 'pc-ai-more' }, p.more) : null;
+
         const tags = [];
         if (it.returned) tags.push(h('span', { class: 'tag ret' }, '↩ 되돌려 돌아옴'));
         if (it.test) tags.push(h('span', { class: 'tag test', title: '투네이션 테스트 계정으로 들어온 후원이에요' }, '🧪 테스트 계정'));
         if (it.orig_name && it.orig_name !== it.name) tags.push(h('span', { class: 'tag plain' }, '원래 이름: ' + it.orig_name));
-        const msg = it.message ? h('p', { class: 'pc-msg' }, it.message) : null;
+        if (p && p.game && p.game.text) tags.push(h('span', { class: 'tag game ' + p.game.cls }, p.game.text));     // 🤖 자동 진행 금액 게임 줄
 
-        // 🏺 모금함 — 켜져 있을 때 · 돈 카드일 때만(기여도 카드는 돈이 아니라 넣을 것이 없다)
-        const jarBtn = jar && !isC ? h('button', { class: 'btn sm jar', type: 'button', disabled: isBusy, title: `${won(it.amount)} 을(를) ${jar}에 넣어요 (점수 아님)`,
-            onclick: () => toJar(it, jar) }, '🏺 ', jar) : null;
-        let btns, foot;
+        // q3 — 선수 단추 격자(추천 하나만 주황)
+        const rec = p && REC_LEVELS.has(p.level) && p.target && order.includes(p.target) ? p.target : '';
+        let btns, foot = null;
         if (!order.length) {
             btns = h('p', { class: 'muted small' }, '플레이어가 없어요 — 점수판 아래 [명단 고치기]에서 더해 주세요');
-            foot = h('div', { class: 'pc-foot' }, jarBtn, ignoreBtn(it, isBusy));
         } else if (sel) {
             btns = h('div', { class: 'pc-players' }, order.map(n => h('button', {
-                class: 'pbtn pick' + (sel.has(n) ? ' on' : ''), type: 'button', 'aria-pressed': sel.has(n) ? 'true' : 'false',
+                class: 'pbtn pick' + (sel.has(n) ? ' on' : ''), type: 'button', 'aria-pressed': sel.has(n) ? 'true' : 'false', title: n,
                 disabled: isBusy, onclick: () => { sel.has(n) ? sel.delete(n) : sel.add(n); ctx.rerender(); },
-            }, sel.has(n) ? '✓ ' : '', n)));
+            }, h('span', { class: 'pbn' }, (sel.has(n) ? '✓ ' : '') + n))));
             const chosen = order.filter(n => sel.has(n));      // 단추 순서 = 서버에 보내는 순서(남는 점수는 앞사람부터)
             const parts = splitPoints(pts, chosen.length);
             const preview = chosen.length
@@ -188,18 +217,13 @@ export function mountPending(root, ctx) {
                     onclick: () => assign(it, chosen) }, chosen.length >= 2 ? `${chosen.length}명에게 나눠 주기` : '2명 이상 골라 주세요'));
         } else {
             btns = h('div', { class: 'pc-players' }, order.map(n => h('button', {
-                class: 'pbtn', type: 'button', disabled: isBusy, title: `${n}에게 ${isC ? '기여도 ' + pts : pts + '점'}`,
+                class: 'pbtn' + (n === rec ? ' rec' : ''), type: 'button', disabled: isBusy,
+                title: `${n}에게 ${isC ? '기여도 ' + pts : pts + '점'}` + (n === rec ? ' — AI 추천' : ''),
                 onclick: () => assign(it, [n]),
-            }, n)));
-            foot = h('div', { class: 'pc-foot' },
-                isBusy ? h('span', { class: 'sending' }, '보내는 중…') : null,
-                jarBtn,
-                order.length > 1 ? h('button', { class: 'btn sm', type: 'button', disabled: isBusy,
-                    onclick: () => { split.set(it.id, new Set()); ctx.rerender(); } }, '나눠 주기') : null,
-                ignoreBtn(it, isBusy));
+            }, h('span', { class: 'pbn' }, n), n === rec ? h('span', { class: 'rec-tag', 'aria-hidden': 'true' }, '추천') : null)));
         }
         // ⚠️ replaceChildren 은 null 을 'null' 글자로 넣는다 — 빈 것은 걸러서 넘긴다
-        el.replaceChildren(...[head, tags.length ? h('div', { class: 'pc-tags' }, tags) : null, msg, ai.badge(it), btns, foot].filter(Boolean));
+        el.replaceChildren(...[q1, q2, more, tags.length ? h('div', { class: 'pc-tags' }, tags) : null, btns, foot].filter(Boolean));
     }
 
     /* 🏃 퇴근 · 🔥 탈출 카드 — 점수 단추 없이 [송출] · [치우기]만 */
@@ -221,7 +245,7 @@ export function mountPending(root, ctx) {
     }
 
     function ignoreBtn(it, isBusy) {
-        return h('button', { class: 'btn sm ghost-danger', type: 'button', disabled: isBusy, onclick: () => ignore(it) }, '무시');
+        return h('button', { class: 'btn xs ghost-danger', type: 'button', disabled: isBusy, onclick: () => ignore(it) }, '무시');
     }
 
     /* ── 보내기 ── */

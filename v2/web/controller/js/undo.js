@@ -5,7 +5,9 @@
      ⚠️ ref 없이 보내면 '서버의 마지막 것' 이 되돌려진다. 두 번 눌리면(더블클릭 · 느린 연결) 그 앞 것까지 지워진다.
         ref 를 실어 보내면 두 번째 누름은 서버가 '이미 되돌렸습니다' 로 막는다.
    - 후원을 준 것을 되돌리면 그 후원은 대기함으로 돌아온다(서버가 한다) — 알림에 그렇게 적는다.
-   - 최근 기록: 마지막 10줄 — "하율 +5 (3→8)" */
+   - 최근 기록: 마지막 10줄 — "하율 +5 (3→8)"
+   - 시안 B(10-17): 큰 단추를 작은 가로 단추로 — PC 는 대기함 제목 줄 오른쪽, 폰은 서랍 머리(drawer.js 가 section#undo 를 옮긴다).
+     '무엇' 글자는 말줄임, 전체는 단추 title. 누르는 길(score.undo {ref} · 끝난 번외 판 확인)은 그대로. */
 import { h, signed, num, clock } from './util.js';
 
 const SHOW = 10;
@@ -86,10 +88,14 @@ export function mountUndo(root, logsRoot, ctx) {
             if (logs.length) {
                 const rows = group(logs, logs[0].ref);
                 const stale = rows.some(l => l.list === 'extra') && !(slices.players || {}).extra_active;
-                what.textContent = `${source(logs[0].ref)} · ${short(rows)}${stale ? ' (끝난 번외 판)' : ''}`;
+                // '후원 · ' 앞부분은 좁은 자리(폰 서랍 머리)에서 숨긴다(.src) — 전체는 단추 title
+                const tx = `${short(rows)}${stale ? ' (끝난 번외 판)' : ''}`;
+                if (what.textContent !== `${source(logs[0].ref)} · ${tx}`) what.replaceChildren(h('span', { class: 'src' }, `${source(logs[0].ref)} · `), tx);
             } else {
                 what.textContent = '되돌릴 것이 없어요';
             }
+            const tip = '되돌리기 — ' + what.textContent;
+            if (btn.title !== tip) btn.title = tip;
             const key = JSON.stringify(logs.slice(0, SHOW));
             if (key === lastKey) return;
             lastKey = key;

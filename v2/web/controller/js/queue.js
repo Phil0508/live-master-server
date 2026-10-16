@@ -9,35 +9,63 @@
    ⚠️ 막대를 잡고 있는 동안에는 서버 값으로 막대를 되돌리지 않는다(손 밑에서 막대가 튀지 않게).
    🔁 방금 끝난 묶음(×N) — 한 번 나가고 대기줄에서 빠진 뒤에도 45초 동안 [남은 N번 이어 틀기] 로 이어 틀 수 있다
       (옛 조종실 comboAsk '한 번 나갔어요' — 누르기 전에 끝나 버려 [N번 다 틀기]가 404 였던 것). 서버 기억은
-      비공개 조각 reaction_done_recent(다 틀었거나 건너뛴 ×N 줄) — 같은 reaction.playall {id} 가 이어 틀기 줄을 세운다. */
+      비공개 조각 reaction_done_recent(다 틀었거나 건너뛴 ×N 줄) — 같은 reaction.playall {id} 가 이어 틀기 줄을 세운다.
+
+   시안 B(10-17): 자주 누르는 것은 머리 조종 줄 '시그' 칸(#ctl-sig — header.js 가 만든 칸)으로 옮겼다 —
+     [시그 소리 막대] · [중단] · [건너뛰기]. 폰은 소리 막대만 ⋯ 판(#ctl-more-sig)으로(조종 줄엔 중단 · 건너뛰기 크게).
+     [중단] = reaction.stop — 대기줄이 2개 이상이면 한 번 묻고, 1개(지금 도는 것)면 바로 멈춘다(옛 머리줄 '중단' 은 긴급이라 안 물었다).
+     목록 · [멈춤] · [전부 지우기](늘 묻는다)는 오른쪽 칸 맨 아래 접힘(#queue-fold) — 0개면 접히고, 새로 생기면 펼친다. */
 import { h, won } from './util.js';
 
 const VOL_DEBOUNCE_MS = 250;
 const VOL_HOLD_MS = 1500;
 const AGAIN_SHOW_MS = 45000;     // 끝난 묶음을 이어 틀 수 있게 보여 주는 시간(옛 45초)
+const PHONE = '(max-width: 899px)';
 
-export function mountQueue(root, ctx) {
+export function mountQueue(root, ctx, opts = {}) {
     root.innerHTML = `
         <div class="box-head">
             <h2>시그니처 <span class="count-badge zero">0</span></h2>
             <span class="tag warn paused-tag" hidden>멈춤</span>
         </div>
         <div class="q-ctrl">
-            <button class="btn skip-btn" type="button">건너뛰기</button>
             <button class="btn pause-btn" type="button">멈춤</button>
             <button class="btn ghost-danger stop-btn" type="button">전부 지우기</button>
         </div>
-        <label class="vol"><span>소리</span><input type="range" min="0" max="100" step="1" value="50" aria-label="시그니처 소리 크기"><output>50%</output></label>
         <ol class="qlist"></ol>
         <p class="empty">기다리는 시그니처가 없어요</p>
         <ul class="q-again" hidden></ul>`;
     const badge = root.querySelector('.count-badge');
     const pausedTag = root.querySelector('.paused-tag');
-    const skipBtn = root.querySelector('.skip-btn');
     const pauseBtn = root.querySelector('.pause-btn');
     const stopBtn = root.querySelector('.stop-btn');
-    const slider = root.querySelector('input[type=range]');
-    const out = root.querySelector('output');
+    // ── 머리 조종 줄 '시그' 칸(#ctl-sig) — 소리 막대 · 중단 · 건너뛰기 ──
+    const slider = h('input', { type: 'range', class: 'sld', min: '0', max: '100', step: '1', value: '50', 'aria-label': '시그니처 소리 크기' });
+    const out = h('output', null, '50%');
+    const vol = h('label', { class: 'vol cb-vol', title: '시그니처 소리 크기' }, h('span', { class: 'vol-t' }, h('span', { class: 'vol-pre' }, '시그 '), '소리'), slider, out);
+    const ctlStop = h('button', { class: 'btn dgr ctl-stop', type: 'button', disabled: true, title: '시그니처를 멈추고 대기줄을 비웁니다(2개 이상이면 한 번 물어요)' }, '중단');
+    const skipBtn = h('button', { class: 'btn skip-btn', type: 'button', disabled: true, title: '지금 시그니처를 끊고 다음으로' }, '건너뛰기');
+    const ctlHost = opts.ctlHost || document.getElementById('ctl-sig');
+    const moreHost = opts.moreHost || document.getElementById('ctl-more-sig');
+    const fold = root.closest('details');
+    const foldCount = h('span', { class: 'qf-n count-badge zero' }, '0');
+    if (fold && fold.firstElementChild && fold.firstElementChild.tagName === 'SUMMARY') fold.firstElementChild.append(foldCount);
+    if (ctlHost) ctlHost.append(vol, ctlStop, skipBtn);
+    else {                                        // 머리 칸이 없을 때(옛 틀) — 목록 칸에
+        const qc = root.querySelector('.q-ctrl');
+        qc.prepend(skipBtn);
+        qc.after(vol);
+    }
+    // 폰은 소리 막대만 ⋯ 판으로(조종 줄엔 중단 · 건너뛰기만 크게)
+    const mq = window.matchMedia ? matchMedia(PHONE) : { matches: false };
+    function placeVol() {
+        if (!ctlHost) return;
+        if (mq.matches && moreHost) { if (vol.parentNode !== moreHost) moreHost.append(vol); }
+        else if (vol.parentNode !== ctlHost) ctlHost.insertBefore(vol, ctlStop);
+    }
+    placeVol();
+    if (mq.addEventListener) mq.addEventListener('change', placeVol);
+    let lastN = -1;
     const ol = root.querySelector('.qlist');
     const empty = root.querySelector('.empty');
     const againEl = root.querySelector('.q-again');
@@ -61,6 +89,18 @@ export function mountQueue(root, ctx) {
         if (!ok) return;
         const res = await ctx.run('reaction.stop', {});
         if (res.ok) ctx.toast('시그니처 대기줄을 비웠어요', 'info');
+    });
+    // [중단] — 지금 도는 것 하나뿐이면 바로(긴급), 기다리는 것까지 있으면 한 번 묻는다
+    ctlStop.addEventListener('click', async () => {
+        const n = ((ctx.slices.queue || {}).items || []).length;
+        if (!n) return;
+        if (n >= 2) {
+            const ok = await ctx.confirm({ title: '시그니처를 중단할까요?', body: `지금 도는 것과 기다리는 것까지 ${n}개가 모두 빠집니다. 되돌릴 수 없어요.\n지금 것만 넘기려면 [건너뛰기] 를 누르세요.`,
+                ok: '중단', cancel: '그대로 두기' });
+            if (!ok) return;
+        }
+        const res = await ctx.run('reaction.stop', {});
+        if (res.ok) ctx.toast('시그니처를 중단했어요', 'info');
     });
 
     slider.addEventListener('input', () => {
@@ -151,6 +191,15 @@ export function mountQueue(root, ctx) {
             pauseBtn.setAttribute('aria-pressed', String(paused));
             skipBtn.disabled = !items.length;
             stopBtn.disabled = !items.length;
+            ctlStop.disabled = !items.length;
+            foldCount.textContent = items.length;
+            foldCount.classList.toggle('zero', !items.length);
+            // 접힘: 0개가 되면 접고, 0 → 생기면 펼친다(사람이 연 · 닫은 것은 그 사이 그대로)
+            if (fold && items.length !== lastN) {
+                if (!items.length) fold.open = false;
+                else if (lastN <= 0) fold.open = true;
+                lastN = items.length;
+            }
             empty.hidden = items.length > 0;
             if (Date.now() > holdUntil && q.volume != null) {
                 const v = String(Math.round(Number(q.volume) * 100));

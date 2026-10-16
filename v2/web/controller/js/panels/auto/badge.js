@@ -1,5 +1,5 @@
 /* 🤖 대기함 카드 배지 — 서버 자동 진행(autopilot)이 그 후원을 판단했으면(카드의 auto) 이 배지를 쓴다.
-   panels/ai/assist.js 의 badge() 가 부른다 — 그때는 /api/audit/suggest 를 따로 안 묻는다(panels/ai/suggest.js).
+   panels/ai/assist.js 의 pick() 이 글자를 빌려 대기함 카드 'AI 한 줄' 로 쓴다 — 그때는 /api/audit/suggest 를 따로 안 묻는다(panels/ai/suggest.js).
      그림자 · 확실   '🤖 자동이라면 → 하율 (거의 확실) · 까닭'
      그림자 · 보류   '🤖 자동이라면 보류 — 하율로 보임 · 까닭'   /  '… — 누구 것인지 모름'
      켬 · 보류       '🤖 몰라서 보류 — 하율로 보임 · 까닭'        ← 대기함에 남은 것 = 사람이 봐야 하는 것

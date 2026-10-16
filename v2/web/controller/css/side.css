@@ -1,2 +1,179 @@
-/* [C] 오른쪽 칸 — 대기함 카드 한 장 · 추천 단추 · 되돌리기 작은 단추 · 폰 아래 서랍(drawer.js).
-   묶음 A(w2frame)가 index.html 에 미리 걸어 둔 빈 파일 — 그 묶음이 채운다. 틀(칸 id · 폭)은 controller.css. */
+/* [C] 오른쪽 칸 — 대기함 카드 한 장 · 추천 단추 · 되돌리기 작은 단추 · 후원 콘솔 미니 · 시그 조종 줄 · 폰 아래 서랍(drawer.js).
+   시안 B(10-17 · 묶음 C w2side). 틀(칸 id · 폭)은 controller.css 맨 아래 '시안 B 틀' — 여기서는 그 칸 안만 꾸민다.
+   ⚠️ 이 파일이 controller.css 보다 뒤에 붙는다(index.html) — 같은 세기의 규칙은 여기가 이긴다. */
+
+/* ── 대기함 제목 줄 — '후원 대기함 · 먼저 온 순서' + ↩ 되돌리기(작은 가로 단추) ── */
+#pending > .box-head { justify-content: flex-start; gap: 8px; min-height: 30px; margin: 0 2px 6px; }
+#pending > .box-head h2 { flex: none; margin: 0; font-size: 15px; font-weight: 800; white-space: nowrap; }
+#pending .pq-order { margin-left: 6px; font-style: normal; font-size: 11.5px; font-weight: 600; color: var(--dim); }
+#pending .frozen-hint { font-size: 11.5px; white-space: nowrap; }
+#pending .undo-slot { margin-left: auto; min-width: 0; flex: 0 1 auto; display: flex; }
+#pending #undo, #drawer #undo {
+    position: static; order: 0; min-width: 0; display: flex; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none;
+}
+#pending .undo-slot .undo-btn, #drawer .dr-undo .undo-btn {
+    flex: 0 1 auto; min-width: 0; max-width: 100%; min-height: 28px; height: 28px; gap: 6px; padding: 0 10px 0 5px; border-radius: 9px; font-size: 12.5px;
+}
+#pending .undo-slot .undo-btn .ic, #drawer .dr-undo .undo-btn .ic { width: 19px; height: 19px; border-radius: 6px; font-size: 12px; }
+#pending .undo-slot .undo-btn .tx, #drawer .dr-undo .undo-btn .tx { flex-direction: row; align-items: baseline; gap: 5px; min-width: 0; }
+#pending .undo-slot .undo-btn b, #drawer .dr-undo .undo-btn b { flex: none; font-size: 12.5px; font-weight: 800; }
+#pending .undo-slot .undo-btn .what, #drawer .dr-undo .undo-btn .what { min-width: 0; max-width: 170px; font-size: 12px; }
+#pending .undo-slot .undo-btn:disabled .what, #drawer .dr-undo .undo-btn:disabled .what { display: none; }
+
+/* ── 후원 카드 한 장(B .qc) — q1 시각 · 후원자 · 금액 · 점수 · 단추 / q2 메시지 · ✦ AI / q3 선수 단추 ── */
+#pending .pcard { margin: 0 0 8px; padding: 8px 11px 9px; border-radius: 13px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); }
+#pending .plist > .pcard:first-child:not(.ghost):not(.returned):not(.splitting) { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 3px 0 0 var(--accent); }
+#pending .pcard.returned { box-shadow: inset 0 0 0 2px #7cb2ff, 0 4px 12px rgba(0, 0, 0, 0.25); }
+#pending .pcard.splitting { box-shadow: inset 0 0 0 2px var(--ink), 0 4px 12px rgba(0, 0, 0, 0.25); }
+#pending .pcard.ghost { box-shadow: none; }
+#pending .q1 { display: flex; align-items: center; flex-wrap: nowrap; gap: 6px; min-height: 24px; white-space: nowrap; }
+#pending .q1 .pc-time { flex: none; font-size: 11.5px; }
+#pending .q1 .pc-name { flex: 0 1 auto; min-width: 1.6em; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; font-size: 14px; font-weight: 800; }
+#pending .q1 .pc-amt { flex: none; font-size: 14px; font-weight: 800; color: #de5f27; }
+#pending .q1 .pc-pts { flex: none; margin: 0; padding: 1px 7px; font-size: 12px; }
+#pending .q1 .pc-dtitle { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; padding: 0 7px; }
+#pending .q1 .pc-lv { flex: none; font-size: 11px; padding: 0 4px; }
+#pending .q1-btns { flex: none; margin-left: auto; display: flex; align-items: center; gap: 5px; }
+#pending .q1-btns .btn.xs { min-height: 24px; height: 24px; padding: 0 8px; border-radius: 7px; font-size: 12px; font-weight: 700; }
+#pending .q1-btns .sending { margin: 0; font-size: 12px; }
+#pending .pcard.contrib .q1 .pc-amt { color: #6b45d6; }
+#pending .q2 { display: flex; align-items: center; gap: 8px; margin-top: 3px; min-height: 18px; white-space: nowrap; }
+#pending .q2 .pc-msg {
+    flex: 0 1 auto; min-width: 0; margin: 0; padding: 0; border-radius: 0; background: none; color: var(--ink-2);
+    font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal;
+}
+#pending .q2-fill { flex: 1; }
+#pending .pc-ai {
+    flex: 0 1 auto; min-width: 0; max-width: 64%; margin-left: auto; display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none;
+    font: inherit; font-size: 11.5px; font-weight: 700; color: #c4561f; cursor: pointer; white-space: nowrap;
+}
+#pending .pc-ai-k { flex: none; font-size: 11px; }
+#pending .pc-ai-l { flex: none; }
+#pending .pc-ai-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#pending .pc-ai.lv-maybe { color: #a0742a; }
+#pending .pc-ai.lv-unknown, #pending .pc-ai.lv-wait { color: #9a6200; }
+#pending .pc-ai.lv-asking { color: var(--ink-3); font-weight: 600; }
+#pending .pc-ai.lv-held { color: #7a4fc4; }
+#pending .pc-ai.auto.lv-sure { color: #1f8a52; }
+#pending .pc-ai-more { margin: 4px 0 0; padding: 5px 8px; border-radius: 8px; background: var(--paper-2); color: var(--ink-2); font-size: 12px; font-weight: 600; white-space: normal; overflow-wrap: anywhere; }
+#pending .pcard .pc-tags { gap: 4px; margin-top: 5px; }
+#pending .pcard .pc-tags .tag { height: 20px; padding: 0 7px; font-size: 11.5px; }
+#pending .pcard .tag.game { background: #fff4df; color: #8a5a00; }
+#pending .pcard .tag.game.s-done, #pending .pcard .tag.game.s-spin { background: #e9f8ef; color: #1f8a52; }
+
+/* 선수 단추 격자 — PC 6칸(7명 넘으면 2줄) · 반 화면 채우기 · 폰 6칸 36px. 이름이 길면 말줄임(전체는 title) */
+#pending .pc-players { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; margin-top: 7px; }
+#pending .pbtn {
+    position: relative; min-width: 0; min-height: 29px; height: 29px; padding: 0 1px; display: grid; place-items: center; overflow: visible;
+    border-radius: 8px; border: 1px solid #e3d7cd; background: #fff; font-size: 12.5px; font-weight: 700; letter-spacing: -0.04em; white-space: nowrap; overflow-wrap: normal;
+}
+#pending .pbn { display: block; max-width: 100%; padding: 0 1px; overflow: hidden; text-overflow: ellipsis; }
+/* 추천 — AI 가 고른 한 명. 주황 2px 테두리 · 연주황 바탕 · 오른쪽 위 '추천' 딱지(떠 있어서 줄 높이가 안 바뀐다) */
+#pending .pbtn.rec { border: 2px solid var(--accent); background: #fff3ea; color: #c24f1a; font-weight: 800; }
+#pending .pbtn.rec:hover:not(:disabled) { background: var(--accent); color: #fff; }
+#pending .rec-tag {
+    position: absolute; top: -8px; right: -3px; height: 14px; padding: 0 4px; border-radius: 5px; pointer-events: none;
+    background: var(--accent); color: #fff; font-size: 9px; font-weight: 700; line-height: 14px; letter-spacing: 0;
+}
+#pending .pc-foot { margin-top: 8px; gap: 6px; }
+#pending .pc-foot .btn.sm { min-height: 30px; padding: 0 12px; font-size: 13px; }
+#pending .split-preview { font-size: 12.5px; }
+#pending .pcard .muted.small { margin: 8px 0 0; font-size: 12.5px; }
+
+/* ── 💸 후원 콘솔 미니(#con-mini — console.js {mini:true}) ── */
+#side > #con-mini { flex: none; }
+/* 오른쪽 칸 — 1440×900 에서 대기함 카드 4장이 굴리지 않고 보이게 조금씩 얇게(한마디 칸 · 칸 사이) */
+#side { gap: 8px; }
+#side .cast-sec.sec { padding: 6px 8px; gap: 5px; border-radius: 14px; }
+#side .cast-sec input[type=text] { height: 30px; font-size: 13.5px; }
+#side .cast-sec .cb-fire { height: 30px; }
+.cm.ops { gap: 7px; padding: 9px 11px 10px; border-radius: 14px; background: var(--card); border: 1px solid var(--line-2); }
+.cm-head { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12.5px; white-space: nowrap; }
+.cm-head b { flex: none; font-size: 13px; font-weight: 800; }
+.cm-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--dim); font-size: 11.5px; }
+.cm-head .cm-full { flex: none; margin-left: auto; }
+.cm-grid { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 10px; align-items: start; }
+.cm .pv-imgwrap.cm-pv { width: 66px; height: 66px; margin: 0; border-radius: 12px; }
+.cm .pv-empty { padding: 0 4px; font-size: 11px; text-align: center; }
+.cm-fields { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.cm-fields input[type=text] { width: 100%; min-width: 0; height: 30px; padding: 0 10px; border-radius: 9px; font-size: 13.5px; font-weight: 600; }
+.cm .cm-fields .con-amt { font-size: 14px !important; font-weight: 800 !important; height: 30px !important; letter-spacing: 0; }   /* 후원 콘솔 탭의 큰 금액 칸(!important)을 미니에서만 작게 */
+.cm .cm-fields .ops-ta { grid-column: 1 / -1; height: 30px; min-height: 30px; padding: 5px 10px; border-radius: 9px; font-size: 13px; line-height: 1.45; resize: none; overflow: hidden; }
+.cm-foot { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cm-ledger { flex: none; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.cm-cnt { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.cm .ops-num.w-s { width: 50px; height: 30px; padding: 0 6px; border-radius: 8px; font-size: 13px; }
+.cm .con-send { flex: 0 1 auto; min-width: 0; margin-left: auto; min-height: 30px; height: 30px; padding: 0 14px; border-radius: 9px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+.cm .con-info { margin: 0; min-height: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm .con-info:empty { display: none; }
+
+/* ── 시그니처 대기줄 접힘 — 제목 옆 건수 · 목록 단추 두 개 ── */
+.queue-fold > summary .qf-n { margin-left: 8px; min-width: 22px; height: 20px; font-size: 12px; vertical-align: 0; }
+#queue .q-ctrl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#queue .q-ctrl .btn { min-height: 34px; font-size: 13.5px; }
+
+/* ── 머리 조종 줄 '시그' 칸 — 시그 소리 막대 · [중단] · [건너뛰기](queue.js 가 #ctl-sig 에 꽂는다) ── */
+#hdr .cb-vol { margin: 0; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+#hdr .cb-vol input.sld { flex: none; width: 84px; height: 22px; }
+#hdr .cb .cb-vol .vol-pre { display: none; }   /* 조종 줄은 앞에 '시그' 묶음 글자가 있다 — ⋯ 판에서만 '시그 소리' */
+#hdr .cb-vol output { min-width: 32px; color: var(--dim); font-size: 11.5px; text-align: right; }
+#ctl-more .cb-vol { width: 100%; margin: 0; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; font-weight: 700; }
+#ctl-more .cb-vol input.sld { flex: 1; width: auto; }
+
+/* ── 반 화면(900~1279) — 오른쪽 340px ── */
+@media (min-width: 900px) and (max-width: 1279px) {
+    #pending .pc-players { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); }
+    #pending .pq-order { display: none; }
+    #pending .undo-slot .undo-btn .what { max-width: 120px; }
+    #pending .q1 { gap: 5px; }
+    #pending .q1 .pc-pts { padding: 1px 5px; }
+    #hdr .cb-vol .vol-t { display: none; }
+    #hdr .cb-vol output { display: none; }
+    #hdr .cb-vol input.sld { width: 64px; }
+}
+
+/* ── 📱 폰(900 아래) — 조종 줄은 [중단] · [건너뛰기](크게) · ⋯ / 대기함 · 콘솔 미니 · 한마디는 아래 서랍 ── */
+@media (max-width: 899px) {
+    #hdr .cb-sig { flex: 1 1 auto; }
+    #hdr .cb-sig .skip-btn { flex: 1 1 auto; }
+
+    #drawer:not([hidden]) {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; flex-direction: column; max-height: 62vh;
+        padding: 0 10px calc(10px + env(safe-area-inset-bottom, 0px)); border-radius: 18px 18px 0 0;
+        background: #261d18; border-top: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 -10px 26px rgba(0, 0, 0, 0.45);
+    }
+    #drawer.open:not([hidden]) { max-height: 85vh; max-height: 85dvh; }
+    #drawer .dr-grab { flex: none; position: relative; width: 100%; height: 14px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; }
+    #drawer .dr-grab::after { content: ''; position: absolute; left: 50%; top: 5px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); }
+    #drawer .dr-head { flex: none; display: flex; align-items: center; gap: 8px; min-width: 0; height: 32px; }
+    #drawer .dr-tabs { flex: none; display: inline-flex; height: 30px; border-radius: 9px; border: 1px solid var(--line); overflow: hidden; }
+    #drawer .dr-tab {
+        display: flex; align-items: center; gap: 5px; padding: 0 8px; margin: 0; border: 0; background: transparent; color: var(--muted);
+        font: inherit; font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer;
+    }
+    #drawer .dr-tab + .dr-tab { border-left: 1px solid var(--line); }
+    #drawer .dr-tab[aria-selected=true] { background: rgba(255, 255, 255, 0.13); color: #fff; font-weight: 800; }
+    #drawer .dr-n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 900; }
+    #drawer .dr-n.zero { background: rgba(255, 255, 255, 0.14); color: var(--muted); }
+    #drawer .dr-undo { flex: 1 1 auto; min-width: 0; display: flex; justify-content: flex-end; }
+    #drawer .dr-undo .undo-btn b { display: none; }
+    #drawer .dr-undo .undo-btn .what { max-width: none; }
+    #drawer .dr-undo .undo-btn .what .src { display: none; }
+    #drawer .dr-undo .undo-btn:disabled { display: none; }
+    #drawer .dr-more { flex: none; min-height: 28px; height: 28px; padding: 0 10px; border-radius: 9px; font-size: 12.5px; }
+    #drawer .dr-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-top: 8px; }
+    #drawer .dr-pane[hidden] { display: none !important; }
+    /* 대기함 — 접힘엔 맨 앞 한 장만(나머지는 숨김 · 얼림 규칙 그대로) */
+    #drawer #pending { flex: none; min-height: 0; max-height: none; overflow: visible; padding: 0; }
+    #drawer #pending > .box-head { display: none; }
+    #drawer:not(.open) #pending .plist > .pcard ~ .pcard { display: none; }
+    #drawer:not(.open) #pending .pcard { margin-bottom: 0; }
+    #drawer #pending .empty { padding: 10px 8px; }
+    #drawer #pending .pc-players { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+    #drawer #pending .pbtn { min-height: 36px; height: 36px; font-size: 12.5px; }
+    #drawer .cm.ops { padding: 0; border: 0; background: transparent; }
+    #drawer .cast-sec.sec { position: static; order: 0; }
+    /* 본문은 서랍 높이만큼 아래를 비운다 — 점수판 마지막 줄(모금함 · 금액)이 서랍에 안 가린다 */
+    body.has-drawer .app { padding-bottom: calc(var(--drawer-h, 180px) + 16px); }
+    body.has-drawer .toasts { bottom: calc(var(--drawer-h, 180px) + 10px); }
+}

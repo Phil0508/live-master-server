@@ -1,62 +1,44 @@
 /* 🤖 대기함 쪽 AI 서포트 — pending.js 가 부르는 곳은 여기 하나다(화면 약속 1).
-     sync(slices)        대기함이 바뀔 때마다: 새 후원 묻기 · '지급할까요?' 줄 정리 · 🚗 오토파일럿 · 🔔 먼저 알림
-     badge(it)           카드 안 배지 + '지난 배정' 줄(없으면 null)
-     sig(id)             배지가 바뀌었는지(카드를 다시 그릴지) 보는 글자
+     attach(ctx)         대기함이 처음 붙을 때 한 번(연결 묶음을 넣는다)
+     sync(slices)        대기함이 바뀔 때마다: 새 후원 묻기 · 🚗 오토파일럿 · 🔔 먼저 알림
+     pick(it)            카드 한 장에 쓸 AI 판단 {level, target, text, title, more, game} (없으면 null) — 추천 단추 · AI 한 줄
+     sig(id)             판단이 바뀌었는지(카드를 다시 그릴지) 보는 글자
      okToGive(it, name)  오배정 경고 — 메시지가 다른 사람을 가리키면 한 번 묻는다(옛 assignPending 의 'AI 기입 검증')
-     mountAsks(list, ctx, give)  '지급할까요?' 줄을 대기함 카드 목록 바로 위에 끼운다. give(id, name) = 대기함의 배정 단추와 같은 길
 
-   배지(옛 paintAuditBadge 그대로 — '모름' 도 숨기지 않는다. 근거(why)는 늘 같이)
-     tier 'auto' → '✓ 이름 (거의 확실)' · 이름 있고 확신 0.6↑ → '🤖 이름(으)로 보임' · 잠깐 막힘 → '⏳ AI 가 붐벼요'
-     · 그 밖 → '❓ 누구 것인지 모르겠음'. 지난 배정 앞 3개 → '지난 배정 · 하율 3번'.
-   '지급할까요?'(옛 토스트 · 마지막 모습은 대기함 안 맨 위 한 줄)
-     확신 0.75↑ · 후원 1건에 한 번 · 아직 대기함에 있을 때만 · 그 이름이 지금 판 선수일 때만. [✔ 지급] = 그 사람에게 · [무시] = 줄만 닫는다.
-     ⚠️ 떠 있는 상자로 띄우면 대기함 카드 단추를 덮었다(옛 조종실 실측) — 그래서 대기함 안에 끼운다.
-     ⚠️ 마우스가 대기함 위에 있는 동안(얼림)은 새 줄을 끼우지 않고, 처리된 줄은 같은 높이 자리로 남긴다 — 카드가 손 밑에서 움직이지 않게. */
-import { h, josaRo, currentNames, isDonation, setCtx, getCtx } from './common.js';
+   10-17 시안 B(대표님): 어두운 '지급할까요?' 줄을 없앴다 — 같은 후원이 줄 하나 · 카드 하나로 **두 번** 보였다.
+     이제 AI 가 고른 사람은 카드의 선수 단추 하나에 주황 테두리 + '추천' 딱지로만 보인다(pending.js). 누르면 다른 단추와 똑같은 길.
+   판단 고르는 규칙(옛 paintAuditBadge · 자동 진행 배지 그대로 — '모름' 도 숨기지 않는다. 근거(why)는 title · 눌러 펼침)
+     서버 자동 진행이 본 카드(auto) → 그 판단(autoBadge 와 같은 글자 한 줄)
+     tier 'auto' → sure '거의 확실' · 이름 있고 확신 0.6↑ → maybe '아마도' · 잠깐 막힘 → wait '⏳ AI 붐빔'
+     · 묻는 중 → asking 'AI 보는 중…' · 그 밖 → unknown '❓ 누구 것인지 모름'.  추천 단추는 sure · maybe 일 때만.
+   ⚠️ 마우스가 대기함 위에 있는 동안(얼림)은 판단을 바꾸지 않는다 — 답이 와서 '추천' 이 다른 단추로 옮겨 가거나 줄이 늘면
+      누르려던 자리에 다른 사람이 온다(돈이 걸린 오배정). 손을 떼면 그때 바뀐다. */
+import { josaRo, isDonation, setCtx, getCtx } from './common.js';
 import * as sug from './suggest.js';
 import * as ap from './autopilot.js';
 import * as watch from './watch.js';
-import { manWon, won } from '../../util.js';
-import { autoBadge } from '../auto/badge.js';            // 🤖 자동 진행(서버 autopilot) 판단 배지
+import { autoBadge } from '../auto/badge.js';            // 🤖 자동 진행(서버 autopilot) 판단 배지 — 글자 규칙을 그대로 빌린다
 
-const AUDIT_MIN_CONF = 0.6;      // 배지 '🤖 ○○로 보임' · 오배정 경고
-const ASK_MIN_CONF = 0.75;       // '지급할까요?' — 행동을 권하니 배지보다 엄격하게
-const ASK_SHOW = 3;              // 한 번에 보이는 '지급할까요?' 줄
+const AUDIT_MIN_CONF = 0.6;      // '아마도' · 추천 · 오배정 경고
 
-const askShown = new Set();      // 후원 1건당 한 번(무시했으면 다시 안 뜬다)
 const shown = new Map();         // id → {sig, ans} 카드에 지금 그려 둔 답 — 얼린 동안은 이것을 그대로 쓴다
-const asks = [];                 // [{id, target}] 아직 답을 안 한 제안(들어온 순서)
-let box = null, giveFn = null, lastSlices = null;
-const rows = new Map();          // id → {el, ghost}
+
+export function attach(ctx) { setCtx(ctx); }
 
 /* ── 대기함이 바뀔 때마다 ── */
-// ⚠️ 여기서 무엇이 넘어져도 대기함 카드는 그려져야 한다 — 전부 감싼다(배지 없이 도는 편이 낫다)
+// ⚠️ 여기서 무엇이 넘어져도 대기함 카드는 그려져야 한다 — 전부 감싼다(AI 줄 없이 도는 편이 낫다)
 export function sync(slices) {
     try {
-        lastSlices = slices;
         const pend = slices.pending || [];
         sug.sync(pend);
         const ids = new Set(pend.map(x => x && x.id));
-        for (let i = asks.length - 1; i >= 0; i--) if (!ids.has(asks[i].id)) asks.splice(i, 1);
         for (const id of [...shown.keys()]) if (!ids.has(id)) shown.delete(id);
-        paintAsks();
         ap.sweep().catch(e => console.error('[오토파일럿]', e));
     } catch (e) { console.error('[AI 제안]', e); }
     try { watch.check(slices); } catch (e) { console.error('[AI 알림]', e); }
 }
 
-// 답이 들어오면 — '지급할까요?' 를 띄울지 보고 오토파일럿을 한 번 더 훑는다
-sug.onAnswer((id, a) => {
-    if (!a || !a.target || (a.confidence || 0) < ASK_MIN_CONF || askShown.has(id)) return;
-    const slices = (getCtx() || {}).slices || lastSlices || {};
-    const it = (slices.pending || []).find(x => x && x.id === id);
-    if (!it || !isDonation(it)) return;
-    if (!currentNames(slices).includes(a.target)) return;           // 그새 선수가 바뀌었으면 권하지 않는다
-    if (ap.isOn() && a.tier === 'auto' && !it.returned) return;     // 오토파일럿이 곧 줄 것 — 줄을 띄웠다 지우지 않게
-    askShown.add(id);
-    asks.push({ id, target: a.target });
-    paintAsks();
-});
+// 답이 들어오면 오토파일럿을 한 번 더 훑는다(카드는 suggest 의 version 이 바뀌어 다시 그려진다)
 sug.onAnswer(() => { ap.sweep().catch(e => console.error('[오토파일럿]', e)); });
 
 // 🔔 시간이 지나야 걸리는 알림(3분째 대기 · 대결 30초)은 조각이 안 바뀌어도 본다
@@ -65,9 +47,12 @@ setInterval(() => {
     if (ctx && document.body.dataset.view === 'live') { try { watch.check(ctx.slices); } catch (e) { console.error('[AI 알림]', e); } }
 }, 15000);
 
-/* ── 카드 안 배지 ──
-   ⚠️ 마우스가 대기함 위에 있는 동안(얼림)은 배지를 바꾸지 않는다 — 답이 와서 배지가 두 줄이 되면
-      이름 단추가 아래로 밀려, 누르려던 자리에 윗줄의 다른 사람 단추가 온다(돈이 걸린 오배정). 손을 떼면 그때 바뀐다. */
+function frozen() {
+    const el = document.getElementById('pending');
+    return !!(el && el.classList.contains('frozen'));
+}
+
+/* ── 카드가 다시 그려질지 ── 얼린 동안은 그려 둔 답을 그대로 */
 export function sig(id) {
     const cur = 'ai' + sug.version(id);
     const prev = shown.get(id);
@@ -76,40 +61,62 @@ export function sig(id) {
     return cur;
 }
 
-export function badge(it) {
-    try { return makeBadge(it); } catch (e) { console.error('[AI 배지]', e); return null; }
+/* ── 카드 한 장의 AI 판단 ── */
+export function pick(it) {
+    try { return makePick(it); } catch (e) { console.error('[AI 판단]', e); return null; }
 }
 
-function makeBadge(it) {
+const LV_TEXT = { sure: '거의 확실', maybe: '아마도', unknown: '❓ 누구 것인지 모름', wait: '⏳ AI 붐빔 — 곧 다시 물어요', asking: 'AI 보는 중…' };
+
+function histText(hist) {
+    const h3 = (hist || []).slice(0, 3).filter(x => x && x.name);
+    return h3.length ? '지난 배정 · ' + h3.map(x => `${x.name} ${x.count}번`).join(' · ') : '';
+}
+
+function makePick(it) {
     if (!isDonation(it)) return null;
     const snap = shown.get(it.id);
     const s = snap ? snap.ans : sug.get(it.id);
     if (!s || s.gone || s.skipped) return null;
-    if (s.auto) return autoBadge(s.auto, s.history);     // 🤖 서버 자동 진행이 판단한 카드 — '자동이라면 …' · '몰라서 보류'
-    let cls, main;
-    const why = s.why ? h('span', { class: 'ai-why' }, ' · ' + s.why) : null;
-    if (s.asking) {
-        cls = 'lv-asking';
-        main = ['🤖 누구 것인지 보는 중…'];
-    } else if (s.target && s.tier === 'auto') {
-        cls = 'lv-auto';
-        main = ['✓ ', h('b', null, s.target), ' (거의 확실)'];
-    } else if (s.target && (s.confidence || 0) >= AUDIT_MIN_CONF) {
-        cls = 'lv-suggest';
-        main = ['🤖 ', h('b', null, s.target), josaRo(s.target) + ' 보임'];
-    } else if (s.retryIn) {
-        // 잠깐 막힌 것뿐 — 곧 다시 묻는다. '모름' 과 섞으면 사람이 괜히 손으로 판단하러 간다
-        cls = 'lv-wait';
-        main = ['⏳ AI 가 붐벼요 — 곧 다시 물어봐요'];
-    } else {
-        // '모름' 을 숨기지 않는다. 자리를 비웠을 때 이게 쌓이는 것이 곧 할 일이다
-        cls = 'lv-unknown';
-        main = ['❓ 누구 것인지 모르겠음'];
-    }
-    const hist = (s.history || []).slice(0, 3).filter(x => x && x.name);
-    return h('div', { class: 'ai-sug' },
-        h('div', { class: 'ai-badge ' + cls, title: s.source ? '판단 근거: ' + s.source : null }, ...main, why),
-        hist.length ? h('div', { class: 'ai-hist' }, '지난 배정 · ' + hist.map(x => `${x.name} ${x.count}번`).join(' · ')) : null);
+    const hist = histText(s.history);
+    if (s.auto) return autoPick(s.auto, s.history, hist);
+    let level;
+    if (s.asking) level = 'asking';
+    else if (s.target && s.tier === 'auto') level = 'sure';
+    else if (s.target && (s.confidence || 0) >= AUDIT_MIN_CONF) level = 'maybe';
+    else if (s.retryIn) level = 'wait';          // 잠깐 막힌 것뿐 — '모름' 과 섞으면 사람이 괜히 손으로 판단하러 간다
+    else level = 'unknown';                      // '모름' 을 숨기지 않는다. 자리를 비웠을 때 이게 쌓이는 것이 곧 할 일이다
+    const target = (level === 'sure' || level === 'maybe') ? s.target : '';
+    const text = target ? `${target} ${LV_TEXT[level]}` : LV_TEXT[level];
+    const more = [s.target && !target ? `${s.target}${josaRo(s.target)} 보이지만 확신이 낮아요` : '', s.why ? '까닭: ' + s.why : '', hist].filter(Boolean).join(' · ');
+    return { level, target, text, more, title: [text, more, s.source ? '판단 근거: ' + s.source : ''].filter(Boolean).join('\n'), game: null };
+}
+
+// 서버 자동 진행이 판단한 카드 — 글자는 autoBadge(자동 진행 탭과 같은 말) 를 한 줄로
+function autoPick(a, history, hist) {
+    const node = autoBadge(a, history);
+    const badge = node && node.querySelector('.ai-badge');
+    const whyEl = badge && badge.querySelector('.ai-why');
+    const why = whyEl ? whyEl.textContent.replace(/^\s*·\s*/, '') : '';
+    if (whyEl) whyEl.remove();
+    const text = badge ? badge.textContent.trim() : '🤖 자동 진행';
+    const gameEl = node && node.querySelector('.au-cgame');
+    const conf = Number(a.confidence) || 0;
+    let level;
+    if (a.asking) level = 'asking';
+    else if (a.retry && !a.target) level = 'wait';
+    else if (a.act && a.target && a.mode !== 'on') level = 'sure';
+    else if (a.target && conf >= AUDIT_MIN_CONF) level = 'maybe';
+    else level = a.mode === 'on' ? 'held' : 'unknown';
+    const target = (level === 'sure' || level === 'maybe') ? a.target : '';
+    const more = [why ? '까닭: ' + why : '', hist].filter(Boolean).join(' · ');
+    // 그림자('자동이라면')로 고른 사람이 있으면 다른 카드와 같은 말('밍밍 거의 확실') — 자동 진행 말은 title 로. 켬 · 보류는 autoBadge 말 그대로
+    const plain = a.mode !== 'on' && !!target;
+    return {
+        level, target, text: plain ? `${target} ${LV_TEXT[level]}` : text, more, auto: !plain,
+        title: [text, more, a.source ? '판단 근거: ' + a.source : '', '자동 진행 탭에서 기록을 볼 수 있어요'].filter(Boolean).join('\n'),
+        game: gameEl ? { text: gameEl.textContent, cls: gameEl.className } : null,
+    };
 }
 
 /* ── 오배정 경고 ── 메시지가 '하율' 을 가리키는데 '서아' 를 누르면 한 번 묻는다. 취소하면 아무것도 안 한다 */
@@ -126,84 +133,3 @@ export async function okToGive(it, name) {
     });
 }
 
-/* ── '지급할까요?' 줄 ── */
-export function mountAsks(list, ctx, give) {
-    setCtx(ctx);
-    giveFn = give || null;
-    box = h('div', { class: 'ai-asks', 'aria-live': 'polite' });
-    list.before(box);
-}
-
-function frozen() {
-    return !!(box && box.closest('.frozen'));
-}
-
-function paintAsks() {
-    if (!box) return;
-    const slices = (getCtx() || {}).slices || lastSlices || {};
-    const pend = slices.pending || [];
-    const want = asks.slice(0, ASK_SHOW).map(a => a.id);
-    const hold = frozen();
-    // 빠진 줄 — 얼려 있으면 같은 높이 자리로 남기고, 아니면 지운다
-    for (const [id, r] of rows) {
-        if (want.includes(id)) continue;
-        if (hold) {
-            if (!r.ghost) {
-                r.el.style.minHeight = r.el.getBoundingClientRect().height + 'px';
-                r.el.className = 'ai-ask ghost';
-                r.el.inert = true;
-                r.el.replaceChildren(h('span', null, '✓ 정리됨'));
-                r.ghost = true;
-            }
-        } else { r.el.remove(); rows.delete(id); }
-    }
-    asks.slice(0, ASK_SHOW).forEach(a => {
-        if (rows.has(a.id) && !rows.get(a.id).ghost) return;
-        if (hold) return;                                      // 손이 대기함 위에 있다 — 새 줄은 손을 뗀 뒤에
-        const it = pend.find(x => x && x.id === a.id);
-        if (!it) return;
-        const old = rows.get(a.id);
-        if (old) old.el.remove();
-        const el = makeAsk(it, a.target);
-        box.append(el);
-        rows.set(a.id, { el, ghost: false });
-    });
-    let more = box.querySelector('.ai-ask-more');
-    const extra = asks.length - ASK_SHOW;
-    if (extra > 0 && !hold) {
-        if (!more) { more = h('p', { class: 'ai-ask-more' }); box.append(more); }
-        more.textContent = `🤖 제안 ${extra}건 더 — 카드의 배지를 보세요`;
-        box.append(more);
-    } else if (more && !hold) more.remove();
-}
-
-function makeAsk(it, target) {
-    const pts = manWon(it.amount);
-    return h('div', { class: 'ai-ask', 'data-id': it.id },
-        h('div', { class: 'ai-ask-tx' },
-            h('span', { class: 'ai-ask-src' }, `🤖 ${it.name || '익명'}님 · ${won(it.amount)}`),
-            h('span', { class: 'ai-ask-q' }, h('b', null, target), `에게 ${pts}점 줄까요?`)),
-        h('div', { class: 'ai-ask-btns' },
-            h('button', { type: 'button', class: 'btn sm pri', onclick: () => accept(it.id, target) }, '✔ 지급'),
-            h('button', { type: 'button', class: 'btn sm', onclick: () => dismiss(it.id) }, '무시')));
-}
-
-function dismiss(id) {
-    const i = asks.findIndex(a => a.id === id);
-    if (i >= 0) asks.splice(i, 1);
-    paintAsks();
-}
-
-async function accept(id, target) {
-    dismiss(id);
-    const ctx = getCtx();
-    if (!ctx) return;
-    const slices = ctx.slices || {};
-    const it = (slices.pending || []).find(x => x && x.id === id);
-    if (!it) { ctx.toast('이미 처리된 후원이에요', 'info'); return; }
-    // ⚠️ 누르는 순간 다시 본다 — 줄이 떠 있는 사이 선수가 바뀌었을 수 있다
-    if (!currentNames(slices).includes(target)) { ctx.toast(`'${target}' 이(가) 지금 판에 없어요 — 카드에서 직접 골라 주세요`, 'err'); return; }
-    if (giveFn) { await giveFn(id, target); return; }
-    const res = await ctx.run('pending.assign', { id, name: target });
-    if (res.ok && !res.already) ctx.toast(`${target} +${manWon(it.amount)}점 — ${it.name} ${won(it.amount)}`, 'ok');
-}
