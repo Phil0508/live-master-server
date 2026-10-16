@@ -215,6 +215,8 @@ export function mountTabs(els, ctx, panels) {
             draw(slices);
         },
         open: id => open(id, true),
+        /** 탭을 열지 않고 미리 그려만 둔다(숨긴 채) — 조종 줄 BGM ▶ 가 플레이어 자리를 만들 때([D] bgm.js) */
+        prepare: id => { const p = byId.get(id); if (!p || p.home || isLocked(p)) return false; ensure(id); return true; },
         active: () => active,
         locked: id => { const p = byId.get(id); return !p || isLocked(p); },
         newsText,

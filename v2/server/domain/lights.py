@@ -12,6 +12,8 @@ lights 조각(공개)
   speed   조명 속도(초, 0.3~5.0 · 기본 1.5) — 방송판: 네온 한 바퀴 = speed×2초, 아우디 한 번 = speed×0.56초(옛 계산 그대로)
   colors  색 슬롯 9칸(조종실 [켜기] 단추) — 옛 saved_colors 기본값 그대로
   at      마지막으로 바꾼 시각(ms)
+  manual  🙈 수동 리액션 모드(옛 조종실 '수동 리액션 모드' 스위치 · reaction_mode 를 손으로 켠 것) — 켜 두면 시그니처가 없어도
+          방송판이 리액션 모드가 된다(점수판 등 hideInReaction 칸 숨김 · 조명). 대표님 10-17 "가끔 손으로 씀". 방송을 끝내면 꺼진다.
 look.fx   ✨ 테마 연출(테마를 입었을 때 후원 알림 · 최고 기록 · 핀볼 우승에 테마 모양 입자) — 없으면 켜진 것(옛 theme_fx_enabled !== false)
 
 ⚠️ 조명은 **시그니처가 나오는 동안만** 보인다(옛 reaction_mode 와 같다 — 방송판이 정한다). 꺼 두는 것은 서버가 아니라 방송판의 몫.
@@ -23,18 +25,21 @@ look.fx   ✨ 테마 연출(테마를 입었을 때 후원 알림 · 최고 기�
   lights.set {color?, audi?, speed?}   하나씩 맞추기(color 는 '#hex' · 'RAINBOW' · 'OFF' — 여기서 OFF 는 네온만 끈다)
   lights.slot {index, color}     색 슬롯 한 칸 바꾸기(0~8, '#hex' 만)
   look.fx {on}                   ✨ 테마 연출 켜기 · 끄기
+  lights.manual {on}             🙈 수동 리액션 모드 켜기 · 끄기(조종 줄 스위치 — rxswitch.js)
 """
 import re
 
 from ..bus import CommandError, command
 from ..state import slice_
+from . import session as ses
 
 # 옛 server.py DEFAULT_STATE['saved_colors'] 그대로(9칸)
 DEFAULT_COLORS = ['#ff0055', '#00e5ff', '#ff9100', '#d500f9', '#00ff00', '#ffff00', '#ff0000', '#0000ff', '#ffffff']
 SPEED_MIN, SPEED_MAX, SPEED_DEFAULT = 0.3, 5.0, 1.5      # 옛 조종실 슬라이더 min 0.3 · max 5.0 · 기본 1.5
 MODES = ('RAINBOW', 'OFF')
 
-slice_('lights', True, lambda: {'color': 'OFF', 'audi': False, 'speed': SPEED_DEFAULT, 'colors': list(DEFAULT_COLORS), 'at': 0})
+slice_('lights', True, lambda: {'color': 'OFF', 'audi': False, 'speed': SPEED_DEFAULT, 'colors': list(DEFAULT_COLORS), 'at': 0,
+                               'manual': False})
 
 _HEX = re.compile(r'^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$')
 
@@ -130,6 +135,31 @@ def look_fx(ctx, data):
     if 'on' not in data:
         raise CommandError('켤지(on: true) 끌지(on: false) 적어 주세요')
     ctx.edit('look')['fx'] = bool(data.get('on'))
+
+
+@command('lights.manual')
+def lights_manual(ctx, data):
+    """🙈 수동 리액션 모드 — 옛 toggleOption('reaction_mode'). 켜면 방송판이 시그니처가 없어도 리액션 모드(위젯 숨김 · 조명).
+       ⚠️ 옛 것은 시그니처 대기줄이 비면 저절로 꺼졌다(reaction_mode 하나를 둘이 같이 썼다). v2 는 따로 들고 있어
+          시그니처가 끝나도 손으로 켠 것은 그대로다 — 끄는 것은 사람(또는 방송 끝)."""
+    if 'on' not in data:
+        raise CommandError('켤지(on: true) 끌지(on: false) 적어 주세요')
+    on = bool(data.get('on'))
+    L = ctx.edit('lights')
+    if bool(L.get('manual')) == on:
+        ctx.notes['already'] = True
+        return
+    L['manual'] = on
+    _touch(ctx, L)
+
+
+def _manual_off(ctx, data):
+    """방송 끝 — 손으로 켠 리액션 모드는 끈다(다음 방송을 위젯이 숨은 채로 시작하지 않게. 옛 reset 도 reaction_mode=False)."""
+    if ctx.read('lights').get('manual'):
+        ctx.edit('lights')['manual'] = False
+
+
+ses.ON_END.append(_manual_off)
 
 
 def fix_colors(v):

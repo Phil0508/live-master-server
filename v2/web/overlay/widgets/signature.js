@@ -246,7 +246,12 @@ export function mount(root, lm, opts) {
     onLeaderChange(lead => { if (cur && !cur.forcedMute) audio.muted = !!opts.monitor || !lead; });
 
     // ── 차례 ──
-    function setReaction(on) { opts.stage.setMode('reaction', on); }
+    // 🙈 수동 리액션 모드(lights.manual — 조종 줄 스위치)가 켜져 있으면 시그니처가 없어도 리액션 모드(위젯 숨김 · 조명).
+    //    시그니처 쪽 판단(sigOn)은 따로 기억해 두고 둘 중 하나라도 켜져 있으면 켠다 — 시그가 끝나도 손으로 켠 것은 남는다.
+    let sigOn = false;
+    const manualOn = () => !!((lm.get('lights') || {}).manual);
+    function setReaction(on) { sigOn = !!on; opts.stage.setMode('reaction', sigOn || manualOn()); }
+    lm.on('lights', () => setReaction(sigOn));
 
     function tick() {
         tickTimer = null;
