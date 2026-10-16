@@ -59,6 +59,13 @@ class DupCheck(Base):
         # '_' 가 LIKE 에서 아무 글자로 읽히지 않는다 — 번호가 앞부분만 같은 다른 입금은 아니다
         self.assertNotIn('sent_id', self.codes(a['id'][:-1], '아무개', 1234))
 
+    def test_own_rows_only_exact_prefix(self):
+        # 자기 줄은 manual_bank_<번호> · manual_bank_<번호>_N 뿐 — 번호 앞부분만 같은 다른 입금(b1 ↔ b12)의 장부 줄은 '같은 이름 · 같은 금액' 으로 잡는다
+        self.donate('겹침이', 40000, 'manual_bank_b12')
+        self.assertEqual(self.codes('b1', '겹침이', 40000), ['same_recent'])
+        self.donate('겹침이', 40000, 'manual_bank_b1_2')                                       # 자기 줄(×N)은 sent_id 로만
+        self.assertEqual(self.codes('b1', '겹침이', 40000), ['sent_id', 'same_recent'])
+
     def test_used_without_ledger(self):
         b = self.items[30000]
         self.c.post('/api/bank/inbox/%s/used' % b['id'], json={'name': '홍길동'}, headers=H)   # 장부에 넣기 없이 시그니처만 틀고 '씀'

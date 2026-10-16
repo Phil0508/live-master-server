@@ -569,7 +569,9 @@ def dup_warns(store, iid, name, amount, ledger, now=None):
     if amount > 0 and name:
         rows = [dict(r) for r in db.execute('SELECT tx_id, at, name FROM donations WHERE amount = ? AND at >= ? ORDER BY at DESC',
                                             (amount, now - DUP_WINDOW_SEC))]
-        rows = [r for r in rows if _norm(r['name']) == name and not (mine and str(r['tx_id'] or '').startswith(mine))]
+        # 자기 줄(manual_bank_<번호> · ×N 의 manual_bank_<번호>_N)만 뺀다 — startswith(mine) 만 보면 번호가 앞부분만 같은 다른 입금 줄까지 빠진다
+        own = lambda tx: bool(mine) and (tx == mine or tx.startswith(mine + '_'))
+        rows = [r for r in rows if _norm(r['name']) == name and not own(str(r['tx_id'] or ''))]
         if rows:
             tx = str(rows[0]['tx_id'] or '')
             where = '투네이션' if tx.startswith('toon_') else ('계좌 입금' if tx.startswith('manual_bank_') else '손으로 넣은 후원')
