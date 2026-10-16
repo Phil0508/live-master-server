@@ -45,14 +45,17 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
       const r = await fetch(link.server.replace(/\/+$/, '') + '/api/bank/deposit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Bank-Key': link.key },
-        body: JSON.stringify({ source: 'web', deposits: batch, note: String(msg.note || '').slice(0, 60) }),
+        body: JSON.stringify({ source: 'web', deposits: batch, note: String(msg.note || '').slice(0, 60),
+          state: msg.state && typeof msg.state === 'object' ? msg.state : undefined }),   // 🪞 상자 내용 — 조종실 거울용
       });
       if (r.status === 401) return { ok: false, why: 'key', queued: q.length };
       if (!r.ok) return { ok: false, why: 'http', code: r.status, queued: q.length };
+      const j = await r.json().catch(() => ({}));
       const sent = new Set(batch.map((d) => d.ref));
       q = ((await get(QUEUE)) || []).filter((d) => !sent.has(d.ref));
       await set({ [QUEUE]: q });
-      return { ok: true, queued: q.length, at: Date.now() };
+      // 🪞 조종실이 넣어 둔 명령(켜기 · 끄기 · 간격 · 기준 · 조회)은 답에 실려 온다 — 은행 화면 쪽이 받아 실행한다
+      return { ok: true, queued: q.length, at: Date.now(), cmds: Array.isArray(j.cmds) ? j.cmds : [] };
     } catch (e) {
       return { ok: false, why: 'net', queued: q.length };
     }

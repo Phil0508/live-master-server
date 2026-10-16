@@ -159,6 +159,57 @@ d = c.get('/api/bank/app', headers=H).get_json()
 say(d.get('ready') and d.get('version') == open(os.path.join('bank-phone', 'dist', 'version.txt'), encoding='utf-8').read().strip()
     and d.get('size') == len(apk), '조종실이 판 번호 · 크기를 본다', d)
 
+# ── 🪞 조종실 거울 · 명령 (10-16) ──
+state = {'v': '0.4.0', 'enabled': True, 'interval': 30, 'clicks': 12, 'lastOkAt': 1760000000000, 'startedAt': 1759990000000,
+         'dateOk': True, 'status': '자동 조회 중 · 30초마다 · 다음 12초 뒤', 'cls': 'ok', 'dead': False, 'rows': 8,
+         'found': [{'at': 1760000000000, 'when': '2026-10-14 17:08:40', 'dep': 20000, 'memo': '스트밍밍플러' + '가' * 60}] * 12,
+         'log': ['17:08:52 새 입금 20,000원 스트밍밍플러'] * 10, 'secret_extra': 'x' * 500}
+r = dep(K, [], note='자동 조회 12번', state=state)
+say(r.status_code == 200 and r.get_json().get('cmds') == [], '상자 내용을 실어 보내면 받고, 기다리는 명령이 없으면 빈 목록', r.get_json())
+say(c.get('/api/bank/ext').status_code == 401, '거울은 로그인해야 본다')
+e = c.get('/api/bank/ext', headers=H).get_json()
+w = e['link']['web']
+say(w['age_sec'] < 5 and w['state']['status'].startswith('자동 조회 중') and w['state']['cls'] == 'ok' and w['state']['clicks'] == 12
+    and w['state']['enabled'] is True, '조종실이 확장 상자 내용(상태 · 조회 횟수 · 켜짐)을 그대로 본다', w['state'])
+say(len(w['state']['found']) == 8 and len(w['state']['found'][0]['memo']) == 40 and len(w['state']['log']) == 6
+    and 'secret_extra' not in w['state'], '상자 내용은 찾은 입금 8건 · 메모 40자 · 기록 6줄까지만, 모르는 칸은 버린다',
+    (len(w['state']['found']), len(w['state']['found'][0]['memo']), len(w['state']['log'])))
+say(e.get('new') == len(inbox()['items']) and (e.get('newest') or {}).get('id') == inbox()['items'][0]['id'],
+    '미처리 수와 가장 새 카드를 같이 준다(조종실 초록 띠 재료)', (e.get('new'), e.get('newest')))
+say(c.post('/api/bank/ext/cmd', json={'t': 'press'}).status_code == 401, '명령 넣기는 로그인해야')
+say(c.post('/api/bank/ext/cmd', json={'t': 'reboot'}, headers=H).status_code == 400, '모르는 명령은 400')
+say(c.post('/api/bank/ext/cmd', json={'t': 'enable'}, headers=H).status_code == 400, '켜기/끄기는 on 이 있어야')
+say(c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 45}, headers=H).status_code == 400, '간격은 20 · 30 · 60 만')
+r1 = c.post('/api/bank/ext/cmd', json={'t': 'enable', 'on': False}, headers=H).get_json()
+r2 = c.post('/api/bank/ext/cmd', json={'t': 'enable', 'on': True}, headers=H).get_json()
+r3 = c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 60}, headers=H).get_json()
+pend = r3.get('pending') or []
+say([x['t'] for x in pend] == ['enable', 'interval'] and pend[0]['on'] is True and pend[1]['sec'] == 60,
+    '같은 종류 명령은 마지막 것만 남고(끄기→켜기 = 켜기), 다른 종류는 같이 기다린다', pend)
+say((c.get('/api/bank/ext', headers=H).get_json().get('pending') or {}).get('web') == pend, '거울이 기다리는 명령을 보여준다')
+r = dep(K, [], note='자동 조회 13번', state=state).get_json()
+say([x['t'] for x in r.get('cmds') or []] == ['enable', 'interval'], '확장의 다음 신호 답에 명령이 실려 간다', r.get('cmds'))
+say(dep(K, [], state=state).get_json().get('cmds') == [] and not (c.get('/api/bank/ext', headers=H).get_json().get('pending') or {}).get('web'),
+    '한 번 넘긴 명령은 지워진다(두 번 실행 안 됨)')
+# 폰 쪽 명령은 폰 신호에만 간다
+c.post('/api/bank/ext/cmd', json={'t': 'press', 'source': 'phone'}, headers=H)
+say(dep(K, [], state=state).get_json().get('cmds') == [], '폰에 넣은 명령은 웹 확장 신호엔 안 실린다')
+
+# 새 입금 신호는 로그인한 화면에만 · 이름 · 금액 없이
+import queue as _q
+qa, qn = _q.Queue(), _q.Queue()
+qa._authed = True
+qn._authed = False
+with server.sse_lock:
+    server.sse_clients.extend([qa, qn])
+dep(K, [{'ref': 'r_sse', 'amount': 77000, 'fields': [['거래내용', '김비밀 밍밍 화이팅']]}])
+with server.sse_lock:
+    server.sse_clients.remove(qa); server.sse_clients.remove(qn)
+msg = qa.get_nowait() if not qa.empty() else ''
+say(msg.startswith('event: bank_inbox') and '"n": 1' in msg and '김비밀' not in msg and '77000' not in msg,
+    '새 입금이 오면 로그인한 화면에 건수만 알린다(이름 · 금액 없음)', msg[:120])
+say(qn.empty(), '방송판(무인증)에는 안 간다')
+
 # ── 새 열쇠 · 너무 잦은 신호 ──
 K2 = c.post('/api/bank/key/reset', headers=H).get_json()['key']
 say(K2 != K and dep(K, []).status_code == 401 and dep(K2, []).status_code == 200, '새 열쇠를 만들면 옛 열쇠는 막힌다')
@@ -178,6 +229,17 @@ CT = open(os.path.join(ROOT, 'controller.html'), encoding='utf-8').read()
 chk('조종실 시스템 탭에 폰 앱 받기 칸 · QR', 'id="bankapp-box"' in CT and "location.href='/download/bankphone.apk'" in CT
     and '<script src="/vendor/qrious.min.js">' in CT and 'new QRious(' in CT and os.path.exists(os.path.join(ROOT, 'vendor', 'qrious.min.js')))
 chk('기능을 등록한다(features.ai 뒤)', SRV.find('import features.bank_inbox') > SRV.find('import features.ai '))
+chk('거울 · 명령 길은 로그인해야(exempt 에 없음)', "'/api/bank/ext'" not in SRV)
+chk('조종실: 머리줄 신호등 칩 · 빨간/초록 띠 · 거울 칸 · 새 입금 신호 듣기',
+    'id="bank-chip"' in CT and 'id="bank-band"' in CT and 'id="bank-new"' in CT and 'id="bankext-box"' in CT
+    and "addEventListener('bank_inbox'" in CT and "fetch('/api/bank/ext/cmd'" in CT and "bankExtCmd('enable')" in CT)
+_bkx = CT[CT.find('/* 🪞 은행 확장 거울'):CT.find("setInterval(() => { try { bankExtLoad(); } catch (e) {} }, 10000);")]
+chk('조종실 계좌 알림은 화면만 — 소리를 안 낸다(대표님 10-16)', len(_bkx) > 2000 and 'new Audio(' not in _bkx and '.play(' not in _bkx, len(_bkx))
+BW = open(os.path.join(ROOT, 'bank-watch', 'content.js'), encoding='utf-8').read()
+BG = open(os.path.join(ROOT, 'bank-watch', 'background.js'), encoding='utf-8').read()
+chk('확장 0.4: 신호에 상자 내용(state)을 싣고, 답의 명령(cmds)을 실행한다',
+    "note: what, state }" in BW and 'applyCmds(res.cmds)' in BW and 'state: msg.state' in BG and 'cmds: Array.isArray(j.cmds)' in BG)
+chk('확장 0.4: 자동 조회가 꺼져 있어도 살아 있음 신호를 보낸다(조종실에서 켤 수 있게)', 'function beat() { if (ui && Date.now() - lastBeat > 25000) sendDeps([]); }' in BW)
 chk('입금 기록 · 열쇠 파일은 저장소에 안 올라간다', 'bank_inbox.json' in GI and 'bank_key.json' in GI)
 MS = open(os.path.join(ROOT, 'manual_send.html'), encoding='utf-8').read()
 chk('후원 콘솔: 계좌 입금에서 채운 송출은 그 입금 번호(manual_bank_)를 쓴다 — 두 번 눌러도 장부엔 한 번',

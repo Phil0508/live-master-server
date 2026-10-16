@@ -147,6 +147,21 @@ console.log('⑦-3 기업 인터넷뱅킹 그리드 표(TreeGrid) — 10-14 실�
   chk('그리드 보내는 칸: 빈 자리 · 겹친 이름 없이', JSON.stringify(gp.fields) === JSON.stringify([['거래내용', '구름빵'], ['상대은행', '하나은행']]), gp.fields);
 }
 
+console.log('⑦-4 조종실 명령(0.4) — cmdPlan');
+{
+  const S0 = { enabled: false, interval: 30, baseAt: 123, baseSig: 'k2|x', startedAt: 0, lastClickAt: 99, clicks: 3 };
+  let r = W.cmdPlan(S0, [{ t: 'enable', on: true }]);
+  chk('켜기: enabled · startedAt · lastClickAt=0(바로 조회)', r.S.enabled === true && r.S.startedAt > 0 && r.S.lastClickAt === 0 && !r.press && !r.rescan, r.S);
+  chk('원래 S 는 안 건드린다(순수)', S0.enabled === false && S0.lastClickAt === 99);
+  r = W.cmdPlan(Object.assign({}, S0, { enabled: true, startedAt: 5 }), [{ t: 'enable', on: true }]);
+  chk('이미 켜져 있으면 startedAt 그대로', r.S.startedAt === 5 && r.notes.length === 1, r);
+  r = W.cmdPlan(S0, [{ t: 'interval', sec: '60' }, { t: 'interval', sec: 45 }]);
+  chk('간격은 20 · 30 · 60 만 받는다(45 는 무시)', r.S.interval === 60 && r.notes.length === 1, r);
+  r = W.cmdPlan(S0, [{ t: 'rebase' }, { t: 'press' }, { t: 'reboot' }, null, 'x']);
+  chk('기준 다시 잡기 → baseAt 0 · 다시 읽기, 조회 한 번 → press, 모르는 건 넘김', r.S.baseAt === 0 && r.S.baseSig === '' && r.rescan && r.press && r.notes.length === 2, r);
+  chk('명령마다 기록 한 줄(조종실에서 …)', r.notes.every((n) => n.startsWith('조종실에서')), r.notes);
+}
+
 console.log('⑧ 확장 배경 — 보낼 곳 제한 · 대기줄');
 const B = require(path.join(ROOT, 'bank-watch', 'background.js'));
 chk('방송 서버(엔젤컴퍼니.메인.한국)로는 보낸다', B.allowed('https://xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e'));

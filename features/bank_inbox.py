@@ -9,6 +9,8 @@
   GET  /api/bank/inbox              후원 콘솔(로그인) — 아직 안 쓴 입금 · 숨긴 입금 · 확장 연결 상태
   POST /api/bank/inbox/<id>/<act>   used(송출함) · dismiss(숨김) · restore(되살림)
   GET  /api/bank/key                확장에 붙여 넣을 열쇠(로그인 · 없으면 만든다) · POST /api/bank/key/reset
+  GET  /api/bank/ext                🪞 조종실 거울 — 확장이 마지막 신호에 실어 보낸 상자 내용 · 기다리는 명령 · 미처리 수(로그인)
+  POST /api/bank/ext/cmd            조종실 → 확장 명령(enable · interval · rebase · press). 다음 /api/bank/deposit 답에 실려 간다
 
 ⚠️ 입금자 실명이 들어 있다. 상태(load_data)에 넣지 않고 서버 폴더의 bank_inbox.json(.gitignore)에만 둔다
    → 방송판 SSE 로 새어 나갈 길이 없다. 읽는 길은 로그인한 후원 콘솔뿐이다.
@@ -22,6 +24,7 @@ import secrets
 import threading
 import time
 from flask import jsonify, request, send_file
+import server   # 조종실 신호(sse_clients)는 부를 때마다 server 에서 찾는다 — 검사가 가짜로 바꿔 끼운다
 from server import BASE_DIR, app, db_query, file_lock, get_db_connection, load_data
 from features.bank_memo import ai_split_ok, clean, split_memo
 
@@ -33,6 +36,10 @@ HIDDEN_SHOW = 10              # 숨긴 입금은 최근 이만큼만 돌려준�
 AMOUNT_MAX = 100_000_000
 POSTS_PER_MIN = 60            # 확장은 30초마다 한 번 — 이보다 많으면 고장이거나 장난이다
 DONOR_TTL = 600
+# 🪞 조종실 거울 · 원격 조작(10-16): 확장이 신호마다 상자 내용(state)을 실어 보내고, 답으로 조종실이 넣어 둔 명령을 받아 간다.
+EXT_CMDS = ('enable', 'interval', 'rebase', 'press')
+EXT_INTERVALS = (20, 30, 60)
+EXT_CMD_MAX = 8
 
 _lock = threading.Lock()
 _box = None
@@ -73,7 +80,8 @@ def _load():
         b = _read_json(BANK_INBOX_FILE)
         items = b.get('items') if isinstance(b.get('items'), list) else []
         seen = b.get('seen') if isinstance(b.get('seen'), dict) else {}
-        _box = {'items': [i for i in items if isinstance(i, dict) and i.get('id')], 'seen': seen}
+        cmds = b.get('cmds') if isinstance(b.get('cmds'), dict) else {}
+        _box = {'items': [i for i in items if isinstance(i, dict) and i.get('id')], 'seen': seen, 'cmds': cmds}
     return _box
 
 
@@ -90,6 +98,54 @@ def _key(create=False):
         k = secrets.token_hex(16)
         _write_json(BANK_KEY_FILE, {'key': k, 'created': int(time.time())})
     return k
+
+
+# ── 🪞 확장 상자 거울 · 명령 ───────────────────────────────
+
+
+def _ext_state(raw):
+    """확장이 신호에 실어 보낸 상자 내용 → 조종실 거울이 그릴 만큼만, 글자 수를 잘라 둔다.
+       (메모엔 실명이 섞일 수 있어 40자 · 기록 6줄 · 찾은 입금 8건까지. 이 파일은 bank_inbox.json 에만 남는다)"""
+    if not isinstance(raw, dict):
+        return {}
+
+    def s(v, n):
+        return ' '.join(str(v or '').split())[:n]
+
+    def i(v):
+        return int(v) if isinstance(v, (int, float)) and -1e13 < v < 1e13 else 0
+
+    out = {
+        'v': s(raw.get('v'), 10), 'enabled': bool(raw.get('enabled')), 'interval': i(raw.get('interval')),
+        'clicks': i(raw.get('clicks')), 'lastOkAt': i(raw.get('lastOkAt')), 'startedAt': i(raw.get('startedAt')),
+        'dateOk': raw.get('dateOk') if raw.get('dateOk') in (True, False) else None,
+        'status': s(raw.get('status'), 120), 'cls': s(raw.get('cls'), 8), 'dead': bool(raw.get('dead')),
+        'loggedOut': bool(raw.get('loggedOut')), 'rows': i(raw.get('rows')), 'diag': s(raw.get('diag'), 160),
+    }
+    found = []
+    for f in (raw.get('found') or [])[:8]:
+        if isinstance(f, dict):
+            found.append({'at': i(f.get('at')), 'when': s(f.get('when'), 24), 'dep': i(f.get('dep')), 'memo': s(f.get('memo'), 40)})
+    out['found'] = found
+    out['log'] = [s(x, 80) for x in (raw.get('log') or [])[:6] if isinstance(x, str)]
+    return out
+
+
+def _notify_authed(event, data):
+    """로그인한 화면(조종실 · 후원 콘솔)에만 작은 신호 — 방송판(무인증)엔 안 간다.
+       ⚠️ 이름 · 금액은 싣지 않는다. 받은 쪽이 /api/bank/inbox(로그인)로 다시 물어본다."""
+    msg = "event: %s\ndata: %s\n\n" % (event, json.dumps(data, ensure_ascii=False))
+    try:
+        with server.sse_lock:
+            for q in list(server.sse_clients):
+                if not getattr(q, '_authed', False):
+                    continue
+                try:
+                    q.put_nowait(msg)
+                except Exception:
+                    pass
+    except Exception as e:
+        print("⚠️ [계좌 입금 신호] %s" % e, flush=True)
 
 
 # ── 판단 재료 ──────────────────────────────────────────
@@ -270,7 +326,9 @@ def api_bank_deposit():
     added = []
     with _lock:
         box = _load()
-        box['seen'][source] = {'at': now, 'note': ' '.join(str(body.get('note') or '').split())[:60]}
+        box['seen'][source] = {'at': now, 'note': ' '.join(str(body.get('note') or '').split())[:60],
+                               'state': _ext_state(body.get('state'))}
+        cmds = box.setdefault('cmds', {}).pop(source, [])      # 조종실이 넣어 둔 명령 — 한 번만 넘긴다
         refs = {i.get('ref') for i in box['items']}
         for d in deps:
             it = _make_item(d, source, players, donors)
@@ -279,10 +337,12 @@ def api_bank_deposit():
                 refs.add(it['ref'])
                 added.append(it['id'])
         _save(box)
+        new_n = sum(1 for i in box['items'] if i.get('status') == 'new')
     if added:
         print("🏦 [계좌 입금 감지] %d건 — 후원 콘솔 추천 칸에 올렸습니다(%s)" % (len(added), source), flush=True)
         threading.Thread(target=_enrich, args=(added,), daemon=True).start()
-    return jsonify({'status': 'success', 'added': len(added)})
+        _notify_authed('bank_inbox', {'n': len(added), 'new': new_n, 'source': source})
+    return jsonify({'status': 'success', 'added': len(added), 'cmds': cmds})
 
 
 @app.route('/api/bank/inbox', methods=['GET'])
@@ -300,6 +360,55 @@ def api_bank_inbox():
     items.sort(key=lambda i: i['at'], reverse=True)
     hidden.reverse()
     return jsonify({'status': 'success', 'items': items, 'hidden': hidden, 'link': link, 'key_set': bool(_key())})
+
+
+@app.route('/api/bank/ext', methods=['GET'])
+def api_bank_ext():
+    """🪞 조종실 거울 — 확장이 마지막 신호에 실어 보낸 상자 내용 · 기다리는 명령 · 미처리 입금 수(로그인)."""
+    now = time.time()
+    with _lock:
+        box = _load()
+        seen = {k: dict(v) for k, v in box['seen'].items() if isinstance(v, dict)}
+        pending = {k: list(v) for k, v in box.get('cmds', {}).items()}
+        news = [i for i in box['items'] if i.get('status') == 'new']
+        newest = max(news, key=lambda i: float(i.get('at') or 0)) if news else None
+    link = {}
+    for src, v in seen.items():
+        link[src] = {'age_sec': int(now - float(v.get('at') or 0)), 'note': v.get('note') or '', 'state': v.get('state') or {}}
+    return jsonify({'status': 'success', 'link': link, 'pending': pending, 'new': len(news),
+                    'newest': _view(newest) if newest else None, 'key_set': bool(_key()), 'now': now})
+
+
+@app.route('/api/bank/ext/cmd', methods=['POST'])
+def api_bank_ext_cmd():
+    """조종실 → 확장 명령 넣기(로그인). 확장이 다음 신호(25초 안)에 받아 간다.
+       enable(on) · interval(sec 20/30/60) · rebase(기준 다시 잡기) · press([조회] 한 번). 같은 종류는 마지막 것만 남긴다."""
+    body = request.get_json(silent=True) or {}
+    t = str(body.get('t') or '')
+    if t not in EXT_CMDS:
+        return jsonify({'status': 'error', 'message': '모르는 명령이에요'}), 400
+    cmd = {'t': t, 'at': int(time.time())}
+    if t == 'enable':
+        if body.get('on') not in (True, False):
+            return jsonify({'status': 'error', 'message': '켤지 끌지(on)를 알려 주세요'}), 400
+        cmd['on'] = bool(body['on'])
+    if t == 'interval':
+        try:
+            sec = int(body.get('sec'))
+        except (TypeError, ValueError):
+            sec = 0
+        if sec not in EXT_INTERVALS:
+            return jsonify({'status': 'error', 'message': '간격은 20 · 30 · 60초 중 하나예요'}), 400
+        cmd['sec'] = sec
+    source = 'phone' if body.get('source') == 'phone' else 'web'
+    with _lock:
+        box = _load()
+        q = [c for c in box.setdefault('cmds', {}).get(source, []) if isinstance(c, dict) and c.get('t') != t]
+        q.append(cmd)
+        box['cmds'][source] = q[-EXT_CMD_MAX:]
+        _save(box)
+        pending = list(box['cmds'][source])
+    return jsonify({'status': 'success', 'pending': pending})
 
 
 @app.route('/api/bank/inbox/<iid>/<act>', methods=['POST'])

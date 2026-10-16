@@ -1986,6 +1986,37 @@
         .pf-chip.warn { color: #ffcc00; border-color: rgba(255, 204, 0, 0.5); }
         .pf-chip.warn i { background: #ffcc00; }
         .pf-chip.bad { color: #fff; background: rgba(255, 69, 58, 0.85); border-color: var(--danger); }
+        /* 🏦 계좌 입금 띠 · 은행 확장 거울 (10-16 대표님 "소리보단 화면으로") — 빨간 띠 = 입금을 못 받는 중, 초록 띠 = 새 입금 */
+        #bank-strips { display: grid; gap: 8px; margin: 0 0 12px; }
+        .bank-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r-2); font-weight: 800; font-size: var(--fs-3); }
+        .bank-strip[hidden] { display: none; }
+        .pf-chip[hidden] { display: none; }   /* .pf-chip 은 inline-flex 라 hidden 만으론 안 숨는다 */
+        .bank-strip .bb-s, .bank-strip .bn-s { font-weight: 500; font-size: var(--fs-2); opacity: .85; }
+        .bank-strip.dead { background: rgba(255, 69, 58, 0.9); color: #fff; animation: bankBandPulse 1.4s ease infinite; }
+        .bank-strip.new { background: rgba(61, 220, 132, 0.14); color: var(--success); border: 1px solid rgba(61, 220, 132, 0.5); }
+        .bank-strip.new.pop { animation: bankNewUp .35s ease; }
+        .bank-strip .bs-btn { margin-left: auto; height: 30px; padding: 0 12px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.12); color: inherit; font: inherit; font-size: var(--fs-2); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+        .bank-strip .bs-x { height: 30px; width: 30px; border-radius: var(--r-1); border: 0; background: transparent; color: inherit; font-size: var(--fs-3); cursor: pointer; }
+        @keyframes bankBandPulse { 50% { filter: brightness(1.12); } }
+        @keyframes bankNewUp { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) { .bank-strip.dead, .bank-strip.new.pop, .bkx-dot.bad { animation: none; } }
+        .bkx-bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-2); background: var(--bg-input); border: 1px solid var(--line); margin-bottom: 8px; }
+        .bkx-bar.dead { background: rgba(255, 69, 58, 0.18); border-color: var(--danger); }
+        .bkx-dot { width: 14px; height: 14px; border-radius: 50%; background: #8c8078; box-shadow: 0 0 0 4px rgba(140,128,120,.18); flex: none; }
+        .bkx-dot.ok { background: var(--success); box-shadow: 0 0 0 4px rgba(61,220,132,.18); }
+        .bkx-dot.warn { background: #f5a524; box-shadow: 0 0 0 4px rgba(245,165,36,.2); }
+        .bkx-dot.bad { background: var(--danger); box-shadow: 0 0 0 4px rgba(255,107,107,.25); animation: bkxBlink 1s steps(2) infinite; }
+        @keyframes bkxBlink { 50% { opacity: .35; } }
+        .bkx-t { flex: 1; min-width: 0; font-weight: 800; font-size: var(--fs-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bkx-t small { display: block; font-weight: 500; font-size: var(--fs-1); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .bkx-cnt { font-weight: 900; font-size: var(--fs-1); padding: 3px 9px; border-radius: 20px; background: rgba(240,123,63,.16); color: var(--accent); white-space: nowrap; }
+        .bkx-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+        .bkx-row button.on { background: rgba(61, 220, 132, 0.18); border-color: rgba(61, 220, 132, 0.6); color: var(--success); }
+        .bkx-mut { font-size: var(--fs-1); color: var(--text-muted); line-height: 1.6; }
+        .bkx-warn { font-size: var(--fs-2); color: #ffcc00; background: rgba(255, 204, 0, 0.1); border-radius: var(--r-1); padding: 6px 9px; margin: 4px 0; }
+        .bkx-found { display: grid; gap: 4px; margin: 6px 0; }
+        .bkx-dep { display: grid; grid-template-columns: auto 1fr auto auto; gap: 2px 10px; align-items: baseline; padding: 6px 9px; border-radius: var(--r-1); background: var(--bg-input); font-size: var(--fs-2); }
+        .bkx-dep b { color: #ffb36b; font-variant-numeric: tabular-nums; }
         .pf-chip.bad i { background: #fff; }
         .pf-alarm { display: none; margin: 0 0 10px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--danger);
                     background: rgba(255, 69, 58, 0.16); color: #fff; }
@@ -2527,6 +2558,8 @@
             <!-- 🛫 방송 화면(OBS) · 후원 받기(투네이션 리스너)가 살아 있나 — 10초마다(누르면 자세히) -->
             <span id="pf-chip-ov" class="pf-chip" onclick="pfExplain('ov')" title="방송 화면(OBS)이 서버에 붙어 있나"><i></i>방송 화면</span>
             <span id="pf-chip-li" class="pf-chip" onclick="pfExplain('li')" title="투네이션 후원을 받아 오는 프로그램이 살아 있나"><i></i>후원 받기</span>
+            <!-- 🏦 은행 확장(계좌 입금 받기) 신호등 — 초록 연결 · 노랑 주의 · 빨강 끊김. 누르면 설정 → 시스템의 거울 칸 -->
+            <span id="bank-chip" class="pf-chip" onclick="bankExtOpen()" title="은행 확장(계좌 입금 받기) — 누르면 거울 칸으로" hidden><i></i>계좌</span>
         </h1>
         <!-- ⏱ 대결 타이머 — 대결 중에만 뜬다(시안 A·B: 제일 많이 누른 ▶ 시작 56번 · +1분 46번) -->
         <div id="hdr-timer" class="hdr-timer" style="display:none;"></div>
@@ -2572,6 +2605,12 @@
             <button id="btn-clip" onclick="clipNow()" title="누른 순간 앞 90초 + 뒤 90초(3분)를 OBS 가 저장합니다 — 뒤 90초를 담으려고 90초 뒤에 저장돼요" style="height: 42px;"><span id="clip-dot" class="clip-dot"></span><i class="fa-solid fa-scissors"></i> 클립</button>
             <button id="btn-editor" onclick="window.open('/admin', '_blank')" style="height: 42px; background: rgba(255,255,255,0.05); color: #fff; border-color: var(--border-light);"><i class="fa-solid fa-pen-ruler"></i> 에디터</button>
         </div>
+    </div>
+
+    <!-- 🏦 계좌 입금 띠(10-16) — 빨강: 은행 확장 끊김(입금을 못 받는 중) · 초록: 새 입금(25초 뒤 사라짐). 소리는 없다(대표님) -->
+    <div id="bank-strips">
+        <div id="bank-band" class="bank-strip dead" hidden><span class="bb-t"></span><span class="bb-s"></span><button type="button" class="bs-btn" onclick="bankExtOpen()">은행 확장 보기</button></div>
+        <div id="bank-new" class="bank-strip new" hidden><span class="bn-t"></span><span class="bn-s"></span><a class="bs-btn" href="/manual" target="_blank">후원 콘솔 열기</a><button type="button" class="bs-x" onclick="document.getElementById('bank-new').hidden=true" title="닫기">✕</button></div>
     </div>
 
     <div id="active-broadcast-area" style="display: none;">
@@ -3391,6 +3430,27 @@
         </div>
 
         <!-- 📱 폰 입금알림 앱 (2026-10-14) — 공기계에 까는 안드로이드 앱. QR 로 찍어 로그인 없이 받는다(/download/bankphone.apk) -->
+        <!-- 🪞 은행 확장 거울 (10-16) — 스튜디오 PC 은행 화면의 '엔젤 입금확인' 상자를 그대로 비춘다(같은 신호등 바).
+             단추는 서버에 명령을 넣고(/api/bank/ext/cmd) 확장이 다음 신호 때(25초 안) 따라 한다. 은행 로그인은 여기서 못 한다. -->
+        <div class="group-box sys-box" id="bankext-box">
+            <div class="group-title sys-head">
+                <span><i class="fa-solid fa-building-columns"></i> 은행 확장 (스튜디오 PC · 계좌 입금 받기)</span>
+                <span id="bankext-ver" style="font-size:var(--fs-1); color:var(--text-muted);"></span>
+            </div>
+            <div class="bkx-bar"><span class="bkx-dot"></span><span class="bkx-t"><span id="bankext-t1">불러오는 중…</span><small id="bankext-t2"></small></span><span class="bkx-cnt" id="bankext-cnt">입금 0</span></div>
+            <div class="bkx-row">
+                <button class="secondary sys-mini" id="bankext-toggle" onclick="bankExtCmd('enable')">자동 조회 켜기</button>
+                <select id="bankext-int" onchange="bankExtCmd('interval', this.value)" title="조회 간격" style="height:32px; border-radius:var(--r-2); padding:0 8px; background:var(--bg-input); color:var(--text-main); border:1px solid var(--line); font:inherit; font-size:var(--fs-2);"><option value="20">20초마다</option><option value="30" selected>30초마다</option><option value="60">60초마다</option></select>
+                <button class="secondary sys-mini" onclick="bankExtCmd('press')" title="자동 조회가 꺼져 있어도 [조회]를 한 번 눌러요">지금 조회</button>
+                <button class="secondary sys-mini" onclick="bankExtCmd('rebase')" title="지금 표에 있는 줄은 입금으로 안 알려요 — 계좌 · 기간을 바꾼 뒤에">기준 다시 잡기</button>
+            </div>
+            <div class="bkx-mut" id="bankext-pend"></div>
+            <div id="bankext-warn"></div>
+            <div class="bkx-mut" id="bankext-meta"></div>
+            <div class="bkx-found" id="bankext-found"></div>
+            <details><summary class="bkx-mut" style="cursor:pointer;">확장 기록</summary><ul class="bkx-mut" id="bankext-log" style="margin:4px 0 0; padding-left:18px;"></ul></details>
+            <div class="bkx-mut" style="margin-top:6px;">명령은 확장이 다음 신호 때(25초 안) 받아요. 은행 <b>로그인</b>은 스튜디오 PC에서만 할 수 있어요. 폰 앱: <span id="bankext-phone">—</span></div>
+        </div>
         <div class="group-box sys-box" id="bankapp-box">
             <div class="group-title sys-head">
                 <span><i class="fa-solid fa-mobile-screen-button"></i> 폰 입금알림 앱 (안드로이드)</span>
@@ -8433,6 +8493,8 @@
             });
             // 🏺 편집기에서 자리를 옮기면 배치가 바뀐다 — 깃발 단추 불빛도 따라 바꾼다
             sseSource.addEventListener('layout', function() { fundjarSideLoad(); });
+            // 🏦 계좌 입금이 들어오면 서버가 건수만 알린다 — 조종실이 다시 읽어 초록 띠를 띄운다
+            sseSource.addEventListener('bank_inbox', function() { try { bankExtLoad(); } catch (e) {} });
             
             sseSource.addEventListener('update', function(e) {
                 updateConnectionStatus('connected');
@@ -11949,6 +12011,123 @@ initFoldablePanels();
             catch (e) { premiumAlert(bankAppUrl(), '이 주소를 공기계에서 여세요', 'info'); }
         }
         document.addEventListener('DOMContentLoaded', () => { try { bankAppLoad(); } catch (e) {} });
+
+        /* 🪞 은행 확장 거울 · 계좌 입금 알림 (조종실, 10-16 대표님 "2번 — 거울 + 조작" · "컨트롤러 창에서도 계좌 알림")
+           — 확장이 25초마다 서버에 실어 보낸 상자 내용(/api/bank/ext)으로 같은 '신호등 바'를 그린다.
+           — 단추는 서버에 명령을 넣고(/api/bank/ext/cmd), 확장이 다음 신호 때 받아 간다(25초 안).
+           — 새 입금: 서버가 'bank_inbox' 신호(건수만)를 보내면 /api/bank/ext 를 다시 읽어 머리 밑 초록 띠로 알린다(10초 폴링이 예비).
+           — 끊김(신호 90초 없음 · 확장이 스스로 '끊김'이라 보고): 빨간 띠. 소리는 없다. 3시간 넘게 조용하면 '꺼짐'으로 보고 보채지 않는다. */
+        const BKX = { data: null, known: null, newTimer: null };
+        const BKX_DEAD_SEC = 90, BKX_OFF_SEC = 3 * 3600;
+        function bkxAgo(sec) { sec = Math.max(0, Math.round(sec || 0)); if (sec < 10) return '방금'; if (sec < 60) return sec + '초 전'; if (sec < 3600) return Math.floor(sec / 60) + '분 전'; return Math.floor(sec / 3600) + '시간 전'; }
+        function bkxDur(ms) { const m = Math.floor(ms / 60000); return m >= 60 ? Math.floor(m / 60) + '시간 ' + (m % 60) + '분' : m + '분'; }
+        function bkxHHMM(ms) { if (!ms) return '-'; const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+        function bkxEsc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+        // 확장이 어떤 상태인가 — none(연결 전) · off(3시간 조용) · dead(끊김) · idle(꺼짐) · warn · ok
+        function bkxJudge(d) {
+            if (!d || !d.key_set) return { k: 'none', t1: '은행 확장 연결 전', t2: '후원 콘솔 [은행 확장 연결]에서 열쇠를 넣으세요' };
+            const w = d.link && d.link.web;
+            if (!w) return { k: 'none', t1: '은행 확장 소식 없음', t2: '스튜디오 PC에서 확장을 켜면 여기 떠요' };
+            const st = w.state || {};
+            if (w.age_sec > BKX_OFF_SEC) return { k: 'off', t1: '은행 확장 꺼짐', t2: '마지막 신호 ' + bkxAgo(w.age_sec) };
+            if (w.age_sec > BKX_DEAD_SEC) return { k: 'dead', dead: true, t1: '은행 확장 끊김 · 신호 없음 ' + bkxAgo(w.age_sec).replace(' 전', ''), t2: '스튜디오 PC 크롬 · 은행 화면을 확인하세요' };
+            if (st.dead) return { k: 'dead', dead: true, t1: st.status || '은행 로그아웃됨', t2: '스튜디오 PC에서 다시 로그인하세요' + (st.lastOkAt ? ' · 마지막 정상 ' + bkxHHMM(st.lastOkAt) : '') };
+            if (!st.enabled) return { k: 'idle', t1: st.status || '자동 조회 꺼짐', t2: '[자동 조회 켜기]를 누르면 25초 안에 켜져요' };
+            return { k: st.cls === 'warn' ? 'warn' : 'ok', t1: st.status || '자동 조회 중',
+                     t2: '신호 ' + bkxAgo(w.age_sec) + ' · 조회 ' + (st.clicks || 0) + '번' + (st.startedAt ? ' · 켜 둔 지 ' + bkxDur(Date.now() - st.startedAt) : '') };
+        }
+        function bkxPaint() {
+            const d = BKX.data, j = bkxJudge(d);
+            const chip = document.getElementById('bank-chip');
+            if (chip) {
+                // ⚠️ 머리줄은 옛 모습 945px(반 화면)에서도 한 줄이어야 한다 — 글자는 짧게, 안 쓰는 동안(연결 전 · 3시간 조용)은 숨긴다
+                const n = d ? (d.new || 0) : 0;
+                chip.hidden = j.k === 'none' || j.k === 'off';
+                chip.className = 'pf-chip ' + (j.k === 'dead' ? 'bad' : j.k === 'warn' ? 'warn' : j.k === 'ok' ? 'ok' : '');
+                // 끊김 · 꺼짐은 색으로만(빨강 · 회색) — 끊기면 바로 밑 빨간 띠가 글로 말한다. 글자는 미처리 수만 붙인다
+                chip.innerHTML = '<i></i>계좌' + (n && j.k !== 'dead' ? ' ' + n : '');
+                chip.title = j.t1 + ' — ' + j.t2 + (n ? ' · 미처리 ' + n + '건' : '');
+            }
+            const band = document.getElementById('bank-band');
+            if (band) {
+                band.hidden = !j.dead;
+                if (j.dead) { band.querySelector('.bb-t').textContent = '⚠ ' + j.t1 + ' — 계좌 입금을 못 받고 있어요'; band.querySelector('.bb-s').textContent = j.t2; }
+            }
+            const box = document.getElementById('bankext-box');
+            if (!box) return;
+            const w = d && d.link && d.link.web, st = (w && w.state) || {};
+            box.querySelector('.bkx-dot').className = 'bkx-dot ' + (j.k === 'dead' ? 'bad' : j.k === 'warn' ? 'warn' : j.k === 'ok' ? 'ok' : '');
+            box.querySelector('.bkx-bar').classList.toggle('dead', !!j.dead);
+            document.getElementById('bankext-t1').textContent = j.t1;
+            document.getElementById('bankext-t2').textContent = j.t2;
+            document.getElementById('bankext-cnt').textContent = '입금 ' + ((st.found || []).length);
+            document.getElementById('bankext-ver').textContent = st.v ? '확장 ' + st.v : '';
+            const tg = document.getElementById('bankext-toggle');
+            tg.textContent = st.enabled ? '자동 조회 끄기' : '자동 조회 켜기';
+            tg.classList.toggle('on', !!st.enabled);
+            tg.disabled = !w || j.k === 'off';
+            const sel = document.getElementById('bankext-int');
+            if (sel && st.interval && document.activeElement !== sel) sel.value = String(st.interval);
+            const pend = (d && d.pending && d.pending.web) || [];
+            const names = { enable: '켜기/끄기', interval: '간격', rebase: '기준 다시 잡기', press: '지금 조회' };
+            document.getElementById('bankext-pend').textContent = pend.length ? '보낸 명령 기다리는 중: ' + pend.map(c => names[c.t] || c.t).join(' · ') + ' — 확장이 25초 안에 받아요' : '';
+            const warns = [];
+            if (st.dateOk === false) warns.push('조회 기간 날짜 칸을 못 찾았어요 — 자정 뒤 입금이 안 보일 수 있어요');
+            if (w && st.rows === 0 && st.diag) warns.push('표를 못 읽어요: ' + st.diag);
+            document.getElementById('bankext-warn').innerHTML = warns.map(x => '<div class="bkx-warn">⚠ ' + bkxEsc(x) + '</div>').join('');
+            document.getElementById('bankext-meta').textContent = w ? ('신호 ' + bkxAgo(w.age_sec) + (w.note ? ' · ' + w.note : '') + (st.lastOkAt ? ' · 마지막 정상 ' + bkxHHMM(st.lastOkAt) : '') + (st.rows ? ' · 표 ' + st.rows + '줄' : '')) : '';
+            document.getElementById('bankext-found').innerHTML = (st.found || []).length
+                ? st.found.map(f => '<div class="bkx-dep"><b>' + Number(f.dep || 0).toLocaleString() + '원</b><span>' + bkxEsc(f.memo || '(내용 없음)') + '</span><span class="bkx-mut">' + bkxEsc(f.when || '') + '</span><span class="bkx-mut">찾음 ' + bkxHHMM(f.at) + '</span></div>').join('')
+                : '<div class="bkx-mut">확장이 아직 찾은 입금이 없어요</div>';
+            document.getElementById('bankext-log').innerHTML = (st.log || []).map(x => '<li>' + bkxEsc(x) + '</li>').join('');
+            const ph = d && d.link && d.link.phone;
+            document.getElementById('bankext-phone').textContent = ph ? (ph.age_sec < 90 ? '연결됨 · ' + bkxAgo(ph.age_sec) : '마지막 ' + bkxAgo(ph.age_sec)) : '안 켜져 있음';
+        }
+        async function bankExtLoad() {
+            try {
+                const r = await fetch('/api/bank/ext', { cache: 'no-store' });
+                if (!r.ok) return;
+                const d = await r.json();
+                if (d.status !== 'success') return;
+                BKX.data = d;
+                bkxPaint();
+                // 새 입금 — 처음 읽을 땐 알리지 않는다(예전 것이 쏟아지지 않게). 그 뒤 가장 새 카드가 바뀌면 띠
+                const id = d.newest && d.newest.id;
+                if (BKX.known === null) BKX.known = id || '';
+                else if (id && id !== BKX.known) { BKX.known = id; bankNewStrip(d.newest, d.new); }
+            } catch (e) {}
+        }
+        function bankNewStrip(it, n) {
+            const el = document.getElementById('bank-new');
+            if (!el || !it) return;
+            const nm = it.name || it.holder || '이름 없음';
+            el.querySelector('.bn-t').textContent = '🏦 계좌 입금 ' + Number(it.amount || 0).toLocaleString() + '원 · ' + nm + (it.message ? ' 「' + it.message + '」' : '');
+            el.querySelector('.bn-s').textContent = (n > 1 ? '미처리 ' + n + '건 · ' : '') + '후원 콘솔에서 [채우기] → 송출';
+            el.hidden = false;
+            el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+            clearTimeout(BKX.newTimer);
+            BKX.newTimer = setTimeout(() => { el.hidden = true; }, 25000);
+        }
+        async function bankExtCmd(t, v) {
+            const w = ((BKX.data || {}).link || {}).web, st = (w && w.state) || {};
+            const body = { t, source: 'web' };
+            if (t === 'enable') body.on = !st.enabled;
+            if (t === 'interval') body.sec = parseInt(v, 10);
+            try {
+                const r = await fetch('/api/bank/ext/cmd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+                const d = await r.json().catch(() => ({}));
+                if (!r.ok) { acctToast(d.message || ('실패 (' + r.status + ')'), 'warn'); return; }
+                acctToast('확장에 보냈어요 — 25초 안에 반영돼요', 'ok');
+                bankExtLoad();
+                setTimeout(bankExtLoad, 30000);
+            } catch (e) { acctToast('통신 실패 — 다시 눌러주세요', 'warn'); }
+        }
+        function bankExtOpen() {
+            try { ctlView('setup', 'tab-system'); } catch (e) {}
+            setTimeout(() => { const b = document.getElementById('bankext-box'); if (b) b.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 120);
+        }
+        document.addEventListener('DOMContentLoaded', () => { try { bankExtLoad(); } catch (e) {} });
+        setInterval(() => { try { bankExtLoad(); } catch (e) {} }, 10000);
 
         async function toonLoad() {
             try {

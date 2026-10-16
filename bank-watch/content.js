@@ -163,7 +163,7 @@
   }
 
   if (typeof window === 'undefined' || typeof document === 'undefined') {
-    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload, isRefund, sanity };
+    if (typeof module !== 'undefined') module.exports = { norm, toWon, hashStr, gridLabels, colMap, rowFrom, keyRows, judge, newestFirst, depPayload, isRefund, sanity, cmdPlan };
     return;
   }
 
@@ -171,10 +171,12 @@
 
   // 🧪 가짜 은행 화면(내 PC 의 시험 페이지)에서만 3초 간격 — 진짜 은행 주소에서는 절대 안 켜진다
   const FAST = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && /awfast=1/.test(location.search);
+  const VER = '0.4.0';
+  const STALL_MS = 150 * 1000;   // 조회를 누르는데 표가 이만큼 안 바뀌면 '끊김'(은행이 조용히 로그아웃시킨 것)
   const KEY = 'aw1';
   const DEF = {
     enabled: false, interval: 30, taught: '', seen: {}, found: [], baseAt: 0, baseSig: '',
-    clicks: 0, lastClickAt: 0, startedAt: 0, lastOkAt: 0, logoutAt: 0, log: [], folded: false,
+    clicks: 0, lastClickAt: 0, startedAt: 0, lastOkAt: 0, logoutAt: 0, log: [], folded: true, v4: 0,
   };
   let S = null;
   let timer = null;
@@ -372,17 +374,60 @@
     lastBeat = Date.now();
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) { net = { why: 'ext', at: 0, queued: 0 }; return; }
     const what = S && S.enabled ? '자동 조회 ' + S.clicks + '번' : '자동 조회 꺼짐';
+    let state = null;
+    try { state = snap(); } catch (e) {}
     try {
-      chrome.runtime.sendMessage({ t: 'aw-send', deposits, note: what }, (res) => {
+      chrome.runtime.sendMessage({ t: 'aw-send', deposits, note: what, state }, (res) => {
         if (chrome.runtime.lastError || !res) { net = { why: 'ext', at: net.at, queued: net.queued }; tick(); return; }
         net = res.ok ? { why: 'ok', at: res.at, queued: res.queued } : { why: res.why, code: res.code, at: net.at, queued: res.queued };
         if (deposits.length && res.ok) note('방송 서버로 보냄 — 입금 ' + deposits.length + '건');
         tick();
+        if (res.ok && Array.isArray(res.cmds) && res.cmds.length) applyCmds(res.cmds);   // 🪞 조종실이 넣어 둔 명령
       });
     } catch (e) { net = { why: 'ext', at: 0, queued: 0 }; }
   }
-  // 30초에 한 번 '살아 있음' — 후원 콘솔이 '은행 확장 연결됨 · n초 전' 을 보여준다. 못 보낸 입금도 이때 다시 간다
-  function beat() { if (lastFound && Date.now() - lastBeat > 25000) sendDeps([]); }
+  // 25초에 한 번 '살아 있음' — 후원 콘솔 · 조종실이 '은행 확장 연결됨 · n초 전' 을 보여준다. 못 보낸 입금도 이때 다시 간다.
+  // ⚠️ 자동 조회가 꺼져 있어도 보낸다 — 조종실에서 켤 수 있어야 하고, 로그아웃된 것도 알려야 한다
+  function beat() { if (ui && Date.now() - lastBeat > 25000) sendDeps([]); }
+
+  /* 🪞 조종실 명령(0.4) — 순수 계산(cmdPlan)과 적용(applyCmds)을 나눠 둔다. 검사는 cmdPlan 만 부른다.
+     enable(on) · interval(sec) · rebase(기준 다시 잡기) · press([조회] 한 번). 모르는 명령은 넘긴다. */
+  function cmdPlan(S0, cmds) {
+    const out = Object.assign({}, S0);
+    const notes = [];
+    let press = false, rescan = false;
+    for (const c of cmds || []) {
+      if (!c || typeof c !== 'object') continue;
+      if (c.t === 'enable') {
+        const on = !!c.on;
+        if (on !== !!out.enabled) { out.enabled = on; if (on) { out.startedAt = Date.now(); out.lastClickAt = 0; } }
+        notes.push('조종실에서 자동 조회 ' + (on ? '켬' : '끔'));
+      } else if (c.t === 'interval') {
+        const sec = parseInt(c.sec, 10);
+        if ([20, 30, 60].indexOf(sec) >= 0) { out.interval = sec; notes.push('조종실에서 간격 ' + sec + '초'); }
+      } else if (c.t === 'rebase') {
+        out.baseAt = 0; out.baseSig = ''; rescan = true;
+        notes.push('조종실에서 기준 다시 잡기 — 지금 표의 줄은 알리지 않아요');
+      } else if (c.t === 'press') {
+        press = true;
+        notes.push('조종실에서 [조회] 한 번');
+      }
+    }
+    return { S: out, notes, press, rescan };
+  }
+  async function applyCmds(cmds) {
+    S = await load();
+    const r = cmdPlan(S, cmds);
+    S = r.S;
+    r.notes.forEach(note);
+    document.documentElement.setAttribute('data-aw-on', S.enabled ? '1' : '0');
+    await save();
+    render();
+    schedule();
+    if (r.rescan) { lastRowsSig = ''; await scan('change'); }
+    if (r.press) await pressNow();
+    sendDeps([]);                           // 바뀐 상태를 바로 조종실에 알린다(명령은 서버가 이미 지웠다 — 되돌이 없음)
+  }
   function netStatus() {
     switch (net.why) {
       case 'ok': return ['방송 서버로 보냄 ✓ ' + hhmm(net.at) + (net.queued ? ' · 기다리는 입금 ' + net.queued + '건' : ''), 'ok'];
@@ -452,11 +497,21 @@
     S = await load();                       // 새로고침 · 다른 틀이 바꿨을 수 있다
     document.documentElement.setAttribute('data-aw-on', S.enabled ? '1' : '0');
     if (!S.enabled) { render(); return; }
+    await doPress();
+    schedule();                             // 화면이 새로 뜨면 이 타이머는 사라지고 boot 가 다시 건다
+  }
+  // [조회] 한 번 — 자동 조회가 꺼져 있어도 누른다(조종실의 [지금 조회])
+  async function pressNow() {
+    S = await load();
+    await doPress();
+    if (S.enabled) schedule();
+  }
+  async function doPress() {
     const btn = findButton(document, lastFound && lastFound.el, S.taught);
     S.lastClickAt = Date.now();
     if (!btn) {
       note('조회 버튼을 못 찾았어요 — [버튼 지정]으로 알려 주세요');
-      await save(); render(); schedule(); return;
+      await save(); render(); return;
     }
     S.clicks += 1;
     try {
@@ -467,10 +522,12 @@
     await save();
     render();
     try { btn.click(); } catch (e) { note('누르기 실패: ' + e.message); }
-    schedule();                             // 화면이 새로 뜨면 이 타이머는 사라지고 boot 가 다시 건다
   }
 
-  /* ─── 상자(그림자 DOM — 은행 화면 글꼴 · 색에 안 섞이게) ─── */
+  /* ─── 상자(그림자 DOM — 은행 화면 글꼴 · 색에 안 섞이게) ───
+     0.4 '신호등 바'(대표님 10-16 시안 A): 평소엔 두 줄짜리 바 — 왼쪽 점이 신호등(초록 · 노랑 · 빨강), 오른쪽에 찾은 입금 수.
+     바를 누르면 예전 상자 내용(단추 · 찾은 입금 · 기록 · 열쇠)이 펼쳐진다. 새 입금은 바 위로 초록 말풍선, 끊기면 바 전체가 빨개진다.
+     색 · 글꼴은 조종실 · 후원 콘솔(ops-theme)과 같은 옷 — 조종실 거울(bankext-box)도 같은 모양으로 그린다. */
   function mountUI() {
     if (ui) return;
     const host = document.createElement('div');
@@ -479,28 +536,43 @@
     const root = host.attachShadow({ mode: 'open' });
     root.innerHTML = `
       <style>
-        .bx{width:320px;font:13px/1.5 'Malgun Gothic',sans-serif;color:#e8ecf3;background:#141821f2;border:1px solid #3a4252;border-radius:10px;box-shadow:0 6px 24px #0008;overflow:hidden}
-        .hd{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#1d2330;font-weight:700}
-        .hd .sp{flex:1}
-        .hd button{background:none;border:0;color:#9aa6bb;cursor:pointer;font-size:14px}
-        .bd{padding:8px 10px;display:grid;gap:6px;max-height:60vh;overflow:auto}
-        .st{padding:6px 8px;border-radius:6px;background:#22324a}
+        .toast{position:absolute;right:0;bottom:calc(100% + 8px);width:320px;max-width:calc(100vw - 24px);box-sizing:border-box;background:#17311f;border:1px solid rgba(61,220,132,.5);color:#e8ffef;border-radius:12px;padding:9px 12px;font:800 13px/1.4 'Pretendard','Malgun Gothic',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:up .35s ease}
+        .toast small{display:block;font-weight:500;color:#9fe2b8;font-size:11.5px}
+        .toast[hidden]{display:none}
+        @keyframes up{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+        .bx{width:320px;max-width:calc(100vw - 24px);box-sizing:border-box;font:13px/1.45 'Pretendard','Malgun Gothic',sans-serif;color:#f6f1ec;background:#221a16f2;border:1px solid rgba(255,255,255,.13);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);overflow:hidden}
+        .bx.dead{background:#3a1717f5;border-color:#ff6b6b}
+        .top{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;user-select:none}
+        .dot{width:14px;height:14px;border-radius:50%;background:#8c8078;flex:none;box-shadow:0 0 0 4px rgba(140,128,120,.18)}
+        .dot.ok{background:#3ddc84;box-shadow:0 0 0 4px rgba(61,220,132,.18)}
+        .dot.warn{background:#f5a524;box-shadow:0 0 0 4px rgba(245,165,36,.2)}
+        .dot.bad{background:#ff6b6b;box-shadow:0 0 0 4px rgba(255,107,107,.25);animation:blink 1s steps(2) infinite}
+        .dot.pulse{animation:pulse 1s ease 3}
+        @keyframes blink{50%{opacity:.35}}
+        @keyframes pulse{50%{box-shadow:0 0 0 10px rgba(61,220,132,.05)}}
+        .t{flex:1;min-width:0;font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .t small{display:block;font-weight:500;font-size:11.5px;color:#bcb0a6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .bx.dead .t small{color:#f1c7c7}
+        .cnt{font-weight:900;font-size:12px;padding:3px 9px;border-radius:20px;background:rgba(240,123,63,.16);color:#ff8f57;white-space:nowrap}
+        .bx.dead .cnt{background:rgba(255,107,107,.2);color:#ffb3b3}
+        .fold{background:none;border:0;color:#bcb0a6;cursor:pointer;padding:0 2px;font:inherit;font-size:14px}
+        .bd{padding:2px 12px 10px;display:grid;gap:6px;max-height:60vh;overflow:auto;border-top:1px solid rgba(255,255,255,.08)}
+        .st{padding:6px 8px;border-radius:8px;background:#2b221d;font-size:12px}
         .st.ok{background:#173b2a}.st.bad{background:#4a1f1f}.st.warn{background:#4a3b17}
         .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-        .row button,.row select{background:#2a3242;color:#e8ecf3;border:1px solid #445066;border-radius:6px;padding:4px 8px;cursor:pointer;font:inherit}
+        .row button,.row select{background:#342923;color:#f6f1ec;border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:4px 9px;cursor:pointer;font:inherit;font-size:12px}
         .row button.on{background:#2f6f4a;border-color:#3f9a66}
-        .mut{color:#9aa6bb;font-size:12px}
-        .dep{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;padding:6px 8px;border-radius:6px;background:#1b2a1f}
-        .dep b{color:#7ee2a8}
-        .flash{animation:fl 1.2s ease 2}
-        @keyframes fl{0%,100%{box-shadow:0 6px 24px #0008}50%{box-shadow:0 0 0 4px #7ee2a8}}
+        .mut{color:#bcb0a6;font-size:12px}
+        .dep{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;padding:6px 8px;border-radius:8px;background:#2b221d}
+        .dep b{color:#ffb36b;font-variant-numeric:tabular-nums}
         ul{margin:0;padding-left:16px}
-        .lk{padding:0 10px 8px}
+        .lk{padding:0 12px 10px}
         .lk .row{margin-top:6px}
-        .lk input{flex:1;min-width:0;background:#0f131b;color:#e8ecf3;border:1px solid #445066;border-radius:6px;padding:4px 8px;font:inherit}
+        .lk input{flex:1;min-width:0;background:rgba(0,0,0,.26);color:#f6f1ec;border:1px solid rgba(255,255,255,.13);border-radius:8px;padding:4px 8px;font:inherit;font-size:12px}
       </style>
+      <div class="toast" hidden></div>
       <div class="bx">
-        <div class="hd">🏦 엔젤 입금확인 <span class="mut">0.3.2</span><span class="sp"></span><button data-a="fold" title="접기">▾</button></div>
+        <div class="top" data-a="fold" title="누르면 펼치기 · 접기"><span class="dot"></span><span class="t"><span class="t1">엔젤 입금확인</span><small class="t2">살펴보는 중…</small></span><span class="cnt">입금 0</span><button class="fold" data-a="fold" title="펼치기 · 접기">▾</button></div>
         <div class="bd"></div>
         <div class="lk">
           <details><summary class="mut">방송 서버 연결</summary>
@@ -512,7 +584,7 @@
         </div>
       </div>`;
     document.documentElement.appendChild(host);
-    ui = { host, root, bx: root.querySelector('.bx'), bd: root.querySelector('.bd'), lk: root.querySelector('.lk') };
+    ui = { host, root, bx: root.querySelector('.bx'), bd: root.querySelector('.bd'), lk: root.querySelector('.lk'), toast: root.querySelector('.toast') };
     root.addEventListener('click', onUiClick);
     // ⚠️ 열쇠 칸은 상자 몸통(.bd) 밖이다 — 몸통은 조회할 때마다 다시 그려져서, 안에 두면 치던 글자가 지워진다
     loadLink().then((l) => {
@@ -529,13 +601,57 @@
     const now = Date.now();
     // ⚠️ 표가 보이는데 비밀번호 칸이 있다고 로그아웃으로 보면 안 된다(조회에 계좌 비밀번호를 묻는 화면도 있다)
     if (!f && looksLoggedOut()) return ['로그아웃된 것 같아요 — 다시 로그인해 주세요' + (S.lastOkAt ? ' (마지막 정상 ' + hhmm(S.lastOkAt) + ')' : ''), 'bad'];
+    // 끊김 판정 ②: 조회를 누르는데 표가 2분 넘게 그대로(또는 사라짐) — 은행이 조용히 로그아웃시켰거나 화면이 멈춘 것
+    if (S.enabled && S.clicks > 0 && S.lastOkAt && now - S.lastOkAt > STALL_MS) {
+      return ['조회가 안 돼요 — 표가 ' + dur(now - S.lastOkAt) + ' 넘게 ' + (f ? '안 바뀌어요' : '안 보여요') + '. 은행 화면을 봐 주세요', 'bad'];
+    }
     if (!f) return ['거래내역 표를 못 찾았어요. 거래내역조회 화면에서 [조회]를 한 번 눌러 주세요', 'warn'];
     if (!S.enabled) return ['표를 찾았어요 · 자동 조회는 꺼져 있어요', ''];
     const next = Math.max(0, Math.round(((S.lastClickAt || now) + (FAST ? 3 : S.interval) * 1000 - now) / 1000));
     return ['자동 조회 중 · ' + S.interval + '초마다 · 다음 ' + next + '초 뒤', 'ok'];
   }
+  // 신호등 바 두 줄 — 윗줄은 status(), 아랫줄은 방송 서버 연결 · 켜 둔 시간. dead = 입금을 못 받고 있는 상태(바 전체가 빨개진다)
+  function bar() {
+    const [t1, cls] = status();
+    const [nt, ncls] = netStatus();
+    const dead = cls === 'bad';
+    let t2;
+    if (dead) t2 = '입금을 못 받는 중' + (S.lastOkAt ? ' · 마지막 정상 ' + hhmm(S.lastOkAt) : '');
+    else if (!lastFound) t2 = '거래내역조회 화면에서 [조회]를 한 번 눌러 주세요';
+    else if (!S.enabled) t2 = '[자동 조회 켜기]를 누르거나 조종실에서 켜세요';
+    else t2 = (net.why === 'ok' ? '방송 서버 ✓ ' + hhmm(net.at).slice(0, 5) : nt) + (S.startedAt ? ' · 켜 둔 지 ' + dur(Date.now() - S.startedAt) : '');
+    const barCls = dead ? 'bad' : (cls === 'ok' && ncls && ncls !== 'ok') ? 'warn' : cls;
+    // 바 윗줄은 320px 에 들어가게 짧게 — '다음 n초' 는 펼친 몸통(status)에만
+    let top = t1;
+    if (dead && !lastFound && looksLoggedOut()) top = '은행 로그아웃됨 — 다시 로그인하세요';
+    else if (cls === 'ok') top = '자동 조회 중 · ' + S.interval + '초마다';
+    return { t1: top, t2, cls: barCls, dead };
+  }
+  // 신호마다 서버에 실어 보내는 상자 내용 — 조종실 거울이 이걸로 같은 바를 그린다(메모는 40자까지 · 서버가 한 번 더 자른다)
+  function snap() {
+    const b = bar();
+    const f = lastFound;
+    return {
+      v: VER, enabled: !!S.enabled, interval: S.interval, clicks: S.clicks, lastOkAt: S.lastOkAt || 0, startedAt: S.startedAt || 0,
+      dateOk: S.dateOk === undefined ? null : !!S.dateOk, status: b.t1, cls: b.cls, dead: b.dead,
+      loggedOut: !f && looksLoggedOut(), rows: f ? f.rows.length : 0, diag: f && !f.rows.length ? (f.diag || '') : '',
+      found: S.found.slice(0, 8).map((d) => ({ at: d.at, when: d.when, dep: d.dep, memo: (d.memo || []).join(' · ').slice(0, 40) })),
+      log: S.log.slice(0, 6),
+    };
+  }
+  function paintBar() {
+    if (!ui) return;
+    const b = bar();
+    const dot = ui.root.querySelector('.dot');
+    dot.className = 'dot ' + b.cls + (dot.classList.contains('pulse') ? ' pulse' : '');
+    ui.root.querySelector('.t1').textContent = b.t1;
+    ui.root.querySelector('.t2').textContent = b.t2;
+    ui.root.querySelector('.cnt').textContent = '입금 ' + S.found.length;
+    ui.bx.classList.toggle('dead', b.dead);
+  }
   function tick() {
-    if (!ui || S.folded) return;
+    if (!ui) return;
+    paintBar();
     const el = ui.bd.querySelector('.st');
     if (!el) return;
     const [st, cls] = status();
@@ -544,12 +660,27 @@
     const ln = ui.bd.querySelector('.ln');
     if (ln) { const [t2, c2] = netStatus(); ln.textContent = t2; ln.className = 'st ln ' + c2; }
   }
+  // 새 입금 — 바 위로 초록 말풍선 7초, 점이 세 번 고동친다
+  let toastTimer = null;
+  function showToast(d) {
+    if (!ui || !d) return;
+    const memo = Array.from(new Set(d.memo || []));   // 거래내용 · 예금주가 같은 글자면 한 번만
+    ui.toast.innerHTML = '＋ ' + esc(d.dep.toLocaleString()) + '원 · ' + esc(memo.join(' · ') || '(내용 없음)')
+      + '<small>후원 콘솔로 보냈어요 · ' + esc(hhmm(d.at)) + '</small>';
+    ui.toast.hidden = false;
+    const dot = ui.root.querySelector('.dot');
+    dot.classList.remove('pulse'); void dot.offsetWidth; dot.classList.add('pulse');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { ui.toast.hidden = true; dot.classList.remove('pulse'); }, 7000);
+  }
 
   function render(flash) {
     if (!ui) return;
-    if (S.folded) { ui.bd.style.display = 'none'; ui.lk.style.display = 'none'; return; }
-    ui.bd.style.display = '';
-    ui.lk.style.display = '';
+    paintBar();
+    if (flash && S.found.length) showToast(S.found[0]);
+    // 접혀 있어도 몸통은 채워 둔다(보이지만 않는다) — 상태 글은 1초마다 그 자리에서 고친다
+    ui.bd.style.display = S.folded ? 'none' : '';
+    ui.lk.style.display = S.folded ? 'none' : '';
     const f = lastFound;
     const now = Date.now();
     const [st, cls] = status();
@@ -572,13 +703,12 @@
         <select data-a="interval">${[20, 30, 60].map((s) => `<option value="${s}" ${S.interval === s ? 'selected' : ''}>${s}초마다</option>`).join('')}</select>
         <button data-a="teach" title="자동으로 못 찾을 때 — 누른 뒤 은행 화면의 [조회]를 한 번 누르세요">${teach ? '은행 [조회]를 눌러 주세요…' : '버튼 지정'}</button>
       </div>
-      <div class="mut">${up}조회 ${S.clicks}번 · 마지막 정상 ${hhmm(S.lastOkAt)}</div>
+      <div class="mut">${up}조회 ${S.clicks}번 · 마지막 정상 ${hhmm(S.lastOkAt)} · 판 ${VER}</div>
       ${cols ? `<div class="mut">${cols}</div>` : ''}
       <div><b>새 입금</b> <span class="mut">(후원 콘솔 '계좌 입금 추천' 칸으로 보내요 — 송출은 거기서)</span></div>
       ${deps || '<div class="mut">아직 없어요. 다른 통장에서 1,000원을 보내 보세요</div>'}
       <details><summary class="mut">기록</summary><ul class="mut">${S.log.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>
       <div class="row"><button data-a="clear">상자 기록 지우기</button></div>`;
-    if (flash) { ui.bx.classList.remove('flash'); void ui.bx.offsetWidth; ui.bx.classList.add('flash'); }
   }
 
   async function saveLink() {
@@ -596,7 +726,8 @@
   }
 
   async function onUiClick(e) {
-    const a = e.target && e.target.getAttribute && e.target.getAttribute('data-a');
+    const hit = e.target && e.target.closest ? e.target.closest('[data-a]') : null;
+    const a = hit && hit.getAttribute('data-a');
     if (!a) return;
     if (a === 'savekey') { await saveLink(); return; }
     S = await load();
@@ -649,8 +780,15 @@
 
   /* ─── 시작 ─── */
   let mo = null;
+  let ticking = false;
+  function startTicking() {
+    if (ticking) return;
+    ticking = true;
+    setInterval(() => { tick(); beat(); }, 1000);   // 바 시계 · 살아 있음 신호(꺼져 있어도 — 조종실이 켤 수 있게)
+  }
   async function boot() {
     S = await load();
+    if (!S.v4) { S.v4 = 1; S.folded = true; await save(); }   // 0.4 신호등 바 — 처음엔 바만 보인다(누르면 펼침)
     document.documentElement.setAttribute('data-aw-on', S.enabled ? '1' : '0');
     await sleep(1200);
     const f = findTable(document);
@@ -659,7 +797,7 @@
       // 이 틀에는 표가 없다. 자동 조회 중인데 로그인 화면이 떴으면 그것만 알린다(맨 위 틀에서만)
       if (S.enabled && window.top === window && looksLoggedOut()) {
         if (!S.logoutAt) { S.logoutAt = Date.now(); note('로그아웃 감지'); await save(); }
-        mountUI(); bindSelect(); render();
+        mountUI(); bindSelect(); render(); startTicking();   // 로그아웃 신호도 조종실에 간다
       }
       return;
     }
@@ -675,7 +813,7 @@
     });
     mo.observe(document.body, { childList: true, subtree: true, characterData: true });
     schedule();
-    setInterval(() => { if (S && S.enabled) { tick(); beat(); } }, 1000);   // '다음 n초 뒤' 시계 · 살아 있음 신호
+    startTicking();
   }
   boot();
 })();
