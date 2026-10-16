@@ -16,7 +16,8 @@ from .state import is_hidden, is_public
 
 QUEUE_MAX = 200
 PING_SEC = 15
-KINDS = ('overlay', 'controller', 'mobile', 'editor', 'console', 'bot', 'other')   # bot = 진행봇(v2/tools/bot_v2.py)
+KINDS = ('overlay', 'controller', 'mobile', 'editor', 'console', 'bot', 'other',   # bot = 진행봇(v2/tools/bot_v2.py)
+         'alertbox', 'sigdisp', 'slot')   # 📺 따로 띄우는 방송판 화면(?only=alert · sig · slot) — 점검표가 '방송판' 과 따로 센다
 
 
 def device(ua, obs_hint=False):

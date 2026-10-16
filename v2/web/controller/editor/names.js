@@ -42,6 +42,9 @@ const V2 = {
     'fxAudi': '🚗 아우디 LED',
     'fxBurst': '✨ 테마 입자',
     'fxMoon': '🌕 추석 보름달',
+    // 🎆 시그니처 전용 연출 · 🚨 계엄령 경보(groups/sigfx.js) — 화면 전체 칸(목록에 이름만)
+    'sigfx': '🎆 시그니처 전용 연출',
+    'sigWarn': '🚨 계엄령 경보',
 };
 
 const kebab = s => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();

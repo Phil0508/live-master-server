@@ -5,7 +5,8 @@
       (조종실 화면이 방송에 잡혀도 새지 않게). */
 import { h, fill, api, once, onEnter, blockHead, num } from './common.js';
 
-const KIND = { overlay: '📺 방송판', controller: '🎛️ 조종실', editor: '📐 편집기', bot: '🤖 진행봇', mobile: '📱 폰', console: '💸 후원 콘솔', other: '❔ 기타' };
+const KIND = { overlay: '📺 방송판', controller: '🎛️ 조종실', editor: '📐 편집기', bot: '🤖 진행봇', mobile: '📱 폰', console: '💸 후원 콘솔', other: '❔ 기타',
+               alertbox: '🔔 알림창', sigdisp: '🖼️ 출연진 전광판', slot: '🎰 슬롯 화면' };   // 📺 따로 띄우는 방송판(?only=)
 const DEV = { obs: 'OBS', iphone: '아이폰', ipad: '아이패드', android: '안드로이드', windows: '윈도우', mac: '맥', other: '' };
 const TOON = { connected: '🟢 연결됨', connecting: '🟡 연결하는 중', error: '🔴 연결 안 됨', off: '⚪ 꺼짐',
                resting: '💤 오늘은 쉬는 날 (수 · 목)', starting: '🟡 시작하는 중' };

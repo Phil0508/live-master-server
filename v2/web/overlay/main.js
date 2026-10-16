@@ -4,6 +4,8 @@
          ?monitor=1           미리보기 — 소리 끔 · 시그니처 '다 틀었다' 보고 안 함(옛 IS_MONITOR)
          ?debug=1             연결 표시(왼쪽 위)
          ?hud=best,donor_rank,-gauge   고정 자리 스위치를 이 창에서만 켜고(-는 끄고) 본다(시험 · 미리보기용)
+         ?only=alert · sig · slot      따로 띄우는 화면 — 그 화면의 칸만 만든다(옛 /alertbox · /signature-display · /slot, 칸 목록은 groups/sigfx.js VIEWS).
+                                       ?only=sig 는 어두운 바탕(&transparent=1 이면 투명) · 1080×1920 으로 줄이지 않는다
 
    ⚠️ 위젯끼리는 서로의 화면(DOM)을 만지지 않는다. 같이 알아야 하는 것은 stage 로만 주고받는다:
       - stage.setMode('reaction', on)   시그니처가 도는 동안 → hideInReaction 칸을 숨긴다(옛 body.reaction-mode)
@@ -14,12 +16,21 @@
       - stage.sfxOn()                   효과음 스위치(look.sfx, 값이 없으면 켜짐 — 옛 sfx_enabled). 시그니처 · 노래방 · 영상 소리는 상관없다
       - opts.isFresh(at)                이 알림을 띄워도 되나(붙은 직후 통째 받은 것은 30초 안의 것만)
 */
-import { CANVAS, LAYERS } from './layers.js';
+import { CANVAS, LAYERS, VIEWS } from './layers.js';
 import { FRESH_MS } from './util.js';
 
 const params = new URLSearchParams(location.search);
 const MONITOR = params.get('monitor') === '1';
 const DEBUG = params.get('debug') === '1';
+// 📺 따로 띄우는 화면(?only=) — 모르는 이름이면 평소 방송판 그대로
+const ONLY = (params.get('only') || '').trim().toLowerCase();
+const VIEW = Object.prototype.hasOwnProperty.call(VIEWS, ONLY) ? VIEWS[ONLY] : null;
+if (ONLY && !VIEW) console.warn('[방송판] 모르는 화면 이름 — 평소 방송판으로 엽니다:', ONLY);
+if (VIEW) {
+    document.body.classList.add('view-' + ONLY);
+    if (VIEW.native) document.body.classList.add('view-native');
+    if (params.get('transparent') === '1') document.body.classList.add('transparent');
+}
 const HUD_FORCE = {};
 (params.get('hud') || '').split(',').map(s => s.trim()).filter(Boolean).forEach(k => {
     if (k[0] === '-') HUD_FORCE[k.slice(1)] = false;
@@ -30,6 +41,10 @@ const HUD_FORCE = {};
 const wrapper = document.getElementById('scale-wrapper');
 const canvas = document.getElementById('canvas');
 function resize() {
+    if (VIEW && VIEW.native) {                    // 창 크기 그대로(옛 따로 화면처럼) — 칸이 스스로 창 가운데에 선다
+        wrapper.style.transform = ''; wrapper.style.left = '0px'; wrapper.style.top = '0px';
+        return;
+    }
     const s = Math.min(window.innerWidth / CANVAS.w, window.innerHeight / CANVAS.h);
     wrapper.style.transform = `scale(${s})`;
     wrapper.style.left = ((window.innerWidth - CANVAS.w * s) / 2) + 'px';
@@ -138,12 +153,13 @@ function hudOn(L, show) {
 }
 
 async function boot() {
-    const layers = LAYERS.filter(L => !L.debugOnly || DEBUG);
+    const layers = LAYERS.filter(L => (!L.debugOnly || DEBUG)
+        && (VIEW ? (VIEW.layers.includes(L.id) || L.id === 'connection') : !L.viewOnly));
     // 1) 위젯 파일을 먼저 다 받는다 — 하나가 깨져도 나머지는 뜬다(옛 것은 한 파일이라 한 곳이 깨지면 다 멈췄다)
     const mods = await Promise.allSettled(layers.map(L => import('./widgets/' + L.widget + '.js')));
 
     // 2) 그다음 연결 — 붙이기 전에 모든 위젯이 듣고 있어야 '처음 통째(snapshot)' 와 '그 뒤 쪽지(patch)' 를 가린다
-    const lm = LM.connect({ kind: 'overlay', monitor: MONITOR });
+    const lm = LM.connect({ kind: VIEW ? VIEW.kind : 'overlay', monitor: MONITOR });
     let streaming = false;          // true = 지금 오는 것은 실시간 쪽지 / false = 붙은 직후 통째
     lm.onStatus(s => { streaming = (s === 'live'); });
     const isFresh = at => {
@@ -168,7 +184,7 @@ async function boot() {
             return;
         }
         try {
-            m.value.mount(el, lm, { monitor: MONITOR, debug: DEBUG, stage, layer: L, isFresh });
+            m.value.mount(el, lm, { monitor: MONITOR, debug: DEBUG, stage, layer: L, isFresh, view: VIEW ? ONLY : '' });
         } catch (e) {
             console.error('[방송판] 위젯 붙이기 실패:', L.widget, e);
         }
@@ -244,7 +260,7 @@ async function boot() {
         document.body.dataset.theme = want || 'default';
     });
 
-    window.__lmOverlay = { lm, stage, monitor: MONITOR };     // 점검용(콘솔)
+    window.__lmOverlay = { lm, stage, monitor: MONITOR, view: VIEW ? ONLY : '' };     // 점검용(콘솔)
 }
 
 boot().catch(e => console.error('[방송판] 시작 실패:', e));
