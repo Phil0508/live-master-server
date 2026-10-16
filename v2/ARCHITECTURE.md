@@ -294,7 +294,7 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 **다시 판정 `_recheck` 하나**(races.py) — 점수(AFTER_SCORE) · 되돌리기(ON_UNDO) · 번외 판 시작/끝/취소 · 선수 넣기/빼기/이름(ON_ROSTER) · hell.goal · home.goal · home.on · hell.start/resume:
 ① 목표 밑으로 내려간 사람(또는 목표 0)은 escaped/notified 에서 빼고 **아직 안 보낸** off_work 카드를 걷는다(꺼져 있어도 — 거짓 축하 방지)
 ② 목표(>0) 이상인데 없는 사람 → 카드(켜져 있을 때만). 목표 0 = 목표 없음. 명단에서 빠진 사람은 손대지 않는다.
-- 이름 바꾸기(ON_RENAME): hell.base · goals · escaped · home.goals · notified · 대기함 카드 이름을 같이 옮긴다.
+- 이름 바꾸기(ON_RENAME): hell.base · goals · escaped · home.goals · notified · 대기함 카드 이름을 같이 옮긴다. 빠진 선수 이름으로 바꿔도 명단 · 카드는 한 번만 남는다(같은 사람 · 같은 판 카드 한 장).
 - 번외 판 점수는 **옛 것과 같게 본판만** 센다 — 번외 판을 [끝]내 본판에 합쳐지면 그 자리에서 판정(옛 것은 다음 화면 갱신 때, v2 전엔 다음 점수 때).
 - 등수 · 진행은 점수(score) 순(옛 것 그대로, 대표님 10-17). 목표 숫자는 0~10만, inf · NaN · 글자는 400.
 
@@ -315,5 +315,5 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 조종실(이 두 파일만): `panels/games/races.js` — [🔥 시작/처음부터 다시] · [화면에서 내리기 / 👁 다시 띄우기](hell.show) · [끝내기 / 이어서 하기](hell.off · hell.resume),
 알약 '진행 중 · 방송판에 보임 / 숨김 · 끝남 · 기록 남음', 주사위 · 지옥 뒤 숨는 때 한 줄. `okToTake`(무대 뺏기 확인)는 뺐다 — 무대를 안 쓴다.
 `panels/ops/stage.js` — 무대 단추에서 두 판을 빼고 '늘 붙는 판' 줄(data-race home/hell 칩 → home.on · hell.show). STAGE_NAME 에는 옛 이름표를 남겼다(순서표 칩 이름).
-검사: `v2/tests/test_races.py`(21 — 조사 재현 사례 undo · goalraise · goalzero · extra · rename · stage · restart · neg + 옛 무대 이름 · 순서표 · 저장본 옮겨 담기)
+검사: `v2/tests/test_races.py`(22 — 조사 재현 사례 undo · goalraise · goalzero · extra · rename · stage · restart · neg + 옛 무대 이름 · 순서표 · 저장본 옮겨 담기)
 · `v2/tests/js/races_check.mjs`(race_view · 계좌 비키기 · 층 순서 — node).

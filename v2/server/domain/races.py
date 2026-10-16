@@ -121,6 +121,16 @@ pl.ON_UNDO.append(_recheck)           # 되돌리기 — 잘못 준 점수로 �
 pl.ON_ROSTER.append(_recheck)         # 번외 판 시작 · 끝(본판에 합침) · 취소 · 선수 넣기 · 빼기 · 이름 바꾸기
 
 
+def _renamed(names, old, new):
+    """명단 속 옛 이름을 새 이름으로 — 새 이름이 (빠진 선수의 기록으로) 이미 있으면 한 번만 남긴다."""
+    out = []
+    for n in names:
+        n = new if n == old else n
+        if n not in out:
+            out.append(n)
+    return out
+
+
 def _rename(ctx, old, new):
     """이름을 바꾸면 지옥 · 퇴근 기록도 따라간다 — 기준점 · 목표 · 탈출/퇴근 명단 · 대기함 카드."""
     home = ctx.read('home')
@@ -128,18 +138,25 @@ def _rename(ctx, old, new):
         hm = ctx.edit('home')
         if old in hm['goals']:
             hm['goals'][new] = hm['goals'].pop(old)
-        hm['notified'] = [new if n == old else n for n in hm['notified']]
+        hm['notified'] = _renamed(hm['notified'], old, new)
     h = ctx.read('hell')
     if old in (h.get('goals') or {}) or old in (h.get('base') or {}):
         he = ctx.edit('hell')
         for k in ('goals', 'base'):
             if old in he[k]:
                 he[k][new] = he[k].pop(old)
-        he['escaped'] = [new if n == old else n for n in he['escaped']]
+        he['escaped'] = _renamed(he['escaped'], old, new)
     if any(d.get('type') == 'off_work' and d.get('name') == old for d in ctx.read('pending')):
-        for d in ctx.edit('pending'):
-            if d.get('type') == 'off_work' and d.get('name') == old:
-                d['name'] = new
+        seen, keep = set(), []
+        for d in ctx.read('pending'):
+            if d.get('type') == 'off_work':
+                if d.get('name') == old:
+                    d = dict(d, name=new)
+                if (d['name'], d.get('kind')) in seen:
+                    continue                    # 같은 사람 · 같은 판 카드는 한 장만
+                seen.add((d['name'], d.get('kind')))
+            keep.append(d)
+        ctx.put('pending', keep)
 
 
 pl.ON_RENAME.append(_rename)

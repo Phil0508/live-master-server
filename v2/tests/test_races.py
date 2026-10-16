@@ -169,6 +169,18 @@ class Races(Base):
         self.cmd('score.add', name='하율', delta=10)
         self.assertEqual(sorted(self.cards()), [('채원2', 'hell'), ('하율', 'hell')])
 
+    def test_rename_into_left_name_keeps_one(self):
+        """빠진 선수 이름으로 바꿔도 탈출 명단 · 카드가 두 번 남지 않는다(같은 사람 카드는 한 장)."""
+        self.cmd('hell.start', targets=[5, 5, 5, 5])
+        self.cmd('score.add', name='채원', delta=5)
+        self.cmd('score.add', name='하율', delta=5)
+        self.assertEqual(sorted(self.cards()), [('채원', 'hell'), ('하율', 'hell')])
+        self.cmd('players.remove', name='채원')                              # 기록 · 카드는 남는다
+        self.cmd('players.rename', **{'from': '하율', 'to': '채원'})
+        s = self.st()
+        self.assertEqual(s['hell']['escaped'], ['채원'])
+        self.assertEqual(self.cards(s), [('채원', 'hell')])
+
     # ── repro: stage — 다른 게임을 켜도 지옥 · 퇴근이 안 꺼진다 ──
     def test_other_games_dont_turn_off(self):
         self.cmd('hell.start', targets=[20, 15, 10, 5])
