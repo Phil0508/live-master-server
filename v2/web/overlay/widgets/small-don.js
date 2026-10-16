@@ -2,8 +2,10 @@
    - 화면에만(display_only) 후원이거나 0원 초과 1만 원 미만이면 가운데 카드 대신 여기('OO님이 N원 후원했습니다!').
    - 여러 건이 몰리면 줄을 서되 밀린 만큼 짧게: 4건 이상 남으면 2초 · 2건 이상 3초 · 아니면 5초. 아무도 건너뛰지 않는다.
    - 띠는 시그니처를 붙잡지 않는다(카드처럼 기다리게 하지 않는다 — 옛 것과 같다).
-   - 조종실 알림 스위치 [1천~9천 알림](show.alerts.small)을 끄면 아무것도 안 띄운다(카드로 되돌리지도 않는다). */
+   - 조종실 알림 스위치 [1천~9천 알림](show.alerts.small)을 끄면 아무것도 안 띄운다(카드로 되돌리지도 않는다).
+   - 🏷️ 투네이션 공식 칭호 알약을 이름 앞에 작게(.46em — 한 줄에 들어가게, 옛 44584ff · css/donate.css). */
 import { formatNum, classifyDonation } from '../util.js';
+import { donorTag } from '../donate_kit.js';
 
 export function mount(root, lm, opts) {
     root.innerHTML = '<div class="small-don">'
@@ -23,6 +25,8 @@ export function mount(root, lm, opts) {
         const d = queue.shift();
         try {
             nameEl.textContent = d.name || '익명';
+            const tg = donorTag(d.donor_title);             // 🏷️ 이름 앞 칭호 이름표
+            if (tg) nameEl.prepend(tg);
             amtEl.textContent = formatNum(d.amount);
             const msg = String(d.message || '').trim();
             msgEl.textContent = msg;

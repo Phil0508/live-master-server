@@ -8,10 +8,13 @@
    - 👑 특별 후원자(tallies.vip — 이번 방송 후원 순위 1~10위, 서버가 매긴다)면 카드를 등급 색으로 입힌다(옛 showToonPopup 의 VIP 부분 그대로):
      1위 훈장(메달이 카드 밖으로) · 2~3위 머리띠 · 4위 이하 딱지('다이아 6위'). 등급은 카드를 **띄우는 순간** 의 tallies 로 본다 —
      후원과 순위가 같은 쪽지로 오므로 '이 후원으로 1위' 가 그 카드에 바로 보인다. 생김새는 css/basics2.css 8번.
+     ⏸️ 지금은 꺼져 있다(대표님 10-13 — 서버 donors.VIP_ON, tallies.vip_on false 면 등급 옷을 안 입힌다).
+   - 🏷️ 투네이션 공식 칭호 알약(이름 위 한 줄) · 이름 뒤 Lv — popup.donation 의 donor_title · donor_level(옛 44584ff, ../donate_kit.js).
    다른 위젯에 주는 것(stage.provide('donationCard')):
      show({name, amount, message}) → 카드가 내려가는 순간 끝나는 Promise(시그니처가 그때 시작한다)
      busy() → 카드가 떠 있거나 줄이 있으면 true · onIdle(fn) → 줄이 다 비면 부른다 */
 import { esc, formatNum, classifyDonation } from '../util.js';
+import { donorTag, donorLv } from '../donate_kit.js';
 
 export const HOLD_MS = 2000;     // 카드가 떠 있는 시간(옛 2초) — 바꾸려면 여기 하나만
 const GAP_MS = 450;              // 사라지는 연출(0.4초) + 숨 고르기
@@ -23,6 +26,7 @@ function vipKey(x) {
     return n || '익명';
 }
 function vipOf(name, tallies) {
+    if (tallies && tallies.vip_on === false) return null;     // ⏸️ VIP 등급 꺼 둠(10-13) — 남은 값이 있어도 안 입힌다
     const lv = (tallies && tallies.vip) || {};
     const raw = String(name == null ? '' : name).trim();
     return lv[vipKey(raw)] || lv[raw] || null;
@@ -101,6 +105,12 @@ export function mount(root, lm, opts) {
     function fill(d) {
         try { dressVip(d.name || '익명'); }
         catch (e) { console.error('[후원 카드] 등급 옷 실패 — 이름만 띄운다:', e); nameEl.className = 'donator-name'; nameEl.textContent = d.name || '익명'; }
+        // 🏷️ 칭호 알약(이름 위 한 줄 — css/donate.css) · Lv(이름 뒤). 등급 딱지와 같이 붙어도 된다(옛 것과 같다)
+        try {
+            const tg = donorTag(d.donor_title), lv = donorLv(d.donor_level);
+            if (tg) nameEl.prepend(tg);
+            if (lv) nameEl.appendChild(lv);
+        } catch (e) { console.error('[후원 카드] 칭호 붙이기 실패:', e); }
         let msg = String(d.message || '');
         const m = msg.match(/^\[시그니처 신청:\s*(.*?)\]/);
         if (m) {

@@ -6,7 +6,8 @@
    - 보이기: 옛 shHud('fundjar') — 옛 서버는 show.hud.fundjar 와 fundjar.enabled 를 늘 같게 맞췄다.
      v2 서버는 둘을 따로 갖고 있어서(조종실이 어느 쪽을 누를지 모른다) **둘 중 하나라도 켜져 있으면** 보인다.
      ?hud=fundjar / ?hud=-fundjar 로 이 창에서만 켜고 끌 수 있다(main.js 의 다른 칸과 같은 약속).
-   - 방송 중에만(liveOnly — 옛 renderFundJar 는 '방송 꺼짐 return' 뒤에 있었다). 시그니처가 돌아도 남는다(옛 #ui-layer 밖). */
+   - 방송 중에만(liveOnly — 옛 renderFundJar 는 '방송 꺼짐 return' 뒤에 있었다).
+   - 시그니처가 도는 동안은 숨는다(층 표 hideInReaction — 옛 10-07 77a3aba: #ui-layer 밖이라 깃발만 혼자 남던 것을 고쳤다). */
 import { formatNum, restartClass } from '../../util.js';
 import { sfxInit, playSfx } from './sfx.js';
 
