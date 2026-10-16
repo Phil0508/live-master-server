@@ -507,9 +507,10 @@ html { scroll-padding-top: calc(var(--hdr-h) + 12px); }
 
 /* ── 1줄: 상태 줄(.sb) — 보기만 ── */
 #hdr {
-    position: sticky; top: 0; z-index: 40; display: block; margin: 0 0 var(--gap); padding: 0;
+    position: sticky; top: 0; z-index: 40; display: block; margin: 0 -10px var(--gap); padding: 0 10px;
     background: transparent; border: 0; border-radius: 0; box-shadow: none;
 }
+/* ↑ 상태 줄(.sb)은 화면 끝까지(margin -10px) — 머리 칸이 그만큼 안쪽 여백을 가져 가로 넘침으로 안 잡힌다 */
 #hdr .sb {
     height: var(--sb-h); display: flex; align-items: center; gap: 16px; margin: 0 -10px; padding: 0 14px;
     background: rgba(12, 9, 7, 0.92); border-bottom: 1px solid var(--line-2); font-size: 12.5px; white-space: nowrap;
@@ -736,7 +737,7 @@ body[data-view=live] #side > .pf-pre { display: none; }
     html { scroll-padding-top: calc(var(--hdr-h) + 54px); }
     .app { padding: 0 10px 16px; }
     #hdr {
-        top: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); margin: 0 -10px; padding: 0; border-radius: 0;
+        top: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0; margin: 0 -10px; padding: 0; border-radius: 0;
         background: rgba(26, 20, 17, 0.97); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
     }
     #hdr .sb { display: contents; }
@@ -751,6 +752,9 @@ body[data-view=live] #side > .pf-pre { display: none; }
     body[data-view=setup] #hdr .brand, body[data-view=live] #hdr .brand { display: none; }
     #hdr .st { height: 24px; padding: 0 5px; gap: 6px; font-size: 11.5px; }
     #hdr .st .dot { width: 7px; height: 7px; }
+    /* 폰은 짧은 글자(.ts) — '방송 화면 ?' → '화면 ?' (긴 글자 · 짧은 글자 둘 다 숨으면 점만 남는다) */
+    #hdr .pf-chip .t, #hdr .conn .t { display: none; }
+    #hdr .pf-chip .ts, #hdr .conn .ts { display: inline; }
     #hdr .onair .since { display: none; }
     #hdr .onair .since-s { display: inline; }
     #hdr .sb-clock { display: none; }

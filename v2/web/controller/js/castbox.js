@@ -47,5 +47,11 @@ export function mountCastBox(ctx) {
     onEnter(sayIn, () => send(sayIn, 'cast.say', '띄웠어요'));
     onEnter(upIn, () => send(upIn, 'cast.up', 'UP 자막을 쐈어요'));
     upBtn.addEventListener('click', () => send(upIn, 'cast.up', 'UP 자막을 쐈어요'));
+    // 쓸 글이 없을 때 [발사] 는 흐리게(안 쓰는 단추가 제일 진하면 눈이 먼저 간다 — 10-16 점검)
+    const ready = () => upBtn.classList.toggle('ready', !!upIn.value.trim());
+    upIn.addEventListener('input', ready);
+    upBtn.addEventListener('click', () => setTimeout(ready, 0));
+    onEnter(upIn, () => setTimeout(ready, 0));
+    ready();
     return { el: box };
 }

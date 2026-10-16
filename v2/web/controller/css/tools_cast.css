@@ -7,6 +7,7 @@
 .cast-sec .cb-ico { flex: none; width: 18px; text-align: center; font-size: 15px; line-height: 1; }
 .cast-sec input[type=text] { flex: 1; min-width: 0; height: 34px; margin: 0; box-sizing: border-box; font-size: 14px; }
 .cast-sec .cb-fire { flex: none; height: 34px; min-height: 0; padding: 0 12px; background: var(--gold, #f6c453); color: #241a05; border-color: transparent; font-weight: 800; }
+.cast-sec .cb-fire:not(.ready) { background: transparent; color: var(--muted); border-color: var(--line, rgba(255, 255, 255, 0.12)); font-weight: 700; }
 .cast-sec .cb-log { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cast-sec .cb-log:empty { display: none; }
 .cast-sec .cb-log.err { color: var(--bad, #ff6b6b); }
