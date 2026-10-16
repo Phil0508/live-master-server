@@ -35,3 +35,5 @@ from . import lights  # noqa: F401  (💡 조명 — 네온 · 아우디 · 속�
 from . import autopilot  # noqa: F401  (🤖 무인 방송 — 후원 배정 · 금액 게임을 기계가: 끔 · 그림자 · 켬)
 from . import endundo  # noqa: F401  (⏪ [방송 끝] 되살리기 — 끝내기 직전 조각을 장부에 · session.undo_end, sturdy 10-17)
 from . import sigfx  # noqa: F401  (🎆 방송판 시그니처 미리받기 목록 · 📺 옛 /alertbox · /signature-display · /slot 이어주기)
+from . import oldlayout  # noqa: F401  (📐 옛 위젯 자리 옮기기 · 🏺 모금함 깃발 왼쪽/오른쪽)
+from . import cast  # noqa: F401  (💬 화면에 한마디 · ⬆ UP 자막 · 👑 조종실 후원 연출 — cast 조각)

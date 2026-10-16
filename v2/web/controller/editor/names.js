@@ -45,6 +45,10 @@ const V2 = {
     // 🎆 시그니처 전용 연출 · 🚨 계엄령 경보(groups/sigfx.js) — 화면 전체 칸(목록에 이름만)
     'sigfx': '🎆 시그니처 전용 연출',
     'sigWarn': '🚨 계엄령 경보',
+    // 💬 조종 연출(groups/cast.js) — 화면 전체 칸이라 끌어 옮길 일은 없다(목록에 이름만)
+    'castUp': '⬆ UP 자막',
+    'castSay': '💬 화면에 한마디',
+    'castFx': '👑 조종실 후원 연출',
 };
 
 const kebab = s => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();

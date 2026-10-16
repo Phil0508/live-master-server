@@ -5,8 +5,13 @@
    ⚠️ 물리는 여기(방송판)서 굴린다. 서버는 심판만 본다(v2/server/domain/pinball.py).
       ① 서버가 준 씨앗(seed)으로 **모든 난수를 뽑는다** — 같은 씨앗이면 어느 창이든 같은 경기
       ② 고정 걸음(10ms)으로만 물리를 민다 — 프레임이 흔들려도 · 슬로모션이 껴도 결과가 안 바뀐다
-      ③ 결과는 lm.cmd('pinball.result', {round_id, result}) — 서버는 **지금 판의 첫 보고만** 받는다.
+      ③ 결과는 lm.cmd('pinball.result', {round_id, result, cut}) — 서버는 **지금 판의 첫 보고만** 받는다.
          ?monitor=1(미리보기)은 보내지 않는다(진짜 방송판이 보낸다).
+      ④ ⛔ 시간(3분) · 걸음 수로는 판을 **자르지 않는다**(옛 10-11 커밋 992bf7c, 대표님 "제한 없이 끝까지").
+         10-08 52판(구슬 186개 · 끝까지 남기)이 멀쩡히 굴러가는데 정확히 180.0초에 잘려 2개가 남은 채 '밍밍 우승'이 굳었다.
+         또 벽시계로 자르면 화면마다 다르다 — 가려졌다 돌아온 창이 혼자 '3분 지남'으로 끊는다.
+         끼인 판은 PB_STALL_STEPS(물리 걸음으로 센다 · 화면마다 같다)만 끝내고 cut:'stall' 로 알린다 →
+         우승 딱지 아랫줄이 '⏱ 구슬이 껴서 지금 자리로 결정'(구슬이 남았는데 '우승'만 뜨면 고장으로 보인다).
    ⚠️ box2d · 맵 파일(/vendor/box2d/Box2D.js · /vendor/pinball-maps.js)을 못 읽으면 핀볼만 빠진다 — 방송은 계속된다.
       맵 파일이 없으면 우리 기본 코스로 굴린다.
    ⚠️ 늦게 붙은 창(굴러가는 중에 새로 연 창): 처음부터 굴리되, 서버 started_at 에서 지난 만큼은 그리지 않고 빨리 감는다
@@ -30,10 +35,9 @@ const PB_CEIL = PB_SPAWN_Y0 - (Math.ceil(PB_BALL_MAX / PB_SPAWN_PER) - 1) * PB_S
 const PB_NAME_MAX = 40;                // 구슬이 이보다 많으면 이름은 주인공만
 const PB_BANNER_MAX = 8;               // 결과 딱지에 쓰는 이름 수
 const PB_STEP = 10;                    // 물리 한 걸음(ms) — 고정이어야 결과가 같다
-const PB_MAX_MS = 180000;              // 3분이 넘으면 강제로 끝낸다
 const PB_STUCK_MS = 5000;              // 이만큼 거의 안 움직이면 흔든다
 const PB_NOGAIN_PX = 4;
-const PB_STALL_STEPS = 100 * 20;       // 아무도 못 나아간 채 20초면 그 자리 순위로 끝
+const PB_STALL_STEPS = 100 * 20;       // 아무도 못 나아간 채 20초면 그 자리 순위로 끝(cut 'stall') — 판을 끝내는 길은 이것뿐
 const PB_SKILL_COOL = 100 * 4;         // 밀어내기 — 4초마다 굴려 보고
 const PB_SKILL_RATE = 0.25;            // 그때 터질 확률
 const PB_SKILL_CROWD = 30;             // 구슬이 많으면 확률을 나눈다
@@ -42,8 +46,10 @@ const PB_SKILL_FX_MS = 500;
 const PB_TGT_HOLD = 12;                // 카메라 주인공 갈아타기 뜸(프레임)
 const PB_ZOOM_BASE = 1.9, PB_ZOOM_START = 3, PB_ZOOM_MAX = 3.2, PB_ZOOM_TH = 5, PB_SLOW_MIN = 0.25;
 const PB_G_MPS2 = 10;
-const PB_MAX_STEPS = 100 * 200;
 const PB_CATCHUP_MIN_MS = 1500;        // 서버 시작보다 이만큼 늦게 붙은 창만 빨리 감는다
+/* ⏩ 늦게 붙은 창이 빨리 감을 몫의 뚜껑 — 판을 자르는 값이 **아니다**(그리기만 따라잡는다).
+      서버 시계가 크게 틀렸을 때 창이 수십 분을 감느라 멈추지 않게만 막는다. 보고는 처음부터 굴린 창이 먼저 한다. */
+const PB_CATCHUP_CAP_MS = 20 * 60 * 1000;
 const PB_CATCHUP_PER_FRAME = 30;
 const PB_COLS = ['#ff4d6d', '#ffd166', '#4dd6a8', '#4da3ff', '#c77dff', '#ff9e4d',
                  '#7bed9f', '#ff6ec7', '#5ee7df', '#ffe066', '#a29bfe', '#fd79a8'];
@@ -292,7 +298,7 @@ export function mount(root, lm, opts) {
         pbTgt = null; pbTgtCand = null; pbTgtN = 0;
         pbStartedAt = performance.now(); pbLast = pbStartedAt;
         pbAcc = 0; pbAlpha = 0; pbSteps = 0;
-        pbCatchup = (!previewOnly && lagMs > PB_CATCHUP_MIN_MS) ? Math.floor(Math.min(lagMs, PB_MAX_MS) / PB_STEP) : 0;
+        pbCatchup = (!previewOnly && lagMs > PB_CATCHUP_MIN_MS) ? Math.floor(Math.min(lagMs, PB_CATCHUP_CAP_MS) / PB_STEP) : 0;
         // 카메라를 구슬 무리에 맞춰 두고 시작한다(첫 프레임에 화면이 튀지 않게)
         let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
         pbBalls.forEach(b => {
@@ -498,15 +504,16 @@ export function mount(root, lm, opts) {
         pbStall = moved ? 0 : (pbStall + 1);
     }
 
-    /* 📤 결과 보고 — 지금 판의 첫 보고만 서버가 받는다. 미리보기 창은 안 보낸다. */
-    function pbReport(roundId) {
+    /* 📤 결과 보고 — 지금 판의 첫 보고만 서버가 받는다. 미리보기 창은 안 보낸다.
+       cut: 'stall' = 구슬이 껴서 그 자리 순위로 끝냈다 — 서버가 적고 우승 딱지에 그렇게 밝힌다 */
+    function pbReport(roundId, cut) {
         if (pbReported) return;
         pbReported = true;
         const order = pbFinish.slice();
         // 못 내려온 것은 뒤로 — 앞선 순서대로(끝까지 남기 규칙에서 꼴찌가 곧 우승자다)
         pbActive().forEach(b => { order.push(b.pbName); });
         if (opts.monitor) return;
-        lm.cmd('pinball.result', { round_id: roundId, result: order }).then(res => {
+        lm.cmd('pinball.result', { round_id: roundId, result: order, cut: cut || '' }).then(res => {
             if (res && !res.ok) console.log('[핀볼] 결과 보고를 서버가 안 받음(다른 창이 먼저 보냈을 수 있다):', res.error);
         }).catch(() => {});
     }
@@ -536,9 +543,13 @@ export function mount(root, lm, opts) {
         const left = pbBalls.length - pbFinish.length;
         const decided = (pbRule === 'last') ? (left <= 1) : (pbFinish.length >= pbPicks);
         if (decided && !pbOverAt) { pbOverAt = now; if (pbCatchup <= 0) pbBoom(); }
+        /* ⚠️ 판이 멎었으면 **지금 순위 그대로** 끝낸다 — '끝까지 남기' 의 우승자는 곧 제일 덜 내려간 구슬이다.
+           ⛔ 시간 · 걸음 수로는 끊지 않는다(맨 위 ④) — 끼었을 때만. */
         const stalled = pbStall > PB_STALL_STEPS;
-        const timeout = stalled || (now - pbStartedAt > PB_MAX_MS) || (pbSteps > PB_MAX_STEPS);
-        if (!pbReported && ((pbOverAt && now - pbOverAt > 700) || timeout)) pbReport(pbLiveRound);
+        if (!pbReported) {
+            if (pbOverAt && now - pbOverAt > 700) pbReport(pbLiveRound, '');
+            else if (stalled) pbReport(pbLiveRound, 'stall');
+        }
     }
 
     /* 🎥 카메라 — 주인공 구슬을 따라다니며 골 근처에서 당긴다(그리기용 — 물리와 무관) */
@@ -738,9 +749,11 @@ export function mount(root, lm, opts) {
         return (pbRule === 'last') ? order.slice(order.length - k).reverse() : order.slice(0, k);
     }
 
-    function pbShowWinner(list) {
+    /* cut === 'stall' — 구슬이 껴서 끊은 판. 그렇다고 밝힌다(옛 대표님 10-11: "공이 2개 있는데 우승이 떠서 이상해") */
+    function pbShowWinner(list, cut) {
         if (!list || !list.length) { winEl.classList.remove('show'); winEl.innerHTML = ''; return; }
-        const sub = (pbRule === 'last')
+        const sub = (cut === 'stall') ? '⏱ 구슬이 껴서 지금 자리로 결정'
+            : (pbRule === 'last')
             ? (list.length > 1 ? ('끝까지 남은 ' + list.length + '명') : '끝까지 살아남음')
             : (list.length > 1 ? ('먼저 들어온 ' + list.length + '명') : '1등');
         const head = list.slice(0, PB_BANNER_MAX);
@@ -838,7 +851,7 @@ export function mount(root, lm, opts) {
             } else {
                 pbShowReady(0);
             }
-            pbShowWinner((Array.isArray(g.winners) && g.winners.length) ? g.winners : pbWinnersOf(res));
+            pbShowWinner((Array.isArray(g.winners) && g.winners.length) ? g.winners : pbWinnersOf(res), g.cut);
         }
     }
 
