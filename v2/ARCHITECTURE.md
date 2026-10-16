@@ -152,7 +152,7 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - 무대 약속: `stage.provide('sigfx', {play(item,{card}) → ms, stop})` · `stage.provide('sigWarn', {fire({message}), clear})` · `stage.provide('autoplayWarn', {show, hide})`.
   점검: 콘솔 `__lmSigfx.test(300000)` · `__lmSigfx.test('mvp')` — 카드 없이 연출만.
 
-**🔥 미리받기** — 방송판이 켜질 때 `GET /api/sigfx/sigs`(**로그인 없이** · id · amount · title · image_url · sound_url · duration 만 · 못 읽으면 빈 목록 · no-store)로 사진(crossOrigin, 받는 김에 대표색) · 소리(하나씩, force-cache)를 받는다. 경광봉 사진(/vendor/sigfx/baton.webp)도. ?monitor=1 은 소리를 안 받는다(폰 데이터).
+**🔥 미리받기** — 방송판이 켜질 때 `GET /api/sigfx/sigs`(**로그인 없이** · id · image_url · sound_url · duration 만 — 이름 · 금액은 빼고 순서는 섞는다(옛 _PUBLIC_SIG_FIELDS · 시그 뒤집기 카드 가리기) · 못 읽으면 빈 목록 · no-store)로 사진(crossOrigin, 받는 김에 대표색) · 소리(하나씩, force-cache)를 받는다. 경광봉 사진(/vendor/sigfx/baton.webp)도. ?monitor=1 은 소리를 안 받는다(폰 데이터).
   조종실의 `/api/signatures` 는 그대로 로그인 전용.
 
 **🔊 자동재생 차단** — 막히면 음소거로라도 끝까지(사진 · 길이 · 차례 그대로) · 방송판을 한 번 누르면(클릭 · 키 · 터치) 소리를 살린다(음소거 재생 중이면 그 자리부터, 그마저 막혀 멈췄으면 처음부터). AbortError 는 한 번만 다시.
