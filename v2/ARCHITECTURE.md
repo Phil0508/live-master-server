@@ -138,3 +138,29 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - Supabase 는 `SUPABASE_URL` · `SUPABASE_SECRET_KEY` 환경변수가 파일보다 먼저다(검사는 닫힌 포트로 돌려 막는다).
 - `LM2_AUTOPILOT=off|shadow|on` — 🤖 자동 진행의 **처음** 모드(새 DB 일 때만, 기본 shadow). 검사 꾸러미(v2/tests/__init__.py)는 off 로 시작한다.
 - 🧪 `python -m v2.tools.backtest_autopilot --db v2/data/lm2.db` — 지난 후원자 기억(donor_memory)을 시간 순으로 다시 돌려 '그때 기계였다면' 을 채점(읽기만 · AI 안 부름 · 이름 · 금액 안 찍음).
+
+## 10-17 이사 1차 — bank
+🏦 계좌 입금 추천(옛 features/bank_inbox.py · bank_memo.py · manual_send '계좌 입금 추천' 칸 · controller 계좌 띠 · 거울)을 옮겼다. 서버 v2/server/domain/bank.py · bank_memo.py.
+⚠️ **자동 송출은 없다** — 카드 → 대표님 [채우기] → 고쳐서 [송출](지금과 같은 /api/donation). 배정도 대기함에서, 카드엔 '누구 ＋? 예상' 만.
+
+| 조각 | 공개 | 내용 |
+|---|---|---|
+| bank | ❌ | {ver, new, hidden, newest} — 이름 · 금액 없음. ver 가 오르면 조종실이 /api/bank/inbox · /api/bank/ext 를 다시 읽는다. 방송판엔 안 간다 |
+
+명령: bank.sync(내용 없음 — '바뀌었다' 만 기록. 입금 카드 · 실명은 events 에 안 남긴다).
+표(같은 SQLite 장부 파일): bank_inbox(입금 카드 · 실명 holder · 메모 원문, 36시간 · 300건) · bank_meta(확장 · 폰 마지막 신호 상자 · 기다리는 명령).
+
+주소 — **옛 것과 같은 주소 · 같은 모양 · 같은 답**(은행 확장 bank-watch · 폰 앱 bank-phone 은 안 고친다. 갈아타는 날 Caddy 가 /api/bank/* · /download/bankphone.apk 를 v2 로):
+- POST /api/bank/deposit (로그인 없음 · X-Bank-Key) → {status, added, cmds} · 1분 60번 넘으면 429 · 빈 목록 = 살아 있음 신호
+- GET /api/bank/inbox · POST /api/bank/inbox/{id}/{used|dismiss|restore} · GET /api/bank/key · POST /api/bank/key/reset (로그인)
+- GET /api/bank/ext · POST /api/bank/ext/cmd {t: enable(on) · interval(sec 20/30/60) · rebase · press} (로그인)
+- GET /download/bankphone.apk (로그인 없음) · GET /api/bank/app (로그인 — 판 번호 · 크기)
+
+열쇠: 옛 서버와 **같은 파일** 저장소 루트 bank_key.json(git 제외 · 권한 600)을 같이 쓴다 → 확장 · 폰 다시 설정 없음.
+`LM2_BANK_KEY` 가 있으면 그것이 먼저(그땐 새 열쇠 못 만듦) · `LM2_BANK_KEY_FILE` 로 자리 바꿈 · 시험판(LM2_TRIAL=1)은 새 열쇠 잠금. 응답 · 기록엔 끝 네 글자만.
+메모 나누기: bank_memo.py(옛 것 그대로 — 예전 닉네임 · 첫 낱말 · 선수 이름 앞(player_cut) · 이름만 · 메모 없음), 애매하면 ai.ai_post, '＋?' 는 ai.suggest — 답을 보낸 뒤에.
+
+조종실: 후원 콘솔 맨 위 '계좌 입금 추천'(panels/ops/bank.js — 채우기 · 숨기기 · 되살리기 · 열쇠 보기/복사/새 열쇠 · 탭 배지 `badge`),
+채운 송출은 tx_id `manual_bank_<입금번호>` · 이름 비우면 '익명' · [채우기] 뒤 '장부에 넣기' 를 채우기 전으로(옛 50878d1).
+머리줄 '계좌' 점 · 계좌 띠(끊김 빨강 / 새 입금 초록 25초, **소리 없음**) — bankext.js(alarm.js 점 묶음 옆). 시스템 탭 거울 · 폰 앱 QR — panels/ops/bankmirror.js.
+계산은 bankcore.js(화면 안 만짐 → node 검사). tabs.js 에 탭 배지(`badge(slices) → 글자`)를 더했다. 검사: test_bank · test_bank_js.
