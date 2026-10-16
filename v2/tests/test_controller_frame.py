@@ -43,7 +43,7 @@ class ControllerFrame(unittest.TestCase):
 
     def test_main_leaves_slots_for_b_c_d(self):
         src = read('js', 'main.js')
-        for s in ['// [B] import { mountKpis }', '// [B] import { mountStagebar }', '// [C] import { mountDrawer }',
+        for s in ['// [B] import { mountKpis }', '// [B] import { mountStagebar }', 'import { mountDrawer }',
                   '// [D] import { mountCmdk }', '// [D] import { mountRxSwitch }', "// [D] safe(() => mountCmdk(ctx));"]:
             self.assertIn(s, src)
         # 방송 전에도 탭을 그린다

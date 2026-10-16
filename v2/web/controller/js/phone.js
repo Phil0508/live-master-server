@@ -3,6 +3,7 @@
    여기서 더하는 것(생김새는 css/tools_sig.css 맨 아래 묶음)
      1) 새 후원 알림 띠 — 폰에서 대기함이 화면 밖(게임 탭 등 아래쪽을 보는 중)일 때 새 후원이 오면 위에 작은 띠를 띄운다.
         누르면 대기함으로 올라간다. 대기함이 보이면 저절로 걷힌다(옛 mobile.html 의 위에서 내려오는 알림).
+        ⚠️ 시안 B(10-17): 폰 대기함은 화면 아래 서랍(drawer.js)에 늘 붙어 있다 — 서랍이 있으면(body.has-drawer) 이 띠는 안 띄운다(코드는 둔다).
      2) 탭 줄 — 폰에서는 한 줄로 옆으로 밀어 본다(css). 고른 탭이 줄 밖이면 가운데로 끌어온다(세로로는 안 움직인다).
      3) 방송 전 화면 — [💿 시그니처 관리] 바로가기(/controller/sig.html). 탭은 방송 중에만 보여서, 방송 전엔 여기로 간다.
    ⚠️ 소리는 내지 않는다(대표님 10-06 '소리는 안 나도 돼'). ⚠️ 바깥 글자(이름)는 textContent 로만. */
@@ -28,7 +29,7 @@ function newDonationPill(ctx, mq) {
     let visible = true;
 
     function paint() {
-        const show = fresh.length > 0 && !visible && mq.matches && document.body.dataset.view === 'live';
+        const show = fresh.length > 0 && !visible && mq.matches && document.body.dataset.view === 'live' && !document.body.classList.contains('has-drawer');
         pill.hidden = !show;
         if (!show) return;
         const d = fresh[fresh.length - 1];
