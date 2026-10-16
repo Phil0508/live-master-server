@@ -118,6 +118,7 @@ class Board(App):
         self.assertEqual(d['rows'][0]['image_url'], '')                       # None → ''
         self.assertEqual(d['count'], 5)
         self.assertEqual(r.headers.get('cache-control'), 'public, max-age=60')
+        self.assertTrue(r.text.startswith('{"status":"success","rows":['), r.text[:60])   # README ⑥ 확인 줄이 이 모양을 적어 둠
 
     @unittest.skipUnless(HAVE_FLASK, '옛 서버(Flask)가 없어 맞대기는 건너뛴다')
     def test_same_as_old(self):
@@ -260,6 +261,33 @@ class Oraksil(App):
         rows = [(wed, '가', 10000, 'toonation'), (wed, '가님', '5000', 'manual'), (wed, '나', 'x', 'toonation'),
                 (wed, '', 9000, 'toonation'), (wed, '다', 3000, 'toonation_test'), (wed + 86400 * 2, '라', 1000, 'toonation')]
         self.assertEqual(op.oraksil_rows(rows, set()), [{'day': '2026-10-14', 'name': '가', 'amount': 15000, 'count': 2}])
+
+
+class ProxiedDonation(App):
+    """Caddyfile.switch 가 큰 주소의 /api/donation 을 v2 로 넘긴다 — Caddy 를 거친 요청(X-Forwarded-For)은 '이 서버 안' 이 아니다.
+    로그인 · X-Donation-Key 없이 바깥에서 부르면 401 이고 장부에 한 줄도 안 생겨야 한다(가짜 후원으로 돈 · 점수가 바뀌지 않게)."""
+
+    class Req:
+        def __init__(self, host, headers):
+            self.client = types.SimpleNamespace(host=host)
+            self.headers = headers
+
+    def test_local_only_without_proxy_headers(self):
+        from v2.server.domain import legacy_routes as lr
+        self.assertTrue(lr._local(self.Req('127.0.0.1', {})))                                   # 리스너(같은 서버)
+        self.assertFalse(lr._local(self.Req('127.0.0.1', {'x-forwarded-for': '203.0.113.9'})))  # Caddy 를 거친 바깥 요청
+        self.assertFalse(lr._local(self.Req('127.0.0.1', {'x-real-ip': '203.0.113.9'})))
+        self.assertFalse(lr._local(self.Req('203.0.113.9', {})))
+
+    def test_outside_without_key_refused_and_nothing_written(self):
+        with mock.patch.dict(os.environ, {'DONATION_KEY': 'k-ops'}):
+            r = self.c.post('/api/donation', json={'name': '가짜', 'amount': 500000, 'tx_id': 'toon_fake1'},
+                            headers={'X-Forwarded-For': '203.0.113.9'})
+            self.assertEqual(r.status_code, 401)
+            r = self.c.post('/api/donation', json={'name': '가짜', 'amount': 500000, 'tx_id': 'toon_fake2'},
+                            headers={'X-Forwarded-For': '203.0.113.9', 'X-Donation-Key': 'wrong'})
+            self.assertEqual(r.status_code, 401)
+        self.assertEqual(self.bus.store.db.execute('SELECT COUNT(*) FROM donations').fetchone()[0], 0)
 
 
 class Legal(App):

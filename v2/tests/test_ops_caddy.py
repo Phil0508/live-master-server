@@ -81,12 +81,34 @@ class Fragments(unittest.TestCase):
     def test_machine_paths_go_to_v2(self):
         frag = cs.fragment(cs.SWITCH)
         paths = self._matcher_paths(frag, 'lm2_v2')
-        for p in ('/api/bank/*', '/download/bankphone.apk', '/api/signatures/board', '/api/oraksil/donors', '/privacy', '/terms'):
+        for p in ('/api/bank/*', '/download/bankphone.apk', '/api/signatures/board', '/api/oraksil/donors', '/privacy', '/terms',
+                  '/api/streamdeck/*', '/api/donation'):
             self.assertIn(p, paths)
         # handle @lm2_v2 안은 5300 으로만
         body = frag[frag.index('handle @lm2_v2'):frag.index('# ② ')]
         self.assertIn('reverse_proxy 127.0.0.1:5300', body)
         self.assertNotIn('8080', body)
+
+    def test_machine_paths_answered_by_v2(self):
+        """v2 로 넘기는 주소를 v2 가 정말 받는다(실제 앱의 길 목록) — 은행 입구만은 은행 갈래가 들어온 뒤(README ⑥ 에서 확인)."""
+        import tempfile as _tf
+        from v2.server.app import create_app
+        d = _tf.mkdtemp(prefix='lm2ops_caddy_')
+        try:
+            app = create_app(db_path=os.path.join(d, 'lm2.db'), password='pw', secret='secret-test-0123456789', sig_fetch=lambda: [])
+            try:
+                have = {getattr(r, 'path', '') for r in app.routes}
+            finally:
+                app.state.store.close()
+        finally:
+            shutil.rmtree(d, ignore_errors=True)
+        for p in self._matcher_paths(cs.fragment(cs.SWITCH), 'lm2_v2'):
+            if p.startswith('/api/bank/') or p == '/download/bankphone.apk':
+                continue
+            if p.endswith('/*'):
+                self.assertTrue([h for h in have if h.startswith(p[:-1])], p)
+            else:
+                self.assertIn(p, have)
 
     def test_operator_screens_redirect_to_8443(self):
         frag = cs.fragment(cs.SWITCH)

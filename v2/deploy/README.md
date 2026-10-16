@@ -174,7 +174,7 @@ sudo install -m 644 /tmp/Caddyfile.new /etc/caddy/Caddyfile && sudo systemctl re
   `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:5300/api/bank/app` 이 404 면 **이 단계를 미룬다**(확장 신호등이 빨강이 된다).
 - [ ] 확인(PC 에서):
   `curl -sI https://엔젤컴퍼니.메인.한국/controller | grep -i '^location'` → `…:8443/controller/` ·
-  `curl -s https://엔젤컴퍼니.메인.한국/api/signatures/board | head -c 120` → `{"status": "success", "rows": …` ·
+  `curl -s https://엔젤컴퍼니.메인.한국/api/signatures/board | head -c 120` → `{"status":"success","rows":[…` ·
   `curl -s https://엔젤컴퍼니.메인.한국/api/oraksil/donors | head -c 120` · 폰으로 `https://엔젤컴퍼니.메인.한국/privacy`
 
 ### ⑦ (권장) 옛 서버를 '구경만'(STANDBY) 으로
