@@ -317,3 +317,4 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 `panels/ops/stage.js` — 무대 단추에서 두 판을 빼고 '늘 붙는 판' 줄(data-race home/hell 칩 → home.on · hell.show). STAGE_NAME 에는 옛 이름표를 남겼다(순서표 칩 이름).
 검사: `v2/tests/test_races.py`(22 — 조사 재현 사례 undo · goalraise · goalzero · extra · rename · stage · restart · neg + 옛 무대 이름 · 순서표 · 저장본 옮겨 담기)
 · `v2/tests/js/races_check.mjs`(race_view · 계좌 비키기 · 층 순서 — node).
+검토(10-17): 헤드리스로 조종실 단추를 실제로 눌러 봤다 — 시작(확인창) · 화면에서 내리기/다시 띄우기 · 끝내기(확인창)/이어서 하기 · 퇴근빵 띄우기 · 무대 탭 늘 붙는 판 칩 · 주사위/없음 무대 단추가 모두 해당 명령을 보내고, 대결 · 주사위를 켜도 두 판이 안 꺼진다. 콘솔 오류 0, 가로 넘침 0(1440 · 945 · 390). 검사 하나 더: 옛 저장본의 ret 에 남은 끈 판(B5 꼴)은 되살리지 않는다.

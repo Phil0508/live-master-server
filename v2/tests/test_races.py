@@ -301,6 +301,23 @@ class Races(Base):
         self.assertEqual((s['show']['stage'], s['show']['ret']), ('roulette', None))
         self.assertTrue(s['home']['on'])
 
+    def test_migrate_saved_ret_of_turned_off_race(self):
+        """10-17 전 저장본에 B5 꼴(룰렛 도는 중 끈 판이 ret 에 남음)이 있으면 — 무대만 비우고 끈 판은 안 되살린다."""
+        self.cmd('hell.start')
+        bus = self.c.app.state.bus
+        h = dict(bus.state.slices['hell'], on=False)
+        h.pop('shown')
+        bus.state.slices['hell'] = h
+        bus.state.slices['home'] = dict(bus.state.slices['home'], on=False)
+        bus.state.slices['show'] = dict(bus.state.slices['show'], stage='roulette', ret='home_race')
+        self.cmd('notice.every', period=300)
+        s = self.st()
+        self.assertEqual((s['show']['stage'], s['show']['ret']), ('roulette', None))
+        self.assertFalse(s['home']['on'])
+        self.assertFalse(s['hell']['on'] or s['hell']['shown'])
+        self.assertEqual(self.cmd('hell.show', on=False)[0], 200)          # 끝낸 판을 숨겨도 오류가 아니다
+        self.assertFalse(self.st()['hell']['on'])
+
     # ── repro: restart — 방송을 끝냈다 다시 시작하면 퇴근빵은 꺼진다(목표는 남김) ──
     def test_restart_turns_home_off(self):
         self.cmd('home.goal', name='서아', goal=5)
