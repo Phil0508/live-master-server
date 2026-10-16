@@ -41,7 +41,7 @@ export function mountKpis(root, ctx) {
     c1.kv.append(c1v, c1u);
     const c1n = h('b', null, ''), c1big = h('span', { class: 'kbig' }, '');
     c1.ks.append(c1n, c1big);
-    c1.el.title = '이번 방송 장부에서 센 합계 — 화면에만 뜬 소액 · 다시 보기는 빠져요';
+    c1.el.title = '이번 방송 장부에서 센 합계 — 화면에만 뜬 소액 · 다시 보기 · 테스트는 빠져요';
 
     /* ② 지금 1등 */
     const c2 = card('top', '지금 1등', 'crown');

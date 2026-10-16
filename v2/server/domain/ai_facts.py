@@ -192,8 +192,11 @@ def names_in_message(msg, names):
 def today_summary(rows):
     """이번 방송 후원 장부 줄들 → {건수, 합계금액, 많이_쏜_사람[5], 가장_큰{이름, 금액}|None}.
        ⚠️ AI 에게 세라고 시키면 틀린다 — 서버가 장부에서 직접 센다. 화면에만 뜬 것(status 'display')은 안 센다
-          (/api/ledger 의 total 과 같은 셈). 같은 사람이 '홍길동' · '홍길동님' 으로 갈라지지 않게 묶는다."""
-    rows = [r for r in (rows or []) if r.get('status') in ('pending', 'assigned', 'ignored')]
+          (/api/ledger 의 total 과 같은 셈). 같은 사람이 '홍길동' · '홍길동님' 으로 갈라지지 않게 묶는다.
+       🧪 투네이션 테스트(source 'toonation_test' — 리스너 toon_t2_)도 안 센다 — 실제 돈이 아니다(10-17 w2center 검토).
+          조종실 숫자 카드 ① 합계 = 💱 정산 '실제 받은 돈'(ledger.settle) 과 같은 셈이 되게."""
+    rows = [r for r in (rows or []) if r.get('status') in ('pending', 'assigned', 'ignored')
+            and r.get('source') != 'toonation_test']
     by = {}
     for r in rows:
         k = norm_donor(r.get('name'))

@@ -122,6 +122,10 @@ class Route(unittest.TestCase):
         self.assertEqual(w['test'], (-30000, 1))
         self.assertEqual(sum(x['won'] for x in s['why']), s['diff'])
         self.assertEqual(s['hand'], {'won': 0, 'n': 0})
+        # 숫자 카드 ① '이번 방송 후원' 합계와 💱 '실제 받은 돈' 은 같은 셈(🧪 테스트 · 화면에만 · 다시 보기 빼고) — 대표님 눈에 두 숫자가 달라 보이지 않게
+        b = self.c.get('/api/ai/board?today=1', headers=H).json()['today']
+        self.assertEqual((b['합계금액'], b['건수']), (s['real'], s['real_n']))
+        self.assertEqual(b['가장_큰'], {'이름': '별빛', '금액': 50000})      # 테스트 30,000 · 다시 보기 90,000 은 '가장 큰 후원' 이 못 된다
         # 되돌리면 그 후원은 대기함으로 — 점수에서 빠지고 '대기함' 까닭으로 옮겨 간다
         self.cmd('score.undo', ref=a)
         s2 = self.settle()

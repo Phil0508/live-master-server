@@ -151,7 +151,8 @@ export function mountStagebar(root, ctx) {
 
             /* 순서표 */
             const ps = ((slices.presets || {}).list || []).filter(p => p && p.id);
-            const at = Number.isFinite(Number(show.cue_at)) ? Number(show.cue_at) : -1;
+            // 서버 settings2.cue_at 과 같은 셈 — 없거나 null 이면 -1(Number(null) 은 0 이라 '1단계' 로 잘못 보인다)
+            const at = show.cue_at != null && Number.isFinite(Number(show.cue_at)) ? Math.trunc(Number(show.cue_at)) : -1;
             if (!ps.length) setText(cueNow, '순서표 비어 있음');
             else if (at < 0 || at >= ps.length) setText(cueNow, `순서표 ${num(ps.length)}단계 · 시작 전`);
             else setText(cueNow, `${at + 1}. ${ps[at].name || '단계'}`);

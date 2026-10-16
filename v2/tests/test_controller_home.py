@@ -78,6 +78,15 @@ class ControllerHome(unittest.TestCase):
         self.assertIn('@media (max-width: 899px)', css)
         self.assertIn('grid-template-columns: 40px minmax(0, 1fr) 84px 84px 210px 44px', css)
 
+    def test_cue_at_null_means_not_started(self):
+        # 방송 시작 직후 show.cue_at 은 null 로 온다(헤드리스로 확인 · 10-17 검토). Number(null) = 0 이라 그대로 쓰면
+        # 무대 줄 · 순서표가 '1. ○○' 를 지금 단계로 보이고 [다음] 이름이 2단계를 가리키는데, 서버(settings2.cue_at)는 -1 로 셈해 1단계로 간다.
+        self.assertIn('show.cue_at != null && Number.isFinite(Number(show.cue_at))', read('js', 'stagebar.js'))
+        self.assertIn('r != null && isFinite(v)', read('js', 'panels', 'ops', 'cues.js'))
+        from v2.server.domain.settings2 import cue_at
+        self.assertEqual(cue_at({'cue_at': None}), -1)
+        self.assertEqual(cue_at({}), -1)
+
 
 if __name__ == '__main__':
     unittest.main()
