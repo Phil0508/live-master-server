@@ -13,6 +13,7 @@ AI 는 부르지 않는다(LM2_AI_OFF · 가짜 ai_post).
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import unittest
@@ -449,6 +450,34 @@ class Inbox(Base):
         self.assertEqual(sum('계좌 후원 메모' in c for c in calls), 3)
         self.assertEqual(items[12000]['target'], '밍밍')
         self.assertTrue(all(i['ai'] == 'done' for i in items.values()))
+
+    def test_backup_has_no_real_names(self):
+        """💾 장부 백업(14벌 · 바깥 보관소로도 갈 수 있다)엔 입금 카드 · 확장 신호를 넣지 않는다.
+           옛 프로그램은 실명을 bank_inbox.json 에 36시간만 두고 백업하지 않았다 — 지운 글자도 파일에 안 남아야 한다."""
+        import gzip
+        from v2.tools import backup_db as bk
+        K = self.key()
+        self.dep(K, [D1], state={'status': '자동 조회 중', 'found': [{'memo': '김진짜메모'}], 'log': ['새 입금 김진짜']})
+        self.c.post('/api/bank/ext/cmd', json={'t': 'press'}, headers=H)
+        self.bus.store.db.execute("INSERT INTO donations (id, tx_id, at, name, amount, status) VALUES ('d9', 't9', 1, '별빛', 50000, 'pending')")
+        p = bk.snapshot(os.path.join(self.dir, 'lm2.db'), os.path.join(self.dir, 'bk'))      # 서버가 켜진 채로
+        with gzip.open(p, 'rb') as g:
+            raw = g.read()
+        for s in ('김진짜', '영원밍밍화이팅'):
+            self.assertNotIn(s.encode('utf-8'), raw)                                         # 지운 줄의 글자도 빈 쪽에 안 남는다
+        back = os.path.join(self.dir, 'back.db')
+        with open(back, 'wb') as f:
+            f.write(raw)
+        c = sqlite3.connect(back)
+        try:
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM bank_inbox').fetchone()[0], 0)
+            self.assertEqual(c.execute('SELECT COUNT(*) FROM bank_meta').fetchone()[0], 0)
+            self.assertEqual(c.execute("SELECT name FROM donations WHERE id = 'd9'").fetchone()[0], '별빛')   # 장부는 그대로
+        finally:
+            c.close()
+        self.assertEqual(len(self.inbox()['items']), 1)                                      # 돌아가는 장부의 카드는 그대로
+        self.assertIn('김진짜', json.dumps(self.c.get('/api/bank/ext', headers=H).json(), ensure_ascii=False))
+        self.assertEqual(bk.scrub_private(sqlite3.connect(':memory:')), [])                  # 표가 없으면(옛 장부) 아무것도 안 한다
 
     def test_ai_off_never_called(self):
         """AI 가 꺼져 있으면(열쇠 없음 · LM2_AI_OFF) 부르지 않고, 카드는 규칙만으로 끝난다('예상 중…' 에 머물지 않는다)."""

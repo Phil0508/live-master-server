@@ -164,3 +164,4 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 채운 송출은 tx_id `manual_bank_<입금번호>` · 이름 비우면 '익명' · [채우기] 뒤 '장부에 넣기' 를 채우기 전으로(옛 50878d1).
 머리줄 '계좌' 점 · 계좌 띠(끊김 빨강 / 새 입금 초록 25초, **소리 없음**) — bankext.js(alarm.js 점 묶음 옆). 시스템 탭 거울 · 폰 앱 QR — panels/ops/bankmirror.js.
 계산은 bankcore.js(화면 안 만짐 → node 검사). tabs.js 에 탭 배지(`badge(slices) → 글자`)를 더했다. 검사: test_bank · test_bank_js.
+백업: v2/tools/backup_db.py 는 백업본에서 bank_inbox · bank_meta 를 비운다(scrub_private · secure_delete + VACUUM) — 옛 프로그램은 실명 든 bank_inbox.json 을 36시간만 두고 백업하지 않았다. 되살린 뒤엔 확장 · 폰이 다음 신호부터 다시 채운다.
