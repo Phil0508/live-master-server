@@ -160,4 +160,4 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
   다른 위젯이 쓸 수 있게 무대에 `opfx` {fire, clear, clearWarn} 를 내놓는다. 점수 · 장부 · 시그니처 대기줄은 안 건드린다.
   조종실: 오른쪽 칸 맨 위 두 줄(js/castbox.js — 💬 Enter · ⬆ Enter/[발사]) · 운영 탭 ✨ 이펙트(panels/ops/opfx.js).
 - 🎲 주사위 시그 칸 — 시그니처 'OO업' 자리에 서버가 실은 banner('밍밍 · 시그 칸 도착')를 띄운다(widgets/signature.js, 옛 reactionUpText).
-- 검사: test_pinball_cut · test_oldlayout · test_cast · test_games_js_syntax(v2/web 모든 .js 를 .mjs 로 node --check — 조종실이 통째로 안 뜨는 문법 오류를 막는다).
+- 검사: test_pinball_cut · test_oldlayout · test_cast · test_games_js_syntax(v2/web 모든 .js 를 .mjs 로 node --check — 조종실이 통째로 안 뜨는 문법 오류를 막는다) · import 이름 잇기 검사 — 없는 이름 · 없는 파일을 부르면 걸린다).
