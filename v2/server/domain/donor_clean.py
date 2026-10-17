@@ -23,7 +23,9 @@ MANUAL_SCORE_MSG = '수동 점수 조작'
 TEST_TX_PREFIX = 'toon_t2_'          # 리스너가 투네이션 테스트에 붙이는 표
 
 _PLAYER_N = re.compile(r'^player\s*\d+$', re.I)
-_TEST_WORD = re.compile(r'테스트|test', re.I)
+_DIGITS = re.compile(r'^[0-9 ]+$')                 # 보통 숫자만('①' · '²' 같은 것은 숫자로 안 본다)
+# 영어 test 는 낱말일 때만(test · tests · tester · testing · test1) — 'contest' · 'Celestial' · 'Testarossa' 같은 진짜 닉네임을 시험으로 몰지 않게
+_TEST_WORD = re.compile(r'테스트|(?<![a-z])test(?:s|er|ers|ing)?(?![a-z])', re.I)
 
 
 def _get(row, key, default=None):
@@ -59,7 +61,7 @@ def test_name_reason(name):
         n = n[:-1].strip()
     if not n or n.lower() in ANONYMOUS_NAMES:
         return ''
-    if n.replace(' ', '').isdigit():
+    if _DIGITS.match(n):
         return '숫자만'
     if _PLAYER_N.match(n):
         return 'Player N'
@@ -70,11 +72,19 @@ def test_name_reason(name):
 
 def test_player_reason(name, roster):
     """선수 칸 이름이 시험용 같으면 이유. 이름 글자로 먼저 보고(test_name_reason), 그다음 지금 명단에 없으면 '명단에 없음'.
-       roster 가 비어 있으면(방송이 끝나 명단을 비운 때) 명단으로는 판단하지 않는다 — 모두 시험이 되어 버린다."""
+       roster 가 비어 있으면(방송이 끝나 명단을 비운 때) 명단으로는 판단하지 않는다 — 모두 시험이 되어 버린다.
+       roster 는 이름 목록이어도 되고 players 조각의 list 처럼 {'name': …} 목록이어도 된다(배정 고리에서 부를 때 예외가 나면 안 된다)."""
     why = test_name_reason(name)
     if why:
         return why
-    names = {str(p).strip() for p in (roster or []) if str(p or '').strip()}
+    names = set()
+    try:
+        for p in (roster or []):
+            n = str((p.get('name') if isinstance(p, dict) else p) or '').strip()
+            if n:
+                names.add(n)
+    except TypeError:
+        names = set()
     if names and str(name or '').strip() not in names:
         return '명단에 없음'
     return ''

@@ -52,9 +52,10 @@ class TestNames(unittest.TestCase):
             self.assertEqual(dc.test_name_reason(n), '숫자만', n)
         for n in ('Player 1', 'player2', 'PLAYER 10'):
             self.assertEqual(dc.test_name_reason(n), 'Player N', n)
-        for n in ('테스트', '후원테스트', 'Test', 'tester'):
+        for n in ('테스트', '후원테스트', 'Test', 'tester', 'test1', 'TEST 계정', 'testing'):
             self.assertEqual(dc.test_name_reason(n), '테스트 글자', n)
-        for n in ('밍밍', '7싸단', '영원', '쏘랑왕자님', '익명', '', None, '이래 추는 기다~~~~~설향', 'Player'):
+        for n in ('밍밍', '7싸단', '영원', '쏘랑왕자님', '익명', '', None, '이래 추는 기다~~~~~설향', 'Player',
+                  'contest', 'Celestial', 'Testarossa', 'attestor', '①②', '1등팬'):    # 진짜 닉네임을 시험으로 몰지 않는다
             self.assertEqual(dc.test_name_reason(n), '', n)
 
     def test_player_names(self):
@@ -64,6 +65,10 @@ class TestNames(unittest.TestCase):
         self.assertEqual(dc.test_player_reason('밍밍', roster), '')
         self.assertEqual(dc.test_player_reason('고수달', []), '')          # 방송이 끝나 명단이 비었으면 명단으로 판단 안 함
         self.assertEqual(dc.test_player_reason('Player 2', []), 'Player N')
+        rows = [{'name': '밍밍', 'score': 3}, {'name': '앙앙'}]                    # players 조각의 list 를 그대로 줘도 된다
+        self.assertEqual(dc.test_player_reason('밍밍', rows), '')
+        self.assertEqual(dc.test_player_reason('고수달', rows), '명단에 없음')
+        self.assertEqual(dc.test_player_reason('밍밍', 5), '')                    # 이상한 값이어도 예외 없이
 
 
 DONATIONS_SQL = ("CREATE TABLE donations (id TEXT PRIMARY KEY, tx_id TEXT UNIQUE, at REAL NOT NULL, name TEXT NOT NULL,"
