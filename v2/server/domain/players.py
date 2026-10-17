@@ -24,10 +24,12 @@ from .rules import LOG_MAX, split_points
 
 slice_('players', True, lambda: {'list': [], 'extra': [], 'extra_active': False, 'bottom': {'name': '운영비', 'score': 0}})
 slice_('logs', False, lambda: [])
+slice_('logs_undone', False, lambda: [])   # ↩ 되돌린 줄(최근 UNDONE_MAX) — 조종실 기록에 회색 '되돌림' 으로 남긴다(logs 에선 빠진다)
 slice_('popup', True, lambda: {'donation': None, 'score': None, 'takeover': None})
 slice_('goal', True, lambda: {'target': 0, 'offset': 0, 'done': 0})   # done = 조종실이 '달성' 을 처리한 목표(축하 송출 · 닫기)
 
 NAME_MAX = 20
+UNDONE_MAX = 60
 PLAYERS_MAX = 10
 
 
@@ -129,6 +131,10 @@ def score_undo(ctx, data):
     rows = ctx.store.score_rows(ref)
     if not rows:
         raise CommandError('이미 되돌렸거나 없는 기록입니다', 404)
+    if not any((r.get('session') or '') == sid for r in rows):
+        # 기록에서 골라 되돌리기(undopick 10-17) — 지난 방송 줄을 고르면 지금 판의 같은 이름에서 점수가 빠진다 → 막는다
+        raise CommandError('이번 방송 기록만 되돌릴 수 있어요', 409)
+    rows = [r for r in rows if (r.get('session') or '') == sid]
     p = ctx.edit('players')
     done, skipped = [], []
     for r in rows:
@@ -156,7 +162,10 @@ def score_undo(ctx, data):
     _sort(p['list'])
     _sort(p['extra'])
     ctx.store.mark_undone([r['id'] for r in rows])
+    gone = [dict(l, undone_at=ctx.now) for l in ctx.read('logs') if l.get('ref') == ref]
     ctx.put('logs', [l for l in ctx.read('logs') if l.get('ref') != ref])
+    if gone:                                      # 기록 탭에 회색 '되돌림' 으로 남긴다(단추 없음)
+        ctx.put('logs_undone', (gone + list(ctx.read('logs_undone') or []))[:UNDONE_MAX])
     ctx.notes.update({'undone': ref, 'rows': done, 'skipped': sorted(set(skipped))})   # 무엇을 되돌렸나(조종실 알림용)
     for fn in ON_UNDO:
         fn(ctx, ref)
@@ -285,6 +294,7 @@ def _on_start(ctx, data):
     ctx.put('players', {'list': [{'name': n, 'score': 0, 'contribution': 0} for n in names], 'extra': [],
                         'extra_active': False, 'bottom': dict(ctx.read('players')['bottom'], score=0)})
     ctx.put('logs', [])
+    ctx.put('logs_undone', [])
     ctx.put('popup', {'donation': None, 'score': None, 'takeover': None})
     ctx.edit('goal').update({'offset': 0, 'done': 0})
 
@@ -292,6 +302,7 @@ def _on_start(ctx, data):
 def _on_end(ctx, data):
     ctx.put('players', {'list': [], 'extra': [], 'extra_active': False, 'bottom': dict(ctx.read('players')['bottom'], score=0)})
     ctx.put('logs', [])
+    ctx.put('logs_undone', [])
     ctx.put('popup', {'donation': None, 'score': None, 'takeover': None})
     ctx.edit('goal').update({'offset': 0, 'done': 0})
 

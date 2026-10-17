@@ -186,3 +186,22 @@
 #pending .pc-hold-why { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 #pending .pc-ai.lv-hold { color: #c2410c; }
 .loglist .tag.by-ai { color: #b9d5ff; }
+
+/* ↩ 로그 탭 골라 되돌리기(undopick 10-17) — 줄 끝 [↩ 되돌리기] · 되돌린 줄은 회색 '되돌림' · 확인 상자 */
+.log.pick { grid-template-columns: 66px minmax(0, 1fr) auto auto; }
+.log.pick .lu-btn { min-height: 30px; white-space: nowrap; }
+.log.pick.undone .lt, .log.pick.undone .lx { color: var(--dim); opacity: .7; }
+.log.pick.undone .lx { text-decoration: line-through; text-decoration-thickness: 2px; }
+.log.pick.neg.undone .lx { color: var(--dim); }
+.log .tag.undone-tag, .tag.undone-tag { color: var(--dim); background: transparent; border: 1px solid var(--line-soft); }
+.up-modal .up-what { font-size: 20px; font-weight: 800; margin: 4px 0 10px; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }
+.up-modal .up-note { margin: 6px 0 0; color: var(--dim); font-size: 14.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.up-modal .up-note.first { color: inherit; font-weight: 700; }
+@media (max-width: 899px) {
+    /* 폰: 1줄 = 시각 · 무엇 · [↩], 2줄 = 딱지(누가 줬나 · 되돌림) */
+    .log.pick { grid-template-columns: 50px minmax(0, 1fr) auto; row-gap: 4px; }
+    .log.pick .ls { display: inline-flex; grid-column: 2; grid-row: 2; justify-self: start; }
+    .log.pick .lu-btn, .log.pick .lu-none { grid-column: 3; grid-row: 1 / span 2; }
+    .log.pick .lu-btn { min-height: 36px; padding: 0 12px; font-size: 13.5px; }
+    .up-modal .up-what { font-size: 18px; }
+}

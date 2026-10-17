@@ -12,6 +12,7 @@ import { h, won, num, signed } from '../../util.js';
 import { getJSON, sessionLabel, hms } from './api.js';
 import { donationsCsv, scoresCsv, sessionStamp, fileName, kst } from './csv.js';
 import { askReplay, canReplay } from '../../replay.js';     // ↻ 다시 송출(방송 화면에만 한 번 더 — 10-17)
+import { askUndo, byLabel, undoBusy } from '../../undopick.js';   // ↩ 골라 되돌리기(점수 기록 줄마다 — undopick 10-17)
 
 const CSV_MAX = 2000;           // 서버가 한 번에 주는 끝(/api/ledger · /api/scores limit)
 
@@ -264,17 +265,23 @@ function scoreView(ctx, session) {
                     h('b', { class: 'rc-name' }, e.pre + e.player),
                     h('span', { class: 'rc-deltas' }, parts),
                     h('span', { class: 'tag ' + (e.don ? 'info' : 'plain') }, e.don ? '후원' : '손으로'),
-                    e.undone ? h('span', { class: 'tag bad' }, '되돌림') : null),
+                    e.by ? h('span', { class: 'tag plain' + (e.by === '🤖 AI 가 줌' ? ' by-ai' : '') }, e.by) : null,
+                    e.undone ? h('span', { class: 'tag plain undone-tag' }, '되돌림') : null,
+                    // ↩ 그 줄(묶음)만 되돌리기 — 이번 방송 · 방송 중 · 아직 안 되돌린 줄에만
+                    e.can ? h('button', { type: 'button', class: 'btn xs rc-undo', disabled: e.busy,
+                        title: '이 줄만 되돌리기 (나눠 준 후원이면 함께)', onclick: () => askUndo(ctx, e.ref, fallback(e.ref)) }, '↩ 되돌리기') : null),
                 e.reason ? h('p', { class: 'rc-msg' }, e.reason) : null));
     });
 
     function merge(list) {
         const out = [], at = new Map();
         for (const r of list) {
-            const k = r.ref + '|' + r.player + '|' + r.list;
+            // 되돌린 줄과 다시 준 줄(같은 후원을 되돌린 뒤 다시 배정 — 같은 ref)은 따로 — 합치면 '+10 · 안 되돌림' 으로 보인다(undopick 10-17)
+            const k = r.ref + '|' + r.player + '|' + r.list + '|' + (r.undone ? 'u' : '');
             let e = at.get(k);
             if (!e) {
                 e = { key: 'g' + r.id, at: r.at, t: hms(r.at), player: r.player, pre: LIST_TAG[r.list] || '', score: null, contrib: null,
+                      ref: r.ref || '', list: r.list || 'list',
                       reason: r.reason || '', don: String(r.ref || '').startsWith('don_'), undone: true, neg: false };
                 at.set(k, e);
                 out.push(e);
@@ -285,6 +292,13 @@ function scoreView(ctx, session) {
         }
         for (const e of out) e.neg = (e.score != null ? e.score : e.contrib || 0) < 0;
         return out;
+    }
+
+    /** 확인 상자용 — 조종실 기록 조각에 없는 오래된 줄이면 장부 줄(같은 ref)로 무엇이 되돌아가는지 적는다 */
+    function fallback(ref) {
+        return rows.filter(e => e.ref === ref && !e.undone).reverse().map(e => ({
+            at: e.at, name: e.player, list: e.list, ref,
+            val: e.score != null ? e.score : 0, cval: e.contrib != null ? e.contrib : e.score, kind: e.score == null ? 'contrib' : undefined }));
     }
 
     async function load() {
@@ -316,7 +330,12 @@ function scoreView(ctx, session) {
             h('div', { class: 'rc-total' }, h('span', { class: 'muted' }, '기록'), h('b', null, num(rows.length) + '줄'),
                 undone ? h('span', { class: 'muted' }, `그중 되돌림 ${num(undone)}줄(줄 그음)`) : null),
             qv ? h('div', { class: 'rc-picked' }, `고른 것 ${num(pick.length)}줄`) : null].filter(Boolean));
-        drawRows(pick.slice(0, shown));
+        // 누가 줬나(자동 · AI) — 점수 장부(score_log)엔 없고 조종실 기록 조각(logs · logs_undone)에 있다
+        const byRef = new Map();
+        for (const l of [].concat(ctx.slices.logs || [], ctx.slices.logs_undone || [])) if (l && l.by && !byRef.has(l.ref)) byRef.set(l.ref, byLabel(l.by));
+        const can = session === 'current' && !!(ctx.slices.session || {}).live;
+        drawRows(pick.slice(0, shown).map(e => Object.assign({}, e, {
+            by: byRef.get(e.ref) || '', can: can && !e.undone && !!e.ref, busy: undoBusy(e.ref) })));
         more.hidden = pick.length <= shown;
         more.textContent = `더 보기 (${num(pick.length - shown)}줄 남음)`;
         empty.hidden = !loaded || pick.length > 0;

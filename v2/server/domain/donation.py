@@ -206,6 +206,11 @@ def pending_assign(ctx, data):
     pl.apply_scores(ctx, items, reason='후원 %s' % it['name'], ref=pid, popup=data.get('popup', True) is not False,
                     takeover=True, want_list=data.get('list'))
     _take_pending(ctx, pid)
+    if str(pid).startswith('don_'):            # 기록 줄에 '누구 후원 · 얼마' — 골라 되돌리기 확인 상자가 읽는다(undopick 10-17)
+        tag = {'name': it.get('name') or '익명', 'amount': int(it.get('amount') or 0)}
+        for lg in ctx.edit('logs'):
+            if lg.get('ref') == pid:
+                lg['don'] = tag
     who = ' · '.join(x['name'] for x in items)[:60]
     if ctx.store.donation(pid):
         ctx.store.set_donation(pid, status='assigned', player=who)
