@@ -258,6 +258,45 @@ class Hooks(BookBase):
         self.assertEqual(len(self.st()['pending']), 1)
         self.assertIsNone(self.pid('별빛'))
 
+    def test_hook_crash_outside_savepoint_never_blocks(self):
+        """검토 10-17: 고리가 SAVEPOINT 밖(딱지 고치기 · 추천 읽기)에서 넘어져도 후원 · 배정 · 되돌리기는 그대로 간다."""
+        boom = RuntimeError('x')
+        with mock.patch.object(book, 'refresh_names', side_effect=boom), \
+                mock.patch.object(book, 'refresh_all', side_effect=boom):
+            did = self.give('별빛', 30000)
+            self.assertEqual(len(self.st()['pending']), 1)
+            self.assign(did, '서아')
+            self.assertEqual(self.player('서아')['score'], 3)
+            self.assertEqual(self.cmd('score.undo')[0], 200)
+            self.assertEqual(self.player('서아')['score'], 0)
+            self.assertEqual(self.cmd('session.end')[0], 200)
+        did = self.give('달빛', 30000)
+        with mock.patch.object(book, '_final', side_effect=boom):            # 정답지 고리 맨 앞에서 넘어져도
+            self.cmd('session.start', names=['서아'])
+            self.assign(did, '서아')
+        self.assertEqual(self.st()['pending'], [])
+
+    def test_placeholder_names_make_no_card(self):
+        self.give('수동송출')
+        self.give('수동송출님')
+        self.assertIsNone(self.pid('수동송출'))
+        self.cmd('donor.rebuild')                                             # 다시 채워도
+        self.assertIsNone(self.pid('수동송출'))
+
+    def test_browser_autopilot_assign_fills_guess(self):
+        did = self.give('별빛', 30000)
+        c, r = self.cmd('pending.assign', id=did, name='서아', via='ap')
+        self.assertEqual(c, 200, r)
+        a = self.ans(did)
+        self.assertEqual((a['how'], a['guess'], a['guess_how'], a['changed']), ('auto', '서아', 'auto', 0))
+
+    def test_person_recent_reads_all_spellings(self):
+        d1 = self.give('별빛님', 10000)
+        d2 = self.give(' 별빛 ', 20000)
+        self.give('달빛', 30000)
+        p = self.get('/api/donors/person/' + self.pid('별빛'))
+        self.assertEqual(sorted(x['ref'] for x in p['recent']), sorted([d1, d2]))
+
     def test_session_start_end_rebuilds_tags(self):
         self.give('별빛')
         self.remember('별빛', '서아', 5)                                      # 명령 밖에서 적힌 기억(옛 기억 잇기 등)
