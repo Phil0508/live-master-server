@@ -96,6 +96,7 @@ _nim_lock = threading.Lock()
 # 🩺 마지막 AI 호출 결과 — 상황판 머리의 'AI 연결됨 · 0.7초' / 'AI 붐빔'
 NIM_HEALTH = {'ok': None, 'ms': 0, 'at': 0.0, 'model': '', 'code': 0}
 
+AI_ASSIGN_DEADLINE = 10.0     # 자동 진행 AI 배정 — 이보다 늦은 답으로는 스스로 안 준다(autopilot.AI_DEADLINE_SEC 와 같다)
 SUGGEST_TTL = 600            # 같은 (이름 · 금액 · 메시지 · 선수들) 답은 10분 기억 — 폰 · PC 조종실이 같은 후원을 각각 묻는다
 SUGGEST_CACHE_MAX = 500
 _SUGGEST_CACHE = {}
@@ -400,12 +401,22 @@ async def suggest(bus, name, amount, message, names, slices=None):
     res, pre = dm.suggest_rules(bus.store, name, message, names)
     if res is None:
         ctx_lines = af.game_context(slices if slices is not None else bus.state.slices)
+        t0 = time.time()
         try:
             ai = await asyncio.wait_for(asyncio.to_thread(nim_suggest_target, name, amount, message, pre['names'],
                                                           pre['known'], ctx_lines, pre['hints']), SUGGEST_DEADLINE)
         except asyncio.TimeoutError:
             ai = {'target': None, 'confidence': 0.0, 'error': 'no-response', 'retry': True}
         res = dm.suggest_after_ai(pre, ai)
+        # 🤖 AI 날답(0.88 로 깎기 전) — 자동 진행의 AI 배정 · 채점이 같은 후원을 또 묻지 않게 기억에 같이 둔다(autopilot.ai_verdict)
+        raw = {'target': ai.get('target') if ai.get('target') in names else None,
+               'confidence': round(float(ai.get('confidence') or 0), 3), 'attempt': 0}
+        for k in ('error', 'retry', 'skipped', 'gone'):
+            if ai.get(k):
+                raw[k] = ai[k] if isinstance(ai[k], (str, int, bool)) else True
+        if time.time() - t0 > AI_ASSIGN_DEADLINE:
+            raw['late'] = True
+        res = dict(res, ai_raw=raw)
     if len(_SUGGEST_CACHE) > SUGGEST_CACHE_MAX:
         _SUGGEST_CACHE.clear()          # 무한히 크지 않게 — 방송 한 회 후원 수보다 훨씬 크다
     # ⚠️ 잠깐 막힌 답(붐빔 · 한도)은 기억하지 않는다 — 예전에 '모름' 을 10분 기억해서 2주 동안 5건이 묻혔다
