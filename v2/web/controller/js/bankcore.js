@@ -3,8 +3,11 @@
    옛 manual_send.html(BANK_HOW · bankAgo · bankClock · renderBankLink · bankFill/bankMarkUsed)과
    옛 controller.html(bkxJudge · bkxPaint · bankNewStrip)의 계산을 그대로 옮겼다. */
 
-/** 메모를 어떻게 나눴나 — 카드의 작은 딱지(글자, 색) */
+/** 메모를 어떻게 나눴나 — 카드의 작은 딱지(글자, 색).
+ *  10-17 새 순서(서버 bank_memo.smart_split): learned(배운 짝) → known_name(지난 기록) → player_strip(선수 이름 떼기) → 옛 것 */
 export const BANK_HOW = {
+    learned: ['✓ 배운 짝', 'ok'], known_name: ['✓ 지난 기록', 'ok'],
+    player_strip: ['선수 이름 떼고 남은 말 — 확인', 'warn'],
     known: ['✓ 예전 닉네임', 'ok'], first: ['첫 낱말을 닉네임으로 — 확인', 'warn'], ai: ['AI 가 나눔 — 확인', 'warn'],
     player_cut: ['선수 이름 앞을 닉네임으로 — 확인', 'warn'], message: ['닉네임 없음 — 할 말만', 'warn'], name_only: ['이름만 — 실명일 수 있어요', 'warn'],
     no_memo: ['메모 없이 보냄 — 입금자명', 'warn'], empty: ['메모 없음', 'warn'],

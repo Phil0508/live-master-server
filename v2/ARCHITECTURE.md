@@ -449,3 +449,18 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
   ② 🔂 한 곡 반복에서 못 트는 곡이면 같은 곡을 몇 번이고 다시 불렀다 → `skipIndex` 로 다음 곡. ③ 나오던 **마지막** 곡을 빼면 바로 앞 곡이 다시 나왔다 →
   `goneIndex`(전체 · 한 곡 반복은 처음으로, 반복 끔은 멈춤). 검사: w2feat_check.mjs 5개 · test_cmdk_under_confirm_box. 헤드리스로 진짜 마우스 · 키보드를 눌러
   리액션 스위치(PC · 폰) · 조종 줄 ▶/⏭ · Ctrl+K '밍밍 5'(점수 +5) · '+1분'(240→300초) · 장부 [⬇ 엑셀] 을 확인, 세 폭 × 로그인 · 방송 전 · 방송 중 가로 넘침 0, 같은 후원(tx) 한 장.
+
+## 10-17 계좌 메모 배우기
+운영 실측(송출된 계좌 카드 65건): 기계가 채운 닉네임이 맞은 건 40%, 가장 흔한 실수는 붙여 쓴 메모('하루밍밍화이팅')를 통째로 닉네임에 넣는 name_only(33건).
+- 순서(`domain/bank_memo.py` `smart_split` — 옛 `split_memo` 는 그대로 두고 **앞에** 셋): **A 배운 짝**(learned · 확실) → 메모 없이 보냄(no_memo) →
+  **B 지난 기록**(known_name · 확실 — donations.name · donor_memory.donor 중 메모 어디든 든 가장 긴 이름, 2자 이상, 선수 · 번외 판 · 운영비 이름 빼고, 두 글자는 앞뒤가 떨어져 있을 때만) →
+  **C 선수 이름 떼기**(player_strip · 확인 — 선수 이름과 '아·야·님' 꼬리를 지우고 남은 첫 덩어리, 응원 말이면 마지막 덩어리) → 옛 규칙(known · player_cut · first · message · name_only).
+  A·B·C 의 할 말 = 메모 − 닉네임 − 선수 이름 − 입금자 실명. 메모의 선수는 카드 target(0.9 · '메모에 선수 이름') — 그때는 규칙 · AI 예상을 안 부른다. AI 나누기는 옛 길의 first · message 만.
+- 후원 콘솔 카드 딱지(bankcore.js BANK_HOW): '✓ 배운 짝' · '✓ 지난 기록'(초록) · '선수 이름 떼고 남은 말 — 확인'(노랑).
+- 배우기(`domain/bank_learn.py`, 표 `bank_learn`): 입금자명은 **지문**(sha256 앞 32자)만 — 실명 글자는 표 · 답 · 조각 · 명령 기록 · print 어디에도 없다(그래서 백업에 남아도 된다).
+  때: 계좌 카드 [채우기] → [송출] — ① `/api/donation` tx_id `manual_bank_<카드id>[_N]`(로그인 · 장부에 넣기) ② `/api/bank/inbox/<카드id>/used {name}`(시그니처만 보내도).
+  카드 id → 카드 holder → 보낸 이름. **한 카드는 첫 이름**(×N · 나눠 보내기), **같은 입금자는 가장 최근 것**. 익명 · 수동송출은 안 배운다. 서버는 표를 메모리에 안 쥔다(입금마다 읽는다).
+- 미리 배우기 `v2/tools/import_bank_learning.py` — 옛 bank_inbox.json(id · ref · holder) · 옛 장부(donation_archive · donation_history 의 manual_bank_ tx_id · name) · v2 장부(bank_inbox · donations)를
+  **읽기만** 해서 짝을 넣는다. 기본은 세어 보기, `--write` 로 진짜. 건수만 찍는다. **v2 를 켠 채로 돌린다** — 따로 된 표라 켜진 서버가 덮지 않고, 쓰기는 BEGIN IMMEDIATE 한 번(서버 busy_timeout 5초),
+  방송 중에 배운 더 최근 짝은 안 덮는다. 명령은 deploy/README.md 3절.
+- 검사: v2/tests/test_bank_learn.py(실측 모양 가짜 이름 27경우 · 배우기 · 실명 안 나감 · 도구 가짜 파일 · 가짜 옛 DB · 켜진 서버 옆 쓰기), test_bank.py 의 옛 MemoSplit(옛 bank_memo_test) 그대로 통과.

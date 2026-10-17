@@ -28,6 +28,15 @@ chk('카드: 메시지 없으면 예상 중… 도 안 띄운다 · 예금주가
 v = M.cardView({ id: 'b3', amount: 1, at: now, memo: '테스트 안녕', name: '테스트', message: '안녕', how: 'first', ai: 'pending' }, now);
 chk('카드: 예상이 아직이면 예상 중…', v.target && v.target.text === '예상 중…' && v.how.cls === 'warn');
 chk('카드: 모르는 how 는 딱지 없음', M.cardView({ how: 'zzz', at: now }, now).how === null);
+// 📚 10-17 새 순서의 까닭 딱지 — 배운 짝 · 지난 기록은 초록(믿어도 됨), 선수 이름 떼기는 노랑(확인)
+v = M.cardView({ id: 'b4', amount: 20000, at: now, memo: '고마워요', holder: '김가짜', name: '달토끼', message: '고마워요', how: 'learned', sure: true, ai: 'done' }, now);
+chk('카드: 배운 짝 딱지', v.how && v.how.text === '✓ 배운 짝' && v.how.cls === 'ok', v.how);
+v = M.cardView({ id: 'b5', amount: 20000, at: now, memo: '하루밍밍화이팅', name: '하루', message: '화이팅', how: 'known_name', sure: true,
+    target: '밍밍', target_why: '메모에 선수 이름', ai: 'done' }, now);
+chk('카드: 지난 기록 딱지 · 메모의 선수 → 예상', v.how.text === '✓ 지난 기록' && v.how.cls === 'ok' && v.target.text === '→ 밍밍 ＋? 예상'
+    && v.target.title === '메모에 선수 이름', v);
+v = M.cardView({ id: 'b6', amount: 20000, at: now, memo: '달별밍밍화이팅', name: '달별', message: '화이팅', how: 'player_strip', target: '밍밍', ai: 'done' }, now);
+chk('카드: 선수 이름 떼기 딱지는 확인(노랑)', v.how.cls === 'warn' && v.how.text.includes('선수 이름'), v.how);
 
 // ── 후원 콘솔 머리 연결 칩 ──
 chk('연결 칩: 열쇠 없음', M.linkChip({ key_set: false, link: {} }).text.startsWith('은행 확장 연결 전'));

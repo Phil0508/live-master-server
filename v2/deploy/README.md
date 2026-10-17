@@ -86,6 +86,14 @@ sudo systemctl start livemaster-v2
 - 옮기는 것: 지난 방송 후원(보관 장부) · 후원자 기억 · 별명 기억 · 순위에서 뺀 이름 · 직접 준 등급. **옛 장부는 읽기만 한다.**
 - 설정(공지 · 계좌 · 목표 · 테마 · 게임 판 …)은 옛 조종실 **[💾 백업]** 파일을 v2 조종실 **[옛 설정 옮기기]** 로.
 
+📚 계좌 입금 '배운 짝' 미리 배우기(10-17 · 한 번) — 지난 계좌 송출에서 입금자명 → 닉네임 짝을 v2 장부(bank_learn)에 넣는다.
+옛 bank_inbox.json · 옛 장부(DATABASE_URL) · v2 장부를 **읽기만** 하고, 화면엔 건수만 찍는다. **v2 를 멈추지 않아도 된다**(따로 된 표 · 서버가 매번 새로 읽는다 · 더 최근에 배운 짝은 안 덮는다).
+```bash
+cd /opt/livemaster && set -a && . /etc/livemaster.env && set +a
+sudo -E -u livemaster .venv/bin/python -m v2.tools.import_bank_learning --v2-db v2/data/lm2.db          # 세어 보기만
+sudo -E -u livemaster .venv/bin/python -m v2.tools.import_bank_learning --v2-db v2/data/lm2.db --write  # 진짜로
+```
+
 ## 4. 연습 방송 (방송 없는 날)
 
 1. OBS 에 브라우저 소스 하나 더: `https://엔젤컴퍼니.메인.한국:8443/overlay/` (1080×1920). 클립을 쓰려면 이 소스에 **'고급 접근 권한'**.

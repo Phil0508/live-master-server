@@ -243,12 +243,13 @@ class Inbox(Base):
 
         items = {i['amount']: i for i in self.inbox()['items']}
         a = items[50000]
-        self.assertEqual((a['name'], a['message'], a['how'], a['sure']), ('영원', '밍밍화이팅', 'known', True))   # 붙여 써도 예전 닉네임
+        # 📚 10-17: 붙여 써도 지난 기록의 닉네임(known_name) · 할 말은 닉네임 · 선수 이름을 뺀 나머지 · 선수는 '누구 몫'(target)
+        self.assertEqual((a['name'], a['message'], a['how'], a['sure']), ('영원', '화이팅', 'known_name', True))
         self.assertEqual((a['memo'], a['holder']), ('영원밍밍화이팅', '김진짜'))                # 메모 칸과 실명 칸을 따로
         h = items[30000]
         self.assertEqual((h['how'], h['name'], h['message']), ('no_memo', '홍길동', ''))       # 메모 없이 보낸 입금은 금액 · 입금자명만
         n = items[10000]
-        self.assertEqual((n['name'], n['message'], n['how'], n['sure']), ('새손님', '순자 최고', 'first', False))
+        self.assertEqual((n['name'], n['message'], n['how'], n['sure']), ('새손님', '최고', 'player_strip', False))
         self.assertEqual([i['amount'] for i in self.inbox()['items']], [10000, 30000, 50000])   # 최근 것이 위
         self.assertEqual(set(VIEW_KEYS), set(a))                                             # 옛 _view 와 같은 칸
 
@@ -303,7 +304,7 @@ class Inbox(Base):
         self.c.post('/api/bank/inbox/%s/used' % items[10000]['id'], json={'name': '새손님'}, headers=H)
         self.dep(K, [{'ref': 'r9', 'amount': 20000, 'fields': [['거래내용', '새손님예지랑화이팅']]}])
         n2 = next(i for i in self.inbox()['items'] if i['amount'] == 20000)
-        self.assertEqual((n2['name'], n2['how']), ('새손님', 'known'))
+        self.assertEqual((n2['name'], n2['how']), ('새손님', 'known_name'))
         self.assertEqual(n2['target'], '예지랑')
 
         # 같은 ref 라도 폰과 웹은 다른 입금(옛 ref = source:ref)
@@ -421,7 +422,8 @@ class Inbox(Base):
         self.assertGreater(self.c.get('/api/state', headers=H).json()['seq'], seq)
 
     def test_ai_split_when_unsure(self):
-        """애매한 메모(첫 낱말 · 할 말만)는 AI 에게 나눠 달라고 한다 — 지어낸 글자가 있으면 버린다."""
+        """애매한 메모(옛 길로 떨어진 첫 낱말 · 할 말만)는 AI 에게 나눠 달라고 한다 — 지어낸 글자가 있으면 버린다.
+           📚 10-17: 선수 이름이 든 메모는 '선수 이름 떼기'(player_strip)가 먼저 나눠서 AI 에게 안 묻는다."""
         K = self.key()
         calls = []
 
@@ -430,25 +432,29 @@ class Inbox(Base):
             calls.append(sysmsg)
             if '계좌 후원 메모' in sysmsg:
                 memo = body['messages'][1]['content']
-                ans = {'테스트 밍밍 안녕': {'name': '테스트', 'message': '밍밍 안녕'},       # 맞게 나눔 — 그대로라 바뀐 것 없음
-                       '밍밍 화이팅 별사탕': {'name': '별사탕', 'message': '밍밍 화이팅'},   # 뒤 닉네임을 찾아냄
-                       '가나다 순자 최고': {'name': '가나', 'message': '다순자 최고!!'}}.get(memo, {})
+                ans = {'테스트 안녕': {'name': '테스트', 'message': '안녕'},                   # 맞게 나눔 — 그대로라 바뀐 것 없음
+                       '화이팅 별사탕': {'name': '별사탕', 'message': '화이팅'},              # 뒤 닉네임을 찾아냄
+                       '가나다 라마바': {'name': '가나', 'message': '다라마바!!'}}.get(memo, {})
                 return ai._Reply(200, json.dumps(ans, ensure_ascii=False)), 200, 'fake'
             return ai._Reply(200, '{"target": null, "confidence": 0}'), 200, 'fake'
 
-        with mock.patch.object(ai, 'ai_on', lambda: True), mock.patch.object(ai, 'nim_allowed', lambda: True), \
-                mock.patch.object(ai, 'ai_post', fake_post):
-            self.dep(K, [{'ref': 'a1', 'amount': 11000, 'fields': [['내용', '테스트 밍밍 안녕']]},
-                         {'ref': 'a2', 'amount': 12000, 'fields': [['내용', '밍밍 화이팅 별사탕']]},
-                         {'ref': 'a3', 'amount': 13000, 'fields': [['내용', '가나다 순자 최고']]},
-                         {'ref': 'a4', 'amount': 14000, 'fields': [['내용', '스트밍밍플러']]}])
+        with mock.patch.object(ai, 'ai_on', lambda: True), mock.patch.object(ai, 'nim_allowed', lambda: True),                 mock.patch.object(ai, 'ai_post', fake_post):
+            self.dep(K, [{'ref': 'a1', 'amount': 11000, 'fields': [['내용', '테스트 안녕']]},
+                         {'ref': 'a2', 'amount': 12000, 'fields': [['내용', '화이팅 별사탕']]},
+                         {'ref': 'a3', 'amount': 13000, 'fields': [['내용', '가나다 라마바']]},
+                         {'ref': 'a4', 'amount': 14000, 'fields': [['내용', '스트밍밍플러']]},
+                         {'ref': 'a5', 'amount': 15000, 'fields': [['내용', '밍밍 화이팅 별사탕']]}])
         items = {i['amount']: i for i in self.inbox()['items']}
         self.assertEqual((items[11000]['name'], items[11000]['how']), ('테스트', 'first'))
-        self.assertEqual((items[12000]['name'], items[12000]['message'], items[12000]['how']), ('별사탕', '밍밍 화이팅', 'ai'))
+        self.assertEqual((items[12000]['name'], items[12000]['message'], items[12000]['how']), ('별사탕', '화이팅', 'ai'))
         self.assertEqual((items[13000]['name'], items[13000]['how']), ('가나다', 'first'))   # 지어낸 글자('!!') — 버린다
-        self.assertEqual(items[14000]['how'], 'player_cut')                                  # 선수 이름 앞 자르기는 AI 에게 안 묻는다
+        # 선수 이름이 든 메모는 AI 에게 안 묻는다 — 선수 이름을 떼고 남은 덩어리 · 선수는 바로 '누구 몫'
+        self.assertEqual((items[14000]['name'], items[14000]['message'], items[14000]['how'], items[14000]['target']),
+                         ('스트', '플러', 'player_strip', '밍밍'))
+        self.assertEqual((items[15000]['name'], items[15000]['message'], items[15000]['how'], items[15000]['target']),
+                         ('별사탕', '화이팅', 'player_strip', '밍밍'))
+        self.assertEqual(items[15000]['target_why'], bank.MEMO_TARGET_WHY)
         self.assertEqual(sum('계좌 후원 메모' in c for c in calls), 3)
-        self.assertEqual(items[12000]['target'], '밍밍')
         self.assertTrue(all(i['ai'] == 'done' for i in items.values()))
 
     def test_backup_has_no_real_names(self):
@@ -489,7 +495,7 @@ class Inbox(Base):
         self.assertEqual(r.json()['added'], 2)
         post.assert_not_called()
         items = {i['amount']: i for i in self.inbox()['items']}
-        self.assertEqual((items[5000]['ai'], items[5000]['how'], items[5000]['target']), ('done', 'first', '순자'))
+        self.assertEqual((items[5000]['ai'], items[5000]['how'], items[5000]['target']), ('done', 'player_strip', '순자'))
         self.assertEqual((items[6000]['ai'], items[6000]['how'], items[6000]['target']), ('done', 'first', None))
 
 
