@@ -2,7 +2,7 @@
    옛 것은 판 하나(#home-race-container)를 둘이 나눠 썼다(.hell 이면 지옥 옷). v2 는 칸이 둘(homerace · hell)이고 생김새는 이 파일 하나.
 
    - 보이기 · 모양은 race_view.js 한 곳(10-17 무대에서 뺐다 — 다른 게임을 켜도 안 꺼진다):
-     큰 판 · 얇은 판(시그뒤집기 · 핀볼 · 9명 이상 퀴즈 — 제목 + 5초마다 한 사람) · 숨김(주사위판). 둘 다 켜지면 지옥이 먼저.
+     큰 판 · 얇은 판(시그뒤집기 · 핀볼 · 큰 판이 퀴즈 · 대결판에 닿을 때 — 제목 + 5초마다 한 사람) · 숨김(주사위판). 둘 다 켜지면 지옥이 먼저.
    - 퇴근빵(kind 'home'): home.on 이고 점수판 선수가 있을 때. 진행 = 점수(score) / 목표(home.goals[이름], 점).
      오른쪽 배지 = 목표(만 단위 짧게), 아래 GOAL 줄 = 5초마다 다음 사람의 '남은 점수'(다 채우면 '퇴근 완료 🎉').
    - 지옥탈출(kind 'hell'): hell.on 이고 hell.shown. 명단 = 목표 큰 순(= 시작 순간 1등부터 — 서버가 그 순서로 적었다).
@@ -281,5 +281,6 @@ export function mountRace(root, lm, opts, kind) {
     lm.on(hellKind ? 'home' : 'hell', render);      // 둘 다 켜지면 지옥이 먼저 — 다른 쪽이 바뀌어도 다시 본다
     lm.on('show', render);
     lm.on('screen', render);
+    lm.on('layout', render);                        // 퇴근빵 큰 판 · 얇은 판은 퀴즈 · 대결판 자리를 본다(race_view.js homeHitsBelow)
     lm.on(hellKind ? 'hell' : 'home', render);
 }
