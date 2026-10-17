@@ -1,7 +1,12 @@
 /* 🎵 시그니처 재생 — queue 조각 {items, paused, volume}. 맨 앞(items[0])이 지금 틀 것이다.
 
    흐름(옛 checkReactionQueue · playReaction · onReactionEnded 를 옮겼다)
-     1) 맨 앞이 있고 · 멈춤(paused)이 아니고 · play_after 시각이 지났고 · 후원 카드가 떠 있지 않으면 시작한다.
+     1) 맨 앞이 있고 · 멈춤(paused)이 아니고 · play_after 시각(서버 시계 lm.serverNow)이 지났고 · 후원 카드가 떠 있지 않으면 시작한다.
+        🚦 줄 선 카드는 안 기다린다 — 카드 쪽이 새 카드를 꺼내기 전에 이 시그에 차례를 넘긴다(10-17, ../turns.js cardTurn).
+           그리고 시그가 가운데에 있는 동안(줄어들기 전 · 'OO업' · 전용 연출 · 계엄령 경보)은 카드가 기다린다(옛 것은 시그 카드 밑에 깔렸다).
+           카드 쪽에 주는 것: stage.provide('sigCenter') — center() · wants() · kick() · onFree(fn)
+        📺 실제로 틀기 시작하면 reaction.started {id, replay} 를 한 번 보낸다(담당 창만 · 미리보기는 안 보냄) —
+           출연진 전광판(?only=sig)이 방송판보다 먼저 뜨지 않게 이 신호를 따른다(widgets/sigfx/sigdisp.js).
         ⏸️ 멈춤은 '새로 시작' 만 막는다 — 이미 나가고 있는 것은 끝까지 튼다(돈 낸 후원자의 시그니처를 자르지 않는다).
      2) 시작 전에 후원 카드를 먼저 2초(stage 의 donationCard) — 단 슬롯처럼 자체 연출이 있는 것(skip_popup) ·
         대기줄이 밀린 때(2건 이상) · 10만 원 이상 · '다 틀기' 되풀이는 카드 없이 곧장(옛 것과 같다).
@@ -38,12 +43,15 @@
 import { esc, formatNum, restartClass, BIG_DONATION_MIN } from '../util.js';
 import { paintDonorName, sigMsgFor, comboOf } from '../donate_kit.js';
 import { titlePlan, bannerText, bannerAmount, shrinkWait, MARTIAL_LAW_MESSAGE } from './sigfx/rules.js';
+import { centerHoldMs, sigDue } from '../turns.js';
 // 🔊 방송판을 여러 곳에 띄워도 소리 · '다 틀었다'(done)는 담당 창 하나만 — 옛 isAudioLeader(audio_lead.js 머리말)
 import { isLeader, setPlaying, livePlayingLeader, onLeaderChange, NON_LEADER_GRACE_MS } from '../audio_lead.js';
 
 const SHRINK_MS = 2500;      // 가운데 → 왼쪽으로 작게(옛 reaction_shrink_delay 기본) — sigview.shrink_delay 가 없을 때
 const TITLE_MS = 3500;       // 'OO업' 배너(옛 reaction_title_duration 기본) — sigview.title_duration 이 없을 때
 const HIDE_DELAY_MS = 350;   // 끝난 뒤 카드를 내리기까지 — 바로 다음 것(되풀이 · 다음 시그)이면 깜빡이지 않게
+const WARN_HOLD_MS = 4000;   // 🚨 계엄령 경보가 가운데를 덮는 시간(sigfx/warn.js WARN_MS) — fire() 가 길이를 안 돌려줄 때
+const FADE_MS = 800;         // 시그 카드가 사라지는 전환(overlay.css --t-slow) — 가운데에서 끝나면 그동안도 후원 카드가 기다린다
 
 function tier(amount) {
     const a = parseInt(amount, 10) || 0;
@@ -74,7 +82,9 @@ export function mount(root, lm, opts) {
     const audio = new Audio();
     audio.preload = 'auto';
 
-    let cur = null;               // 지금 맡은 것 {key, id, replay, item, token, phase:'card'|'play', timers[], startedAt}
+    let cur = null;               // 지금 맡은 것 {key, id, replay, item, token, phase:'card'|'play', timers[], startedAt, centerUntil}
+    const freeFns = [];           // 🚦 가운데가 비면 부를 것(후원 카드 — sigCenter.onFree)
+    let tailUntil = 0, tailTimer = null;   // 🚦 가운데에서 끝난(줄어들기 전) 시그 카드가 사라지는 동안 — 그 밑에 후원 카드가 깔리지 않게
     const doneKeys = new Map();   // 다 틀고 done 을 보낸 것(key → id) — 서버가 뺄 때까지 다시 안 튼다
     let tickTimer = null, hideTimer = null, bannerTimer = null, comboTimer = null;
     let comboShown = { key: null, count: 0, all: false };
@@ -123,12 +133,13 @@ export function mount(root, lm, opts) {
     function hideSoon() { cancelHide(); hideTimer = setTimeout(hideVisuals, HIDE_DELAY_MS); }
     function hideBanner() { clearTimeout(bannerTimer); bannerTimer = null; banner.classList.remove('show'); }
 
+    /* 띄웠으면 배너가 떠 있는 시간(ms), 안 띄웠으면 0 */
     function showBanner(it) {
         hideBanner();
-        if (!opts.stage.alertOn('reaction_title')) return;
+        if (!opts.stage.alertOn('reaction_title')) return 0;
         // 슬롯 당첨 — 시그니처 이름만 · 🎲 주사위 — '누구 · 시그 칸 도착' · 그 밖에는 10만 원 이상만 '이름 + 업'(옛 reaction_title_suffix, 비우면 이름만)
         const text = bannerText(it, SV().title_suffix, BIG_DONATION_MIN);
-        if (!text) return;
+        if (!text) return 0;
         const t = tier(bannerAmount(it));
         banner.classList.remove('tier-2', 'tier-3', 'tier-4');
         if (t.level >= 4) banner.classList.add('tier-4');
@@ -141,25 +152,27 @@ export function mount(root, lm, opts) {
             if (w > 980) banner.style.fontSize = Math.floor(parseFloat(getComputedStyle(banner).fontSize) * 980 / w) + 'px';
         } catch (e) {}
         restartClass(banner, 'show');
-        bannerTimer = setTimeout(() => banner.classList.remove('show'), svNum('title_duration', TITLE_MS));
+        const ms = svNum('title_duration', TITLE_MS);
+        bannerTimer = setTimeout(() => banner.classList.remove('show'), ms);
+        return ms;
     }
 
-    /* 가운데 한 가지 — 🚨 계엄령 경보 · 🎆 전용 연출 · 'OO업' 배너(옛 startPlayback 의 갈래). 연출이 돌면 그 길이(ms), 아니면 0 */
+    /* 가운데 한 가지 — 🚨 계엄령 경보 · 🎆 전용 연출 · 'OO업' 배너(옛 startPlayback 의 갈래).
+       돌려주는 것 {fx: 연출 길이(ms, 없으면 0) — 카드 축소를 미룬다, hold: 배너 · 경보가 가운데를 덮는 시간(ms) — 후원 카드가 기다린다} */
     function headline(it) {
         const plan = titlePlan(it);
         if (plan === 'warn') {
             hideBanner();                                          // 계엄령: 이름을 부르지 않는다. 사이렌이 먼저다
             const w = opts.stage.use('sigWarn');
-            if (w) w.fire({ message: MARTIAL_LAW_MESSAGE });
-            return 0;
+            if (w) { w.fire({ message: MARTIAL_LAW_MESSAGE }); return { fx: 0, hold: WARN_HOLD_MS }; }
+            return { fx: 0, hold: 0 };
         }
         if (plan === 'fx') {
             const fx = opts.stage.use('sigfx');
             const ms = fx ? fx.play(it, { card: overlay }) : 0;
-            if (ms > 0) { hideBanner(); return ms; }               // 연출마다 자기 글자가 있어 'OO업' 과 겹친다
+            if (ms > 0) { hideBanner(); return { fx: ms, hold: 0 }; }   // 연출마다 자기 글자가 있어 'OO업' 과 겹친다
         }
-        showBanner(it);
-        return 0;
+        return { fx: 0, hold: showBanner(it) };
     }
 
     function effects(it) {
@@ -255,6 +268,28 @@ export function mount(root, lm, opts) {
     function setReaction(on) { sigOn = !!on; opts.stage.setMode('reaction', sigOn || manualOn()); }
     lm.on('lights', () => setReaction(sigOn));
 
+    /* 🚦 서버 시계 — play_after 는 서버 시각(ms)이다(이 컴퓨터 시계가 틀려도 슬롯 · 주사위 결과보다 먼저 안 나오게) */
+    const now = () => { try { const v = Number(lm.serverNow && lm.serverNow()); if (isFinite(v) && v > 0) return v; } catch (e) {} return Date.now(); };
+
+    /* 🚦 가운데 — 지금 시그가 가운데를 붙잡고 있나(줄어들기 전 · 배너 · 연출 · 경보). 시각으로 본다(타이머를 놓쳐도 영영 막지 않게) */
+    function centerBusy() { const n = Date.now(); return !!(cur && cur.phase === 'play' && n < (cur.centerUntil || 0)) || n < tailUntil; }
+    function centerFreed() { freeFns.slice().forEach(fn => { try { fn(); } catch (e) { console.error('[시그니처] 가운데 비움 알림 실패:', e); } }); }
+    /* 🚦 지금 것을 내려놓은 뒤(끝 · 끊음 — cur 를 비운 다음에 부른다) — 가운데에 있었으면(wasCenter)
+          카드가 사라질 때(ms)까지 더 붙잡았다가 놓아준다(짧은 시그 · 건너뛰기) */
+    function releaseCenter(wasCenter, ms) {
+        if (!wasCenter || !(ms > 0)) { centerFreed(); return; }
+        tailUntil = Date.now() + ms;
+        clearTimeout(tailTimer);
+        tailTimer = setTimeout(() => { tailTimer = null; centerFreed(); }, ms + 20);
+    }
+    /* 🚦 맨 앞이 틀 차례인데 카드 때문에 기다리는 중인가(카드 사정 빼고 다 됨) */
+    function wantsTurn() {
+        if (cur) return false;
+        const q = Q();
+        const head = (q.items || [])[0];
+        return sigDue(head, q, now(), !!head && doneKeys.has(keyOf(head)));
+    }
+
     function tick() {
         tickTimer = null;
         const q = Q();
@@ -281,11 +316,11 @@ export function mount(root, lm, opts) {
         const key = keyOf(head);
         if (doneKeys.has(key)) { setReaction(true); return; }          // 서버가 뺄 때까지 기다린다
         if (q.paused) { setReaction(false); return; }                   // 새로 시작하지 않는다
-        const wait = (Number(head.play_after) || 0) - Date.now();
+        const wait = (Number(head.play_after) || 0) - now();
         if (wait > 0) { setReaction(false); schedule(Math.min(wait + 50, 60000)); return; }
         setReaction(true);
         const card = opts.stage.use('donationCard');
-        if (card && card.busy()) return;                                 // 카드가 내려가면 onIdle 이 다시 부른다
+        if (card && card.busy()) return;          // 떠 있는 카드만 기다린다 — 내려가면 카드 쪽이 새 카드보다 먼저 차례를 넘긴다(kick)
         start(head, items.length);
     }
 
@@ -327,14 +362,29 @@ export function mount(root, lm, opts) {
             if (neon) neon.sigPlay(it, audio).then(rgb => { if (rgb && cur && cur.token === token) box.style.setProperty('--reac-glow', rgb); });
         } catch (e) { /* 조명이 넘어져도 재생은 그대로 */ }
         // 🚨 계엄령 · 🎆 전용 연출 · 'OO업' — 연출이 카드를 붙잡고 있는 동안은 축소를 미룬다
-        let fxMs = 0;
-        try { fxMs = headline(it); } catch (e) { console.error('[시그니처] 가운데 연출 실패 — 소리 · 차례는 계속:', e); }
+        let fxMs = 0, holdExtra = 0;
+        try { const h = headline(it); fxMs = h.fx; holdExtra = h.hold; } catch (e) { console.error('[시그니처] 가운데 연출 실패 — 소리 · 차례는 계속:', e); }
         const busyUntil = fxMs > 0 ? Date.now() + fxMs : 0;
-        cur.timers.push(setTimeout(() => overlay.classList.add('minimize'), shrinkWait(svNum('shrink_delay', SHRINK_MS), busyUntil, Date.now())));
+        const shrinkAt = shrinkWait(svNum('shrink_delay', SHRINK_MS), busyUntil, Date.now());
+        cur.timers.push(setTimeout(() => overlay.classList.add('minimize'), shrinkAt));
+        // 🚦 가운데를 비우는 때 — 그때까지 후원 카드가 기다린다(카드가 시그 카드 밑에 깔리지 않게)
+        const holdMs = centerHoldMs(shrinkAt, holdExtra, 0);
+        cur.centerUntil = Date.now() + holdMs;
+        cur.timers.push(setTimeout(() => { if (cur && cur.token === token) centerFreed(); }, holdMs + 20));
+        sendStarted(it);
 
         const durMs = Math.max(1, Number(it.duration) || 5) * 1000;
         if (!it.audio_url) { finishAfter(token, durMs, '사진만(duration)'); return; }
         playAudio(it, token, durMs);
+    }
+
+    /* 📺 '지금 트는 것' 을 서버에 — 출연진 전광판이 이것을 보고 같이 뜬다. 담당 창 하나만 · 미리보기는 안 보냄 · 실패해도 재생은 그대로 */
+    function sendStarted(it) {
+        if (opts.monitor || !isLeader()) return;
+        try {
+            Promise.resolve(lm.cmd('reaction.started', { id: it.id, replay: Number(it.replay) || 0 }))
+                .catch(e => console.warn('[시그니처] 시작 신호 실패(전광판은 잠시 뒤 스스로 뜬다):', e));
+        } catch (e) {}
     }
 
     function finishAfter(token, ms, why) {
@@ -437,10 +487,12 @@ export function mount(root, lm, opts) {
         if (!cur || cur.token !== token) return;          // 지난 것의 늦은 신호
         const { id, key, replay } = cur;
         log('끝', why, id, '#' + replay);
+        const wasCenter = centerBusy();
         clearCur();
         cur = null;
         doneKeys.set(key, id);
         hideSoon();
+        releaseCenter(wasCenter, HIDE_DELAY_MS + FADE_MS);   // 🚦 짧은 시그(줄어들기 전에 끝남)는 카드가 사라진 뒤에 놓아준다
         if (!opts.monitor) {
             if (isLeader()) sendDone(id, replay, 0);
             else {
@@ -472,9 +524,11 @@ export function mount(root, lm, opts) {
     function stop(why) {
         if (!cur) return;
         log('끊음', why, cur.id);
+        const wasCenter = centerBusy();
         clearCur();
         cur = null;
         hideVisuals();
+        releaseCenter(wasCenter, FADE_MS);               // 🚦 가운데에서 끊겼으면 사라지는 동안만 더
     }
 
     // 🎚️ 편집기 미리보기 — ?monitor=1(편집기 · 폰 미리보기)에서만. 서버 · 대기줄 · 소리 없이 지금 설정(sigview)으로
@@ -500,6 +554,14 @@ export function mount(root, lm, opts) {
         });
     }
 
+    // 🚦 후원 카드와 차례(../turns.js cardTurn) — 카드 쪽은 새 카드를 꺼내기 전에 wants() 를 보고 kick() 으로 먼저 넘긴다
+    opts.stage.provide('sigCenter', {
+        center: centerBusy,
+        wants: wantsTurn,
+        kick() { clearTimeout(tickTimer); tick(); },
+        onFree(fn) { if (typeof fn === 'function') freeFns.push(fn); },
+    });
+
     const card = opts.stage.use('donationCard');
     if (card) card.onIdle(() => schedule(0));
     lm.on('queue', () => schedule(0));          // 같은 쪽지 안의 후원 카드가 먼저 자리 잡게 한 박자 뒤에
@@ -509,6 +571,6 @@ export function mount(root, lm, opts) {
     if (!opts.view) import('./more/clip.js').then(m => m.mountClip(lm, opts)).catch(e => console.error('[클립] 못 불러옴:', e));
 
     // 점검용 — 콘솔에서 지금 상태 보기
-    window.__lmSig = { get cur() { return cur && { key: cur.key, phase: cur.phase, title: cur.item.title, forcedMute: !!cur.forcedMute, audioDead: !!cur.audioDead }; },
+    window.__lmSig = { get cur() { return cur && { key: cur.key, phase: cur.phase, title: cur.item.title, forcedMute: !!cur.forcedMute, audioDead: !!cur.audioDead, center: centerBusy() }; },
                        get blocked() { return blocked; }, doneKeys, audio };
 }

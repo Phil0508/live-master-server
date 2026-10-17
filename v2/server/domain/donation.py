@@ -77,8 +77,8 @@ def donation_add(ctx, data):
         nm = ' '.join(name_in.split()) or '익명'
         no = ctx.store.add_donation({'id': did, 'tx_id': tx or None, 'at': ctx.now, 'name': nm, 'amount': amount,
                                      'message': msg_in.strip(), 'source': 'display', 'status': 'display', 'player': None, 'session': sid})
-        ctx.edit('popup')['donation'] = dict({'id': did, 'name': nm, 'amount': amount, 'message': msg_in.strip(),
-                                              'at': int(ctx.now * 1000), 'display_only': True}, **pub)
+        pl.set_donation_popup(ctx, dict({'id': did, 'name': nm, 'amount': amount, 'message': msg_in.strip(),
+                                         'at': int(ctx.now * 1000), 'display_only': True}, **pub))
         ctx.notes.update({'id': did, 'display_only': True, 'no': no})
         return
     # 🔁🧪 다시 보기 · 후원 테스트 — 화면에만(위 3-b). 이름 보정 · 집계 · 대기함 · 등급 · 자동 진행 고리를 하나도 안 탄다.
@@ -97,7 +97,7 @@ def donation_add(ctx, data):
                 fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra=dict(pub, **via), don_id=did)
         elif amount < SMALL_DISPLAY_MAX:
             pop['display_only'] = True
-        ctx.edit('popup')['donation'] = pop
+        pl.set_donation_popup(ctx, pop, sig=bool(sig and amount > 0))
         ctx.notes.update({'id': did, 'show_only': kind, 'no': no})
         return
     name, orig, msg = derive_name(name_in, msg_in, tx)
@@ -112,7 +112,11 @@ def donation_add(ctx, data):
                                  'source': 'toonation_test' if test else ('toonation' if from_listener else 'manual'),
                                  'status': 'pending', 'player': None, 'session': sid})
     dx.record_key(ctx.store, tx, priv, pub, ctx.now)      # 🏷️ 번호표 한 줄 — 실패해도 후원은 그대로
-    ctx.edit('popup')['donation'] = dict({'id': did, 'name': name, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}, **pub)
+    floor = int(data.get('floor') or 0)
+    sig = data.get('sig')
+    sig_on = bool(sig and amount > 0 and not (floor and amount < floor))      # 아래 5) 시그니처 대기줄에 들어간다
+    pl.set_donation_popup(ctx, dict({'id': did, 'name': name, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}, **pub),
+                          sig=sig_on)
     t = ctx.edit('tallies')
     key = norm_donor(name)
     dt = t['donors'].setdefault(key, {'name': name, 'total': 0, 'count': 0})
@@ -121,8 +125,6 @@ def donation_add(ctx, data):
     dt['name'] = name
     if amount > 0 and (not t['best'] or amount > t['best']['amount']):
         t['best'] = {'name': name, 'amount': amount, 'at': int(ctx.now * 1000), 'id': did, 'member': ''}
-    floor = int(data.get('floor') or 0)
-    sig = data.get('sig')
     if amount > 0 and floor and amount < floor:
         t['notice_donors'].append({'name': name.replace('*', '')[:16], 'amount': amount, 'ts': int(ctx.now * 1000)})
         del t['notice_donors'][:-NOTICE_DONORS_MAX]
@@ -163,13 +165,14 @@ def donation_replay(ctx, data):
     pop = {'id': new, 'name': nm, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000), 'encore': True, 'src': did}
     sig = data.get('sig')
     floor = int(data.get('floor') or 0)
-    if sig and amount > 0 and not (floor and amount < floor):
+    sig_on = bool(sig and amount > 0 and not (floor and amount < floor))
+    if sig_on:
         for fn in ENQUEUE:
             fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra={'encore': True}, don_id=did)
         ctx.notes['title'] = sig.get('title') or ''
     elif 0 < amount < SMALL_DISPLAY_MAX:
         pop['display_only'] = True              # 1만 원 미만 — 맨 위 소액 띠로(받을 때와 같은 자리)
-    ctx.edit('popup')['donation'] = pop
+    pl.set_donation_popup(ctx, pop, sig=sig_on)
     ctx.notes.update({'id': new, 'of': did, 'of_no': d.get('no'), 'no': no})
 
 
