@@ -148,14 +148,21 @@ def cue_at(show):
         return -1
 
 
+# 🎬 다른 묶음이 단계에 칸을 더할 때(예: 엔딩 크레딧 credits.py — 떠 있었나) — fn(ctx, snap) 은 snap 에 적고, fn(ctx, hit) 는 불러올 때 맞춘다
+SNAP_EXTRA, APPLY_EXTRA = [], []
+
+
 def snap_now(ctx):
     """지금 화면 한 장 — 자리 · 크기(layout.widgets 통째) · 고정 자리 · 무대(잠깐 판이면 돌아갈 무대 — 옛 cue_from_state)."""
     s = ctx.read('show')
     stage = s.get('ret') if s.get('stage') in sh.TEMP_STAGES else s.get('stage')
-    return {'layout': copy.deepcopy(ctx.read('layout').get('widgets') or {}),
+    snap = {'layout': copy.deepcopy(ctx.read('layout').get('widgets') or {}),
             'hud': {k: bool(v) for k, v in (s.get('hud') or {}).items()},
             'stage': stage if stage in sh.STAGES else None,
             'saved_at': int(ctx.now)}
+    for fn in SNAP_EXTRA:
+        fn(ctx, snap)
+    return snap
 
 
 def cue_hud(cue):
@@ -209,6 +216,8 @@ def apply_cue(ctx, hit, idx):
     #    퇴근빵 · 지옥탈출은 무대가 아니라서 어느 단계를 불러도 안 꺼진다.
     if not ('stage' not in hit and st is None and s.get('stage') == 'match'):
         sh.set_stage(ctx, st)
+    for fn in APPLY_EXTRA:
+        fn(ctx, hit)
     ctx.edit('show')['cue_at'] = idx
     ctx.notes.update({'at': idx, 'name': hit.get('name') or '', 'stage': ctx.read('show').get('stage')})
 
