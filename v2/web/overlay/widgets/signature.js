@@ -51,6 +51,7 @@ const SHRINK_MS = 2500;      // 가운데 → 왼쪽으로 작게(옛 reaction_s
 const TITLE_MS = 3500;       // 'OO업' 배너(옛 reaction_title_duration 기본) — sigview.title_duration 이 없을 때
 const HIDE_DELAY_MS = 350;   // 끝난 뒤 카드를 내리기까지 — 바로 다음 것(되풀이 · 다음 시그)이면 깜빡이지 않게
 const WARN_HOLD_MS = 4000;   // 🚨 계엄령 경보가 가운데를 덮는 시간(sigfx/warn.js WARN_MS) — fire() 가 길이를 안 돌려줄 때
+const FADE_MS = 800;         // 시그 카드가 사라지는 전환(overlay.css --t-slow) — 가운데에서 끝나면 그동안도 후원 카드가 기다린다
 
 function tier(amount) {
     const a = parseInt(amount, 10) || 0;
@@ -83,6 +84,7 @@ export function mount(root, lm, opts) {
 
     let cur = null;               // 지금 맡은 것 {key, id, replay, item, token, phase:'card'|'play', timers[], startedAt, centerUntil}
     const freeFns = [];           // 🚦 가운데가 비면 부를 것(후원 카드 — sigCenter.onFree)
+    let tailUntil = 0, tailTimer = null;   // 🚦 가운데에서 끝난(줄어들기 전) 시그 카드가 사라지는 동안 — 그 밑에 후원 카드가 깔리지 않게
     const doneKeys = new Map();   // 다 틀고 done 을 보낸 것(key → id) — 서버가 뺄 때까지 다시 안 튼다
     let tickTimer = null, hideTimer = null, bannerTimer = null, comboTimer = null;
     let comboShown = { key: null, count: 0, all: false };
@@ -270,8 +272,16 @@ export function mount(root, lm, opts) {
     const now = () => { try { const v = Number(lm.serverNow && lm.serverNow()); if (isFinite(v) && v > 0) return v; } catch (e) {} return Date.now(); };
 
     /* 🚦 가운데 — 지금 시그가 가운데를 붙잡고 있나(줄어들기 전 · 배너 · 연출 · 경보). 시각으로 본다(타이머를 놓쳐도 영영 막지 않게) */
-    function centerBusy() { return !!(cur && cur.phase === 'play' && Date.now() < (cur.centerUntil || 0)); }
+    function centerBusy() { const n = Date.now(); return !!(cur && cur.phase === 'play' && n < (cur.centerUntil || 0)) || n < tailUntil; }
     function centerFreed() { freeFns.slice().forEach(fn => { try { fn(); } catch (e) { console.error('[시그니처] 가운데 비움 알림 실패:', e); } }); }
+    /* 🚦 지금 것을 내려놓은 뒤(끝 · 끊음 — cur 를 비운 다음에 부른다) — 가운데에 있었으면(wasCenter)
+          카드가 사라질 때(ms)까지 더 붙잡았다가 놓아준다(짧은 시그 · 건너뛰기) */
+    function releaseCenter(wasCenter, ms) {
+        if (!wasCenter || !(ms > 0)) { centerFreed(); return; }
+        tailUntil = Date.now() + ms;
+        clearTimeout(tailTimer);
+        tailTimer = setTimeout(() => { tailTimer = null; centerFreed(); }, ms + 20);
+    }
     /* 🚦 맨 앞이 틀 차례인데 카드 때문에 기다리는 중인가(카드 사정 빼고 다 됨) */
     function wantsTurn() {
         if (cur) return false;
@@ -477,11 +487,12 @@ export function mount(root, lm, opts) {
         if (!cur || cur.token !== token) return;          // 지난 것의 늦은 신호
         const { id, key, replay } = cur;
         log('끝', why, id, '#' + replay);
+        const wasCenter = centerBusy();
         clearCur();
         cur = null;
         doneKeys.set(key, id);
         hideSoon();
-        centerFreed();                                   // 🚦 짧은 시그(줄어들기 전에 끝남)도 기다리던 카드를 놓아준다
+        releaseCenter(wasCenter, HIDE_DELAY_MS + FADE_MS);   // 🚦 짧은 시그(줄어들기 전에 끝남)는 카드가 사라진 뒤에 놓아준다
         if (!opts.monitor) {
             if (isLeader()) sendDone(id, replay, 0);
             else {
@@ -513,10 +524,11 @@ export function mount(root, lm, opts) {
     function stop(why) {
         if (!cur) return;
         log('끊음', why, cur.id);
+        const wasCenter = centerBusy();
         clearCur();
         cur = null;
         hideVisuals();
-        centerFreed();
+        releaseCenter(wasCenter, FADE_MS);               // 🚦 가운데에서 끊겼으면 사라지는 동안만 더
     }
 
     // 🎚️ 편집기 미리보기 — ?monitor=1(편집기 · 폰 미리보기)에서만. 서버 · 대기줄 · 소리 없이 지금 설정(sigview)으로

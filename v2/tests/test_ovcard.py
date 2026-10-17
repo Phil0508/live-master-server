@@ -52,6 +52,12 @@ class Structure(unittest.TestCase):
         self.assertIn('pop.recent', s)
         # 시그니처가 부탁한 카드(rq)는 줄 맨 앞
         self.assertIn('queue.splice(i, 0, { d, done })', s)
+        # 🔄 새로 고침해도 띄운 카드는 또 안 띄운다 — 이 창의 sessionStorage(다른 창과 안 섞이게 localStorage 는 안 쓴다)
+        self.assertIn('sessionStorage', s)
+        self.assertNotIn('localStorage', s)
+        self.assertIn('saveShown(cardKey(it.d))', s)
+        self.assertIn('remember(loadShown())', s)
+        self.assertIn('pendingCards(list, seen, now(), FRESH_MS)', s)    # 30초는 서버 시계로
 
     def test_signature_provides_center_and_uses_server_clock(self):
         s = src('widgets', 'signature.js')
@@ -61,8 +67,16 @@ class Structure(unittest.TestCase):
         self.assertNotRegex(s, r"play_after\)\s*\|\|\s*0\)\s*-\s*Date\.now\(\)")   # 서버 시계로(lm.serverNow)
         self.assertRegex(s, r"play_after\)\s*\|\|\s*0\)\s*-\s*now\(\)")
         self.assertIn('lm.serverNow', s)
-        # 가운데를 비울 때 · 끝날 때 · 끊을 때 카드를 놓아준다
+        # 가운데를 비울 때 · 끝날 때 · 끊을 때 카드를 놓아준다(가운데에서 끝났으면 시그 카드가 사라진 뒤에)
         self.assertGreaterEqual(s.count('centerFreed()'), 3)
+        self.assertIn('releaseCenter(wasCenter, HIDE_DELAY_MS + FADE_MS)', s)
+        self.assertIn('releaseCenter(wasCenter, FADE_MS)', s)
+        self.assertIn('|| n < tailUntil', s)
+        for fn in ('finish', 'stop'):
+            m = re.search(r"function %s\(.*?\n    \}" % fn, s, re.S)
+            self.assertTrue(m, fn)
+            body = m.group(0)
+            self.assertLess(body.index('cur = null'), body.index('releaseCenter('), fn + ' — cur 를 비운 뒤에 놓아준다')
         # 시작 신호 — 담당 창만 · 미리보기는 안 보낸다
         m = re.search(r"function sendStarted\(it\) \{(.*?)\n    \}", s, re.S)
         self.assertTrue(m)
@@ -74,6 +88,9 @@ class Structure(unittest.TestCase):
         self.assertIn('sigDispShow(', s)
         self.assertIn('lm.serverNow', s)
         self.assertIn("lm.on('queue', render)", s)
+        # 다음 회차를 기다리는 동안 잠깐 더(깜빡임 없음) · 줄이 비면 바로
+        self.assertIn('hideSoon()', s)
+        self.assertIn('SWAP_GRACE_MS', s)
 
 
 class Recent(Base):

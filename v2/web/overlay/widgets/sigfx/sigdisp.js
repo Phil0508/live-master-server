@@ -8,6 +8,8 @@
      옛 것은 맨 앞이 되자마자 그려서 방송판(후원 카드 2초 뒤 시작)보다 2~3초 먼저 떴고, 멈춤 · play_after 를 무시해
      슬롯 · 주사위 결과가 미리 보였다. 신호가 없으면(옛 방송판 · 방송판이 꺼짐) 멈춤이 아니고 play_after(서버 시계)가 지난 뒤
      STARTED_GRACE_MS(15초)를 더 기다려 띄운다(규칙은 ../../turns.js sigDispShow).
+     맨 앞이 바뀌었는데 아직 신호가 없으면 SWAP_GRACE_MS 만 더 띄워 둔다 — '다 틀기' 다음 회차처럼 곧바로 다시 트는 것이
+     꺼졌다 켜지며 깜빡이지 않게(방송판 HIDE_DELAY_MS 와 같은 생각). 줄이 비면 바로 내린다.
    - 소리 없음 · '다 틀었다'(reaction.done) 안 보냄 · 줄어들지 않음(가운데 크게 그대로) · 금액 등급 연출 없음.
    - 글: '후원자 · 금액' + 메시지(없으면 시그니처 제목). 사진이 없거나 못 받으면 사진 칸을 숨긴다
      (옛 것은 /money.png 로 대신했다 — v2 는 그 그림을 내주지 않는다).
@@ -15,6 +17,8 @@
 import { formatNum } from '../../util.js';
 import { sigMsgFor } from '../../donate_kit.js';   // 💬 묶음이면 이번 차례 메시지(방송판과 같은 규칙)
 import { sigDue, sigDispShow } from '../../turns.js';
+
+const SWAP_GRACE_MS = 400;
 
 export function mount(root, lm, opts) {
     root.innerHTML = '<div class="sigdisp-card">'
@@ -28,15 +32,24 @@ export function mount(root, lm, opts) {
     const msgEl = root.querySelector('.sigdisp-msg');
     let curId = null, curMsg = null, clearTimer = null;
     let dueKey = null, dueSince = 0, waitTimer = null;   // 신호 없이 '시작 가능' 을 처음 본 서버 시각(맨 앞마다)
+    let swapTimer = null;
     const now = () => { try { const v = Number(lm.serverNow && lm.serverNow()); if (isFinite(v) && v > 0) return v; } catch (e) {} return Date.now(); };
 
     function hide() {
+        clearTimeout(swapTimer); swapTimer = null;
         card.classList.remove('show');
         clearTimeout(clearTimer);
         clearTimer = setTimeout(() => { img.removeAttribute('src'); }, 600);
     }
 
+    /* 다음 것을 기다리며 잠깐 더 — 그사이 신호가 오면 show() 가 글 · 사진만 바꾼다 */
+    function hideSoon() {
+        clearTimeout(swapTimer);
+        swapTimer = setTimeout(() => { swapTimer = null; if (curId === null) hide(); }, SWAP_GRACE_MS);
+    }
+
     function show(d) {
+        clearTimeout(swapTimer); swapTimer = null;
         clearTimeout(clearTimer); clearTimer = null;
         const amt = Number(d.amount) || 0;
         donatorEl.textContent = (d.donator || d.nickname || '익명') + (amt ? ' · ' + formatNum(amt) + '원' : '');
@@ -68,7 +81,7 @@ export function mount(root, lm, opts) {
             if (dueKey !== key) { dueKey = key; dueSince = 0; }
             if (!dueSince && sigDue(head, q, t, false)) dueSince = t;
             if (!sigDispShow(head, q, t, dueSince)) {
-                if (curId !== null) { curId = null; hide(); }
+                if (curId !== null) { curId = null; hideSoon(); }
                 // 시각이 지나야 풀리는 것(play_after · 신호 기다림 한도)은 스스로 다시 본다 — 쪽지가 안 와도
                 const pa = Number(head.play_after) || 0;
                 waitTimer = setTimeout(render, Math.max(250, Math.min(1000, pa > t ? pa - t + 50 : 1000)));
