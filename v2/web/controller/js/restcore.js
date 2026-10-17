@@ -71,7 +71,10 @@ export function bankTrack(st, d) {
 
 /** 대기함 보류 카드들에서 '새로 생긴 것' 을 고른다. seen = 본 id 묶음(처음엔 null — 그때 있던 것은 알리지 않는다).
  *  돌려받는 값 {seen, fresh: [카드…]} */
-export function holdTrack(seen, cards) {
+export function holdTrack(seen, cards, paused) {
+    // 자동 진행이 '끔' 인 동안은 heldCards 가 빈 목록을 준다 — 그때 잊어버리면 다시 켤 때 남아 있던 보류가 전부 '새것' 으로 울린다.
+    // 그래서 끔인 동안은 본 것을 그대로 둔다(알리지도 않는다).
+    if (paused) return { seen, fresh: [] };
     const ids = (cards || []).map(c => String(c && c.id));
     if (!seen) return { seen: ids.slice(), fresh: [] };
     const fresh = (cards || []).filter(c => seen.indexOf(String(c && c.id)) < 0);

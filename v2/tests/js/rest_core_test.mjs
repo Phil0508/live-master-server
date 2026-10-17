@@ -66,6 +66,13 @@ h = M.holdTrack(h.seen, [{ id: 'p2' }]);
 chk('처리돼 빠지면 조용', h.fresh.length === 0 && eq(h.seen, ['p2']), h);
 h = M.holdTrack(h.seen, [{ id: 'p2' }, { id: 'p1' }]);
 chk('빠졌던 번호가 다시 보류 → 다시 알림', h.fresh.length === 1 && h.fresh[0].id === 'p1', h);
+// 자동 진행을 껐다 켜면(끔인 동안 heldCards 는 빈 목록) 남아 있던 보류가 '새것' 으로 울리면 안 된다
+let hp = M.holdTrack(h.seen, [], true);
+chk('자동 진행 끔 → 본 것 그대로 · 조용', hp.fresh.length === 0 && eq(hp.seen, h.seen), hp);
+hp = M.holdTrack(hp.seen, [{ id: 'p2' }, { id: 'p1' }]);
+chk('다시 켜도 남아 있던 보류는 안 울림', hp.fresh.length === 0, hp);
+hp = M.holdTrack(null, [], true);
+chk('처음부터 끔 → 아직 안 봄(null) 그대로', hp.seen === null && hp.fresh.length === 0, hp);
 
 // ── 쌓기 · 글자 ──
 let a = M.emptyAlert();

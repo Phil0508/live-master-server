@@ -80,6 +80,8 @@ class Wiring(unittest.TestCase):
         self.assertIn("import { onExt } from './bankext.js'", src)                       # 계좌 띠와 같은 신호
         self.assertIn("import { heldCards } from './panels/auto/holdband.js'", src)     # 보류 띠와 같은 고르기
         self.assertIn('st.on', src)
+        # 자동 진행 끔인 동안은 본 것을 잊지 않는다(다시 켤 때 남은 보류가 한꺼번에 울리지 않게)
+        self.assertIn("holdTrack(st.hold, heldCards(slices), !ap.mode || ap.mode === 'off')", src)
         main = read('js', 'main.js')
         self.assertIn("import { mountRest } from './restmode.js'", main)
         self.assertIn('rest.render(slices, view)', main)

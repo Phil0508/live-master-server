@@ -139,7 +139,8 @@ export function mountRest(ctx) {
             if (!authed) return;
             // 새 '🙋 확인할 후원(보류)' — 방송 중 대기함에만 생긴다. 처음 본 것(페이지를 열 때 있던 것)은 알리지 않는다
             if (view !== 'live') return;
-            const r = holdTrack(st.hold, heldCards(slices));
+            const ap = (slices && slices.autopilot) || {};
+            const r = holdTrack(st.hold, heldCards(slices), !ap.mode || ap.mode === 'off');   // 자동 진행 끔 → 본 것 그대로
             st.hold = r.seen;
             if (st.on) for (const it of r.fresh) ping(holdLine(it), 1);
         },
