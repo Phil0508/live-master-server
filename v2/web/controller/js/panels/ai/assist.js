@@ -114,8 +114,10 @@ function autoPick(a, history, hist) {
     const more = [hold ? '보류 까닭: ' + a.hold.join(' · ') : (why ? '까닭: ' + why : ''), hist].filter(Boolean).join(' · ');
     // 그림자('자동이라면')로 고른 사람이 있으면 다른 카드와 같은 말('밍밍 거의 확실') — 자동 진행 말은 title 로. 켬 · 보류는 autoBadge 말 그대로
     const plain = a.mode !== 'on' && !!target;
+    // ⏸ 보류 카드는 위 주황 띠(pending.js)가 '보류 — 확인해 주세요 + 까닭' 을 이미 말한다 — 여기서는 기계가 본 이름만 짧게
+    const holdText = level === 'hold' ? (a.target ? `${a.target}${josaRo(a.target)} 보임 · 까닭 보기` : '까닭 보기') : '';
     return {
-        level, target, text: plain ? `${target} ${LV_TEXT[level]}` : text, more, auto: !plain,
+        level, target, text: holdText || (plain ? `${target} ${LV_TEXT[level]}` : text), more, auto: !plain,
         title: [text, more, a.source ? '판단 근거: ' + a.source : '', '자동 진행 탭에서 기록을 볼 수 있어요'].filter(Boolean).join('\n'),
         game: gameEl ? { text: gameEl.textContent, cls: gameEl.className } : null,
     };

@@ -464,3 +464,44 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
   **읽기만** 해서 짝을 넣는다. 기본은 세어 보기, `--write` 로 진짜. 건수만 찍는다. **v2 를 켠 채로 돌린다** — 따로 된 표라 켜진 서버가 덮지 않고, 쓰기는 BEGIN IMMEDIATE 한 번(서버 busy_timeout 5초),
   방송 중에 배운 더 최근 짝은 안 덮는다. 명령은 deploy/README.md 3절.
 - 검사: v2/tests/test_bank_learn.py(실측 모양 가짜 이름 27경우 · 배우기 · 실명 안 나감 · 도구 가짜 파일 · 가짜 옛 DB · 켜진 서버 옆 쓰기), test_bank.py 의 옛 MemoSplit(옛 bank_memo_test) 그대로 통과.
+
+## 10-17 AI 권한 넓히기
+대표님이 고른 세 가지 + 같은 날 추가 요청 "금액은 조금이라도 애매하면 보류로 놓고 나를 호출". 원칙: **AI 가 점수 · 돈을 바꾸는 길은 ③ 하나뿐**(스위치 · 확신 0.9 · 애매함 0),
+그 밖에 점수가 바뀌는 길은 늘 사람이 [실행] 을 누른다. 열쇠는 어디에도 안 찍는다. AI 가 막히면(키 없음 · 붐빔 · 한도) 서버 규칙 · 계산으로 조용히 물러난다.
+- Claude 부르기: `ai._claude_tools_call`(바깥으로 나가는 곳 — 검사는 막는다) · `ai.ai_tools`(키 없으면 'nokey', 붐비면 한 번 더, 분당 한도 같이 씀).
+  anthropic 1.x `messages.create(tools=[…], tool_choice={'type':'tool','name':'propose_commands'})`, **temperature 안 보냄**, 모델 `CLAUDE_MODEL`(기본 claude-haiku-5-5).
+- ① 말로 조종(`domain/ai_cmd.py`, `POST /api/ai/command {text, bgm?}`) — 조종실 규칙(commands.js) → 물음 꼴이면 `{kind:'question'}`(예전처럼 /api/ai/chat) →
+  서버 규칙(`rule_plan`: '공지 바꿔: …' · '한마디: …' · 'UP: …' · '대결 3분 시작' · '예지 기여도 3' · '밍밍 5점' · '조명 빨강' · '시작 화면 10분' · '룰렛판 띄워' · 'BGM 다음 곡' …) → Claude 도구.
+  돌아온 줄은 `check()` 가 **허용 목록 · 칸 이름(모르는 칸 거절) · 값 범위 · 지금 명단(번외 판이면 번외 판) · 대기함 id** 로 다시 만들고, 이상하면 그 줄만 버린다(`dropped` 로 까닭).
+  한 번에 6줄까지만 본다. 조종실(대화창 · Ctrl+K)은 카드로 보여 준다(`panels/ai/cards.js`): '🤖 하율에게 +5점 [실행] [취소]' · 여럿이면 [모두 실행] · 10분 지난 카드는 단추를 닫는다.
+  [실행] = 조종실 `ctx.run`(→ /api/cmd, 명령 번호 cid) · 슬롯은 `/api/slot/spin` · BGM 은 조종실 브라우저.
+- ② 안전한 건 바로 — 조각 `ai_opts {direct: True}`(비공개) · 명령 `ai.set {direct}` · AI 패널 머리 단추 '🤖 안전한 건 AI 가 바로'.
+  SAFE 만 서버가 `bus.run(by='ai')`(장부 events.by = 'ai'): 한 번 말에 3개 · 1분에 10개가 넘으면 멈추고 [실행] 카드로. 되돌리기 = 바로 앞 값으로 다시 명령(`undo_of`):
+  공지 추가 → notice.remove · 공지 고치기 → 전 글 · 무대 → 전 무대 · 순서표 → 전 단계(go id) · 시작/끝 화면 → 전 모습 · 조명 → lights.set 전 색. 한마디 · UP · 다음 곡은 되돌릴 게 없다.
+
+  | 명령 | 무엇 | 어떻게 |
+  |---|---|---|
+  | score.add {name, delta ±1~50 \| contrib ±1~100} | 점수 · 기여도 | [실행] |
+  | pending.assign {id, name} · pending.ignore {id} | 대기함 배정 · 무시 | [실행] |
+  | match.start · match.pause · match.set_time {min 0~180, sec} · match.add_time {sec ±3시간} | 대결 | [실행] |
+  | roulette.spin · roulette.stop · slot.spin | 게임 돌리기 · 멈추기 | [실행] |
+  | reaction.skip · clip.now · goal.set {target 0~1억} | 시그 넘기기 · 클립 · 목표 | [실행] |
+  | notice.add · notice.edit {index, text} · notice.now {text \| index} | 공지 | 바로(SAFE) |
+  | cast.say · cast.up {text ≤60} | 화면에 한마디 · UP 자막 | 바로 |
+  | show.cue {next \| prev} · show.stage {판 \| null} · screen.set {start \| end \| off} | 순서표 · 무대 띄우기만 · 시작/끝 화면 | 바로 |
+  | lights.color {#rrggbb \| RAINBOW \| OFF} · bgm.next · bgm.toggle · bgm.play {title} | 조명 · BGM(조종실 쪽) | 바로 |
+
+  목록 밖(방송 시작/끝 · 되돌리기 · 설정 옮기기 · 시그니처 지우기 · 버전 바꾸기 · 후원 넣기 · 모금함 …)은 AI 가 내도 버린다. show.stage 는 퇴근빵 · 지옥탈출(판 스위치)을 안 받는다.
+- ③ AI 배정(`autopilot.py`) — `use_ai_assign`(기본 **끔**) · `assign_max`(기본 100,000 — **미만**만, 규칙 'auto' 에도 같이). 규칙이 'auto' 가 아닌 후원(suggest/unknown)을 AI 에게 **한 번** 묻는다
+  (그림자면 늘 — 채점용, 켬이면 스위치가 켜졌을 때만, 애매하면 아예 안 묻는다). 날답 `ai_raw`(0.88 로 깎기 전)를 기억(`_SUGGEST_CACHE`)에 같이 둬 배지 · 자동 진행이 또 안 묻는다.
+  AI 가 스스로 주는 조건: 켬 · 스위치 켬 · 확신 ≥ 0.9 · 지금 판 선수 · 한 사람 · 첫 물음의 답(다시 물은 답 · 10초 넘긴 답 · 막힌 답 ✗) · 애매함 0 · 시험/되돌려 온 후원 아님.
+  준 것은 by 'autopilot-ai'(기록 줄 · 점수 기록 줄 '🤖 AI 가 줌'), 되돌리면 대기함으로(was_ai) 다시는 자동으로 안 준다. 숫자: ai_agree · ai_disagree · ai_held · ai_done · ai_undone(규칙 채점과 따로).
+  조종실 자동 진행 탭: 'AI 가 직접 배정' 스위치(켤 때 한 번 묻는다) · 금액 상한 칸 · 'AI 채점' 줄 + 'AI 맞힌 비율이 쌓이면 켜세요(30건 · 95% 권장)'.
+- ⏸ 애매하면 보류(`autopilot.ambiguity`) — 하나라도 걸리면 기계(규칙 · AI)는 안 준다: 메시지에 선수 둘 이상 · 나눔 말(나눠 · 반반 · 각각 · n분의 · 둘 다 …) ·
+  메시지 금액(5만원 · 오만원 · 30,000 · 1.5만)/점수(5점)가 실제와 다름 · 만 원 경계(나머지 4,000~6,000) · 상한 이상 · 같은 사람 연속(대기함에 여럿 · 시그 ×N · 계좌 _N) ·
+  계좌 입금(tx manual_bank_) · 이력이 여러 선수로 갈림. 카드 `auto.check`(애매함) · `auto.hold`(켬에서 안 준 까닭 전부 — 그림자는 애매함만), 기록 줄에도.
+  그림자 채점: 애매해서 보류한 것을 사람이 주면 'held'(⏸ 애매해서 보류)로 따로 센다. 조종실: 카드 주황 테두리 + '⏸ 보류 — 확인해 주세요 · 까닭 한 줄',
+  상태 줄 띠(`panels/auto/holdband.js` → alarm.js bandAdd) '🙋 확인할 후원 N건' + [보기](폰은 서랍을 펼친다) — **소리 없음**, 처리하면 내려간다, 자동 진행 끔이면 안 뜬다.
+- 검사: v2/tests/test_ai_power.py(허용 목록 밖 · 없는 선수 · 범위 밖 · 모르는 칸 · 이상한 도구 이름/입력 버림 · [실행] 없이 점수 안 바뀜 · 바로 실행 3개/분당 10개 · 되돌리기 ·
+  스위치 끔 · 키 없음/붐빔 조용히 물러남 · SDK 모양(temperature 없음) · 애매함 경우마다 보류 · AI 배정 0.95 줌/0.89 · 없는 선수 · 늦음 · 막힘 · 스위치 끔 안 줌 · 그림자 AI 채점 · 금액 읽기).
+  헤드리스 크롬(임시 서버 5350 · 임시 DB · AI 꺼짐) 1440 · 390: 대화창 카드 · Ctrl+K 카드 · 보류 카드 · 띠 가로 넘침 0, [모두 실행] → 대결 3분 · 시작 확인.
