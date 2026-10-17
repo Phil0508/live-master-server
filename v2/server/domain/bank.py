@@ -77,7 +77,7 @@ MEMO_TARGET_CONF = 0.9        # 메모에 선수 이름이 그대로 있으면 '
 MEMO_TARGET_WHY = '메모에 선수 이름'
 LEARN_SKIP = ('익명', '수동송출')
 # 🪞 조종실 거울 · 원격 조작(10-16): 확장이 신호마다 상자 내용(state)을 실어 보내고, 답으로 조종실이 넣어 둔 명령을 받아 간다.
-EXT_CMDS = ('enable', 'interval', 'rebase', 'press')
+EXT_CMDS = ('enable', 'interval', 'rebase', 'press', 'roll_date')   # roll_date — 자정 뒤 조회 날짜를 오늘로(확장 0.5, 대표님이 눌러야)
 EXT_INTERVALS = (5, 10, 15, 20, 30, 60)   # 10-17 5 · 10 · 15초 더함(확장 0.5)
 EXT_CMD_MAX = 8
 SOURCES = ('web', 'phone')
@@ -245,6 +245,10 @@ def ext_state(raw):
         'dateOk': raw.get('dateOk') if raw.get('dateOk') in (True, False) else None,
         'status': s(raw.get('status'), 120), 'cls': s(raw.get('cls'), 8), 'dead': bool(raw.get('dead')),
         'loggedOut': bool(raw.get('loggedOut')), 'rows': i(raw.get('rows')), 'diag': s(raw.get('diag'), 160),
+        # 0.5 — 📅 날짜 물음(바꿀 날짜) · 바꿈 알림 · 기준 잡은 시각
+        'dateAsk': s(raw.get('dateAsk'), 12), 'baseAt': i(raw.get('baseAt')),
+        'dateNotice': ({'to': s(raw['dateNotice'].get('to'), 12), 'at': i(raw['dateNotice'].get('at'))}
+                       if isinstance(raw.get('dateNotice'), dict) else None),
     }
     found = []
     for f in (raw.get('found') if isinstance(raw.get('found'), list) else [])[:8]:
@@ -690,7 +694,7 @@ async def bank_ext_cmd(req, bus, authed, answer):
         except (TypeError, ValueError):
             sec = 0
         if sec not in EXT_INTERVALS:
-            return _err('간격은 20 · 30 · 60초 중 하나예요', 400)
+            return _err('간격은 5 · 10 · 15 · 20 · 30 · 60초 중 하나예요', 400)
         cmd['sec'] = sec
     source = _src(body.get('source'))
 

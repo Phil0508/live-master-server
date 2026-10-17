@@ -115,3 +115,10 @@
     .bank-strip .bs-x { width: 30px; height: 30px; }
     .bkx-dep { grid-template-columns: auto minmax(0, 1fr); }
 }
+
+/* 🔘 자동 조회 켜짐/꺼짐 스위치 · 📅 날짜 물음(확장 0.5, 10-17) */
+.bkx .bkx-sw { height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--input); color: var(--muted, #b5a398); font: inherit; font-weight: 800; cursor: pointer; }
+.bkx .bkx-sw.on { background: #2fae66; border-color: #2fae66; color: #fff; }
+.bkx .bkx-ask { margin: 8px 0; padding: 10px 12px; border-radius: 12px; background: rgba(245, 165, 36, 0.16); color: #ffd28a; line-height: 1.5; }
+.bkx .bkx-ask.ok { background: rgba(47, 174, 102, 0.16); color: #9ff0c0; }
+.bkx .bkx-ask button { margin-left: 6px; }
