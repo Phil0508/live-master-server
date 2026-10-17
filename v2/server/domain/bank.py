@@ -31,6 +31,12 @@
    그래서 25초마다 오는 '살아 있음' 신호가 모든 화면에 빈 쪽지를 만들지도 않는다.
 ⚠️ 열쇠는 기록 · 답에 남기지 않는다(열쇠를 달라는 /api/bank/key 만 통째로 — 다른 답 · 서버 기록은 끝 네 글자까지).
 ⚠️ 열쇠가 새어도 할 수 있는 일은 '추천 카드 만들기' 뿐이다 — 송출 · 장부 · 점수는 대표님이 눌러야 간다.
+
+📚 메모 나누기 순서(10-17) — bank_memo.smart_split: A 배운 짝 → (메모 없이 보냄) → B 지난 기록 → C 선수 이름 떼기 → 옛 split_memo.
+   배운 짝은 표 bank_learn(bank_learn.py — 입금자명은 지문만). 배우는 때: 계좌 카드를 [채우기] → [송출] 했을 때
+   ① /api/donation 의 tx_id 'manual_bank_<카드id>[_N]'(장부에 넣기 켬) ② /api/bank/inbox/<카드id>/used {name}(늘 — 시그니처만 보낼 때도).
+   둘 다 카드 id 로 카드의 holder 를 찾아 실제 보낸 이름을 배운다. 한 카드는 첫 이름만, 같은 입금자는 가장 최근 것이 이긴다.
+   메모에 선수 이름이 있으면 카드에 바로 target(conf 0.9 · '메모에 선수 이름') — 그때는 규칙 · AI 예상을 안 부른다.
 """
 import asyncio
 import collections
@@ -48,8 +54,9 @@ from ..bus import command
 from ..state import slice_
 from . import ai
 from . import ai_facts as af
+from . import bank_learn as bl
 from . import donor_memory as dm
-from .bank_memo import ai_split_ok, clean, split_memo
+from .bank_memo import ai_split_ok, clean, smart_split
 from .legacy import route, trial_on
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -65,6 +72,10 @@ POSTS_PER_MIN = 60            # 확장은 25~30초마다 한 번 — 이보다 �
 DEPOSITS_MAX = 30             # 한 번에 받는 입금 수
 DONOR_TTL = 600               # 예전 닉네임 목록은 10분 기억
 AI_SPLIT_DEADLINE = 20.0      # 메모 나누기 AI 전체 시한(한 번 부를 때 8초)
+AI_SPLIT_HOWS = ('first', 'message')   # AI 에게 나눠 달라고 하는 것 — 옛 길(split_memo)로 떨어진 애매한 메모만
+MEMO_TARGET_CONF = 0.9        # 메모에 선수 이름이 그대로 있으면 '누구 몫' 예상
+MEMO_TARGET_WHY = '메모에 선수 이름'
+LEARN_SKIP = ('익명', '수동송출')
 # 🪞 조종실 거울 · 원격 조작(10-16): 확장이 신호마다 상자 내용(state)을 실어 보내고, 답으로 조종실이 넣어 둔 명령을 받아 간다.
 EXT_CMDS = ('enable', 'interval', 'rebase', 'press')
 EXT_INTERVALS = (20, 30, 60)
@@ -98,7 +109,7 @@ _SCHEMA = (
 def _db(store):
     """표가 없으면 만든다. ⚠️ executescript 는 열린 장부(BEGIN)를 몰래 COMMIT 하므로 쓰지 않는다 — 한 줄씩."""
     if not getattr(store, '_lm_bank_ready', False):
-        for q in _SCHEMA:
+        for q in _SCHEMA + (bl.SCHEMA,):
             store.db.execute(q)
         if not store.db.in_transaction:
             store._lm_bank_ready = True
@@ -250,6 +261,46 @@ def players_now(bus):
     return af.current_names(bus.state.slices)
 
 
+def not_donors(bus):
+    """닉네임 후보에서 뺄 이름 — 본판 · 번외 판 선수 전부와 운영비 이름(지금 판 선수는 smart_split 이 늘 뺀다)."""
+    p = bus.state.slices.get('players') or {}
+    out = set()
+    for k in ('list', 'extra'):
+        for r in p.get(k) or []:
+            if isinstance(r, dict) and str(r.get('name') or '').strip():
+                out.add(str(r['name']).strip())
+    b = p.get('bottom') or {}
+    if isinstance(b, dict) and str(b.get('name') or '').strip():
+        out.add(str(b['name']).strip())
+    return out
+
+
+def learned_name(store, holder):
+    """📚 배운 짝 — 이 입금자명으로 전에 보낸 닉네임(없으면 ''). 매번 표를 읽는다(미리 배우기 도구가 켜진 서버 옆에서 쓴다)."""
+    if not holder:
+        return ''
+    try:
+        return bl.lookup(_db(store), holder)
+    except Exception:
+        return ''
+
+
+def learn_card(store, iid, name, at=None):
+    """📚 송출한 카드 → 그 카드의 입금자명 = 보낸 이름. 적었나(True). ⚠️ 이름 · 실명은 기록(print)에 안 남긴다."""
+    iid = str(iid or '')
+    if not iid:
+        return False
+    try:
+        db = _db(store)
+        r = db.execute('SELECT holder FROM bank_inbox WHERE id = ?', (iid,)).fetchone()
+        if not r or not r['holder']:
+            return False
+        return bl.learn(db, r['holder'], name, iid, at)
+    except Exception as e:
+        print('⚠️ [계좌 배우기] 못 적었습니다: %s' % type(e).__name__, flush=True)
+        return False
+
+
 def known_donors(bus):
     """예전에 후원한 닉네임 — 메모에서 닉네임을 찾는 기준. 10분 기억한다(옛 것: donor_memory · donation_history)."""
     rt = _rt(bus)['donors']
@@ -293,8 +344,9 @@ def pick_memo(fields):
     return clean(memo), clean(holder)
 
 
-def make_item(d, source, players, donors, now=None):
-    """확장 · 폰이 보낸 입금 한 줄 → 카드(옛 _make_item 그대로). 이상하면 None."""
+def make_item(d, source, players, donors, now=None, learned=None, exclude=()):
+    """확장 · 폰이 보낸 입금 한 줄 → 카드(옛 _make_item 모양). 이상하면 None.
+       learned — 입금자명 → 배운 닉네임 함수(없으면 배운 짝 없이) · exclude — 닉네임 후보에서 뺄 이름(not_donors)."""
     if not isinstance(d, dict):
         return None
     try:
@@ -308,18 +360,17 @@ def make_item(d, source, players, donors, now=None):
         return None
     fields = fields_of(d.get('fields'))
     memo, holder = pick_memo(fields)
-    # 메모 없이 보내면 메모 칸에 실명이 찍힌다 → 나누지 않고 금액 · 입금자명만(대표님 10-13)
-    no_memo = (not memo and bool(holder)) or (bool(holder) and memo.replace(' ', '') == holder.replace(' ', ''))
-    if no_memo:
-        sp = {'name': holder, 'message': '', 'how': 'no_memo', 'sure': False}
-    else:
-        sp = split_memo(memo, players, donors)
+    # 📚 배운 짝이 먼저 — 그다음 메모 없이 보냄(메모 칸에 실명 → 금액 · 입금자명만, 대표님 10-13) → 지난 기록 → 선수 이름 떼기 → 옛 규칙
+    lv = (learned(holder) if (learned and holder) else '') or ''
+    sp = smart_split(memo, players, donors, learned=lv, holder=holder, exclude=exclude)
+    tgt = sp.get('target')
     return {
         'id': 'b' + secrets.token_hex(6), 'ref': source + ':' + ref, 'source': source,
         'amount': amount, 'when': ' '.join(str(d.get('when') or '').split())[:32], 'at': time.time() if now is None else now,
         'memo': memo, 'holder': holder, 'fields': [list(f) for f in fields],
         'name': sp['name'], 'message': sp['message'], 'how': sp['how'], 'sure': sp['sure'],
-        'target': None, 'target_conf': 0.0, 'target_why': '', 'ai': 'pending' if sp['message'] or not sp['sure'] else 'done',
+        'target': tgt, 'target_conf': MEMO_TARGET_CONF if tgt else 0.0, 'target_why': MEMO_TARGET_WHY if tgt else '',
+        'ai': 'pending' if (sp['message'] and not tgt) or (not sp['sure'] and sp['how'] in AI_SPLIT_HOWS) else 'done',
         'status': 'new',
     }
 
@@ -368,7 +419,7 @@ async def enrich(bus, ids):
         name, message, how, sure, memo, amount = it['name'], it['message'], it['how'], it['sure'], it['memo'], it['amount']
         upd = {'ai': 'done'}
         try:
-            if how in ('first', 'message') and not sure and memo:
+            if how in AI_SPLIT_HOWS and not sure and memo:
                 try:
                     got = await asyncio.wait_for(asyncio.to_thread(ai_split, memo, players), AI_SPLIT_DEADLINE)
                 except asyncio.TimeoutError:
@@ -376,7 +427,7 @@ async def enrich(bus, ids):
                 if got and got != (name, message):
                     name, message = got
                     upd.update(name=name, message=message, how='ai')
-            if message:
+            if message and not it['target']:          # 메모에 선수 이름이 있으면 이미 target 이 있다
                 res = await ai.suggest(bus, name or '익명', amount, message, players)
                 if res.get('target'):
                     upd.update(target=res['target'], target_conf=float(res.get('confidence') or 0),
@@ -440,12 +491,14 @@ async def bank_deposit(req, bus, authed, answer):
     deps = body.get('deposits') or []
     if not isinstance(deps, list) or len(deps) > DEPOSITS_MAX:
         return _err('입금 목록 모양이 이상해요', 400)
-    players, donors = [], set()
+    players, donors, exclude = [], set(), set()
     if deps:
         players = players_now(bus)
         donors = known_donors(bus)
+        exclude = not_donors(bus)
     seen_one = {'at': now, 'note': ' '.join(str(body.get('note') or '').split())[:60], 'state': ext_state(body.get('state'))}
-    items = [it for it in (make_item(d, source, players, donors, now) for d in deps) if it]
+    learned = lambda h: learned_name(bus.store, h)     # noqa: E731
+    items = [it for it in (make_item(d, source, players, donors, now, learned, exclude) for d in deps) if it]
 
     # ⚠️ 여기서부터 COMMIT 까지 기다리지(await) 않는다
     def write(db):
@@ -462,7 +515,7 @@ async def bank_deposit(req, bus, authed, answer):
                              ' how, sure, target, target_conf, target_why, ai, status, seq) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
                              (it['id'], it['ref'], it['source'], it['amount'], it['when'], it['at'], it['memo'], it['holder'],
                               json.dumps(it['fields'], ensure_ascii=False), it['name'], it['message'], it['how'], int(it['sure']),
-                              None, 0.0, '', it['ai'], 'new', k))
+                              it['target'], it['target_conf'], it['target_why'], it['ai'], 'new', k))
             if cur.rowcount:
                 added.append(it['id'])
         _prune(db, now)
@@ -517,8 +570,9 @@ async def bank_inbox_act(req, bus, authed, answer):
                            ({'used': 'used', 'dismiss': 'dismissed', 'restore': 'new'}[act], time.time(), iid))
     if act == 'used':
         nm = ' '.join(str((await _body(req)).get('name') or '').split())
-        if len(nm) >= 2 and nm not in ('익명', '수동송출'):
+        if len(nm) >= 2 and nm not in LEARN_SKIP:
             _rt(bus)['donors']['set'].add(nm)      # 같은 방송에서 다시 보내면 바로 알아본다(대기함 배정 전이라도)
+        learn_card(bus.store, iid, nm)             # 📚 이 입금자명 → 보낸 이름(같은 카드는 첫 이름만 — /api/donation 이 먼저 배웠으면 그대로)
     await bus.run('bank.sync', {}, by='http', authed=True)
     return {'status': 'success'}
 

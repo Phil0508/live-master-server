@@ -74,6 +74,11 @@ async def donation(req, bus, authed, answer):
         return {'status': 'success', 'display_only': True}
     if res.get('show_only'):
         return {'status': 'success', 'show_only': res['show_only']}          # 옛 답 모양 그대로(화면에만)
+    # 📚 계좌 카드 [채우기] → [송출](tx_id manual_bank_<카드id>[_N]) — 그 카드의 입금자명 = 보낸 이름을 배운다(로그인한 조종실만).
+    #    같은 카드는 첫 이름만(×N · 나눠 보내기). 실패해도 후원은 그대로 — 기록엔 이름 · 실명을 안 남긴다.
+    if a and tx.startswith('manual_bank_'):
+        from . import bank, bank_learn
+        bank.learn_card(bus.store, bank_learn.card_of_tx(tx), body.get('name'))
     return {'status': 'success', 'id': res.get('id')}
 
 

@@ -14,7 +14,17 @@
   ④ 선수와 상관없는 한 낱말('구름빵' · '홍길동') → 이름만. 메모 없이 보내 실명이 찍힌 것일 수도 있다.
 
 ⚠️ 이 파일은 서버 · 장부를 부르지 않는다(순수 함수). 검사가 서버 없이 부른다(v2/tests/test_bank.py MemoSplit).
-⚠️ 숫자 · 낱말 목록 · 순서는 옛 것과 똑같다 — 고칠 때는 옛 tests/bank_memo_test.py 의 경우를 같이 본다.
+⚠️ split_memo 의 숫자 · 낱말 목록 · 순서는 옛 것과 똑같다 — 고칠 때는 옛 tests/bank_memo_test.py 의 경우를 같이 본다.
+
+📚 10-17 새 순서 smart_split — split_memo **앞에** 셋을 더 둔다(운영 실측 65건: 맞은 닉네임 40% → 86%).
+   가장 흔한 실수는 붙여 쓴 메모('하루밍밍화이팅')를 통째로 닉네임에 넣는 name_only 였다.
+  A) learned      배운 짝 — 이 입금자명으로 대표님이 전에 실제로 보낸 닉네임(bank_learn.py). 메모에 없어도(별명) 된다.
+  B) known_name   지난 기록 — 예전 후원 이름 중 메모 **어디든** 들어 있는 가장 긴 것(2자 이상, 선수 · 운영비 이름 빼고).
+                  두 글자 이름은 앞뒤가 떨어져 있을 때만('영원히사랑해' 의 '영원' 은 아니다 — 옛 경계 규칙).
+  C) player_strip 선수 이름 떼기 — 메모에서 지금 선수 이름(긴 것부터 · '아' '야' '님' 같은 꼬리 같이)을 지우고 남은 첫 덩어리.
+                  첫 덩어리가 응원 말이면 마지막 덩어리('밍밍 화이팅 별사탕' → 별사탕), 덩어리 안 응원 말 앞에서 자른다('하루화이팅' → 하루).
+  셋 다 안 되면 옛 split_memo 그대로(known · player_cut · first · message · name_only).
+  A · B · C 의 할 말 = 메모에서 닉네임 · 선수 이름(· 입금자 실명)을 뺀 나머지, 선수 이름은 target('누구 몫' 추천)으로 간다.
 """
 import re
 
@@ -159,3 +169,149 @@ def ai_split_ok(memo, name, message):
     if m.endswith(n):
         return g == m[:-len(n)]
     return False
+
+
+# ── 📚 10-17 새 순서(A 배운 짝 → B 지난 기록 → C 선수 이름 떼기 → 옛 split_memo) ─────────────
+_SEPCH = r'[\s,./!?~\-()\[\]"\'·:;♡♥|]'
+# 선수 이름 뒤에 붙어 같이 지우는 꼬리 — 늘(부르는 말 · 존칭) / 뒤가 떨어져 있을 때만(조사)
+_TAIL_ALWAYS = ('님께', '에게', '한테', '이랑', '님', '아', '야', '랑', '께', '씨')
+_TAIL_EDGE = ('이', '가', '도', '은', '는', '을', '를', '의', '만')
+
+
+def _player_re(pl):
+    if not pl:
+        return None
+    names = '|'.join(re.escape(p) for p in sorted(pl, key=len, reverse=True))
+    always = '|'.join(re.escape(t) for t in _TAIL_ALWAYS)
+    edge = '|'.join(re.escape(t) for t in _TAIL_EDGE)
+    return re.compile('(?:%s)(?:(?:%s)|(?:%s)(?=%s|$))?' % (names, always, edge, _SEPCH))
+
+
+def _tidy(s):
+    """지우고 남은 글 — 겹친 띄어쓰기 · 앞뒤 문장부호 정리."""
+    s = ' '.join(str(s or '').split())
+    s = re.sub(r'\s*([,/·|])\s*(?=[,/·|]|$)', '', s)          # 지운 자리에 남은 빈 쉼표 · 빗금
+    return _strip_edges(s).strip()
+
+
+def _first_player(text, pl):
+    """메모에 나온 선수 중 가장 앞에 있는 것(같은 자리면 긴 이름)."""
+    best = None
+    for p in pl:
+        i = text.find(p)
+        if i >= 0 and (best is None or i < best[0] or (i == best[0] and len(p) > len(best[1]))):
+            best = (i, p)
+    return best[1] if best else None
+
+
+def _cut(text, start, end):
+    return text[:start] + ' ' + text[end:]
+
+
+def _drop(text, word):
+    """text 에서 word 를 (처음 한 번) 지운다. 없으면 그대로."""
+    if not word:
+        return text
+    i = text.find(word)
+    if i < 0:
+        flat_w = ''.join(word.split())
+        i = text.find(flat_w) if flat_w else -1
+        if i < 0:
+            return text
+        word = flat_w
+    end = i + len(word)
+    if text[end:end + 1] == '님':
+        end += 1
+    return _cut(text, i, end)
+
+
+def _message(text, name, pl, holder):
+    """할 말 = 메모 − 닉네임 − 선수 이름 − 입금자 실명."""
+    t = _drop(text, name)
+    if holder and len(''.join(holder.split())) >= 2:
+        t = _drop(t, holder)
+    rx = _player_re(pl)
+    if rx:
+        t = rx.sub(' ', t)
+    return _tidy(t)
+
+
+def _known_anywhere(text, pl, dn):
+    """B — 메모 어디든 들어 있는 가장 긴 예전 이름. 두 글자 이름은 앞뒤 경계가 있어야."""
+    for d in dn:
+        start = 0
+        while True:
+            i = text.find(d, start)
+            if i < 0:
+                break
+            start = i + 1
+            end = i + len(d)
+            name = d
+            if text[end:end + 1] == '님':
+                name, end = d + '님', end + 1
+            if len(d) >= 3:
+                return name
+            if _boundary_before(text[:i], pl) and _boundary_after(text[end:], pl):
+                return name
+    return None
+
+
+def _chunk_name(chunk):
+    """덩어리 하나 → 닉네임(응원 말이면 ''). 덩어리 가운데 응원 말이 있으면 그 앞까지('하루화이팅' → '하루')."""
+    c = _strip_edges(chunk)
+    if len(c) < 2 or _cheer(c):
+        return ''
+    at = [c.find(w) for w in _CHEER if len(w) >= 2 and c.find(w) > 0]
+    if at:
+        c = _strip_edges(c[:min(at)])
+    return c if len(c) >= 2 and not _cheer(c) else ''
+
+
+def _strip_players_name(text, pl):
+    """C — 선수 이름을 지우고 남은 첫 덩어리(응원 말이면 마지막 덩어리)."""
+    rx = _player_re(pl)
+    if not rx or not rx.search(text):
+        return None
+    rest = rx.sub(' ', text)
+    chunks = [c for c in re.split(_SEPCH + '+', rest) if c]
+    if not chunks:
+        return None
+    nm = _chunk_name(chunks[0])
+    if not nm and len(chunks) >= 2:
+        nm = _chunk_name(chunks[-1])
+    return nm or None
+
+
+def smart_split(memo, players=(), donors=(), learned='', holder='', exclude=()):
+    """메모 한 줄 → {'name', 'message', 'how', 'sure', 'target'} — A → B → C → 옛 split_memo.
+
+       learned  배운 짝(이 입금자명으로 전에 보낸 닉네임, 없으면 '')
+       holder   입금자 실명 — 할 말에서 뺀다(방송판에 실명이 나가지 않게). 메모가 실명뿐이면(메모 없이 보냄) no_memo.
+       exclude  닉네임 후보에서 뺄 이름(번외 판 선수 · 운영비 이름 등 — 지금 판 선수는 늘 빠진다)
+       target   메모에 나온 선수(가장 앞) — '누구 몫' 추천. 옛 길(split_memo)로 떨어지면 None(AI · 규칙 예상이 붙인다)"""
+    text = clean(memo)
+    hold = clean(holder)
+    pl = _players(players)
+    no_memo = bool(hold) and (not text or text.replace(' ', '') == hold.replace(' ', ''))
+    tgt = _first_player(text, pl) if text else None
+    lv = clean(learned)
+    if lv:                                              # A) 배운 짝
+        msg = '' if no_memo else _message(text, lv, pl, hold)
+        return {'name': lv, 'message': msg, 'how': 'learned', 'sure': True, 'target': tgt}
+    if no_memo:
+        return {'name': hold, 'message': '', 'how': 'no_memo', 'sure': False, 'target': None}
+    if not text:
+        return {'name': '', 'message': '', 'how': 'empty', 'sure': False, 'target': None}
+    skip = set(pl) | {_norm(x) for x in (exclude or ()) if x}
+    dn = sorted({_norm(d) for d in (donors or ())
+                 if len(_norm(d)) >= 2 and _norm(d) != '익명' and _norm(d) not in skip and not _cheer(_norm(d))},
+                key=len, reverse=True)
+    nm = _known_anywhere(text, pl, dn)                  # B) 지난 기록
+    if nm:
+        return {'name': nm, 'message': _message(text, nm, pl, hold), 'how': 'known_name', 'sure': True, 'target': tgt}
+    nm = _strip_players_name(text, pl)                  # C) 선수 이름 떼기
+    if nm:
+        return {'name': nm, 'message': _message(text, nm, pl, hold), 'how': 'player_strip', 'sure': False, 'target': tgt}
+    sp = split_memo(text, pl, dn)                       # 옛 규칙
+    sp['target'] = None
+    return sp
