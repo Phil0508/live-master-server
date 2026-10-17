@@ -9,6 +9,7 @@
      (옛 것은 /money.png 로 대신했다 — v2 는 그 그림을 내주지 않는다).
    - 화면은 방송판처럼 1080×1920 으로 줄이지 않는다(groups/sigfx.js VIEWS.sig.native) — 옛 것처럼 창 크기 그대로, 카드 폭 600. */
 import { formatNum } from '../../util.js';
+import { sigMsgFor } from '../../donate_kit.js';   // 💬 묶음이면 이번 차례 메시지(방송판과 같은 규칙)
 
 export function mount(root, lm, opts) {
     root.innerHTML = '<div class="sigdisp-card">'
@@ -20,7 +21,7 @@ export function mount(root, lm, opts) {
     const img = root.querySelector('.sigdisp-img');
     const donatorEl = root.querySelector('.sigdisp-donator');
     const msgEl = root.querySelector('.sigdisp-msg');
-    let curId = null, clearTimer = null;
+    let curId = null, curMsg = null, clearTimer = null;
 
     function hide() {
         card.classList.remove('show');
@@ -32,7 +33,7 @@ export function mount(root, lm, opts) {
         clearTimeout(clearTimer); clearTimer = null;
         const amt = Number(d.amount) || 0;
         donatorEl.textContent = (d.donator || d.nickname || '익명') + (amt ? ' · ' + formatNum(amt) + '원' : '');
-        const msg = String(d.message || d.title || '');
+        const msg = String(sigMsgFor(d) || d.title || '');
         const ok = !!(msg && msg !== '수동 후원 송출');
         msgEl.textContent = ok ? msg : (d.title || '');
         msgEl.style.display = (ok || d.title) ? 'block' : 'none';
@@ -48,9 +49,16 @@ export function mount(root, lm, opts) {
             if (curId !== null) { curId = null; hide(); }
             return;
         }
-        if (curId !== head.id) {          // 같은 시그니처면 다시 그리지 않는다(깜빡임 방지)
-            curId = head.id;
+        // 같은 시그니처 · 같은 메시지면 다시 그리지 않는다(깜빡임 방지). [N번 다 틀기]면 차례마다 그 차례 메시지로(10-17)
+        const key = head.id + '|' + (Number(head.replay) || 0);
+        const msg = sigMsgFor(head);
+        if (curId !== key) {
+            curId = key; curMsg = msg;
             show(head);
+        } else if (curMsg !== msg) {
+            curMsg = msg;
+            msgEl.textContent = msg || head.title || '';
+            msgEl.style.display = (msg || head.title) ? 'block' : 'none';
         }
     });
 }

@@ -184,7 +184,7 @@ export function mount(root, lm, opts) {
         const cnt = cb.count;
         const all = cb.all;
         const total = cb.total;
-        if (total <= 1) {
+        if (total <= 1 || !all) {                // 🙈 [N번 다 틀기] 전에는 ×N 을 안 띄운다(대표님 10-17)
             if (comboShown.key !== null) { clearInterval(comboTimer); combo.className = 'reaction-combo'; combo.textContent = ''; }
             comboShown = { key: null, count: 0, all: false };
             return;

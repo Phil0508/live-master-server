@@ -425,8 +425,8 @@ class OverlayJs(unittest.TestCase):
         self.assertEqual((o['msg_single'], o['msg_manual']), ('혼자', ''))
         self.assertEqual(o['msg_all_turns'], ['아버지', '어머니', '삼촌'])        # 틀 때마다 그 차례
         self.assertEqual(o['msg_again'], ['어머니', '삼촌'])                     # 이어 틀기는 앞에서 튼 만큼 건너뛴다
-        self.assertEqual(o['msg_once'], '아버지\n어머니')                        # 한 번만 틀면 다 같이(빈 것 · 수동 문구 빼고)
-        self.assertEqual(o['msg_many'], '1\n2\n3\n4\n… 외 2개')
+        self.assertEqual(o['msg_once'], '아버지')                                 # 🙈 [다 틀기] 전에는 첫 메시지만(10-17 대표님)                        
+        self.assertEqual(o['msg_many'], '1')                                      # 다 틀기 전엔 첫 메시지만
         self.assertEqual(o['msg_over'], '')
 
     def test_combo_numbers(self):

@@ -135,9 +135,9 @@ export function sigMsgFor(it) {
         const m = i >= 0 && i < msgs.length ? String(msgs[i] || '') : '';    // 상한(서버 30개) 넘은 차례는 비운다
         return m === MANUAL_MSG ? '' : m;
     }
-    const shown = msgs.map(m => String(m || '').trim()).filter(m => m && m !== MANUAL_MSG);
-    return shown.slice(0, RX_MSG_LINES).join('\n')
-        + (shown.length > RX_MSG_LINES ? '\n… 외 ' + (shown.length - RX_MSG_LINES) + '개' : '');
+    // 🙈 [N번 다 틀기]를 고르기 전에는 첫 메시지만(대표님 10-17 — 묶인 걸 묻기 전에 나머지 메시지가 드러나지 않게)
+    const first = String(msgs[0] || it.message || '');
+    return first === MANUAL_MSG ? '' : first;
 }
 
 // ── 🔁 몇 번째 / 모두 ──
