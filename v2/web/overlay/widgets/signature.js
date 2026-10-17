@@ -26,6 +26,7 @@
         🏷️ 이름 앞 투네이션 칭호 알약 · 뒤 Lv(it.donor_title · donor_level, 옛 44584ff) · 💙 사진 왼쪽 위 '투네' 딱지(it.via 'toon', 옛 97cbc4c)
         💬 묶음(×N) 메시지 — [N번 다 틀기]면 이번 차례 메시지, 한 번이면 다 같이(it.msgs, 옛 5d179b0). 트는 사이 더 오면 바로 고친다
         🔁 이어 틀기 줄(seq_base) — '2 / 3' 부터 센다(옛 rxComboSync)
+        ↻ 다시 송출 줄(it.encore, 10-17) — 사진 오른쪽 위 '↻ 다시 보기' 딱지 · 앞 후원 카드에도 같은 딱지(장부 번호는 화면에 없다)
 
      9) 🔊 자동재생이 막히면(브라우저 정책) 소리 없이라도 끝까지 튼다(사진 · 길이 · 차례 그대로). 방송판을 **한 번 누르면**(클릭 · 키 · 터치)
         음소거를 풀어 그 자리부터 소리를 살린다 — 음소거 재생마저 막혀 멈춰 있었으면 지금 시그니처 소리를 처음부터 다시 튼다(옛 recoverFromAutoplayBlock).
@@ -57,7 +58,7 @@ export function mount(root, lm, opts) {
     root.innerHTML = '<div class="sig-root">'
         + '<div class="sig-vignette"></div><div class="sig-flash"></div>'
         + '<div class="reaction-screen-overlay">'
-        +   '<div class="reaction-img-box"><div class="reaction-combo"></div><div class="reaction-via" aria-hidden="true">투네</div>'
+        +   '<div class="reaction-img-box"><div class="reaction-combo"></div><div class="reaction-via" aria-hidden="true">투네</div><div class="reaction-encore" aria-hidden="true">↻ 다시 보기</div>'
         +     '<img class="reaction-img" alt=""><div class="reaction-shine"></div></div>'
         +   '<div class="reaction-title-plate"></div>'
         +   '<div class="reaction-text-donator"></div>'
@@ -67,7 +68,7 @@ export function mount(root, lm, opts) {
         + '</div>';
     const $ = s => root.querySelector(s);
     const overlay = $('.reaction-screen-overlay'), box = $('.reaction-img-box'), img = $('.reaction-img');
-    const combo = $('.reaction-combo'), plate = $('.reaction-title-plate'), viaEl = $('.reaction-via');
+    const combo = $('.reaction-combo'), plate = $('.reaction-title-plate'), viaEl = $('.reaction-via'), encoreEl = $('.reaction-encore');
     const donatorEl = $('.reaction-text-donator'), msgEl = $('.reaction-text-message');
     const banner = $('.reaction-title-banner'), vig = $('.sig-vignette'), flash = $('.sig-flash');
     const audio = new Audio();
@@ -215,6 +216,7 @@ export function mount(root, lm, opts) {
         paintDonorName(donatorEl, (it.donator || '익명') + (amt ? ' · ' + formatNum(amt) + '원' : ''), it.donor_title, it.donor_level);
         msgEl.textContent = sigMsgFor(it);                         // 💬 묶음이면 이번 차례 메시지(또는 전부)
         viaEl.classList.toggle('on', it.via === 'toon');           // 💙 투네이션에서 온 후원
+        encoreEl.classList.toggle('on', !!it.encore);              // ↻ 조종실 '다시 송출'(장부 · 점수엔 안 든 화면만 재생, 10-17)
         if (it.image_url) {
             img.src = it.image_url;
             img.alt = it.title || '';
@@ -294,7 +296,7 @@ export function mount(root, lm, opts) {
         const backlog = qlen > 1;
         const card = opts.stage.use('donationCard');
         if (card && !it.skip_popup && !backlog && !big && !repeat) {
-            card.show({ name: it.donator || '익명', amount: it.amount || 0, message: it.message || '' })
+            card.show({ name: it.donator || '익명', amount: it.amount || 0, message: it.message || '', encore: !!it.encore })
                 .then(() => { if (cur && cur.token === token) begin(); });
         } else {
             begin();

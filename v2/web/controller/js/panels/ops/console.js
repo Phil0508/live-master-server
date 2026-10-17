@@ -209,6 +209,7 @@ export function mountConsole(el, ctx, opts = {}) {
             }
         }
         let okN = 0, lastErr = '', shownOnly = false, dup = 0;
+        const nos = [];                                 // 🏷️ 장부 줄 번호(서버가 손 송출에만 돌려준다) — 토스트 끝에 작게 '#12'
         try {
             for (const [path, body] of jobs) {          // 차례로 — 한꺼번에 쏘면 순서가 섞여 대기줄에서 안 묶일 수 있다
                 sendBtn.textContent = jobs.length > 1 ? `보내는 중… (${okN + 1}/${jobs.length})` : '보내는 중…';
@@ -217,6 +218,7 @@ export function mountConsole(el, ctx, opts = {}) {
                 okN++;
                 if (r.data.display_only) shownOnly = true;
                 if (/duplicate/i.test(String(r.data.message || ''))) dup++;
+                if (r.data.no) nos.push(Number(r.data.no));
             }
         } finally {
             sending = false;
@@ -226,8 +228,10 @@ export function mountConsole(el, ctx, opts = {}) {
         }
         if (okN === jobs.length) {
             retry = null;
-            ctx.toast(shownOnly ? (led ? `✓ ${name} ${won(amount)} — 대기함에 넣었어요 (시그니처 없음 · 소액)` : '✓ 방송판에 띄웠어요 (시그니처 없음 — 1만 원 미만은 화면에만)')
-                : `✓ 송출했어요${cnt > 1 ? ' ×' + cnt : ''}${led ? ' (장부에 넣음' + (dup ? ` · ${dup}건은 이미 들어가 있어 건너뜀` : '') + ')' : ''}`, 'ok');
+            const noTxt = nos.length ? (nos.length > 1 ? ` · 장부 #${nos[0]}~#${nos[nos.length - 1]}` : ` · 장부 #${nos[0]}`) : '';
+            ctx.toast(pick && led && nos.length ? `✓ 계좌 입금 ${name} ${won(amount)}${cnt > 1 ? ' ×' + cnt : ''} — 장부 #${nos[0]}${nos.length > 1 ? '~#' + nos[nos.length - 1] : ''} 로 들어갔어요`
+                : shownOnly ? (led ? `✓ ${name} ${won(amount)} — 대기함에 넣었어요 (시그니처 없음 · 소액)${noTxt}` : '✓ 방송판에 띄웠어요 (시그니처 없음 — 1만 원 미만은 화면에만)')
+                : `✓ 송출했어요${cnt > 1 ? ' ×' + cnt : ''}${led ? ' (장부에 넣음' + (dup ? ` · ${dup}건은 이미 들어가 있어 건너뜀` : '') + noTxt + ')' : ''}`, 'ok');
             amtIn.value = ''; nameIn.value = ''; msgIn.value = ''; cntIn.value = '1';
             if (pick) bank.used(pick, name);            // 추천 칸에서 빼고 '장부에 넣기' 를 채우기 전으로
             lastPv = '';

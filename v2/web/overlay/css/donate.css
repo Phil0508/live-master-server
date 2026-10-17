@@ -68,5 +68,16 @@
     box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transform: rotate(-4deg); }
 .reaction-via.on { display: block; }
 
+/* ↻ 다시 송출 딱지(10-17) — 시그니처 사진 오른쪽 위 · 후원 카드 위 가운데. 장부 번호는 화면에 없다 */
+.reaction-encore { position: absolute; top: -16px; right: -16px; z-index: 2; display: none; pointer-events: none; line-height: 1;
+    padding: 7px 14px 8px; border-radius: var(--r-s); background: #7c4dff; border: 3px solid #fff; color: #fff;
+    font-family: var(--font-ui); font-size: 26px; font-weight: 900; letter-spacing: -0.5px; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .45); transform: rotate(4deg); }
+.reaction-encore.on { display: block; }
+.layer-donation .d-encore { display: none; width: max-content; margin: 0 auto 10px; padding: .32em .9em .36em; border-radius: 999px;
+    background: #7c4dff; color: #fff; font-family: var(--font-ui); font-size: 22px; font-weight: 900; letter-spacing: -0.3px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .35); }
+.layer-donation .d-encore.on { display: block; }
+
 /* 💬 묶음 메시지 여러 줄 */
 .reaction-text-message { white-space: pre-line; }
