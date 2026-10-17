@@ -127,7 +127,10 @@ export function mountBankBox(ctx, form) {
         paint(true);
         try { form.nameIn.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* 옛 브라우저 */ }
         form.nameIn.focus();
-        ctx.toast(it.name ? '채웠어요 — 확인하고 [시그니처 송출]' : '채웠어요 — 닉네임을 적고 [시그니처 송출]', 'info');
+        // 안내 글의 단추 이름 = 지금 아래 단추 글자(console.js preview — 장부에 넣기 켬이면 '장부에 넣고 송출', 끔이면 '시그니처 송출').
+        //   ⚠️ 예전엔 늘 '[시그니처 송출]' 이라 했는데 채우면 장부에 넣기가 켜져 실제 단추는 '장부에 넣고 송출' 이었다(10-17)
+        const btn = form.ledger.checked ? '장부에 넣고 송출' : '시그니처 송출';
+        ctx.toast(it.name ? `채웠어요 — 확인하고 [${btn}]` : `채웠어요 — 닉네임을 적고 [${btn}]`, 'info');
     }
 
     async function act(id, a) {
