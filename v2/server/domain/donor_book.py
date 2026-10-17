@@ -399,9 +399,13 @@ def _canon(n):
     return re.sub(r'[^0-9a-z가-힣ㄱ-ㅎ]', '', str(n or '').lower())
 
 
+def _club_like(c):
+    return bool(CLUB_RE.fullmatch(c)) or c in CLUB_SEEDS or c in CONFIRMED_CLUBS
+
+
 def _name_pairs(names):
     """이름 비슷 — 보수적으로. ① 띄어쓰기 · 기호 · 대소문자만 다름 ② 긴 이름 안에 짧은 이름(3자 이상 · 긴 이름의 60% 이상)이
-       통째로 들어 있고, 그 짧은 이름이 흔하지 않음(NAME_SUG_COMMON 개 넘는 이름에 들어 있으면 낱말이라 본다).
+       통째로 들어 있고, 그 짧은 이름이 흔하지 않음(NAME_SUG_COMMON 개 넘는 이름에 들어 있으면 낱말이라 본다) · 팬클럽 말 자체가 아님.
        돌려받는 값: [(이름1, 이름2, 까닭)]"""
     canon = {n: _canon(n) for n in names}
     out = []
@@ -415,8 +419,8 @@ def _name_pairs(names):
             out.append((lst[0], other, "'%s' · '%s' 띄어쓰기 · 기호만 다름" % (lst[0], other)))
     uniq = sorted({c: n for n, c in canon.items() if c}.items())
     for i, (cs, ns) in enumerate(uniq):
-        if len(cs) < NAME_SUG_MIN:
-            continue
+        if len(cs) < NAME_SUG_MIN or _club_like(cs):
+            continue                 # 팬클럽 말('밍플단' · '7싸단')만 닉네임으로 쓴 것은 다른 사람이 여럿 붙여 쓴다 — 같은 사람 근거가 아니다
         holders = [(cl, nl) for cl, nl in uniq if cl != cs and cs in cl]
         if not holders or len(holders) > NAME_SUG_COMMON:
             continue
