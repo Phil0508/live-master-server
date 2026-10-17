@@ -18,6 +18,8 @@ export const THIN_STAGES = ['siggame', 'pinball'];
 export const QUIZ_BIG_MAX = 8;            // 지옥탈출만 — 퀴즈 중 이 수까지 큰 판
 
 // 🏃 퇴근빵 큰 판 높이 — 제목 · 테두리 · GOAL 줄 168 + 한 사람 60(.home-race-row). 연습 서버에서 잰 값(위 주석)
+//    ⚠️ 기본 테마 값이다. 테마는 제목 글꼴 · 테두리가 달라 머리가 168~179(10-17 테마 16벌 실측 — 아케이드 · 로즈가 179), 한 사람 60 은 같다.
+//       그래서 테마 판은 아래끝이 최대 11px 더 내려온다 — 대결(795)은 7명 766 이라 괜찮고, 퀴즈(700)는 6명 706 으로 네모칸이 판 아래 테두리만 살짝 덮는다(GOAL 줄은 안 가린다).
 export const HOME_HEAD = 168, HOME_ROW = 60;
 // 퇴근빵과 같이 뜨는 아래 게임판 — 무대 이름 → 칸 id · 기본 위끝(groups/games_a.js 퀴즈 y700 · games_b.js 대결판 y795)
 export const BELOW = { quiz: { id: 'quiz', y: 700 }, match: { id: 'match', y: 795 } };
