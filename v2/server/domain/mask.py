@@ -40,6 +40,9 @@ from .legacy import route
 MASK = '●●●'
 RULE_KEYS = ('phone', 'account', 'url')
 WORD_MAX, WORDS_MAX, HIDDEN_MAX = 20, 300, 500
+# 🐢 아주 긴 메시지(몇천 자)는 정규식이 0.5초 넘게 걸려 방송이 멈칫한다 — 방송판에는 앞 SCAN_MAX 자만 거른 뒤 '…'
+#    (후원 메시지 길이에 끝이 없다. 방송판 카드는 어차피 몇 줄만 보인다. 장부 · 대기함 원문은 그대로)
+SCAN_MAX = 600
 # 🤬 [추천 목록 넣기] — 흔한 욕설 몇 개만(대표님이 보고 빼거나 더한다). 기본 목록은 비워 둔다.
 RECOMMENDED = ('시발', '씨발', '씨바', 'ㅅㅂ', 'ㅆㅂ', '병신', '븅신', 'ㅂㅅ', '좆', '존나', '개새끼', '지랄',
                '미친놈', '미친년', '니애미', '느금마', '썅')
@@ -137,6 +140,9 @@ def check(text, m=None):
     if not text:
         return text, ()
     words, rules = _cfg(m)
+    if len(text) > SCAN_MAX:
+        t, hits = _check(text[:SCAN_MAX], words, rules)
+        return t + '…', hits
     return _check(text, words, rules)
 
 
@@ -194,6 +200,15 @@ def _queue_view(v, m):
         return None
     hid = _hidden(m)
     return dict(v, items=[_queue_item(it, m, hid) if isinstance(it, dict) else it for it in v['items']])
+
+
+class _All:
+    """'모두 가렸다' — _deep_view 가 모든 메시지를 비우게(거르다 넘어졌을 때)."""
+    def __contains__(self, x):
+        return True
+
+
+_ALL = _All()
 
 
 def _deep_view(v, m, hid):
@@ -258,8 +273,12 @@ def view(name, value, slices, on_air):
     if name == 'screen':
         try:
             return _deep_view(value, m, _hidden(m))
-        except Exception:
-            return None
+        except Exception as e:                      # ⚠️ None(= 원본 그대로)을 돌려주면 원문이 방송판으로 간다 — 비운 사본으로
+            print('⚠️ [금칙어 거르기 실패 — 끝 화면 메시지를 비워 내보냄] %s' % type(e).__name__, flush=True)
+            try:
+                return _deep_view(value, None, _ALL)
+            except Exception:                       # 그마저 안 되면 글 칸 없는 겉만(끝 화면 모드 · 제목)
+                return {k: x for k, x in value.items() if not isinstance(x, (dict, list))} if isinstance(value, dict) else {}
     fn = ON_AIR_VIEWS.get(name)
     if fn is None:
         return None

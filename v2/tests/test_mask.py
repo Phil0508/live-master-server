@@ -272,6 +272,29 @@ class Hide(T):
         self.assertEqual(m['hidden'], [])
         self.assertEqual(m['words'], ['시발'])
 
+    def test_hide_touches_no_money_score_or_ledger(self):
+        """[가리기] · 금칙어는 보여 주는 글만 — 점수 · 합계 · 장부 · 대기함 · 대기줄 개수는 그대로."""
+        self.don('별빛', 10300, 'toon_m9', msg='돈은 그대로 ' + PHONE)
+        did = self.don_id('별빛')
+
+        def money():
+            s = self.st()
+            led = self.c.get('/api/ledger?limit=200', headers=H).json()
+            return json.dumps([s['tallies'], s['players'], s['fundjar'], len(s['pending']), len(s['queue']['items']),
+                               led['total'], led['count'], [(r['id'], r['amount'], r['status'], r['message']) for r in led['rows']]],
+                              ensure_ascii=False, sort_keys=True)
+        before = money()
+        self.ok('mask.hide', id=did)
+        self.ok('mask.word.add', word='그대로')
+        self.ok('mask.rule', key='phone', on=False)
+        self.ok('mask.hide', id=did, on=False)
+        self.assertEqual(money(), before)
+
+    def test_ai_cannot_mask(self):
+        """🤖 AI(Ctrl+K)는 가리기 · 금칙어를 못 건드린다 — 사람이 단추로만."""
+        from v2.server.domain import ai_cmd
+        self.assertFalse([t for t in ai_cmd.ALLOW if t.startswith('mask.')])
+
     def test_bad_hide(self):
         self.assertEqual(self.cmd('mask.hide', id='')[0], 400)
         self.assertEqual(self.c.post('/api/cmd', json={'type': 'mask.hide', 'data': {'id': 'don_1'}}).status_code, 401)
@@ -291,6 +314,39 @@ class Views(unittest.TestCase):
         self.assertIsNone(mk.view('screen', v, {'mask': m}, False))                  # 조종실은 원문
         bad = {'donation': {'id': 'x', 'message': PHONE}, 'score': None}
         self.assertEqual(mk._blank('popup', bad)['donation']['message'], '')
+
+
+class Guards(unittest.TestCase):
+    def test_long_message_is_fast_and_capped(self):
+        """아주 긴 메시지(몇천 자)도 방송을 멈칫하게 하지 않는다 — 앞 SCAN_MAX 자만 거르고 '…'."""
+        import time
+        mk._check.cache_clear()
+        t0 = time.time()
+        got, hits = mk.check('a' * 20000 + ' ' + PHONE, {'words': list(mk.RECOMMENDED)})
+        self.assertLess(time.time() - t0, 0.5)
+        self.assertEqual(len(got), mk.SCAN_MAX + 1)
+        self.assertTrue(got.endswith('…'))
+        self.assertNotIn('5678', got)
+        got, hits = mk.check(PHONE + ' ' + 'b' * 5000)
+        self.assertTrue(got.startswith('●●● b'))
+        self.assertEqual(hits, ('phone',))
+
+    def test_screen_failure_blanks_not_raw(self):
+        """끝 화면을 거르다 넘어지면 원본(원문)이 아니라 메시지를 비운 사본이 나간다."""
+        v = {'mode': 'end', 'title': '오늘', 'snap': {'credits': [{'name': 'a', 'message': '연락 ' + PHONE}]}}
+        real = mk.masked
+
+        def boom(*a, **k):
+            raise ValueError('x')
+        mk.masked = boom
+        try:
+            got = mk.view('screen', v, {'mask': {}}, True)
+        finally:
+            mk.masked = real
+        self.assertIsNotNone(got)
+        self.assertEqual(got['snap']['credits'][0]['message'], '')
+        self.assertEqual(got['title'], '오늘')
+        self.assertNotIn('5678', json.dumps(got, ensure_ascii=False))
 
 
 class Frontend(unittest.TestCase):
