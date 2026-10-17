@@ -4,7 +4,7 @@
 원칙
   - 장부 · 대기함(조종실)에는 **원문 그대로**. 거르는 것은 '내보낼 때' 만든 사본(state.VIEWS)이다 —
     방송판(로그인 없음 · 방송판 종류 화면 hub.ON_AIR_KINDS)은 원문을 아예 못 받는다(통째 · 쪽지 모두).
-  - 거르는 곳(공개 조각): popup.donation.message(후원 카드 · 소액 띠) · queue.items[].message · msgs[](시그니처 카드 ·
+  - 거르는 곳(공개 조각): popup.donation.message · popup.recent[].message(후원 카드 · 소액 띠 · 다시 붙은 방송판의 지난 카드) · queue.items[].message · msgs[](시그니처 카드 ·
     출연진 전광판 ?only=sig) · cast.fx.message(조종실 후원 연출) · screen 안의 message · msgs(끝 화면 — 엔딩 크레딧이 메시지를 실을 때).
   - 이름(닉네임)은 건드리지 않는다 — 닉네임 거르기는 대표님 결정으로 남겨 뒀다.
   - 걸린 부분은 ●●● 로. 무엇에 걸렸는지(hits)는 조종실에만.
@@ -164,17 +164,31 @@ def _hidden(m):
     return set((m or {}).get('hidden') or [])
 
 
-def _pop_view(v, m):
-    d = v.get('donation') if isinstance(v, dict) else None
-    if not isinstance(d, dict):
-        return None
-    hid = _hidden(m)
+def _pop_one(d, m, hid):
     d2 = {k: x for k, x in d.items() if k not in ('src',)}
     if d.get('id') in hid or (d.get('src') and d.get('src') in hid):
         d2['message'] = ''
     elif d.get('message'):
         d2['message'] = masked(d.get('message'), m)
-    return dict(v, donation=d2)
+    return d2
+
+
+def _pop_view(v, m):
+    """popup.donation(지금 팝업) · popup.recent(최근 팝업 — 다시 붙은 방송판이 띄운다, players.set_donation_popup) 둘 다 거른다."""
+    if not isinstance(v, dict):
+        return None
+    d = v.get('donation')
+    rec = v.get('recent')
+    has_d, has_r = isinstance(d, dict), isinstance(rec, list) and len(rec) > 0
+    if not has_d and not has_r:
+        return None
+    hid = _hidden(m)
+    out = dict(v)
+    if has_d:
+        out['donation'] = _pop_one(d, m, hid)
+    if has_r:
+        out['recent'] = [_pop_one(x, m, hid) if isinstance(x, dict) else x for x in rec]
+    return out
 
 
 def _queue_item(it, m, hid):
@@ -238,8 +252,14 @@ def _cast_view(v, m):
 
 def _blank(name, v):
     """거르다 넘어졌을 때(있어선 안 되지만) — 방송판에는 메시지 칸을 다 비운 사본을 준다(원문을 흘리지 않게)."""
-    if name == 'popup' and isinstance(v, dict) and isinstance(v.get('donation'), dict):
-        return dict(v, donation=dict(v['donation'], message=''))
+    if name == 'popup' and isinstance(v, dict) and (isinstance(v.get('donation'), dict) or isinstance(v.get('recent'), list)):
+        out = dict(v)
+        if isinstance(v.get('donation'), dict):
+            out['donation'] = {k: x for k, x in dict(v['donation'], message='').items() if k != 'src'}
+        if isinstance(v.get('recent'), list):
+            out['recent'] = [{k: x for k, x in dict(it, message='').items() if k != 'src'} if isinstance(it, dict) else it
+                             for it in v['recent']]
+        return out
     if name == 'queue' and isinstance(v, dict) and isinstance(v.get('items'), list):
         return dict(v, items=[dict(it, message='', msgs=['' for _ in (it.get('msgs') or [])]) if isinstance(it, dict) else it
                               for it in v['items']])

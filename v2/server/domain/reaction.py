@@ -204,8 +204,9 @@ def signature_play(ctx, data):
     except (TypeError, ValueError):
         count = 1
     if data.get('display'):
-        ctx.edit('popup')['donation'] = {'id': 'man_%d' % int(ctx.now * 1000), 'name': name, 'amount': amount, 'message': msg,
-                                         'at': int(ctx.now * 1000), 'display_only': True}
+        from . import players as pl
+        pl.set_donation_popup(ctx, {'id': 'man_%d' % int(ctx.now * 1000), 'name': name, 'amount': amount, 'message': msg,
+                                    'at': int(ctx.now * 1000), 'display_only': True})
         ctx.notes['display_only'] = True
         return
     sig = data.get('sig')

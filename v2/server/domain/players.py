@@ -5,6 +5,8 @@
   players (공개)  list[{name, score, contribution}] · extra(번외 판) · extra_active · bottom(운영비)
   logs    (비공개) 조종실 점수 기록(최근 200줄)
   popup   (공개)  donation(후원 팝업) · score(점수 팝업) · takeover(1등 탈환)
+                 · recent(최근 후원 팝업 POPUP_RECENT_MAX 개, 오래된 순 — 끊겼다 다시 붙은 방송판이 그사이 카드를 차례로 띄운다, 10-17)
+                   donation 과 같은 모양 + 시그니처가 걸린 후원이면 sig:true(그 카드는 시그니처가 틀 때 부탁한다). 쓰는 곳은 set_donation_popup 하나.
   goal    (공개)  target(목표 점수, 0 = 없음) · offset
 
 규칙(옛 것 그대로)
@@ -25,12 +27,23 @@ from .rules import LOG_MAX, split_points
 slice_('players', True, lambda: {'list': [], 'extra': [], 'extra_active': False, 'bottom': {'name': '운영비', 'score': 0}})
 slice_('logs', False, lambda: [])
 slice_('logs_undone', False, lambda: [])   # ↩ 되돌린 줄(최근 UNDONE_MAX) — 조종실 기록에 회색 '되돌림' 으로 남긴다(logs 에선 빠진다)
-slice_('popup', True, lambda: {'donation': None, 'score': None, 'takeover': None})
+slice_('popup', True, lambda: {'donation': None, 'score': None, 'takeover': None, 'recent': []})
 slice_('goal', True, lambda: {'target': 0, 'offset': 0, 'done': 0})   # done = 조종실이 '달성' 을 처리한 목표(축하 송출 · 닫기)
 
 NAME_MAX = 20
+POPUP_RECENT_MAX = 8      # 🔌 popup.recent 칸 수 — 방송판 카드 2.45초씩, 30초(FRESH_MS) 안에 띄울 만큼 넉넉히
 UNDONE_MAX = 60
 PLAYERS_MAX = 10
+
+
+def set_donation_popup(ctx, pop, sig=False):
+    """🎁 후원 팝업 — popup.donation(지금 것 · 조종실 등 옛 화면이 읽는 칸)을 바꾸고 popup.recent 에도 한 줄(같은 id 는 하나로).
+       sig = 이 후원으로 시그니처 대기줄에 들어갔다(방송판이 다시 붙어 지난 카드를 띄울 때 뺀다)."""
+    p = ctx.edit('popup')
+    p['donation'] = pop
+    rec = [x for x in (p.get('recent') or []) if isinstance(x, dict) and x.get('id') != pop.get('id')]
+    rec.append(dict(pop, sig=True) if sig else dict(pop))
+    p['recent'] = rec[-POPUP_RECENT_MAX:]
 
 
 def _clean(name):
@@ -295,7 +308,7 @@ def _on_start(ctx, data):
                         'extra_active': False, 'bottom': dict(ctx.read('players')['bottom'], score=0)})
     ctx.put('logs', [])
     ctx.put('logs_undone', [])
-    ctx.put('popup', {'donation': None, 'score': None, 'takeover': None})
+    ctx.put('popup', {'donation': None, 'score': None, 'takeover': None, 'recent': []})
     ctx.edit('goal').update({'offset': 0, 'done': 0})
 
 
@@ -303,7 +316,7 @@ def _on_end(ctx, data):
     ctx.put('players', {'list': [], 'extra': [], 'extra_active': False, 'bottom': dict(ctx.read('players')['bottom'], score=0)})
     ctx.put('logs', [])
     ctx.put('logs_undone', [])
-    ctx.put('popup', {'donation': None, 'score': None, 'takeover': None})
+    ctx.put('popup', {'donation': None, 'score': None, 'takeover': None, 'recent': []})
     ctx.edit('goal').update({'offset': 0, 'done': 0})
 
 
