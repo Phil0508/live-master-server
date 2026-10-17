@@ -8,6 +8,8 @@ import { h, num, api, fill } from './common.js';
 import { judgeExt, extLevel, pendingText, extWarns, bankAgo, bankHHMM } from '../../bankcore.js';
 import { onExt, extNow, extCmd, loadExt } from '../../bankext.js';
 
+const EXT_INTERVALS = [5, 10, 15, 20, 30, 60];   // 서버 bank.EXT_INTERVALS · 확장 0.5 INTERVALS 와 같게
+
 export function mountBankMirror(ctx) {
     const ver = h('span', { class: 'ops-sub' });
     const dot = h('span', { class: 'bkx-dot' });
@@ -16,8 +18,10 @@ export function mountBankMirror(ctx) {
     const bar = h('div', { class: 'bkx-bar' }, dot, h('span', { class: 'bkx-t' }, t1, t2), cnt);
     const toggle = h('button', { type: 'button', class: 'btn sm', onclick: () => extCmd(ctx, 'enable') }, '자동 조회 켜기');
     const sel = h('select', { class: 'ops-select bkx-sel', title: '조회 간격', 'aria-label': '조회 간격' },
-        ...[20, 30, 60].map(s => h('option', { value: String(s), selected: s === 30 }, s + '초마다')));
-    sel.addEventListener('change', () => extCmd(ctx, 'interval', sel.value));
+        ...EXT_INTERVALS.map(s => h('option', { value: String(s), selected: s === 30 }, s + '초마다')));
+    // 고른 값은 확장이 받아 갈 때까지(다음 신호) 그대로 둔다 — 전엔 10초 뒤 화면이 옛 값(30)으로 돌아가 '선택이 안 되는' 것처럼 보였다(10-17)
+    let wantSec = 0, wantUntil = 0;
+    sel.addEventListener('change', () => { wantSec = +sel.value; wantUntil = Date.now() + 90 * 1000; extCmd(ctx, 'interval', sel.value); sel.blur(); });
     const press = h('button', { type: 'button', class: 'btn sm', title: '자동 조회가 꺼져 있어도 [조회]를 한 번 눌러요', onclick: () => extCmd(ctx, 'press') }, '지금 조회');
     const rebase = h('button', { type: 'button', class: 'btn sm', title: '지금 표에 있는 줄은 입금으로 안 알려요 — 계좌 · 기간을 바꾼 뒤에', onclick: () => extCmd(ctx, 'rebase') }, '기준 다시 잡기');
     const pend = h('p', { class: 'ops-hint' });
@@ -46,7 +50,9 @@ export function mountBankMirror(ctx) {
         toggle.textContent = st.enabled ? '자동 조회 끄기' : '자동 조회 켜기';
         toggle.classList.toggle('on', !!st.enabled);
         toggle.disabled = !w || j.k === 'off';
-        if (st.interval && document.activeElement !== sel && [20, 30, 60].includes(st.interval)) sel.value = String(st.interval);
+        if (wantSec && (st.interval === wantSec || Date.now() > wantUntil)) wantSec = 0;   // 확장이 받았거나 너무 오래 — 확장 값을 믿는다
+        if (wantSec) sel.value = String(wantSec);
+        else if (st.interval && document.activeElement !== sel && EXT_INTERVALS.includes(st.interval)) sel.value = String(st.interval);
         pend.textContent = pendingText((d && d.pending && d.pending.web) || []);
         pend.hidden = !pend.textContent;
         fill(warn, extWarns(st, !!w).map(x => h('p', { class: 'ops-note warn' }, '⚠ ' + x)));

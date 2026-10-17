@@ -10,6 +10,7 @@
  *    은행 화면이 조금 바뀌어도 덜 깨지고, 대표님 계좌 화면을 미리 보지 않고도 만들 수 있다.
  * 검사: tests/bankwatch_test.js(아래 순수 도구) · bank-watch/test/mock_ibk.html(가짜 은행 화면)
  */
+const INTERVALS = [5, 10, 15, 20, 30, 60];   // 0.5 — 5 · 10 · 15초 더함(대표님 10-17 '5초', 평소 10초에 30번도 눌러 봄)
 (function () {
   'use strict';
 
@@ -171,7 +172,7 @@
 
   // 🧪 가짜 은행 화면(내 PC 의 시험 페이지)에서만 3초 간격 — 진짜 은행 주소에서는 절대 안 켜진다
   const FAST = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && /awfast=1/.test(location.search);
-  const VER = '0.4.0';
+  const VER = '0.5.0';
   const STALL_MS = 150 * 1000;   // 조회를 누르는데 표가 이만큼 안 바뀌면 '끊김'(은행이 조용히 로그아웃시킨 것)
   const KEY = 'aw1';
   const DEF = {
@@ -404,7 +405,7 @@
         notes.push('조종실에서 자동 조회 ' + (on ? '켬' : '끔'));
       } else if (c.t === 'interval') {
         const sec = parseInt(c.sec, 10);
-        if ([20, 30, 60].indexOf(sec) >= 0) { out.interval = sec; notes.push('조종실에서 간격 ' + sec + '초'); }
+        if (INTERVALS.indexOf(sec) >= 0) { out.interval = sec; notes.push('조종실에서 간격 ' + sec + '초'); }
       } else if (c.t === 'rebase') {
         out.baseAt = 0; out.baseSig = ''; rescan = true;
         notes.push('조종실에서 기준 다시 잡기 — 지금 표의 줄은 알리지 않아요');
@@ -677,6 +678,9 @@
   function render(flash) {
     if (!ui) return;
     paintBar();
+    // 0.5 — 간격 목록을 펼쳐 고르는 중이면 몸통을 다시 그리지 않는다(다시 그리면 목록이 닫혀 '선택이 안 됨' — 10-17)
+    const act = ui.root.activeElement;
+    if (act && act.getAttribute && act.getAttribute('data-a') === 'interval') { if (flash && S.found.length) showToast(S.found[0]); return; }
     if (flash && S.found.length) showToast(S.found[0]);
     // 접혀 있어도 몸통은 채워 둔다(보이지만 않는다) — 상태 글은 1초마다 그 자리에서 고친다
     ui.bd.style.display = S.folded ? 'none' : '';
@@ -700,7 +704,7 @@
       ${order}
       <div class="row">
         <button data-a="toggle" class="${S.enabled ? 'on' : ''}">${S.enabled ? '자동 조회 끄기' : '자동 조회 켜기'}</button>
-        <select data-a="interval">${[20, 30, 60].map((s) => `<option value="${s}" ${S.interval === s ? 'selected' : ''}>${s}초마다</option>`).join('')}</select>
+        <select data-a="interval">${INTERVALS.map((s) => `<option value="${s}" ${S.interval === s ? 'selected' : ''}>${s}초마다</option>`).join('')}</select>
         <button data-a="teach" title="자동으로 못 찾을 때 — 누른 뒤 은행 화면의 [조회]를 한 번 누르세요">${teach ? '은행 [조회]를 눌러 주세요…' : '버튼 지정'}</button>
       </div>
       <div class="mut">${up}조회 ${S.clicks}번 · 마지막 정상 ${hhmm(S.lastOkAt)} · 판 ${VER}</div>
@@ -754,6 +758,7 @@
       S = await load();
       S.interval = parseInt(e.target.value, 10) || 30;
       note('간격 ' + S.interval + '초');
+      try { e.target.blur(); } catch (_) {}
       await save(); render(); schedule();
     });
   }

@@ -386,6 +386,7 @@ class Inbox(Base):
         self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'reboot'}, headers=H).status_code, 400)
         self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'enable'}, headers=H).status_code, 400)
         self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 45}, headers=H).status_code, 400)
+        self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 5}, headers=H).status_code, 200)   # 10-17 5초도(확장 0.5)
         self.c.post('/api/bank/ext/cmd', json={'t': 'enable', 'on': False}, headers=H)
         self.c.post('/api/bank/ext/cmd', json={'t': 'enable', 'on': True}, headers=H)
         pend = self.c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 60}, headers=H).json()['pending']
