@@ -327,8 +327,11 @@ def _mark_stale(ctx):
     if not ops.get('built') or ops.get('stale'):
         return
     w = ctx.work
+    # 대기함(후원 · 배정 · 무시 · 모금함 · 되돌리기) · 순위에서 뺀 이름(donor.exclude · include — 명단에서 빠지거나 다시 들어온다)
     pend_changed = 'pending' in w.copies and w.copies['pending'] != w.state.slices.get('pending')
-    if pend_changed or ctx.notes.get('display_only'):
+    ex_changed = 'donor_rules' in w.copies and \
+        (w.copies['donor_rules'] or {}).get('excluded') != (w.state.slices.get('donor_rules') or {}).get('excluded')
+    if pend_changed or ex_changed or ctx.notes.get('display_only'):
         ctx.edit('credits_ops')['stale'] = True
 
 

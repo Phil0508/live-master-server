@@ -201,10 +201,16 @@ class Server(Base):
 
     def test_excluded_name(self):
         self.give('직원', 50000, 'toon_h1', '서아')
+        self.cmd('credits.build')
+        self.assertFalse(self.st()['credits_ops']['stale'])
         self.cmd('donor.exclude', name='직원')
+        self.assertTrue(self.st()['credits_ops']['stale'])                         # 만든 뒤 뺀 이름 → '다시 만들기' 안내
         self.cmd('credits.build')
         self.assertEqual(self.st()['credits']['groups'], [])
         self.assertEqual(self.st()['credits_ops']['skipped']['excluded'], 1)
+        self.assertFalse(self.st()['credits_ops']['stale'])
+        self.cmd('donor.include', name='직원')
+        self.assertTrue(self.st()['credits_ops']['stale'])                         # 다시 넣어도 마찬가지
 
     def test_unauthed_cannot_run(self):
         r = self.c.post('/api/cmd', json={'type': 'credits.show', 'data': {}})
@@ -227,6 +233,12 @@ class Server(Base):
         # 이 기능 전에 저장한 단계(credits 칸 없음)는 크레딧을 안 건드린다
         from v2.server.domain import settings2
         self.assertIn(cr._snap, settings2.SNAP_EXTRA)
+        self.assertIn(cr._apply, settings2.APPLY_EXTRA)
+
+        class NoTouch:                                                             # 조각을 읽거나 고치면 바로 넘어진다
+            def __getattr__(self, k):
+                raise AssertionError('옛 단계인데 크레딧을 건드렸다: ' + k)
+        cr._apply(NoTouch(), {'name': '옛 단계', 'stage': None})
 
 
 class Web(unittest.TestCase):

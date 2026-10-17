@@ -553,7 +553,7 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
   - 순서: players.list 순서(= 점수 순위) → 번외 판 → 명단에서 빠진 멤버(받은 금액 순) → 모두에게 → 기타. 묶음 안은 합계 큰 순(같으면 먼저 온 사람). 같은 사람(norm_donor)은 한 줄, 이름은 처음 쓴 것('님' 뗌, 20자).
   - 빼는 것: 🧪 source toonation_test · status display 중 소액이 아닌 것(🔁 다시 보기 · 대시보드 테스트 · ↻ 다시 송출) · donor_rules.excluded · 0원 이하. 익명은 이름 대신 '이름 없이 함께해 주신 N분'.
   - 이름 1,500개가 끝(넘으면 묶음 뒤쪽 작은 금액부터 덜어 낸다).
-- **얼림**: `credits.build` 가 만든 명단을 그대로 쓴다. 그 뒤 대기함이 바뀌거나(후원 · 배정 · 무시 · 모금함 · 되돌리기) 소액이 들어오면 bus.AFTER 가 credits_ops.stale 만 켠다 → 조종실 '[🔄 명단 다시 만들기]' 안내.
+- **얼림**: `credits.build` 가 만든 명단을 그대로 쓴다. 그 뒤 대기함이 바뀌거나(후원 · 배정 · 무시 · 모금함 · 되돌리기) 소액이 들어오거나 순위에서 뺀 이름이 바뀌면(donor.exclude · include — 검토 10-17) bus.AFTER 가 credits_ops.stale 만 켠다 → 조종실 '[🔄 명단 다시 만들기]' 안내.
   `credits.show` 는 이 회차에 만든 적이 없을 때(또는 rebuild)만 새로 만든다. 방송 시작 때 비운다(제목 · 마무리 글 · 속도 · 금액 보이기는 남김). 끝낼 때는 안 건드린다(endundo 대상 아님).
 - 명령(로그인): `credits.build{title?, outro?}` · `credits.show{rebuild?, title?, outro?}`(처음부터) · `credits.pause{paused?}`(안 떠 있으면 409) · `credits.restart` · `credits.hide` · `credits.set{title?, outro?, show_amount?, speed?}`(속도를 바꿔도 지금 자리에서 이어서). AI 허용 목록(ai_cmd)에는 안 넣었다.
 - **흐름**: 서버는 '언제(at) · 몇 px(offset)' 만 적고 방송판이 서버 시계(basics2/clock.js)로 지금 자리 = offset + (멈춤 아니면 경과 × 속도)를 센다(flow.js — node 검사가 서버 SPEEDS 와 맞대 봄).
