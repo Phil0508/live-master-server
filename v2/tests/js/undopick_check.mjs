@@ -45,6 +45,17 @@ chk('게임 카드 기여도: 기여도 줄 · 점수만', eq(card.lines, ['채�
 const ex = U.undoPlan({ logs: [{ at, name: '밍밍', val: 2, cval: 2, ref: 'act_x', list: 'extra' }], players: { extra_active: false } }, 'act_x');
 chk('끝난 번외 판: 기록만 지워진다고 알린다', ex.staleExtra && U.planNotes(ex)[0].includes('기록만 지워져요'), U.planNotes(ex));
 
+// [끝]으로 본판에 더해진 번외 줄 — 서버가 본판에서 뺀다. '기록만 · 손으로 빼기' 라고 하면 두 번 빠진다
+const mg = U.undoPlan({ logs: [{ at, name: '밍밍', val: 2, cval: 2, ref: 'act_m', list: 'extra' }],
+    players: { extra_active: false, extra_closed: { '밍밍': 'merged' } } }, 'act_m');
+chk('[끝] 번외 판: 본판에서 빠진다고 알린다', !mg.staleExtra && mg.mergedExtra && U.planNotes(mg)[0].includes('본판 점수에서 빠져요')
+    && !U.planNotes(mg).join(' ').includes('기록만'), U.planNotes(mg));
+const cc = U.undoPlan({ logs: [{ at, name: '밍밍', val: 2, cval: 2, ref: 'don_c', list: 'extra' }],
+    players: { extra_active: false, extra_closed: { '밍밍': 'cancelled' } } }, 'don_c');
+chk('[취소] 번외 판 후원: 기록만 + 대기함', cc.staleExtra && U.planNotes(cc)[0].includes('기록만') && U.planNotes(cc)[0].includes('대기함'), U.planNotes(cc));
+const live = U.undoPlan({ logs: [{ at, name: '밍밍', val: 2, cval: 2, ref: 'act_l', list: 'extra' }], players: { extra_active: true } }, 'act_l');
+chk('번외 판 진행 중: 보통 안내', !live.staleExtra && !live.mergedExtra && eq(U.planNotes(live), ['점수만 빠져요']), U.planNotes(live));
+
 const none = U.undoPlan(S, 'don_gone');
 chk('없는 ref: 0줄', none.n === 0);
 const fb = U.undoPlan(S, 'don_old', [{ at, name: '서아', val: 4, cval: 4, list: 'list', ref: 'don_old' }]);

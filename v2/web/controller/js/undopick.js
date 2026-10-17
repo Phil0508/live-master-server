@@ -28,7 +28,7 @@ export function lineText(l) {
 }
 
 /** 무엇이 되돌아가나 — slices(logs) 에서 같은 ref 를 모은다. 없으면 fallback 줄(장부 탭 /api/scores 를 묶은 것)로.
- *  돌려주는 값: { ref, lines[], at, don{name,amount}|null, isDon, by, split, staleExtra } */
+ *  돌려주는 값: { ref, lines[], at, don{name,amount}|null, isDon, by, split, staleExtra(점수 그대로 · 기록만), mergedExtra(본판에서 빠짐) } */
 export function undoPlan(slices, ref, fallback) {
     const S = slices || {};
     let rows = (S.logs || []).filter(l => l && l.ref === ref).slice().reverse();     // 서버가 넣은 순서(앞사람부터)
@@ -37,8 +37,14 @@ export function undoPlan(slices, ref, fallback) {
     const don = (rows.find(l => l.don) || {}).don || null;
     const by = (rows.find(l => l.by) || {}).by || '';
     const at = rows.length ? Math.min(...rows.map(l => Number(l.at) || 0)) : 0;
-    const staleExtra = rows.some(l => l.list === 'extra') && !(S.players || {}).extra_active;
-    return { ref, lines: rows.map(lineText), at, don, isDon, by, split: rows.length > 1, staleExtra, n: rows.length };
+    // 끝난 번외 판 줄 — 서버(score_undo): [끝]으로 본판에 더해졌으면(extra_closed='merged') 본판에서 빼고,
+    // [취소]했거나 그 뒤 새 번외 판이 열렸으면 점수는 그대로 · 기록만 지운다. 둘을 갈라 알린다(본판 손 빼기 두 번 막기).
+    const P = S.players || {};
+    const old = P.extra_active ? [] : rows.filter(l => l.list === 'extra');
+    const closed = P.extra_closed || {};
+    const staleExtra = old.some(l => closed[l.name] !== 'merged');
+    const mergedExtra = !staleExtra && old.length > 0;
+    return { ref, lines: rows.map(lineText), at, don, isDon, by, split: rows.length > 1, staleExtra, mergedExtra, n: rows.length };
 }
 
 /** 확인 상자 머리 — '21:03 밍밍 +5점(영원 50,000원)' */
@@ -52,7 +58,8 @@ export function planTitle(p) {
 export function planNotes(p) {
     const out = [];
     if (p.split) out.push(`나눠 준 ${p.isDon ? '후원이라' : '점수라'} 함께 되돌아가요: ${p.lines.join(' · ')}`);
-    if (p.staleExtra) out.push('번외 판이 이미 끝나서, 되돌려도 점수는 바뀌지 않고 이 기록만 지워져요. 본판 점수는 점수판 칸에 빼기(-)로 고쳐 주세요.');
+    if (p.staleExtra) out.push('번외 판이 이미 끝나서, 되돌려도 점수는 바뀌지 않고 이 기록만 지워져요. 본판 점수는 점수판 칸에 빼기(-)로 고쳐 주세요.' + (p.isDon ? ' 후원은 대기함으로 돌아가요.' : ''));
+    else if (p.mergedExtra) out.push('번외 판 점수는 [끝]에서 본판에 더해졌어요 — 되돌리면 본판 점수에서 빠져요' + (p.isDon ? ' · 후원은 대기함으로 돌아가요' : ''));
     else if (p.isDon) out.push('후원은 대기함으로 돌아가요' + (p.don ? ` — ${p.don.name || '익명'} ${won(p.don.amount)}` : ''));
     else out.push('점수만 빠져요');
     if (p.by === 'autopilot-ai') out.push('🤖 AI 가 준 점수예요 — 되돌리면 이 후원은 다시 자동으로 주지 않아요');

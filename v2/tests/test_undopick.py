@@ -121,6 +121,25 @@ class Pick(Base):
         self.cmd('session.start', names=['하율'])
         self.assertEqual(self.st()['logs_undone'], [])
 
+    def test_extra_after_end_vs_cancel(self):
+        # 확인 상자 안내의 근거 — [끝](merged)이면 본판에서 빠지고, [취소]면 점수 그대로 · 기록만 지워진다
+        self.cmd('extra.start')
+        self.cmd('score.add', name='하율', delta=4, list='extra')
+        r1 = self.st()['logs'][0]['ref']
+        self.cmd('extra.end')
+        self.assertEqual(self.scores()['하율'], (4, 4))
+        self.assertEqual(self.st()['players']['extra_closed'], {'하율': 'merged', '서아': 'merged', '채원': 'merged'})
+        c, r = self.cmd('score.undo', ref=r1)
+        self.assertEqual(c, 200, r)
+        self.assertEqual(self.scores()['하율'], (0, 0))                   # 본판에서 빠졌다 — 손으로 또 빼면 두 번
+        self.cmd('extra.start')
+        self.cmd('score.add', name='서아', delta=3, list='extra')
+        r2 = self.st()['logs'][0]['ref']
+        self.cmd('extra.cancel')
+        c, r = self.cmd('score.undo', ref=r2)
+        self.assertEqual(c, 200, r)
+        self.assertEqual(self.scores()['서아'], (0, 0))                   # 본판은 처음부터 그대로
+
 
 class Controller(unittest.TestCase):
     def test_no_confirm_alert_no_sound(self):

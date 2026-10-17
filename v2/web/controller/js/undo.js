@@ -63,7 +63,9 @@ export function mountUndo(root, logsRoot, ctx) {
         // ⚠️ 끝난(또는 취소한) 번외 판의 기록 — 서버는 번외 판 명단이 비어 있어 점수를 못 빼고 기록만 지운다.
         //    본판에 더해진 점수는 그대로라, 모르고 누르면 '되돌렸다' 고 믿게 된다 → 먼저 알린다.
         const P = ctx.slices.players || {};
-        if (rows.some(l => l.list === 'extra') && !P.extra_active) {
+        //    단, [끝]으로 본판에 더해진 것(extra_closed='merged')은 서버가 본판에서 빼 준다 — 그때는 묻지 않는다(손으로 또 빼면 두 번 빠진다).
+        const closed = P.extra_closed || {};
+        if (!P.extra_active && rows.some(l => l.list === 'extra' && closed[l.name] !== 'merged')) {
             const go = await ctx.confirm({
                 title: '끝난 번외 판의 기록이에요',
                 body: `${short(rows)}\n번외 판이 이미 끝나서, 되돌려도 점수는 바뀌지 않고 이 기록만 지워집니다.\n본판 점수를 고치려면 점수판의 [+점수] 칸에 빼기(-)로 적어 주세요.`,
