@@ -81,10 +81,11 @@ export function titleOf(needs) {
         const r = n.rows[0];
         return `${r.name}${n.extra ? ' (번외)' : ''} ${rowText(r)} — ${verb}`;      // '밍밍 +30점 — 줄까요?' · '밍밍 −30점 — 뺄까요?'
     }
-    const head = `${n.who} ${num(n.amount)}원 → `;
+    // 기여도 카드(주사위 · 슬롯 결과)는 돈이 0원 — '0원' 은 빼고 '슬롯 → 밍밍에게 기여도 25 줄까요?'
+    const head = n.amount > 0 ? `${n.who} ${num(n.amount)}원 → ` : `${n.who} → `;
     if (n.rows.length > 1) return head + `${n.rows.length}명에게 나눠 ${verb}`;
     const r = n.rows[0];
-    return head + `${r.name}에게 ${rowText(r).replace(/^\+/, '')} ${verb}`;     // '영원 500,000원 → 밍밍에게 50점 줄까요?'
+    return head + `${r.name}에게 ${rowText(r).replace(/^\+/, '').replace(/^기여도 \+/, '기여도 ')} ${verb}`;     // '영원 500,000원 → 밍밍에게 50점 줄까요?'
 }
 
 /** 상자 속 — 받을 사람 이름을 크게, 나눠 주기면 사람마다 한 줄 */
@@ -92,7 +93,8 @@ export function bodyOf(needs) {
     const blocks = needs.map(n => {
         const from = n.kind === 'hand'
             ? h('p', { class: 'bk-from' }, '손으로 넣는 점수', n.extra ? ' · 번외 판' : null)
-            : h('p', { class: 'bk-from' }, h('b', null, n.who), ' · ', h('span', { class: 'bk-amt' }, num(n.amount) + '원'),
+            : h('p', { class: 'bk-from' }, h('b', null, n.who),
+                n.amount > 0 ? [' · ', h('span', { class: 'bk-amt' }, num(n.amount) + '원')] : null,
                 n.kind === 'contrib' ? ' · 기여도 카드' : null);
         const rows = h('ul', { class: 'bk-rows' }, n.rows.map(r => h('li', { class: 'bk-row' },
             h('b', { class: 'bk-name' }, r.name), h('span', { class: 'bk-pts' + (r.pts < 0 || r.contrib < 0 ? ' minus' : '') }, rowText(r)))));

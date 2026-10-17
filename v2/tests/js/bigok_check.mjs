@@ -45,6 +45,7 @@ chk('기준을 5만 원으로 낮추면 199,999원도 묻는다', !!B.needFor(S(
 x = B.needFor(def, 'pending.assign', { id: 'p4', name: '밍밍' });
 chk('기여도 카드 25 ≥ 20 → 묻는다(기여도로)', x && x.kind === 'contrib' && x.rows[0].contrib === 25 && x.rows[0].pts === 0, x);
 chk('기여도 카드 5 → 바로', B.needFor(def, 'pending.assign', { id: 'p5', name: '밍밍' }) === null);
+chk('기여도 카드 제목엔 0원이 없다', x && B.titleOf([x]) === '기여 → 밍밍에게 기여도 25 줄까요?', x && B.titleOf([x]));
 
 // ── 손 점수 ──
 chk('손 점수 19 → 바로', B.needFor(def, 'score.add', { name: '밍밍', delta: 19 }) === null);
