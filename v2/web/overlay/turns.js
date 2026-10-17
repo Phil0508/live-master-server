@@ -14,6 +14,9 @@
 
    ② 다시 붙은 방송판의 지난 카드(pendingCards) — 서버 popup.recent(최근 카드 알림 몇 개, id 와 함께)에서
       아직 안 본 것 · 30초 안의 것만 오래된 순서로.
+      🔄 새로 고침(F5 · OBS '새로 고침')은 기억(seen)이 날아간다 — 띄운 카드 열쇠를 이 창의 sessionStorage 에 적어 두고(addShown)
+         다시 읽어 seen 에 넣는다. 안 그러면 30초 안의 카드가 몇 장씩 또 뜬다(옛 것은 한 칸이라 한 장이었다).
+         localStorage 는 안 쓴다 — 같은 브라우저의 다른 방송판 창(OBS 소스 둘)이 서로의 카드를 지워 버린다.
 
    ③ 출연진 전광판(?only=sig, sigDispShow) — 방송판이 실제로 튼 것(queue.items[0].started — 서버가 아는 '지금 트는 것')을 따른다.
       신호가 없으면(옛 방송판 · 방송판이 안 켜짐) 멈춤 · play_after(서버 시계)가 지나고 STARTED_GRACE_MS 를 더 기다린 뒤에 띄운다. */
@@ -59,6 +62,15 @@ export function pendingCards(list, seen, now, freshMs) {
         fresh.push(d);
     });
     return { fresh, keys };
+}
+
+/* 띄운 카드 열쇠 목록에 하나 더(같은 것은 맨 뒤로) — 오래된 것부터 버려 max 개만. 문자열 아닌 것은 버린다 */
+export function addShown(list, key, max) {
+    const k = key ? String(key) : '';
+    const a = (Array.isArray(list) ? list : []).filter(x => typeof x === 'string' && x && x !== k);
+    if (k) a.push(k);
+    const m = Number(max) || 0;
+    return m > 0 ? a.slice(-m) : a;
 }
 
 export function cardKey(d) {

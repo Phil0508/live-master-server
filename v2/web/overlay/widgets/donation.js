@@ -22,15 +22,27 @@
      시그니처 쪽은 stage.use('sigCenter') — {center(), wants(), kick(), onFree(fn)}. 시그니처 칸이 없는 화면이면 옛 것 그대로.
    🔌 다시 붙을 때(10-17): 끊긴 사이 들어온 카드를 서버 popup.recent(최근 몇 개, id 와 함께)에서 아직 안 본 것 · 30초 안의 것만
      차례로 띄운다(옛 것은 popup.donation 한 칸이라 마지막 하나만 떴다). 시그니처가 걸린 후원(sig)은 빼고.
+     🔄 새로 고침해도 이미 띄운 카드는 또 안 띄운다 — 띄울 때 열쇠를 이 창의 sessionStorage 에(../turns.js addShown).
    - 🙈 [가리기] · 금칙어(10-17 mask): 서버는 가린 글만 보낸다. 같은 후원(id)이 메시지만 바뀌어 다시 오면
      떠 있는 카드 · 줄 선 카드의 글자만 바꾼다(카드를 다시 띄우지 않는다). */
 import { esc, formatNum, classifyDonation, FRESH_MS } from '../util.js';
 import { donorTag, donorLv } from '../donate_kit.js';
-import { cardTurn, pendingCards, cardKey } from '../turns.js';
+import { cardTurn, pendingCards, cardKey, addShown } from '../turns.js';
 
 export const HOLD_MS = 2000;     // 카드가 떠 있는 시간(옛 2초) — 바꾸려면 여기 하나만
 const GAP_MS = 450;              // 사라지는 연출(0.4초) + 숨 고르기
 const SEEN_MAX = 200;            // 본 후원 열쇠를 이만큼만 기억한다(서버 popup.recent 보다 넉넉히)
+const SHOWN_KEY = 'lm2.donation.shown';   // 🔄 띄운 카드 열쇠(이 창의 sessionStorage — 새로 고침에도 남는다)
+const SHOWN_MAX = 40;
+
+/* 🔄 이 창이 띄운 카드 열쇠 — 저장소가 막혀 있어도(사생활 모드 · OBS 설정) 빈 목록으로 그대로 돈다 */
+function loadShown() {
+    try { const a = JSON.parse(sessionStorage.getItem(SHOWN_KEY) || '[]'); return addShown(a, '', SHOWN_MAX); } catch (e) { return []; }
+}
+function saveShown(key) {
+    if (!key) return;
+    try { sessionStorage.setItem(SHOWN_KEY, JSON.stringify(addShown(loadShown(), key, SHOWN_MAX))); } catch (e) {}
+}
 
 /* 👑 등급 찾기 — tallies.vip 의 열쇠는 서버 norm_donor 와 같은 규칙(공백 정리 · 끝 '님' 떼기)으로 다듬은 이름 */
 function vipKey(x) {
@@ -179,6 +191,7 @@ export function mount(root, lm, opts) {
         if (!it) { idleFns.slice().forEach(fn => { try { fn(); } catch (e) {} }); return; }
         busy = true;
         shown = it.d;
+        if (it.d && it.d.id && !it.d.rq) saveShown(cardKey(it.d));    // 🔄 새로 고침해도 이 카드는 또 안 띄운다
         try {
             fill(it.d);
             card.classList.remove('show');
@@ -223,6 +236,9 @@ export function mount(root, lm, opts) {
         keys.forEach(k => { seen.delete(k); seen.add(k); });
         while (seen.size > SEEN_MAX) seen.delete(seen.values().next().value);
     }
+    remember(loadShown());                       // 🔄 새로 고침 전에 띄운 카드
+    // 서버 시계(at 은 서버 ms) — 이 PC 시계가 틀려도 30초를 바르게 잰다
+    const now = () => { try { const v = Number(lm.serverNow && lm.serverNow()); if (isFinite(v) && v > 0) return v; } catch (e) {} return Date.now(); };
 
     lm.on('popup', (pop, slices) => {
         const d = pop && pop.donation;
@@ -242,7 +258,7 @@ export function mount(root, lm, opts) {
             remember(keys);
         } else {
             // 다시 붙음 · 처음 붙음 — 아직 안 본 것 · 30초 안의 것만 차례로(../turns.js pendingCards)
-            const r = pendingCards(list, seen, Date.now(), FRESH_MS);
+            const r = pendingCards(list, seen, now(), FRESH_MS);
             fresh = r.fresh;
             remember(r.keys);
         }

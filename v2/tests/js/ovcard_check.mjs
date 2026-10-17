@@ -62,6 +62,16 @@ eq(r.keys, ['a', 'b', 'c', 'd', 'e'], '본 열쇠는 전부(30초 넘은 것 · 
 eq(T.pendingCards(undefined, null, now, 30000), { fresh: [], keys: [] }, '빈 목록');
 eq(T.pendingCards([{ at: now - 5 }], new Set(), now, 30000).fresh.length, 1, 'id 없는 옛 팝업은 at 으로');
 eq(T.cardKey({ id: 'don_1', at: 5 }), 'don_1', '열쇠 = id');
+
+// 🔄 새로 고침 — 띄운 카드 열쇠(sessionStorage)
+eq(T.addShown(['a', 'b'], 'c', 5), ['a', 'b', 'c'], '하나 더');
+eq(T.addShown(['a', 'b', 'c'], 'a', 5), ['b', 'c', 'a'], '같은 것은 맨 뒤로(하나만)');
+eq(T.addShown(['a', 'b', 'c'], 'd', 2), ['c', 'd'], '오래된 것부터 버려 max 개만');
+eq(T.addShown(['a', 3, null, '', { x: 1 }], '', 5), ['a'], '문자열 아닌 것 · 빈 열쇠는 버린다(저장소가 망가져도)');
+eq(T.addShown('망가짐', 'k', 5), ['k'], '목록이 아니면 새로');
+// 새로 고침 뒤: 띄운 것(seen 으로 다시 읽음)은 또 안 뜬다 — 안 띄운 것만
+eq(T.pendingCards([{ id: 'p', at: now - 3000 }, { id: 'q', at: now - 2000 }], new Set(T.addShown([], 'p', 40)), now, 30000).fresh.map(d => d.id),
+   ['q'], '새로 고침 전에 띄운 카드는 빼고');
 eq(T.cardKey({ at: 5 }), '5', 'id 없으면 at');
 
 // ③ 출연진 전광판
