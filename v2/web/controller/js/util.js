@@ -91,14 +91,15 @@ export function toast(msg, kind = 'ok', ms) {
 
 /* ── 확인 상자 ── 지우기 · 끝내기 같은 되돌리기 어려운 일 앞에서 한 번 묻는다.
    ⚠️ 기본 손가락 자리는 [취소] — Enter 를 습관처럼 눌러도 지워지지 않게. Esc · 바깥 누르기 = 취소. */
-export function confirmBox({ title, body, ok = '확인', cancel = '취소', danger = true }) {
+export function confirmBox({ title, body, ok = '확인', cancel = '취소', danger = true, cls = '' }) {
     return new Promise(resolve => {
         const prev = document.activeElement;
         const okBtn = h('button', { class: 'btn big ' + (danger ? 'danger' : 'pri'), type: 'button' }, ok);
         const noBtn = h('button', { class: 'btn big', type: 'button' }, cancel);
-        const card = h('div', { class: 'modal', role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'mdl-t' },
+        const card = h('div', { class: 'modal' + (cls ? ' ' + cls : ''), role: 'alertdialog', 'aria-modal': 'true', 'aria-labelledby': 'mdl-t' },
             h('h2', { id: 'mdl-t' }, title),
-            body ? h('p', { class: 'modal-body' }, body) : null,
+            // body 는 글(줄바꿈 가능) 또는 이미 만든 요소(↻ 다시 송출 상자처럼 큰 글씨가 필요할 때 — replay.js)
+            body ? (typeof Node !== 'undefined' && body instanceof Node ? body : h('p', { class: 'modal-body' }, body)) : null,
             h('div', { class: 'modal-btns' }, noBtn, okBtn));
         const wrap = h('div', { class: 'modal-wrap' }, card);
         function close(v) {

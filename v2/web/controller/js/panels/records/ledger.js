@@ -11,6 +11,7 @@
 import { h, won, num, signed } from '../../util.js';
 import { getJSON, sessionLabel, hms } from './api.js';
 import { donationsCsv, scoresCsv, sessionStamp, fileName, kst } from './csv.js';
+import { askReplay, canReplay } from '../../replay.js';     // ↻ 다시 송출(방송 화면에만 한 번 더 — 10-17)
 
 const CSV_MAX = 2000;           // 서버가 한 번에 주는 끝(/api/ledger · /api/scores limit)
 
@@ -96,7 +97,7 @@ const STATUS = {
     display: ['화면만', 'info'],
 };
 const SOURCE = { toonation: '투네이션', toonation_test: '시험 후원', manual: '손으로 넣음',
-    toonation_replay: '🔁 다시 보기(화면만)', toonation_dashtest: '🧪 후원 테스트(화면만)' };   // 다시 보기 · 후원 테스트는 정산에 안 든다
+    toonation_replay: '🔁 다시 보기(화면만)', toonation_dashtest: '🧪 후원 테스트(화면만)', replay: '↻ 다시 송출(화면만)' };   // 다시 보기 · 후원 테스트는 정산에 안 든다
 const COUNTED = new Set(['pending', 'assigned', 'ignored']);     // 합계에 드는 것(서버 /api/ledger 와 같다)
 
 /* 줄 목록 — 키(id)로 줄을 기억해 두고 바뀐 줄만 다시 쓴다 */
@@ -151,9 +152,14 @@ function donationView(ctx, session) {
                     h('span', { class: 'rc-amt' }, won(r.amount)),
                     h('span', { class: 'tag ' + cls }, label),
                     r.player ? h('span', { class: 'rc-to' }, '→ ' + r.player) : null,
-                    r.src ? h('span', { class: 'rc-src' }, r.src) : null),
+                    r.src ? h('span', { class: 'rc-src' }, r.src) : null,
+                    // 🏷️ 장부 줄 번호 — 줄을 구별하는 조용한 꼬리표(작은 회색). ↻ 다시 송출은 이번 방송 줄에만
+                    r.no ? h('span', { class: 'rc-no', title: '장부 줄 번호' }, '#' + r.no) : null,
+                    r.re ? h('button', { type: 'button', class: 'btn xs rc-replay', title: '방송 화면에만 한 번 더 띄워요 (점수 · 정산엔 안 들어가요)',
+                        onclick: () => askReplay(ctx, r.row).then(ok => { if (ok) load(); }) }, '↻ 다시 송출') : null),
                 r.message ? h('p', { class: 'rc-msg' }, r.message) : null));
     });
+    const canRe = () => session === 'current' && !!(ctx.slices.session || {}).live;
 
     async function load() {
         if (loading) { again = true; return; }
@@ -209,7 +215,8 @@ function donationView(ctx, session) {
 
         const view = pick.slice(0, shown).map(r => ({
             key: r.id, t: hms(r.at), name: r.name, amount: r.amount, status: r.status, player: r.player || '',
-            message: r.message || '', src: SOURCE[r.source] || '',
+            message: r.message || '', src: SOURCE[r.source] || '', no: r.no || 0,
+            re: canRe() && canReplay(r), row: { id: r.id, name: r.name, amount: r.amount, message: r.message, at: r.at, no: r.no },
         }));
         drawRows(view);
         more.hidden = pick.length <= shown;

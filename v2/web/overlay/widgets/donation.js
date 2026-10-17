@@ -10,6 +10,7 @@
      후원과 순위가 같은 쪽지로 오므로 '이 후원으로 1위' 가 그 카드에 바로 보인다. 생김새는 css/basics2.css 8번.
      ⏸️ 지금은 꺼져 있다(대표님 10-13 — 서버 donors.VIP_ON, tallies.vip_on false 면 등급 옷을 안 입힌다).
    - 🏷️ 투네이션 공식 칭호 알약(이름 위 한 줄) · 이름 뒤 Lv — popup.donation 의 donor_title · donor_level(옛 44584ff, ../donate_kit.js).
+   - ↻ popup.donation.encore(조종실 '다시 송출', 10-17) — 카드 위 '↻ 다시 보기' 딱지. 화면에만 한 번 더(장부 · 점수엔 안 든다).
    다른 위젯에 주는 것(stage.provide('donationCard')):
      show({name, amount, message}) → 카드가 내려가는 순간 끝나는 Promise(시그니처가 그때 시작한다)
      busy() → 카드가 떠 있거나 줄이 있으면 true · onIdle(fn) → 줄이 다 비면 부른다 */
@@ -38,6 +39,7 @@ const GRADE_NAME = { DIAMOND: '다이아', BRONZE: '브론즈', GOLD: '골드' }
 export function mount(root, lm, opts) {
     root.innerHTML = '<div class="donation-popup-content">'
         + '<div class="toon-vip-deco" aria-hidden="true"></div>'
+        + '<div class="d-encore" aria-hidden="true">↻ 다시 보기</div>'
         + '<div class="donator-text"><span class="donator-name"></span> <span class="d-action">님이 후원하셨습니다!</span></div>'
         + '<div class="donation-amount"></div>'
         + '<div class="donation-message"></div>'
@@ -48,6 +50,7 @@ export function mount(root, lm, opts) {
     const amtEl = root.querySelector('.donation-amount');
     const msgEl = root.querySelector('.donation-message');
     const decoEl = root.querySelector('.toon-vip-deco');
+    const encoreEl = root.querySelector('.d-encore');
     const queue = [];
     const idleFns = [];
     let busy = false;
@@ -111,6 +114,7 @@ export function mount(root, lm, opts) {
             if (tg) nameEl.prepend(tg);
             if (lv) nameEl.appendChild(lv);
         } catch (e) { console.error('[후원 카드] 칭호 붙이기 실패:', e); }
+        encoreEl.classList.toggle('on', !!d.encore);         // ↻ 조종실 '다시 송출' — 한 번 더 보여 주는 것임을 알린다(10-17)
         let msg = String(d.message || '');
         const m = msg.match(/^\[시그니처 신청:\s*(.*?)\]/);
         if (m) {

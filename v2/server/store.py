@@ -107,6 +107,32 @@ class Store:
         self.db.execute('PRAGMA journal_mode=WAL')
         self.db.execute('PRAGMA synchronous=%s' % sync_mode())
         self.db.executescript(SCHEMA)
+        self._donation_no_column()
+
+    # ── 🏷️ 장부 줄 번호(no) — 10-17 대표님 '장부가 헷갈릴까 봐 임의의 숫자만' ──
+    #  donations.no = 겹치지 않는 조용한 꼬리표(#12). 회차와 상관없이 장부 전체에서 하나씩 올라간다(가장 단순한 쪽 — 대표님 보충).
+    #  ⚠️ SQLite rowid 를 쓰지 않는 까닭: 이 표는 TEXT 기본 키라 VACUUM(백업 도구가 한다)이 rowid 를 다시 매길 수 있다 → 번호가 바뀐다.
+    #     그래서 진짜 칸에 적고 UNIQUE 로 지킨다. 서버가 다시 켜져도 MAX(no)+1 로 이어진다.
+    #  예전 줄(이 칸이 생기기 전 · 옛 장부 옮긴 줄)은 켜질 때 들어온 순서(at)대로 이어서 매긴다 — 그래야 장부 탭 모든 줄을 구별할 수 있다.
+    def _donation_no_column(self):
+        cols = [r['name'] for r in self.db.execute('PRAGMA table_info(donations)')]
+        if 'no' not in cols:
+            self.db.execute('ALTER TABLE donations ADD COLUMN no INTEGER')
+        self.db.execute('CREATE UNIQUE INDEX IF NOT EXISTS donations_no ON donations(no)')
+        todo = [r['id'] for r in self.db.execute('SELECT id FROM donations WHERE no IS NULL ORDER BY at, rowid')]
+        if todo:
+            n = int(self.db.execute('SELECT COALESCE(MAX(no), 0) FROM donations').fetchone()[0])
+            self.db.execute('BEGIN IMMEDIATE')
+            try:
+                self.db.executemany('UPDATE donations SET no = ? WHERE id = ?', [(n + i + 1, did) for i, did in enumerate(todo)])
+                self.db.execute('COMMIT')
+            except Exception:
+                self.db.execute('ROLLBACK')
+                raise
+
+    def donation_by_no(self, no):
+        r = self.db.execute('SELECT * FROM donations WHERE no = ?', (int(no),)).fetchone()
+        return dict(r) if r else None
 
     # ── 조각 ──
     def load_slices(self):
@@ -152,8 +178,12 @@ class Store:
         return dict(r) if r else None
 
     def add_donation(self, d):
-        self.db.execute('INSERT INTO donations(id, tx_id, at, name, amount, message, source, status, player, session) '
-                        'VALUES(:id, :tx_id, :at, :name, :amount, :message, :source, :status, :player, :session)', d)
+        """한 줄 넣고 그 줄 번호(no)를 돌려준다 — 번호는 넣는 순간 MAX+1(명령은 한 줄로 서서 하나씩이라 겹치지 않는다, UNIQUE 가 한 번 더 지킨다)."""
+        self.db.execute('INSERT INTO donations(id, tx_id, at, name, amount, message, source, status, player, session, no) '
+                        'VALUES(:id, :tx_id, :at, :name, :amount, :message, :source, :status, :player, :session, '
+                        '(SELECT COALESCE(MAX(no), 0) + 1 FROM donations))', d)
+        r = self.db.execute('SELECT no FROM donations WHERE id = ?', (d['id'],)).fetchone()
+        return int(r['no']) if r and r['no'] is not None else None
 
     def set_donation(self, did, **kw):
         cols = ', '.join('%s = :%s' % (k, k) for k in kw)
