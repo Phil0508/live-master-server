@@ -10,6 +10,7 @@ import { h } from '../util.js';
 import { icon } from '../icons.js';
 import { lastTile } from '../tabs.js';
 import { openBankExt } from '../bankext.js';
+import { mountBigokSettings } from '../bigok.js';   // 🛡️ 큰 금액 확인 기준 칸(10-17 bigok)
 
 // [묶음 이름, [탭 id …]] — '@bank' 는 탭이 아니라 시스템 탭 안의 은행 확장 칸으로 가는 길
 const GROUPS = [
@@ -94,16 +95,19 @@ export function mountSettings(el, ctx) {
     if (rest.length) blocks.push(h('section', { class: 'st-grp' }, h('h3', null, '그 밖'), h('div', { class: 'st-tiles' }, rest)));
 
     const outBtn = h('button', { type: 'button', class: 'btn sm st-logout', onclick: () => logout(ctx) }, icon('logout'), '로그아웃');
+    const bigok = mountBigokSettings(ctx);          // 🛡️ 큰 금액 확인 — 기준(서버 조각 bigok)
     el.classList.add('st-panel');
     el.append(
         h('div', { class: 'sec-head' }, h('h2', null, '설정'),
             h('span', { class: 'muted small' }, '자주 안 쓰는 화면을 모았어요. 타일을 누르면 열려요.')),
         ...blocks,
+        bigok.el,
         h('section', { class: 'st-grp st-out' }, h('h3', null, '이 기기'),
             h('div', { class: 'st-outrow' }, outBtn, h('span', { class: 'muted small' }, '방송은 그대로 계속돼요'))));
 
     return {
         render() {
+            bigok.render();
             const T = tabs();
             if (!T) return;
             const lt = lastTile();

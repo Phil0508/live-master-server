@@ -31,6 +31,7 @@
 import { h, won, num, manWon, splitPoints, clock } from './util.js';
 import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드의 AI 판단 · 추천 · 🚗 오토파일럿 · 오배정 경고
 import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
+import { needFor, askBig } from './bigok.js';     // 🛡️ 큰 금액은 한 번 더 확인(카드가 '보내는 중' 이 되기 **전에** 묻는다)
 
 const UNFREEZE_AFTER_TOUCH_MS = 1500;
 const REC_LEVELS = new Set(['sure', 'maybe']);     // 추천 단추를 다는 판단
@@ -259,14 +260,18 @@ export function mountPending(root, ctx) {
         // 🤖 오배정 경고 — 메시지가 다른 사람을 가리키면 한 번 묻는다(취소하면 아무것도 안 한다)
         if (names.length === 1 && !(await ai.okToGive(it, names[0]))) return;
         if (busy.has(it.id)) return;                   // 묻는 사이 다른 단추로 이미 보냈다
+        const data = names.length === 1 ? { id: it.id, name: names[0] } : { id: it.id, names };
+        // 🛡️ 큰 금액(기본 20만 원 이상) — 받을 사람 · 몇 점을 크게 보여 주고 한 번 더. [취소] 면 아무것도 안 한다
+        const big = needFor({ bigok: (ctx.slices || {}).bigok, pending: [it] }, 'pending.assign', data);   // 사람이 본 그 카드로 잰다
+        if (big && !(await askBig(ctx, [big]))) { ctx.toast('취소했어요 — 점수는 그대로예요', 'info'); return; }
+        if (busy.has(it.id)) return;
         const isC = it.kind === 'contrib';
         const parts = splitPoints(pointsOf(it), names.length);
         const what = names.map((n, i) => `${n} ${isC ? '기여도 ' : ''}+${parts[i]}${isC ? '' : '점'}`).join(' · ');
         doneLabel.set(it.id, what);
         busy.add(it.id);
         ctx.rerender();
-        const data = names.length === 1 ? { id: it.id, name: names[0] } : { id: it.id, names };
-        const res = await ctx.run('pending.assign', data);
+        const res = await ctx.run('pending.assign', data, { bigOk: true });     // 위에서 이미 물었다
         busy.delete(it.id);
         if (res.ok) {
             split.delete(it.id);

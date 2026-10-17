@@ -44,7 +44,7 @@ export async function runCommand(ctx, q, out) {
             const nm = hit[0], pts = parseInt(m[2], 10);
             const row = said(`⏳ ${nm} +${pts}점…`);
             const res = await ctx.run('score.add', { name: nm, delta: pts, list: key }, { quiet: true });
-            done(row, res.ok ? `✔ ${key === 'extra' ? '[번외] ' : ''}${nm} +${pts}점 — 틀렸으면 [되돌리기]` : `⚠️ 못 줬어요 — ${res.error || '서버 전송 오류'}`);
+            done(row, res.ok ? `✔ ${key === 'extra' ? '[번외] ' : ''}${nm} +${pts}점 — 틀렸으면 [되돌리기]` : res.cancelled ? '✖ 취소했어요 — 점수는 그대로예요' : `⚠️ 못 줬어요 — ${res.error || '서버 전송 오류'}`);   // 🛡️ 큰 점수는 ctx.run 이 한 번 묻는다(bigok)
             if (res.ok) pop(`${key === 'extra' ? '[번외] ' : ''}${nm} +${pts}점`);
             return true;
         }
