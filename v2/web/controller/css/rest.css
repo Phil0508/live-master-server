@@ -1,0 +1,63 @@
+/* ☕ 휴식 모드(js/restmode.js) — 조종 줄 [☕ 휴식] 단추 · 가장자리 초록 깜빡 · 가운데 카드. 소리 없음. */
+
+/* 조종 줄 단추 — PC 는 맨 오른쪽(에디터 뒤), 폰은 [더보기] 앞 */
+#hdr .cb .rest-btn { flex: none; gap: 4px; }
+#hdr .cb .rest-btn .rest-ic { font-size: 14px; line-height: 1; }
+#hdr .cb .rest-btn.on { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.75); color: #b9f5cf; }
+#hdr .cb .rest-btn .rest-s:empty { display: none; }
+
+/* ① 가장자리 — 화면 전체 테두리가 천천히 초록으로 깜빡(누르기는 그대로 아래로 지나간다) */
+.rest-edge {
+    position: fixed; inset: 0; z-index: 9998; pointer-events: none; border-radius: 0;
+    box-shadow: inset 0 0 0 6px rgba(46, 204, 113, 0.95), inset 0 0 48px 14px rgba(46, 204, 113, 0.55);
+    animation: rest-pulse 2.4s ease-in-out infinite;
+}
+.rest-edge[hidden] { display: none !important; }
+@keyframes rest-pulse {
+    0%, 100% { opacity: 0.18; }
+    50% { opacity: 1; }
+}
+
+/* ② 가운데 카드 — 뒤 화면은 그대로 누를 수 있다(가림막 없음) */
+.rest-card {
+    position: fixed; left: 50%; top: 50%; z-index: 9999; transform: translate(-50%, -50%);
+    width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 10px; padding: 20px 22px 18px; border-radius: 20px;
+    background: #10261a; border: 2px solid rgba(46, 204, 113, 0.9); color: #eafff1;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 0 6px rgba(46, 204, 113, 0.18); white-space: normal;
+}
+.rest-card[hidden] { display: none !important; }
+.rest-card .rest-head { font-size: 13px; font-weight: 800; color: #8ef0b8; letter-spacing: 0.01em; }
+.rest-card .rest-title { font-size: 26px; line-height: 1.3; font-weight: 900; word-break: keep-all; overflow-wrap: anywhere; }
+.rest-card .rest-sub { font-size: 14px; color: #bfe9cf; overflow-wrap: anywhere; }
+.rest-card .rest-list { margin: 2px 0 0; padding: 10px 0 0; list-style: none; border-top: 1px solid rgba(255, 255, 255, 0.14); display: flex; flex-direction: column; gap: 6px; }
+.rest-card .rest-list[hidden] { display: none; }
+.rest-card .rest-list li { font-size: 15px; font-weight: 700; color: #dff7e8; overflow-wrap: anywhere; }
+.rest-card .rest-list li.rest-left { color: #9fcfb1; font-weight: 600; }
+.rest-card .rest-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; }
+.rest-card .rest-note { color: #9fcfb1; font-size: 12px; min-width: 0; }
+.rest-card .rest-ok {
+    flex: none; min-width: 120px; min-height: 48px; padding: 0 24px; border-radius: 14px; font-size: 18px; font-weight: 900;
+    background: #2ecc71; border-color: #2ecc71; color: #062313;
+}
+.rest-card .rest-ok:hover { background: #48dd88; }
+
+@media (max-width: 899px) {
+    .rest-edge { box-shadow: inset 0 0 0 5px rgba(46, 204, 113, 0.95), inset 0 0 32px 10px rgba(46, 204, 113, 0.55); }
+    .rest-card { padding: 16px 16px 14px; border-radius: 18px; }
+    .rest-card .rest-title { font-size: 22px; }
+    .rest-card .rest-foot { flex-direction: column; align-items: stretch; }
+    .rest-card .rest-ok { width: 100%; }
+    /* 폰은 [⋯ 더보기] 판 안 한 줄(조종 줄이 꽉 참) — 켜 두면 [더보기] 에 ☕ */
+    #ctl-more .rest-btn { min-height: 40px; padding: 0 16px; font-size: 14px; }
+    #ctl-more .rest-btn.on { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.75); color: #b9f5cf; }
+    #hdr .cb-more.rest-on::before { content: '☕'; margin-right: 2px; font-size: 13px; }
+    /* ⚠️ [⋯ 더보기] 판(#ctl-more, z 95)은 머리(#hdr — sticky z 40) 안에 있어 폰 아래 서랍(#drawer z 50)보다 밑에 깔렸다
+       → 판 아래쪽 [방송 끝] · [☕ 휴식] · [로그아웃] 이 서랍에 가려 안 눌림(10-17 헤드리스로 찾음). 판이 열린 동안만 머리를 서랍 위로 */
+    #hdr:has(#ctl-more:not([hidden])) { z-index: 96; }
+}
+
+/* 움직임 줄이기 — 깜빡이지 않고 굵은 테두리로 */
+@media (prefers-reduced-motion: reduce) {
+    .rest-edge { animation: none; opacity: 1; box-shadow: inset 0 0 0 12px rgba(46, 204, 113, 1); }
+}

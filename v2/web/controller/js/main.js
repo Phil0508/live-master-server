@@ -34,6 +34,7 @@ import { mountRxSwitch } from './rxswitch.js';         // [D] import { mountRxSw
 import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BGM ▶ 가 BGM 탭을 미리 그리게(ctx.tabs.prepare)
 import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 자동 진행 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17)
 import { guardRun, askBig } from './bigok.js';           // 🛡️ 큰 금액은 한 번 더 확인 — 점수가 들어가는 명령은 ctx.run 한 곳에서 거른다(10-17 bigok)
+import { mountRest } from './restmode.js';            // ☕ 휴식 모드 — 새 입금 · 보류가 오면 가장자리 초록 깜빡 · 가운데 카드(소리 없음, 10-17)
 
 const lm = window.LM.connect({ kind: 'controller' });
 let status = 'connecting', snapped = false, slices = {}, scheduled = false;
@@ -73,6 +74,8 @@ safe(() => mountCastBox(ctx));             // 💬 castbox.js — 넘어져도 �
 safe(() => mountCmdk(ctx));                // [D] safe(() => mountCmdk(ctx)); — ⌨️ Ctrl+K(w2feat 채움)
 safe(() => mountRxSwitch($('ctl-rx'), ctx)); // [D] 🙈 리액션 모드 스위치(#ctl-rx)
 safe(() => bindBgm(ctx));                  // [D] 🎵 BGM — 조종 줄 ▶ · 제목 누르기
+let rest = null;
+safe(() => { rest = mountRest(ctx); });   // ☕ 조종 줄 [☕ 휴식](#ctl-rest) — header 뒤에(.cb 에 붙는다)
 
 // 방송 중에만 그리는 칸 — 한 줄에 하나씩(다음 작업자가 자기 줄만 더한다)
 const LIVE = [
@@ -110,6 +113,7 @@ function render() {
     if (view === 'setup') safe(() => views.setup.render(slices));
     if (view === 'live') for (const k of LIVE) if (views[k]) safe(() => views[k].render(slices));
     safe(() => syncHoldBand(slices, view));
+    if (rest) safe(() => rest.render(slices, view));
     // 탭은 방송 전에도(열린 탭만 그리므로 가볍다) — 방송 전엔 pre 표시가 있는 탭만 열린다
     if (view === 'setup' || view === 'live') safe(() => views.tabs.render(slices, view));
     // 머리 높이 — PC 는 세 칸 높이 · 왼쪽 줄 자리, 폰은 탭 줄을 머리 밑에 붙이는 데 쓴다
