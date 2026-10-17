@@ -88,6 +88,8 @@ html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidde
     background: rgba(255,255,255,0.07); color: var(--tx-2); font-size: 27px; font-weight: 800; }
 .r-name { color: #fff; font-weight: 800; font-size: 31px; letter-spacing: -0.02em; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis; padding-left: 10px; text-shadow: var(--ts-1); }
+/* 이름 칸만 block — flex 칸(.excel-row > div)은 text-overflow 의 '…' 를 안 그린다(글자가 잘리기만 했다, ovconn 10-17) */
+.excel-row > .r-name { display: block; }
 .r-score { color: #fff; font-size: 31px; font-variant-numeric: tabular-nums; text-shadow: var(--ts-1); }
 .r-contrib { color: var(--gold); font-weight: 700; font-size: 27px; font-variant-numeric: tabular-nums; padding-left: 10px; }
 .excel-row:nth-child(even) { background: rgba(255,255,255,0.03); }
@@ -147,9 +149,12 @@ html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidde
 .donation-amount { font-size: 64px; font-weight: 900; color: var(--gold); text-shadow: var(--ts-2), 0 0 28px var(--gold-glow);
     margin: 8px 0 16px; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
 .donation-amount .won { font-size: 0.56em; font-weight: 800; color: var(--tx-2); margin-left: 4px; letter-spacing: 0; }
-.donation-message { background: rgba(255, 255, 255, 0.07); border: none; border-radius: var(--r-m); padding: 14px 28px;
+/* 아주 긴 메시지는 4줄에서 … — 위아래 여백은 padding 대신 투명 테두리: 줄 제한은 높이만 줄이고 다음 줄은 그대로 그려서
+   padding 이면 5번째 줄 윗동이 여백에 비쳤다(overflow 는 padding 바깥까지 안 자른다). 바탕색은 테두리 밑까지 깔린다. */
+.donation-message { background: rgba(255, 255, 255, 0.07); border: 14px solid transparent; border-radius: var(--r-m); padding: 0 14px;
     font-size: 29px; font-weight: 600; color: rgba(235,235,245,0.85); max-width: 700px;
-    word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45; }
+    word-break: keep-all; overflow-wrap: anywhere; line-height: 1.45;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
 
 /* ═══ 6. 💬 소액 후원 띠 — 맨 위 반투명 한 줄(대표님 2026-09-29 A안) ═══
    이름 · 금액만 청록 #32C3A6, 나머지 흰 글씨에 굵은 검은 테두리(paint-order 로 글자 뒤에). 바탕 35%. */
@@ -249,10 +254,14 @@ html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidde
 .reaction-title-plate.on { display: block; }
 .reaction-text-donator { margin-top: 20px; font-size: 36px; font-weight: 900; color: #ffffff; font-family: var(--font-ui);
     text-shadow: 2.5px 2.5px 0 #000, -2.5px 2.5px 0 #000, 2.5px -2.5px 0 #000, -2.5px -2.5px 0 #000, 0 4px 15px rgba(0,0,0,0.9);
-    text-align: center; letter-spacing: -0.5px; }
-.reaction-text-message { margin-top: 16px; font-size: 32px; font-weight: 700; color: #ffffff; background: var(--glass-bg);
-    border: 2px solid var(--glass-border); padding: 12px 32px; border-radius: var(--r-m); text-shadow: var(--ts-1); font-family: var(--font-ui);
-    text-align: center; max-width: 520px; word-break: break-all; line-height: 1.45; box-shadow: var(--sh-2); display: inline-block; }
+    text-align: center; letter-spacing: -0.5px; max-width: 100%; overflow-wrap: anywhere; }
+/* 위아래 여백 = 투명 테두리(후원 카드 메시지와 같은 까닭 — padding 이면 4번째 줄이 비친다), 유리 테두리 선은 box-shadow 고리로 */
+.reaction-text-message { margin-top: 16px; font-size: 32px; font-weight: 700; color: #ffffff; background: var(--glass-bg); background-origin: border-box;
+    border: 14px solid transparent; padding: 0 20px; border-radius: var(--r-m); text-shadow: var(--ts-1); font-family: var(--font-ui);
+    text-align: center; max-width: 520px; line-height: 1.45; box-shadow: 0 0 0 2px var(--glass-border), var(--sh-2);
+    /* 후원 카드처럼 낱말은 안 자르고(keep-all) 너무 긴 낱말만 아무 데서나, 3줄 넘으면 … (break-all 은 '응원합니/다' 로 잘랐다) */
+    word-break: keep-all; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .reaction-text-message:empty { display: none; }
 /* 🔁 같은 사람 · 같은 시그니처 연속 — 사진 모서리 빨간 원에 ×N(대표님 2026-09-29 C안), '다 틀기' 면 '2 / 7' */
 .reaction-combo { position: absolute; top: -34px; right: -34px; display: none; pointer-events: none; line-height: 1; }
