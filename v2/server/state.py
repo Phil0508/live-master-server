@@ -8,6 +8,12 @@
 import copy
 
 SLICES = {}          # 이름 → (기본값 만드는 함수, 공개?, 숨김?)
+# 🙈 보여 주는 사본(view) — 장부 · 조각은 원문 그대로 두고, **내보낼 때만** 화면에 맞게 고친 사본을 만든다(mask 10-17).
+#    fn(name, value, slices, on_air) → 고친 사본 또는 None(그대로). on_air = 방송판(로그인 없음 · 방송판 종류 화면)이 받는 것.
+#    ⚠️ value 를 직접 고치지 말 것(장부에 적힌 원본이다) — 고칠 때는 사본을 만들어 돌려준다.
+VIEWS = []
+# 이 조각이 바뀌면 같이 다시 보낼 조각 — 원문은 그대로인데 보여 주는 사본이 바뀌는 경우(금칙어 · 가리기 → 팝업 · 대기줄)
+DEPENDS = {}
 
 
 def slice_(name, public, default, hidden=False):
@@ -27,6 +33,21 @@ def is_hidden(name):
     return bool(SLICES.get(name, (None, False, False))[2])
 
 
+def view(name, value, slices, on_air):
+    """내보낼 사본 — VIEWS 를 차례로. 고칠 게 없으면 원본 그대로(복사 안 함)."""
+    for fn in VIEWS:
+        try:
+            got = fn(name, value, slices, on_air)
+        except Exception as e:          # 보여 주기 실패로 방송이 멈추면 안 된다 — 방송판이면 안전하게 비운다
+            print('⚠️ [보여 주기 실패] %s: %s' % (name, type(e).__name__), flush=True)
+            got = None
+            if on_air:
+                return None
+        if got is not None:
+            value = got
+    return value
+
+
 class State:
     """지금 상태. 조각은 dict/list 로 담는다. 바꿀 때는 Work(작업본)로만 바꾼다."""
 
@@ -38,8 +59,11 @@ class State:
             self.slices[name] = v if v is not None else default(name)
         self.seq = 0
 
-    def snapshot(self, authed):
-        return {k: v for k, v in self.slices.items() if not is_hidden(k) and (authed or is_public(k))}
+    def snapshot(self, authed, on_air=None):
+        """authed — 비공개 조각까지. on_air — 방송판이 받는 사본(금칙어 가린 글). 기본은 로그인 안 했으면 방송판."""
+        on_air = (not authed) if on_air is None else on_air
+        return {k: view(k, v, self.slices, on_air) for k, v in self.slices.items()
+                if not is_hidden(k) and (authed or is_public(k))}
 
     def get(self, name):
         return self.slices[name]

@@ -42,6 +42,14 @@ async def ledger(req, bus, authed, answer):
     if q:
         rows = [r for r in rows if q in (r['name'] or '').casefold()]
     total = sum(r['amount'] for r in rows if r['status'] in COUNTED)
+    # 🙈 금칙어 · 전화 · 계좌 · 주소에 걸린 줄 — 원문(message)은 그대로, 방송에 나가는 글을 mask{hits, text} 로 곁들인다(mask.py)
+    from . import mask as mk
+    m = bus.state.get('mask')
+    out = []
+    for r in rows:
+        n = mk.note(r.get('message'), m)
+        out.append(dict(r, mask=n) if n else r)
+    rows = out
     return {'status': 'success', 'rows': rows, 'total': total, 'count': len(rows)}
 
 
