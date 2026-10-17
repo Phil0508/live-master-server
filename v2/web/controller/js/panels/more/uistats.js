@@ -5,6 +5,7 @@
      · 단추 · 탭 · 스위치를 누르면 '무엇' 만 센다. 이름 · 금액 · 입력한 글자는 안 적는다:
          보이는 글자를 쓰되 따옴표 안('하율' 을 뺄까요?) · 숫자(금액 · 시각 · 번호) · 지금 화면의 사람 이름(점수판 · 대기함)은 지운다.
          멤버 이름이 박힌 배정 단추(.pbtn)는 '멤버 단추' 하나로 묶는다. 입력칸 · 고르기 칸의 **값** 은 절대 안 본다.
+         글자가 곧 사람 이름인 단추는 data-stat="이름표" 를 달면 그 이름표로만 센다(📇 후원자 이름 · 후원자 목록 줄 — 10-17).
      · 확인 창 단추는 창 제목을 붙인다(옛 것: '확인' 65번이 어느 창인지 몰랐다).
      · 20초마다 묶어서 서버로(창을 숨길 때도 한 번 — sendBeacon). 실패하면 조용히 다음에 같이 보낸다.
        한 번에 200가지까지 · 쌓아 두는 것도 400가지까지(서버가 오래 안 받아도 메모리가 안 붓게).
@@ -66,7 +67,9 @@ export function describe(el, kind) {
     const area = areaOf(el);
     const names = namesOnScreen();
     let label;
-    if (el.classList.contains('pbtn')) label = '멤버 단추';
+    const fixed = el.getAttribute('data-stat');      // 사람 이름이 글자인 단추(📇 후원자 이름 · 목록 줄) — 정해 둔 이름표로만 센다
+    if (fixed) label = scrub(fixed, names);
+    else if (el.classList.contains('pbtn')) label = '멤버 단추';
     else if (kind === 'change') {
         // 스위치 · 고르기 — 값은 안 본다. 이름표(aria-label 또는 감싼 label 글자)만
         const lab = el.getAttribute('aria-label') || ((el.closest('label') || {}).textContent || '');

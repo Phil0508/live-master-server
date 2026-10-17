@@ -34,6 +34,8 @@ import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드
 import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
 import { needFor, askBig } from './bigok.js';     // 🛡️ 큰 금액은 한 번 더 확인(카드가 '보내는 중' 이 되기 **전에** 묻는다)
 import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from './mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
+import { donorName, donorChips } from './donorcard.js';   // 📇 후원자 딱지 · 이름 누르면 후원자 카드(10-17 후원자 장부)
+import { tagSig } from './donorcore.js';
 
 const UNFREEZE_AFTER_TOUCH_MS = 1500;
 const REC_LEVELS = new Set(['sure', 'maybe']);     // 추천 단추를 다는 판단
@@ -123,7 +125,7 @@ export function mountPending(root, ctx) {
                 list.append(c.el);                     // 새것은 일단 맨 아래(얼려 있으면 그대로 둔다)
             }
             const sel = split.get(it.id);
-            const sig = JSON.stringify([it, order, busy.has(it.id), sel ? [...sel] : null, jarOn, jarName, ai.sig(it.id), aiOpen.has(it.id), maskSig(slices, it.id)]);
+            const sig = JSON.stringify([it, order, busy.has(it.id), sel ? [...sel] : null, jarOn, jarName, ai.sig(it.id), aiOpen.has(it.id), maskSig(slices, it.id), tagSig(slices.donor_tags, it.name)]);
             if (sig !== c.sig) { fill(c.el, it, order, jarOn ? jarName : ''); c.sig = sig; }
         });
         if (!frozen) {
@@ -173,7 +175,8 @@ export function mountPending(root, ctx) {
         const q1 = h('div', { class: 'pc-head q1' },
             h('span', { class: 'pc-time' }, clock(it.at)),
             titleChip(it.donor_title),
-            h('b', { class: 'pc-name', title: it.name || '익명' }, it.name || '익명'),
+            donorName(ctx, it.name, 'pc-name'),
+            isC ? null : donorChips(ctx.slices, it.name),     // 📇 💛밍밍 전담 · 23회 — 조각이 없거나 익명이면 없음
             lvChip(it.donor_level),
             isC ? h('span', { class: 'pc-amt' }, '기여도 카드')
                 : h('span', { class: 'pc-amt' }, won(it.amount)),

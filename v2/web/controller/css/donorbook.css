@@ -1,0 +1,165 @@
+/* 📇 후원자 장부 — 이름 옆 딱지 · 후원자 카드(옆 서랍) · ⚙ 후원자 목록 탭(10-17 후원자 장부 5단계).
+   색은 controller.css 의 토큰(--accent · --line · --muted · --paper …)만 쓴다(시안 B 유리 스튜디오 · ops-theme 와 같은 값).
+   대기함 카드는 흰 종이 위(#pending) — 딱지 색을 거기서만 진하게 바꾼다. 장부 · 목록 · 카드는 어두운 유리 위. */
+
+/* ── 이름 단추(누르면 후원자 카드) — 원래 이름 칸(pc-name · rc-name) 생김새를 그대로 받는다 ── */
+.dk-link {
+    appearance: none; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: inherit;
+    text-align: left; cursor: pointer; text-decoration: underline dotted rgba(127, 127, 127, 0.55); text-underline-offset: 3px;
+}
+.dk-link:hover { color: var(--accent-hi); text-decoration-color: currentColor; }
+/* 장부 줄 이름 — .dk-link 의 font: inherit 가 .rc-name(15.5px · 800) 을 덮지 않게(이 파일이 tools_records.css 뒤에 온다) */
+.rc-name.dk-link { font-size: 15.5px; font-weight: 800; overflow-wrap: anywhere; }
+#pending .dk-link:hover { color: var(--accent-ink); }
+#pending .q1 .pc-name.dk-link { white-space: nowrap; }
+
+/* ── 딱지 ── */
+.dk-tag {
+    display: inline-flex; align-items: center; flex: 0 1 auto; min-width: 0; max-width: 100%; height: 22px; padding: 0 8px; border-radius: 999px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 800; line-height: 22px; letter-spacing: -0.2px;
+    background: rgba(255, 255, 255, 0.08); color: var(--muted); border: 1px solid var(--line-soft);
+}
+.dk-tag.t-main { background: rgba(255, 196, 61, 0.16); color: #ffd56b; border-color: rgba(255, 196, 61, 0.35); }
+.dk-tag.t-lean { background: var(--accent-soft); color: var(--gold); border-color: var(--accent-ring); }
+.dk-tag.t-multi { background: rgba(124, 178, 255, 0.14); color: #b7d3ff; border-color: rgba(124, 178, 255, 0.3); }
+.dk-tag.t-new { background: rgba(61, 220, 132, 0.13); color: #8ef0b8; border-color: rgba(61, 220, 132, 0.3); }
+.dk-tag.t-pin { background: rgba(255, 107, 107, 0.14); color: #ffb8b8; border-color: rgba(255, 107, 107, 0.35); }
+.dk-tag.t-club { background: rgba(190, 140, 255, 0.14); color: #d9c1ff; border-color: rgba(190, 140, 255, 0.3); }
+.dk-tag.t-guess { background: rgba(245, 165, 36, 0.16); color: #ffd28a; border-color: rgba(245, 165, 36, 0.4); border-style: dashed; }
+.dk-tag.t-ok, .dk-tag.t-big { background: rgba(61, 220, 132, 0.12); color: #8ef0b8; }
+.dk-tag.t-test { background: rgba(255, 255, 255, 0.06); color: var(--dim); border-style: dashed; }
+.dk-tag.t-sugg { background: rgba(124, 178, 255, 0.14); color: #b7d3ff; }
+.dk-tag.t-suspect { background: rgba(245, 165, 36, 0.12); color: #ffd28a; border-style: dashed; }
+
+/* 대기함(흰 종이 카드) — 한 줄(q1)이 좁다: 딱지가 먼저 줄어든다(말줄임, 전체는 title) */
+#pending .q1 .dk-tag { flex: 0 1000 auto; height: 18px; padding: 0 6px; font-size: 11px; line-height: 18px; min-width: 2.4em; }   /* 이름보다 먼저 줄어든다 */
+
+#pending .dk-tag { background: var(--paper-3); color: var(--ink-2); border-color: var(--paper-line); }
+#pending .dk-tag.t-main { background: #fff3cc; color: #8a5a00; border-color: #f1d690; }
+#pending .dk-tag.t-lean { background: #fff0e6; color: var(--accent-ink); border-color: #f6cdb3; }
+#pending .dk-tag.t-multi { background: #eaf2ff; color: #2b5fb4; border-color: #c9dcfb; }
+#pending .dk-tag.t-new { background: #e9f8ef; color: #1f8a52; border-color: #bfe8cf; }
+#pending .dk-tag.t-pin { background: #ffecec; color: #b42f2f; border-color: #f5c4c4; }
+#pending .dk-tag.t-club { background: #f3ecff; color: #6b45d6; border-color: #dccdfa; }
+
+/* 장부 줄 */
+.rc-line .dk-tag { height: 20px; line-height: 20px; font-size: 11.5px; }
+
+/* ── 후원자 카드 — PC 오른쪽 서랍(440px) · 폰 아래 시트(88%) ──
+   z-index: 시그 시트(80)보다 위, Ctrl+K(98) · 확인 상자(100)보다 아래 — [묶기] 가 묻는 확인 상자가 이 위에 뜬다 */
+.dk-wrap { position: fixed; inset: 0; z-index: 82; display: flex; justify-content: flex-end; background: rgba(10, 7, 6, 0.5); animation: fade 0.15s ease; }
+.dk-sheet {
+    position: relative; width: min(440px, 100vw); height: 100%; overflow-y: auto; overscroll-behavior: contain;
+    padding: 16px 18px calc(24px + env(safe-area-inset-bottom)); background: var(--panel); border-left: 1px solid var(--line);
+    box-shadow: var(--shadow); color: var(--text);
+}
+.dk-grab { display: none; }
+.dk-x { position: sticky; top: 0; float: right; z-index: 1; margin: 0 0 6px 8px; }
+.dk-loading, .dk-err { margin: 40px 0; text-align: center; }
+.dk-err { padding: 10px 12px; border-radius: 12px; background: rgba(255, 107, 107, 0.14); color: #ffb8b8; font-weight: 700; }
+.dk-head { margin: 0 0 14px; }
+.dk-label { font-size: 22px; font-weight: 900; overflow-wrap: anywhere; }
+.dk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.dk-last { margin: 4px 0 0; }
+.dk-sec { margin: 0 0 14px; padding: 12px 14px; border-radius: var(--r-m); background: rgba(255, 255, 255, 0.045); border: 1px solid var(--line-soft); }
+.dk-sec h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 14px; font-weight: 800; }
+.dk-badge {
+    display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+    background: var(--accent); color: var(--on-accent); font-size: 11.5px; font-weight: 900; font-variant-numeric: tabular-nums;
+}
+/* 멤버별 막대 */
+.dk-barlist, .dk-namelist, .dk-reclist, .dk-suglist { list-style: none; margin: 0; padding: 0; }
+.dk-bar { display: grid; grid-template-columns: minmax(56px, 88px) minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 3px 0; }
+.dk-bar-n { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; font-size: 13.5px; }
+.dk-bar-track { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.dk-bar-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--gold)); }
+.dk-bar-v { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 제안 */
+.dk-sug { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+.dk-sug:last-child { border-bottom: 0; }
+.dk-sug-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dk-sug-t .dk-link, .dk-sug-t b { font-weight: 800; overflow-wrap: anywhere; }
+.dk-sug-b { display: flex; gap: 6px; flex: none; }
+/* 닉네임 */
+.dk-nm { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
+.dk-nm:last-child { border-bottom: 0; }
+.dk-nm b { overflow-wrap: anywhere; }
+.dk-nm .btn { margin-left: auto; }
+/* 최근 후원 */
+.dk-rec { padding: 6px 0; border-bottom: 1px solid var(--line-soft); }
+.dk-rec:last-child { border-bottom: 0; }
+.dk-rec-l { display: flex; align-items: baseline; gap: 4px 10px; flex-wrap: wrap; }
+.dk-rec-a { font-variant-numeric: tabular-nums; }
+.dk-rec-to { color: var(--gold); font-weight: 700; font-size: 13.5px; overflow-wrap: anywhere; }
+.dk-rec-m { margin: 2px 0 0; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+/* 관리 */
+.dk-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+.dk-k { flex: none; width: 34px; color: var(--muted); font-size: 13px; font-weight: 700; }
+.dk-pin-sel, .db-sort, .db-cp {
+    height: 32px; min-width: 0; max-width: 100%; padding: 0 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--input);
+    color: var(--text); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.dk-pin-sel option, .db-sort option, .db-cp option { background: var(--card); color: var(--text); }
+.dk-sheet .btn.on { background: var(--accent-soft); border-color: var(--accent-ring); }   /* 서랍 안만 — 다른 탭의 .btn.on 을 건드리지 않는다 */
+.dk-notebox { display: flex; flex-direction: column; gap: 6px; }
+.dk-note {
+    width: 100%; min-height: 70px; resize: vertical; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--input);
+    color: var(--text); font: inherit; font-size: 14px;
+}
+.dk-note:focus, .dk-pin-sel:focus, .db-sort:focus, .db-cp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+.dk-note-b { display: flex; justify-content: flex-end; }
+
+/* ── ⚙ 후원자 목록 탭 ── */
+.db-panel .sec-head h2 { display: flex; align-items: center; gap: 8px; }
+.db-help { margin: -4px 0 10px; }
+.db-bar .db-q { height: 40px; font-size: 15px; }
+.db-bar .db-sort { height: 40px; flex: none; }
+.db-list { list-style: none; margin: 0; padding: 0; }
+.db-row { border-bottom: 1px solid var(--line-soft); }
+.db-row:last-child { border-bottom: 0; }
+.db-open {
+    appearance: none; display: flex; flex-direction: column; gap: 3px; width: 100%; padding: 9px 6px; border: 0; border-radius: 10px;
+    background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.db-open:hover { background: rgba(255, 255, 255, 0.05); }
+.db-l1 { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.db-name { font-size: 15.5px; font-weight: 800; overflow-wrap: anywhere; }
+.db-l2 { overflow-wrap: anywhere; }
+.db-row.test .db-name, .db-row.dormant .db-name { opacity: 0.7; }
+.db-fold { margin: 0 0 12px; padding: 10px 12px; border-radius: var(--r-m); border: 1px solid var(--line-soft); background: rgba(255, 255, 255, 0.04); }
+.db-fold > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 800; }
+.db-fold[open] > summary { margin-bottom: 8px; }
+.db-sugs { border-color: var(--accent-ring); }
+.db-pair { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px; }
+.db-clubbox { margin-top: 14px; }
+.db-clublist { list-style: none; margin: 8px 0; padding: 0; }
+.db-club { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+.db-club:last-child { border-bottom: 0; }
+.db-cword { font-weight: 800; overflow-wrap: anywhere; }
+.db-carrow { color: var(--dim); }
+.db-cwho { font-weight: 700; color: var(--gold); }
+.db-club.guess .db-cwho { color: #ffd28a; font-style: italic; }
+.db-club.no .db-cwho { color: var(--dim); font-weight: 600; }
+.db-cbtns { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.db-cadd { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.db-cadd .db-cw { height: 34px; flex: 1 1 160px; font-size: 14px; }
+
+/* ── 폰(900 아래) — 카드는 아래 시트, 단추는 손가락 크기 ── */
+@media (max-width: 899px) {
+    .dk-wrap { align-items: flex-end; justify-content: stretch; }
+    .dk-sheet {
+        width: 100%; height: auto; max-height: 88vh; padding: 10px 16px calc(20px + env(safe-area-inset-bottom));
+        border-left: 0; border-top: 1px solid var(--line); border-radius: var(--r-l) var(--r-l) 0 0;
+    }
+    .dk-grab { display: block; width: 44px; height: 5px; margin: 0 auto 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.25); }
+    /* 대기함 한 줄(q1)이 폰에선 더 좁다 — 딱지는 그림 하나만(💛 · 🧡 · 🌈 …), 팬클럽 딱지는 숨김. 전체는 title · 이름을 누르면 카드 */
+    #pending .q1 .dk-tag { flex: none; min-width: 0; max-width: 16px; padding: 0; border: 0; background: none; text-overflow: clip; font-size: 12px; }
+    #pending .q1 .dk-tag + .dk-tag { display: none; }
+    .dk-sheet .btn.xs, .db-panel .btn.xs { min-height: 34px; padding: 0 12px; font-size: 13.5px; }
+    .dk-pin-sel, .db-cp, .db-sort { height: 36px; }
+    .dk-label { font-size: 20px; }
+    .db-bar { flex-wrap: wrap; }
+    .db-bar .db-q { flex: 1 1 100%; }
+    .db-cbtns { margin-left: 0; }
+    .db-open { padding: 11px 4px; }
+}
