@@ -83,7 +83,7 @@
         const pending = new Map();            // 명령 id → {resolve, timer}
         const book = makeCidBook();           // 🔁 답을 못 받은 명령의 번호(다시 누르면 같은 번호로)
         const deadMs = opts.deadMs || DEAD_MS, tickMs = opts.tickMs || 5000;   // 검사용으로만 바꾼다
-        let ws = null, seq = -1, slices = {}, authed = false, lastMsg = 0, backoff = 1000, nextId = 1, closedByUs = false;
+        let ws = null, seq = -1, slices = {}, authed = false, lastMsg = 0, backoff = 1000, nextId = 1, closedByUs = false, openedAt = 0;
         // 서버 시계 — 쪽지에 찍힌 now 와 받은 때의 차. 늦게 온 쪽지일수록 차가 작아지므로 **가장 큰 값**이 실제에 가깝다.
         // 1분마다 조금씩 낮춰(덜 믿어) PC 시계가 움직여도 따라간다.
         let clockOff = null, clockAt = 0;
@@ -117,6 +117,7 @@
         function open() {
             closedByUs = false;
             status('connecting');
+            openedAt = Date.now();
             let sock;
             try { sock = ws = new WebSocket(url()); } catch (e) { return retry(); }
             const mine = () => ws === sock;                 // 버린 옛 소켓에서 온 것은 무시
@@ -167,8 +168,13 @@
         }
 
         // 죽은 연결 지키기 — ping 도 안 오면 버리고 곧바로 다시 붙는다(onclose 를 기다리지 않는다)
+        // 붙는 중(readyState 0)에서 멈춘 것도 같다 — 서버 · 중간 다리가 손 인사에 답을 안 하면 onclose 가 몇 분 뒤에나 와서
+        // 그동안 다시 붙기를 아예 안 했다(검토 10-17). 45초 넘게 '붙는 중' 이면 버리고 새로.
         setInterval(() => {
-            if (ws && ws.readyState === 1 && Date.now() - lastMsg > deadMs) drop();
+            if (!ws) return;
+            const t = Date.now();
+            if (ws.readyState === 1 && t - lastMsg > deadMs) drop();
+            else if (ws.readyState === 0 && t - openedAt > deadMs) drop();
         }, tickMs);
 
         open();

@@ -88,6 +88,62 @@ const snap = (ws, seq, n) => ws.onmessage({ data: JSON.stringify({ t: 'snapshot'
 })().catch(e => { console.error(e); process.exit(1); });
 """
 
+# 붙는 중(readyState 0)에서 멈춘 소켓 — 손 인사 답이 안 오면 onclose 도 몇 분 뒤에나 온다(검토 10-17)
+NODE_STUCK = r"""
+const fs = require('fs'), vm = require('vm');
+const socks = [];
+class FakeWS {
+    constructor(url) { this.url = url; this.readyState = 0; this.closed = 0; socks.push(this); }
+    send() {}
+    close() { this.closed++; }
+}
+globalThis.WebSocket = FakeWS;
+globalThis.location = { protocol: 'http:', host: 'x.test' };
+vm.runInThisContext(fs.readFileSync(process.argv[2], 'utf8'));
+const out = {};
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+(async () => {
+    const st = [];
+    const lm = LM.connect({ kind: 'controller', deadMs: 120, tickMs: 20 });
+    lm.onStatus(s => st.push(s));
+    await sleep(60);
+    out.not_too_early = socks.length === 1;                    // 기준 시간 전에는 기다린다
+    const a = socks[0], lateOpen = a.onopen, lateMsg = a.onmessage;
+    const t0 = Date.now();
+    while (socks.length < 2 && Date.now() - t0 < 2000) await sleep(5);
+    out.reopened = socks.length === 2;
+    out.old_close_tried = a.closed >= 1;
+    out.old_detached = a.onopen === null && a.onmessage === null && a.onclose === null;
+    // 옛 소켓이 뒤늦게 붙어 쪽지를 줘도 무시
+    a.readyState = 1; lateOpen(); lateMsg({ data: JSON.stringify({ t: 'snapshot', seq: 3, slices: { n: { v: 1 } } }) });
+    out.late_old_ignored = lm.get('n') === undefined && lm.seq === -1;
+    // 새 소켓은 그대로 붙는다
+    const b = socks[1]; b.readyState = 1; b.onopen();
+    b.onmessage({ data: JSON.stringify({ t: 'snapshot', seq: 4, slices: { n: { v: 2 } } }) });
+    out.new_live = lm.get('n').v === 2 && st[st.length - 1] === 'live';
+    // 붙은 소켓이 쪽지를 받는 동안엔 안 건드린다(붙는 중 기준이 붙은 뒤에 잘못 걸리지 않게)
+    for (let i = 0; i < 8; i++) { await sleep(30); b.onmessage({ data: JSON.stringify({ t: 'ping' }) }); }
+    out.live_kept = socks.length === 2;
+    lm.close();
+    console.log(JSON.stringify(out));
+    process.exit(0);
+})().catch(e => { console.error(e); process.exit(1); });
+"""
+
+
+def _run_node(case, script):
+    node = shutil.which('node')
+    if not node:
+        case.skipTest('node 가 없습니다')
+    d = tempfile.mkdtemp(prefix='lm2conn_')
+    case.addCleanup(shutil.rmtree, d, True)
+    p = os.path.join(d, 'conn_test.js')
+    with open(p, 'w', encoding='utf-8') as f:
+        f.write(script)
+    r = subprocess.run([node, p, CLIENT_JS], capture_output=True, text=True, encoding='utf-8', timeout=60)
+    case.assertEqual(r.returncode, 0, r.stderr[-2000:])
+    return json.loads(r.stdout.strip().splitlines()[-1])
+
 
 class DeadConn(unittest.TestCase):
     def test_dead_socket_reopens_without_waiting_onclose(self):
@@ -105,6 +161,12 @@ class DeadConn(unittest.TestCase):
         bad = [k for k, v in out.items() if v is not True]
         self.assertEqual(bad, [], out)
         self.assertEqual(len(out), 17)
+
+    def test_stuck_connecting_socket_is_replaced(self):
+        out = _run_node(self, NODE_STUCK)
+        bad = [k for k, v in out.items() if v is not True]
+        self.assertEqual(bad, [], out)
+        self.assertEqual(len(out), 7)
 
     def test_default_dead_time_unchanged(self):
         src = open(CLIENT_JS, encoding='utf-8').read()
