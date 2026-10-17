@@ -120,10 +120,13 @@ def _new_pid():
     return 'p_' + uuid.uuid4().hex[:10]
 
 
+PLACEHOLDER_NAMES = frozenset(bl.SKIP_NAMES)     # '익명' · '수동송출' — 사람 이름이 아니라 빈칸 대신 들어간 말(여러 사람이 한 카드로 뭉친다)
+
+
 def skip_name(name):
-    """새 카드를 안 만드는 이름 — 익명 · 시험 이름(숫자만 · Player N · 테스트)."""
+    """새 카드를 안 만드는 이름 — 익명 · 수동송출 · 시험 이름(숫자만 · Player N · 테스트)."""
     n = norm_donor(name)
-    return n == '익명' or bool(dc.test_name_reason(n))
+    return n in PLACEHOLDER_NAMES or bool(dc.test_name_reason(n))
 
 
 # ── 카드 · 닉네임 ─────────────────────────────────────────────
@@ -302,8 +305,10 @@ def _totals(db):
     return out
 
 
-def compute(db, roster_names, clubs, now=None, pids=None, totals=None):
-    """카드들의 딱지 · 부가 정보. pids 를 주면 그 카드만(배정 · 되돌리기 때). 돌려받는 값: {pid: info}"""
+def compute(db, roster_names, clubs, now=None, pids=None, totals=None, light=False):
+    """카드들의 딱지 · 부가 정보. pids 를 주면 그 카드만(배정 · 되돌리기 때). 돌려받는 값: {pid: info}
+       light=True — donor_tags 조각용(딱지 · 선수 · 팬클럽만). 장부 전체를 훑는 total_won · big 은 안 센다(0 · False)
+       — 후원 · 배정마다 불리므로 장부가 커져도 느려지지 않게."""
     ensure(db)
     now = time.time() if now is None else now
     words = club_words(clubs)
@@ -327,7 +332,7 @@ def compute(db, roster_names, clubs, now=None, pids=None, totals=None):
         q = 'SELECT donor, player, COUNT(*) AS c, MAX(at) AS last FROM donor_memory WHERE donor IN (%s) GROUP BY donor, player'
         for r in db.execute(q % ', '.join('?' * len(chunk)), tuple(chunk)):
             mem.setdefault(r['donor'], []).append((r['player'], int(r['c']), float(r['last'] or 0)))
-    tot = totals if totals is not None else _totals(db)
+    tot = totals if totals is not None else ({} if light else _totals(db))
     sugg = {}
     for r in db.execute("SELECT a, b FROM donor_suggest WHERE status = 'open'"):
         sugg[r['a']] = sugg.get(r['a'], 0) + 1
@@ -357,7 +362,11 @@ def compute(db, roster_names, clubs, now=None, pids=None, totals=None):
             'total_won': total, 'last_at': last or None, 'dormant': bool(last) and (now - last) > DORMANT_SEC,
             'names': [a['name'] for a in al], 'pin': p['pin'], 'test': int(p['test'] or 0), 'note': p['note'],
             'suspect': dc.test_name_reason(p['label']), 'sugg': sugg.get(p['pid'], 0)}
-    _mark_big(db, out, tot, whole=pids is None)
+    if light:
+        for x in out.values():
+            x['big'] = False
+    else:
+        _mark_big(db, out, tot, whole=pids is None)
     return out
 
 
@@ -501,14 +510,14 @@ def build(db, now=None, players=None, clubs=None):
         if not dc.is_real_donation(dict(r)):
             continue
         nm = norm_donor(r['name'])
-        if nm == '익명':
+        if nm in PLACEHOLDER_NAMES:
             continue
         s = seen.setdefault(nm, [float(r['at']), float(r['at']), 0, 0])
         s[0], s[1] = min(s[0], float(r['at'])), max(s[1], float(r['at']))
         s[2] += 1
     for r in db.execute('SELECT donor, COUNT(*) AS c, MIN(at) AS f, MAX(at) AS l FROM donor_memory GROUP BY donor'):
         nm = norm_donor(r['donor'])
-        if nm == '익명':
+        if nm in PLACEHOLDER_NAMES:
             continue
         s = seen.setdefault(nm, [float(r['f']), float(r['l']), 0, 0])
         s[0], s[1] = min(s[0], float(r['f'])), max(s[1], float(r['l']))
@@ -576,7 +585,7 @@ def _roster_ctx(ctx):
 def refresh_all(ctx):
     """donor_tags 통째로 다시. 실패해도 그 명령은 그대로 간다(조각만 안 바뀐다)."""
     try:
-        infos = compute(ctx.store.db, _roster_ctx(ctx), ctx.read('donor_clubs'), now=ctx.now)
+        infos = compute(ctx.store.db, _roster_ctx(ctx), ctx.read('donor_clubs'), now=ctx.now, light=True)
     except Exception as e:
         print('⚠️ [후원자 장부] 딱지 다시 계산 실패 — 그대로 둡니다: %s' % type(e).__name__, flush=True)
         return
@@ -590,7 +599,7 @@ def refresh_names(ctx, names):
         pids = {pid_of(db, n) for n in names} - {None}
         if not pids:
             return
-        infos = compute(db, _roster_ctx(ctx), ctx.read('donor_clubs'), now=ctx.now, pids=pids)
+        infos = compute(db, _roster_ctx(ctx), ctx.read('donor_clubs'), now=ctx.now, pids=pids, light=True)
     except Exception as e:
         print('⚠️ [후원자 장부] 딱지 고치기 실패 — 그대로 둡니다: %s' % type(e).__name__, flush=True)
         return
@@ -603,6 +612,19 @@ def refresh_names(ctx, names):
     for k in stale:
         t.pop(k, None)
     t.update(new)
+
+
+def _safe(fn):
+    """고리(남의 명령 안 — 후원 받기 · 배정 · 되돌리기 · 모든 명령 끝)는 무슨 일이 있어도 예외를 밖으로 안 던진다.
+       고리가 던지면 그 명령(후원 · 점수)이 통째로 되감긴다 — 장부 기록보다 후원 · 점수가 먼저다(autopilot._safe 와 같다)."""
+    def run(*a, **k):
+        try:
+            return fn(*a, **k)
+        except Exception as e:
+            print('⚠️ [후원자 장부] %s 실패 — 후원 · 점수는 그대로: %s' % (fn.__name__, type(e).__name__), flush=True)
+            return None
+    run.__name__ = fn.__name__
+    return run
 
 
 def _savepoint(db, name, fn):
@@ -626,6 +648,7 @@ def _savepoint(db, name, fn):
 
 
 # ── 고리 1: 새 후원 → 카드 · 번호표/계좌 제안 ──────────────────────
+@_safe
 def _on_donation(ctx, name, amount):
     did = ctx.notes.get('id')
     d = ctx.store.donation(did) if did else None
@@ -673,6 +696,7 @@ def _final(ctx, ref):
     return out
 
 
+@_safe
 def _after_score(ctx):
     ref = str(ctx.notes.get('ref') or '')
     if not ref.startswith('don_'):
@@ -711,17 +735,29 @@ def _after_score(ctx):
         refresh_names(ctx, [d['name']])
 
 
+@_safe
 def _on_assign(ctx, it, items, data):
     """조종실 🚗 오토파일럿(브라우저 쪽, via 'ap')이 준 것 — 사람 판단이 아니다."""
     if str((data or {}).get('via') or '') != 'ap' or not str((it or {}).get('id') or '').startswith('don_'):
         return
     try:
         ensure(ctx.store.db)
-        ctx.store.db.execute("UPDATE answer_log SET how = 'auto' WHERE ref = ?", (it['id'],))
+        # 기계가 바로 준 것 — 추천이 따로 안 붙어 있었으면 준 사람이 곧 추천(autopilot 이 준 것과 같게: guess = 첫 선수 · changed 0)
+        db = ctx.store.db
+        r = db.execute('SELECT guess, final FROM answer_log WHERE ref = ?', (it['id'],)).fetchone()
+        if r is None:
+            return
+        if r['guess'] is None:
+            first = (json.loads(r['final'] or '[]') or [None])[0]
+            db.execute("UPDATE answer_log SET how = 'auto', guess = ?, guess_how = ?, changed = ? WHERE ref = ?",
+                       (first, 'auto' if first else None, 0 if first else None, it['id']))
+        else:
+            db.execute("UPDATE answer_log SET how = 'auto' WHERE ref = ?", (it['id'],))
     except Exception:
         pass
 
 
+@_safe
 def _after_cmd(ctx):
     """🤖 autopilot 의 AI 배정 — 준 뒤에야 notes.by 가 붙는다. 그 줄의 how 를 'ai' 로."""
     if ctx.notes.get('by') != 'autopilot-ai' or not ctx.notes.get('auto_assigned'):
@@ -736,6 +772,7 @@ def _after_cmd(ctx):
         pass
 
 
+@_safe
 def _on_undo(ctx, ref):
     ref = str(ref or '')
     if not ref.startswith('don_'):
@@ -760,6 +797,7 @@ busmod.AFTER.append(_after_cmd)
 
 
 # ── 방송 시작 · 끝 — 딱지 통째로 다시 ────────────────────────────
+@_safe
 def _on_session(ctx, data):
     refresh_all(ctx)
 
@@ -941,8 +979,16 @@ async def donors_person(req, bus, authed, answer):
     m = bus.state.slices.get('mask')
     hidden = set((m or {}).get('hidden') or [])
     recent = []
-    for r in db.execute("SELECT * FROM donations WHERE status != 'display' ORDER BY at DESC"):
-        if norm_donor(r['name']) not in mine or not dc.is_real_donation(dict(r)):
+    # 장부 전체를 한 줄씩 훑지 않는다 — 이름 칸(가짓수는 사람 수만큼)만 먼저 보고, 이 카드의 장부 이름('별빛님' · '별빛 ')으로만 꺼낸다
+    raw = [r['name'] for r in db.execute('SELECT DISTINCT name FROM donations') if norm_donor(r['name']) in mine]
+    rows = []
+    for i in range(0, len(raw), 500):
+        chunk = raw[i:i + 500]
+        rows += db.execute("SELECT * FROM donations WHERE status != 'display' AND name IN (%s) ORDER BY at DESC LIMIT ?"
+                           % ', '.join('?' * len(chunk)), tuple(chunk) + (RECENT_MAX * 5,)).fetchall()
+    rows.sort(key=lambda r: -(r['at'] or 0))
+    for r in rows:
+        if not dc.is_real_donation(dict(r)):
             continue
         al = db.execute('SELECT final, undone FROM answer_log WHERE ref = ?', (r['id'],)).fetchone()
         if al and not al['undone']:
