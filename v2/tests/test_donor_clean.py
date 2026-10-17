@@ -177,9 +177,9 @@ class Relink(unittest.TestCase):
         res, _ = self._plan()
         conn = rl.open_db(self.db, write=True)
         try:
-            self.assertEqual(rl.write(conn, res['links']), {'written': 6, 'kept': 1})
+            self.assertEqual(rl.write(conn, res['links']), {'written': 6, 'kept': 1, 'stale': 0})
             snap1 = conn.execute('SELECT * FROM answer_log ORDER BY ref').fetchall()
-            self.assertEqual(rl.write(conn, res['links']), {'written': 6, 'kept': 1})   # 또 돌려도 같다
+            self.assertEqual(rl.write(conn, res['links']), {'written': 6, 'kept': 1, 'stale': 0})   # 또 돌려도 같다
             snap2 = conn.execute('SELECT * FROM answer_log ORDER BY ref').fetchall()
             self.assertEqual([tuple(r) for r in snap1], [tuple(r) for r in snap2])
             row = conn.execute("SELECT * FROM answer_log WHERE ref = 'old_a2'").fetchone()
@@ -208,6 +208,50 @@ class Relink(unittest.TestCase):
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM answer_log WHERE how = 'relink'").fetchone()[0], 7)
         finally:
             conn.close()
+
+    def test_test_player_and_stale(self):
+        # 받은 선수 칸이 'Player 2' 면 잇지 않는다 · 지난번 relink 줄이 이번 계획에 없으면 지우지 않고 센다
+        d2 = tempfile.mkdtemp(prefix='lm2rl_')
+        self.addCleanup(shutil.rmtree, d2, True)
+        db = _db(d2, [('old_b1', T0, '철수', 10000, '', 'toonation', 'archived'),
+                      ('old_b2', T0 + 50, '영희', 10000, '', 'toonation', 'archived')],
+                 [(T0 + 5, '철수', 'Player 2', 1, '', 'old:1'),
+                  (T0 + 55, '영희', '밍밍', 1, '', 'old:2')])
+        conn = rl.open_db(db, write=True)
+        try:
+            rl.ensure(conn)
+            conn.execute("INSERT INTO answer_log(ref, at, name, final, how) VALUES('old_zz', 1, '옛날', '[]', 'relink')")
+            conn.commit()
+            res = rl.plan(*rl.load(conn))
+            self.assertEqual([r['ref'] for r in res['links']], ['old_b2'])
+            self.assertEqual(res['reasons'], {'test_player': 1})
+            self.assertEqual(rl.write(conn, res['links']), {'written': 1, 'kept': 0, 'stale': 1})
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM answer_log WHERE ref = 'old_zz'").fetchone()[0], 1)
+        finally:
+            conn.close()
+
+    def test_missing_db_is_not_created(self):
+        path = os.path.join(self.dir, 'nope', 'lm2.db')
+        with self.assertRaises(SystemExit):
+            rl.open_db(path, write=True)
+        self.assertFalse(os.path.exists(path))
+
+    def test_big_ledger_is_fast(self):
+        # 큰 장부(기억 6천 줄 · 같은 사람 같은 글 연달아)에서도 몇 초 안에 끝난다
+        import time
+        dons, mem = [], []
+        for i in range(3000):
+            at = T0 + i * 20
+            dons.append({'id': 'old_c%d' % i, 'at': at, 'name': '큰손%d' % (i % 30), 'amount': 10000, 'message': '밍밍',
+                         'source': 'toonation', 'status': 'archived', 'session': ''})
+            mem.append({'id': 2 * i, 'at': at + 1, 'donor': '큰손%d' % (i % 30), 'player': '밍밍', 'amount': 1,
+                        'message': '밍밍', 'ref': 'old:%d' % i})
+            mem.append({'id': 2 * i + 1, 'at': at + 1, 'donor': '빈손%d' % (i % 30), 'player': '밍밍', 'amount': 1,
+                        'message': '밍밍', 'ref': 'old:x%d' % i})
+        t = time.time()
+        res = rl.plan(mem, dons)
+        self.assertLess(time.time() - t, 10)
+        self.assertEqual(res['counts']['links'], 3000)
 
     def test_schema_matches_spec(self):
         conn = sqlite3.connect(':memory:')

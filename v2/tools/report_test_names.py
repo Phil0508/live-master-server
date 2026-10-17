@@ -18,16 +18,20 @@
 """
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from collections import defaultdict
+from urllib.request import pathname2url
 
 from v2.server.domain.donor_clean import is_real_donation, test_name_reason, test_player_reason
 from v2.server.domain.rules import norm_donor
 
 
 def open_ro(path):
-    conn = sqlite3.connect('file:%s?mode=ro' % path, uri=True)
+    if not os.path.isfile(path):
+        raise SystemExit('장부 파일이 없습니다: %s' % path)
+    conn = sqlite3.connect('file:%s?mode=ro' % pathname2url(os.path.abspath(path)), uri=True)
     conn.execute('PRAGMA query_only = 1')
     conn.row_factory = sqlite3.Row
     return conn
@@ -48,10 +52,12 @@ def roster_of(conn):
         p = json.loads(row[0])
     except ValueError:
         return []
+    if not isinstance(p, dict):
+        return []
     out = []
     for key in ('list', 'extra'):
         for r in p.get(key) or []:
-            n = str((r or {}).get('name') or '').strip()
+            n = str((r.get('name') if isinstance(r, dict) else r) or '').strip()
             if n and n not in out:
                 out.append(n)
     return out

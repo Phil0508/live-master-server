@@ -34,9 +34,11 @@
 """
 import argparse
 import json
+import os
 import sqlite3
 import sys
 from collections import Counter, defaultdict
+from urllib.request import pathname2url
 
 from v2.server.domain.donor_clean import is_real_donation, test_name_reason
 from v2.server.domain.rules import man_won, norm_donor
@@ -58,6 +60,7 @@ ANSWER_LOG_SCHEMA = (
 # 못 이은 이유(보고서 순서)
 REASONS = (
     ('test_name', '시험 이름 후원자'),
+    ('test_player', '받은 선수 칸이 시험 이름(Player N …)'),
     ('no_name', '같은 이름 후원이 장부에 없음'),
     ('no_time', '시각이 맞는 후원 없음'),
     ('no_message', '메시지가 맞는 후원 없음'),
@@ -70,10 +73,14 @@ REASONS = (
 
 # ── 읽기 ───────────────────────────────────────────────
 def open_db(path, write=False):
+    """장부를 연다. 없는 파일이면 멈춘다(경로를 잘못 써서 빈 장부를 새로 만들지 않게)."""
+    if not os.path.isfile(path):
+        raise SystemExit('장부 파일이 없습니다: %s' % path)
     if write:
         conn = sqlite3.connect(path)
     else:
-        conn = sqlite3.connect('file:%s?mode=ro' % path, uri=True)
+        # 경로에 '?' · '#' · '%' 가 있어도 깨지지 않게 URI 로 바꾼다
+        conn = sqlite3.connect('file:%s?mode=ro' % pathname2url(os.path.abspath(path)), uri=True)
         conn.execute('PRAGMA query_only = 1')
     conn.row_factory = sqlite3.Row
     return conn
@@ -121,7 +128,8 @@ def _units(mem_old, by_name):
         if not c1:
             # 나눠 준 한 건인가 — 같은 사람 · 같은 메시지 · SPLIT_SEC 안의 줄들(아직 안 쓴 것)의 점수 합으로 다시 본다
             grp = [m]
-            for n in mem_old[i + 1:]:
+            for j in range(i + 1, len(mem_old)):          # 잘라 복사하지 않는다(큰 장부에서 느려진다)
+                n = mem_old[j]
                 if n['at'] - m['at'] > SPLIT_SEC:
                     break
                 if n['id'] not in used and n['donor'] == m['donor'] and _msg(n['message']) == msg:
@@ -175,6 +183,10 @@ def match(units, don_by_id):
     # ② 똑같은 후원 여러 건 ↔ 똑같은 기억 여러 줄 — 어느 짝이든 정답지가 같으면 시각 순으로 잇는다
     same = set()
     seen = set()
+    units_of = defaultdict(list)                        # 후원 id → 그 후원을 후보로 가진 남은 단위들(한 번만 만든다)
+    for k in open_units:
+        for d in live(k):
+            units_of[d].append(k)
     for k0 in sorted(open_units, key=lambda x: units[x]['at']):
         if k0 in seen:
             continue
@@ -185,8 +197,8 @@ def match(units, don_by_id):
                 if d in comp_d:
                     continue
                 comp_d.add(d)
-                for k2 in open_units:
-                    if k2 not in comp_u and d in live(k2):
+                for k2 in units_of[d]:
+                    if k2 not in comp_u and k2 in open_units:
                         comp_u.add(k2)
                         stack.append(k2)
         seen |= comp_u
@@ -235,11 +247,19 @@ def plan(mem, dons):
                       'source': str(d.get('source') or ''),
                       'final': [r['player'] for r in rows], 'kind': kind, 'mem_ids': [r['id'] for r in rows]})
 
+    def test_player(rows):
+        # 받은 선수 칸이 글자로 시험 이름('Player 2' …)이면 정답지에 안 넣는다 — 시험 배정을 배우면 안 된다.
+        # (고수달 · 김철수 같은 이름은 글자로 못 가른다 → 딱지 쪽이 지금 명단으로 거른다)
+        return any(test_name_reason(r['player']) for r in rows)
+
     n_direct = 0
     for ref, rows in direct.items():
         d = don_by_id[ref]
         if not is_real_donation(d):
             reasons['not_real'] += len(rows)
+            continue
+        if test_player(rows):
+            reasons['test_player'] += len(rows)
             continue
         add(d, rows, 'direct')
         n_direct += 1
@@ -247,7 +267,9 @@ def plan(mem, dons):
     units = _units(mem_old, by_name)
     linked, why, same = match(units, don_by_id)
     for k, u in enumerate(units):
-        if k in linked:
+        if k in linked and test_player(u['mem']):
+            reasons['test_player'] += len(u['mem'])
+        elif k in linked:
             add(don_by_id[linked[k]], u['mem'], 'same' if k in same else 'unique')
         else:
             reasons[why.get(k, 'ambiguous')] += len(u['mem'])
@@ -255,7 +277,8 @@ def plan(mem, dons):
     n_mem_linked = sum(len(r['mem_ids']) for r in links)
     counts = {
         'memory': len(mem), 'memory_old': len(mem_old), 'memory_linked': n_mem_linked,
-        'links': len(links), 'direct': n_direct, 'same_cluster': len(same),
+        'links': len(links), 'direct': n_direct,
+        'same_cluster': sum(1 for r in links if r['kind'] == 'same'),
         'split': sum(1 for r in links if len(r['mem_ids']) > 1 and r['kind'] != 'direct'),
         'archived_real': sum(1 for d in dons if d.get('status') == 'archived' and is_real_donation(d)),
     }
@@ -270,24 +293,28 @@ def ensure(conn):
 
 def write(conn, links):
     """정답지에 쓴다. 이미 있는 relink 줄은 새 값으로 덮고(멱등), 사람 · 기계가 적은 줄은 그대로 둔다.
-       돌려받는 값: {'written': n, 'kept': n}"""
+       '그대로 둠' 은 쓰는 문장 안(WHERE how = 'relink')에서 가린다 — 방송 중 서버가 같은 줄을 막 적어도 덮지 않는다.
+       지난번에 relink 로 적었는데 이번 계획엔 없는 줄(stale)은 지우지 않고 수만 센다.
+       돌려받는 값: {'written': n, 'kept': n, 'stale': n}"""
     ensure(conn)
     written = kept = 0
     with conn:
         for r in links:
-            row = conn.execute('SELECT how FROM answer_log WHERE ref = ?', (r['ref'],)).fetchone()
-            if row is not None and row[0] != 'relink':
-                kept += 1
-                continue
-            conn.execute(
+            cur = conn.execute(
                 'INSERT INTO answer_log(ref, at, session, name, amount, source, guess, guess_conf, guess_how, final, how,'
                 ' changed, undone) VALUES(?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, \'relink\', NULL, 0) '
                 'ON CONFLICT(ref) DO UPDATE SET at = excluded.at, session = excluded.session, name = excluded.name,'
-                ' amount = excluded.amount, source = excluded.source, final = excluded.final',
+                ' amount = excluded.amount, source = excluded.source, final = excluded.final'
+                " WHERE answer_log.how = 'relink'",
                 (r['ref'], r['at'], r['session'], r['name'], r['amount'], r['source'],
                  json.dumps(r['final'], ensure_ascii=False)))
-            written += 1
-    return {'written': written, 'kept': kept}
+            if cur.rowcount > 0:
+                written += 1
+            else:
+                kept += 1
+    refs = {r['ref'] for r in links}
+    stale = sum(1 for (ref,) in conn.execute("SELECT ref FROM answer_log WHERE how = 'relink'") if ref not in refs)
+    return {'written': written, 'kept': kept, 'stale': stale}
 
 
 # ── 보고 ───────────────────────────────────────────────
@@ -349,6 +376,8 @@ def main(argv=None):
         print(report(res, mem))
         if a.write:
             print('정답지에 씀: %(written)d줄 · 사람/기계가 적은 줄이라 그대로 둠: %(kept)d줄' % out['write'])
+            if out['write']['stale']:
+                print('⚠️ 지난번에 이었는데 이번엔 안 이어진 relink 줄 %(stale)d줄 — 지우지 않았음(확인 필요)' % out['write'])
         else:
             print('(보기만 — 쓰려면 --write)')
     return 0
