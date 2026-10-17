@@ -35,6 +35,15 @@ export function mount(root, lm, opts) {
     let swapTimer = null;
     const now = () => { try { const v = Number(lm.serverNow && lm.serverNow()); if (isFinite(v) && v > 0) return v; } catch (e) {} return Date.now(); };
 
+    // 💬 메시지가 3줄을 넘을 때만 줄 제한(.clamp — 3줄째 끝에 …). 카드가 숨어 있어도(visibility) 줄 높이는 잴 수 있다
+    function fitMsg() {
+        msgEl.classList.remove('clamp');
+        if (msgEl.style.display === 'none') return;
+        const lh = parseFloat(getComputedStyle(msgEl).lineHeight) || 43;
+        if (msgEl.scrollHeight > lh * 3 + 4) msgEl.classList.add('clamp');
+    }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMsg).catch(() => {});   // 글꼴이 늦게 오면 줄 수가 바뀐다
+
     function hide() {
         clearTimeout(swapTimer); swapTimer = null;
         card.classList.remove('show');
@@ -56,7 +65,8 @@ export function mount(root, lm, opts) {
         const msg = String(sigMsgFor(d) || d.title || '');
         const ok = !!(msg && msg !== '수동 후원 송출');
         msgEl.textContent = ok ? msg : (d.title || '');
-        msgEl.style.display = (ok || d.title) ? 'block' : 'none';
+        msgEl.style.display = (ok || d.title) ? '' : 'none';      // '' = CSS 그대로(.clamp 면 3줄 제한)
+        fitMsg();
         img.onerror = () => { img.onerror = null; img.style.display = 'none'; };
         if (d.image_url) { img.style.display = 'block'; img.src = d.image_url; }
         else { img.removeAttribute('src'); img.style.display = 'none'; }
@@ -92,7 +102,8 @@ export function mount(root, lm, opts) {
         } else if (curMsg !== msg) {
             curMsg = msg;
             msgEl.textContent = msg || head.title || '';
-            msgEl.style.display = (msg || head.title) ? 'block' : 'none';
+            msgEl.style.display = (msg || head.title) ? '' : 'none';
+            fitMsg();
         }
     }
     lm.on('queue', render);

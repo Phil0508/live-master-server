@@ -52,9 +52,14 @@ html body.view-sig.transparent { background: transparent !important; background-
     transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .sigdisp-card.show { opacity: 1; visibility: visible; transform: translate(-50%, -50%) scale(1); }
-.sigdisp-img { max-width: 100%; max-height: 480px; object-fit: contain; border-radius: 20px;
+/* 사진 높이는 창 높이 기준 — 1280x720 에서 세로 사진 + 이름 + 메시지 3줄이 다 들어가게(480px 고정이면 아래가 잘렸다) */
+.sigdisp-img { max-width: 100%; max-height: 55vh; object-fit: contain; border-radius: 20px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 25px rgba(0, 255, 204, 0.35); border: 2px solid rgba(255, 255, 255, 0.15); }
 .sigdisp-donator { margin-top: 24px; font-size: 44px; font-weight: 900; color: #ffffff; text-align: center; letter-spacing: -0.5px;
+    max-width: 100%; overflow-wrap: anywhere; word-break: keep-all;
     text-shadow: 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000, 0 4px 20px rgba(0,0,0,0.9); }
-.sigdisp-msg { margin-top: 14px; font-size: 32px; font-weight: 800; color: #00ffcc; text-align: center; word-break: break-all; padding: 0 20px;
+.sigdisp-msg { margin-top: 14px; font-size: 32px; font-weight: 800; color: #00ffcc; text-align: center; padding: 0 20px; line-height: 1.35;
+    word-break: keep-all; overflow-wrap: anywhere;   /* 방송판 시그 카드와 같은 규칙 — 낱말 중간에서 안 자른다 */
     text-shadow: 2px 2px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000, 0 0 18px rgba(0,255,204,0.7); }
+/* 3줄이 넘을 때만 줄 제한(sigdisp.js 가 .clamp 를 붙인다) — 늘 걸면 overflow:hidden 이 글자 둘레 빛(18px)을 위아래로 잘라 먹는다 */
+.sigdisp-msg.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }

@@ -2,6 +2,9 @@
    - 붙으면 통째(snapshot)를 받고, 그 뒤엔 바뀐 조각(patch)만 받는다.
    - 쪽지 번호(seq)가 하나 건너뛰면 '빠진 쪽지' — 통째를 다시 달라고 한다(resync).
    - 45초 동안 아무것도 못 받으면(서버는 15초마다 ping) 죽은 연결로 보고 다시 붙는다.
+     ⚠️ 반쯤 끊긴 연결은 close() 를 불러도 브라우저가 닫기 인사를 기다리느라 onclose 가 한참(실측 ~1분) 늦게 온다.
+        그래서 옛 소켓의 귀(onmessage · onclose · onerror)를 떼고 곧바로 새로 연다(conn 10-17) — 옛 소켓은 닫기만 시도.
+        귀를 뗐으니 두 소켓이 같이 쪽지를 넣는 일은 없고, 새 소켓은 늘 통째(snapshot)부터 받는다.
    - 끊기면 1초 · 2초 · 4초 … 최대 10초 간격으로 다시 붙는다.
    ⚠️ 옛 방송판은 연결이 반쯤 끊겨도 몰랐다(09-30). 여기선 화면이 스스로 안다.
 
@@ -79,7 +82,8 @@
         const statusSubs = [];
         const pending = new Map();            // 명령 id → {resolve, timer}
         const book = makeCidBook();           // 🔁 답을 못 받은 명령의 번호(다시 누르면 같은 번호로)
-        let ws = null, seq = -1, slices = {}, authed = false, lastMsg = 0, backoff = 1000, nextId = 1, closedByUs = false;
+        const deadMs = opts.deadMs || DEAD_MS, tickMs = opts.tickMs || 5000;   // 검사용으로만 바꾼다
+        let ws = null, seq = -1, slices = {}, authed = false, lastMsg = 0, backoff = 1000, nextId = 1, closedByUs = false, openedAt = 0;
         // 서버 시계 — 쪽지에 찍힌 now 와 받은 때의 차. 늦게 온 쪽지일수록 차가 작아지므로 **가장 큰 값**이 실제에 가깝다.
         // 1분마다 조금씩 낮춰(덜 믿어) PC 시계가 움직여도 따라간다.
         let clockOff = null, clockAt = 0;
@@ -113,9 +117,13 @@
         function open() {
             closedByUs = false;
             status('connecting');
-            try { ws = new WebSocket(url()); } catch (e) { return retry(); }
-            ws.onopen = () => { backoff = 1000; lastMsg = Date.now(); };
-            ws.onmessage = ev => {
+            openedAt = Date.now();
+            let sock;
+            try { sock = ws = new WebSocket(url()); } catch (e) { return retry(); }
+            const mine = () => ws === sock;                 // 버린 옛 소켓에서 온 것은 무시
+            sock.onopen = () => { if (!mine()) return; backoff = 1000; lastMsg = Date.now(); };
+            sock.onmessage = ev => {
+                if (!mine()) return;
                 lastMsg = Date.now();
                 let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
                 clock(m.now);
@@ -133,8 +141,20 @@
                     if (p) { clearTimeout(p.timer); pending.delete(m.id); p.resolve(m); }
                 }
             };
-            ws.onclose = () => { status('down'); if (!closedByUs) retry(); };
-            ws.onerror = () => { try { ws.close(); } catch (e) {} };
+            sock.onclose = () => { if (!mine()) return; status('down'); if (!closedByUs) retry(); };
+            sock.onerror = () => { try { sock.close(); } catch (e) {} };
+        }
+
+        /* 죽은 소켓 버리기 — 귀를 떼고 닫기만 시도, 기다리지 않고 바로 새로 연다 */
+        function drop() {
+            const old = ws;
+            ws = null;
+            if (old) {
+                old.onopen = old.onmessage = old.onclose = old.onerror = null;
+                try { old.close(); } catch (e) {}
+            }
+            status('down');
+            if (!closedByUs) open();
         }
 
         function retry() {
@@ -147,10 +167,15 @@
             return false;
         }
 
-        // 죽은 연결 지키기 — ping 도 안 오면 끊고 다시 붙는다
+        // 죽은 연결 지키기 — ping 도 안 오면 버리고 곧바로 다시 붙는다(onclose 를 기다리지 않는다)
+        // 붙는 중(readyState 0)에서 멈춘 것도 같다 — 서버 · 중간 다리가 손 인사에 답을 안 하면 onclose 가 몇 분 뒤에나 와서
+        // 그동안 다시 붙기를 아예 안 했다(검토 10-17). 45초 넘게 '붙는 중' 이면 버리고 새로.
         setInterval(() => {
-            if (ws && ws.readyState === 1 && Date.now() - lastMsg > DEAD_MS) { try { ws.close(); } catch (e) {} }
-        }, 5000);
+            if (!ws) return;
+            const t = Date.now();
+            if (ws.readyState === 1 && t - lastMsg > deadMs) drop();
+            else if (ws.readyState === 0 && t - openedAt > deadMs) drop();
+        }, tickMs);
 
         open();
 
@@ -187,7 +212,7 @@
                     .then(m => { book.settled(sig, cid); return m; })
                     .catch(() => { book.unsure(sig, cid); return { ok: false, error: '서버에 닿지 않습니다' }; });
             },
-            close() { closedByUs = true; try { ws.close(); } catch (e) {} },
+            close() { closedByUs = true; try { if (ws) ws.close(); } catch (e) {} },
         };
     }
 
