@@ -276,7 +276,8 @@ function scoreView(ctx, session) {
     function merge(list) {
         const out = [], at = new Map();
         for (const r of list) {
-            const k = r.ref + '|' + r.player + '|' + r.list;
+            // 되돌린 줄과 다시 준 줄(같은 후원을 되돌린 뒤 다시 배정 — 같은 ref)은 따로 — 합치면 '+10 · 안 되돌림' 으로 보인다(undopick 10-17)
+            const k = r.ref + '|' + r.player + '|' + r.list + '|' + (r.undone ? 'u' : '');
             let e = at.get(k);
             if (!e) {
                 e = { key: 'g' + r.id, at: r.at, t: hms(r.at), player: r.player, pre: LIST_TAG[r.list] || '', score: null, contrib: null,

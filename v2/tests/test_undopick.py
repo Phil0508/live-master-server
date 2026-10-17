@@ -159,6 +159,11 @@ class Controller(unittest.TestCase):
         led = code(read('js', 'panels', 'records', 'ledger.js'))
         self.assertIn("session === 'current' && !!(ctx.slices.session || {}).live", led)
 
+    def test_ledger_regiven_not_merged_with_undone(self):
+        # 되돌린 뒤 같은 후원을 다시 주면 같은 ref — 장부 점수 기록에서 회색 줄과 새 줄을 합치면 안 된다('+10 · 안 되돌림')
+        led = code(read('js', 'panels', 'records', 'ledger.js'))
+        self.assertIn("const k = r.ref + '|' + r.player + '|' + r.list + '|' + (r.undone ? 'u' : '');", led)
+
     def test_outside_text_is_text(self):
         # 후원자 이름 · 선수 이름은 h()(textContent)로만 — undo.js 의 innerHTML 은 고정 글자(SHOW 숫자)뿐
         self.assertNotIn('innerHTML', code(read('js', 'undopick.js')))
