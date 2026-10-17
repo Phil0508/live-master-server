@@ -7,10 +7,13 @@
    - 후원을 준 것을 되돌리면 그 후원은 대기함으로 돌아온다(서버가 한다) — 알림에 그렇게 적는다.
    - 최근 기록: 마지막 10줄 — "하율 +5 (3→8)"
    - 시안 B(10-17): 큰 단추를 작은 가로 단추로 — PC 는 대기함 제목 줄 오른쪽, 폰은 서랍 머리(drawer.js 가 section#undo 를 옮긴다).
-     '무엇' 글자는 말줄임, 전체는 단추 title. 누르는 길(score.undo {ref} · 끝난 번외 판 확인)은 그대로. */
+     '무엇' 글자는 말줄임, 전체는 단추 title. 누르는 길(score.undo {ref} · 끝난 번외 판 확인)은 그대로.
+   - 골라 되돌리기(undopick 10-17): 로그 탭 줄마다 [↩] — undopick.js askUndo(화면 안 확인 상자 → score.undo {그 줄 ref}).
+     되돌린 줄(서버 조각 logs_undone)도 시각 순서대로 섞어 회색 '되돌림' 으로 보인다(단추 없음). */
 import { h, signed, num, clock } from './util.js';
+import { askUndo, byLabel, undoBusy } from './undopick.js';
 
-const SHOW = 10;
+const SHOW = 30;
 
 export function describe(l) {
     const pre = l.list === 'extra' ? '[번외] ' : '';
@@ -42,7 +45,7 @@ export function mountUndo(root, logsRoot, ctx) {
             <span class="tx"><b>되돌리기</b><small class="what">되돌릴 것이 없어요</small></span>
         </button>`;
     logsRoot.innerHTML = `
-        <div class="sec-head"><h2>최근 기록</h2><span class="muted small">마지막 ${SHOW}줄</span></div>
+        <div class="sec-head"><h2>최근 기록</h2><span class="muted small">마지막 ${SHOW}줄 · 줄마다 [↩] 로 그 줄만 되돌려요</span></div>
         <ol class="loglist"></ol>
         <p class="empty">아직 기록이 없어요</p>`;
     const btn = root.querySelector('.undo-btn');
@@ -96,16 +99,26 @@ export function mountUndo(root, logsRoot, ctx) {
             }
             const tip = '되돌리기 — ' + what.textContent;
             if (btn.title !== tip) btn.title = tip;
-            const key = JSON.stringify(logs.slice(0, SHOW));
+            // 살아 있는 줄 + 되돌린 줄(회색)을 시각 순서로 — 같은 시각이면 살아 있는 줄이 위
+            const undone = (slices.logs_undone || []).map(l => Object.assign({}, l, { undone: true }));
+            const live = !!(slices.session || {}).live;
+            const all = logs.concat(undone).sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0)).slice(0, SHOW);
+            const key = JSON.stringify([all, live, busy, all.map(l => undoBusy(l.ref))]);
             if (key === lastKey) return;
             lastKey = key;
-            empty.hidden = logs.length > 0;
-            ol.replaceChildren(...logs.slice(0, SHOW).map(l => h('li', { class: 'log' + ((l.val || l.cval || 0) < 0 ? ' neg' : '') },
-                h('span', { class: 'lt' }, clock(l.at, true)),
-                h('span', { class: 'lx' }, describe(l)),
-                h('span', { class: 'ls tag plain' + (l.by === 'autopilot-ai' ? ' by-ai' : '') },
-                    l.list === 'bottom' ? '운영비' : (l.kind === 'contrib' ? (l.why || '기여도')
-                        : l.by === 'autopilot-ai' ? '🤖 AI 가 줌' : l.by === 'auto' ? '🤖 자동' : source(l.ref))))));
+            empty.hidden = all.length > 0;
+            ol.replaceChildren(...all.map(l => {
+                const by = byLabel(l.by);
+                const tag = l.undone ? '되돌림' + (by ? ' · ' + by : '') : l.list === 'bottom' ? '운영비' : (l.kind === 'contrib' ? (l.why || '기여도') : by || source(l.ref));
+                return h('li', { class: 'log pick' + ((l.val || l.cval || 0) < 0 ? ' neg' : '') + (l.undone ? ' undone' : ''), 'data-ref': l.ref || '' },
+                    h('span', { class: 'lt' }, clock(l.at, true)),
+                    h('span', { class: 'lx' }, describe(l)),
+                    h('span', { class: 'ls tag plain' + (!l.undone && l.by === 'autopilot-ai' ? ' by-ai' : '') + (l.undone ? ' undone-tag' : '') }, tag),
+                    l.undone || !live || !l.ref ? h('span', { class: 'lu-none', 'aria-hidden': 'true' }) :
+                        h('button', { type: 'button', class: 'btn xs lu-btn', disabled: undoBusy(l.ref),
+                            title: '이 줄만 되돌리기 — ' + describe(l), 'aria-label': '되돌리기: ' + describe(l),
+                            onclick: () => askUndo(ctx, l.ref) }, '↩ 되돌리기'));
+            }));
         },
     };
 }
