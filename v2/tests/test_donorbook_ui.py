@@ -107,6 +107,14 @@ class Wiring(unittest.TestCase):
         self.assertNotIn('clubSet(r.word, null, false', src)
         self.assertIn("/api/donors/book?all=1", src)          # 🧪 시험 카드도 받아야 거르기에서 다시 풀 수 있다
 
+    def test_name_buttons_not_in_click_stats(self):
+        # 리뷰(10-17) — 글자가 곧 후원자 이름인 단추는 클릭 세기(📊 ui_clicks)에 이름이 안 가게 data-stat 이름표를 단다
+        for p in NEW[1:]:
+            src = code(read(*p))
+            for m in re.finditer(r"h\('button', \{[^}]*class: '[^']*(?:dk-link|db-open)[^']*'[^}]*\}", src):
+                self.assertIn("'data-stat':", m.group(0), '/'.join(p) + ' ' + m.group(0)[:120])
+        self.assertIn("getAttribute('data-stat')", read('js', 'panels', 'more', 'uistats.js'))
+
     def test_routes_and_commands_from_spec_only(self):
         src = '\n'.join(code(read(*p)) for p in NEW)
         routes = set(re.findall(r"'(/api/[a-z/_]+)", src))

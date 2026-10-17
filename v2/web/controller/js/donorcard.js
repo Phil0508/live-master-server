@@ -24,7 +24,7 @@ export function donorName(ctx, name, cls, shown) {
     const text = shown || name || '익명';
     const e = tagFor((ctx.slices || {}).donor_tags, name);
     if (!e || !e.pid) return h('b', { class: cls, title: text }, text);
-    return h('button', { type: 'button', class: cls + ' dk-link', title: text + ' — 누르면 후원자 카드',
+    return h('button', { type: 'button', class: cls + ' dk-link', title: text + ' — 누르면 후원자 카드', 'data-stat': '후원자 이름',
         onclick: ev => { ev.stopPropagation(); openDonor(ctx, e.pid); } }, text);
 }
 
@@ -145,7 +145,7 @@ function paint(ctx, s, p) {
             const noBtn = h('button', { type: 'button', class: 'btn xs', onclick: () => act(ctx, 'donor.suggest_reject', { id: g.id }, '다른 사람으로 둘게요', noBtn) }, '아니에요');
             return h('li', { class: 'dk-sug' },
                 h('div', { class: 'dk-sug-t' },
-                    g.other_pid ? h('button', { type: 'button', class: 'dk-link dk-sug-name', onclick: () => openDonor(ctx, g.other_pid) }, g.other_label || g.other_pid)
+                    g.other_pid ? h('button', { type: 'button', class: 'dk-link dk-sug-name', 'data-stat': '제안 — 다른 카드 열기', onclick: () => openDonor(ctx, g.other_pid) }, g.other_label || g.other_pid)
                         : h('b', null, g.other_label || '?'),
                     h('span', { class: 'muted small' }, whyText(g.why) + (g.detail ? ' · ' + g.detail : ''))),
                 h('div', { class: 'dk-sug-b' }, mergeBtn, noBtn));

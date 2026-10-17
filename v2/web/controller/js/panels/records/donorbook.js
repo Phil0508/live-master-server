@@ -120,7 +120,7 @@ export function mountDonorBook(el, ctx) {
         const others = names.filter(n => n !== p.label);
         li.className = 'db-row' + (p.test ? ' test' : '') + (p.dormant ? ' dormant' : '');
         li.replaceChildren(
-            h('button', { type: 'button', class: 'db-open', title: (p.label || '') + ' — 후원자 카드 열기', onclick: () => openDonor(ctx, p.pid) },
+            h('button', { type: 'button', class: 'db-open', title: (p.label || '') + ' — 후원자 카드 열기', 'data-stat': '후원자 목록 줄', onclick: () => openDonor(ctx, p.pid) },
                 h('span', { class: 'db-l1' },
                     h('b', { class: 'db-name' }, p.label || '(이름 없음)'),
                     c ? h('span', { class: c.cls, title: c.title }, c.text) : null,
@@ -175,9 +175,9 @@ export function mountDonorBook(el, ctx) {
             return h('li', { class: 'dk-sug' },
                 h('div', { class: 'dk-sug-t' },
                     h('span', { class: 'db-pair' },
-                        a ? h('button', { type: 'button', class: 'dk-link', onclick: () => openDonor(ctx, a) }, al) : h('b', null, al),
+                        a ? h('button', { type: 'button', class: 'dk-link', 'data-stat': '제안 — 카드 열기', onclick: () => openDonor(ctx, a) }, al) : h('b', null, al),
                         h('span', { class: 'muted', 'aria-hidden': 'true' }, ' ⇄ '),
-                        b ? h('button', { type: 'button', class: 'dk-link', onclick: () => openDonor(ctx, b) }, bl) : h('b', null, bl)),
+                        b ? h('button', { type: 'button', class: 'dk-link', 'data-stat': '제안 — 카드 열기', onclick: () => openDonor(ctx, b) }, bl) : h('b', null, bl)),
                     h('span', { class: 'muted small' }, whyText(g.why) + (g.detail ? ' · ' + g.detail : ''))),
                 h('div', { class: 'dk-sug-b' }, mergeBtn, noBtn));
         }));
