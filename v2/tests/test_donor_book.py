@@ -69,8 +69,10 @@ class Cards(BookBase):
         self.give('Player 1')
         self.give('달빛', tx='toon_t2_x1')                    # 시험 후원
         self.give('해빛', amount=0)
-        for n in ('익명', '1111', 'Player 1', '달빛', '해빛'):
+        for n in ('익명', 'Player 1', '달빛', '해빛'):
             self.assertIsNone(self.pid(n), n)
+        # 숫자만 이름은 카드를 만든다 — 진짜 큰돈일 수 있다('12' = 431만 원). 화면엔 '시험 의심' 으로만(10-17 합치며)
+        self.assertIsNotNone(self.pid('1111'))
 
     def test_same_key_suggests_but_never_merges(self):
         self.give('영원', donor_key=KEY_A)
