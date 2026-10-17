@@ -1,0 +1,10 @@
+/* 🔤 Pretendard — 방송판 · 조종실 기본 글꼴(옛 화면은 jsdelivr 에서 받았다). 10-17 v2 로 갈아타며 우리 서버에 둠 —
+   OBS 를 켤 때 바깥(CDN)을 기다리지 않게. 가변 글꼴 한 벌(두께 45~920, 2MB) — 한 번 받으면 브라우저가 기억한다.
+   Pretendard v1.3.9 · Copyright (c) 2021 Kil Hyung-jin · SIL Open Font License 1.1 (자유롭게 쓰고 함께 내보낼 수 있다). */
+@font-face {
+  font-family: 'Pretendard';
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+  src: url(PretendardVariable.woff2) format('woff2-variations'), url(PretendardVariable.woff2) format('woff2');
+}
