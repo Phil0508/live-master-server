@@ -12,16 +12,25 @@
    - 🏷️ 투네이션 공식 칭호 알약(이름 위 한 줄) · 이름 뒤 Lv — popup.donation 의 donor_title · donor_level(옛 44584ff, ../donate_kit.js).
    - ↻ popup.donation.encore(조종실 '다시 송출', 10-17) — 카드 위 '↻ 다시 보기' 딱지. 화면에만 한 번 더(장부 · 점수엔 안 든다).
    다른 위젯에 주는 것(stage.provide('donationCard')):
-     show({name, amount, message}) → 카드가 내려가는 순간 끝나는 Promise(시그니처가 그때 시작한다)
-     busy() → 카드가 떠 있거나 줄이 있으면 true · onIdle(fn) → 줄이 다 비면 부른다
+     show({name, amount, message, rq}) → 카드가 내려가는 순간 끝나는 Promise(시그니처가 그때 시작한다).
+         시그니처가 부탁한 카드(rq)는 줄 맨 앞에 선다 — 시그니처가 일반 카드 뒤로 밀리지 않게(10-17)
+     busy() → 카드가 **떠 있으면**(사라지는 0.4초 포함) true. 줄 선 카드는 안 센다(10-17 — 옛 것은 줄까지 세어 시그가 계속 밀렸다)
+     onIdle(fn) → 줄이 다 비면 부른다
      retext(rq, message) → 시그니처 줄(rq id)로 띄운 카드 · 줄 선 카드의 메시지만 바꾼다
+   🚦 시그니처와 차례(10-17, 규칙은 ../turns.js cardTurn): 시그가 가운데에 있는 동안(줄어들기 전 · 'OO업' · 전용 연출 · 경보)은
+     새 카드를 안 꺼낸다(옛 것은 시그 카드 밑에 깔렸다) · 시그가 틀 차례를 기다리면 새 카드보다 먼저 넘긴다.
+     시그니처 쪽은 stage.use('sigCenter') — {center(), wants(), kick(), onFree(fn)}. 시그니처 칸이 없는 화면이면 옛 것 그대로.
+   🔌 다시 붙을 때(10-17): 끊긴 사이 들어온 카드를 서버 popup.recent(최근 몇 개, id 와 함께)에서 아직 안 본 것 · 30초 안의 것만
+     차례로 띄운다(옛 것은 popup.donation 한 칸이라 마지막 하나만 떴다). 시그니처가 걸린 후원(sig)은 빼고.
    - 🙈 [가리기] · 금칙어(10-17 mask): 서버는 가린 글만 보낸다. 같은 후원(id)이 메시지만 바뀌어 다시 오면
      떠 있는 카드 · 줄 선 카드의 글자만 바꾼다(카드를 다시 띄우지 않는다). */
-import { esc, formatNum, classifyDonation } from '../util.js';
+import { esc, formatNum, classifyDonation, FRESH_MS } from '../util.js';
 import { donorTag, donorLv } from '../donate_kit.js';
+import { cardTurn, pendingCards, cardKey } from '../turns.js';
 
 export const HOLD_MS = 2000;     // 카드가 떠 있는 시간(옛 2초) — 바꾸려면 여기 하나만
 const GAP_MS = 450;              // 사라지는 연출(0.4초) + 숨 고르기
+const SEEN_MAX = 200;            // 본 후원 열쇠를 이만큼만 기억한다(서버 popup.recent 보다 넉넉히)
 
 /* 👑 등급 찾기 — tallies.vip 의 열쇠는 서버 norm_donor 와 같은 규칙(공백 정리 · 끝 '님' 떼기)으로 다듬은 이름 */
 function vipKey(x) {
@@ -57,7 +66,7 @@ export function mount(root, lm, opts) {
     const queue = [];
     const idleFns = [];
     let busy = false;
-    let seen;                    // 마지막으로 본 후원(id) — 같은 것이 다시 와도 한 번만
+    const seen = new Set();      // 본 후원(id) — 같은 것이 다시 와도 한 번만(다시 붙어 받은 popup.recent 도)
     let shown = null;            // 지금 떠 있는 카드의 d
 
     /* 🙈 같은 후원의 메시지가 바뀌었다(가리기 · 금칙어) — 줄 선 것 · 떠 있는 것의 글자만 */
@@ -145,9 +154,28 @@ export function mount(root, lm, opts) {
         msgEl.style.display = msg ? '' : 'none';
     }
 
+    /* 🚦 시그니처 쪽 사정 — 칸이 없거나 넘어지면 '없음' 으로 본다(카드가 멈추지 않게) */
+    function sigState() {
+        const sig = opts.stage.use('sigCenter');
+        if (!sig) return { sig: null, center: false, wants: false };
+        let center = false, wants = false;
+        try { center = !!sig.center(); } catch (e) {}
+        try { wants = !!sig.wants(); } catch (e) {}
+        return { sig, center, wants };
+    }
+
     function next() {
-        if (busy) return;
-        const it = queue.shift();
+        let s = sigState();
+        let turn = cardTurn({ busy, queued: queue.length, sigCenter: s.center, sigWants: s.wants });
+        if (turn === 'yield') {
+            // 시그가 차례를 기다린다 — 새 카드를 꺼내기 전에 먼저 넘긴다. 시그가 카드를 부탁하면 그 카드가 맨 앞으로 와서
+            // 아래 재귀 next() 가 이미 띄웠다(busy). 시그가 곧장 시작하면 가운데를 잡는다(center). 둘 다 아니면 그냥 카드를 띄운다.
+            try { s.sig.kick(); } catch (e) { console.error('[후원 카드] 시그니처에 차례 넘기기 실패 — 카드를 띄운다:', e); }
+            s = sigState();
+            turn = cardTurn({ busy, queued: queue.length, sigCenter: s.center, sigWants: false });
+        }
+        if (turn === 'wait' || turn === 'center') return;         // 'center' — 시그가 비키면 onFree 가 다시 부른다
+        const it = turn === 'show' ? queue.shift() : null;
         if (!it) { idleFns.slice().forEach(fn => { try { fn(); } catch (e) {} }); return; }
         busy = true;
         shown = it.d;
@@ -171,27 +199,58 @@ export function mount(root, lm, opts) {
     }
 
     function enqueue(d, done) {
-        queue.push({ d, done });
+        // 🚦 시그니처가 부탁한 카드(rq)는 맨 앞 — 시그가 일반 카드 뒤로 밀리지 않게(줄 선 다른 시그 카드보다는 뒤)
+        if (d && d.rq) {
+            let i = 0;
+            while (i < queue.length && queue[i].d && queue[i].d.rq) i++;
+            queue.splice(i, 0, { d, done });
+        } else {
+            queue.push({ d, done });
+        }
         next();
     }
 
     opts.stage.provide('donationCard', {
         show(d) { return new Promise(resolve => enqueue(d || {}, resolve)); },
-        busy() { return busy || queue.length > 0; },
+        busy() { return busy; },
         onIdle(fn) { idleFns.push(fn); },
         retext(rq, message) { if (rq) retext(d => d && d.rq === rq, message); },
     });
+    // 🚦 시그니처가 가운데를 비우면 다시 본다(시그니처 칸이 나중에 붙어도 되게 한 박자 뒤에 건다)
+    setTimeout(() => { const sig = opts.stage.use('sigCenter'); if (sig && sig.onFree) sig.onFree(() => next()); }, 0);
+
+    function remember(keys) {
+        keys.forEach(k => { seen.delete(k); seen.add(k); });
+        while (seen.size > SEEN_MAX) seen.delete(seen.values().next().value);
+    }
 
     lm.on('popup', (pop, slices) => {
         const d = pop && pop.donation;
-        if (!d) return;
-        const key = d.id || String(d.at);
-        if (key === seen) { if (d.id) retext(x => x && x.id === d.id, d.message); return; }   // 🙈 가리기 · 금칙어로 글만 바뀜
-        seen = key;
-        if (!opts.isFresh(d.at)) return;                        // 다시 붙었을 때 지난 후원
-        if (!((slices.session || {}).live)) return;             // 방송 중이 아니면 알림 없음(옛 것과 같다)
-        if (classifyDonation(d, slices.queue) !== 'card') return;
+        // 🔌 최근 카드 알림(서버 popup.recent — 오래된 순). 옛 서버라 없으면 donation 한 칸만
+        let list = Array.isArray(pop && pop.recent) ? pop.recent.slice() : [];
+        if (d && !list.some(x => x && cardKey(x) === cardKey(d))) list.push(d);
+        if (!list.length) return;
+        // 🙈 이미 본 후원이 다시 왔다 — 가리기 · 금칙어로 글만 바뀐 것. 떠 있는 · 줄 선 카드의 글자만
+        list.forEach(x => { if (x && x.id && seen.has(cardKey(x))) retext(y => y && y.id === x.id, x.message); });
+        const streaming = opts.isFresh(0);                      // 실시간 쪽지면 true, 붙은 직후 통째면 false
+        const live = !!((slices.session || {}).live);
+        let fresh;
+        if (streaming) {
+            // 실시간 — 새로 온 것만(보통 하나). 시그니처 갈래는 옛 것 그대로 대기줄로 가린다(classifyDonation)
+            const keys = list.map(cardKey).filter(Boolean);
+            fresh = list.filter(x => x && cardKey(x) && !seen.has(cardKey(x)));
+            remember(keys);
+        } else {
+            // 다시 붙음 · 처음 붙음 — 아직 안 본 것 · 30초 안의 것만 차례로(../turns.js pendingCards)
+            const r = pendingCards(list, seen, Date.now(), FRESH_MS);
+            fresh = r.fresh;
+            remember(r.keys);
+        }
+        if (!live) return;                                      // 방송 중이 아니면 알림 없음(옛 것과 같다)
         if (!opts.stage.alertOn('popup')) return;               // 조종실 알림 스위치 [후원 팝업]
-        enqueue(d);
+        fresh.forEach(x => {
+            if (classifyDonation(x, slices.queue) !== 'card') return;
+            enqueue(x);
+        });
     });
 }
