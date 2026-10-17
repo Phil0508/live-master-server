@@ -42,6 +42,27 @@ const nine = { list: Array.from({ length: 9 }, (_, i) => ({ name: 'p' + i, score
 eq(view({ home: { on: true }, players: nine, show: { stage: 'quiz' } }), ['home', 'thin'], '퀴즈 + 9명 → 얇은 판(네모칸 700 에 안 닿게)');
 eq(view({ home: { on: true }, players: nine, show: { stage: null } }), ['home', 'big'], '퀴즈가 아니면 9명도 큰 판');
 
+// 2-1) 퇴근빵은 GOAL 줄만큼 길다 — 퀴즈(700) · 대결판(795) 위끝에 닿으면 얇은 판(10-17 연습 서버에서 잰 아래끝 6명 695 · 7명 755 · 8명 815)
+const many = k => ({ list: Array.from({ length: k }, (_, i) => ({ name: 'p' + i, score: 0 })) });
+const hellOf = k => ({ on: true, shown: true, goals: Object.fromEntries(Array.from({ length: k }, (_, i) => ['p' + i, 10])), base: {} });
+eq([6, 7, 8].map(k => V.homeBottom(k)), [695, 755, 815], '퇴근빵 큰 판 아래끝(잰 값)');
+for (const [k, st, want] of [[6, 'quiz', 'big'], [7, 'quiz', 'thin'], [8, 'quiz', 'thin'], [10, 'quiz', 'thin'],
+                             [6, 'match', 'big'], [7, 'match', 'big'], [8, 'match', 'thin'], [10, 'match', 'thin'],
+                             [10, null, 'big'], [10, 'roulette', 'big'], [10, 'slot', 'big']]) {
+    eq(view({ home: { on: true }, players: many(k), show: { stage: st } }), ['home', want], '퇴근빵 ' + k + '명 + ' + st);
+}
+// 지옥탈출은 그대로 — 퀴즈 중 8명까지 큰 판, 대결 중엔 몇 명이든 큰 판
+for (const [k, st, want] of [[8, 'quiz', 'big'], [9, 'quiz', 'thin'], [10, 'match', 'big']]) {
+    eq(view({ hell: hellOf(k), players: many(k), show: { stage: st } }), ['hell', want], '지옥 ' + k + '명 + ' + st);
+}
+// 편집기에서 옮긴 자리를 따른다 — 퀴즈를 아래(900)로 내리면 8명도 큰 판 · 퇴근빵을 0.8배로 줄이면 7명 + 퀴즈도 큰 판
+eq(view({ home: { on: true }, players: many(8), show: { stage: 'quiz' }, layout: { widgets: { quiz: { y: 900 } } } }), ['home', 'big'], '퀴즈를 내리면 큰 판');
+eq(view({ home: { on: true }, players: many(7), show: { stage: 'quiz' }, layout: { widgets: { homeRace: { scale: 0.8 } } } }), ['home', 'big'], '퇴근빵을 줄이면 큰 판');
+eq(view({ home: { on: true }, players: many(6), show: { stage: 'match' }, layout: { widgets: { match: { y: 600 } } } }), ['home', 'thin'], '대결판을 올리면 6명도 얇은 판');
+// 기본 위끝이 층 표와 같은지(표를 고치면 여기 숫자도)
+const byId = Object.fromEntries(L.LAYERS.map(x => [x.id, x]));
+eq([byId.quiz.y, byId.match.y, byId.homeRace.y], [V.BELOW.quiz.y, V.BELOW.match.y, 167], '퀴즈 · 대결 · 퇴근빵 기본 자리 = 층 표');
+
 // 3) 계좌 · 안내 전광판이 비키는 조건 — 지옥 판이 떠 있어도 비킨다(옛 75644ae 의 겹침)
 eq(A.AWAY_STAGES.includes('home_race') || A.AWAY_STAGES.includes('hell'), false, '무대 목록에 옛 이름이 없다');
 const lm = o => ({ get: S(o) });
