@@ -14,6 +14,8 @@ import { donationsCsv, scoresCsv, sessionStamp, fileName, kst } from './csv.js';
 import { askReplay, canReplay } from '../../replay.js';     // ↻ 다시 송출(방송 화면에만 한 번 더 — 10-17)
 import { askUndo, byLabel, undoBusy } from '../../undopick.js';   // ↩ 골라 되돌리기(점수 기록 줄마다 — undopick 10-17)
 import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from '../../mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
+import { donorName, donorChips } from '../../donorcard.js';   // 📇 후원자 딱지 · 이름 누르면 후원자 카드(10-17 후원자 장부)
+import { tagSig } from '../../donorcore.js';
 
 const CSV_MAX = 2000;           // 서버가 한 번에 주는 끝(/api/ledger · /api/scores limit)
 
@@ -152,7 +154,8 @@ function donationView(ctx, session) {
             h('span', { class: 'rc-time' }, r.t),
             h('div', { class: 'rc-main' },
                 h('div', { class: 'rc-line' },
-                    h('b', { class: 'rc-name' }, r.name || '익명'),
+                    donorName(ctx, r.name, 'rc-name'),
+                    donorChips(ctx.slices, r.name),
                     h('span', { class: 'rc-amt' }, won(r.amount)),
                     h('span', { class: 'tag ' + cls }, label),
                     r.player ? h('span', { class: 'rc-to' }, '→ ' + r.player) : null,
@@ -223,7 +226,7 @@ function donationView(ctx, session) {
         const hid = hiddenSet(ctx.slices);
         const view = pick.slice(0, shown).map(r => ({
             key: r.id, t: hms(r.at), name: r.name, amount: r.amount, status: r.status, player: r.player || '',
-            message: r.message || '', src: SOURCE[r.source] || '', no: r.no || 0,
+            message: r.message || '', src: SOURCE[r.source] || '', no: r.no || 0, dt: tagSig(ctx.slices.donor_tags, r.name),
             // 🙈 걸린 메시지는 가린 글(⚠ 누르면 원문) · 가린 후원은 흐리게 — 다시 송출 기록 줄은 원래 줄에서 가린다
             shown: r.message ? shownText(r) : '', hid: hid.has(r.id), ms: maskSig(ctx.slices, r.id),
             canHide: session === 'current' && !!r.message && String(r.id || '').startsWith('don_') && r.source !== 'replay',
@@ -517,7 +520,7 @@ export function mountLedger(el, ctx) {
             const s = slices.session || {};
             const lbl = s.id ? (s.live ? '방송 중 · ' : '마지막 방송 · ') + sessionLabel(s.id) : '아직 방송 기록이 없어요';
             if (label.textContent !== lbl) label.textContent = lbl;
-            const now = { pending: slices.pending, tallies: slices.tallies, logs: slices.logs, session: slices.session, mask: slices.mask };
+            const now = { pending: slices.pending, tallies: slices.tallies, logs: slices.logs, session: slices.session, mask: slices.mask, donor_tags: slices.donor_tags };
             const changed = k => seen[k] !== undefined && seen[k] !== now[k];
             if (changed('session') && (s.id || '') !== sid) {
                 // 회차가 바뀌었다 — 지금 보는 칸을 새 회차로
@@ -528,7 +531,8 @@ export function mountLedger(el, ctx) {
             }
             if (changed('pending') || changed('tallies')) { dirty.cur = true; dirty.past = true; }
             if (changed('logs')) { dirty.scores = true; dirty.past = true; }
-            if (changed('mask')) { dirty.cur = true; if (cur && cur.loaded) cur.draw(); }   // 🙈 가리기는 바로 · 금칙어가 바뀌면 다시 받아 가린 글도 새로
+            if (changed('mask')) { dirty.cur = true; if (cur && cur.loaded) cur.draw(); }
+            if (changed('donor_tags') && cur && cur.loaded) cur.draw();     // 📇 딱지만 바뀌었다 — 다시 받지 않고 줄만 다시   // 🙈 가리기는 바로 · 금칙어가 바뀌면 다시 받아 가린 글도 새로
             seen = now;
             if (dirty[mode]) refreshSoon();
             if (mode === 'past') past.draw();

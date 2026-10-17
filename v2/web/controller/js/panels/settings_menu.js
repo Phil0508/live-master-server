@@ -16,7 +16,7 @@ import { mountBigokSettings } from '../bigok.js';   // 🛡️ 큰 금액 확인
 const GROUPS = [
     ['방송 화면', ['ops-stage', 'ops-notice', 'ops-fundjar', 'ops-screen', 'ops-media', 'ops-mask']],
     ['시그니처 · 연출', ['sig-admin', 'sig-monitor', 'fx-lights', 'ops-opfx', 'clip']],
-    ['기록', ['ledger', 'donors', 'check', 'monthly', 'uistats']],
+    ['기록', ['ledger', 'donorbook', 'donors', 'check', 'monthly', 'uistats']],
     ['AI · 자동', ['ai', 'auto']],
     ['시스템', ['ops-bot', 'ops-version', 'ops-system', '@bank', 'ops-migrate']],
 ];
@@ -34,6 +34,7 @@ const DESC = {
     'ops-opfx': '배너 · 번쩍 · 충격파 연출 쏘기',
     clip: '지금 순간 저장 · OBS 연결',
     ledger: '이번 방송 후원 · 점수 기록',
+    donorbook: '누구 팬인지 딱지 · 같은 사람 묶기 · 팬클럽 사전',
     donors: '후원 순위 · 순위에서 빼기',
     check: '방송 전 점검표',
     monthly: '이번 달 후원 순위',

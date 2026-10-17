@@ -6,10 +6,12 @@ import { mountBgmPanel } from './records/bgm.js';
 import { mountLedger } from './records/ledger.js';
 import { mountDonors } from './records/donors.js';
 import { mountChecklist } from '../alarm.js';
+import { mountDonorBook, donorBadge } from './records/donorbook.js';   // 📇 후원자 목록(⚙ 설정 → 기록) — 10-17 후원자 장부
 
 export const PANELS = [
     { id: 'bgm', label: 'BGM', icon: '🎵', group: 'bgm', rail: true, pre: true, mount: (el, ctx) => mountBgmPanel(el, ctx) },
     { id: 'ledger', label: '장부', icon: '📒', group: 'records', pre: true, mount: (el, ctx) => mountLedger(el, ctx) },
     { id: 'donors', label: '후원자', icon: '👑', group: 'records', mount: (el, ctx) => mountDonors(el, ctx) },
+    { id: 'donorbook', label: '후원자 목록', icon: '📇', group: 'records', pre: true, mount: (el, ctx) => mountDonorBook(el, ctx), badge: () => donorBadge() },
     { id: 'check', label: '점검', icon: '🛫', group: 'records', pre: true, mount: (el, ctx) => mountChecklist(el, ctx) },
 ];
