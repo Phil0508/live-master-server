@@ -1,0 +1,58 @@
+/* 🎬 엔딩 크레딧(widgets/credits/credits.js) — 1080×1920 방송판 기준 큰 글씨. 층(z)은 groups/credits.js 표에서만.
+   테마를 입으면(#canvas.themed) 바탕은 그 테마 판 속(--frame-fill), 글꼴 · 글자색은 테마 것(--face-* · --ink-*)을 따라간다.
+   ⚠️ 여기서 칸(.layer-*) z-index 를 쓰지 않는다(test_sturdy_layers). */
+
+.cr-root { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: #07060c;
+    opacity: 0; visibility: hidden; transition: opacity .8s ease, visibility 0s linear .8s; }
+.cr-root.show { opacity: 1; visibility: visible; transition: opacity .8s ease; }
+.cr-bg { position: absolute; inset: 0;
+    background: radial-gradient(120% 60% at 50% 0%, rgba(var(--gold-rgb, 246, 196, 83), .16) 0%, rgba(0, 0, 0, 0) 60%),
+                radial-gradient(90% 50% at 50% 100%, rgba(var(--gold-rgb, 246, 196, 83), .10) 0%, rgba(0, 0, 0, 0) 65%),
+                linear-gradient(180deg, #0b0a14 0%, #07060c 100%); }
+/* 위 · 아래 가장자리는 부드럽게 사라진다 */
+.cr-view { position: absolute; inset: 0;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 150px, #000 calc(100% - 150px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 150px, #000 calc(100% - 150px), transparent 100%); }
+.cr-roll { position: absolute; left: 0; top: 0; width: 100%; padding: 0 60px; box-sizing: border-box; text-align: center;
+    will-change: transform; transform: translate3d(0, 1920px, 0);
+    font-family: var(--font-ui); color: var(--ink-name, #ffffff); }
+
+.cr-head { padding-bottom: 150px; }
+.cr-kick { font-size: 30px; font-weight: 800; letter-spacing: 12px; color: var(--ink-label, var(--gold, #f6c453)); opacity: .85; }
+.cr-title { margin-top: 26px; font-family: var(--face-big, var(--font-ui)); font-weight: var(--big-weight, 900);
+    font-size: 84px; line-height: 1.18; color: var(--gold, #f6c453); text-shadow: 0 4px 18px rgba(0, 0, 0, .55);
+    overflow-wrap: anywhere; word-break: keep-all; }
+.cr-sub { margin-top: 26px; font-size: 40px; font-weight: 700; color: var(--ink-soft, rgba(245, 245, 247, .82)); }
+
+.cr-grp { padding-bottom: 140px; }
+.cr-gl { font-size: 30px; font-weight: 800; letter-spacing: 4px; color: var(--ink-label, var(--gold, #f6c453)); opacity: .9; }
+.cr-gt { margin: 10px 0 40px; font-family: var(--face-name, var(--font-ui)); font-weight: var(--name-weight, 900);
+    font-size: 76px; line-height: 1.15; color: var(--gold-light, #ffe9b0); text-shadow: 0 3px 14px rgba(0, 0, 0, .5);
+    overflow-wrap: anywhere; word-break: keep-all; }
+.cr-gt.soft { font-size: 60px; }
+.cr-names { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 60px; }
+.cr-names li { display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+.cr-names b { font-family: var(--face-name, var(--font-ui)); font-weight: var(--name-weight, 800); font-size: 54px; line-height: 1.25;
+    color: var(--ink-name, #ffffff); text-shadow: 0 2px 10px rgba(0, 0, 0, .6); overflow-wrap: anywhere; }
+.cr-names span { font-family: var(--face-num, var(--font-ui)); font-weight: var(--num-weight, 700); font-size: 34px; line-height: 1.2;
+    color: var(--ink-num, rgba(245, 245, 247, .7)); font-variant-numeric: tabular-nums; }
+
+.cr-anon { padding-bottom: 120px; font-size: 42px; font-weight: 700; color: var(--ink-soft, rgba(245, 245, 247, .82)); word-break: keep-all; }
+.cr-outro { font-family: var(--face-big, var(--font-ui)); font-weight: var(--big-weight, 900); font-size: 72px; line-height: 1.25;
+    color: var(--gold, #f6c453); text-shadow: 0 4px 18px rgba(0, 0, 0, .55); word-break: keep-all; overflow-wrap: anywhere;
+    padding-bottom: 40px; }
+.cr-root.at-end .cr-outro { animation: crGlow 2.4s ease-in-out infinite alternate; }
+@keyframes crGlow { from { filter: brightness(1); } to { filter: brightness(1.25); } }
+
+/* 🎀 테마를 입었으면 — 바탕은 테마 판 속, 그 위 글씨는 테마 글자색(밝은 테마는 진한 글씨) */
+#canvas.themed .cr-bg { background: var(--frame-fill, var(--glass-bg)), #07060c; }
+#canvas.themed-light .cr-root { background: #ffffff; }
+#canvas.themed-light .cr-bg { background: var(--frame-fill, #ffffff), #ffffff; }
+#canvas.themed-light .cr-title, #canvas.themed-light .cr-outro { color: var(--ink-label, #6b2150); text-shadow: none; }
+#canvas.themed-light .cr-gt { color: var(--ink-name, #3a1030); text-shadow: none; }
+#canvas.themed-light .cr-names b { text-shadow: none; }
+
+/* 크레딧이 덮는 동안 — 그 위 층에 뜨던 알림 무리는 내린다(후원 카드 · 소액 띠 · 시그니처 · 한마디 · 조종실 연출은 그대로) */
+#canvas.credits-mode :is(.layer-scorePopup, .layer-takeover, .layer-goalBanner, .layer-offwork, .layer-castUp, .layer-fxMoon) {
+    opacity: 0 !important; visibility: hidden !important;
+}

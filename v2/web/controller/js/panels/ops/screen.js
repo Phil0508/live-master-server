@@ -6,6 +6,7 @@
      끝 화면: 오늘의 기록 — 방송 중엔 방송판이 지금 조각으로 그리고, 방송을 끝내는 순간 서버가 한 장 얼린다
    ⚠️ 적는 중인 칸 · 고쳐 놓고 아직 저장 안 한 칸은 서버 값으로 덮지 않는다. */
 import { h, sigOf, onEnter, setVal, once, switchEl, blockHead, fill } from './common.js';
+import { mountCredits } from './credits.js';      // 🎬 엔딩 크레딧(10-17) — 이 탭 맨 아래 칸
 
 const ACC = [['bank', '은행', '예) 국민', 20], ['acc_num', '계좌번호', '예) 123456-78-901234', 40], ['name', '예금주', '예) 홍길동', 20]];
 
@@ -83,6 +84,7 @@ export function mountScreen(el, ctx) {
             namesBox,
             h('div', { class: 'ops-row wrap' }, bStart, bEnd, bOff)),
     );
+    const credits = mountCredits(el, ctx);
 
     function playerNames(slices) {
         const list = (((slices.players || {}).list) || []).map(r => r.name).filter(Boolean);
@@ -123,6 +125,7 @@ export function mountScreen(el, ctx) {
 
     let lastAcc = '', lastScr = '', lastNames = '';
     function render(slices) {
+        credits.render(slices);
         const a = slices.account || {};
         accSw.set(!!((slices.show || {}).hud || {}).account);
         const asig = sigOf(a.bank, a.acc_num, a.name);
