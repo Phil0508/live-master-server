@@ -10,6 +10,7 @@
  *    은행 화면이 조금 바뀌어도 덜 깨지고, 대표님 계좌 화면을 미리 보지 않고도 만들 수 있다.
  * 검사: tests/bankwatch_test.js(아래 순수 도구) · bank-watch/test/mock_ibk.html(가짜 은행 화면)
  */
+const INTERVALS = [5, 10, 15, 20, 30, 60];   // 0.5 — 5 · 10 · 15초 더함(대표님 10-17 '5초', 평소 10초에 30번도 눌러 봄)
 (function () {
   'use strict';
 
@@ -171,7 +172,7 @@
 
   // 🧪 가짜 은행 화면(내 PC 의 시험 페이지)에서만 3초 간격 — 진짜 은행 주소에서는 절대 안 켜진다
   const FAST = /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && /awfast=1/.test(location.search);
-  const VER = '0.4.0';
+  const VER = '0.5.0';
   const STALL_MS = 150 * 1000;   // 조회를 누르는데 표가 이만큼 안 바뀌면 '끊김'(은행이 조용히 로그아웃시킨 것)
   const KEY = 'aw1';
   const DEF = {
@@ -291,10 +292,12 @@
      자정 뒤 입금이 표에 안 나온다. [조회] 앞에 있는 날짜 칸 중 마지막(=끝 날짜)이 오늘보다 앞이면 오늘로 고친다.
      ⚠️ 미래 날짜거나 날짜 모양이 아니면 손대지 않는다. 시작 날짜는 그대로 둔다(표가 통째로 바뀌지 않게). */
   const pad2 = (n) => String(n).padStart(2, '0');
-  function rollEndDate(doc, btn) {
+  // '2026.10.18' · '20261018' → '10/18'
+  function fmtDay(v) { const d = String(v || '').replace(/\D/g, ''); return d.length >= 8 ? (parseInt(d.slice(4, 6), 10) + '/' + parseInt(d.slice(6, 8), 10)) : String(v || ''); }
+  function rollEndDate(doc, btn, dry) {
     const re = /^(\d{4})([.\-/]?)(\d{2})\2(\d{2})$/;
     let ins = Array.from(doc.querySelectorAll('input')).filter((i) => re.test((i.value || '').trim()) && visible(i));
-    if (!ins.length) return rollEndSelects(doc, btn);
+    if (!ins.length) return rollEndSelects(doc, btn, dry);
     if (btn) { const before = ins.filter((i) => i.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING); if (before.length) ins = before; }
     const end = ins[ins.length - 1];
     const mm = end.value.trim().match(re);
@@ -302,6 +305,7 @@
     const want = d.getFullYear() + mm[2] + pad2(d.getMonth() + 1) + mm[2] + pad2(d.getDate());
     const cur = end.value.trim();
     if (cur === want || cur.replace(/\D/g, '') > want.replace(/\D/g, '')) return { found: true, changed: false };
+    if (dry) return { found: true, changed: false, needs: true, from: cur, to: want };   // 0.5 — 대표님이 [바꾸기]를 누를 때까지 안 바꾼다
     end.value = want;
     end.dispatchEvent(new Event('input', { bubbles: true }));
     end.dispatchEvent(new Event('change', { bubbles: true }));
@@ -309,7 +313,7 @@
   }
   // 기업 인터넷뱅킹: 조회기간이 [년▾][월▾][일▾] ~ [년▾][월▾][일▾] 고르기 칸이다(10-14 실측). [조회] 앞 마지막 묶음 = 끝 날짜.
   //  (그 위 '월별조회' 는 [년▾][월▾] 둘뿐이라 묶음이 안 된다)
-  function rollEndSelects(doc, btn) {
+  function rollEndSelects(doc, btn, dry) {
     let sels = Array.from(doc.querySelectorAll('select')).filter(visible);
     if (btn) { const before = sels.filter((x) => x.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING); if (before.length) sels = before; }
     const n = (x) => parseInt(x.value, 10);
@@ -324,6 +328,7 @@
     const cur = n(y) * 10000 + n(mo) * 100 + n(da);
     const want = d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     if (cur >= want) return { found: true, changed: false };
+    if (dry) return { found: true, changed: false, needs: true, from: String(cur), to: String(want) };
     // ⚠️ 은행 화면은 '오늘'까지만 고르기 칸에 넣어 둔다(14일이면 1~14일). 자정을 넘기면 15일이 목록에 없어서 붙인다.
     const setTo = (x, v) => {
       let o = Array.from(x.options).find((op) => parseInt(op.value, 10) === v);
@@ -404,7 +409,10 @@
         notes.push('조종실에서 자동 조회 ' + (on ? '켬' : '끔'));
       } else if (c.t === 'interval') {
         const sec = parseInt(c.sec, 10);
-        if ([20, 30, 60].indexOf(sec) >= 0) { out.interval = sec; notes.push('조종실에서 간격 ' + sec + '초'); }
+        if (INTERVALS.indexOf(sec) >= 0) { out.interval = sec; notes.push('조종실에서 간격 ' + sec + '초'); }
+      } else if (c.t === 'roll_date') {
+        out.rollNow = true; press = true;
+        notes.push('조종실에서 조회 날짜를 오늘로 바꾸기');
       } else if (c.t === 'rebase') {
         out.baseAt = 0; out.baseSig = ''; rescan = true;
         notes.push('조종실에서 기준 다시 잡기 — 지금 표의 줄은 알리지 않아요');
@@ -515,9 +523,12 @@
     }
     S.clicks += 1;
     try {
-      const rd = rollEndDate(document, btn);
+      const rd = rollEndDate(document, btn, !S.rollNow);   // 0.5 — 자정이 지나면 먼저 묻는다(대표님 10-17 '물어보고 바꾸기')
       S.dateOk = rd.found;
-      if (rd.changed) note('조회 끝 날짜를 오늘로 바꿈 (' + rd.from + ' → ' + rd.to + ')');
+      if (rd.changed) { note('📅 조회 날짜를 바꿨어요 (' + fmtDay(rd.from) + ' → ' + fmtDay(rd.to) + ')'); S.dateNotice = { to: rd.to, at: Date.now() }; S.dateAsk = ''; }
+      else if (rd.needs) { if (S.dateAsk !== rd.to) note('📅 날짜가 바뀌었어요 — 조회 날짜를 ' + fmtDay(rd.to) + ' 로 바꿀까요?'); S.dateAsk = rd.to; }
+      else S.dateAsk = '';
+      S.rollNow = false;
     } catch (e) {}
     await save();
     render();
@@ -543,6 +554,11 @@
         .bx{width:320px;max-width:calc(100vw - 24px);box-sizing:border-box;font:13px/1.45 'Pretendard','Malgun Gothic',sans-serif;color:#f6f1ec;background:#221a16f2;border:1px solid rgba(255,255,255,.13);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.45);overflow:hidden}
         .bx.dead{background:#3a1717f5;border-color:#ff6b6b}
         .top{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;user-select:none}
+        .sw{border:0;border-radius:999px;padding:5px 12px;font:inherit;font-weight:900;font-size:12px;background:#5a4a42;color:#e8dcd4;cursor:pointer;white-space:nowrap}
+        .sw.on{background:#2fae66;color:#fff}
+        .ask{margin:6px 0;padding:8px 10px;border-radius:10px;background:rgba(245,165,36,.16);color:#ffd28a;line-height:1.5}
+        .ask button{margin-top:6px}
+        .okn{margin:6px 0;padding:8px 10px;border-radius:10px;background:rgba(47,174,102,.18);color:#9ff0c0}
         .dot{width:14px;height:14px;border-radius:50%;background:#8c8078;flex:none;box-shadow:0 0 0 4px rgba(140,128,120,.18)}
         .dot.ok{background:#3ddc84;box-shadow:0 0 0 4px rgba(61,220,132,.18)}
         .dot.warn{background:#f5a524;box-shadow:0 0 0 4px rgba(245,165,36,.2)}
@@ -572,7 +588,7 @@
       </style>
       <div class="toast" hidden></div>
       <div class="bx">
-        <div class="top" data-a="fold" title="누르면 펼치기 · 접기"><span class="dot"></span><span class="t"><span class="t1">엔젤 입금확인</span><small class="t2">살펴보는 중…</small></span><span class="cnt">입금 0</span><button class="fold" data-a="fold" title="펼치기 · 접기">▾</button></div>
+        <div class="top" data-a="fold" title="누르면 펼치기 · 접기"><span class="dot"></span><span class="t"><span class="t1">엔젤 입금확인</span><small class="t2">살펴보는 중…</small></span><span class="cnt">입금 0</span><button class="sw" data-a="toggle" title="자동 조회 켜기 · 끄기">꺼짐</button><button class="fold" data-a="fold" title="펼치기 · 접기">▾</button></div>
         <div class="bd"></div>
         <div class="lk">
           <details><summary class="mut">방송 서버 연결</summary>
@@ -633,7 +649,7 @@
     const f = lastFound;
     return {
       v: VER, enabled: !!S.enabled, interval: S.interval, clicks: S.clicks, lastOkAt: S.lastOkAt || 0, startedAt: S.startedAt || 0,
-      dateOk: S.dateOk === undefined ? null : !!S.dateOk, status: b.t1, cls: b.cls, dead: b.dead,
+      dateOk: S.dateOk === undefined ? null : !!S.dateOk, dateAsk: S.dateAsk || '', dateNotice: S.dateNotice || null, baseAt: S.baseAt || 0, status: b.t1, cls: b.cls, dead: b.dead,
       loggedOut: !f && looksLoggedOut(), rows: f ? f.rows.length : 0, diag: f && !f.rows.length ? (f.diag || '') : '',
       found: S.found.slice(0, 8).map((d) => ({ at: d.at, when: d.when, dep: d.dep, memo: (d.memo || []).join(' · ').slice(0, 40) })),
       log: S.log.slice(0, 6),
@@ -648,6 +664,8 @@
     ui.root.querySelector('.t2').textContent = b.t2;
     ui.root.querySelector('.cnt').textContent = '입금 ' + S.found.length;
     ui.bx.classList.toggle('dead', b.dead);
+    const sw = ui.root.querySelector('.sw');
+    if (sw) { sw.textContent = S.enabled ? '● 켜짐 · ' + S.interval + '초' : '○ 꺼짐'; sw.classList.toggle('on', !!S.enabled); }
   }
   function tick() {
     if (!ui) return;
@@ -677,6 +695,9 @@
   function render(flash) {
     if (!ui) return;
     paintBar();
+    // 0.5 — 간격 목록을 펼쳐 고르는 중이면 몸통을 다시 그리지 않는다(다시 그리면 목록이 닫혀 '선택이 안 됨' — 10-17)
+    const act = ui.root.activeElement;
+    if (act && act.getAttribute && act.getAttribute('data-a') === 'interval') { if (flash && S.found.length) showToast(S.found[0]); return; }
     if (flash && S.found.length) showToast(S.found[0]);
     // 접혀 있어도 몸통은 채워 둔다(보이지만 않는다) — 상태 글은 1초마다 그 자리에서 고친다
     ui.bd.style.display = S.folded ? 'none' : '';
@@ -698,9 +719,11 @@
       <div class="st ${cls}">${esc(st)}</div>
       <div class="st ln ${ncls}">${esc(nt)}</div>
       ${order}
+      ${S.dateAsk ? `<div class="ask">📅 <b>날짜가 바뀌었어요.</b> 조회 날짜를 <b>${esc(fmtDay(S.dateAsk))}</b> 로 바꿀까요?<br><span class="mut">바꾸기 전에는 자정 뒤에 들어온 입금이 표에 안 보여요.</span><br><button data-a="rolldate">날짜 바꾸기</button></div>` : ''}
+      ${S.dateNotice && now - S.dateNotice.at < 30 * 60 * 1000 ? `<div class="okn">📅 조회 날짜를 <b>${esc(fmtDay(S.dateNotice.to))}</b> 로 바꿨어요 · ${hhmm(S.dateNotice.at)}</div>` : ''}
       <div class="row">
         <button data-a="toggle" class="${S.enabled ? 'on' : ''}">${S.enabled ? '자동 조회 끄기' : '자동 조회 켜기'}</button>
-        <select data-a="interval">${[20, 30, 60].map((s) => `<option value="${s}" ${S.interval === s ? 'selected' : ''}>${s}초마다</option>`).join('')}</select>
+        <select data-a="interval">${INTERVALS.map((s) => `<option value="${s}" ${S.interval === s ? 'selected' : ''}>${s}초마다</option>`).join('')}</select>
         <button data-a="teach" title="자동으로 못 찾을 때 — 누른 뒤 은행 화면의 [조회]를 한 번 누르세요">${teach ? '은행 [조회]를 눌러 주세요…' : '버튼 지정'}</button>
       </div>
       <div class="mut">${up}조회 ${S.clicks}번 · 마지막 정상 ${hhmm(S.lastOkAt)} · 판 ${VER}</div>
@@ -708,7 +731,8 @@
       <div><b>새 입금</b> <span class="mut">(후원 콘솔 '계좌 입금 추천' 칸으로 보내요 — 송출은 거기서)</span></div>
       ${deps || '<div class="mut">아직 없어요. 다른 통장에서 1,000원을 보내 보세요</div>'}
       <details><summary class="mut">기록</summary><ul class="mut">${S.log.slice(0, 12).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></details>
-      <div class="row"><button data-a="clear">상자 기록 지우기</button></div>`;
+      <div class="row"><button data-a="rebase" title="지금 표에 있는 줄은 입금으로 안 알려요 — 계좌 · 기간을 바꾼 뒤에">기준 다시 잡기</button><button data-a="clear">상자 기록 지우기</button></div>
+      <div class="mut">기준: ${S.baseAt ? hhmm(S.baseAt) + ' 에 잡음' : '아직(다음 조회 때 잡아요)'}</div>`;
   }
 
   async function saveLink() {
@@ -738,6 +762,8 @@
       else note('자동 조회 끔');
     }
     if (a === 'teach') { teach = !teach; }
+    if (a === 'rolldate') { await save(); await applyCmds([{ t: 'roll_date' }]); return; }
+    if (a === 'rebase') { await save(); await applyCmds([{ t: 'rebase' }]); return; }
     if (a === 'clear') { S.found = []; S.log = []; S.clicks = 0; note('시험 기록을 지웠어요'); }
     document.documentElement.setAttribute('data-aw-on', S.enabled ? '1' : '0');
     await save();
@@ -754,6 +780,7 @@
       S = await load();
       S.interval = parseInt(e.target.value, 10) || 30;
       note('간격 ' + S.interval + '초');
+      try { e.target.blur(); } catch (_) {}
       await save(); render(); schedule();
     });
   }

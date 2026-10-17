@@ -359,7 +359,7 @@ class Inbox(Base):
 
     def test_mirror_and_cmds(self):
         K = self.key()
-        state = {'v': '0.4.0', 'enabled': True, 'interval': 30, 'clicks': 12, 'lastOkAt': 1760000000000, 'startedAt': 1759990000000,
+        state = {'v': '0.5.0', 'enabled': True, 'interval': 30, 'clicks': 12, 'lastOkAt': 1760000000000, 'startedAt': 1759990000000,
                  'dateOk': True, 'status': '자동 조회 중 · 30초마다 · 다음 12초 뒤', 'cls': 'ok', 'dead': False, 'rows': 8,
                  'found': [{'at': 1760000000000, 'when': '2026-10-14 17:08:40', 'dep': 20000, 'memo': '스트밍밍플러' + '가' * 60}] * 12,
                  'log': ['17:08:52 새 입금 20,000원 스트밍밍플러'] * 10, 'secret_extra': 'x' * 500}
@@ -386,6 +386,7 @@ class Inbox(Base):
         self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'reboot'}, headers=H).status_code, 400)
         self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'enable'}, headers=H).status_code, 400)
         self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 45}, headers=H).status_code, 400)
+        self.assertEqual(self.c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 5}, headers=H).status_code, 200)   # 10-17 5초도(확장 0.5)
         self.c.post('/api/bank/ext/cmd', json={'t': 'enable', 'on': False}, headers=H)
         self.c.post('/api/bank/ext/cmd', json={'t': 'enable', 'on': True}, headers=H)
         pend = self.c.post('/api/bank/ext/cmd', json={'t': 'interval', 'sec': 60}, headers=H).json()['pending']
