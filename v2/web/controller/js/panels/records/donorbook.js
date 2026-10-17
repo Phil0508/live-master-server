@@ -253,8 +253,7 @@ export function mountDonorBook(el, ctx) {
                     onclick: async () => {
                         if (r.confirmed) {
                             const ok = await ctx.confirm({ title: `'${r.word}' 를 팬클럽 사전에서 뺄까요?`,
-                                body: `지금 '${r.word}' 가 든 닉네임에 ${r.player} 팬클럽 딱지가 붙어 있어요.
-빼면 딱지가 사라져요. 나중에 선수를 다시 고르면 돌아와요.`,
+                                body: `지금 '${r.word}' 가 든 닉네임에 ${r.player} 팬클럽 딱지가 붙어 있어요.\n빼면 딱지가 사라져요. 나중에 선수를 다시 고르면 돌아와요.`,
                                 ok: '빼기', cancel: '그대로 두기', danger: false });
                             if (!ok) return;
                         }
@@ -267,8 +266,7 @@ export function mountDonorBook(el, ctx) {
                     h('span', { class: 'db-cwho' }, r.no ? '팬클럽 아님' : (r.player || '?')),
                     r.no ? h('span', { class: 'dk-tag t-test' }, '안 씀')
                         : r.confirmed ? h('span', { class: 'dk-tag t-ok' }, '확정')
-                        : h('span', { class: 'dk-tag t-guess', title: '지난 기록으로 짐작했어요 — 확인 전엔 딱지에 안 써요' + (why ? '
-' + why : '') }, '추정'),
+                        : h('span', { class: 'dk-tag t-guess', title: '지난 기록으로 짐작했어요 — 확인 전엔 딱지에 안 써요' + (why ? '\n' + why : '') }, '추정'),
                     why ? h('span', { class: 'muted small' }, why) : null,
                     h('span', { class: 'db-cbtns' }, yes, no, sel));
             })) : h('p', { class: 'muted small' }, '아직 사전이 비어 있어요'),

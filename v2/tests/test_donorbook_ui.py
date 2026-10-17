@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,10 +48,18 @@ class PureJs(unittest.TestCase):
         node = shutil.which('node')
         if not node:
             self.skipTest('node 가 없다')
-        for p in NEW + [('js', 'pending.js'), ('js', 'panels', 'records', 'ledger.js'), ('js', 'panels', 'tools_records.js'),
-                        ('js', 'panels', 'settings_menu.js')]:
-            r = subprocess.run([node, '--check', os.path.join(CTL, *p)], capture_output=True, timeout=60)
-            self.assertEqual(r.returncode, 0, '/'.join(p) + ' ' + r.stderr.decode('utf-8', 'replace')[-800:])
+        # .js 그대로 --check 하면 node 가 CommonJS 로도 읽어 보고 넘어간다(따옴표 안 맨 줄바꿈을 놓쳤다 — 리뷰 10-17).
+        # 브라우저처럼 모듈로 읽게 .mjs 로 복사해서 본다(test_games_js_syntax 와 같은 방법).
+        tmp = tempfile.mkdtemp(prefix='lm2-donorbook-')
+        try:
+            for i, p in enumerate(NEW + [('js', 'pending.js'), ('js', 'panels', 'records', 'ledger.js'), ('js', 'panels', 'tools_records.js'),
+                                         ('js', 'panels', 'settings_menu.js'), ('js', 'panels', 'more', 'uistats.js')]):
+                m = os.path.join(tmp, 'f%d.mjs' % i)
+                shutil.copyfile(os.path.join(CTL, *p), m)
+                r = subprocess.run([node, '--check', m], capture_output=True, timeout=60)
+                self.assertEqual(r.returncode, 0, '/'.join(p) + ' ' + r.stderr.decode('utf-8', 'replace')[-800:])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class Wiring(unittest.TestCase):
