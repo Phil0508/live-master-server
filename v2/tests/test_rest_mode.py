@@ -69,7 +69,8 @@ class Wiring(unittest.TestCase):
         self.assertIn("id: 'ctl-rest'", src)
         self.assertIn("'aria-pressed'", src)
         self.assertIn("querySelector('#hdr .cb')", src)          # 조종 줄(둘째 줄)
-        self.assertIn("insertBefore(btn, cb.querySelector('.cb-more'))", src)
+        self.assertIn('cb.insertBefore(btn, moreBtn)', src)                 # PC: 조종 줄 [더보기] 앞
+        self.assertIn("document.querySelector('#ctl-more .cbs-panel')", src)  # 폰: 조종 줄 [⋯ 더보기] 판 안
         self.assertIn('readRest(store())', src)                   # 기기마다 기억
         self.assertNotIn('confirm(', code(src))
         self.assertNotIn('alert(', code(src).replace('emptyAlert(', '').replace('pushAlert(', ''))

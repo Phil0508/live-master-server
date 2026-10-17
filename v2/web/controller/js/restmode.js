@@ -37,8 +37,20 @@ export function mountRest(ctx) {
         title: '휴식 모드 — 켜 두면 새 계좌 입금 · 확인할 후원이 올 때 화면 가장자리가 초록으로 깜빡이고 가운데 카드가 떠요(소리 없음). 이 기기에만 기억해요.' },
     h('span', { class: 'rest-ic', 'aria-hidden': 'true' }, '☕'), lbl, state);
     btn.addEventListener('click', () => setOn(!st.on, true));
+    // PC · 반 화면: 조종 줄 맨 오른쪽(에디터 뒤). 폰(900 아래): 조종 줄이 꽉 차서(리액션 · 중단 · 건너뛰기 · 더보기)
+    // BGM · 클립처럼 [⋯ 더보기] 판 안 한 줄로 옮긴다 — 켜 두면 [더보기] 단추에 ☕ 표시(.rest-on)
     const cb = document.querySelector('#hdr .cb');
-    if (cb) cb.insertBefore(btn, cb.querySelector('.cb-more'));
+    const moreBtn = cb ? cb.querySelector('.cb-more') : null;
+    const sheetRow = h('div', { class: 'cbs-row cbs-rest' }, h('small', { class: 'cbs-cap' }, '휴식 모드 — 자리를 비울 때 켜 두면 새 입금 · 확인할 후원을 화면 깜빡임으로 알려요(소리 없음)'));
+    const panel = document.querySelector('#ctl-more .cbs-panel');
+    if (panel) panel.insertBefore(sheetRow, panel.querySelector('.cbs-foot'));
+    const mq = window.matchMedia ? window.matchMedia('(max-width: 899px)') : { matches: false };
+    function place() {
+        if (mq.matches && panel) { if (btn.parentNode !== sheetRow) sheetRow.append(btn); }
+        else if (cb && btn.parentNode !== cb) cb.insertBefore(btn, moreBtn);
+    }
+    place();
+    if (mq.addEventListener) mq.addEventListener('change', place);
 
     // ── 가장자리 · 카드 ──
     const edge = h('div', { class: 'rest-edge', 'aria-hidden': 'true', hidden: true });
@@ -79,6 +91,7 @@ export function mountRest(ctx) {
     function paintBtn() {
         btn.setAttribute('aria-pressed', st.on ? 'true' : 'false');
         btn.classList.toggle('on', st.on);
+        if (moreBtn) moreBtn.classList.toggle('rest-on', st.on);
         state.textContent = st.on ? ' 켬' : '';
     }
 

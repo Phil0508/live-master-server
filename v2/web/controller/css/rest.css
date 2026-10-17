@@ -48,7 +48,13 @@
     .rest-card .rest-title { font-size: 22px; }
     .rest-card .rest-foot { flex-direction: column; align-items: stretch; }
     .rest-card .rest-ok { width: 100%; }
-    #hdr .cb .rest-btn { padding: 0 10px; }
+    /* 폰은 [⋯ 더보기] 판 안 한 줄(조종 줄이 꽉 참) — 켜 두면 [더보기] 에 ☕ */
+    #ctl-more .rest-btn { min-height: 40px; padding: 0 16px; font-size: 14px; }
+    #ctl-more .rest-btn.on { background: rgba(46, 204, 113, 0.2); border-color: rgba(46, 204, 113, 0.75); color: #b9f5cf; }
+    #hdr .cb-more.rest-on::before { content: '☕'; margin-right: 2px; font-size: 13px; }
+    /* ⚠️ [⋯ 더보기] 판(#ctl-more, z 95)은 머리(#hdr — sticky z 40) 안에 있어 폰 아래 서랍(#drawer z 50)보다 밑에 깔렸다
+       → 판 아래쪽 [방송 끝] · [☕ 휴식] · [로그아웃] 이 서랍에 가려 안 눌림(10-17 헤드리스로 찾음). 판이 열린 동안만 머리를 서랍 위로 */
+    #hdr:has(#ctl-more:not([hidden])) { z-index: 96; }
 }
 
 /* 움직임 줄이기 — 깜빡이지 않고 굵은 테두리로 */
