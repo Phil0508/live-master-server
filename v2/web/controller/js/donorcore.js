@@ -66,7 +66,7 @@ export function chipText(e) {
     }
     const lines = [`${t.label} — ${t.desc}`];
     if (n) lines.push(p && e.tag !== 'new' ? `기억 ${n}번 중 ${p} ${share}%` : `기억 ${n}번`);
-    return { cls: 'dn-tag t-' + e.tag, text, title: lines.join('\n') };
+    return { cls: 'dk-tag t-' + e.tag, text, title: lines.join('\n') };
 }
 
 /** 팬클럽 딱지 — 확정된 팬클럽 말이 닉네임에 있을 때. 딱지와 같은 선수를 이미 말하고 있으면(전담 · 주력 · 고정) 안 붙인다 */
@@ -75,7 +75,7 @@ export function clubText(e) {
     const c = String(e.club).trim();
     if (!c) return null;
     if ((e.tag === 'main' || e.tag === 'lean' || e.tag === 'pin') && String(e.player || '').trim() === c) return null;
-    return { cls: 'dn-tag t-club', text: `${CLUB_EMO}${c} 팬클럽`, title: `닉네임에 ${c} 팬클럽 말이 들어 있어요` };
+    return { cls: 'dk-tag t-club', text: `${CLUB_EMO}${c} 팬클럽`, title: `닉네임에 ${c} 팬클럽 말이 들어 있어요` };
 }
 
 /** 이름 옆에 붙일 딱지들 — [{cls, text, title}] (0~2개) */

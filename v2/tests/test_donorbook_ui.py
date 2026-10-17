@@ -86,7 +86,7 @@ class Wiring(unittest.TestCase):
         self.assertIn('@media (max-width: 899px)', css)                     # 폰 — 카드는 아래 시트
         self.assertNotRegex(css, r'https?://')                              # 바깥에서 아무것도 안 불러온다
         # 카드 서랍은 확인 상자(.modal-wrap 100) 아래 — [묶기] 가 묻는 상자가 서랍 뒤에 숨지 않게
-        z = int(re.search(r'\.dn-wrap \{[^}]*z-index: (\d+)', css).group(1))
+        z = int(re.search(r'\.dk-wrap \{[^}]*z-index: (\d+)', css).group(1))
         self.assertLess(z, 100)
 
     def test_routes_and_commands_from_spec_only(self):

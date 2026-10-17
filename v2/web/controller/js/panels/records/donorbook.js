@@ -41,14 +41,14 @@ export function mountDonorBook(el, ctx) {
     const refresh = h('button', { type: 'button', class: 'btn sm', onclick: () => load() }, '새로 고침');
     const rebuild = h('button', { type: 'button', class: 'btn sm', title: '장부 · 기억에서 카드 · 딱지를 처음부터 다시 셉니다 (묶은 것 · 고정 · 메모는 그대로)', onclick: () => doRebuild() }, '다시 세기');
     const sum = h('span', { class: 'muted small db-sum' });
-    const sugBadge = h('span', { class: 'dn-badge db-sugn', hidden: true, title: '열린 제안 — 같은 사람일까요?' });
+    const sugBadge = h('span', { class: 'dk-badge db-sugn', hidden: true, title: '열린 제안 — 같은 사람일까요?' });
     const chipsEl = h('div', { class: 'rc-chips db-chips', role: 'group', 'aria-label': '딱지로 거르기' });
     const status = h('p', { class: 'rc-status', role: 'status', hidden: true });
     const ol = h('ol', { class: 'db-list' });
     const more = h('button', { type: 'button', class: 'btn sm rc-more', hidden: true, onclick: () => { shown += PAGE; draw(); } });
     const empty = h('p', { class: 'empty', hidden: true });
-    const sugBody = h('ul', { class: 'dn-suglist db-suglist' });
-    const sugN = h('span', { class: 'dn-badge' }, '0');
+    const sugBody = h('ul', { class: 'dk-suglist db-suglist' });
+    const sugN = h('span', { class: 'dk-badge' }, '0');
     const sugBox = h('details', { class: 'db-fold db-sugs', hidden: true }, h('summary', null, '🔗 같은 사람일까요? ', sugN), sugBody);
     const clubN = h('span', { class: 'muted small' });
     const clubBody = h('div', { class: 'db-clubs' });
@@ -125,10 +125,10 @@ export function mountDonorBook(el, ctx) {
                     h('b', { class: 'db-name' }, p.label || '(이름 없음)'),
                     c ? h('span', { class: c.cls, title: c.title }, c.text) : null,
                     cl ? h('span', { class: cl.cls, title: cl.title }, cl.text) : null,
-                    p.big ? h('span', { class: 'dn-tag t-big', title: '누적 후원 상위 10%' }, '⭐ 큰손') : null,
-                    p.dormant ? h('span', { class: 'dn-tag t-dormant', title: '마지막 후원이 30일도 넘었어요' }, '💤 쉬는 중') : null,
-                    Number(p.sugg) > 0 ? h('span', { class: 'dn-tag t-sugg', title: '같은 사람일 수 있는 카드가 있어요' }, '🔗 ' + num(p.sugg)) : null,
-                    p.test ? h('span', { class: 'dn-tag t-test' }, '🧪 시험') : null),
+                    p.big ? h('span', { class: 'dk-tag t-big', title: '누적 후원 상위 10%' }, '⭐ 큰손') : null,
+                    p.dormant ? h('span', { class: 'dk-tag t-dormant', title: '마지막 후원이 30일도 넘었어요' }, '💤 쉬는 중') : null,
+                    Number(p.sugg) > 0 ? h('span', { class: 'dk-tag t-sugg', title: '같은 사람일 수 있는 카드가 있어요' }, '🔗 ' + num(p.sugg)) : null,
+                    p.test ? h('span', { class: 'dk-tag t-test' }, '🧪 시험') : null),
                 h('span', { class: 'db-l2 muted small' },
                     [Number(p.n) ? `${num(p.n)}회` : '', Number(p.total_won) ? won(p.total_won) : '', p.last_at ? relDay(p.last_at) : '',
                         others.length ? `다른 닉네임 ${others.slice(0, 3).join(' · ')}${others.length > 3 ? ` 외 ${others.length - 3}` : ''}` : '']
@@ -171,14 +171,14 @@ export function mountDonorBook(el, ctx) {
                 noBtn.disabled = false;
                 if (res && res.ok) { ctx.toast('다른 사람으로 둘게요', 'info'); changed(); }
             } }, '아니에요');
-            return h('li', { class: 'dn-sug' },
-                h('div', { class: 'dn-sug-t' },
+            return h('li', { class: 'dk-sug' },
+                h('div', { class: 'dk-sug-t' },
                     h('span', { class: 'db-pair' },
-                        a ? h('button', { type: 'button', class: 'dn-link', onclick: () => openDonor(ctx, a) }, al) : h('b', null, al),
+                        a ? h('button', { type: 'button', class: 'dk-link', onclick: () => openDonor(ctx, a) }, al) : h('b', null, al),
                         h('span', { class: 'muted', 'aria-hidden': 'true' }, ' ⇄ '),
-                        b ? h('button', { type: 'button', class: 'dn-link', onclick: () => openDonor(ctx, b) }, bl) : h('b', null, bl)),
+                        b ? h('button', { type: 'button', class: 'dk-link', onclick: () => openDonor(ctx, b) }, bl) : h('b', null, bl)),
                     h('span', { class: 'muted small' }, whyText(g.why) + (g.detail ? ' · ' + g.detail : ''))),
-                h('div', { class: 'dn-sug-b' }, mergeBtn, noBtn));
+                h('div', { class: 'dk-sug-b' }, mergeBtn, noBtn));
         }));
     }
 
@@ -253,7 +253,7 @@ export function mountDonorBook(el, ctx) {
                     h('b', { class: 'db-cword' }, r.word),
                     h('span', { class: 'db-carrow', 'aria-hidden': 'true' }, '→'),
                     h('span', { class: 'db-cwho' }, r.player || '?'),
-                    r.confirmed ? h('span', { class: 'dn-tag t-ok' }, '확정') : h('span', { class: 'dn-tag t-guess', title: '지난 기록으로 짐작했어요 — 확인 전엔 딱지에 안 써요' }, '추정'),
+                    r.confirmed ? h('span', { class: 'dk-tag t-ok' }, '확정') : h('span', { class: 'dk-tag t-guess', title: '지난 기록으로 짐작했어요 — 확인 전엔 딱지에 안 써요' }, '추정'),
                     h('span', { class: 'db-cbtns' }, yes, no, sel));
             })) : h('p', { class: 'muted small' }, '아직 사전이 비어 있어요'),
             h('div', { class: 'db-cadd' }, newWord, newSel, addBtn));

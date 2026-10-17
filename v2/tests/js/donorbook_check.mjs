@@ -42,7 +42,7 @@ chk('주력: 🧡쏘랑 주력 · 8회', txt(D.chipText(tags['쏘랑왕자님'])
 chk('여러 멤버: 🌈 여러 멤버 · 12회', txt(D.chipText(tags['여기저기'])) === '🌈 여러 멤버 · 12회');
 chk('새 얼굴: 🌱 새 얼굴(선수 · 횟수 안 씀)', txt(D.chipText(tags['새손님'])) === '🌱 새 얼굴');
 chk('고정: 📌복자 고정', txt(D.chipText(tags['고정씨'])) === '📌복자 고정');
-chk('딱지 class', D.chipText(tags['영원']).cls === 'dn-tag t-main' && D.chipText(tags['고정씨']).cls === 'dn-tag t-pin');
+chk('딱지 class', D.chipText(tags['영원']).cls === 'dk-tag t-main' && D.chipText(tags['고정씨']).cls === 'dk-tag t-pin');
 chk('모르는 딱지 · 빈 것은 null', D.chipText({ tag: 'boss' }) === null && D.chipText(null) === null && D.chipText({}) === null);
 chk('전담인데 선수가 비면 그리지 않음', D.chipText({ tag: 'main', player: '', n: 9, share: 1 }) === null);
 chk('횟수 이상한 값은 0 으로', txt(D.chipText({ tag: 'multi', n: 'x' })) === '🌈 여러 멤버');
