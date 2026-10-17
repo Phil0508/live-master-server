@@ -32,7 +32,9 @@
 .dk-tag.t-suspect { background: rgba(245, 165, 36, 0.12); color: #ffd28a; border-style: dashed; }
 
 /* 대기함(흰 종이 카드) — 한 줄(q1)이 좁다: 딱지가 먼저 줄어든다(말줄임, 전체는 title) */
-#pending .q1 .dk-tag { flex: 0 1000 auto; height: 18px; padding: 0 6px; font-size: 11px; line-height: 18px; min-width: 2.4em; }   /* 이름보다 먼저 줄어든다 */
+/* 10-17 합치며: 딱지는 이름 줄(q1)이 아니라 메시지 줄(q2) 맨 앞 — 이름이 한 글자로 잘리던 것 */
+#pending .q2 .dk-q2 { flex: none; display: inline-flex; gap: 4px; }
+#pending .q2 .dk-tag { flex: none; height: 18px; padding: 0 6px; font-size: 11px; line-height: 18px; }
 
 #pending .dk-tag { background: var(--paper-3); color: var(--ink-2); border-color: var(--paper-line); }
 #pending .dk-tag.t-main { background: #fff3cc; color: #8a5a00; border-color: #f1d690; }
@@ -153,8 +155,7 @@
     }
     .dk-grab { display: block; width: 44px; height: 5px; margin: 0 auto 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.25); }
     /* 대기함 한 줄(q1)이 폰에선 더 좁다 — 딱지는 그림 하나만(💛 · 🧡 · 🌈 …), 팬클럽 딱지는 숨김. 전체는 title · 이름을 누르면 카드 */
-    #pending .q1 .dk-tag { flex: none; min-width: 0; max-width: 16px; padding: 0; border: 0; background: none; text-overflow: clip; font-size: 12px; }
-    #pending .q1 .dk-tag + .dk-tag { display: none; }
+    #pending .q2 .dk-tag + .dk-tag { display: none; }   /* 폰: 팬클럽 딱지는 숨김(전체는 이름을 누르면 카드) */
     .dk-sheet .btn.xs, .db-panel .btn.xs { min-height: 34px; padding: 0 12px; font-size: 13.5px; }
     .dk-pin-sel, .db-cp, .db-sort { height: 36px; }
     .dk-label { font-size: 20px; }

@@ -147,7 +147,7 @@ function paint(ctx, s, p) {
                 h('div', { class: 'dk-sug-t' },
                     g.other_pid ? h('button', { type: 'button', class: 'dk-link dk-sug-name', 'data-stat': '제안 — 다른 카드 열기', onclick: () => openDonor(ctx, g.other_pid) }, g.other_label || g.other_pid)
                         : h('b', null, g.other_label || '?'),
-                    h('span', { class: 'muted small' }, whyText(g.why) + (g.detail ? ' · ' + g.detail : ''))),
+                    h('span', { class: 'muted small' }, whyText(g.why) + (g.detail && g.why !== 'key' ? ' · ' + g.detail : ''))),
                 h('div', { class: 'dk-sug-b' }, mergeBtn, noBtn));
         }))) : null;
 

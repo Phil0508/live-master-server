@@ -178,7 +178,7 @@ export function mountDonorBook(el, ctx) {
                         a ? h('button', { type: 'button', class: 'dk-link', 'data-stat': '제안 — 카드 열기', onclick: () => openDonor(ctx, a) }, al) : h('b', null, al),
                         h('span', { class: 'muted', 'aria-hidden': 'true' }, ' ⇄ '),
                         b ? h('button', { type: 'button', class: 'dk-link', 'data-stat': '제안 — 카드 열기', onclick: () => openDonor(ctx, b) }, bl) : h('b', null, bl)),
-                    h('span', { class: 'muted small' }, whyText(g.why) + (g.detail ? ' · ' + g.detail : ''))),
+                    h('span', { class: 'muted small' }, whyText(g.why) + (g.detail && g.why !== 'key' ? ' · ' + g.detail : ''))),
                 h('div', { class: 'dk-sug-b' }, mergeBtn, noBtn));
         }));
     }

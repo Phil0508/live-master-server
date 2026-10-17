@@ -176,7 +176,6 @@ export function mountPending(root, ctx) {
             h('span', { class: 'pc-time' }, clock(it.at)),
             titleChip(it.donor_title),
             donorName(ctx, it.name, 'pc-name'),
-            isC ? null : donorChips(ctx.slices, it.name),     // 📇 💛밍밍 전담 · 23회 — 조각이 없거나 익명이면 없음
             lvChip(it.donor_level),
             isC ? h('span', { class: 'pc-amt' }, '기여도 카드')
                 : h('span', { class: 'pc-amt' }, won(it.amount)),
@@ -196,7 +195,10 @@ export function mountPending(root, ctx) {
         // 🙈 메시지 — 걸렸으면 가린 글 + ⚠(누르면 원문), 가린 후원이면 흐리게 + [보이기]
         const gone = !!it.message && hiddenSet(ctx.slices).has(it.id);
         const mt = it.message ? shownText(it) : '';
-        const q2 = it.message || aiEl ? h('div', { class: 'q2' },
+        // 📇 💛밍밍 전담 · 23회 — 조각이 없거나 익명이면 없음. 이름 줄(q1)은 이미 꽉 차서 이름이 한 글자로 잘렸다 → 메시지 줄 맨 앞(10-17 합치며)
+        const chips = isC ? [] : donorChips(ctx.slices, it.name);
+        const q2 = it.message || aiEl || chips.length ? h('div', { class: 'q2' },
+            chips.length ? h('span', { class: 'dk-q2' }, chips) : null,
             it.message ? h('p', { class: 'pc-msg' + (gone ? ' mk-gone' : ''), title: (gone ? '방송 화면엔 안 나가요 — ' : '') + mt }, (gone ? '🙈 ' : '') + '“' + mt + '”') : h('span', { class: 'q2-fill' }),
             it.message ? warnChip(ctx, it) : null,
             it.message && !isC ? hideBtn(ctx, it) : null,
