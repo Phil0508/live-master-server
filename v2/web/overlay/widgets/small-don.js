@@ -4,11 +4,14 @@
    - 띠는 시그니처를 붙잡지 않는다(카드처럼 기다리게 하지 않는다 — 옛 것과 같다).
    - 조종실 알림 스위치 [1천~9천 알림](show.alerts.small)을 끄면 아무것도 안 띄운다(카드로 되돌리지도 않는다).
    - 🏷️ 투네이션 공식 칭호 알약을 이름 앞에 작게(.46em — 한 줄에 들어가게, 옛 44584ff · css/donate.css).
-   - 🙈 [가리기] · 금칙어(10-17 mask): 같은 후원(id)이 메시지만 바뀌어 다시 오면 떠 있는 띠 · 줄 선 것의 글자만 바꾼다. */
+   - 🙈 [가리기] · 금칙어(10-17 mask): 같은 후원(id)이 메시지만 바뀌어 다시 오면 떠 있는 띠 · 줄 선 것의 글자만 바꾼다.
+   - 🔊 띠가 뜰 때 '띵-동'(옛 playSfx('donation') — 10-18 대표님 되살림). 조종실 [효과음] 끄면 안 남 · 소리 담당 창 하나만 · 미리보기는 무음(sfx.js). */
 import { formatNum, classifyDonation } from '../util.js';
 import { donorTag } from '../donate_kit.js';
+import { sfxInit, playSfx } from './basics2/sfx.js';
 
 export function mount(root, lm, opts) {
+    sfxInit(opts);
     root.innerHTML = '<div class="small-don">'
         + '<div class="sd-line"><span class="sd-hl sd-name"></span>님이 <span class="sd-hl sd-amt"></span>원 후원했습니다!</div>'
         + '<div class="sd-msg"></div></div>';
@@ -47,6 +50,7 @@ export function mount(root, lm, opts) {
             bar.classList.remove('show');
             void bar.offsetWidth;
             bar.classList.add('show');
+            playSfx('donation');                            // 🔊 띵-동(실패해도 띠는 그대로 — sfx.js 가 감싼다)
         } catch (e) { console.error('[소액 띠] 그리기 실패 — 다음으로 넘어간다:', e); }
         const left = queue.length;
         const hold = left >= 4 ? 2000 : (left >= 2 ? 3000 : 5000);
