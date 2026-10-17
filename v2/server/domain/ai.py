@@ -253,6 +253,64 @@ def _claude_call(system, messages, max_tokens, temperature, timeout):
     return text, 200
 
 
+def _claude_tools_call(system, messages, tools, tool_choice, max_tokens, timeout):
+    """Claude 를 도구(tool use)와 함께 한 번 부른다 — 바깥으로 나가는 곳(검사는 이것을 막는다). 예외를 던지지 않는다.
+       돌려받는 값: ([(도구 이름, 입력 dict)…], 글자, 상태 코드). ⚠️ 입력은 믿지 않는다 — 부른 쪽(ai_cmd)이 반드시 검사한다.
+       temperature 는 안 보낸다(_claude_call 과 같다)."""
+    try:
+        import anthropic
+        client = _claude_client()
+    except Exception as e:
+        print('⚠️ [Claude] 연결 부품을 못 불러 Claude 를 건너뜁니다 (%s)' % type(e).__name__, flush=True)
+        return [], '', 0
+    kw = {'system': system} if system else {}
+    if tool_choice:
+        kw['tool_choice'] = tool_choice
+    try:
+        msg = client.with_options(timeout=timeout).messages.create(
+            model=CLAUDE_MODEL, max_tokens=max_tokens, messages=messages, tools=tools, **kw)
+    except anthropic.RateLimitError:
+        return [], '', 429
+    except anthropic.APIStatusError as e:
+        return [], '', int(getattr(e, 'status_code', 0) or 0)
+    except anthropic.APIConnectionError:
+        return [], '', 0
+    except (TypeError, ValueError) as e:
+        print('⚠️ [Claude] 부르는 모양이 안 맞아 건너뜁니다 (%s)' % type(e).__name__, flush=True)
+        return [], '', 0
+    uses, text = [], []
+    for b in getattr(msg, 'content', None) or []:
+        kind = getattr(b, 'type', '')
+        if kind == 'tool_use':
+            uses.append((str(getattr(b, 'name', '') or ''), getattr(b, 'input', None)))
+        elif kind == 'text':
+            text.append(str(getattr(b, 'text', '') or ''))
+    return uses, ''.join(text).strip(), 200
+
+
+def ai_tools(system, messages, tools, tool_choice=None, max_tokens=600, timeout=12):
+    """도구 쓰기는 Claude 만 — 키가 없으면 ([], '', 'nokey'). 잠깐 막힘(붐빔 · 연결)이면 한 번 더. 분당 한도를 같이 쓴다.
+       돌려받는 값: (uses, text, code). ⚠️ 다른 갈래(asyncio.to_thread)에서만 부른다."""
+    if not claude_key():
+        return [], '', 'nokey'
+    if not nim_allowed():
+        return [], '', 'rate'
+    last = 0
+    for i in range(2):
+        t0 = time.time()
+        uses, text, code = _claude_tools_call(system, messages, tools, tool_choice, max_tokens, timeout)
+        NIM_HEALTH.update(ok=code == 200, ms=int((time.time() - t0) * 1000), at=time.time(), model=CLAUDE_MODEL, code=code)
+        if code == 200:
+            return uses, text, 200
+        last = code
+        print('⚠️ [Claude 도구 막힘] %s 응답 %s' % (CLAUDE_MODEL, code or '연결 실패 · 시간 넘김'), flush=True)
+        if code not in CLAUDE_RETRYABLE:
+            break
+        if i == 0:
+            time.sleep(0.8)
+    return [], '', last
+
+
 class _Reply:
     """Claude 답을 NVIDIA(OpenAI 꼴) 답 모양으로 감싼다 — 뒤 코드(JSON 꺼내기 · 깨짐 검사)를 그대로 쓰려고."""
 
