@@ -3,6 +3,7 @@
 
    한 줄 = {id, role, text, source?, at}
      role  user(내가 물은 것) · ai(답 — source: calc ⚡ 서버 계산 · ai 🤖 AI · none ℹ️ 안내)
+           cards(🗣️ 말로 조종 카드 — cmd: /api/ai/command 답 + 카드마다 state, 10-17)
            sys(가운데 작은 글 — 명령 결과 · 오토파일럿 기록) · alert(🔔 먼저 알림)
    ⚠️ 서버에 '직전 대화' 로 보내는 것은 user · ai 줄만, 말만(source 같은 화면용 꼬리표는 뺀다).
    🔴 안 읽은 알림 수 — AI 탭이 안 보일 때 들어온 알림 · 오토파일럿 기록을 탭 단추 옆 숫자로 보여 준다. */
@@ -47,6 +48,13 @@ export function update(row, patch) {
     Object.assign(row, patch || {});
     if (!row.temp) save();
     notify('update', row);
+}
+
+/** 줄 하나 빼기(저장 안 된 '보는 중…' 줄) */
+export function drop(row) {
+    const i = rows.indexOf(row);
+    if (i >= 0) rows.splice(i, 1);
+    if (!row.temp) save();
 }
 
 export function clear() {

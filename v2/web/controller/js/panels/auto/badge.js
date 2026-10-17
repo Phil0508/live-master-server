@@ -21,6 +21,7 @@ export function autoBadge(a, hist) {
     if (!a) return null;
     const why = a.why ? h('span', { class: 'ai-why' }, ' · ' + a.why) : null;
     let cls, main, showWhy = true;
+    const hold = Array.isArray(a.hold) && a.hold.length ? a.hold : null;
     if (a.asking) {
         cls = 'lv-asking';
         main = ['🤖 자동 진행이 누구 것인지 보는 중…'];
@@ -28,6 +29,12 @@ export function autoBadge(a, hist) {
     } else if (a.retry && !a.target) {
         cls = 'lv-wait';
         main = ['⏳ AI 가 붐벼요 — 자동 진행이 곧 다시 물어봐요'];
+    } else if (hold && (a.mode === 'on' || a.check)) {
+        // ⏸ 애매해서(또는 켬에서 기계가 안 줘서) 보류 — 대표님 10-17 "금액이 애매하면 보류로 놓고 나를 호출"
+        cls = 'lv-hold';
+        main = ['⏸ 보류 — 확인해 주세요 · ', hold[0], hold.length > 1 ? ` 외 ${hold.length - 1}가지` : ''];
+        if (a.target) main.push(' · 기계 판단: ', h('b', null, a.target));
+        if (a.ai && a.ai.target && a.ai.target !== a.target) main.push(' · AI: ', h('b', null, a.ai.target));
     } else if (a.mode === 'on') {
         if (a.held && a.held !== 'unsure') {
             cls = 'lv-held';

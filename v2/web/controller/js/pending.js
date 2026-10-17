@@ -154,8 +154,11 @@ export function mountPending(root, ctx) {
         const pts = pointsOf(it);
         const isBusy = busy.has(it.id);
         const sel = split.get(it.id);
+        // ⏸ 보류 — 자동 진행이 애매해서(켬이면 안 준 까닭 전부) 사람에게 넘긴 카드(대표님 10-17). 주황 띠 + 까닭 한 줄
+        const au = !isC && it.auto && typeof it.auto === 'object' ? it.auto : null;
+        const hold = au && !au.asking && Array.isArray(au.hold) && au.hold.length ? au.hold : null;
         el.className = 'pcard' + (isC ? ' contrib' : '') + (isBusy ? ' busy' : '') + (sel ? ' splitting' : '') + (it.returned ? ' returned' : '')
-            + (aiOpen.has(it.id) ? ' ai-open' : '');
+            + (aiOpen.has(it.id) ? ' ai-open' : '') + (hold ? ' hold' : '');
 
         // 🏺 모금함 — 켜져 있을 때 · 돈 카드일 때만(기여도 카드는 돈이 아니라 넣을 것이 없다)
         const jarBtn = jar && !isC ? h('button', { class: 'btn xs jar', type: 'button', disabled: isBusy, title: `${won(it.amount)} 을(를) ${jar}에 넣어요 (점수 아님)`,
@@ -223,7 +226,9 @@ export function mountPending(root, ctx) {
             }, h('span', { class: 'pbn' }, n), n === rec ? h('span', { class: 'rec-tag', 'aria-hidden': 'true' }, '추천') : null)));
         }
         // ⚠️ replaceChildren 은 null 을 'null' 글자로 넣는다 — 빈 것은 걸러서 넘긴다
-        el.replaceChildren(...[q1, q2, more, tags.length ? h('div', { class: 'pc-tags' }, tags) : null, btns, foot].filter(Boolean));
+        const holdEl = hold ? h('div', { class: 'pc-hold', role: 'note', title: '보류 까닭\n· ' + hold.join('\n· ') },
+            h('b', null, '⏸ 보류 — 확인해 주세요'), h('span', { class: 'pc-hold-why' }, hold[0] + (hold.length > 1 ? ` 외 ${hold.length - 1}가지` : ''))) : null;
+        el.replaceChildren(...[q1, holdEl, q2, more, tags.length ? h('div', { class: 'pc-tags' }, tags) : null, btns, foot].filter(Boolean));
     }
 
     /* 🏃 퇴근 · 🔥 탈출 카드 — 점수 단추 없이 [송출] · [치우기]만 */

@@ -164,7 +164,8 @@ class Shadow(AutoBase):
                                d4: ('disagree', '무시함'), d5: ('ignored', '무시함'),
                                d6: ('agree', '하율 · 서아'), d7: ('disagree', '하율 · 채원')})
         self.assertTrue(self.row(d6)['split'])
-        want = {'n': 7, 'agree': 2, 'disagree': 3, 'unknown': 1, 'ignored': 1, 'auto_done': 0, 'auto_undone': 0, 'games': 0}
+        want = {'n': 7, 'agree': 2, 'disagree': 3, 'unknown': 1, 'ignored': 1, 'auto_done': 0, 'auto_undone': 0, 'games': 0,
+                'held': 0, 'ai_agree': 0, 'ai_disagree': 0, 'ai_held': 0, 'ai_done': 0, 'ai_undone': 0}   # AI 칸은 AI 를 안 불러 0
         self.assertEqual(self.stats(), want)
         self.assertEqual(self.stats('total'), want)
 

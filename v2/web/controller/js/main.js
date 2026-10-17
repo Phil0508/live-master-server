@@ -32,6 +32,7 @@ import { mountDrawer } from './drawer.js';   // [C] 🗄 오른쪽 칸 자리(�
 import { mountCmdk } from './cmdk.js';                 // [D] import { mountCmdk } — ⌨️ Ctrl+K 빠른 명령(w2feat 채움)
 import { mountRxSwitch } from './rxswitch.js';         // [D] import { mountRxSwitch } — 🙈 조종 줄 리액션 모드 스위치(w2feat 채움)
 import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BGM ▶ 가 BGM 탭을 미리 그리게(ctx.tabs.prepare)
+import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 자동 진행 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17)
 
 const lm = window.LM.connect({ kind: 'controller' });
 let status = 'connecting', snapped = false, slices = {}, scheduled = false;
@@ -103,6 +104,7 @@ function render() {
     safe(() => views.header.render(slices, status, view));
     if (view === 'setup') safe(() => views.setup.render(slices));
     if (view === 'live') for (const k of LIVE) if (views[k]) safe(() => views[k].render(slices));
+    safe(() => syncHoldBand(slices, view));
     // 탭은 방송 전에도(열린 탭만 그리므로 가볍다) — 방송 전엔 pre 표시가 있는 탭만 열린다
     if (view === 'setup' || view === 'live') safe(() => views.tabs.render(slices, view));
     // 머리 높이 — PC 는 세 칸 높이 · 왼쪽 줄 자리, 폰은 탭 줄을 머리 밑에 붙이는 데 쓴다

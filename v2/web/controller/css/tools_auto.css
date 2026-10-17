@@ -135,3 +135,7 @@
     .ops .au-game-sel { max-width: none; margin-left: 44px; }
     .au-o { margin-left: 0; }
 }
+.ai-badge.lv-hold { color: #b45309; background: #fff1e0; border-color: #f5c48c; }
+.au-capl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.au-cap { width: 110px; height: 34px; text-align: right; }
+.au-aiscore { margin: 6px 0 0; overflow-wrap: anywhere; }

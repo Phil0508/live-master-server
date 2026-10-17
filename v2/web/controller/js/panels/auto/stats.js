@@ -48,8 +48,10 @@ export function mountStats(ctx) {
             c.sub.textContent = r ? `(${num(r.judged)}건 중 ${num(r.hit)}건)` : '아직 채점된 게 없어요';
             c.bar.style.width = (r ? r.pct : 0) + '%';
             c.bar.className = r ? (r.pct >= 95 ? 'good' : r.pct >= 85 ? 'warn' : 'bad') : '';
-            fill(c.main, chip('good', '✓ 맞힘', s.agree), chip('bad', '✗ 틀림', s.disagree), chip('hold', '몰라서 보류', s.unknown), chip('auto', '🤖 자동으로 줌', s.auto_done));
-            fill(c.more, `본 후원 ${num(s.n || 0)} · 무시 ${num(s.ignored || 0)} · 자동으로 준 것 되돌림 ${num(s.auto_undone || 0)} · 금액 게임 ${num(s.games || 0)}`);
+            fill(c.main, chip('good', '✓ 맞힘', s.agree), chip('bad', '✗ 틀림', s.disagree), chip('hold', '몰라서 보류', s.unknown),
+                chip('hold', '⏸ 애매해서 보류', s.held), chip('auto', '🤖 자동으로 줌', s.auto_done));
+            fill(c.more, `본 후원 ${num(s.n || 0)} · 무시 ${num(s.ignored || 0)} · 자동으로 준 것 되돌림 ${num(s.auto_undone || 0)} · 금액 게임 ${num(s.games || 0)}`,
+                h('br'), `🤖 AI 채점(규칙과 따로): 맞힘 ${num(s.ai_agree || 0)} · 틀림 ${num(s.ai_disagree || 0)} · AI 보류 ${num(s.ai_held || 0)} · AI 가 줌 ${num(s.ai_done || 0)}`);
         });
     }
     return { el, render };

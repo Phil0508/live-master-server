@@ -177,3 +177,12 @@
     body.has-drawer .app { padding-bottom: calc(var(--drawer-h, 180px) + 16px); }
     body.has-drawer .toasts { bottom: calc(var(--drawer-h, 180px) + 10px); }
 }
+
+/* ⏸ 보류 — 자동 진행이 애매해서 사람에게 넘긴 카드(대표님 10-17 "금액이 애매하면 보류로 놓고 나를 호출") */
+#pending .pcard.hold { box-shadow: inset 0 0 0 2px #f08c00, 0 4px 12px rgba(0, 0, 0, 0.25); }
+#pending .pc-hold { display: flex; align-items: baseline; gap: 6px; margin-top: 5px; padding: 4px 8px; border-radius: 8px; background: #fff1e0; color: #b45309;
+    font-size: 12px; min-width: 0; white-space: nowrap; }
+#pending .pc-hold b { flex: none; font-weight: 800; }
+#pending .pc-hold-why { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+#pending .pc-ai.lv-hold { color: #c2410c; }
+.loglist .tag.by-ai { color: #b9d5ff; }

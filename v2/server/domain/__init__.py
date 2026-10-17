@@ -26,6 +26,7 @@ from . import announce  # noqa: F401
 from . import ai_facts  # noqa: F401
 from . import donor_memory  # noqa: F401
 from . import ai  # noqa: F401
+from . import ai_cmd  # noqa: F401  (🗣️ 말로 조종 — AI 가 명령으로 바꾸고 사람이 [실행] · 안전한 건 바로, 10-17)
 from . import sigadmin  # noqa: F401
 from . import more  # noqa: F401
 from . import versions  # noqa: F401

@@ -24,6 +24,7 @@ export const HELD = {
     test: '시험 후원이라 자동으로 안 줘요',
     failed: '자동으로 주려다 막혔어요',
     retry: 'AI 가 붐벼 조금 뒤 다시 물어봐요',
+    check: '애매해서 사람이 확인해요',
 };
 
 /** 기록 줄 판정 → [글자, 색 이름] */
@@ -32,8 +33,9 @@ export function outcomeOf(row, sid) {
     if (o === 'agree') return ['✓ 맞힘', 'good'];
     if (o === 'disagree') return ['✗ 틀림', 'bad'];
     if (o === 'unknown') return ['몰라서 보류', 'hold'];
+    if (o === 'held') return ['⏸ 애매해서 보류', 'hold'];
     if (o === 'ignored') return ['무시', 'dim'];
-    if (o === 'auto') return [row.by === 'ap' ? '🚗 조종실 오토파일럿이 줌' : '🤖 자동으로 줌', 'auto'];
+    if (o === 'auto') return [row.by === 'ap' ? '🚗 조종실 오토파일럿이 줌' : row.by === 'autopilot-ai' ? '🤖 AI 가 줌' : '🤖 자동으로 줌', 'auto'];
     if (row.sid && sid && row.sid !== sid) return ['방송 끝 — 처리 안 됨', 'dim'];
     return ['처리 전', 'wait'];
 }
@@ -44,6 +46,13 @@ export function hitRate(st) {
     const judged = (Number(s.agree) || 0) + (Number(s.disagree) || 0);
     if (!judged) return null;
     return { hit: Number(s.agree) || 0, judged, pct: Math.round((Number(s.agree) || 0) * 100 / judged) };
+}
+
+/** AI 맞힌 비율 — AI 가 '줬을 것'(확신 0.9↑) 중 사람도 같은 사람에게 준 비율 */
+export function aiHitRate(st) {
+    const s = st || {};
+    const hit = Number(s.ai_agree) || 0, judged = hit + (Number(s.ai_disagree) || 0);
+    return judged ? { hit, judged, pct: Math.round(hit * 100 / judged) } : null;
 }
 
 /** '지난 그림자 기록: 83건 중 79건 맞힘(95%)' */

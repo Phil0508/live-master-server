@@ -29,7 +29,7 @@
   3. 켬: tier 'auto'(0.90↑ — ai · donor_memory 와 같은 문턱) · 지금 판 선수 · 되돌려 돌아온 것 아님 · 시험 후원 아님 →
      **같은 명령 안에서** pending.assign 처리 함수를 그대로 부른다(점수 · 기록 · 되돌리기 · 후원자 기억이 사람이 누른 것과 똑같다).
      그 밖은 대기함에 그대로 둔다(보류) — 틀리게 주는 것보다 안 주고 기다리는 게 언제나 낫다.
-     ⚠️ AI 답은 최대 0.88 이라(donor_memory) AI 혼자서는 절대 자동으로 주지 않는다.
+     ⚠️ AI 답은 최대 0.88 이라(donor_memory) 이 길로는 AI 혼자 자동으로 주지 않는다 — AI 가 주는 길은 아래 'AI 배정'(날값 0.9↑) 하나.
   4. 그림자 채점: 사람이 그 카드를 주거나(donation.ON_ASSIGN) 무시하면(donation.ON_IGNORE) 맞힘 · 틀림을 센다.
      - 기계가 '줬을 것'(act) 이면: 한 사람에게 줬으면 이름이 같을 때 맞힘. 나눠 주기는 그 안에 기계가 고른 사람이 있으면 맞힘
        (일부만 맞아도 '사람을 맞혔다' 로 본다 — 기록 줄에 '나눠 줌' 표시). 무시 · 모금함이면 틀림(기계라면 점수를 줬다).
@@ -42,7 +42,18 @@
      주사위 — 주사위판이 무대에 있고, 받는 사람이 정해지고(자동이든 사람이든), 금액 ≥ 한 판 값일 때 그 사람 말을 굴린다.
      이미 도는 중 · 다른 판이 무대에 있으면 안 하고 까닭을 적는다. 자동으로 한 일은 전부 log 에 남는다.
 
-명령: auto.set {mode?, use_ai?} · auto.games {rules:[…]} · auto.reset_stats {scope:'session'|'total'}
+🤖 AI 배정(10-17 'AI 권한 넓히기' 3번) — use_ai_assign(기본 끔) · assign_max(금액 상한, 기본 100,000 — 그 **미만**만)
+  규칙이 'auto' 가 아닌 후원(suggest/unknown)을 AI 에게 한 번 묻는다(그림자면 늘 · 켬이면 use_ai_assign 일 때만).
+  켬 + use_ai_assign 이면 AI 가 스스로 준다 — **AI 확신 0.9 이상**(0.88 로 깎기 전 날값) · 지금 판 선수 · 한 사람 · 상한 미만 ·
+  첫 물음의 답(다시 물은 답 · 10초 넘긴 답 · 막힌 답은 안 믿는다) · 아래 '애매함' 이 하나도 없을 때만. by 'autopilot-ai'.
+  그림자면 AI 가 '했을 일' 을 row.ai 에 적고 따로 채점한다(ai_agree · ai_disagree · ai_held · ai_done · ai_undone).
+⏸ 애매하면 보류(대표님 10-17 "금액은 조금이라도 애매하면 보류로 놓고 나를 호출") — 규칙 · AI 둘 다
+  _ambiguity 가 까닭을 하나라도 찾으면 기계는 절대 안 준다: 선수 둘 이상 · 나눔 말 · 메시지 금액/점수 ≠ 실제 ·
+  만 원 경계 금액(나머지 4,000~6,000) · 상한 이상 · 같은 사람 연속 후원(×N · 대기함에 여럿) · 계좌 입금 · 이력이 여러 선수로 갈림.
+  카드 auto.check = [까닭…](애매함) · auto.hold = [까닭…](켬에서 기계가 안 준 까닭 전부 — 조종실 '⏸ 보류' 띠가 센다).
+  그림자 채점: 애매해서 보류한 것을 사람이 주면 'held'(보류)로 따로 센다.
+
+명령: auto.set {mode?, use_ai?, use_ai_assign?, assign_max?} · auto.games {rules:[…]} · auto.reset_stats {scope:'session'|'total'}
       (서버가 스스로 부르는 것) auto.decide · auto.ai · auto.roulette · auto.roulette_stop · auto.slot · auto.dice
 """
 import copy
@@ -62,6 +73,7 @@ from . import players as pl
 from . import roulette as rl
 from . import session as ses
 from . import slot as sl
+from .rules import man_won, norm_donor
 
 MODES = ('off', 'shadow', 'on')
 GAMES = ('roulette', 'slot', 'dice')
@@ -72,13 +84,19 @@ LOG_MAX = 60
 AI_RETRY_MAX, AI_RETRY_SEC = 3, 20          # 조종실 배지(suggest.js)와 같은 규칙 — 20초 × n, 세 번까지
 ROULETTE_STOP_SEC = 6.0                     # 룰렛을 돌리고 저절로 멈추기까지
 DICE_RETRY_MAX, DICE_RETRY_SEC = 5, 2.5     # 앞 굴림 연출이 안 끝났으면(429) 조금 뒤 다시
-STAT_KEYS = ('n', 'agree', 'disagree', 'unknown', 'ignored', 'auto_done', 'auto_undone', 'games')
+STAT_KEYS = ('n', 'agree', 'disagree', 'unknown', 'ignored', 'auto_done', 'auto_undone', 'games',
+             'held', 'ai_agree', 'ai_disagree', 'ai_held', 'ai_done', 'ai_undone')
+AI_ASSIGN_CONF = 0.9                        # AI 가 스스로 주는 문턱(날값 — donor_memory 가 0.88 로 깎기 전)
+AI_DEADLINE_SEC = 10.0                      # 이보다 늦게 온 AI 답으로는 안 준다(사람 몫)
+ASSIGN_MAX_DEFAULT = 100000                 # 금액 상한 — 이 금액 **미만**만 기계가 준다(규칙 · AI 둘 다)
+ASSIGN_MAX_RANGE = (10000, AMOUNT_MAX)
 HELD = {                                    # 기계가 스스로 안 준 까닭(켬일 때 배지 · 그림자일 때 '자동이라면 보류')
     'unsure': '확실하지 않아서',
     'returned': '되돌려 돌아온 후원이라 사람이 다시 정해요',
     'test': '시험 후원이라 자동으로 안 줘요',
     'failed': '자동으로 주려다 막혔어요',
     'retry': 'AI 가 붐벼 조금 뒤 다시 물어봐요',
+    'check': '애매해서 사람이 확인해요',
 }
 
 
@@ -89,7 +107,8 @@ def _zero():
 def _default():
     # 처음 값 — 검사(v2/tests/__init__.py)는 off 로 시작한다(후원마다 서버가 스스로 움직이면 다른 검사가 들쭉날쭉해진다)
     m = (os.environ.get('LM2_AUTOPILOT') or 'shadow').strip().lower()
-    return {'mode': m if m in MODES else 'shadow', 'use_ai': True, 'games': [],
+    return {'mode': m if m in MODES else 'shadow', 'use_ai': True, 'use_ai_assign': False, 'assign_max': ASSIGN_MAX_DEFAULT,
+            'games': [],
             'stats': {'session': _zero(), 'total': _zero()}, 'log': []}
 
 
@@ -188,7 +207,7 @@ def _cache(name, amount, message, names, res):
         return
     if len(ai._SUGGEST_CACHE) > ai.SUGGEST_CACHE_MAX:
         ai._SUGGEST_CACHE.clear()
-    keep = {k: res.get(k) for k in ('target', 'confidence', 'tier', 'source', 'why', 'history')}
+    keep = {k: res.get(k) for k in ('target', 'confidence', 'tier', 'source', 'why', 'history', 'ai_raw') if k in res}
     ai._SUGGEST_CACHE[ai._ck(name, amount, message, names)] = (time.time(), keep)
 
 
@@ -201,6 +220,148 @@ def _cached(name, amount, message, names):
 
 def _stage_label(stage):
     return dg.STAGE_LABEL.get(stage, stage)
+
+
+# ── ⏸ 애매함 — 하나라도 걸리면 기계(규칙 · AI)는 안 준다(대표님 10-17) ──
+SPLIT_RE = re.compile(r'나눠|나누어|나눔|반반|반씩|각각|각자|\d+\s*분의|[nNㅇ엔]\s*빵|똑같이|둘\s*다|셋\s*다|넷\s*다|모두\s*에게|다\s*같이')
+_MONEY_RE = re.compile(r'(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(만\s*원?|천\s*원?|원)')
+_KMONEY_RE = re.compile(r'([일이삼사오육칠팔구십백]+)\s*(만|천)\s*원')
+_POINT_RE = re.compile(r'(?<![\d.])(\d{1,4})\s*점')
+_BARE_RE = re.compile(r'(?<![\d.,])(\d{4,9})(?![\d.,])')
+_KNUM = {'일': 1, '이': 2, '삼': 3, '사': 4, '오': 5, '육': 6, '칠': 7, '팔': 8, '구': 9}
+BOUNDARY = (4000, 6000)                     # 만 원 단위 반올림((금액+4000)//10000)의 경계 — 나머지가 이 사이면 사람이 본다
+
+
+def _knum(t):
+    """'오' → 5 · '십오' → 15 · '이십' → 20 · '백' → 100. 못 읽으면 None."""
+    n, cur = 0, 0
+    for ch in t:
+        if ch in _KNUM:
+            cur = _KNUM[ch]
+        elif ch in ('십', '백'):
+            n += (cur or 1) * (10 if ch == '십' else 100)
+            cur = 0
+        else:
+            return None
+    return n + cur or None
+
+
+def money_in_message(msg, names=()):
+    """메시지 속 금액(원)과 점수 — ([원…], [점…]). 선수 이름 글자는 먼저 지운다(이름에 숫자가 들어간 선수)."""
+    t = str(msg or '')
+    for n in sorted([str(x) for x in names or [] if x], key=len, reverse=True):
+        t = t.replace(n, ' ')
+    wons, pts = [], []
+    for m in _MONEY_RE.finditer(t):
+        try:
+            v = float(m.group(1).replace(',', ''))
+        except ValueError:
+            continue
+        unit = m.group(2).replace(' ', '')
+        wons.append(int(round(v * (10000 if unit.startswith('만') else 1000 if unit.startswith('천') else 1))))
+    for m in _KMONEY_RE.finditer(t):
+        v = _knum(m.group(1))
+        if v:
+            wons.append(v * (10000 if m.group(2) == '만' else 1000))
+    rest = _MONEY_RE.sub(' ', t)
+    for m in _BARE_RE.finditer(rest):          # '30000 밍밍' — 단위 없는 네 자리 이상 숫자도 금액으로 본다
+        wons.append(int(m.group(1)))
+    for m in _POINT_RE.finditer(t):
+        pts.append(int(m.group(1)))
+    return wons, pts
+
+
+def _won(n):
+    n = int(n or 0)
+    if n and n % 10000 == 0:
+        return '%s만 원' % format(n // 10000, ',')
+    return '%s원' % format(n, ',')
+
+
+def ambiguity(ctx, it, names, ap=None, hist=None):
+    """이 후원을 기계가 주면 안 되는 까닭들(사람 말). 빈 목록이면 애매하지 않다. ⚠️ 명령 안에서 부른다(장부 읽기)."""
+    ap = ap if ap is not None else ctx.read('autopilot')
+    amount = int(it.get('amount') or 0)
+    msg = str(it.get('message') or '')
+    names = [n for n in names or [] if n]
+    out = []
+    exact, loose = af.names_in_message(msg, names)
+    hit = sorted(set(exact) | set(loose))
+    if len(hit) >= 2:
+        out.append('메시지에 선수가 둘 이상 (%s)' % ', '.join(hit))
+    m = SPLIT_RE.search(msg)
+    if m:
+        out.append("나눔 말이 있음 ('%s')" % m.group(0))
+    wons, pts = money_in_message(msg, names)
+    bad = sorted({w for w in wons if w != amount})
+    if bad:
+        out.append('메시지 금액 %s ≠ 실제 %s' % (' · '.join(_won(w) for w in bad), _won(amount)))
+    badp = sorted({p for p in pts if p != man_won(amount)})
+    if badp:
+        out.append('메시지 %s점 ≠ 금액으로 %d점' % (' · '.join(str(p) for p in badp), man_won(amount)))
+    rem = amount % 10000
+    if BOUNDARY[0] <= rem <= BOUNDARY[1]:
+        out.append('점수가 딱 떨어지지 않는 금액 (%s — 만 원 단위 경계)' % _won(amount))
+    cap = int(ap.get('assign_max') or ASSIGN_MAX_DEFAULT)
+    if amount >= cap:
+        out.append('금액 상한(%s) 이상' % _won(cap))
+    key = norm_donor(it.get('name'))
+    if key and any(_is_donation(x) and x.get('id') != it.get('id') and norm_donor(x.get('name')) == key
+                   for x in ctx.read('pending')):
+        out.append('같은 사람 후원이 대기함에 여럿')
+    if key and 'queue' in ctx.bus.state.slices and any(
+            isinstance(q, dict) and norm_donor(q.get('donator')) == key and int(q.get('count') or 1) > 1
+            for q in (ctx.read('queue').get('items') or [])):
+        out.append('같은 사람 연속 후원이 묶임(×N)')
+    d = ctx.store.donation(it.get('id')) if str(it.get('id') or '').startswith('don_') else None
+    tx = str((d or {}).get('tx_id') or '')
+    if tx.startswith('manual_bank_'):
+        out.append('계좌 입금 — 사람이 확인')
+        if re.search(r'_\d{1,3}$', tx[len('manual_bank_'):]):
+            out.append('같은 사람 연속 후원이 묶임(×N)')
+    if hist is None:
+        try:
+            hist = dm.donor_history(ctx.store, it.get('name'))
+        except Exception:
+            hist = []
+    known = [(p, c) for p, c in hist or [] if p in names]
+    if len(known) >= 2:
+        out.append('후원자 이력이 여러 선수로 갈림 (%s)' % ' · '.join('%s %d번' % (p, c) for p, c in known[:3]))
+    seen, uniq = set(), []
+    for w in out:
+        if w not in seen:
+            seen.add(w)
+            uniq.append(w)
+    return uniq
+
+
+def ai_verdict(res, names):
+    """AI 가 스스로 줄 수 있나 — {target, confidence(날값), act, why:[못 주는 까닭…]}. AI 에게 안 물었으면 None.
+       ⚠️ 애매함(ambiguity)은 여기서 안 본다 — 부르는 쪽이 같이 본다."""
+    raw = res.get('ai_raw') if isinstance(res, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    why = []
+    t = raw.get('target')
+    try:
+        conf = float(raw.get('confidence') or 0)
+    except (TypeError, ValueError):
+        conf = 0.0
+    if raw.get('late'):
+        why.append('AI 응답이 늦음 (%d초 넘김)' % int(AI_DEADLINE_SEC))
+    if raw.get('error') or raw.get('retry') or raw.get('skipped'):
+        why.append('AI 응답이 막힘')
+    if int(raw.get('attempt') or 0):
+        why.append('다시 물은 답이라 안 믿음')
+    if not t:
+        why.append('AI 도 누구 것인지 모름')
+        t = None
+    elif t not in names:
+        why.append('AI 가 고른 이름이 지금 판 선수가 아님')
+        t = None
+    elif conf < AI_ASSIGN_CONF:
+        why.append('AI 확신 %.2f — %.1f 미만' % (conf, AI_ASSIGN_CONF))
+    return {'target': t, 'confidence': round(conf, 2), 'act': not why, 'why': why}
 
 
 # ── 금액 게임 ──
@@ -380,13 +541,37 @@ def decide(ctx, data):
             if not ap.get('use_ai', True) and not res.get('target'):
                 res['why'] = 'AI 에게 안 묻기로 함 — 이름·별명·이력으로는 못 찾음'
         _cache(name, amount, message, names, res)
+    if _want_ai_stage(ctx, ap, it, res, names, attempt):
+        # 🤖 AI 배정 단계 — 규칙이 'auto' 가 아닌 후원을 AI 에게 한 번 묻는다(그림자: 채점용 · 켬: use_ai_assign 일 때)
+        ctx.later(0, 'auto.ai', {'id': pid, 'attempt': attempt, 'name': name, 'amount': amount, 'message': message,
+                                 'names': names, 'known': [list(x) for x in (dm.donor_history(ctx.store, name) or [])
+                                                           if x[0] in names],
+                                 'hints': {}, 'stage': 'assign',
+                                 'context': af.game_context({k: ctx.read(k) for k in ('show', 'siggame', 'match', 'home', 'hell')
+                                                             if k in ctx.bus.state.slices})})
+        ctx.notes['ai'] = True
+        return
     _record(ctx, pid, res, names, attempt)
+
+
+def _want_ai_stage(ctx, ap, it, res, names, attempt):
+    """규칙 답이 있지만 'auto' 가 아니다 — AI 배정 단계로 한 번 더 물을까. 같은 후원은 두 번 안 묻는다(ai_raw 가 있으면 끝)."""
+    if attempt or 'ai_raw' in res or res.get('tier') == 'auto' or res.get('retry'):
+        return False
+    if not ap.get('use_ai', True) or not ai.ai_on() or not str(it.get('message') or '').strip():
+        return False
+    if ap.get('mode') == 'on' and not ap.get('use_ai_assign'):
+        return False
+    if it.get('test') or it.get('returned'):
+        return False
+    return not ambiguity(ctx, it, names, ap)          # 애매하면 AI 가 맞혀도 안 준다 — 부르지 않는다
 
 
 def _pre_ai(bus, data):
     """명령 **밖** · 다른 갈래 — AI 에게만 묻는다(네트워크). ⚠️ 장부(SQLite)는 여기서 읽지 않는다.
        언제나 dict 를 돌려준다(여기서 넘어지면 명령이 아예 안 돌아 판단 중 표시가 남는다)."""
     out = dict(data)
+    t0 = time.time()
     try:
         hist = [tuple(x) for x in (data.get('known') or []) if isinstance(x, (list, tuple)) and len(x) == 2]
         out['ai'] = ai.nim_suggest_target(str(data.get('name') or ''), af._int(data.get('amount')), str(data.get('message') or ''),
@@ -394,6 +579,7 @@ def _pre_ai(bus, data):
                                           list(data.get('context') or []), dict(data.get('hints') or {}))
     except Exception as e:
         out['ai'] = {'target': None, 'confidence': 0.0, 'error': type(e).__name__, 'retry': True}
+    out['ai_late'] = (time.time() - t0) > AI_DEADLINE_SEC       # 늦게 온 답으로는 AI 가 스스로 주지 않는다(사람 몫)
     return out
 
 
@@ -414,23 +600,48 @@ def decide_ai(ctx, data):
         ctx.notes['skipped'] = True
         return
     name, amount, message = str(it.get('name') or ''), af._int(it.get('amount')), str(it.get('message') or '')
+    ans = dict(data.get('ai') or {'target': None, 'confidence': 0.0, 'error': 'no-response', 'retry': True})
+    if ans.get('target') not in names:            # 그새 선수가 바뀌었다 · 환각
+        ans['target'] = None
     res, pre = dm.suggest_rules(ctx.store, name, message, names)
     if res is None:
-        ans = dict(data.get('ai') or {'target': None, 'confidence': 0.0, 'error': 'no-response', 'retry': True})
-        if ans.get('target') not in names:        # 그새 선수가 바뀌었다 · 환각
-            ans['target'] = None
         res = dm.suggest_after_ai(pre, ans)
+    res = dict(res, ai_raw=_raw(ans, data, attempt))
     _cache(name, amount, message, names, res)
     _record(ctx, pid, res, names, attempt)
 
 
+def _raw(ans, data, attempt):
+    """AI 날답(0.88 로 깎기 전) — AI 배정 · AI 채점이 쓴다."""
+    try:
+        conf = float(ans.get('confidence') or 0)
+    except (TypeError, ValueError):
+        conf = 0.0
+    raw = {'target': ans.get('target'), 'confidence': round(conf, 3), 'attempt': int(attempt or 0)}
+    for k in ('error', 'retry', 'skipped', 'gone'):
+        if ans.get(k):
+            raw[k] = ans[k] if isinstance(ans[k], (str, int, bool)) else True
+    if data.get('ai_late'):
+        raw['late'] = True
+    return raw
+
+
 def _record(ctx, pid, res, names, attempt):
-    """판단을 카드 · 기록에 적는다. 켬이고 확실하면 같은 명령 안에서 준다(pending.assign 처리 함수 그대로)."""
+    """판단을 카드 · 기록에 적는다. 켬이고 확실하면 같은 명령 안에서 준다(pending.assign 처리 함수 그대로).
+       규칙이 확실하면 규칙이, 아니면(use_ai_assign) AI 가 — 둘 다 '애매함' 이 하나라도 있으면 안 준다(보류 + 사람 호출)."""
     it = _pending(ctx, pid)
     if it is None:
         return
+    ap_r = ctx.read('autopilot')
+    mode = ap_r.get('mode')
     target, tier = res.get('target'), res.get('tier') or 'unknown'
-    act = bool(target) and tier == 'auto' and target in names
+    check = ambiguity(ctx, it, names, ap_r)
+    rule_ok = bool(target) and tier == 'auto' and target in names
+    act = rule_ok and not check
+    aiv = ai_verdict(res, names)
+    if aiv is not None and aiv['act'] and check:
+        aiv = dict(aiv, act=False, why=['애매해서'])
+    ai_on = bool(ap_r.get('use_ai_assign'))
     retry = bool(res.get('retry')) and attempt < AI_RETRY_MAX     # AI 가 붐볐다 — 20초 × n 뒤 다시(세 번까지)
     if retry:
         ctx.later(AI_RETRY_SEC * (attempt + 1), 'auto.decide', {'id': pid, 'attempt': attempt + 1})
@@ -439,18 +650,25 @@ def _record(ctx, pid, res, names, attempt):
         held = 'test'
     elif it.get('returned'):
         held = 'returned'                 # ⚠️ 사람이 되돌린 것은 사람이 다시 정한다 — 켬이어도 자동으로 안 준다
+    elif check:
+        held = 'check'
     elif retry and not target:
         held = 'retry'
     elif not act:
         held = 'unsure'
-    mode = ctx.read('autopilot').get('mode')
     dec = {'target': target, 'confidence': round(float(res.get('confidence') or 0), 2), 'tier': tier,
            'source': res.get('source'), 'why': res.get('why'), 'act': act, 'mode': mode}
+    if check:
+        dec['check'] = check
+    if aiv is not None:
+        dec['ai'] = aiv
     err = None
-    if mode == 'on' and act and not held:
+    who = None
+    if mode == 'on' and held in (None, 'unsure') and (act or (ai_on and aiv and aiv['act'])):
+        who, by = (target, 'auto') if act else (aiv['target'], 'autopilot-ai')
         ctx._autopilot_assign = pid                   # 고리(ON_ASSIGN)가 '사람이 준 것' 으로 세지 않게
         try:
-            err, _code = _try(ctx, dn.pending_assign, {'id': pid, 'name': target})
+            err, _code = _try(ctx, dn.pending_assign, {'id': pid, 'name': who})
         finally:
             ctx._autopilot_assign = None
         if err is None and not ctx.notes.get('already'):
@@ -458,19 +676,37 @@ def _record(ctx, pid, res, names, attempt):
             row = _row_for(ctx, ap, it)
             row.pop('asking', None)
             row.pop('retry', None)
-            row.update(dec, outcome='auto', by='auto', human=target, decided_at=_ms(ctx))
+            row.update(dec, outcome='auto', by=by, human=who, decided_at=_ms(ctx))
             _bump(ctx, ap, 'auto_done', row)
-            for lg in ctx.edit('logs'):                # 조종실 점수 기록 줄에 '자동' 표시
+            if by == 'autopilot-ai':
+                _bump(ctx, ap, 'ai_done', row)
+                row['ai_outcome'] = 'ai_done'
+            for lg in ctx.edit('logs'):                # 조종실 점수 기록 줄에 '자동' · '🤖 AI 가 줌' 표시
                 if lg.get('ref') == pid:
-                    lg['by'] = 'auto'
-            ctx.notes['auto_assigned'] = target
-            _dice_after_assign(ctx, pid, it.get('amount'), [target])
+                    lg['by'] = by
+            ctx.notes['auto_assigned'] = who
+            ctx.notes['by'] = by
+            _dice_after_assign(ctx, pid, it.get('amount'), [who])
             return
         held = 'failed'
+    hold = []
+    if mode == 'on' and held:
+        hold = list(check) or [HELD.get(held, held)]
+        if held == 'unsure':
+            hold = [res.get('why') or HELD['unsure']]
+            if aiv is not None and ai_on:
+                hold += ['AI: ' + w for w in aiv['why']]
+        if err:
+            hold.append(str(err)[:80])
+    elif check:
+        hold = list(check)
     ap = ctx.edit('autopilot')
     row = _row_for(ctx, ap, it)
     row.pop('asking', None)
     row.update(dec)
+    for k in ('check', 'ai'):
+        if k not in dec:
+            row.pop(k, None)
     if retry:
         row['retry'] = True
     else:
@@ -479,6 +715,10 @@ def _record(ctx, pid, res, names, attempt):
         row['held'] = held
     else:
         row.pop('held', None)
+    if hold:
+        row['hold'] = hold
+    else:
+        row.pop('hold', None)
     if err:
         row['held_err'] = str(err)[:80]
     cur = _pending(ctx, pid, edit=True)
@@ -487,6 +727,8 @@ def _record(ctx, pid, res, names, attempt):
     a = dict(dec, history=res.get('history') or [], at=_ms(ctx))
     if held:
         a['held'] = held
+    if hold:
+        a['hold'] = hold
     if err:
         a['held_err'] = str(err)[:80]
     if retry:
@@ -495,7 +737,8 @@ def _record(ctx, pid, res, names, attempt):
     if old.get('game'):
         a['game'] = old['game']
     cur['auto'] = a
-    ctx.notes['decided'] = {'target': target, 'tier': tier, 'act': act, 'held': held}
+    ctx.notes['decided'] = {'target': target, 'tier': tier, 'act': act, 'held': held, 'check': check,
+                            'ai': (aiv or {}).get('target'), 'ai_act': bool(aiv and aiv['act'])}
 
 
 # ── 고리 2: 사람이 주거나 무시했다 — 그림자 채점 ──
@@ -505,7 +748,7 @@ def _judge(ctx, it, outcome, human, extra=None):
     if row.get('outcome') != 'pending':
         return row
     a = it.get('auto') or {}
-    for k in ('target', 'confidence', 'tier', 'source', 'why', 'act'):
+    for k in ('target', 'confidence', 'tier', 'source', 'why', 'act', 'check', 'ai'):
         if k in a and k not in row:
             row[k] = a[k]
     row.update(outcome=outcome, human=str(human or '')[:60], decided_at=_ms(ctx))
@@ -513,6 +756,26 @@ def _judge(ctx, it, outcome, human, extra=None):
     row.update(extra or {})
     _bump(ctx, ap, 'auto_done' if outcome == 'auto' else outcome, row)
     return row
+
+
+def _judge_ai(ctx, it, got):
+    """🤖 AI 채점(규칙 채점과 따로) — AI 가 '줬을' 사람과 사람이 준 사람이 같으면 맞힘. got=None 이면 무시함.
+       AI 가 스스로 안 줬을 것(확신 부족 · 애매함)을 사람이 주면 'AI 보류'."""
+    ap = ctx.edit('autopilot')
+    row = _row(ap, it.get('id'))
+    a = it.get('auto') if isinstance(it.get('auto'), dict) else {}
+    v = (row or {}).get('ai') or a.get('ai')
+    if row is None or not isinstance(v, dict) or row.get('ai_outcome'):
+        return
+    if got is None:
+        k = 'ai_disagree' if v.get('act') else None
+    elif not v.get('act'):
+        k = 'ai_held'
+    else:
+        k = 'ai_agree' if len(got) == 1 and got[0] == v.get('target') else 'ai_disagree'
+    if k:
+        row['ai_outcome'] = k
+        _bump(ctx, ap, k, row)
 
 
 @_safe
@@ -527,6 +790,8 @@ def _on_assign(ctx, it, items, data):
         outcome, extra = 'auto', {'by': 'ap'}             # 조종실 🚗 오토파일럿 — 사람 판단이 아니다
     elif a.get('asking'):
         outcome, extra = 'unknown', {'early': True}       # 기계가 판단하기 전에 사람이 먼저 줬다
+    elif a.get('check'):
+        outcome = 'held'                                  # ⏸ 애매해서 보류한 것을 사람이 정했다(따로 센다)
     elif not a.get('act'):
         outcome = 'unknown'
     elif len(got) == 1:
@@ -535,6 +800,8 @@ def _on_assign(ctx, it, items, data):
         outcome = 'agree' if a.get('target') in got else 'disagree'
         extra = {'split': True}
     _judge(ctx, it, outcome, ' · '.join(got), extra)
+    if via != 'ap':
+        _judge_ai(ctx, it, got)
     _dice_after_assign(ctx, it['id'], it.get('amount'), got)
 
 
@@ -545,6 +812,7 @@ def _on_ignore(ctx, it):
         return
     # 기계라면 점수를 줬을 후원을 사람이 무시했다 → 틀림(켰다면 잘못 준 것이 된다). 기계도 보류였으면 그냥 무시
     _judge(ctx, it, 'disagree' if a.get('act') and not a.get('asking') else 'ignored', '무시함')
+    _judge_ai(ctx, it, None)
     _set_game_done_if_waiting(ctx, it['id'], '무시한 후원이라 주사위는 안 굴려요')
 
 
@@ -585,6 +853,7 @@ def _after(ctx):
             who = '🏺 ' + who
         a = x['auto']
         _judge(ctx, x, 'disagree' if a.get('act') and not a.get('asking') else 'ignored', who)
+        _judge_ai(ctx, x, None)
 
 
 AFTER.append(_after)
@@ -597,16 +866,22 @@ def _on_undo(ctx, ref):
     if not pid.startswith('don_'):
         return
     row = _row(ctx.read('autopilot'), pid)
-    if row is None or row.get('outcome') not in ('agree', 'disagree', 'unknown', 'auto'):
+    if row is None or row.get('outcome') not in ('agree', 'disagree', 'unknown', 'auto', 'held'):
         return
     ap = ctx.edit('autopilot')
     row = _row(ap, pid)
     prev = row['outcome']
+    ai_prev = row.pop('ai_outcome', None)
     if prev == 'auto':
         _bump(ctx, ap, 'auto_undone', row)
         row['was_auto'] = True
+        if ai_prev == 'ai_done':
+            _bump(ctx, ap, 'ai_undone', row)
+            row['was_ai'] = True
     else:
         _bump(ctx, ap, prev, row, -1)
+        if ai_prev:
+            _bump(ctx, ap, ai_prev, row, -1)
     row['outcome'] = 'pending'
     row['undone'] = int(row.get('undone') or 0) + 1
     for k in ('human', 'decided_at', 'split', 'early', 'by'):
@@ -614,9 +889,11 @@ def _on_undo(ctx, ref):
     it = _pending(ctx, pid, edit=True)              # donation 모듈이 먼저 대기함에 돌려놓았다(returned)
     if it is not None and 'target' in row:
         it['auto'] = {k: row.get(k) for k in ('target', 'confidence', 'tier', 'source', 'why', 'act', 'mode')}
-        it['auto'].update(at=_ms(ctx), history=[], held='returned', undone=row['undone'])
+        it['auto'].update(at=_ms(ctx), history=[], held='returned', undone=row['undone'], hold=[HELD['returned']])
         if prev == 'auto':
             it['auto']['was_auto'] = True
+            if row.get('was_ai'):
+                it['auto']['was_ai'] = True
 
 
 pl.ON_UNDO.append(_on_undo)
@@ -761,8 +1038,8 @@ PREFETCH['auto.slot'] = _pre_slot
 @command('auto.set')
 def auto_set(ctx, data):
     """{mode?: off|shadow|on, use_ai?: true|false} — 켬은 조종실이 그림자 기록(맞힌 비율)을 먼저 보여 주고 한 번 묻는다."""
-    if 'mode' not in data and 'use_ai' not in data:
-        raise CommandError('바꿀 것(mode · use_ai)을 보내 주세요')
+    if not any(k in data for k in ('mode', 'use_ai', 'use_ai_assign', 'assign_max')):
+        raise CommandError('바꿀 것(mode · use_ai · use_ai_assign · assign_max)을 보내 주세요')
     ap = ctx.edit('autopilot')
     if 'mode' in data:
         m = str(data.get('mode') or '').strip().lower()
@@ -779,7 +1056,24 @@ def auto_set(ctx, data):
         if not isinstance(data.get('use_ai'), bool):
             raise CommandError('use_ai 는 true · false 입니다')
         ap['use_ai'] = data['use_ai']
-    ctx.notes.update({'mode': ap['mode'], 'use_ai': ap.get('use_ai', True)})
+    if 'use_ai_assign' in data:
+        if not isinstance(data.get('use_ai_assign'), bool):
+            raise CommandError('use_ai_assign 은 true · false 입니다')
+        ap['use_ai_assign'] = data['use_ai_assign']
+    if 'assign_max' in data:
+        v = data.get('assign_max')
+        if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+            raise CommandError('금액 상한이 숫자가 아닙니다')
+        try:
+            n = int(str(v).replace(',', '').replace('원', '').strip())
+        except ValueError:
+            raise CommandError('금액 상한이 숫자가 아닙니다')
+        lo, hi = ASSIGN_MAX_RANGE
+        if not lo <= n <= hi:
+            raise CommandError('금액 상한은 %s ~ %s원입니다' % (format(lo, ','), format(hi, ',')))
+        ap['assign_max'] = n
+    ctx.notes.update({'mode': ap['mode'], 'use_ai': ap.get('use_ai', True), 'use_ai_assign': bool(ap.get('use_ai_assign')),
+                      'assign_max': int(ap.get('assign_max') or ASSIGN_MAX_DEFAULT)})
 
 
 def _amount(v, i, what):

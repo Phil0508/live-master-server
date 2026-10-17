@@ -2,8 +2,9 @@
 """🤖 AI 서포트 — '이 후원은 누구 것인가' 제안 · AI 에게 물어보기(채팅) · 상황판(B안). 옛 features/ai.py 를 옮겼다.
 
 원칙(옛 것 그대로)
-  - ⚠️ AI 는 절대 점수를 바꾸지 않는다. 추천 · 경고 · 답만 준다. 배정은 조종실이 pending.assign 으로 한다
-    (오토파일럿도 조종실 쪽에서 tier 'auto' 만 골라 pending.assign 을 부른다).
+  - ⚠️ AI 는 스스로 점수를 바꾸지 않는다 — 단 하나 예외: 자동 진행 '켬' + 'AI 가 직접 배정'(use_ai_assign, 기본 끔) +
+    확신 0.9↑ + 애매함 0 일 때만 autopilot.py 가 pending.assign 을 대신 부른다(10-17 'AI 권한 넓히기' 3번).
+    말로 조종(ai_cmd.py)은 점수 · 대기함 · 게임 명령을 [실행] 카드로만 돌려준다 — 서버가 바로 하는 건 공지 · 한마디 같은 안전한 것뿐.
   - 계산은 서버가 끝내고(사실표 ai_facts.build_facts) AI 는 옮겨 적기만 한다(09-29 개편).
   - 모델이 자주 죽는다 → 붐비면(503 등) 주 모델을 한 번 더, 그래도 막히면 예비 모델. 그래도 안 되면
     **서버 계산으로 대신 답한다**(채팅) · '모름 + 까닭 + 조금 뒤 다시' 로 답한다(제안). 언제나 200 으로 답한다.
@@ -96,6 +97,7 @@ _nim_lock = threading.Lock()
 # 🩺 마지막 AI 호출 결과 — 상황판 머리의 'AI 연결됨 · 0.7초' / 'AI 붐빔'
 NIM_HEALTH = {'ok': None, 'ms': 0, 'at': 0.0, 'model': '', 'code': 0}
 
+AI_ASSIGN_DEADLINE = 10.0     # 자동 진행 AI 배정 — 이보다 늦은 답으로는 스스로 안 준다(autopilot.AI_DEADLINE_SEC 와 같다)
 SUGGEST_TTL = 600            # 같은 (이름 · 금액 · 메시지 · 선수들) 답은 10분 기억 — 폰 · PC 조종실이 같은 후원을 각각 묻는다
 SUGGEST_CACHE_MAX = 500
 _SUGGEST_CACHE = {}
@@ -252,6 +254,64 @@ def _claude_call(system, messages, max_tokens, temperature, timeout):
     return text, 200
 
 
+def _claude_tools_call(system, messages, tools, tool_choice, max_tokens, timeout):
+    """Claude 를 도구(tool use)와 함께 한 번 부른다 — 바깥으로 나가는 곳(검사는 이것을 막는다). 예외를 던지지 않는다.
+       돌려받는 값: ([(도구 이름, 입력 dict)…], 글자, 상태 코드). ⚠️ 입력은 믿지 않는다 — 부른 쪽(ai_cmd)이 반드시 검사한다.
+       temperature 는 안 보낸다(_claude_call 과 같다)."""
+    try:
+        import anthropic
+        client = _claude_client()
+    except Exception as e:
+        print('⚠️ [Claude] 연결 부품을 못 불러 Claude 를 건너뜁니다 (%s)' % type(e).__name__, flush=True)
+        return [], '', 0
+    kw = {'system': system} if system else {}
+    if tool_choice:
+        kw['tool_choice'] = tool_choice
+    try:
+        msg = client.with_options(timeout=timeout).messages.create(
+            model=CLAUDE_MODEL, max_tokens=max_tokens, messages=messages, tools=tools, **kw)
+    except anthropic.RateLimitError:
+        return [], '', 429
+    except anthropic.APIStatusError as e:
+        return [], '', int(getattr(e, 'status_code', 0) or 0)
+    except anthropic.APIConnectionError:
+        return [], '', 0
+    except (TypeError, ValueError) as e:
+        print('⚠️ [Claude] 부르는 모양이 안 맞아 건너뜁니다 (%s)' % type(e).__name__, flush=True)
+        return [], '', 0
+    uses, text = [], []
+    for b in getattr(msg, 'content', None) or []:
+        kind = getattr(b, 'type', '')
+        if kind == 'tool_use':
+            uses.append((str(getattr(b, 'name', '') or ''), getattr(b, 'input', None)))
+        elif kind == 'text':
+            text.append(str(getattr(b, 'text', '') or ''))
+    return uses, ''.join(text).strip(), 200
+
+
+def ai_tools(system, messages, tools, tool_choice=None, max_tokens=600, timeout=12):
+    """도구 쓰기는 Claude 만 — 키가 없으면 ([], '', 'nokey'). 잠깐 막힘(붐빔 · 연결)이면 한 번 더. 분당 한도를 같이 쓴다.
+       돌려받는 값: (uses, text, code). ⚠️ 다른 갈래(asyncio.to_thread)에서만 부른다."""
+    if not claude_key():
+        return [], '', 'nokey'
+    if not nim_allowed():
+        return [], '', 'rate'
+    last = 0
+    for i in range(2):
+        t0 = time.time()
+        uses, text, code = _claude_tools_call(system, messages, tools, tool_choice, max_tokens, timeout)
+        NIM_HEALTH.update(ok=code == 200, ms=int((time.time() - t0) * 1000), at=time.time(), model=CLAUDE_MODEL, code=code)
+        if code == 200:
+            return uses, text, 200
+        last = code
+        print('⚠️ [Claude 도구 막힘] %s 응답 %s' % (CLAUDE_MODEL, code or '연결 실패 · 시간 넘김'), flush=True)
+        if code not in CLAUDE_RETRYABLE:
+            break
+        if i == 0:
+            time.sleep(0.8)
+    return [], '', last
+
+
 class _Reply:
     """Claude 답을 NVIDIA(OpenAI 꼴) 답 모양으로 감싼다 — 뒤 코드(JSON 꺼내기 · 깨짐 검사)를 그대로 쓰려고."""
 
@@ -400,12 +460,22 @@ async def suggest(bus, name, amount, message, names, slices=None):
     res, pre = dm.suggest_rules(bus.store, name, message, names)
     if res is None:
         ctx_lines = af.game_context(slices if slices is not None else bus.state.slices)
+        t0 = time.time()
         try:
             ai = await asyncio.wait_for(asyncio.to_thread(nim_suggest_target, name, amount, message, pre['names'],
                                                           pre['known'], ctx_lines, pre['hints']), SUGGEST_DEADLINE)
         except asyncio.TimeoutError:
             ai = {'target': None, 'confidence': 0.0, 'error': 'no-response', 'retry': True}
         res = dm.suggest_after_ai(pre, ai)
+        # 🤖 AI 날답(0.88 로 깎기 전) — 자동 진행의 AI 배정 · 채점이 같은 후원을 또 묻지 않게 기억에 같이 둔다(autopilot.ai_verdict)
+        raw = {'target': ai.get('target') if ai.get('target') in names else None,
+               'confidence': round(float(ai.get('confidence') or 0), 3), 'attempt': 0}
+        for k in ('error', 'retry', 'skipped', 'gone'):
+            if ai.get(k):
+                raw[k] = ai[k] if isinstance(ai[k], (str, int, bool)) else True
+        if time.time() - t0 > AI_ASSIGN_DEADLINE:
+            raw['late'] = True
+        res = dict(res, ai_raw=raw)
     if len(_SUGGEST_CACHE) > SUGGEST_CACHE_MAX:
         _SUGGEST_CACHE.clear()          # 무한히 크지 않게 — 방송 한 회 후원 수보다 훨씬 크다
     # ⚠️ 잠깐 막힌 답(붐빔 · 한도)은 기억하지 않는다 — 예전에 '모름' 을 10분 기억해서 2주 동안 5건이 묻혔다
