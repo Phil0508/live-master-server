@@ -31,29 +31,29 @@ KNOWN = ['하루', '별사탕', '구름빵', '달빛토끼', '새손님', '익�
 # (메모, 입금자명, 배운 짝, → 닉네임, 할 말, how, sure, target) — 실측 모양을 가짜 이름으로
 CASES = [
     # 메모 앞 · 붙여 씀(4~6자) — 예전엔 통째로 name_only 였다
-    ('하루밍밍화이팅',           '', '', '하루',     '화이팅',          'known_name',   True,  '밍밍'),
-    ('하루밍밍',                 '', '', '하루',     '',                'known_name',   True,  '밍밍'),
-    ('달별밍밍',                 '', '', '달별',     '',                'player_strip', False, '밍밍'),
-    ('노을예지랑',               '', '', '노을',     '',                'player_strip', False, '예지랑'),
-    ('노을예지랑화이팅',         '', '', '노을',     '화이팅',          'player_strip', False, '예지랑'),
-    ('달빛토끼행복한걸최고',     '', '', '달빛토끼', '최고',            'known_name',   True,  '행복한걸'),
-    ('달별밍밍아사랑해',         '', '', '달별',     '사랑해',          'player_strip', False, '밍밍'),
+    ('하루밍밍화이팅',           '', '', '하루',     '밍밍화이팅',          'known_name',   True,  '밍밍'),
+    ('하루밍밍',                 '', '', '하루',     '밍밍',                'known_name',   True,  '밍밍'),
+    ('달별밍밍',                 '', '', '달별',     '밍밍',                'player_strip', False, '밍밍'),
+    ('노을예지랑',               '', '', '노을',     '예지랑',                'player_strip', False, '예지랑'),
+    ('노을예지랑화이팅',         '', '', '노을',     '예지랑화이팅',          'player_strip', False, '예지랑'),
+    ('달빛토끼행복한걸최고',     '', '', '달빛토끼', '행복한걸최고',            'known_name',   True,  '행복한걸'),
+    ('달별밍밍아사랑해',         '', '', '달별',     '밍밍아사랑해',          'player_strip', False, '밍밍'),
     # 메모 가운데 · 뒤
-    ('밍밍 하루 화이팅',         '', '', '하루',     '화이팅',          'known_name',   True,  '밍밍'),
-    ('밍밍하루최고',             '', '', '하루',     '최고',            'known_name',   True,  '밍밍'),
-    ('예지랑 노을 사랑해',       '', '', '노을',     '사랑해',          'player_strip', False, '예지랑'),
-    ('밍밍 화이팅 노을',         '', '', '노을',     '화이팅',          'player_strip', False, '밍밍'),
-    ('순자 오늘 너무 예뻐요 별사탕', '', '', '별사탕', '오늘 너무 예뻐요', 'known_name', True,  '순자'),
+    ('밍밍 하루 화이팅',         '', '', '하루',     '밍밍 화이팅',          'known_name',   True,  '밍밍'),
+    ('밍밍하루최고',             '', '', '하루',     '밍밍 최고',            'known_name',   True,  '밍밍'),
+    ('예지랑 노을 사랑해',       '', '', '노을',     '예지랑 사랑해',          'player_strip', False, '예지랑'),
+    ('밍밍 화이팅 노을',         '', '', '노을',     '밍밍 화이팅',          'player_strip', False, '밍밍'),
+    ('순자 오늘 너무 예뻐요 별사탕', '', '', '별사탕', '순자 오늘 너무 예뻐요', 'known_name', True,  '순자'),
     # 선수 이름 뒤에 할 말
-    ('하루 순자 생일 축하해',    '', '', '하루',     '생일 축하해',     'known_name',   True,  '순자'),
-    ('노을 순자 생일 축하해',    '', '', '노을',     '생일 축하해',     'player_strip', False, '순자'),
-    ('새손님 순자 최고',         '', '', '새손님',   '최고',            'known_name',   True,  '순자'),
+    ('하루 순자 생일 축하해',    '', '', '하루',     '순자 생일 축하해',     'known_name',   True,  '순자'),
+    ('노을 순자 생일 축하해',    '', '', '노을',     '순자 생일 축하해',     'player_strip', False, '순자'),
+    ('새손님 순자 최고',         '', '', '새손님',   '순자 최고',            'known_name',   True,  '순자'),
     # 별명 — 메모에 닉네임이 없다(배운 짝만 안다)
     ('고마워요',                 '김가짜', '달빛토끼', '달빛토끼', '고마워요', 'learned',    True,  None),
-    ('밍밍화이팅',               '김가짜', '달빛토끼', '달빛토끼', '화이팅',   'learned',    True,  '밍밍'),
+    ('밍밍화이팅',               '김가짜', '달빛토끼', '달빛토끼', '밍밍화이팅',   'learned',    True,  '밍밍'),
     ('김가짜',                   '김가짜', '달빛토끼', '달빛토끼', '',         'learned',    True,  None),   # 메모 없이 보냄 — 실명을 할 말로 안 쓴다
-    ('김가짜 밍밍 화이팅',       '김가짜', '하루',     '하루',     '화이팅',   'learned',    True,  '밍밍'), # 실명은 할 말에서 뺀다
-    ('하루밍밍',                 '김가짜', '노을',     '노을',     '하루',     'learned',    True,  '밍밍'), # 배운 짝이 지난 기록보다 먼저(메모의 이름은 할 말에 남아 대표님이 본다)
+    ('김가짜 밍밍 화이팅',       '김가짜', '하루',     '하루',     '밍밍 화이팅',   'learned',    True,  '밍밍'), # 실명은 할 말에서 뺀다
+    ('하루밍밍',                 '김가짜', '노을',     '노을',     '하루밍밍',     'learned',    True,  '밍밍'), # 배운 짝이 지난 기록보다 먼저(메모의 이름은 할 말에 남아 대표님이 본다)
     # 옛 길 그대로
     ('김가짜',                   '김가짜', '',         '김가짜',   '',         'no_memo',    False, None),
     ('밍밍화이팅',               '', '', '',         '밍밍화이팅',      'message',      False, None),
@@ -123,7 +123,7 @@ class Learning(Base):
             self.used(c1['id'], '달빛토끼')
             c2 = self.card(K, 'l2', '밍밍 화이팅', '김가짜', 20002)                           # 같은 입금자 · 메모엔 닉네임 없음
             self.assertEqual((c2['name'], c2['message'], c2['how'], c2['sure'], c2['target']),
-                             ('달빛토끼', '화이팅', 'learned', True, '밍밍'))
+                             ('달빛토끼', '밍밍 화이팅', 'learned', True, '밍밍'))
             self.assertEqual(c2['target_why'], bank.MEMO_TARGET_WHY)
             self.assertEqual(self.card(K, 'l2b', '김 가짜', '김 가짜', 20009)['name'], '달빛토끼')   # 띄어 써도 같은 입금자 · 메모 없이 보냄
             self.assertEqual(self.card(K, 'l2c', '밍밍 화이팅', '이가상', 20010)['how'], 'message')  # 다른 입금자는 모른다
@@ -276,7 +276,7 @@ class Tool(unittest.TestCase):
         self.c.post('/api/bank/deposit', json={'source': 'web', 'deposits': [
             {'ref': 'n1', 'amount': 7000, 'fields': [['거래내용', '순자 화이팅'], ['상대계좌예금주명', '김가짜']]}]}, headers={'X-Bank-Key': K})
         it = self.c.get('/api/bank/inbox', headers=H).json()['items'][0]
-        self.assertEqual((it['name'], it['how'], it['message'], it['target']), ('새달빛', 'learned', '화이팅', '순자'))
+        self.assertEqual((it['name'], it['how'], it['message'], it['target']), ('새달빛', 'learned', '순자 화이팅', '순자'))
 
     def test_live_newer_wins(self):
         bl.learn(self.c.app.state.store.db, '김가짜', '방송중이름', 'bLIVE00000000', at=time.time() + 60)

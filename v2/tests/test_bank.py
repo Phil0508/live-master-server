@@ -244,12 +244,12 @@ class Inbox(Base):
         items = {i['amount']: i for i in self.inbox()['items']}
         a = items[50000]
         # 📚 10-17: 붙여 써도 지난 기록의 닉네임(known_name) · 할 말은 닉네임 · 선수 이름을 뺀 나머지 · 선수는 '누구 몫'(target)
-        self.assertEqual((a['name'], a['message'], a['how'], a['sure']), ('영원', '화이팅', 'known_name', True))
+        self.assertEqual((a['name'], a['message'], a['how'], a['sure']), ('영원', '밍밍화이팅', 'known_name', True))
         self.assertEqual((a['memo'], a['holder']), ('영원밍밍화이팅', '김진짜'))                # 메모 칸과 실명 칸을 따로
         h = items[30000]
         self.assertEqual((h['how'], h['name'], h['message']), ('no_memo', '홍길동', ''))       # 메모 없이 보낸 입금은 금액 · 입금자명만
         n = items[10000]
-        self.assertEqual((n['name'], n['message'], n['how'], n['sure']), ('새손님', '최고', 'player_strip', False))
+        self.assertEqual((n['name'], n['message'], n['how'], n['sure']), ('새손님', '순자 최고', 'player_strip', False))
         self.assertEqual([i['amount'] for i in self.inbox()['items']], [10000, 30000, 50000])   # 최근 것이 위
         self.assertEqual(set(VIEW_KEYS), set(a))                                             # 옛 _view 와 같은 칸
 
@@ -450,9 +450,9 @@ class Inbox(Base):
         self.assertEqual((items[13000]['name'], items[13000]['how']), ('가나다', 'first'))   # 지어낸 글자('!!') — 버린다
         # 선수 이름이 든 메모는 AI 에게 안 묻는다 — 선수 이름을 떼고 남은 덩어리 · 선수는 바로 '누구 몫'
         self.assertEqual((items[14000]['name'], items[14000]['message'], items[14000]['how'], items[14000]['target']),
-                         ('스트', '플러', 'player_strip', '밍밍'))
+                         ('스트', '밍밍플러', 'player_strip', '밍밍'))
         self.assertEqual((items[15000]['name'], items[15000]['message'], items[15000]['how'], items[15000]['target']),
-                         ('별사탕', '화이팅', 'player_strip', '밍밍'))
+                         ('별사탕', '밍밍 화이팅', 'player_strip', '밍밍'))
         self.assertEqual(items[15000]['target_why'], bank.MEMO_TARGET_WHY)
         self.assertEqual(sum('계좌 후원 메모' in c for c in calls), 3)
         self.assertTrue(all(i['ai'] == 'done' for i in items.values()))

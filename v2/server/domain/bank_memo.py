@@ -226,13 +226,11 @@ def _drop(text, word):
 
 
 def _message(text, name, pl, holder):
-    """할 말 = 메모 − 닉네임 − 선수 이름 − 입금자 실명."""
+    """할 말 = 메모 − 닉네임 − 입금자 실명. 선수 이름은 **남긴다**(대표님 10-17 '나' — 시청자가 쓴 그대로
+       '영원밍밍화이팅' → 할 말 '밍밍화이팅', 투네이션 메시지처럼). 선수는 따로 '누구 몫'(target) 추천으로도 뜬다."""
     t = _drop(text, name)
     if holder and len(''.join(holder.split())) >= 2:
         t = _drop(t, holder)
-    rx = _player_re(pl)
-    if rx:
-        t = rx.sub(' ', t)
     return _tidy(t)
 
 
