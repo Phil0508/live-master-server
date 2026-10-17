@@ -12,6 +12,7 @@ import { h, won, num, signed } from '../../util.js';
 import { getJSON, sessionLabel, hms } from './api.js';
 import { donationsCsv, scoresCsv, sessionStamp, fileName, kst } from './csv.js';
 import { askReplay, canReplay } from '../../replay.js';     // ↻ 다시 송출(방송 화면에만 한 번 더 — 10-17)
+import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from '../../mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
 
 const CSV_MAX = 2000;           // 서버가 한 번에 주는 끝(/api/ledger · /api/scores limit)
 
@@ -141,6 +142,8 @@ function donationView(ctx, session) {
     refresh.addEventListener('click', () => load());
     more.addEventListener('click', () => { shown += PAGE; draw(); });
 
+    // 🙈 ⚠ 원문 보기 · [가리기] 는 이 목록만 다시 그린다(조종실 전체 그리기는 장부 줄을 안 건드린다)
+    const mctx = { run: ctx.run, toast: ctx.toast, confirm: ctx.confirm, get slices() { return ctx.slices; }, rerender: () => draw() };
     const drawRows = keyedList(ol, (li, r) => {
         const [label, cls] = STATUS[r.status] || [r.status, 'plain'];
         li.className = 'rc-row st-' + r.status;
@@ -157,7 +160,10 @@ function donationView(ctx, session) {
                     r.no ? h('span', { class: 'rc-no', title: '장부 줄 번호' }, '#' + r.no) : null,
                     r.re ? h('button', { type: 'button', class: 'btn xs rc-replay', title: '방송 화면에만 한 번 더 띄워요 (점수 · 정산엔 안 들어가요)',
                         onclick: () => askReplay(ctx, r.row).then(ok => { if (ok) load(); }) }, '↻ 다시 송출') : null),
-                r.message ? h('p', { class: 'rc-msg' }, r.message) : null));
+                r.message ? h('div', { class: 'rc-msgrow' },
+                    h('p', { class: 'rc-msg' + (r.hid ? ' mk-gone' : ''), title: r.hid ? '방송 화면엔 안 나가요' : null }, (r.hid ? '🙈 ' : '') + r.shown),
+                    warnChip(mctx, r.mk),
+                    r.canHide ? hideBtn(mctx, r.mk) : null) : null));
     });
     const canRe = () => session === 'current' && !!(ctx.slices.session || {}).live;
 
@@ -213,9 +219,14 @@ function donationView(ctx, session) {
                 h('span', { title: '화면에만 띄운 후원(1만 원 미만 · 투네이션 다시 보기 · 후원 테스트) — 합계에 안 들어감' }, '화면만 ', h('b', null, won(sum.display)), ' (합계 밖)')),
             (qv || filter !== 'all') ? h('div', { class: 'rc-picked' }, `고른 것 ${num(pick.length)}건 · ${won(pickSum)}`) : null].filter(Boolean));
 
+        const hid = hiddenSet(ctx.slices);
         const view = pick.slice(0, shown).map(r => ({
             key: r.id, t: hms(r.at), name: r.name, amount: r.amount, status: r.status, player: r.player || '',
             message: r.message || '', src: SOURCE[r.source] || '', no: r.no || 0,
+            // 🙈 걸린 메시지는 가린 글(⚠ 누르면 원문) · 가린 후원은 흐리게 — 다시 송출 기록 줄은 원래 줄에서 가린다
+            shown: r.message ? shownText(r) : '', hid: hid.has(r.id), ms: maskSig(ctx.slices, r.id),
+            canHide: session === 'current' && !!r.message && String(r.id || '').startsWith('don_') && r.source !== 'replay',
+            mk: { id: r.id, name: r.name, message: r.message || '', mask: r.mask || null },
             re: canRe() && canReplay(r), row: { id: r.id, name: r.name, amount: r.amount, message: r.message, at: r.at, no: r.no },
         }));
         drawRows(view);
@@ -225,7 +236,7 @@ function donationView(ctx, session) {
         empty.textContent = rows.length ? '찾는 후원이 없어요' : '이 방송에 들어온 후원이 아직 없어요';
     }
 
-    return { el, load, get loaded() { return loaded; } };
+    return { el, load, draw, get loaded() { return loaded; } };
 }
 
 /* ── 점수 기록(한 회차) — 같은 묶음(ref) · 같은 사람의 점수 · 기여도는 한 줄로 ── */
@@ -487,7 +498,7 @@ export function mountLedger(el, ctx) {
             const s = slices.session || {};
             const lbl = s.id ? (s.live ? '방송 중 · ' : '마지막 방송 · ') + sessionLabel(s.id) : '아직 방송 기록이 없어요';
             if (label.textContent !== lbl) label.textContent = lbl;
-            const now = { pending: slices.pending, tallies: slices.tallies, logs: slices.logs, session: slices.session };
+            const now = { pending: slices.pending, tallies: slices.tallies, logs: slices.logs, session: slices.session, mask: slices.mask };
             const changed = k => seen[k] !== undefined && seen[k] !== now[k];
             if (changed('session') && (s.id || '') !== sid) {
                 // 회차가 바뀌었다 — 지금 보는 칸을 새 회차로
@@ -498,6 +509,7 @@ export function mountLedger(el, ctx) {
             }
             if (changed('pending') || changed('tallies')) { dirty.cur = true; dirty.past = true; }
             if (changed('logs')) { dirty.scores = true; dirty.past = true; }
+            if (changed('mask')) { dirty.cur = true; if (cur && cur.loaded) cur.draw(); }   // 🙈 가리기는 바로 · 금칙어가 바뀌면 다시 받아 가린 글도 새로
             seen = now;
             if (dirty[mode]) refreshSoon();
             if (mode === 'past') past.draw();

@@ -34,6 +34,7 @@ from fastapi.responses import JSONResponse
 
 from ..bus import CommandError, command
 from ..state import DEPENDS, VIEWS, slice_
+from . import session as ses
 from .legacy import route
 
 MASK = '●●●'
@@ -364,6 +365,18 @@ def hide(ctx, data):
     m['hidden'] = hid[-HIDDEN_MAX:]
     _bump(m)
     ctx.notes.update({'id': did, 'hidden': on})
+
+
+def _new_session(ctx, data):
+    """새 방송 — 지난 방송에서 가린 후원 목록은 비운다(금칙어 · 규칙은 그대로)."""
+    m = ctx.read('mask')
+    if m.get('hidden'):
+        m = ctx.edit('mask')
+        m['hidden'] = []
+        _bump(m)
+
+
+ses.ON_START.append(_new_session)
 
 
 @route('/api/mask/preview')

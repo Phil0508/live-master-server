@@ -13,7 +13,10 @@
    - ↻ popup.donation.encore(조종실 '다시 송출', 10-17) — 카드 위 '↻ 다시 보기' 딱지. 화면에만 한 번 더(장부 · 점수엔 안 든다).
    다른 위젯에 주는 것(stage.provide('donationCard')):
      show({name, amount, message}) → 카드가 내려가는 순간 끝나는 Promise(시그니처가 그때 시작한다)
-     busy() → 카드가 떠 있거나 줄이 있으면 true · onIdle(fn) → 줄이 다 비면 부른다 */
+     busy() → 카드가 떠 있거나 줄이 있으면 true · onIdle(fn) → 줄이 다 비면 부른다
+     retext(rq, message) → 시그니처 줄(rq id)로 띄운 카드 · 줄 선 카드의 메시지만 바꾼다
+   - 🙈 [가리기] · 금칙어(10-17 mask): 서버는 가린 글만 보낸다. 같은 후원(id)이 메시지만 바뀌어 다시 오면
+     떠 있는 카드 · 줄 선 카드의 글자만 바꾼다(카드를 다시 띄우지 않는다). */
 import { esc, formatNum, classifyDonation } from '../util.js';
 import { donorTag, donorLv } from '../donate_kit.js';
 
@@ -55,6 +58,17 @@ export function mount(root, lm, opts) {
     const idleFns = [];
     let busy = false;
     let seen;                    // 마지막으로 본 후원(id) — 같은 것이 다시 와도 한 번만
+    let shown = null;            // 지금 떠 있는 카드의 d
+
+    /* 🙈 같은 후원의 메시지가 바뀌었다(가리기 · 금칙어) — 줄 선 것 · 떠 있는 것의 글자만 */
+    function retext(match, message) {
+        const msg = String(message || '');
+        queue.forEach(q => { if (match(q.d)) q.d.message = msg; });
+        if (shown && match(shown) && String(shown.message || '') !== msg) {
+            shown.message = msg;
+            try { fill(shown); } catch (e) { msgEl.textContent = ''; msgEl.style.display = 'none'; }
+        }
+    }
 
     /* 👑 등급 옷 — 먼저 앞 사람의 흔적을 지운다(안 지우면 다음 일반 후원에도 메달이 남는다) */
     function dressVip(name) {
@@ -136,6 +150,7 @@ export function mount(root, lm, opts) {
         const it = queue.shift();
         if (!it) { idleFns.slice().forEach(fn => { try { fn(); } catch (e) {} }); return; }
         busy = true;
+        shown = it.d;
         try {
             fill(it.d);
             card.classList.remove('show');
@@ -149,6 +164,7 @@ export function mount(root, lm, opts) {
         }
         setTimeout(() => {
             card.classList.remove('show');
+            shown = null;
             if (it.done) { try { it.done(); } catch (e) {} }
             setTimeout(() => { busy = false; next(); }, GAP_MS);
         }, HOLD_MS);
@@ -163,13 +179,14 @@ export function mount(root, lm, opts) {
         show(d) { return new Promise(resolve => enqueue(d || {}, resolve)); },
         busy() { return busy || queue.length > 0; },
         onIdle(fn) { idleFns.push(fn); },
+        retext(rq, message) { if (rq) retext(d => d && d.rq === rq, message); },
     });
 
     lm.on('popup', (pop, slices) => {
         const d = pop && pop.donation;
         if (!d) return;
         const key = d.id || String(d.at);
-        if (key === seen) return;
+        if (key === seen) { if (d.id) retext(x => x && x.id === d.id, d.message); return; }   // 🙈 가리기 · 금칙어로 글만 바뀜
         seen = key;
         if (!opts.isFresh(d.at)) return;                        // 다시 붙었을 때 지난 후원
         if (!((slices.session || {}).live)) return;             // 방송 중이 아니면 알림 없음(옛 것과 같다)

@@ -1,0 +1,52 @@
+/* 🙈 메시지 거르기(10-17 mask) — 대기함 카드 · 장부 줄 ⚠ 딱지 · [가리기] 단추 · 설정 탭 '메시지 거르기'. js/mask.js · panels/ops/mask.js */
+
+/* ⚠ 걸림 딱지 — 누르면 원문 ↔ 가린 글 */
+.mk-warn {
+    flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border: 0; border-radius: 6px;
+    background: #fff4df; color: #8a5a00; font: inherit; font-size: 11.5px; font-weight: 800; white-space: nowrap; cursor: pointer;
+}
+.mk-warn.open { background: #8a5a00; color: #fff; }
+.mk-warn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* [가리기] / [보이기] */
+.btn.xs.mk-hide { flex: none; min-height: 22px; height: 22px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.btn.xs.mk-hide.on { background: #ece6ff; border-color: #b9a6f2; color: #5a3cc0; }
+
+/* 가린 후원 메시지 — 흐리게 + 줄 */
+.mk-gone { opacity: .55; text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* 대기함 카드 q2 줄 — 딱지 · 단추는 줄지 않고 메시지만 말줄임 */
+#pending .q2 .mk-warn, #pending .q2 .mk-hide { flex: none; }
+
+/* 장부 줄 — 메시지 · ⚠ · [가리기] 한 줄(좁으면 다음 줄) */
+.rc-msgrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; min-width: 0; }
+.rc-msgrow .rc-msg { margin: 0; flex: 1 1 12em; min-width: 0; }
+@media (max-width: 899px) {
+    .btn.xs.mk-hide { min-height: 32px; height: 32px; padding: 0 11px; font-size: 13px; }
+    .mk-warn { height: 28px; padding: 0 9px; font-size: 12.5px; }
+    #pending .q2 .btn.xs.mk-hide { min-height: 26px; height: 26px; }
+    #pending .q2 .mk-warn { height: 24px; }
+}
+
+/* 설정 탭 */
+.ops-mask .mk-lead { margin: 0 0 4px; }
+.ops-mask .mk-rule { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 0; }
+.ops-mask .mk-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.ops-mask .mk-chip {
+    display: inline-flex; align-items: center; gap: 2px; max-width: 100%; height: 30px; padding: 0 2px 0 10px; border-radius: 15px;
+    background: var(--paper-2, #f4efe9); border: 1px solid #e3d7cd; font-size: 13.5px; font-weight: 700;
+}
+.ops-mask .mk-w { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ops-mask .mk-x {
+    flex: none; width: 26px; height: 26px; border: 0; border-radius: 13px; background: none; color: var(--muted, #8a8178);
+    font-size: 17px; line-height: 1; cursor: pointer;
+}
+.ops-mask .mk-x:hover { background: rgba(0, 0, 0, .06); color: var(--bad, #c0392b); }
+.ops-mask .mk-add input { min-width: 0; }
+.ops-mask .mk-try-out { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 8px 0 0; min-height: 1.4em; font-size: 14px; overflow-wrap: anywhere; }
+.ops-mask .mk-try-out .mk-try-k { flex: none; font-weight: 800; font-size: 12.5px; }
+.ops-mask .mk-try-out.hit .mk-try-k { color: #8a5a00; }
+.ops-mask .mk-try-out.clean .mk-try-k { color: #1f8a52; }
+.ops-mask .mk-try-out.bad { color: var(--bad, #c0392b); }
+.ops-mask .mk-try-t { min-width: 0; }
+@media (max-width: 899px) { .ops-mask .mk-chip { height: 36px; } .ops-mask .mk-x { width: 32px; height: 32px; } }

@@ -265,6 +265,8 @@ export function mount(root, lm, opts) {
 
         if (cur) {
             if (head && keyOf(head) === cur.key) {
+                // 🙈 카드가 떠 있는 동안 [가리기] · 금칙어로 글이 바뀌면 카드 글자도(10-17 mask)
+                if (cur.phase === 'card') { const dc = opts.stage.use('donationCard'); if (dc && dc.retext) dc.retext(head.id, head.message || ''); }
                 if (cur.phase === 'play') {
                     audio.volume = vol(); syncCombo(head);
                     const m = sigMsgFor(head);                       // 💬 트는 사이 같은 시그가 더 오면 메시지도 바로 덧붙인다(옛 rxMsgRefresh)
@@ -296,7 +298,7 @@ export function mount(root, lm, opts) {
         const backlog = qlen > 1;
         const card = opts.stage.use('donationCard');
         if (card && !it.skip_popup && !backlog && !big && !repeat) {
-            card.show({ name: it.donator || '익명', amount: it.amount || 0, message: it.message || '', encore: !!it.encore })
+            card.show({ name: it.donator || '익명', amount: it.amount || 0, message: it.message || '', encore: !!it.encore, rq: it.id })
                 .then(() => { if (cur && cur.token === token) begin(); });
         } else {
             begin();

@@ -13,7 +13,7 @@ import { openBankExt } from '../bankext.js';
 
 // [묶음 이름, [탭 id …]] — '@bank' 는 탭이 아니라 시스템 탭 안의 은행 확장 칸으로 가는 길
 const GROUPS = [
-    ['방송 화면', ['ops-stage', 'ops-notice', 'ops-fundjar', 'ops-screen', 'ops-media']],
+    ['방송 화면', ['ops-stage', 'ops-notice', 'ops-fundjar', 'ops-screen', 'ops-media', 'ops-mask']],
     ['시그니처 · 연출', ['sig-admin', 'sig-monitor', 'fx-lights', 'ops-opfx', 'clip']],
     ['기록', ['ledger', 'donors', 'check', 'monthly', 'uistats']],
     ['AI · 자동', ['ai', 'auto']],
@@ -26,6 +26,7 @@ const DESC = {
     'ops-fundjar': '모금함 켜기 · 금액 · 깃발 자리',
     'ops-screen': '계좌 글 · 시작 전/끝 화면',
     'ops-media': '고액 후원 영상 · 노래방',
+    'ops-mask': '금칙어 · 전화번호 · 주소 가리기',
     'sig-admin': '음원 · 사진 등록 · 고치기',
     'sig-monitor': '방송판을 작게 미리 보기',
     'fx-lights': '시그니처 때 네온 · 아우디 조명',

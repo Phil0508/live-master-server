@@ -14,6 +14,7 @@ import { mountBot } from './ops/bot.js';
 import { mountVersion } from './ops/version.js';
 import { mountMigrate } from './ops/migrate.js';
 import { mountSystem } from './ops/system.js';
+import { mountMask } from './ops/mask.js';           // 🙈 메시지 거르기(금칙어 · 전화 · 계좌 · 주소 — 10-17)
 
 const G = 'tools';
 
@@ -25,6 +26,7 @@ export const PANELS = [
     { id: 'ops-fundjar', label: '모금함', icon: '🏺', group: G, mount: mountFundjar },
     { id: 'ops-screen', label: '계좌 · 화면', icon: '🏦', group: G, pre: true, mount: mountScreen },
     { id: 'ops-media', label: '영상 · 노래방', icon: '🎞️', group: G, mount: mountMedia },
+    { id: 'ops-mask', label: '메시지 거르기', icon: '🙈', group: G, pre: true, mount: mountMask },
     { id: 'ops-bot', label: '진행봇', icon: '🤖', group: G, pre: true, mount: mountBot },
     { id: 'ops-version', label: '버전', icon: '🕹️', group: G, pre: true, mount: mountVersion },
     { id: 'ops-system', label: '시스템', icon: '🖥️', group: G, pre: true, mount: mountSystem },
