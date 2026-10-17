@@ -444,3 +444,30 @@ class Money(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ControllerJs(unittest.TestCase):
+    """조종실 '🙋 확인할 후원' 띠(holdband.heldCards) · 카드(cards.js) — 실물 파일을 node 로(v2/tests/js/aipower_check.mjs)."""
+
+    def test_node_check(self):
+        import os
+        import re
+        import shutil
+        import subprocess
+        node = shutil.which('node')
+        if not node:
+            self.skipTest('node 가 없다')
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        p = subprocess.run([node, os.path.join(root, 'v2', 'tests', 'js', 'aipower_check.mjs')], capture_output=True, timeout=120)
+        out = p.stdout.decode('utf-8', 'replace')
+        self.assertEqual(p.returncode, 0, p.stderr.decode('utf-8', 'replace')[-1500:])
+        self.assertEqual([ln for ln in out.splitlines() if ln.startswith('BAD ')], [])
+        m = re.search(r'^DONE (\d+)$', out, re.M)
+        self.assertTrue(m and int(m.group(1)) >= 9, out[-500:])
+
+    def test_band_is_silent(self):
+        import os
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        src = open(os.path.join(root, 'v2', 'web', 'controller', 'js', 'panels', 'auto', 'holdband.js'), encoding='utf-8').read()
+        for bad in ('Audio(', 'AudioContext', '.play(', 'speechSynthesis', 'vibrate('):
+            self.assertNotIn(bad, src)                                                # 대표님 규칙 — 경보 소리 금지
