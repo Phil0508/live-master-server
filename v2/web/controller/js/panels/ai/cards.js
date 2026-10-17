@@ -7,6 +7,7 @@
    오래된 카드(10분)는 단추를 닫는다 — 그새 대기함 · 명단이 바뀌었을 수 있다(다시 말해 달라고 한다). */
 import { h, call } from './common.js';
 import * as bgm from '../records/bgm.js';
+import { needFor, askBig } from '../../bigok.js';   // 🛡️ 큰 금액은 한 번 더 확인 — [실행] · [모두 실행] 은 한 상자로 한 번만 묻는다(10-17 bigok)
 
 const STALE_MS = 10 * 60 * 1000;
 const CLIENT = new Set(['bgm.next', 'bgm.toggle', 'bgm.play']);
@@ -44,13 +45,13 @@ export function autoClient(res) {
 }
 
 /** 카드 하나 실행 — 사람이 누른 것만 여기로 온다 */
-export async function runCard(ctx, c) {
+export async function runCard(ctx, c, opts) {
     if (CLIENT.has(c.type)) return runClient(c);
     if (c.type === 'slot.spin') {                    // 슬롯은 시그니처 목록을 서버가 바깥에서 받아 와야 한다 — 옛 주소 그대로
         const r = await call('/api/slot/spin', {});
         return r.ok ? { ok: true } : { ok: false, error: (r.data && (r.data.message || r.data.error)) || '실패 (' + r.status + ')' };
     }
-    return ctx.run(c.type, c.data || {}, { quiet: true });
+    return ctx.run(c.type, c.data || {}, Object.assign({ quiet: true }, opts || {}));
 }
 
 const ICON = { ask: '🤖', ran: '✅', failed: '⚠️', cancel: '✖', undone: '↩', client: '⏳', running: '⏳' };
@@ -66,10 +67,18 @@ export function cardsView(ctx, res, o = {}) {
     async function exec(list) {
         if (busy) return;
         busy = true;
+        // 🛡️ 큰 금액 · 큰 점수가 하나라도 있으면 먼저 한 상자로 묻는다 — [취소] 면 이 묶음은 하나도 안 보낸다
+        const bigs = list.map(c => { try { return needFor(ctx.slices, c.type, c.data || {}); } catch (e) { return null; } }).filter(Boolean);
+        if (bigs.length && !(await askBig(ctx, bigs))) {
+            list.forEach(c => { c.state = 'cancel'; });
+            busy = false;
+            changed();
+            return;
+        }
         list.forEach(c => { c.state = 'running'; });
         paint();
         for (const c of list) {
-            const r = await runCard(ctx, c);
+            const r = await runCard(ctx, c, { bigOk: true });
             c.state = r && r.ok ? 'ran' : 'failed';
             if (!(r && r.ok)) c.error = (r && r.error) || '실패';
             else if (r.already) c.note = '이미 돼 있었어요';

@@ -33,6 +33,7 @@ import { mountCmdk } from './cmdk.js';                 // [D] import { mountCmdk
 import { mountRxSwitch } from './rxswitch.js';         // [D] import { mountRxSwitch } — 🙈 조종 줄 리액션 모드 스위치(w2feat 채움)
 import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BGM ▶ 가 BGM 탭을 미리 그리게(ctx.tabs.prepare)
 import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 자동 진행 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17)
+import { guardRun, askBig } from './bigok.js';           // 🛡️ 큰 금액은 한 번 더 확인 — 점수가 들어가는 명령은 ctx.run 한 곳에서 거른다(10-17 bigok)
 
 const lm = window.LM.connect({ kind: 'controller' });
 let status = 'connecting', snapped = false, slices = {}, scheduled = false;
@@ -46,6 +47,10 @@ const ctx = {
     get slices() { return slices; },
     tabs: null,               // mountTabs 뒤에 채운다 — ctx.tabs.open('ops-stage') 처럼 탭을 연다
 };
+// 🛡️ 대기함 · 추천 · 나눠 주기 · 폰 서랍 · AI 카드 · 손 점수 · Ctrl+K — 모두 ctx.run 을 지나므로 여기서 한 번에 묻는다.
+//    이미 물어본 길은 ctx.run(type, data, {bigOk: true}). 오토파일럿(via 'ap')은 묻지 않는다(js/bigok.js 맨 위).
+ctx.run = guardRun(ctx.run, () => slices, needs => askBig(ctx, needs),
+    () => toast('취소했어요 — 점수는 그대로예요', 'info'));
 
 const $ = id => document.getElementById(id);
 const views = {
