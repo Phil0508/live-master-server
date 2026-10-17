@@ -41,7 +41,7 @@ class PureJs(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr.decode('utf-8', 'replace')[-1500:])
         self.assertEqual([ln for ln in out.splitlines() if ln.startswith('BAD ')], [])
         m = re.search(r'^DONE (\d+)$', out, re.M)
-        self.assertTrue(m and int(m.group(1)) >= 60, out[-500:])
+        self.assertTrue(m and int(m.group(1)) >= 68, out[-500:])
 
     def test_node_syntax(self):
         node = shutil.which('node')
@@ -88,6 +88,24 @@ class Wiring(unittest.TestCase):
         # 카드 서랍은 확인 상자(.modal-wrap 100) 아래 — [묶기] 가 묻는 상자가 서랍 뒤에 숨지 않게
         z = int(re.search(r'\.dk-wrap \{[^}]*z-index: (\d+)', css).group(1))
         self.assertLess(z, 100)
+
+    def test_css_does_not_leak(self):
+        # 리뷰(10-17) — 이 파일은 맨 뒤에 붙는다. 맨 .btn 규칙은 다른 탭(무대 · 공지 …)의 .btn.on 까지 바꾼다 → 자기 칸 안에서만
+        css = re.sub(r'/\*.*?\*/', '', read('css', 'donorbook.css'), flags=re.S)
+        for sel in re.findall(r'(?:^|[{}])\s*([^{}@]+?)\s*\{', css):
+            for one in sel.split(','):
+                one = one.strip()
+                if one.startswith('.btn'):
+                    self.fail('밖으로 새는 규칙: ' + one)
+        # 장부 줄 이름이 단추가 돼도 굵기 · 크기를 지킨다
+        self.assertIn('.rc-name.dk-link', css)
+
+    def test_club_no_is_confirmed_without_player(self):
+        # [아니에요] · [빼기] 는 '팬클럽 말 아님'(confirmed + 선수 없음) — confirmed:false 로 보내면 다시 세기가 같은 짐작을 또 올린다
+        src = code(read('js', 'panels', 'records', 'donorbook.js'))
+        self.assertIn('clubSet(r.word, null, true,', src)
+        self.assertNotIn('clubSet(r.word, null, false', src)
+        self.assertIn("/api/donors/book?all=1", src)          # 🧪 시험 카드도 받아야 거르기에서 다시 풀 수 있다
 
     def test_routes_and_commands_from_spec_only(self):
         src = '\n'.join(code(read(*p)) for p in NEW)

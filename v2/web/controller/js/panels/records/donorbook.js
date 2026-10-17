@@ -83,7 +83,7 @@ export function mountDonorBook(el, ctx) {
         refresh.disabled = true;
         try {
             const [book, sg] = await Promise.all([
-                getJSON('/api/donors/book'),
+                getJSON('/api/donors/book?all=1'),        // all=1 — 🧪 시험 카드도 받아야 '시험 이름' 거르기에서 다시 풀 수 있다(목록은 거르기가 뺀다)
                 getJSON('/api/donors/suggest').catch(() => null),
             ]);
             persons = Array.isArray(book.persons) ? book.persons : [];
@@ -128,7 +128,8 @@ export function mountDonorBook(el, ctx) {
                     p.big ? h('span', { class: 'dk-tag t-big', title: '누적 후원 상위 10%' }, '⭐ 큰손') : null,
                     p.dormant ? h('span', { class: 'dk-tag t-dormant', title: '마지막 후원이 30일도 넘었어요' }, '💤 쉬는 중') : null,
                     Number(p.sugg) > 0 ? h('span', { class: 'dk-tag t-sugg', title: '같은 사람일 수 있는 카드가 있어요' }, '🔗 ' + num(p.sugg)) : null,
-                    p.test ? h('span', { class: 'dk-tag t-test' }, '🧪 시험') : null),
+                    p.test ? h('span', { class: 'dk-tag t-test' }, '🧪 시험') : null,
+                    !p.test && p.suspect ? h('span', { class: 'dk-tag t-suspect', title: '시험 이름 같아요 — ' + p.suspect + ' (지우지 않아요 · 카드에서 🧪 표시)' }, '❓ 시험 의심') : null),
                 h('span', { class: 'db-l2 muted small' },
                     [Number(p.n) ? `${num(p.n)}회` : '', Number(p.total_won) ? won(p.total_won) : '', p.last_at ? relDay(p.last_at) : '',
                         others.length ? `다른 닉네임 ${others.slice(0, 3).join(' · ')}${others.length > 3 ? ` 외 ${others.length - 3}` : ''}` : '']
@@ -191,7 +192,7 @@ export function mountDonorBook(el, ctx) {
             b.querySelector('.n').textContent = num(cnt[k] || 0);
             b.setAttribute('aria-pressed', k === filter ? 'true' : 'false');
             b.classList.toggle('on', k === filter);
-            b.hidden = k !== 'all' && k !== filter && !cnt[k] && ['pin', 'sugg', 'test', 'dormant', 'club'].includes(k);   // 없으면 숨김(고른 것은 남김)
+            b.hidden = k !== 'all' && k !== filter && !cnt[k] && ['pin', 'sugg', 'test', 'dormant', 'club', 'suspect'].includes(k);   // 없으면 숨김(고른 것은 남김)
         }
         sum.textContent = loaded ? `카드 ${num(cnt.all)}장` : '';
         const pick = filterPersons(persons, { filter, q: q.value, sort: sortSel.value });
@@ -247,13 +248,28 @@ export function mountDonorBook(el, ctx) {
                     clubSet(r.word, sel.value, true, sel, `🏷️ ${r.word} → ${sel.value} 팬클럽으로 정했어요`);
                 });
                 const yes = !r.confirmed && r.player ? h('button', { type: 'button', class: 'btn xs pri', onclick: () => clubSet(r.word, r.player, true, yes, `🏷️ ${r.word} = ${r.player} 팬클럽 (확정)`) }, '맞아요') : null;
-                const no = h('button', { type: 'button', class: 'btn xs', title: r.confirmed ? '이 말을 팬클럽 사전에서 빼요' : '짐작이 틀렸어요 — 딱지에 안 써요',
-                    onclick: () => clubSet(r.word, null, false, no, `${r.word} — 팬클럽 딱지에 안 써요`) }, r.confirmed ? '빼기' : '아니에요');
-                return h('li', { class: 'db-club' + (r.confirmed ? ' ok' : ' guess') },
+                // [아니에요] · [빼기] = '팬클럽 말 아님' 으로 정한다(confirmed + 선수 없음) — 서버 다시 세기가 같은 짐작을 또 올리지 않는다
+                const no = r.no ? null : h('button', { type: 'button', class: 'btn xs', title: r.confirmed ? '이 말을 팬클럽 딱지에서 빼요' : '짐작이 틀렸어요 — 딱지에 안 써요',
+                    onclick: async () => {
+                        if (r.confirmed) {
+                            const ok = await ctx.confirm({ title: `'${r.word}' 를 팬클럽 사전에서 뺄까요?`,
+                                body: `지금 '${r.word}' 가 든 닉네임에 ${r.player} 팬클럽 딱지가 붙어 있어요.
+빼면 딱지가 사라져요. 나중에 선수를 다시 고르면 돌아와요.`,
+                                ok: '빼기', cancel: '그대로 두기', danger: false });
+                            if (!ok) return;
+                        }
+                        clubSet(r.word, null, true, no, `${r.word} — 팬클럽 말이 아니라고 적어 뒀어요`);
+                    } }, r.confirmed ? '빼기' : '아니에요');
+                const why = !r.confirmed && r.n ? `지난 기억 ${num(r.n)}번 중 ${r.player || '가장 많은 선수'} ${Math.round(r.share * 100)}%` : '';
+                return h('li', { class: 'db-club' + (r.no ? ' no' : r.confirmed ? ' ok' : ' guess') },
                     h('b', { class: 'db-cword' }, r.word),
                     h('span', { class: 'db-carrow', 'aria-hidden': 'true' }, '→'),
-                    h('span', { class: 'db-cwho' }, r.player || '?'),
-                    r.confirmed ? h('span', { class: 'dk-tag t-ok' }, '확정') : h('span', { class: 'dk-tag t-guess', title: '지난 기록으로 짐작했어요 — 확인 전엔 딱지에 안 써요' }, '추정'),
+                    h('span', { class: 'db-cwho' }, r.no ? '팬클럽 아님' : (r.player || '?')),
+                    r.no ? h('span', { class: 'dk-tag t-test' }, '안 씀')
+                        : r.confirmed ? h('span', { class: 'dk-tag t-ok' }, '확정')
+                        : h('span', { class: 'dk-tag t-guess', title: '지난 기록으로 짐작했어요 — 확인 전엔 딱지에 안 써요' + (why ? '
+' + why : '') }, '추정'),
+                    why ? h('span', { class: 'muted small' }, why) : null,
                     h('span', { class: 'db-cbtns' }, yes, no, sel));
             })) : h('p', { class: 'muted small' }, '아직 사전이 비어 있어요'),
             h('div', { class: 'db-cadd' }, newWord, newSel, addBtn));

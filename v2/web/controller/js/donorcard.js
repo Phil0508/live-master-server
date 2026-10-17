@@ -118,7 +118,8 @@ function paint(ctx, s, p) {
 
     const head = h('header', { class: 'dk-head' },
         h('h2', { class: 'dk-label' }, label),
-        h('div', { class: 'dk-chips' }, chips, p.test ? h('span', { class: 'dk-tag t-test' }, '🧪 시험 이름') : null),
+        h('div', { class: 'dk-chips' }, chips, p.test ? h('span', { class: 'dk-tag t-test' }, '🧪 시험 이름')
+            : p.suspect ? h('span', { class: 'dk-tag t-suspect', title: String(p.suspect) }, '❓ 시험 의심 · ' + String(p.suspect)) : null),
         h('p', { class: 'dk-last muted small' }, lastAt ? `마지막으로 온 날 · ${relDay(lastAt)} (${ymd(lastAt)})` : '언제 왔는지 기록이 없어요'));
 
     // 멤버별 횟수 막대

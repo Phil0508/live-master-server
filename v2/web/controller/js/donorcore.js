@@ -18,8 +18,11 @@ export const CLUB_EMO = '🏷️';
 /* 목록 거르기 단추 — [키, 글자]. 'club' · 'sugg' · 'dormant' · 'test' 는 딱지가 아니라 다른 칸으로 고른다 */
 export const FILTERS = [
     ['all', '전체'], ['main', '💛 전담'], ['lean', '🧡 주력'], ['multi', '🌈 여러 멤버'], ['new', '🌱 새 얼굴'],
-    ['pin', '📌 고정'], ['club', '🏷️ 팬클럽'], ['sugg', '🔗 묶을까?'], ['dormant', '💤 쉬는 중'], ['test', '🧪 시험 이름'],
+    ['pin', '📌 고정'], ['club', '🏷️ 팬클럽'], ['sugg', '🔗 묶을까?'], ['dormant', '💤 쉬는 중'], ['suspect', '❓ 시험 의심'], ['test', '🧪 시험 이름'],
 ];
+
+/* 조각 · 응답의 칸은 바깥에서 온 이름이 열쇠다 — '__proto__' · 'constructor' 같은 이름이 기본 속성을 집지 않게 자기 칸만 본다 */
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
 const WHY = { key: '투네이션 번호표가 같아요', name: '닉네임이 비슷해요', bank: '계좌 입금 짝이에요' };
 export const whyText = w => WHY[w] || String(w || '');
@@ -38,7 +41,8 @@ export const isAnon = name => ANON.has(String(name == null ? '' : name).trim().t
 /** 대기함 카드 · 장부 줄 이름 → 조각의 한 칸(없으면 null). 이름이 없거나 익명이면 null */
 export function tagFor(tags, name) {
     if (!tags || typeof tags !== 'object' || isAnon(name)) return null;
-    const e = tags[normDonor(name)];
+    const k = normDonor(name);
+    const e = own(tags, k) ? tags[k] : null;
     return e && typeof e === 'object' ? e : null;
 }
 
@@ -48,7 +52,7 @@ export const pct = share => Math.round(Math.max(0, Math.min(1, Number(share) || 
 /** 딱지 글자 — {cls, text, title} 또는 null(그릴 것 없음)
  *  main '💛밍밍 전담 · 23회' · lean '🧡밍밍 주력 · 8회' · multi '🌈 여러 멤버 · 12회' · new '🌱 새 얼굴' · pin '📌밍밍 고정' */
 export function chipText(e) {
-    if (!e || !e.tag || !TAGS[e.tag]) return null;
+    if (!e || !e.tag || !own(TAGS, e.tag)) return null;
     const t = TAGS[e.tag];
     const n = cnt(e.n), p = String(e.player || '').trim();
     const share = pct(e.share);
@@ -105,6 +109,7 @@ export function matchFilter(p, f) {
     if (f === 'club') return !!p.club;
     if (f === 'sugg') return cnt(p.sugg) > 0;
     if (f === 'dormant') return !!p.dormant;
+    if (f === 'suspect') return !!p.suspect;           // 숫자만 · Player N 같은 이름 — 지우지 않고 표시만(대표님 확인)
     if (f === 'pin') return p.tag === 'pin' || !!p.pin;
     return p.tag === f;
 }
@@ -185,11 +190,16 @@ export function ymd(at) {
 
 /* ── 팬클럽 사전 ── */
 
-/** donor_clubs 조각 → [{word, player, confirmed}] — 추정(확인 기다림)이 위, 그다음 가나다 */
+/** donor_clubs 조각 → [{word, player, confirmed, no, n, share}] — 추정(확인 기다림)이 위, 그다음 가나다.
+ *  no = 대표님이 '팬클럽 말 아님' 으로 정한 것(confirmed 인데 선수 없음 — 서버 다시 채우기가 후보로 또 안 올린다).
+ *  n · share = 추정의 근거(그 말이 든 닉네임들의 기억 수 · 가장 많은 선수 비율 — 서버가 주면) */
 export function clubRows(clubs) {
     return Object.entries(clubs && typeof clubs === 'object' ? clubs : {})
-        .map(([word, v]) => ({ word, player: (v && v.player) || '', confirmed: !!(v && v.confirmed) }))
-        .sort((a, b) => (a.confirmed - b.confirmed) || a.word.localeCompare(b.word, 'ko'));
+        .map(([word, v]) => {
+            const player = (v && v.player) || '', confirmed = !!(v && v.confirmed);
+            return { word, player, confirmed, no: confirmed && !player, n: cnt(v && v.n), share: Number(v && v.share) || 0 };
+        })
+        .sort((a, b) => (a.confirmed - b.confirmed) || (a.no - b.no) || a.word.localeCompare(b.word, 'ko'));
 }
 
 /** 확인 기다리는 추정 수 */

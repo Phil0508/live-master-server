@@ -531,8 +531,8 @@ export function mountLedger(el, ctx) {
             }
             if (changed('pending') || changed('tallies')) { dirty.cur = true; dirty.past = true; }
             if (changed('logs')) { dirty.scores = true; dirty.past = true; }
-            if (changed('mask')) { dirty.cur = true; if (cur && cur.loaded) cur.draw(); }
-            if (changed('donor_tags') && cur && cur.loaded) cur.draw();     // 📇 딱지만 바뀌었다 — 다시 받지 않고 줄만 다시   // 🙈 가리기는 바로 · 금칙어가 바뀌면 다시 받아 가린 글도 새로
+            if (changed('mask')) { dirty.cur = true; if (cur && cur.loaded) cur.draw(); }   // 🙈 가리기는 바로 · 금칙어가 바뀌면 다시 받아 가린 글도 새로
+            if (changed('donor_tags') && cur && cur.loaded) cur.draw();     // 📇 딱지만 바뀌었다 — 다시 받지 않고 줄만 다시
             seen = now;
             if (dirty[mode]) refreshSoon();
             if (mode === 'past') past.draw();

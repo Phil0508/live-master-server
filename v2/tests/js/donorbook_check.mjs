@@ -111,6 +111,20 @@ chk('사전: 추정이 위', rows.slice(0, 2).every(r => !r.confirmed) && rows.s
 chk('사전: 확인 기다림 수(선수 짐작이 있는 추정만)', D.clubGuessCount(clubs) === 1);
 chk('사전: 조각 없으면 빈 배열', D.clubRows(undefined).length === 0 && D.clubGuessCount(null) === 0);
 
+chk('사전: 아니에요로 정한 말(확정 · 선수 없음)은 no — 추정 수에 안 든다', (() => {
+    const r = D.clubRows({ '잔단': { player: null, confirmed: true }, '7싸단': { player: '제이양', confirmed: false, n: 12, share: 0.83 } });
+    const z = r.find(x => x.word === '잔단'), g = r.find(x => x.word === '7싸단');
+    return z.no === true && g.no === false && g.n === 12 && g.share === 0.83 && D.clubGuessCount({ '잔단': { player: null, confirmed: true } }) === 0;
+})());
+
+// ── 리뷰(10-17) — 바깥 이름이 기본 속성을 집지 않는다 · 시험 의심 거르기 ──
+const proto = { 'constructor': undefined };
+chk('tagFor: __proto__ · constructor · toString 이름은 null(조각에 없으면)', D.tagFor({}, '__proto__') === null && D.tagFor({}, 'constructor') === null && D.tagFor({}, 'toString') === null && D.tagSig({}, '__proto__') === '');
+chk('chipText: 모르는 딱지(constructor 등)는 그리지 않는다', D.chipText({ tag: 'constructor', player: '밍밍', n: 3 }) === null && D.chipText({ tag: 'toString' }) === null);
+const sus = [{ pid: 's1', label: '1111', tag: 'new', suspect: '숫자만', names: ['1111'] }, { pid: 's2', label: '123', tag: 'new', suspect: '숫자만', test: 1 }, { pid: 's3', label: '보통', tag: 'new' }];
+chk('❓ 시험 의심: 시험 표시 안 한 의심만', ids(D.filterPersons(sus, { filter: 'suspect' })) === 's1' && D.filterCounts(sus).suspect === 1);
+void proto;
+
 // ── 그 밖 ──
 chk('📌 고정: 서버가 안 알려 주면 보인다', D.pinOn({}) === true && D.pinOn(null) === true);
 chk('📌 고정: pin_on:false 면 숨긴다', D.pinOn({ pin_on: false }) === false && D.pinOn({ pin_off: true }) === false && D.pinOn({ pin_on: true }) === true);
