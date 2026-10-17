@@ -103,13 +103,15 @@ function autoPick(a, history, hist) {
     const gameEl = node && node.querySelector('.au-cgame');
     const conf = Number(a.confidence) || 0;
     let level;
+    const hold = Array.isArray(a.hold) && a.hold.length && (a.mode === 'on' || a.check);
     if (a.asking) level = 'asking';
+    else if (hold) level = 'hold';                   // ⏸ 보류 — 확인해 주세요(추천 단추를 안 띄운다)
     else if (a.retry && !a.target) level = 'wait';
     else if (a.act && a.target && a.mode !== 'on') level = 'sure';
     else if (a.target && conf >= AUDIT_MIN_CONF) level = 'maybe';
     else level = a.mode === 'on' ? 'held' : 'unknown';
     const target = (level === 'sure' || level === 'maybe') ? a.target : '';
-    const more = [why ? '까닭: ' + why : '', hist].filter(Boolean).join(' · ');
+    const more = [hold ? '보류 까닭: ' + a.hold.join(' · ') : (why ? '까닭: ' + why : ''), hist].filter(Boolean).join(' · ');
     // 그림자('자동이라면')로 고른 사람이 있으면 다른 카드와 같은 말('밍밍 거의 확실') — 자동 진행 말은 title 로. 켬 · 보류는 autoBadge 말 그대로
     const plain = a.mode !== 'on' && !!target;
     return {

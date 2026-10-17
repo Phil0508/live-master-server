@@ -139,3 +139,26 @@
     .ap-banner .ap-long { display: none; }
     .ap-banner .ap-off { min-height: 34px; padding: 0 12px; }
 }
+
+/* ── 🗣️ 말로 조종 카드(panels/ai/cards.js — 대화창 · Ctrl+K 같이 씀) ── 넘치지 않게: 글은 줄바꿈, 단추는 오른쪽에 붙고 좁으면 아래로 */
+.ai-msg-cards { align-self: stretch; max-width: 100%; background: var(--card); border: 1px solid var(--line); padding: 8px 10px; }
+.aic { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.aic-reply { margin: 0; color: var(--text); font-size: 14px; overflow-wrap: anywhere; }
+.aic-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.aic-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; padding: 6px 8px; border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04); border: 1px solid var(--line-soft); min-width: 0; }
+.aic-row.s-ask:not(.safe) { border-color: rgba(245, 165, 36, 0.55); background: rgba(245, 165, 36, 0.08); }
+.aic-row.s-ran { border-color: rgba(61, 220, 132, 0.4); }
+.aic-row.s-failed { border-color: rgba(255, 120, 120, 0.5); }
+.aic-row.s-cancel, .aic-row.s-undone { opacity: 0.6; }
+.aic-l { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; flex: 1 1 180px; min-width: 0; }
+.aic-i { flex: none; }
+.aic-t { min-width: 0; font-weight: 700; color: var(--text); overflow-wrap: anywhere; }
+.aic-by { color: var(--muted); font-size: 12px; }
+.aic-err { color: #ffb8b8; font-size: 12px; overflow-wrap: anywhere; }
+.aic-b { display: flex; gap: 5px; flex: none; margin-left: auto; }
+.aic-all { display: flex; flex-wrap: wrap; gap: 6px; }
+.aic-note { margin: 0; color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.aic-note.bad { color: #ffcf9a; }
+.aic.compact .aic-row { padding: 5px 7px; }
+.ai-tools .ai-dir-btn.on { background: rgba(61, 220, 132, 0.14); border-color: rgba(61, 220, 132, 0.5); color: var(--text); }

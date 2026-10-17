@@ -5,12 +5,15 @@
    🗣️ 명령 꼴('하율 3점' · '슬롯 돌려' · '룰렛 돌려' · '대결 시작' · '+1분' · '건너뛰어' · '올클리어' · '클립' · '다음 단계')은 AI 에게 안 보내고
      바로 명령으로(옛 aiTryCommand) — 규칙은 commands.js(Ctrl+K 빠른 명령과 같이 쓴다).
      → AI 호출도, 분당 한도도 안 쓴다. 명령이 아니면 AI 에게 넘어간다 — 물어보는 건 여전히 AI 몫.
+   🗣️ 10-17 말로 조종 — 규칙에 안 맞으면 먼저 서버(/api/ai/command)에 '이 말이 명령인가' 를 묻는다(cards.js).
+     명령이면 카드('🤖 밍밍에게 +5점 [실행] [취소]' · 안전한 건 '✅ 공지를 바꿨어요 [되돌리기]'), 물음 · AI 꺼짐이면 예전처럼 /api/ai/chat.
    한 번에 하나만 묻는다(답을 기다리는 동안 다른 단추 · 보내기는 잠깐 쉰다). */
 import { h, call, replyNodes, SRC } from './common.js';
 import * as chat from './chatlog.js';
 import * as ap from './autopilot.js';
 import { useLm } from '../games/common.js';
 import { runCommand } from './commands.js';
+import { askCommand, autoClient, cardsView, summary } from './cards.js';
 
 const HISTORY = 6;          // 서버는 마지막 6개만 쓴다
 
@@ -39,7 +42,8 @@ export function mountChat(ctx, board) {
         input.style.height = Math.min(120, input.scrollHeight + 2) + 'px';
     }
     const row = h('div', { class: 'ai-input-row' }, input, send);
-    const hint = h('p', { class: 'ai-cmd-hint' }, '바로 하는 말: ', h('b', null, '하율 3점'), ' · ', h('b', null, '슬롯 돌려'), ' · ', h('b', null, '룰렛 돌려'),
+    const hint = h('p', { class: 'ai-cmd-hint' }, '말로 시키기: ', h('b', null, '공지 바꿔: …'), ' · ', h('b', null, '예지 기여도 3'),
+        ' · ', h('b', null, '대결 3분 시작'), ' — 점수 · 게임은 [실행] 을 눌러야 해요. 바로 하는 말: ', h('b', null, '하율 3점'), ' · ', h('b', null, '슬롯 돌려'), ' · ', h('b', null, '룰렛 돌려'),
         ' · ', h('b', null, '대결 시작'), ' · ', h('b', null, '+1분'), ' · ', h('b', null, '건너뛰어'), ' · ', h('b', null, '올클리어'),
         ' · ', h('b', null, '클립'), ' · ', h('b', null, '다음 단계'), ' — AI 를 안 거치고 바로 해요 (Ctrl+K 로 어디서든)');
 
@@ -54,6 +58,11 @@ export function mountChat(ctx, board) {
     }
     function fillBubble(el, r) {
         el.className = 'ai-msg ai-msg-' + r.role + (r.temp ? ' ai-thinking' : '');
+        if (r.role === 'cards' && r.cmd) {
+            r.cmd.at = r.cmd.at || r.at;
+            el.replaceChildren(cardsView(ctx, r.cmd, { onChange: () => chat.update(r, { text: summary(r.cmd) || '(명령)', cmd: r.cmd }) }));
+            return;
+        }
         if (r.role === 'ai') {
             const tag = !r.temp && SRC[r.source] ? h('span', { class: 'ai-src ai-src-' + r.source, title: SRC[r.source][1] }, SRC[r.source][0]) : null;
             el.replaceChildren(...replyNodes(r.text), ...(tag ? [tag] : []));
@@ -134,6 +143,21 @@ export function mountChat(ctx, board) {
         setBusy(true);
         const hist = chat.history(HISTORY);           // 이번 질문을 더하기 전의 직전 대화
         chat.add('user', q);
+        // 🗣️ 명령인가 — 서버 규칙 → AI(도구). 물음이거나 AI 가 꺼졌으면 아래 예전 길(물어보기)로
+        const wait = chat.add('sys', '🤖 무엇을 할지 보는 중…', { temp: true });
+        const c = await askCommand(q);
+        const d = c.data || {};
+        if (c.ok && (d.kind === 'command' || d.kind === 'reply')) {
+            autoClient(d);
+            d.at = Date.now();
+            chat.update(wait, { role: 'cards', text: summary(d) || '(명령)', cmd: d, temp: false });
+            setBusy(false);
+            board.refresh();
+            input.focus();
+            return;
+        }
+        if (nodes.has(wait.id)) { nodes.get(wait.id).remove(); nodes.delete(wait.id); }
+        chat.drop(wait);
         const box = chat.add('ai', '생각 중… (AI 가 붐비면 20초쯤 걸릴 수 있어요)', { temp: true });
         const r = await call('/api/ai/chat', { question: q, messages: hist });
         finish(box, r);

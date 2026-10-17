@@ -4,12 +4,15 @@
      '밍밍 5' → score.add · '슬롯 돌려' · '룰렛 돌려' · '대결 시작' · '+1분' · '올클리어' · '클립' · '다음 단계'(show.cue) …
    그 밖에 탭 이름('룰렛' · 'BGM' · '장부' …) → 그 탭 열기, 'BGM 다음 곡' · 'BGM 재생' → 조종 줄 BGM 과 같은 일.
    - 입력칸에 커서가 있어도 Ctrl+K 는 연다(대기함 입력 중에도). Esc · 바깥 누르기로 닫는다. ↑↓ 로 고르고 Enter.
-   - AI 는 부르지 않는다 — 모르는 말이면 '모르는 말이에요' 와 예시만 보여 준다.
+   - 🗣️ 10-17 규칙에 안 맞으면 서버(/api/ai/command — 서버 규칙 → AI)에 명령인지 묻는다. 명령이면 상자 안에 카드
+     ('🤖 밍밍에게 +5점 [실행] [취소]' · 안전한 건 '✅ … [되돌리기]'). 점수 · 게임은 [실행] 을 눌러야 한다(panels/ai/cards.js).
+     물음이거나 AI 가 꺼졌으면 '모르는 말이에요' 와 예시만.
    - 로그인 전(로그인 · 연결 중 화면)에는 안 열린다(비공개 값 · 명령 길을 열지 않는다).
    - 소리 없음. 바깥 글자(선수 이름)는 textContent 로만. */
 import { h } from './util.js';
 import { runCommand, COMMAND_HINTS } from './panels/ai/commands.js';
 import { currentNames } from './panels/ai/common.js';
+import { askCommand, autoClient, cardsView } from './panels/ai/cards.js';
 import { toggle as bgmToggle, next as bgmNext } from './panels/records/bgm.js';
 
 const MAX_ITEMS = 8;
@@ -58,11 +61,12 @@ export function mountCmdk(ctx) {
         'aria-expanded': 'true', 'aria-controls': 'cmdk-list', 'aria-autocomplete': 'list' });
     const list = h('ul', { class: 'cmdk-list', id: 'cmdk-list', role: 'listbox', 'aria-label': '고를 거리' });
     const out = h('p', { class: 'cmdk-out', role: 'status', 'aria-live': 'polite' });
+    const cardsBox = h('div', { class: 'cmdk-cards', hidden: true });
     const closeBtn = h('button', { type: 'button', class: 'btn xs cmdk-close', 'aria-label': '닫기' }, '닫기');
     const box = h('div', { class: 'cmdk-box', role: 'dialog', 'aria-modal': 'true', 'aria-label': '빠른 명령' },
         h('div', { class: 'cmdk-head' }, h('span', { class: 'cmdk-k', 'aria-hidden': 'true' }, 'Ctrl K'), input, closeBtn),
-        list, out,
-        h('p', { class: 'cmdk-foot' }, 'Enter 실행 · ↑↓ 고르기 · Esc 닫기 — AI 를 안 거치고 바로 해요'));
+        list, out, cardsBox,
+        h('p', { class: 'cmdk-foot' }, 'Enter 실행 · ↑↓ 고르기 · Esc 닫기 — 모르는 말은 AI 가 명령으로 바꿔요(점수 · 게임은 [실행])'));
     const wrap = h('div', { class: 'cmdk', id: 'cmdk', hidden: true }, box);
     document.body.append(wrap);
 
@@ -96,6 +100,11 @@ export function mountCmdk(ctx) {
         if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
         input.setAttribute('aria-activedescendant', items.length ? 'cmdk-o' + sel : '');
     }
+    function showCards(res) {
+        if (!res) { cardsBox.hidden = true; cardsBox.replaceChildren(); return; }
+        cardsBox.replaceChildren(cardsView(ctx, res, { compact: true }));
+        cardsBox.hidden = false;
+    }
     function say(text, lv) {
         out.textContent = text || '';
         out.dataset.lv = lv || '';
@@ -108,6 +117,7 @@ export function mountCmdk(ctx) {
         input.value = '';
         sel = 0;
         say('');
+        showCards(null);
         paint();
         input.focus();
     }
@@ -144,7 +154,19 @@ export function mountCmdk(ctx) {
                 done: (row, msg) => { last = msg; say(msg, /^⚠️/.test(msg) ? 'bad' : ''); },
             });
             if (!ok) {
-                say(`'${it.text}' 은(는) 모르는 말이에요 — 예: 밍밍 5 · ${COMMAND_HINTS.slice(0, 4).join(' · ')} · 탭 이름`, 'bad');
+                say('🤖 무엇을 할지 보는 중…');
+                const c = await askCommand(it.text);
+                const d = c.data || {};
+                if (c.ok && (d.kind === 'command' || d.kind === 'reply')) {
+                    autoClient(d);
+                    d.at = Date.now();
+                    say(d.cards && d.cards.length ? (d.cards.some(x => x.state === 'ask') ? '눌러서 실행해 주세요 — 점수 · 게임은 [실행] 을 눌러야 해요' : '했어요') : (d.reply || ''));
+                    showCards(d);
+                } else {
+                    showCards(null);
+                    say(d.kind === 'question' ? `물어보는 말은 AI 도우미 탭에서 물어봐 주세요 — 여기는 시키는 말만 (예: 밍밍 5 · 공지 바꿔: …)`
+                        : `'${it.text}' 은(는) 모르는 말이에요 — 예: 밍밍 5 · ${COMMAND_HINTS.slice(0, 4).join(' · ')} · 탭 이름`, 'bad');
+                }
             } else if (!/^⚠️|…$/.test(last)) {
                 ctx.toast(last || '했어요', 'ok', 2200);
                 close();
@@ -156,7 +178,7 @@ export function mountCmdk(ctx) {
         }
     }
 
-    input.addEventListener('input', () => { sel = 0; say(''); paint(); });
+    input.addEventListener('input', () => { sel = 0; say(''); showCards(null); paint(); });
     input.addEventListener('keydown', e => {
         if (e.isComposing || e.keyCode === 229) return;          // 한글 조합 중 Enter · 화살표는 조합에 맡긴다
         if (e.key === 'ArrowDown') { e.preventDefault(); if (items.length) { sel = (sel + 1) % items.length; mark(); } }

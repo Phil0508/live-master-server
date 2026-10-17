@@ -103,7 +103,9 @@ export function mountUndo(root, logsRoot, ctx) {
             ol.replaceChildren(...logs.slice(0, SHOW).map(l => h('li', { class: 'log' + ((l.val || l.cval || 0) < 0 ? ' neg' : '') },
                 h('span', { class: 'lt' }, clock(l.at, true)),
                 h('span', { class: 'lx' }, describe(l)),
-                h('span', { class: 'ls tag plain' }, l.list === 'bottom' ? '운영비' : (l.kind === 'contrib' ? (l.why || '기여도') : source(l.ref))))));
+                h('span', { class: 'ls tag plain' + (l.by === 'autopilot-ai' ? ' by-ai' : '') },
+                    l.list === 'bottom' ? '운영비' : (l.kind === 'contrib' ? (l.why || '기여도')
+                        : l.by === 'autopilot-ai' ? '🤖 AI 가 줌' : l.by === 'auto' ? '🤖 자동' : source(l.ref))))));
         },
     };
 }
