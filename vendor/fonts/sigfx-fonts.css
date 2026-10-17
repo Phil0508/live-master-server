@@ -1,0 +1,40 @@
+/* 🎆 시그니처 전용 연출 글꼴 — sig-fx.js 가 이름으로 부르는 셋(Anton · Cormorant Garamond · IBM Plex Sans KR).
+   10-17 전엔 아무 데서도 안 불러 기본 글씨로 나갔다(옛 방송판은 구글 글꼴 주소). Pretendard 처럼 우리 서버에 둔다.
+   받은 곳: npm @fontsource/<이름>@5.3.0 (cdn.jsdelivr.net/npm/@fontsource/…/files/) — 고치지 않은 원본 그대로.
+   연출이 실제로 쓰는 것만:
+     Anton 400 라틴           HOTEL · BOUNCE · EDM · MVP
+     Cormorant Garamond 300 라틴  MARTINI · VIP · ANGEL VIP
+     IBM Plex Sans KR 400 · 600  람바다(600) · 부티호텔 · 바운스 · 마티니 · '시그니처 · 1,000,000원'(400)
+       ⚠️ 한글 파일(korean)에 라틴 · 숫자 · 가운뎃점까지 다 들어 있어 라틴 파일은 따로 안 둔다(한 벌 0.5MB).
+   ⚠️ 연출은 2초 남짓이라 처음 쓸 때 받기 시작하면 그동안 기본 글씨로 보인다 → 무대(widgets/sigfx/stage.js)가 켜질 때 미리 받아 둔다.
+   글꼴은 전부 SIL Open Font License 1.1 — 같은 폴더 OFL-Anton.txt · OFL-CormorantGaramond.txt · OFL-IBMPlexSansKR.txt. */
+@font-face {
+  font-family: 'Anton';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(Anton-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(CormorantGaramond-300-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'IBM Plex Sans KR';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(IBMPlexSansKR-400-korean.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Sans KR';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(IBMPlexSansKR-600-korean.woff2) format('woff2');
+}

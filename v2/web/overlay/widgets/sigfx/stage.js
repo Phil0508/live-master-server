@@ -21,6 +21,20 @@ import { vibrantColorFromImage } from '../fx/neon.js';
 
 const LIB = ['/overlay/sigfx/sig-fx-gl.js', '/overlay/sigfx/sig-fx.js'];     // 빛 · 입자(SigGL)를 먼저 — 없으면 SigFX 가 예전 길로 간다
 const BATON = '/vendor/sigfx/baton.webp';                                      // 🚨 진압해 경광봉 사진 — 첫 후원 때 늦게 뜨지 않게
+// 🔤 연출 글꼴(/vendor/fonts/sigfx-fonts.css) — 브라우저는 글꼴을 '처음 쓸 때' 받는다. 연출은 2초 남짓이라 그때 받으면
+//    그동안 기본 글씨로 보인다 → 무대가 켜질 때 미리 받아 둔다. 굵기 · 이름은 sig-fx.js 가 쓰는 그대로.
+//    [글꼴, 글자] — 글자는 연출이 실제로 쓰는 것. Black Han Sans(fonts.css)는 글자 묶음으로 잘려 있어 쓰는 글자가 든 조각만 받는다
+//    (가즈아는 캔버스에 그려서 그때 글꼴이 없으면 기본 글씨로 굳는다).
+export const FX_FONTS = [
+    ["400 40px 'Anton'", 'HOTELBOUNCEDMVP'],
+    ["300 40px 'Cormorant Garamond'", 'MARTINIVPANGEL'],
+    ["400 40px 'IBM Plex Sans KR'", '부티호텔바운스마티니시그니처 · 1,000,000원'],
+    ["600 40px 'IBM Plex Sans KR'", '람바다'],
+    ["400 40px 'Black Han Sans'", '가즈아방패참격푸차POLICE LINE · 진압 중 · 접근 금지'],
+];
+function warmFonts() {
+    try { FX_FONTS.forEach(([f, s]) => document.fonts.load(f, s).catch(() => {})); } catch (e) {}
+}
 
 let libPromise = null;
 function loadLib() {
@@ -41,6 +55,7 @@ export function mount(root, lm, opts) {
     const inner = root.querySelector('.sigfx-inner');
     loadLib().then(ok => { if (ok) console.log('[시그연출] 준비됨 — ' + Object.keys(SIGFX_BY_AMOUNT).length + '가지'); });
     try { const b = new Image(); b.src = BATON; } catch (e) {}
+    warmFonts();
 
     // ── 사진 대표색(옛 sigFxColorCache) — 미리받기 때 채워 두고, 후원이 온 순간엔 읽기만 한다 ──
     //    ⚠️ 연출은 색을 2~3개 쓴다. 대표색은 하나라 같은 색으로 채운다. CORS 로 막히면 null → 연출 기본 색.

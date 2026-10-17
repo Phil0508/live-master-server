@@ -133,6 +133,69 @@ class ViewKinds(Base):
             self.assertIn(k, KINDS)
 
 
+
+FONTS = os.path.join(REPO, 'vendor', 'fonts')
+
+
+def _faces():
+    """vendor/fonts 의 @font-face → {(이름, 굵기): [파일 …]}. 굵기 범위(45 920)는 양 끝을 다 넣는다."""
+    out = {}
+    for name in ('sigfx-fonts.css', 'fonts.css', 'pretendard.css'):
+        with open(os.path.join(FONTS, name), encoding='utf-8') as f:
+            for block in re.findall(r'@font-face\s*\{(.*?)\}', f.read(), re.S):
+                fam = re.search(r"font-family:\s*'([^']+)'", block).group(1)
+                w = re.search(r'font-weight:\s*([\d ]+);', block).group(1).split()
+                for ww in range(int(w[0]), int(w[-1]) + 1) if len(w) == 2 else [int(w[0])]:
+                    out.setdefault((fam, ww), []).extend(re.findall(r'url\(([^)]+)\)', block))
+    return out
+
+
+def _fx_uses():
+    """sig-fx.js 가 이름으로 부르는 글꼴 → {(이름, 굵기)}. 같은 줄에 font-weight 가 없으면 400."""
+    used = set()
+    with open(os.path.join(OVERLAY, 'sigfx', 'sig-fx.js'), encoding='utf-8') as f:
+        for line in f:
+            if line.lstrip().startswith(('*', '//', '/*')):
+                continue
+            for fam in re.findall(r"font-family:\\?'([^'\\]+)\\?'", line):
+                m = re.search(r'font-weight:(\d+)', line)
+                used.add((fam, int(m.group(1)) if m else 400))
+    return used
+
+
+class FxFonts(Base):
+    """🔤 전용 연출 글꼴(10-17) — sig-fx.js 가 부르는 이름 · 굵기마다 우리 서버에 @font-face 가 있고, 파일이 진짜 woff2 이고, 방송판이 부른다."""
+
+    def test_every_font_used_has_face(self):
+        faces, used = _faces(), _fx_uses()
+        for fam in ('Anton', 'Cormorant Garamond', 'IBM Plex Sans KR', 'Black Han Sans'):
+            self.assertTrue(any(f == fam for f, _ in used), fam)          # 읽는 방식이 깨지면 여기서 걸린다
+        for key in sorted(used):
+            self.assertIn(key, faces, '%s %d 굵기 @font-face 가 없다 — 기본 글씨로 나간다' % key)
+
+    def test_files_are_woff2_and_licensed(self):
+        faces = _faces()
+        files = sorted({u for (fam, _), us in faces.items() if fam in ('Anton', 'Cormorant Garamond', 'IBM Plex Sans KR') for u in us})
+        self.assertEqual(len(files), 4, files)
+        for u in files:
+            with open(os.path.join(FONTS, u), 'rb') as f:
+                self.assertEqual(f.read(4), b'wOF2', u)
+            self.assertEqual((u, self.c.get('/vendor/fonts/' + u).status_code), (u, 200))
+        for lic in ('OFL-Anton.txt', 'OFL-CormorantGaramond.txt', 'OFL-IBMPlexSansKR.txt'):
+            with open(os.path.join(FONTS, lic), encoding='utf-8') as f:
+                self.assertIn('SIL Open Font License', f.read(), lic)
+
+    def test_overlay_links_css_and_warms_fonts(self):
+        html = self.c.get('/overlay/?only=alert').text
+        self.assertIn('/vendor/fonts/sigfx-fonts.css', html)
+        self.assertEqual(self.c.get('/vendor/fonts/sigfx-fonts.css').status_code, 200)
+        with open(os.path.join(OVERLAY, 'widgets', 'sigfx', 'stage.js'), encoding='utf-8') as f:
+            st = f.read()
+        warm = set((fam, int(w)) for w, fam in re.findall(r"\[\"(\d+) 40px '([^']+)'\",", st))
+        self.assertEqual(warm, _fx_uses())                             # 연출이 쓰는 이름 · 굵기를 전부(그리고 그것만) 미리 받는다
+        self.assertIn('warmFonts();', st)
+
+
 @unittest.skipUnless(shutil.which('node'), 'node 가 없으면 건너뛴다')
 class JsRules(unittest.TestCase):
     def test_rules_and_layers(self):
