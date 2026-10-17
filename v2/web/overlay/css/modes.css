@@ -25,5 +25,8 @@
     opacity: 0 !important; visibility: hidden !important;
 }
 
+/* 🏺 모금함 깃발 — 주사위판 · 핀볼 동안 내린다(깃발 13 이 반투명한 게임판 15 뒤로 비친다 — 10-17) */
+#canvas:is(.game-dicegame-mode, .pinball-game-mode) .layer-fundjar { opacity: 0 !important; visibility: hidden !important; }
+
 /* 🎯 게이지 금액 딱지 — 핀볼 · 룰렛 · 슬롯 동안 비킨다 */
 #canvas:is(.pinball-game-mode, .roulette-game-mode, .slot-game-mode) .goal-rail-tip { opacity: 0 !important; }

@@ -667,5 +667,19 @@ class Timing(unittest.TestCase):
             self.assertEqual({'land': mine['land'], 'gate': mine['gate']}, ns['_dicegame_plan'](c), c)
 
 
+class FundjarHidden(unittest.TestCase):
+    """🏺 주사위판 · 핀볼 동안 모금함 깃발을 내린다(반투명한 판 뒤로 비쳤다 — 10-17). 모드 이름은 위젯이 붙이는 그대로."""
+
+    def test_modes_css_hides_fundjar(self):
+        import re
+        ov = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'web', 'overlay')
+        rd = lambda *p: open(os.path.join(ov, *p), encoding='utf-8').read()
+        self.assertIn("stage.setMode('game-dicegame'", rd('widgets', 'games', 'dice.js'))
+        self.assertIn("stage.setMode('pinball-game'", rd('widgets', 'games', 'pinball.js'))
+        css = rd('css', 'modes.css')
+        rules = re.findall(r'#canvas:is\(([^)]*)\) \.layer-fundjar \{[^}]*visibility: hidden', css)
+        self.assertIn(['.game-dicegame-mode', '.pinball-game-mode'], [sorted(x.strip() for x in r.split(',')) for r in rules])
+
+
 if __name__ == '__main__':
     unittest.main()
