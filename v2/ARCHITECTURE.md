@@ -537,3 +537,26 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
   두 번 눌러도 안 묶임 · 소액은 띠 · 404/409/401 · AI 허용 목록에 없음 · 계좌 안내 글 · replay.js 에 confirm() 없음.
   헤드리스 크롬(임시 서버 5360 · 임시 DB · 끝나고 끔) 1440 · 390: [↻ 다시 송출] → 확인 상자 → [띄우기] · [취소], 가로 넘침 0 · 장부 합계 그대로 ·
   방송판에 두 딱지가 뜨고 화면 어디에도 번호 없음.
+
+## 10-17 안전 꾸러미 — mask
+방송판에 나가는 후원 메시지 금칙어 거르기 · 후원마다 [가리기]. **장부 · 대기함(조종실)은 원문 그대로**, 이름(닉네임)은 안 건드린다(닉네임 거르기는 대표님 결정으로 남김).
+- 🧩 **보여 주는 사본**(state.py `VIEWS` · `DEPENDS`) — 조각 · 장부는 원문, 내보낼 때만 고친 사본. `State.snapshot(authed, on_air)` · `hub.publish(seq, changed, slices)` 가 쓴다.
+  on_air = 로그인 안 한 화면 **또는** 방송판 종류(`hub.ON_AIR_KINDS` overlay · alertbox · sigdisp · slot). ⚠️ 방송판 종류는 이제 로그인돼 있어도(같은 브라우저 쿠키 · ?token=)
+  **공개 조각만** 받는다 — 대기함 원문이 OBS 로 가지 않게(방송판은 비공개 조각을 안 쓴다 — grep 확인). 명령 권한(authed)은 그대로.
+  `DEPENDS['mask'] = popup · queue · cast · screen · pending` — 금칙어 · 가리기가 바뀌면 원문이 그대로여도 그 조각들을 새 사본으로 다시 보낸다.
+- 🙈 `domain/mask.py` — 조각 **mask**(비공개) `{words[], rules{phone, account, url}, hidden[id…](500), ver}`.
+  거르는 곳: popup.donation.message(후원 카드 · 소액 띠) · queue.items[].message · msgs[](시그니처 카드 · 출연진 전광판) · cast.fx.message · screen 안의 message/msgs(끝 화면 — 엔딩 크레딧이 메시지를 실으면 저절로).
+  규칙: 전화번호(010 · +82 · 02 · 031 · 070, 공백 · 점 · - 섞여도) · 계좌 꼴 숫자(10~16자리, 쉼표 금액은 그대로, 띄어쓰기로 이은 것은 5자리 넘는 덩어리가 있을 때만 — 날짜 · 시각 보호) ·
+  인터넷 주소 · 메일('닷컴' 포함) · 금칙어(대소문자 무시, 글자 사이 숫자 · 기호 2개까지 — 띄어쓰기는 안 잡음). 걸린 곳은 ●●●. 거르다 넘어지면 방송판엔 메시지를 비운 사본.
+  명령: `mask.word.add {word|words}`(쉼표 · 줄바꿈) · `mask.word.remove` · `mask.word.recommend`(RECOMMENDED 17개 — 기본 목록은 비어 있음) · `mask.word.clear` · `mask.rule {key, on}` · `mask.hide {id, on}`.
+  `POST /api/mask/preview {text}`(로그인 · 장부에 안 적음). 새 방송 시작이면 hidden 만 비운다.
+- 🔗 가리기 연결: queue 줄에 `don_ids`(msgs 와 같은 차례 — 묶음 ×N 은 그 후원 차례만) · 다시 송출 팝업에 `src`(원래 후원) — 방송판 사본에선 둘 다 뺀다.
+  대기줄 줄 id(rq_ — 후원 콘솔 '바로 틀기')도 받는다. 투네이션 · 계좌(manual_bank_) · 손 송출 모두 장부 id 로.
+- 📋 조종실에 붙는 것: 대기함 카드(조종실 사본) · `/api/ledger` 줄에 `mask{hits, text}` — 원문(message)은 그대로.
+  `js/mask.js` — 기본은 **가린 글**(대표님이 소리 내 읽다 번호 · 욕을 안 읽게) + ⚠ 딱지(누르면 원문 ↔ 가린 글, 이 기기에서만) · [가리기]/[보이기](흐리게 + 🙈).
+  대기함 q2 줄 · 장부 '이번 방송' 줄(.rc-msgrow). 설정 > 방송 화면 > 🙈 **메시지 거르기**(`panels/ops/mask.js`, 탭 id ops-mask · pre) — 규칙 스위치 셋 · 금칙어 알약 · 추천 목록 · 모두 지우기(화면 안 확인 상자) · 시험해 보기.
+- 📺 방송판: 같은 후원(id)이 글만 바뀌어 오면 다시 띄우지 않고 글자만 — donation.js `retext`(donationCard 에도 · 시그니처가 rq 로 부름) · small-don.js · signature.js(카드 단계) · sigdisp.js(원래 됨).
+- 검사: v2/tests/test_mask.py 23개(규칙 · 공개/비공개 · 로그인 안 한/한 방송판 쪽지 전부 · 조종실 원문 · 가리기 즉시 · 묶음 차례 · 다시 송출 · 콘솔 · 계좌 · 이름 그대로 · 새 방송 · 끝 화면 · confirm/소리 없음).
+  헤드리스 크롬(임시 서버 5373 · 임시 DB · 끝나고 끔) 1440 · 390: 대기함 ⚠ → 원문 · [가리기] → 출연진 전광판 글 사라짐 → [보이기] · 장부 ⚠ · [가리기] · 설정 탭 추천 넣기 · 더하기 · × · 시험해 보기,
+  방송판이 받은 쪽지 13개에 전화 · 주소 · pending · mask 없음, 가로 넘침 0(세 화면 × 두 폭).
+- 남은 결정(대표님): 닉네임도 거를지 · 추천 목록 낱말 · '010' 을 한글로 쓴 것(공일공)은 못 잡음 · 숫자만 10자리 넘는 금액(1000000000원)은 계좌로 보고 가림.
