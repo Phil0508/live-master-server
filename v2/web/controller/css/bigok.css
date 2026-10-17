@@ -1,7 +1,7 @@
 /* 🛡️ 큰 금액은 한 번 더 확인(10-17 bigok · js/bigok.js) — 확인 상자 속 · ⚙ 설정 칸.
    받을 사람 이름을 가장 크게. 폰(390px)에서도 [취소] [주기] 는 엄지 크기(52px 이상). 소리 없음. */
 .modal.bigok { width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; }
-.modal.bigok h2 { font-size: 21px; line-height: 1.35; overflow-wrap: anywhere; }
+.modal.bigok h2 { font-size: 21px; line-height: 1.35; word-break: keep-all; overflow-wrap: anywhere; }   /* 한글은 낱말 단위로 줄바꿈("줄/까요" 막기) */
 .bk-box { margin: 6px 0 18px; }
 .bk-one + .bk-one { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
 .bk-from { margin: 0 0 8px; color: var(--text); font-size: 16px; overflow-wrap: anywhere; }
@@ -13,7 +13,7 @@
 .bk-name { font-size: 28px; font-weight: 900; line-height: 1.2; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
 .bk-pts { flex: none; font-size: 20px; font-weight: 900; color: var(--accent-hi); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bk-pts.minus { color: var(--bad); }
-.bk-q { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.bk-q { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; word-break: keep-all; }
 .modal.bigok .modal-btns .btn { min-height: 56px; font-size: 18px; }
 @media (max-width: 899px) {
     .modal.bigok { padding: 18px; }
