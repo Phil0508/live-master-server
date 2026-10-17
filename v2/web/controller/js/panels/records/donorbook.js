@@ -36,7 +36,7 @@ export function donorBadge() {
 }
 
 export function mountDonorBook(el, ctx) {
-    const q = h('input', { type: 'search', class: 'rc-q db-q', placeholder: '이름 · 예전 닉네임 · 선수로 찾기', autocomplete: 'off', 'aria-label': '후원자 찾기' });
+    const q = h('input', { type: 'text', class: 'rc-q db-q', placeholder: '이름 · 예전 닉네임 · 선수로 찾기', autocomplete: 'off', 'aria-label': '후원자 찾기' });
     const sortSel = h('select', { class: 'db-sort', 'aria-label': '줄 세우기' }, SORT_LABELS.map(([k, t]) => h('option', { value: k }, t)));
     const refresh = h('button', { type: 'button', class: 'btn sm', onclick: () => load() }, '새로 고침');
     const rebuild = h('button', { type: 'button', class: 'btn sm', title: '장부 · 기억에서 카드 · 딱지를 처음부터 다시 셉니다 (묶은 것 · 고정 · 메모는 그대로)', onclick: () => doRebuild() }, '다시 세기');
