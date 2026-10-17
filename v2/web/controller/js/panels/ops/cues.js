@@ -126,7 +126,7 @@ export function mountCues(ctx, stageName) {
     let lastSig = '';
     function paint(force) {
         const ps = list(), at = atNow();
-        const sig = sigOf(ps.map(p => [p.id, p.name, p.stage, p.board]), at, editing, pick, !!delArmed, !!overArmed);
+        const sig = sigOf(ps.map(p => [p.id, p.name, p.stage, p.board, !!p.credits]), at, editing, pick, !!delArmed, !!overArmed);
         if (!force && sig === lastSig) return;
         lastSig = sig;
         if (pick && !ps.some(p => p.id === pick)) pick = '';
@@ -145,9 +145,9 @@ export function mountCues(ctx, stageName) {
                 const cls = 'ops-chip sm' + (editing ? (p.id === pick ? ' on' : '') : (i === at ? ' on' : ''));
                 const b = h('button', { type: 'button', class: cls, 'data-cue': p.id,
                     'aria-pressed': String(editing ? p.id === pick : i === at),
-                    title: editing ? '이 단계 고치기' : '무대: ' + (SN[st] || '없음') + (p.old ? ' · 옛 프로그램에서 옮겨 온 단계(위젯 자리 없음)' : ''),
+                    title: editing ? '이 단계 고치기' : '무대: ' + (SN[st] || '없음') + (p.credits ? ' · 🎬 엔딩 크레딧' : '') + (p.old ? ' · 옛 프로그램에서 옮겨 온 단계(위젯 자리 없음)' : ''),
                     style: (editing ? 'border-style:dashed;' : '') + (!editing && i < at ? 'opacity:.6;' : '') },
-                    (i + 1) + '. ' + (p.name || ''));
+                    (i + 1) + '. ' + (p.name || '') + (p.credits ? ' 🎬' : ''));   // 🎬 크레딧을 띄우는 단계(credits.py)
                 b.addEventListener('click', () => { if (editing) choose(p.id); else once(b, () => apply(p.id)); });
                 return b;
             }));

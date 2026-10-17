@@ -628,3 +628,35 @@ hub `KINDS` 에 alertbox · sigdisp · slot — 점검표(/api/preflight)는 이
 - 확인(10-17): 검사 v2/tests/test_rest_mode.py(node 35개 · 소리 0 · holder 비교 한 곳 · 단추 자리 · 움직임 줄이기). 헤드리스 크롬 1440×900 · 945×900 · 390×844 × 73개 —
   끔: 띠만 · 깜빡임 · 카드 · 제목 그대로 / 켬: 테두리 애니메이션 · 카드 '30,000원 · 영원(추정)' · 실명(김진짜 · 홍실명 · 최실명) 없음 · 제목 번갈아 · 한 번에 두 건 → 입금 3건 · 보류 → 카드 ·
   [확인] → 멈춤 + 제목 원래 · 새로고침 뒤 켬 유지 + 예전 것 안 울림 · 움직임 줄이기 12px · 끄면 바로 멈춤 · Audio/play/vibrate/Notification 0번 · 콘솔 오류 0 · 가로 넘침 0.
+## 10-17 안전 꾸러미 — credits
+🎬 **엔딩 크레딧**(대표님 10-17 '3순위') — 방송 끝에 오늘 후원해 준 사람 **전원**을 영화 엔딩처럼 아래에서 위로. 끝 화면(screen end)은 8명까지라 따로 만들었다.
+서버 `domain/credits.py` · 방송판 `widgets/credits/`(credits.js · flow.js) · `groups/credits.js` · `css/credits.css` · 조종실 `panels/ops/credits.js` · `css/tools_credits.css`.
+
+| 조각 | 공개 | 내용 |
+|---|---|---|
+| credits | ✅ | on · paused · speed(slow 45 · normal 75 · fast 130 px/초) · at(ms) · offset(px) · run · title · outro · show_amount · built_at · count · anon · groups[{kind member\|all\|etc, title, names[{name, total?}]}] — **이름(닉네임)만**, 금액은 '금액 보이기'를 켰을 때만 |
+| credits_ops | ❌ | built · session · built_at · stale · groups(금액 늘 포함) · count · anon · skipped{anon, excluded, test, replay} — 조종실 미리보기 |
+
+- **셈(서버, `compute()` 순수 함수)**: 이번 회차(session.id — 끝낸 뒤에도 같은 번호) 장부 줄 + 점수 기록(되돌린 것 빼고, ref = 후원 id).
+  - 묶음: 그 후원이 점수 · 기여도를 준 멤버(list · extra). 나눠 주기면 멤버마다 들어가고 금액은 준 점수 비율로. 모금함(jar) · 그때 판 멤버 **전원**에게 나눈 것 → '모두에게'.
+    나머지(대기함 · 무시 · 1만 원 미만 '화면에만' 소액 · 옛 장부) → '그리고 함께해 주신 분'(kind etc) — 위 묶음에 이미 이름이 있으면 또 안 쓴다.
+  - 순서: players.list 순서(= 점수 순위) → 번외 판 → 명단에서 빠진 멤버(받은 금액 순) → 모두에게 → 기타. 묶음 안은 합계 큰 순(같으면 먼저 온 사람). 같은 사람(norm_donor)은 한 줄, 이름은 처음 쓴 것('님' 뗌, 20자).
+  - 빼는 것: 🧪 source toonation_test · status display 중 소액이 아닌 것(🔁 다시 보기 · 대시보드 테스트 · ↻ 다시 송출) · donor_rules.excluded · 0원 이하. 익명은 이름 대신 '이름 없이 함께해 주신 N분'.
+  - 이름 1,500개가 끝(넘으면 묶음 뒤쪽 작은 금액부터 덜어 낸다).
+- **얼림**: `credits.build` 가 만든 명단을 그대로 쓴다. 그 뒤 대기함이 바뀌거나(후원 · 배정 · 무시 · 모금함 · 되돌리기) 소액이 들어오거나 순위에서 뺀 이름이 바뀌면(donor.exclude · include — 검토 10-17) bus.AFTER 가 credits_ops.stale 만 켠다 → 조종실 '[🔄 명단 다시 만들기]' 안내.
+  `credits.show` 는 이 회차에 만든 적이 없을 때(또는 rebuild)만 새로 만든다. 방송 시작 때 비운다(제목 · 마무리 글 · 속도 · 금액 보이기는 남김). 끝낼 때는 안 건드린다(endundo 대상 아님).
+- 명령(로그인): `credits.build{title?, outro?}` · `credits.show{rebuild?, title?, outro?}`(처음부터) · `credits.pause{paused?}`(안 떠 있으면 409) · `credits.restart` · `credits.hide` · `credits.set{title?, outro?, show_amount?, speed?}`(속도를 바꿔도 지금 자리에서 이어서). AI 허용 목록(ai_cmd)에는 안 넣었다.
+- **흐름**: 서버는 '언제(at) · 몇 px(offset)' 만 적고 방송판이 서버 시계(basics2/clock.js)로 지금 자리 = offset + (멈춤 아니면 경과 × 속도)를 센다(flow.js — node 검사가 서버 SPEEDS 와 맞대 봄).
+  처음엔 화면 아래(1920)에서 시작, **마무리 글 가운데가 폰 안전지대 가운데(115~954 → 534.5)에 오면 멈춘다**. rAF + 0.5초 맞춤(가려진 창 대비).
+- 방송판 층 `credits` z 25(시작/끝 화면 22 · 계좌 영상 23 · 노래방 24 위, 알림 · 후원 카드 · 시그니처 아래 — 크레딧 중 들어온 후원도 알림은 뜬다). 불투명 바탕.
+  켜지면 `credits-mode` → 점수 팝업 · 1등 탈환 · 목표 달성 · 퇴근 · UP 자막 · 보름달을 내린다(css/credits.css). 방송 전 · 끝낸 뒤에도 뜬다(liveOnly 아님).
+  글씨 1080×1920 기준: 제목 84 · 멤버 이름 76 · 후원자 54 · 금액 34 · 마무리 72px. 테마 글꼴(--face-big · --face-name · --face-num) · 글자색(--ink-*) · 테마 판 속(--frame-fill)을 따라간다, 밝은 테마는 흰 바탕.
+- 조종실: '계좌 · 화면' 탭 맨 아래 칸 `#credits-blk` — [🎬 엔딩 크레딧 띄우기] `#cr-show`(방송 중이면 화면 안 확인 상자 한 번) · [⏸ 멈춤/▶ 이어서] `#cr-pause` · [⏮ 처음부터] `#cr-restart` · [내리기] `#cr-hide` ·
+  미리보기(몇 명 · 이름 없는 후원 · 만든 시각 · 멤버별 몇 명 칩 · 명단 펼쳐 보기) · 제목 · 마무리 글(바꾸면 바로 저장) · 금액 보이기(기본 끔) · 속도 칩 · [🔄 명단 다시 만들기] `#cr-build`. 소리 없음.
+- **순서표 단계**: settings2 에 고리 두 줄(`SNAP_EXTRA` · `APPLY_EXTRA`). 저장할 때 크레딧이 떠 있었는지(`credits: true/false`)를 단계에 적고, 불러오면 띄우거나 내린다. 이 기능 전에 저장한 단계(칸 없음)는 안 건드린다. 무대 탭 칩에 ' 🎬'.
+- 검사 `v2/tests/test_credits.py`(셈 7 · 서버 9 · 파일/흐름 3): 멤버별 · 나눠 주기 비율 · 모금함/전원 = 모두에게 · 기타 중복 빼기 · 이름 묶기 · 빼는 규칙 · 이름 끝 · 얼림/stale · 금액 스위치 · 멈춤/속도/처음부터 ·
+  끝낸 뒤 같은 회차 · 새 방송 비움 · 되돌린 점수 · 뺀 이름 · 401 · 순서표 · 공개 조각에 메시지/tx/id/금액 없음 · confirm()/alert()/소리 없음 · flow.js 셈(node).
+- 확인(10-17, 사본 임시 DB · 5375 · 헤드리스 크롬, 끝나고 서버 · 프로필 정리): 멤버 4 · 후원자 41 · 이름 없는 1 · 테스트 1 · 소액 1 넣고 —
+  1440 [띄우기] → 확인 상자 → 방송판 credits-mode · 이름 60줄(여러 멤버에게 준 사람은 멤버마다) · 보통 2초 151px · 멈춤 0px · 빠름 2초 263px · 처음부터 0 근처 ·
+  금액 보이기 켬/끔 · 끝까지 가면 마무리 글 가운데 534.7 에서 멈춤(1.5초 뒤 그대로) · 로즈 · 파스텔 테마 글꼴/색 · 공개 조각에 비공개 값 없음 · credits_ops 는 방송판에 안 감 ·
+  390 폰 [내리기] → 방송판 내려감 · 제목 고쳐 [다시 만들기] · 순서표 '2. 마무리 🎬' 다음 → 뜸 · 1단계 칩 → 내려감. 가로 넘침 0(1440 · 390, 명단 펼침 포함) · 콘솔 오류 0(favicon 404 빼고).
