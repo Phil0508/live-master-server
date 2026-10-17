@@ -41,3 +41,4 @@ from . import cast  # noqa: F401  (💬 화면에 한마디 · ⬆ UP 자막 · 
 from . import bank  # noqa: F401  (🏦 계좌 입금 추천 — 은행 확장 · 폰 앱 → 후원 콘솔 추천 카드, 옛 /api/bank/* 그대로)
 from . import ops_public  # noqa: F401  (🌐 10-17 ops — 로그인 없는 바깥 주소: 시그리스트 · 오락실 순위 · 개인정보 · 약관)
 from . import bigok  # noqa: F401  (🛡️ 큰 금액은 한 번 더 확인 — 기준 조각 bigok · bigok.set, 묻는 것은 조종실 js/bigok.js, 10-17)
+from . import mask  # noqa: F401  (🙈 10-17 mask — 방송판 메시지 금칙어 · 전화 · 계좌 · 주소 ●●● · 후원마다 [가리기])

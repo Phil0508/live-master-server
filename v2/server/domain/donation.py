@@ -94,7 +94,7 @@ def donation_add(ctx, data):
         if sig and amount > 0:
             # 시그 순위도 안 센다(count_tally=False) — 묶음(×N)에도 안 끼운다(옛 것과 같다)
             for fn in ENQUEUE:
-                fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra=dict(pub, **via))
+                fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra=dict(pub, **via), don_id=did)
         elif amount < SMALL_DISPLAY_MAX:
             pop['display_only'] = True
         ctx.edit('popup')['donation'] = pop
@@ -128,7 +128,7 @@ def donation_add(ctx, data):
         del t['notice_donors'][:-NOTICE_DONORS_MAX]
     elif sig and amount > 0:
         for fn in ENQUEUE:
-            fn(ctx, sig, amount=amount, donator=name, message=msg, extra=dict(pub, **via) or None)
+            fn(ctx, sig, amount=amount, donator=name, message=msg, extra=dict(pub, **via) or None, don_id=did)
     ctx.notes.update({'id': did, 'no': no})
     for fn in AFTER_DONATION:
         fn(ctx, name, amount)
@@ -159,12 +159,13 @@ def donation_replay(ctx, data):
     no = ctx.store.add_donation({'id': new, 'tx_id': None, 'at': ctx.now, 'name': nm, 'amount': amount,
                                  'message': '↻ #%s 다시 송출' % (d.get('no') or '?'), 'source': REPLAY_SOURCE,
                                  'status': 'display', 'player': None, 'session': sid})
-    pop = {'id': new, 'name': nm, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000), 'encore': True}
+    # src = 원래 후원 — 🙈 원래 후원을 [가리기] 했으면 다시 송출도 같이 숨는다(mask.py · 방송판엔 src 를 안 보낸다)
+    pop = {'id': new, 'name': nm, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000), 'encore': True, 'src': did}
     sig = data.get('sig')
     floor = int(data.get('floor') or 0)
     if sig and amount > 0 and not (floor and amount < floor):
         for fn in ENQUEUE:
-            fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra={'encore': True})
+            fn(ctx, sig, amount=amount, donator=nm, message=msg, count_tally=False, extra={'encore': True}, don_id=did)
         ctx.notes['title'] = sig.get('title') or ''
     elif 0 < amount < SMALL_DISPLAY_MAX:
         pop['display_only'] = True              # 1만 원 미만 — 맨 위 소액 띠로(받을 때와 같은 자리)

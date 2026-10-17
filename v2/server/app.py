@@ -150,14 +150,14 @@ def create_app(db_path=None, password=None, secret=None, sig_fetch=None):
                    device(sock.headers.get('user-agent'), sock.query_params.get('obs') == '1'))
         # ⚠️ 붙이기 · 통째 보내기 사이에 await 가 없어야 한다 — 그래야 그 뒤 쪽지가 통째 다음에 줄을 선다
         hub.add(c)
-        hub.send(c, {'t': 'snapshot', 'seq': bus.state.seq, 'now': int(time.time() * 1000), 'authed': a, 'slices': bus.state.snapshot(a)})
+        hub.send(c, {'t': 'snapshot', 'seq': bus.state.seq, 'now': int(time.time() * 1000), 'authed': a, 'slices': bus.state.snapshot(a and not c.on_air, c.on_air)})
         pump = asyncio.create_task(hub.pump(c))
         try:
             while True:
                 msg = await sock.receive_json()
                 t = msg.get('t')
                 if t == 'resync':
-                    hub.send(c, {'t': 'snapshot', 'seq': bus.state.seq, 'now': int(time.time() * 1000), 'authed': a, 'slices': bus.state.snapshot(a)})
+                    hub.send(c, {'t': 'snapshot', 'seq': bus.state.seq, 'now': int(time.time() * 1000), 'authed': a, 'slices': bus.state.snapshot(a and not c.on_air, c.on_air)})
                 elif t == 'cmd':
                     res = await bus.run(str(msg.get('type') or ''), msg.get('data'), by='ws:' + c.kind, authed=a,
                                         cid=msg.get('cid'))

@@ -155,7 +155,7 @@ class Bus:
             res, changed, timers = self._apply(fn, type_, data, by, key=key, timer=timer)
         # ⚠️ 바뀐 게 없어도 번호(seq)는 보낸다 — 화면은 번호가 하나 건너뛰면 '빠진 쪽지' 로 보고 통째를 다시 받는다
         if res.get('ok') and self.hub is not None:
-            await self.hub.publish(res['seq'], changed)
+            await self.hub.publish(res['seq'], changed, self.state.slices)
         if res.get('ok'):
             for tid, due, t, d in timers:
                 self._arm(tid, due, t, d)

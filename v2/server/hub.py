@@ -12,12 +12,14 @@ import asyncio
 import json
 import time
 
-from .state import is_hidden, is_public
+from .state import DEPENDS, is_hidden, is_public, view
 
 QUEUE_MAX = 200
 PING_SEC = 15
 KINDS = ('overlay', 'controller', 'mobile', 'editor', 'console', 'bot', 'other',   # bot = 진행봇(v2/tools/bot_v2.py)
          'alertbox', 'sigdisp', 'slot')   # 📺 따로 띄우는 방송판 화면(?only=alert · sig · slot) — 점검표가 '방송판' 과 따로 센다
+# 🙈 방송에 나가는 화면 — 로그인돼 있어도(조종실과 같은 브라우저 · 편집기 미리보기) 금칙어 가린 사본을 받는다(mask 10-17)
+ON_AIR_KINDS = ('overlay', 'alertbox', 'sigdisp', 'slot')
 
 
 def device(ua, obs_hint=False):
@@ -43,6 +45,11 @@ class Client:
         self.last_sent = time.time()
         self.closed = False
 
+    @property
+    def on_air(self):
+        """방송판이 받는 사본(금칙어 가린 글)을 줄 화면인가 — 로그인 안 한 화면 · 방송판 종류."""
+        return (not self.authed) or self.kind in ON_AIR_KINDS
+
 
 class Hub:
     def __init__(self):
@@ -64,14 +71,28 @@ class Hub:
             c.closed = True                 # 보내는 일꾼이 보고 끊는다
             self.clients.discard(c)
 
-    async def publish(self, seq, changed):
+    async def publish(self, seq, changed, slices=None):
+        """바뀐 조각을 화면마다 — 조종실(원문 · 비공개 포함) / 방송판(공개 조각만 · 금칙어 가린 사본) / 로그인한 방송판(둘 다).
+           slices = 지금 상태 전체(보여 주는 사본 · 같이 다시 보낼 조각(DEPENDS)에 쓴다). 없으면 changed 만 본다."""
         changed = {k: v for k, v in changed.items() if not is_hidden(k)}
-        pub = {k: v for k, v in changed.items() if is_public(k)}
+        if slices is not None:
+            for k in list(changed):                 # 🙈 금칙어 · 가리기가 바뀌면 팝업 · 대기줄도 새 사본으로
+                for d in DEPENDS.get(k, ()):
+                    if d not in changed and d in slices and not is_hidden(d):
+                        changed[d] = slices[d]
+        src = slices if slices is not None else changed
         now = int(time.time() * 1000)          # 서버 시각 — 화면이 카운트다운을 서버 시계에 맞춘다
-        full = json.dumps({'t': 'patch', 'seq': seq, 'now': now, 'slices': changed}, ensure_ascii=False)
-        part = full if len(pub) == len(changed) else json.dumps({'t': 'patch', 'seq': seq, 'now': now, 'slices': pub}, ensure_ascii=False)
+        made = {}
+
+        def msg(authed, on_air):
+            key = (authed, on_air)
+            if key not in made:
+                out = {k: view(k, v, src, on_air) for k, v in changed.items() if authed or is_public(k)}
+                made[key] = json.dumps({'t': 'patch', 'seq': seq, 'now': now, 'slices': out}, ensure_ascii=False)
+            return made[key]
         for c in list(self.clients):
-            self._push(c, full if c.authed else part)
+            # 방송판 종류는 로그인돼 있어도 공개 조각만(대기함 원문 같은 비공개 조각이 OBS 로 안 가게 — 방송판은 비공개 조각을 안 쓴다)
+            self._push(c, msg(bool(c.authed) and not c.on_air, c.on_air))
 
     def send(self, c, obj):
         self._push(c, json.dumps(obj, ensure_ascii=False))

@@ -31,7 +31,8 @@ slice_('queue', True, lambda: {'items': [], 'paused': False, 'volume': 0.5})
 slice_('reaction_done_recent', False, lambda: {'items': []})
 
 
-def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_after=0, count_tally=True, extra=None):
+def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_after=0, count_tally=True, extra=None, don_id=''):
+    """don_id — 이 줄을 만든 후원(장부 id). 묶이면 don_ids 가 msgs 와 같은 차례로 쌓인다(🙈 [가리기]가 그 차례만 숨긴다 — mask.py)."""
     q = ctx.edit('queue')
     items = q['items']
     last = items[-1] if items else None
@@ -44,6 +45,9 @@ def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_a
             msgs = [str(last.get('message') or '')]
         if len(msgs) < REACTION_MSGS_MAX:
             msgs.append(str(message or ''))
+            ids = last.get('don_ids') if isinstance(last.get('don_ids'), list) else [''] * (len(msgs) - 1)
+            ids = (ids + [''] * len(msgs))[:len(msgs) - 1] + [str(don_id or '')]
+            last['don_ids'] = ids
         last['msgs'] = msgs
     else:
         items.append({'id': 'rq_' + uuid.uuid4().hex, 'sig_id': sig.get('id'), 'title': sig.get('title') or '시그니처',
@@ -51,6 +55,8 @@ def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_a
                       'image_url': sig.get('image_url') or '', 'duration': float(sig.get('duration') or 10),
                       'amount': int(amount or 0), 'donator': donator, 'message': message, 'count': 1, 'play_all': False,
                       'skip_popup': bool(skip_popup), 'play_after': int(play_after or 0)})
+        if don_id:
+            items[-1]['don_ids'] = [str(don_id)]
         if isinstance(extra, dict):
             new = items[-1]
             new.update({k: v for k, v in extra.items() if k not in new})      # 정해진 칸은 못 덮는다

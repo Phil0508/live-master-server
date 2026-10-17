@@ -2,7 +2,8 @@
 
    카드 한 장(시안 B 10-17 — 대표님 '어두운 AI 카드 없애고 흰 카드 안 추천 단추로'):
      q1  시각 · (🏷️ 투네이션 칭호) 후원자 (Lv) · 금액(₩) · 몇 점 · [🏺 모금함] [나눠 주기] [무시]
-     q2  “메시지”(한 줄 말줄임 — 전체는 title) · ✦ AI 판단 한 줄(누르면 까닭 · 지난 배정이 펼쳐진다)
+     q2  “메시지”(한 줄 말줄임 — 전체는 title) · ⚠ 걸림 딱지 · [가리기] · ✦ AI 판단 한 줄(누르면 까닭 · 지난 배정이 펼쳐진다)
+         🙈 걸린 메시지(전화 · 계좌 · 주소 · 금칙어)는 가린 글로 보이고 ⚠ 를 누르면 원문. [가리기]는 방송 화면에서만 통째로 숨긴다(mask.js).
      (태그 — 되돌려 돌아옴 · 🧪 테스트 · 원래 이름 · 자동 진행 금액 게임: 있을 때만 한 줄)
      q3  선수 단추 격자 — AI 가 고른 사람 하나만 주황 테두리 + '추천' 딱지(.pbtn.rec). 누르면 다른 단추와 **똑같은** 길.
    ⚠️ 예전엔 같은 후원이 위 '🤖 지급할까요?' 줄과 아래 카드로 두 번 보였다 → 그 줄(ai.mountAsks)은 없앴다. 따로 '지급' 단추도 없다.
@@ -32,6 +33,7 @@ import { h, won, num, manWon, splitPoints, clock } from './util.js';
 import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드의 AI 판단 · 추천 · 🚗 오토파일럿 · 오배정 경고
 import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
 import { needFor, askBig } from './bigok.js';     // 🛡️ 큰 금액은 한 번 더 확인(카드가 '보내는 중' 이 되기 **전에** 묻는다)
+import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from './mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
 
 const UNFREEZE_AFTER_TOUCH_MS = 1500;
 const REC_LEVELS = new Set(['sure', 'maybe']);     // 추천 단추를 다는 판단
@@ -121,7 +123,7 @@ export function mountPending(root, ctx) {
                 list.append(c.el);                     // 새것은 일단 맨 아래(얼려 있으면 그대로 둔다)
             }
             const sel = split.get(it.id);
-            const sig = JSON.stringify([it, order, busy.has(it.id), sel ? [...sel] : null, jarOn, jarName, ai.sig(it.id), aiOpen.has(it.id)]);
+            const sig = JSON.stringify([it, order, busy.has(it.id), sel ? [...sel] : null, jarOn, jarName, ai.sig(it.id), aiOpen.has(it.id), maskSig(slices, it.id)]);
             if (sig !== c.sig) { fill(c.el, it, order, jarOn ? jarName : ''); c.sig = sig; }
         });
         if (!frozen) {
@@ -188,8 +190,13 @@ export function mountPending(root, ctx) {
             h('span', { class: 'pc-ai-k', 'aria-hidden': 'true' }, '✦'),
             p.auto ? null : h('span', { class: 'pc-ai-l' }, p.target ? 'AI 추천 ·' : 'AI ·'),
             h('span', { class: 'pc-ai-t' }, p.text)) : null;
+        // 🙈 메시지 — 걸렸으면 가린 글 + ⚠(누르면 원문), 가린 후원이면 흐리게 + [보이기]
+        const gone = !!it.message && hiddenSet(ctx.slices).has(it.id);
+        const mt = it.message ? shownText(it) : '';
         const q2 = it.message || aiEl ? h('div', { class: 'q2' },
-            it.message ? h('p', { class: 'pc-msg', title: it.message }, '“' + it.message + '”') : h('span', { class: 'q2-fill' }),
+            it.message ? h('p', { class: 'pc-msg' + (gone ? ' mk-gone' : ''), title: (gone ? '방송 화면엔 안 나가요 — ' : '') + mt }, (gone ? '🙈 ' : '') + '“' + mt + '”') : h('span', { class: 'q2-fill' }),
+            it.message ? warnChip(ctx, it) : null,
+            it.message && !isC ? hideBtn(ctx, it) : null,
             aiEl) : null;
         const more = p && p.more && open ? h('p', { class: 'pc-ai-more' }, p.more) : null;
 

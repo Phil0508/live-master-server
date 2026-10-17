@@ -3,7 +3,8 @@
    - 여러 건이 몰리면 줄을 서되 밀린 만큼 짧게: 4건 이상 남으면 2초 · 2건 이상 3초 · 아니면 5초. 아무도 건너뛰지 않는다.
    - 띠는 시그니처를 붙잡지 않는다(카드처럼 기다리게 하지 않는다 — 옛 것과 같다).
    - 조종실 알림 스위치 [1천~9천 알림](show.alerts.small)을 끄면 아무것도 안 띄운다(카드로 되돌리지도 않는다).
-   - 🏷️ 투네이션 공식 칭호 알약을 이름 앞에 작게(.46em — 한 줄에 들어가게, 옛 44584ff · css/donate.css). */
+   - 🏷️ 투네이션 공식 칭호 알약을 이름 앞에 작게(.46em — 한 줄에 들어가게, 옛 44584ff · css/donate.css).
+   - 🙈 [가리기] · 금칙어(10-17 mask): 같은 후원(id)이 메시지만 바뀌어 다시 오면 떠 있는 띠 · 줄 선 것의 글자만 바꾼다. */
 import { formatNum, classifyDonation } from '../util.js';
 import { donorTag } from '../donate_kit.js';
 
@@ -18,11 +19,23 @@ export function mount(root, lm, opts) {
     const queue = [];
     let busy = false;
     let seen;
+    let shown = null;
+
+    function retext(id, message) {
+        const msg = String(message || '').trim();
+        queue.forEach(q => { if (q.id === id) q.message = msg; });
+        if (shown && shown.id === id) {
+            shown.message = msg;
+            msgEl.textContent = msg;
+            msgEl.style.display = msg ? '' : 'none';
+        }
+    }
 
     function next() {
-        if (!queue.length) { busy = false; return; }
+        if (!queue.length) { busy = false; shown = null; return; }
         busy = true;
         const d = queue.shift();
+        shown = d;
         try {
             nameEl.textContent = d.name || '익명';
             const tg = donorTag(d.donor_title);             // 🏷️ 이름 앞 칭호 이름표
@@ -44,7 +57,7 @@ export function mount(root, lm, opts) {
         const d = pop && pop.donation;
         if (!d) return;
         const key = d.id || String(d.at);
-        if (key === seen) return;
+        if (key === seen) { if (d.id) retext(d.id, d.message); return; }    // 🙈 가리기 · 금칙어로 글만 바뀜
         seen = key;
         if (!opts.isFresh(d.at)) return;
         if (!((slices.session || {}).live)) return;
