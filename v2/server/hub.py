@@ -91,7 +91,8 @@ class Hub:
                 made[key] = json.dumps({'t': 'patch', 'seq': seq, 'now': now, 'slices': out}, ensure_ascii=False)
             return made[key]
         for c in list(self.clients):
-            self._push(c, msg(bool(c.authed), c.on_air))
+            # 방송판 종류는 로그인돼 있어도 공개 조각만(대기함 원문 같은 비공개 조각이 OBS 로 안 가게 — 방송판은 비공개 조각을 안 쓴다)
+            self._push(c, msg(bool(c.authed) and not c.on_air, c.on_air))
 
     def send(self, c, obj):
         self._push(c, json.dumps(obj, ensure_ascii=False))
