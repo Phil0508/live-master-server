@@ -9,7 +9,9 @@
      burst(anchorEl, kind, amount) → true(뿌렸다) · false(안 뿌림 — 부른 쪽이 원래 연출을 하면 된다, 예: 핀볼 우승 폭죽)
        kind: 'donation'(후원 카드 — 금액으로 1~3단) · 'best'(최고 기록 갱신) · 'win'(핀볼 우승) — 뒤의 둘은 늘 3단
        anchorEl: 입자가 터질 화면 요소(그 가운데 · 위에서 40%)
-   그리는 곳: 이 칸(1080×1920) 안의 캔버스 — 옛 것은 화면 전체 위(100006)에 그렸다. 층은 groups/fx.js(47). */
+   그리는 곳: 이 칸(1080×1920) 안의 캔버스 — 옛 것은 화면 전체 위(100006)에 그렸다. 층은 groups/fx.js(47).
+   🏚️ 할로윈(유령의 저택, 10-19): 박쥐 실루엣(크게) + 촛불 불티(작게)를 한 번에 두 갈래로 쏜다(layers — 갈래마다 모양 · 색 · 크기 · 몫).
+      조금 천천히 떨어진다(gravity) · 3만 원 이상이면 할로윈 보름달(박쥐가 지나가는 달)이 후원 알림 뒤에서 떠오른다(css/themes.css .theme-moon). */
 const CONFETTI_SRC = '/vendor/confetti.browser.min.js';     // canvas-confetti 1.9.3(옛 방송판과 같은 파일)
 let libP = null;
 function loadConfetti() {
@@ -36,7 +38,11 @@ const THEME_BURST = {
     chuseok:   { colors: ['#ffd76a', '#fff3c4', '#f2c230', '#ffe7a0'], shape: 'dust',   scalar: .75, moon: true },
     // 🎨 새 테마(2026-09-30) — 뉴스 · 한지는 조용한 옷이라 입자를 안 뿌린다
     hospital:  { colors: ['#13b3a1', '#ff4d5e', '#ffffff', '#bff3ea'], shape: 'cross',  scalar: 1.3 },
-    halloween: { colors: ['#ff8a1f', '#8fdc5a', '#c9a3ff', '#ffb45c'], shape: 'circle', scalar: 1.2 },
+    // 🏚️ 할로윈 — 박쥐(크게)와 촛불 불티(작게)를 따로 쏜다(layers — 크기가 달라서). 박쥐는 달빛 보라 · 연보라 · 금빛, 불티는 촛불색
+    //    (10-19 B+: 거의 검은 밤보라 박쥐는 작게 날 때 '검은 얼룩' 으로 보였다 — 달빛에 비친 색으로 밝혔다)
+    halloween: { layers: [{ shapes: ['bat'], colors: ['#7a5cb4', '#b49ce6', '#f3c969'], scalar: 3, share: 0.5 },
+                          { shapes: ['circle'], colors: ['#f3c969', '#ffe7a8', '#ffb45c', '#f4ead6'], scalar: 1.1, share: 0.7 }],
+                 gravity: 0.6, moon: true },
     concert:   { colors: ['#a07bff', '#52e3ff', '#ffffff', '#ff7ac8'], shape: 'star',   scalar: 1.4 },
     sports:    { colors: ['#ffd400', '#ffffff', '#ff3b3b'],            shape: 'square', scalar: 1.1 },
     arcade:    { colors: ['#ffd23f', '#4ff0ff', '#ff4fd8'],            shape: 'square', scalar: 1.1 },
@@ -57,6 +63,8 @@ function burstShapes() {
             shapesCache.bow = P({ path: 'M12 11C9 6 3 5 2.5 8.5 2 12 6 14 11.5 12.5zM12 11c3-5 9-6 9.5-2.5.5 3.5-3.5 5.5-9 4z' });
             shapesCache.star = P({ path: 'M12 0c1 6 5 10 12 12-7 2-11 6-12 12-1-6-5-10-12-12C7 10 11 6 12 0z' });
             shapesCache.cross = P({ path: 'M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' });
+            // 🦇 박쥐 — css/themes.css 의 --hw-bat 과 같은 모양(64×28)
+            shapesCache.bat = P({ path: 'M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' });
         }
     } catch (e) { /* 모양 폭죽을 못 만드는 브라우저 — 동그라미로 */ }
     shapesCache.square = 'square';   // 폭죽 기본 모양 — 스포츠 · 아케이드
@@ -98,15 +106,21 @@ export function mount(root, lm, opts) {
             const oy = (r && r.height) ? (r.top + r.height * 0.4 - cr.top) / cr.height : 0.45;
             const amt = Number(amount) || 0;
             const lvl = (kind === 'donation') ? (amt >= 100000 ? 3 : (amt >= 30000 ? 2 : 1)) : 3;
-            const shape = burstShapes()[t.shape];
-            fire({
-                particleCount: [0, 14, 30, 60][lvl] * (t.shape === 'dust' ? 2 : 1),
-                spread: 55 + lvl * 20, startVelocity: 20 + lvl * 8,
-                gravity: t.shape === 'dust' ? 0.45 : 0.9, ticks: 150 + lvl * 50, drift: 0,
-                origin: { x: ox, y: oy }, colors: t.colors,
-                shapes: shape ? [shape] : ['circle'], scalar: t.scalar,
+            // 갈래(layers) — 보통은 한 갈래(shape · colors · scalar). 할로윈처럼 크기가 다른 모양을 섞으면 갈래마다 따로 쏜다(share = 입자 몫)
+            const bank = burstShapes();
+            const count = [0, 14, 30, 60][lvl] * (t.shape === 'dust' ? 2 : 1);
+            const parts = t.layers || [{ shapes: [t.shape], colors: t.colors, scalar: t.scalar, share: 1 }];
+            parts.forEach(p => {
+                const shapes = (p.shapes || []).map(k => bank[k]).filter(Boolean);
+                fire({
+                    particleCount: Math.max(1, Math.round(count * (p.share || 1))),
+                    spread: 55 + lvl * 20, startVelocity: 20 + lvl * 8,
+                    gravity: t.gravity != null ? t.gravity : (t.shape === 'dust' ? 0.45 : 0.9), ticks: 150 + lvl * 50, drift: 0,
+                    origin: { x: ox, y: oy }, colors: p.colors,
+                    shapes: shapes.length ? shapes : ['circle'], scalar: p.scalar,
+                });
             });
-            // 🌕 추석 — 큰 후원(3만 원 이상)이나 기록 갱신 · 우승이면 보름달이 떠오른다
+            // 🌕 추석 · 🏚️ 할로윈 — 큰 후원(3만 원 이상)이나 기록 갱신 · 우승이면 보름달이 떠오른다(달 그림은 테마 CSS 가 정한다)
             if (t.moon && lvl >= 2) {
                 const m = opts.stage.use('themeMoon');
                 if (m) m.rise();
