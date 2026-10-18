@@ -893,8 +893,9 @@
         #canvas.theme-halloween .ss-root { background: radial-gradient(120% 60% at 50% 26%, rgb(44, 24, 66), rgb(10, 5, 18) 72%); }
         #canvas.theme-halloween .ss-end-bg {
             background:
-                radial-gradient(circle, rgba(255, 244, 214, .75) 0 1.3px, transparent 2.2px) 0 0 / 71px 71px,
-                radial-gradient(circle, rgba(220, 205, 255, .5) 0 1px, transparent 1.8px) 33px 41px / 113px 113px,
+                radial-gradient(circle, rgba(255, 244, 214, .8) 0 1.4px, transparent 2.3px) 0 0 / 97px 89px,
+                radial-gradient(circle, rgba(220, 205, 255, .55) 0 1px, transparent 1.8px) 41px 23px / 131px 149px,
+                radial-gradient(circle, rgba(255, 255, 255, .42) 0 .9px, transparent 1.6px) 77px 61px / 173px 157px,
                 radial-gradient(90% 55% at 50% 22%, #2c1846 0%, #160b24 55%, #0b0612 100%);
         }
         #canvas.theme-halloween .ss-end-bg::before {
@@ -957,3 +958,15 @@
             background: linear-gradient(180deg, #fff3cf 8%, #f3c969 55%, #c7892f 95%); -webkit-background-clip: text; background-clip: text;
             filter: drop-shadow(0 4px 0 #120a1c) drop-shadow(0 0 17px rgba(255, 176, 72, .6));
         }
+
+        /* ── ⏸️ 안 보이는 판의 반복 움직임은 멈춰 둔다(방송 PC 부담) — 판이 다시 뜨면 그 자리부터 이어서 돈다.
+              꺼진 칸(.layer.off) · 시그니처 도는 동안 가린 칸(reaction-mode) · 안 뜬 게임판 · 내려간 후원 카드 · 시그 카드 ── */
+        #canvas.theme-halloween :is(.gb-wrap:not(.gb-on), .gm-board:not(.on)) :is(.sg-board, .slot-card, .home-race-box)::before,
+        #canvas.theme-halloween :is(.donation-popup-content, .dg-card):not(.show)::before,
+        #canvas.theme-halloween .reaction-screen-overlay:not(.show) .reaction-img-box::after,
+        #canvas.theme-halloween .layer.off::after,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction::after,
+        #canvas.theme-halloween .layer.off :is(.excel-board, .donor-rank-board, .sig-tally-board, .best-board)::before,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction .excel-board::before,
+        #canvas.theme-halloween .layer.off :is(.excel-row.rank-1 .r-rank, .goal-rail-fill)::after,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction :is(.excel-row.rank-1 .r-rank, .goal-rail-fill)::after { animation-play-state: paused; }
