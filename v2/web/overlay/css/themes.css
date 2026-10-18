@@ -1401,7 +1401,7 @@
               제자리 움직임(촛불 · 안개 · 달 · 유령 · 깃발 · 불꽃)은 멈춘다. 거미는 거미줄에 가만히 앉아 있다 ── */
         @media (prefers-reduced-motion: reduce) {
             #canvas.theme-halloween::before, #canvas.theme-halloween::after,
-            #canvas.theme-halloween .excel-col::before,
+            #canvas.theme-halloween .excel-col:is(:first-child, :last-child)::before,   /* 위 규칙이 :first-child · :last-child 라 같은 무게로(검토 10-19 — 번개 · 달 박쥐가 숨은 채 돌았다) */
             #canvas.theme-halloween .excel-grid-container::before,
             #canvas.theme-halloween .jar-flag::before,
             #canvas.theme-halloween .layer-donorRank::before,
