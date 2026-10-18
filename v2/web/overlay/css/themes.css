@@ -244,30 +244,49 @@
             --orn-top: none; --orn-bottom: none; --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='1' y='1' width='22' height='22' rx='6' fill='%23ffffff' stroke='%23ff4d5e' stroke-width='1.5'/%3E%3Crect x='9.5' y='4.5' width='5' height='15' rx='1' fill='%23ff4d5e'/%3E%3Crect x='4.5' y='9.5' width='15' height='5' rx='1' fill='%23ff4d5e'/%3E%3C/svg%3E"); --spark: none;
         }
         #canvas.theme-halloween {
-            /* 🎃 할로윈(호박 밤) — 보라 밤 판 · 호박 주황 테두리 · 위 모서리에 박쥐 · 1등 호박 */
-            --gold: #ff8a1f; --gold-light: #ffd0a0; --gold-deep: #d96a0a; --gold-rgb: 255, 138, 31; --gold-glow: rgba(255, 138, 31, .45); --on-gold: #2a1206;
-            --silver: #c9a3ff; --silver-2: #9a6fe0; --on-silver: #1c0f2b; --bronze: #8fdc5a; --bronze-2: #5ea832; --on-bronze: #10220a;
-            --accent: #ff8a1f; --accent-glow: rgba(255, 138, 31, .45); --theme-neon: #ff8a1f;
-            --excel-yellow: #ffb45c; --text-highlight: #ffb45c; --text-secondary: #d8c6ee;
-            --glass-bg: radial-gradient(120% 90% at 50% 0%, rgba(49, 24, 68, .95) 0%, rgba(24, 12, 34, .96) 72%);
-            --glass-border: rgba(255, 138, 31, .6); --glass-top-light: rgba(255, 200, 150, .35); --glass-radius: 16px;
-            --tx-2: rgba(233, 220, 250, .74); --row-bg: rgba(255, 138, 31, .07); --row-border: rgba(255, 138, 31, .25);
-            --frame: linear-gradient(#ff8a1f, #ff8a1f); --frame-w: 3px; --frame-fill: var(--glass-bg);
-            --frame-glow: 0 12px 30px rgba(10, 0, 20, .55), 0 0 22px rgba(255, 138, 31, .25);
-            --pearl: transparent; --pearl-style: solid; --skin-row: rgba(255, 138, 31, .07); --skin-line: rgba(255, 138, 31, .25);
-            --rib-bg: #ff8a1f; --rib-ink: #2a1206; --rib-cut: none; --rib-ring: none;
-            --badge-bg: #231432; --badge-ink: #ffb45c; --badge-ring: #ff8a1f; --badge-radius: 50%;
+            /* 🏚️ 할로윈 · 유령의 저택(시안 B, 2026-10-19 — 옛 '호박 밤'을 갈아입혔다)
+               거의 검은 보라 밤 + 촛불 금빛. 금테 두 줄 액자 · 위 모서리 거미줄 · 보름달 · 판 밑에 깔린 안개 ·
+               촛불처럼 은은하게 깜빡이는 테두리 빛 · 함렛(고딕 세리프) 이름표 · 1등 왕관 유령 · 가끔 천천히 지나가는 박쥐.
+               판마다 입히는 규칙은 이 파일 맨 끝 '🏚️ 할로윈 · 유령의 저택' 구역. 그림은 전부 아래 data: SVG(--hw-*). */
+            --gold: #f3c969; --gold-light: #ffe7a8; --gold-deep: #b8862f; --gold-rgb: 243, 201, 105; --gold-glow: rgba(255, 186, 92, .45); --on-gold: #241405;
+            --silver: #d9d2ec; --silver-2: #a99cc9; --on-silver: #1b1330; --bronze: #d9925a; --bronze-2: #a8642f; --on-bronze: #26120a;
+            --accent: #f3c969; --accent-glow: rgba(255, 186, 92, .45); --theme-neon: #ffd47a;
+            --excel-yellow: #ffd98a; --text-highlight: #ffd98a; --text-secondary: #ffd98a;
+            --glass-bg: radial-gradient(130% 95% at 50% 0%, rgba(44, 24, 62, .96) 0%, rgba(20, 11, 31, .97) 58%, rgba(12, 6, 20, .98) 100%);
+            --glass-border: rgba(233, 196, 110, .55); --glass-top-light: rgba(255, 228, 170, .3); --glass-radius: 12px;
+            --tx-2: rgba(236, 226, 250, .8); --row-bg: rgba(243, 201, 105, .05); --row-border: rgba(243, 201, 105, .2);
+            /* ① 액자 — 바깥은 오래된 금테(빛이 비스듬히 도는 금박), 안쪽 12px 에 금 머리카락 줄 하나(공통 outline = --pearl) */
+            --frame: linear-gradient(135deg, #6b4a1c 0%, #e9c46e 16%, #fff0bf 28%, #a77b2c 46%, #f6d98c 64%, #7a5520 82%, #e2b45a 100%);
+            --frame-w: 3px; --frame-fill: var(--glass-bg);
+            --frame-glow: 0 14px 34px rgba(4, 0, 10, .62), 0 0 0 1px rgba(10, 4, 16, .8);
+            --pearl: rgba(233, 196, 110, .42); --pearl-style: solid; --skin-row: rgba(243, 201, 105, .045); --skin-line: rgba(233, 196, 110, .16);
+            /* 이름표 = 금테 두른 검보라 명판(리본 대신) */
+            --rib-bg: linear-gradient(180deg, #3a2352 0%, #1d1030 100%); --rib-ink: #f6d58a; --rib-cut: none;
+            --rib-ring: inset 0 0 0 1px rgba(233, 196, 110, .8), inset 0 0 0 4px rgba(20, 10, 30, .9), inset 0 0 0 5px rgba(233, 196, 110, .35), 0 3px 10px rgba(0, 0, 0, .5);
+            --badge-bg: #1c1028; --badge-ink: #ecd08a; --badge-ring: rgba(233, 196, 110, .8); --badge-radius: 50%;
+            /* ③ 글씨 — 이름 · 표 숫자는 고딕 A1(폰에서 또렷), 이름표 · 큰 금액만 함렛(고딕 세리프). 기랑해랑(붓)은 뺐다 */
             --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 800;
             --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
-            --face-big: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --big-weight: 900;
-            --face-label: "Kirang Haerang", "Jua", "Pretendard", "Malgun Gothic", sans-serif; --label-weight: 400;
-            --ink-name: #f6ecff; --ink-num: #ffb45c; --ink-label: #ffb45c; --ink-soft: #d8c6ee;
-            --name-shadow: 0 2px 0 #12081c; --num-color: #ffb45c; --num-fill: none; --num-clip: border-box; --num-shadow: 0 3px 0 #12081c; --num-edge: none;
-            --msg-bg: rgba(255, 138, 31, .1); --tip-bg: rgba(24, 12, 34, .96); --rail-bg: rgba(24, 12, 34, .6);
-            --game-fill: var(--glass-bg); --tile-fill: linear-gradient(180deg, #3a1d52, #231432); --tile-blank: rgba(24, 12, 34, .5);
-            --canvas-bg: rgba(24, 12, 34, .85); --piece-fill: linear-gradient(180deg, #ffa647, #d96a0a); --game-ink-label: #ffb45c;
-            --race: #ff8a1f; --race-2: #8fdc5a; --race-rgb: 255, 138, 31; --race-text: #ffd9b3;
-            --orn-top: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 14'%3E%3Cpath d='M0 4c2 0 3 1 4 3 1-2 3-3 6-3 1 0 1.6.3 2 .8.4-.5 1-.8 2-.8 3 0 5 1 6 3 1-2 2-3 4-3-1 2-1 4 0 6-2-1-3-1-5 0-1-1-3-2-5-2-.6 0-1 .2-2 .6-1-.4-1.4-.6-2-.6-2 0-4 1-5 2-2-1-3-1-5 0 1-2 1-4 0-6z' fill='%23120a1a' stroke='%23ff8a1f' stroke-width='.7'/%3E%3C/svg%3E"); --orn-bottom: none; --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 7c-.5-2 .5-4 2.5-4.5' fill='none' stroke='%236bbf3a' stroke-width='2' stroke-linecap='round'/%3E%3Cellipse cx='8' cy='14.5' rx='5' ry='6.5' fill='%23ff8a1f'/%3E%3Cellipse cx='16' cy='14.5' rx='5' ry='6.5' fill='%23ff8a1f'/%3E%3Cellipse cx='12' cy='14.5' rx='4.4' ry='7' fill='%23ffa647'/%3E%3C/svg%3E"); --spark: none;
+            --face-big: "Hahmlet", "Gothic A1", "Malgun Gothic", serif; --big-weight: 800;
+            --face-label: "Hahmlet", "Gothic A1", "Malgun Gothic", serif; --label-weight: 800;
+            --ink-name: #f8f0e3; --ink-num: #ffd98a; --ink-label: #e9c979; --ink-soft: #e6dcf4;
+            --name-shadow: 0 2px 0 #0b0512, 0 0 6px rgba(0, 0, 0, .6);
+            --num-color: #ffe3a3; --num-fill: none; --num-clip: border-box; --num-shadow: 0 2px 0 #0b0512, 0 0 14px rgba(255, 176, 72, .55); --num-edge: none;
+            --msg-bg: rgba(233, 196, 110, .08); --tip-bg: rgba(16, 8, 26, .96); --rail-bg: rgba(16, 8, 26, .72);
+            --game-fill: var(--glass-bg); --tile-fill: linear-gradient(180deg, #34204a, #1a0f28); --tile-blank: rgba(16, 8, 26, .55);
+            --canvas-bg: rgba(16, 8, 26, .86); --piece-fill: linear-gradient(180deg, #ffe08a, #b8862f); --game-ink-label: #f3c969;
+            --race: #7d52d6; --race-2: #f3c969; --race-rgb: 243, 201, 105; --race-text: #ffe7b0;
+            --orn-top: none; --orn-bottom: none; --spark: none;
+            /* 🖼️ 그림(data: SVG) — 1등 왕관 유령(--crown) · 거미줄 왼쪽/오른쪽(거미) · 보름달 · 박쥐 · 금테 박쥐 · 유령 · 촛불 · 유령의 저택 */
+            --crown: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='c' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3c4'/%3E%3Cstop offset='.55' stop-color='%23f3c969'/%3E%3Cstop offset='1' stop-color='%23b8862f'/%3E%3C/linearGradient%3E%3ClinearGradient id='b' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='1' stop-color='%23ddd2f2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M7.6 30.4V15.6a8.4 8.4 0 0 1 16.8 0v14.8l-2.8-2.5-2.8 2.5-2.8-2.5-2.8 2.5-2.8-2.5z' fill='url(%23b)' stroke='%231d1030' stroke-width='1.3' stroke-linejoin='round'/%3E%3Cellipse cx='13' cy='17' rx='1.7' ry='2.3' fill='%231d1030'/%3E%3Cellipse cx='19' cy='17' rx='1.7' ry='2.3' fill='%231d1030'/%3E%3Cellipse cx='16' cy='22.2' rx='1.4' ry='1.6' fill='%231d1030'/%3E%3Cpath d='M9.6 9.8 10.8 3.6l2.9 3.3L16 1.6l2.3 5.3 2.9-3.3 1.2 6.2z' fill='url(%23c)' stroke='%235a3d17' stroke-width='.8' stroke-linejoin='round'/%3E%3Ccircle cx='16' cy='1.9' r='1.1' fill='%23ffefb0' stroke='%235a3d17' stroke-width='.5'/%3E%3C/svg%3E");
+            --hw-web-l: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M0 0L76 0M0 0L72.7 22.2M0 0L62.3 43.6M0 0L44.7 61.5M0 0L23.5 72.3M0 0L0 76' stroke='%230b0612' stroke-opacity='.55' stroke-width='2.2'/%3E%3Cpath d='M13 0Q10.8 1.6 12.4 3.8Q9.8 4.8 10.6 7.5Q7.8 7.7 7.6 10.5Q5 9.7 4 12.4Q1.7 10.8 0 13M25 0Q19.8 3 23.9 7.3Q18 8.8 20.5 14.3Q14.3 14 14.7 20.2Q9.1 17.8 7.7 23.8Q3.1 19.8 0 25M38 0Q31.6 4.7 36.3 11.1Q28.7 14 31.1 21.8Q22.8 22.4 22.3 30.7Q14.5 28.4 11.7 36.1Q5 31.5 0 38M51 0Q40.4 6 48.8 14.9Q36.7 17.9 41.8 29.3Q29.1 28.6 30 41.3Q18.5 36.4 15.8 48.5Q6.4 40.3 0 51M63 0Q52.3 7.8 60.2 18.4Q47.6 23.2 51.6 36.1Q37.7 37.1 37 51Q24 47.2 19.5 59.9Q8.3 52.3 0 63' stroke='%230b0612' stroke-opacity='.45' stroke-width='1.9'/%3E%3Cpath d='M0 0L76 0M0 0L72.7 22.2M0 0L62.3 43.6M0 0L44.7 61.5M0 0L23.5 72.3M0 0L0 76' stroke='%23efe8ff' stroke-opacity='.85' stroke-width='1.05'/%3E%3Cpath d='M13 0Q10.8 1.6 12.4 3.8Q9.8 4.8 10.6 7.5Q7.8 7.7 7.6 10.5Q5 9.7 4 12.4Q1.7 10.8 0 13M25 0Q19.8 3 23.9 7.3Q18 8.8 20.5 14.3Q14.3 14 14.7 20.2Q9.1 17.8 7.7 23.8Q3.1 19.8 0 25M38 0Q31.6 4.7 36.3 11.1Q28.7 14 31.1 21.8Q22.8 22.4 22.3 30.7Q14.5 28.4 11.7 36.1Q5 31.5 0 38M51 0Q40.4 6 48.8 14.9Q36.7 17.9 41.8 29.3Q29.1 28.6 30 41.3Q18.5 36.4 15.8 48.5Q6.4 40.3 0 51M63 0Q52.3 7.8 60.2 18.4Q47.6 23.2 51.6 36.1Q37.7 37.1 37 51Q24 47.2 19.5 59.9Q8.3 52.3 0 63' stroke='%23efe8ff' stroke-opacity='.7' stroke-width='.85'/%3E%3C/g%3E%3C/svg%3E");
+            --hw-web-r: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cg transform='matrix(-1 0 0 1 80 0)'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M0 0L76 0M0 0L72.7 22.2M0 0L62.3 43.6M0 0L44.7 61.5M0 0L23.5 72.3M0 0L0 76' stroke='%230b0612' stroke-opacity='.55' stroke-width='2.2'/%3E%3Cpath d='M13 0Q10.8 1.6 12.4 3.8Q9.8 4.8 10.6 7.5Q7.8 7.7 7.6 10.5Q5 9.7 4 12.4Q1.7 10.8 0 13M25 0Q19.8 3 23.9 7.3Q18 8.8 20.5 14.3Q14.3 14 14.7 20.2Q9.1 17.8 7.7 23.8Q3.1 19.8 0 25M38 0Q31.6 4.7 36.3 11.1Q28.7 14 31.1 21.8Q22.8 22.4 22.3 30.7Q14.5 28.4 11.7 36.1Q5 31.5 0 38M51 0Q40.4 6 48.8 14.9Q36.7 17.9 41.8 29.3Q29.1 28.6 30 41.3Q18.5 36.4 15.8 48.5Q6.4 40.3 0 51M63 0Q52.3 7.8 60.2 18.4Q47.6 23.2 51.6 36.1Q37.7 37.1 37 51Q24 47.2 19.5 59.9Q8.3 52.3 0 63' stroke='%230b0612' stroke-opacity='.45' stroke-width='1.9'/%3E%3Cpath d='M0 0L76 0M0 0L72.7 22.2M0 0L62.3 43.6M0 0L44.7 61.5M0 0L23.5 72.3M0 0L0 76' stroke='%23efe8ff' stroke-opacity='.85' stroke-width='1.05'/%3E%3Cpath d='M13 0Q10.8 1.6 12.4 3.8Q9.8 4.8 10.6 7.5Q7.8 7.7 7.6 10.5Q5 9.7 4 12.4Q1.7 10.8 0 13M25 0Q19.8 3 23.9 7.3Q18 8.8 20.5 14.3Q14.3 14 14.7 20.2Q9.1 17.8 7.7 23.8Q3.1 19.8 0 25M38 0Q31.6 4.7 36.3 11.1Q28.7 14 31.1 21.8Q22.8 22.4 22.3 30.7Q14.5 28.4 11.7 36.1Q5 31.5 0 38M51 0Q40.4 6 48.8 14.9Q36.7 17.9 41.8 29.3Q29.1 28.6 30 41.3Q18.5 36.4 15.8 48.5Q6.4 40.3 0 51M63 0Q52.3 7.8 60.2 18.4Q47.6 23.2 51.6 36.1Q37.7 37.1 37 51Q24 47.2 19.5 59.9Q8.3 52.3 0 63' stroke='%23efe8ff' stroke-opacity='.7' stroke-width='.85'/%3E%3C/g%3E%3Cpath d='M13 22V59' stroke='%23efe8ff' stroke-opacity='.75' stroke-width='.8'/%3E%3Cpath d='M13 64l-4.2 -2.6 l-1.6 -2.4M13 64l-4.6 -0.4 l-2 -1M13 64l-4.4 1.8 l-1.8 2.2M13 64l-3.6 3.4 l-1 2.8M13 64l4.2 -2.6 l1.6 -2.4M13 64l4.6 -0.4 l2 -1M13 64l4.4 1.8 l1.8 2.2M13 64l3.6 3.4 l1 2.8' fill='none' stroke='%23120a1c' stroke-width='1.3' stroke-linecap='round'/%3E%3Cellipse cx='13' cy='65' rx='3.4' ry='4' fill='%23120a1c' stroke='%23d9b05a' stroke-width='.6'/%3E%3Ccircle cx='13' cy='59.4' r='2.2' fill='%23120a1c' stroke='%23d9b05a' stroke-width='.5'/%3E%3C/g%3E%3C/svg%3E");
+            --hw-moon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3CradialGradient id='m' cx='.4' cy='.36' r='.7'%3E%3Cstop offset='0' stop-color='%23fffdf4'/%3E%3Cstop offset='.5' stop-color='%23f6ead0'/%3E%3Cstop offset='.85' stop-color='%23dccaa0'/%3E%3Cstop offset='1' stop-color='%23c9b58a'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='50' cy='50' r='48' fill='url(%23m)'/%3E%3Cg fill='%23bda679' fill-opacity='.38'%3E%3Ccircle cx='36' cy='38' r='9'/%3E%3Ccircle cx='63' cy='28' r='5.5'/%3E%3Ccircle cx='61' cy='61' r='11'/%3E%3Ccircle cx='31' cy='67' r='5'/%3E%3Ccircle cx='78' cy='48' r='4'/%3E%3Ccircle cx='47' cy='80' r='3.5'/%3E%3C/g%3E%3Cg fill='%23fffaf0' fill-opacity='.35'%3E%3Ccircle cx='34' cy='36' r='4'/%3E%3Ccircle cx='59' cy='58' r='5'/%3E%3C/g%3E%3C/svg%3E");
+            --hw-bat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'%3E%3Cpath d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%23160c22' stroke='%233a2552' stroke-width='.8' stroke-linejoin='round'/%3E%3Ccircle cx='30.6' cy='13.4' r='.9' fill='%23ffcf5c'/%3E%3Ccircle cx='33.4' cy='13.4' r='.9' fill='%23ffcf5c'/%3E%3C/svg%3E");
+            --hw-bat-gold: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'%3E%3Cpath d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%23120a1c' stroke='%23e9c46e' stroke-width='1.3' stroke-linejoin='round'/%3E%3Ccircle cx='30.6' cy='13.4' r='1' fill='%23ffcf5c'/%3E%3Ccircle cx='33.4' cy='13.4' r='1' fill='%23ffcf5c'/%3E%3C/svg%3E");
+            --hw-ghost: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.95'/%3E%3Cstop offset='1' stop-color='%23d8ccff' stop-opacity='.55'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M7.6 30.4V15.6a8.4 8.4 0 0 1 16.8 0v14.8l-2.8-2.5-2.8 2.5-2.8-2.5-2.8 2.5-2.8-2.5z' fill='url(%23b)'/%3E%3Cellipse cx='13' cy='17' rx='1.6' ry='2.2' fill='%232a1840'/%3E%3Cellipse cx='19' cy='17' rx='1.6' ry='2.2' fill='%232a1840'/%3E%3Cellipse cx='16' cy='22' rx='1.3' ry='1.5' fill='%232a1840' fill-opacity='.8'/%3E%3C/svg%3E");
+            --hw-flame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 32'%3E%3Cdefs%3E%3CradialGradient id='f' cx='.5' cy='.68' r='.62'%3E%3Cstop offset='0' stop-color='%23fffbe6'/%3E%3Cstop offset='.38' stop-color='%23ffe08a'/%3E%3Cstop offset='.75' stop-color='%23ffa63c'/%3E%3Cstop offset='1' stop-color='%23ff7a1a' stop-opacity='.85'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M10 1C12.6 7.4 17 12 17 19.2 17 25 14 29.4 10 29.4S3 25 3 19.2C3 12 7.4 7.4 10 1z' fill='url(%23f)'/%3E%3Cpath d='M10 13c1.6 3 3.4 5 3.4 8.2 0 2.6-1.5 4.4-3.4 4.4s-3.4-1.8-3.4-4.4C6.6 18 8.4 16 10 13z' fill='%23fffdf5'/%3E%3C/svg%3E");
+            --hw-mansion: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1080 260' preserveAspectRatio='xMidYMax meet'%3E%3Cpath d='M0 196Q140 150 300 176T620 170T880 160T1080 182V260H0z' fill='%23140a1e'/%3E%3Cpath d='M360 260V150h60v-36l40-30 40 30v36h70V120l-14-10 44-58 44 58-14 10v30h40v110z' fill='%230a0510'/%3E%3Cpath d='M300 260V170l30-26 30 26v90z' fill='%230a0510'/%3E%3Cpath d='M650 260V128h22v-50l22-34 22 34v50h22v132z' fill='%230a0510'/%3E%3Cpath d='M738 260V176l40-40 40 40V260z' fill='%230a0510'/%3E%3Cpath d='M458 86h4v-22h-4z' fill='%230a0510'/%3E%3Cpath d='M598 54h4v-28h-4z' fill='%230a0510'/%3E%3Cpath d='M692 46h4v-24h-4z' fill='%230a0510'/%3E%3Cpath d='M120 260V200l-22-34 6-2 18 26v-30l-16-30 6-2 14 24 4-36h6l-2 40 18-26 6 3-22 36v31l16-16 4 4-20 22v54z' fill='%230a0510'/%3E%3Cpath d='M960 260v-54l-24-28 5-4 19 20v-38l-18-26 6-3 15 22 2-30h6l-1 34 16-22 5 4-20 30v34l14-12 4 4-18 18v51z' fill='%230a0510'/%3E%3Cpath d='M378 182h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M378 182a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M404 182h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M404 182a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M452 146h16v18h-16z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M452 146a8 6 0 0 1 16 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M520 166h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M520 166a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M548 166h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M548 166a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M606 172h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M606 172a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M666 156h12v14h-12z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M666 156a6 6 0 0 1 12 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M688 110h12v12h-12z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M688 110a6 6 0 0 1 12 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M320 202h12v12h-12z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M320 202a6 6 0 0 1 12 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M770 202h14v14h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M770 202a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M480 206h16v20h-16z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M480 206a8 6 0 0 1 16 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M180 260v-34l4-6 4 6v34zM202 260v-34l4-6 4 6v34zM224 260v-34l4-6 4 6v34zM246 260v-34l4-6 4 6v34zM268 260v-34l4-6 4 6v34zM290 260v-34l4-6 4 6v34zM312 260v-34l4-6 4 6v34zM862 260v-34l4-6 4 6v34zM884 260v-34l4-6 4 6v34z' fill='%230a0510'/%3E%3C/svg%3E");
         }
         #canvas.theme-concert {
             /* 💜 콘서트(응원봉) — 까만 무대 · 보라 조명 테두리 · 1등 응원봉 · 별 반짝이 */
@@ -671,3 +690,270 @@
             animation: themeTwinkle 3.2s ease-in-out infinite;
         }
         @keyframes themeTwinkle { 0%, 100% { opacity: .15; } 50% { opacity: 1; } }
+
+        /* ══ 🏚️ 할로윈 · 유령의 저택 (시안 B, 2026-10-19) ═══════════════════════════════════════════════
+           대표님: 테마가 '색깔바꾸기 놀이급' 이었다 → 네 가지를 같이 바꾼다. 그래도 **글자가 읽히는 것이 먼저**다.
+             ① 액자   금테 두 줄(바깥 금박 3px + 안쪽 금 머리카락 줄) · 이름표는 금테 두른 검보라 명판
+             ② 장식   판 위 두 모서리 거미줄(오른쪽엔 매달린 거미) · 점수판 뒤로 떠오른 보름달 · 후원 카드 모서리 보름달 ·
+                      모금함 깃발 끝 금테 박쥐 · 1등 배지에 왕관 쓴 유령 · 게이지 꼭대기 촛불
+             ③ 글씨   이름 · 표 숫자 고딕 A1(또렷하게), 이름표 · 큰 금액 함렛(고딕 세리프) — 숫자는 촛불 금빛 한 색 + 그림자
+             ④ 움직임 테두리 빛이 촛불처럼 깜빡(투명도) · 판 밑 안개가 천천히 좌우로(위치 · 투명도) · 1등 유령이 둥실(위치) ·
+                      게이지 불꽃이 일렁(크기) · 박쥐 두 마리가 26초에 한 번 위쪽을 천천히 가로지른다(위치 · 투명도)
+           ⚠️ 움직임은 transform · opacity 만. 무한 반복은 느리고 폭이 작다. 판이 꺼져 있으면(투명) 같이 안 보인다.
+           ⚠️ 판 뼈대(칸 · 자리 · 크기 · 글자 크기)는 그대로 — 그림 조각(::before · ::after)과 색 · 글꼴 · 그림자만 바꾼다.
+           ⚠️ 그림 조각은 쌓임 순서를 새로 정하지 않는다: 같은 판 안에서 뒤에 오는 조각이 위에 그려지는 규칙만 쓴다.
+              테두리 빛(::before)은 판 **바깥** 그림자뿐이라 글자를 안 덮는다. 보름달은 칸(.layer-ranking)의 ::before 라 판 뒤에 깔린다.
+           ⚠️ 계좌 띠는 은행 옷(기업은행 마크 · 파란 테)을 그대로 두고 유리 속만 밤빛으로. 지옥탈출은 지옥 옷 그대로(.hell 은 뺀다).
+           ⚠️ 이 구역은 #canvas.theme-halloween 안에서만 — 다른 13벌은 안 바뀐다. */
+
+        /* ── ① 액자 · ④ 촛불 테두리 빛 — 판 바깥으로만 번지는 따뜻한 빛, 투명도만 흔들린다 ── */
+        #canvas.theme-halloween :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .sg-board, .slot-card, .dg-card)::before,
+        #canvas.theme-halloween .hr-wrap:not(.hell) .home-race-box::before {
+            content: ""; position: absolute; inset: calc(-1 * var(--frame-w, 3px)); height: auto; pointer-events: none;
+            border-radius: calc(var(--glass-radius) + 3px); background: none;
+            box-shadow: 0 0 0 1px rgba(255, 222, 150, .32), 0 0 14px 1px rgba(255, 178, 76, .55), 0 0 38px 6px rgba(255, 150, 50, .18);
+            opacity: .62; animation: hwCandle 4.8s ease-in-out infinite;
+        }
+        #canvas.theme-halloween .donor-rank-board::before { animation-duration: 5.6s; animation-delay: -2.1s; }
+        #canvas.theme-halloween .donation-popup-content::before { animation-duration: 4.2s; animation-delay: -1.3s; }
+        #canvas.theme-halloween :is(.sig-tally-board, .best-board)::before { animation-duration: 6.1s; animation-delay: -3.4s; }
+        /* 촛불 — 고르지 않게 숨 쉬는 밝기(0.55 ~ 0.95). 번쩍이지 않는다 */
+        @keyframes hwCandle {
+            0%, 100% { opacity: .58; }  9% { opacity: .84; }  14% { opacity: .64; }  27% { opacity: .9; }  34% { opacity: .72; }
+            47% { opacity: .95; }  55% { opacity: .66; }  66% { opacity: .88; }  74% { opacity: .6; }  86% { opacity: .92; }
+        }
+
+        /* ── ② 장식 — 위 두 모서리 거미줄(공통 ::after 의 장식 자리를 거미줄로 바꾼다 · 쌓임 순서는 공통 규칙 그대로) ── */
+        #canvas.theme-halloween :is(.excel-board, .donor-rank-board, .sig-tally-board, .best-board, .sg-board, .slot-card)::after {
+            inset: -5px; filter: none;
+            background: var(--hw-web-l) left top / 66px 66px no-repeat, var(--hw-web-r) right top / 66px 66px no-repeat;
+        }
+        #canvas.theme-halloween .hr-wrap:not(.hell) .home-race-box::after,
+        #canvas.theme-halloween .dg-card::after {
+            content: ""; position: absolute; inset: -5px; pointer-events: none;
+            background: var(--hw-web-l) left top / 58px 58px no-repeat, var(--hw-web-r) right top / 58px 58px no-repeat;
+        }
+        /* 점수판은 머리 줄(플레이어 · 점수 · 기여도) 글자가 모서리 가까이 있다 — 거미줄을 작게 */
+        #canvas.theme-halloween .excel-board::after { background-size: 50px 50px, 50px 50px; }
+        /* 🎁 후원 카드 — 왼쪽 위 거미줄 + 오른쪽 위 모서리에 걸린 보름달(카드 밖으로 반쯤 나온다) */
+        #canvas.theme-halloween .donation-popup-content::after {
+            inset: -44px -44px -5px -5px;
+            background: var(--hw-moon) right top / 88px 88px no-repeat, var(--hw-web-l) left 0 top 39px / 70px 70px no-repeat;
+            filter: drop-shadow(0 0 14px rgba(255, 232, 170, .4));
+        }
+        /* 🌕 점수판 뒤로 떠오른 보름달 — 칸(.layer-ranking)의 첫 조각이라 판 뒤에 깔리고 위로 반쯤 보인다(가만히) */
+        #canvas.theme-halloween .layer-ranking::before {
+            content: ""; position: absolute; right: 64px; top: -52px; width: 104px; height: 104px; border-radius: 50%; pointer-events: none;
+            background: var(--hw-moon) center / 100% no-repeat;
+            box-shadow: 0 0 26px 4px rgba(255, 236, 190, .32);
+        }
+        /* 🌫️ 판 밑에 깔린 안개 — 판 아래 가장자리에서 흘러나오는 반투명 띠. 위쪽은 투명이라 마지막 줄 글자를 안 덮는다 */
+        #canvas.theme-halloween :is(.layer-ranking, .layer-donorRank)::after {
+            content: ""; position: absolute; left: -26px; right: -26px; bottom: -30px; height: 62px; pointer-events: none;
+            background:
+                radial-gradient(28% 46% at 16% 64%, rgba(226, 216, 246, .34), rgba(226, 216, 246, 0) 72%),
+                radial-gradient(24% 40% at 43% 72%, rgba(226, 216, 246, .26), rgba(226, 216, 246, 0) 72%),
+                radial-gradient(30% 48% at 70% 62%, rgba(226, 216, 246, .32), rgba(226, 216, 246, 0) 72%),
+                radial-gradient(20% 38% at 92% 74%, rgba(226, 216, 246, .22), rgba(226, 216, 246, 0) 72%);
+            animation: hwFog 12s ease-in-out infinite alternate;
+        }
+        #canvas.theme-halloween .layer-donorRank::after { animation-duration: 15s; animation-delay: -6s; }
+        @keyframes hwFog { from { transform: translateX(-18px); opacity: .68; } to { transform: translateX(18px); opacity: 1; } }
+
+        /* 🦇 박쥐 두 마리 — 26초에 한 번, 9초 동안 화면 위쪽(점수판 위 빈 하늘)을 왼쪽에서 오른쪽으로 천천히. 날갯짓은 세로 크기로.
+           캔버스 자체의 조각이라 모든 칸(판 · 알림)보다 **아래**에 그려진다 — 글자를 가리지 않는다. 다른 때는 투명. */
+        #canvas.theme-halloween::before, #canvas.theme-halloween::after {
+            content: ""; position: absolute; left: 0; top: 0; width: 84px; height: 37px; pointer-events: none; opacity: 0;
+            background: var(--hw-bat) center / contain no-repeat;
+            transform: translate(-200px, 170px); animation: hwBatA 26s linear infinite;
+        }
+        #canvas.theme-halloween::after { width: 56px; height: 25px; animation-name: hwBatB; animation-delay: 1.3s; }
+        @keyframes hwBatA {
+            0%   { opacity: 0;   transform: translate(-160px, 188px) rotate(-6deg) scale(1, 1); }
+            3%   { opacity: .94; }
+            7%   { transform: translate(60px, 150px) rotate(5deg) scale(1, .7); }
+            11%  { transform: translate(250px, 176px) rotate(-4deg) scale(1, 1); }
+            15%  { transform: translate(430px, 138px) rotate(6deg) scale(1, .7); }
+            19%  { transform: translate(610px, 164px) rotate(-5deg) scale(1, 1); }
+            23%  { transform: translate(790px, 124px) rotate(5deg) scale(1, .7); }
+            27%  { transform: translate(960px, 148px) rotate(-4deg) scale(1, 1); }
+            30%  { opacity: .94; }
+            32%, 100% { opacity: 0; transform: translate(1170px, 112px) rotate(4deg) scale(1, .8); }
+        }
+        @keyframes hwBatB {
+            0%   { opacity: 0;   transform: translate(-120px, 128px) rotate(4deg) scale(1, 1); }
+            3%   { opacity: .8; }
+            8%   { transform: translate(120px, 104px) rotate(-6deg) scale(1, .65); }
+            13%  { transform: translate(330px, 132px) rotate(5deg) scale(1, 1); }
+            18%  { transform: translate(540px, 96px) rotate(-5deg) scale(1, .65); }
+            23%  { transform: translate(760px, 120px) rotate(4deg) scale(1, 1); }
+            28%  { transform: translate(960px, 88px) rotate(-4deg) scale(1, .7); }
+            30%  { opacity: .8; }
+            32%, 100% { opacity: 0; transform: translate(1150px, 80px) rotate(3deg) scale(1, .8); }
+        }
+
+        /* ── 🏆 1등 배지 — 왕관 쓴 유령이 배지 모서리에서 둥실(3.6초, 4px). 배지에는 촛불 빛 ── */
+        #canvas.theme-halloween .excel-row.rank-1 .r-rank { box-shadow: 0 0 0 2px #fff0bf, 0 0 14px rgba(255, 176, 72, .75); }
+        #canvas.theme-halloween .excel-row.rank-1 .r-rank::after {
+            left: -18px; top: -25px; width: 36px; height: 36px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6));
+            animation: hwGhostBob 3.6s ease-in-out infinite;
+        }
+        @keyframes hwGhostBob { 0%, 100% { transform: translateY(0) rotate(-18deg); } 50% { transform: translateY(-4px) rotate(-11deg); } }
+        /* 후원 순위 줄 묶음은 넘치면 잘린다 — 유령을 조금 작게 안쪽에(움직이지 않는다) */
+        #canvas.theme-halloween .dr-row.top1 .dr-no::after { left: -10px; top: -9px; width: 27px; height: 27px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
+        #canvas.theme-halloween .dr-row.top1 .dr-no { box-shadow: 0 0 0 2px #fff0bf, 0 0 12px rgba(255, 176, 72, .7); }
+
+        /* ── 🏦 계좌 띠 — 은행 옷(마크 · 파란 테 · 파란 은행 이름)은 그대로, 유리 속만 밤빛으로 ── */
+        #canvas.theme-halloween .b2-acc {
+            --glass-bg: linear-gradient(160deg, rgba(42, 23, 60, .92), rgba(14, 7, 22, .95));
+            --glass-top-light: rgba(255, 228, 170, .25);
+        }
+
+        /* ── 💰 게이지 — 촛불 기둥: 밀랍 금빛으로 차오르고 꼭대기에 불꽃(크기만 일렁) ── */
+        #canvas.theme-halloween .goal-rail-fill {
+            background: linear-gradient(180deg, #fff3cf 0%, #f3c969 26%, #d99a3c 70%, #8a5a1e 100%);
+            box-shadow: 0 0 18px rgba(255, 170, 70, .55);
+        }
+        #canvas.theme-halloween .goal-rail-fill::after {
+            content: ""; position: absolute; left: 50%; top: -31px; width: 20px; height: 32px; margin-left: -10px; pointer-events: none;
+            background: var(--hw-flame) center / contain no-repeat; transform-origin: 50% 92%;
+            filter: drop-shadow(0 0 6px rgba(255, 170, 60, .85)); animation: hwFlame 2.8s ease-in-out infinite;
+        }
+        @keyframes hwFlame {
+            0%, 100% { transform: scale(1, 1) rotate(-2deg); opacity: .9; }
+            30% { transform: scale(.94, 1.07) rotate(2deg); opacity: 1; }
+            55% { transform: scale(1.04, .95) rotate(-1deg); opacity: .84; }
+            80% { transform: scale(.97, 1.04) rotate(1.5deg); opacity: 1; }
+        }
+
+        /* ── 🏺 모금함 깃발 — 금색 천 → 검보라 벨벳에 금테 · 금빛 숫자, 깃발 끝에 금테 박쥐 ── */
+        #canvas.theme-halloween .jar-rod { background: linear-gradient(180deg, #5a4570, #140b20); box-shadow: 0 0 0 1px rgba(233, 196, 110, .7), 0 2px 4px rgba(0, 0, 0, .6); }
+        #canvas.theme-halloween .jar-cloth { background: linear-gradient(180deg, #3d2557 0%, #26163b 45%, #140a20 100%); }
+        #canvas.theme-halloween .jar-cloth::before { border-color: rgba(233, 196, 110, .75); }
+        #canvas.theme-halloween .jar-cloth::after {
+            content: ""; position: absolute; left: 50%; bottom: 40px; width: 48px; height: 21px; margin-left: -24px; pointer-events: none;
+            background: var(--hw-bat-gold) center / contain no-repeat;
+        }
+        #canvas.theme-halloween .jar-label { color: #f3d58a; font-family: var(--face-label); font-weight: 800; }
+        #canvas.theme-halloween .jar-line { background: rgba(233, 196, 110, .6); }
+        #canvas.theme-halloween .jar-amt { color: #ffe3a3; text-shadow: 0 2px 0 #0b0512, 0 0 12px rgba(255, 176, 72, .5); }
+        #canvas.theme-halloween .jar-unit { color: #e2d4f6; }
+
+        /* ── 💬 소액 띠 — 밤하늘 띠 + 아래 금 테두리 · 화면 위 두 모서리 거미줄. 이름 · 금액은 촛불 금빛(검은 외곽선 그대로) ── */
+        #canvas.theme-halloween .small-don {
+            position: relative;
+            background: linear-gradient(180deg, rgba(32, 15, 48, .88) 0%, rgba(16, 8, 26, .72) 100%);
+            box-shadow: inset 0 -2px 0 rgba(233, 196, 110, .85), 0 8px 20px -6px rgba(255, 170, 70, .45);
+        }
+        #canvas.theme-halloween .small-don::before, #canvas.theme-halloween .small-don::after {
+            content: ""; position: absolute; top: 0; width: 96px; height: 96px; pointer-events: none;
+        }
+        #canvas.theme-halloween .small-don::before { left: 0; background: var(--hw-web-l) left top / contain no-repeat; }
+        #canvas.theme-halloween .small-don::after { right: 0; background: var(--hw-web-r) right top / contain no-repeat; }
+        #canvas.theme-halloween .small-don .sd-hl { color: #ffd66e; }
+        #canvas.theme-halloween .small-don .sd-msg { color: #f1e8ff; }
+
+        /* ── 🎵 시그니처 카드 — 사진에 금테 두 줄 액자(밤빛 매트) + 촛불 빛, 메시지 상자는 토큰이 밤 유리 · 금 고리로 ── */
+        #canvas.theme-halloween .reaction-img-box::before {
+            content: ""; position: absolute; inset: -9px; border-radius: calc(var(--r-m) + 9px); pointer-events: none;
+            border: 2px solid #e2b45a;
+            box-shadow: inset 0 0 0 4px rgba(18, 9, 28, .92), inset 0 0 0 5px rgba(233, 196, 110, .45), 0 10px 26px rgba(0, 0, 0, .55);
+        }
+        #canvas.theme-halloween .reaction-img-box::after {
+            content: ""; position: absolute; inset: -11px; border-radius: calc(var(--r-m) + 11px); pointer-events: none;
+            box-shadow: 0 0 16px 2px rgba(255, 178, 76, .6), 0 0 44px 8px rgba(255, 150, 50, .2);
+            opacity: .62; animation: hwCandle 4.4s ease-in-out infinite;
+        }
+        #canvas.theme-halloween .sig-vignette { background: radial-gradient(ellipse at 50% 45%, rgba(12, 4, 22, 0) 38%, rgba(12, 4, 22, .9) 100%); }
+
+        /* ── 🎡 룰렛 — 그림(금테 · 전구 · 바늘)은 그대로, 나무 제목판 · 바늘 아래 알약만 밤빛 명판으로 · 뒤 어둠은 보랏빛 ── */
+        #canvas.theme-halloween .rw-title {
+            background: linear-gradient(180deg, #3a2352, #1d1030); border-color: #e2b45a; color: #ffe7a8;
+            font-family: var(--face-label); font-weight: 800;
+            box-shadow: 0 5px 0 #0e0718, 0 10px 20px rgba(0, 0, 0, .45); text-shadow: 0 2px 0 #0b0512;
+        }
+        #canvas.theme-halloween .rw-now { background: #1d1030; color: #ffe3a3; border-color: #e2b45a; box-shadow: 0 5px 0 #0e0718, 0 10px 18px rgba(0, 0, 0, .35); }
+        #canvas.theme-halloween .rw-now.won { background: linear-gradient(180deg, #ffe7a8, #e2b45a); color: #241405; text-shadow: none; }
+        #canvas.theme-halloween .rw-dim { background: rgba(12, 5, 22, .8); }
+        /* 🧩 퀴즈 네모칸 — 금테를 진하게, 바깥에 촛불 빛 한 겹(가만히) */
+        #canvas.theme-halloween .qz-tile { border-color: rgba(233, 196, 110, .78); box-shadow: 0 0 0 1px rgba(10, 4, 16, .8), 0 0 18px rgba(255, 170, 70, .25), 0 14px 34px rgba(0, 0, 0, .55); }
+
+        /* ── 🎆 큰 후원(3만 원 이상)의 보름달 — 추석 달 대신 할로윈 달 + 달 앞을 지나는 박쥐 두 마리(burst.js 가 띄운다) ── */
+        #canvas.theme-halloween .theme-moon {
+            background: var(--hw-bat) 20% 12% / 96px 42px no-repeat, var(--hw-bat) 76% 22% / 64px 28px no-repeat,
+                        var(--hw-moon) center / 66% no-repeat,
+                        radial-gradient(circle, rgba(255, 236, 190, .5) 0%, rgba(200, 170, 255, .16) 46%, transparent 70%);
+        }
+
+        /* ── 🎬 시작 · 끝 화면 ─────────────────────────────────────────────────────────
+           끝 화면은 CSS 로 그린 화면이라 통째로 갈아입는다: 별 뜬 밤하늘 · 큰 보름달 · 아래 유령의 저택 실루엣(창문 촛불) ·
+           하트 → 떠다니는 유령(원래 둥실 움직임 그대로) · 흰 카드 → 금테 검보라 카드. 글씨 자리 · 크기는 그대로.
+           시작 화면은 대표님이 고른 그림(엔젤 오락실)을 그대로 두고 밤빛을 얇게 덮는다: 위 모서리 거미줄 · 떠오르는 하트 → 유령 ·
+           카운트다운 알약은 밤 · 금빛. 알약의 숨쉬는 그림자(옛 saBreathe)는 끈다(대신 유령이 움직인다). */
+        #canvas.theme-halloween .ss-root { background: radial-gradient(120% 60% at 50% 26%, rgb(44, 24, 66), rgb(10, 5, 18) 72%); }
+        #canvas.theme-halloween .ss-end-bg {
+            background:
+                radial-gradient(circle, rgba(255, 244, 214, .75) 0 1.3px, transparent 2.2px) 0 0 / 71px 71px,
+                radial-gradient(circle, rgba(220, 205, 255, .5) 0 1px, transparent 1.8px) 33px 41px / 113px 113px,
+                radial-gradient(90% 55% at 50% 22%, #2c1846 0%, #160b24 55%, #0b0612 100%);
+        }
+        #canvas.theme-halloween .ss-end-bg::before {
+            content: ""; position: absolute; right: 34px; top: 44px; width: 220px; height: 220px; border-radius: 50%; pointer-events: none;
+            background: var(--hw-moon) center / 100% no-repeat;
+            box-shadow: 0 0 60px 16px rgba(255, 236, 190, .24), 0 0 170px 60px rgba(160, 120, 255, .12);
+        }
+        #canvas.theme-halloween .ss-end-bg::after {
+            content: ""; position: absolute; left: -80px; right: -80px; bottom: 150px; height: 240px; pointer-events: none;
+            background:
+                radial-gradient(26% 42% at 14% 60%, rgba(214, 200, 246, .26), rgba(214, 200, 246, 0) 72%),
+                radial-gradient(30% 46% at 46% 70%, rgba(214, 200, 246, .2), rgba(214, 200, 246, 0) 72%),
+                radial-gradient(28% 40% at 80% 58%, rgba(214, 200, 246, .24), rgba(214, 200, 246, 0) 72%);
+            animation: hwFog 14s ease-in-out infinite alternate;
+        }
+        #canvas.theme-halloween .ss-end-bg .se-band {
+            background: var(--hw-mansion) center bottom / 100% 100% no-repeat,
+                        radial-gradient(60% 90% at 50% 100%, rgba(132, 92, 190, .55), rgba(70, 40, 110, 0) 72%),
+                        linear-gradient(to top, #0b0612 10%, rgba(11, 6, 18, 0));
+        }
+        #canvas.theme-halloween .ss-end-bg .se-heart { background: var(--hw-ghost) center / contain no-repeat; filter: drop-shadow(0 0 18px rgba(214, 196, 255, .45)); }
+        #canvas.theme-halloween .ss-end-bg .se-heart svg { visibility: hidden; }
+        #canvas.theme-halloween .se-wrap { font-family: "Hahmlet", "Gothic A1", "Malgun Gothic", serif; color: #f3e9d6; }
+        #canvas.theme-halloween .se-pill { background: rgba(24, 12, 38, .92); color: #f3d58a; font-weight: 800; box-shadow: 0 0 0 2px rgba(233, 196, 110, .75); }
+        #canvas.theme-halloween .se-title { color: #ffe7a8; font-weight: 800; -webkit-text-stroke-color: #1d0f30; filter: drop-shadow(0 0 18px rgba(255, 176, 72, .5)); }
+        #canvas.theme-halloween .se-sub { color: #d9cbf2; font-weight: 700; }
+        #canvas.theme-halloween .se-card {
+            background: linear-gradient(180deg, rgba(38, 21, 58, .97), rgba(17, 9, 28, .98)); border-color: #1a0e29;
+            box-shadow: inset 0 0 0 2px rgba(233, 196, 110, .45), 0 0 0 3px #e2b45a, 0 0 0 6px #120a1c, 0 26px 60px rgba(0, 0, 0, .6), 0 0 50px rgba(255, 166, 70, .22);
+        }
+        #canvas.theme-halloween .se-tile.se-top { background: rgba(243, 201, 105, .1); --se-ink: #f3c969; box-shadow: inset 0 0 0 1px rgba(243, 201, 105, .38); }
+        #canvas.theme-halloween .se-tile.se-best { background: rgba(154, 107, 255, .15); --se-ink: #d2bfff; box-shadow: inset 0 0 0 1px rgba(180, 150, 255, .38); }
+        #canvas.theme-halloween .se-lab { font-weight: 800; }
+        #canvas.theme-halloween .se-big { color: #fbf3e6; font-family: "Gothic A1", "Malgun Gothic", sans-serif; font-weight: 800; }
+        #canvas.theme-halloween .se-lab2 { color: #f3d58a; font-weight: 800; }
+        #canvas.theme-halloween .se-chip { background: rgba(255, 255, 255, .04); border-color: rgba(233, 196, 110, .42); }
+        #canvas.theme-halloween .se-chip b { color: #f6eee0; font-family: "Gothic A1", "Malgun Gothic", sans-serif; font-weight: 800; }
+        #canvas.theme-halloween .se-chip span { color: #f3c969; }
+        #canvas.theme-halloween .se-more { color: #cdbde9; font-weight: 700; }
+        /* 시작 화면 — 그림을 '달밤' 으로: 아래 빛 띠(.sa-glow)를 화면 전체로 넓혀 연보라를 곱한다(분홍 → 달빛 보라, 가장자리는 더 어둡게).
+           곱하기(multiply)는 그림 원래의 빛(.sa-halo · .sa-sweep 의 screen)과 같은 방식 — 시작 화면에서만, 알약보다 아래 */
+        #canvas.theme-halloween .sa-glow {
+            top: 0; height: auto; mix-blend-mode: multiply;
+            background: radial-gradient(120% 80% at 50% 42%, rgba(255, 255, 255, 0) 38%, rgba(58, 30, 96, .78) 100%),
+                        linear-gradient(180deg, #c6b3e8 0%, #ad95d8 60%, #8f76c2 100%);
+        }
+        #canvas.theme-halloween .ss-art::after {
+            content: ""; position: absolute; inset: 0; pointer-events: none;
+            background: var(--hw-web-l) left top / 190px 190px no-repeat, var(--hw-web-r) right top / 190px 190px no-repeat;
+        }
+        #canvas.theme-halloween .sa-heart::before { content: ""; background: var(--hw-ghost) center / contain no-repeat; text-shadow: none;
+            filter: drop-shadow(0 0 14px rgba(220, 200, 255, .55)); }
+        #canvas.theme-halloween .sa-pill {
+            background: linear-gradient(180deg, rgba(42, 23, 62, .93), rgba(18, 9, 28, .95)); border-color: #e2b45a;
+            box-shadow: 0 0 0 5px rgba(18, 9, 28, .75), 0 0 0 7px rgba(233, 196, 110, .5), 0 22px 65px rgba(0, 0, 0, .55); animation: none;
+        }
+        #canvas.theme-halloween .sa-lab { color: #f3d58a; font-family: "Hahmlet", "Jua", serif; font-weight: 800; }
+        #canvas.theme-halloween .sa-num {
+            font-family: "Hahmlet", "Jua", serif; font-weight: 800;
+            background: linear-gradient(180deg, #fff3cf 8%, #f3c969 55%, #c7892f 95%); -webkit-background-clip: text; background-clip: text;
+            filter: drop-shadow(0 4px 0 #120a1c) drop-shadow(0 0 17px rgba(255, 176, 72, .6));
+        }
