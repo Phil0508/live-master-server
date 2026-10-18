@@ -287,6 +287,15 @@
             --hw-ghost: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.95'/%3E%3Cstop offset='1' stop-color='%23d8ccff' stop-opacity='.55'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M7.6 30.4V15.6a8.4 8.4 0 0 1 16.8 0v14.8l-2.8-2.5-2.8 2.5-2.8-2.5-2.8 2.5-2.8-2.5z' fill='url(%23b)'/%3E%3Cellipse cx='13' cy='17' rx='1.6' ry='2.2' fill='%232a1840'/%3E%3Cellipse cx='19' cy='17' rx='1.6' ry='2.2' fill='%232a1840'/%3E%3Cellipse cx='16' cy='22' rx='1.3' ry='1.5' fill='%232a1840' fill-opacity='.8'/%3E%3C/svg%3E");
             --hw-flame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 32'%3E%3Cdefs%3E%3CradialGradient id='f' cx='.5' cy='.68' r='.62'%3E%3Cstop offset='0' stop-color='%23fffbe6'/%3E%3Cstop offset='.38' stop-color='%23ffe08a'/%3E%3Cstop offset='.75' stop-color='%23ffa63c'/%3E%3Cstop offset='1' stop-color='%23ff7a1a' stop-opacity='.85'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cpath d='M10 1C12.6 7.4 17 12 17 19.2 17 25 14 29.4 10 29.4S3 25 3 19.2C3 12 7.4 7.4 10 1z' fill='url(%23f)'/%3E%3Cpath d='M10 13c1.6 3 3.4 5 3.4 8.2 0 2.6-1.5 4.4-3.4 4.4s-3.4-1.8-3.4-4.4C6.6 18 8.4 16 10 13z' fill='%23fffdf5'/%3E%3C/svg%3E");
             --hw-mansion: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1080 260' preserveAspectRatio='xMidYMax meet'%3E%3Cpath d='M0 196Q140 150 300 176T620 170T880 160T1080 182V260H0z' fill='%23140a1e'/%3E%3Cpath d='M360 260V150h60v-36l40-30 40 30v36h70V120l-14-10 44-58 44 58-14 10v30h40v110z' fill='%230a0510'/%3E%3Cpath d='M300 260V170l30-26 30 26v90z' fill='%230a0510'/%3E%3Cpath d='M650 260V128h22v-50l22-34 22 34v50h22v132z' fill='%230a0510'/%3E%3Cpath d='M738 260V176l40-40 40 40V260z' fill='%230a0510'/%3E%3Cpath d='M458 86h4v-22h-4z' fill='%230a0510'/%3E%3Cpath d='M598 54h4v-28h-4z' fill='%230a0510'/%3E%3Cpath d='M692 46h4v-24h-4z' fill='%230a0510'/%3E%3Cpath d='M120 260V200l-22-34 6-2 18 26v-30l-16-30 6-2 14 24 4-36h6l-2 40 18-26 6 3-22 36v31l16-16 4 4-20 22v54z' fill='%230a0510'/%3E%3Cpath d='M960 260v-54l-24-28 5-4 19 20v-38l-18-26 6-3 15 22 2-30h6l-1 34 16-22 5 4-20 30v34l14-12 4 4-18 18v51z' fill='%230a0510'/%3E%3Cpath d='M378 182h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M378 182a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M404 182h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M404 182a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M452 146h16v18h-16z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M452 146a8 6 0 0 1 16 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M520 166h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M520 166a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M548 166h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M548 166a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M606 172h14v16h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M606 172a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M666 156h12v14h-12z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M666 156a6 6 0 0 1 12 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M688 110h12v12h-12z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M688 110a6 6 0 0 1 12 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M320 202h12v12h-12z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M320 202a6 6 0 0 1 12 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M770 202h14v14h-14z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M770 202a7 6 0 0 1 14 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M480 206h16v20h-16z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M480 206a8 6 0 0 1 16 0z' fill='%23f3c969' fill-opacity='.9'/%3E%3Cpath d='M180 260v-34l4-6 4 6v34zM202 260v-34l4-6 4 6v34zM224 260v-34l4-6 4 6v34zM246 260v-34l4-6 4 6v34zM268 260v-34l4-6 4 6v34zM290 260v-34l4-6 4 6v34zM312 260v-34l4-6 4 6v34zM862 260v-34l4-6 4 6v34zM884 260v-34l4-6 4 6v34z' fill='%230a0510'/%3E%3C/svg%3E");
+            /* 🖼️ B+ 움직임 그림(10-19) — 날갯짓 박쥐(SVG 안 SMIL 로 날개 묶음만 접었다 폄 · 달빛 테) · 달 앞 그림자 박쥐 · 박쥐 떼 셋 ·
+                  흩어지는 박쥐 일곱(금테) · 줄 타는 거미 · 거미 없는 오른쪽 거미줄(점수판 — 거미는 따로 내려온다) · 먼 번개 */
+            --hw-bat-fly: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='0s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-opacity='.8' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.7' stroke-opacity='.8'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.6' stroke-opacity='.8' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/svg%3E");
+            --hw-bat-shade: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 28'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='0s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%23120a1c' stroke='%235b4380' stroke-opacity='.7' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%23120a1c' stroke='%235b4380' stroke-width='.7' stroke-opacity='.7'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%23120a1c' stroke='%235b4380' stroke-width='.6' stroke-opacity='.7' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/svg%3E");
+            --hw-bats3: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 210 84'%3E%3Cg transform='rotate(-6 37 54.4) translate(4 40) scale(1.031)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.4s' begin='-0.1s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-opacity='.8' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.7' stroke-opacity='.8'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.6' stroke-opacity='.8' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(3 124 22.4) translate(82 4) scale(1.312)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='0s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-opacity='.8' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.7' stroke-opacity='.8'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.6' stroke-opacity='.8' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(8 182 56.5) translate(158 46) scale(0.75)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='-0.2s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-opacity='.8' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.7' stroke-opacity='.8'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231a0f28' stroke='%23c9b4f2' stroke-width='.6' stroke-opacity='.8' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3C/svg%3E");
+            --hw-bats-burst: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 120'%3E%3Cg transform='rotate(-28 40 81.4) translate(14 70) scale(0.812)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='0s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(-14 99 42.7) translate(70 30) scale(0.906)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='-0.1s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(-2 163 16) translate(131 2) scale(1.)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='-0.1s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(12 225 36.7) translate(196 24) scale(0.906)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.4s' begin='-0.2s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(26 282 75.4) translate(256 64) scale(0.812)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='-0.3s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(-8 124 74.8) translate(104 66) scale(0.625)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='-0.4s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3Cg transform='rotate(9 201 78.3) translate(182 70) scale(0.594)'%3E%3Cg transform='translate(32 11.5)'%3E%3Cg%3E%3CanimateTransform attributeName='transform' type='scale' values='1 1;.94 -.5;1 1' keyTimes='0;.45;1' calcMode='spline' keySplines='.45 0 .55 1;.45 0 .55 1' dur='0.3s' begin='-0.4s' repeatCount='indefinite'/%3E%3Cpath transform='translate(-32 -11.5)' d='M32 11.2L33.2 9.4L34.4 5.2L35.6 9.8L38 9.6Q44 4.4 50 5.2Q57 2.6 63.5 4.6Q60.4 7.4 60.6 12.6L55.4 11.8Q53.2 13.2 52.6 17.6L47.4 15.8Q45.4 17.2 44.4 21.4L39.8 18.8Q37.4 18.6 36.4 21.8L34.2 20.4L32 24.6L29.8 20.4L27.6 21.8Q26.6 18.6 24.2 18.8L19.6 21.4Q18.6 17.2 16.6 15.8L11.4 17.6Q10.8 13.2 8.6 11.8L3.4 12.6Q3.6 7.4 0.5 4.6Q7 2.6 14 5.2Q20 4.4 26 9.6L28.4 9.8L29.6 5.2L30.8 9.4L32 11.2Z' fill='%231d1030' stroke='%23f0c868' stroke-opacity='.95' stroke-width='1.15' stroke-linejoin='round'/%3E%3C/g%3E%3C/g%3E%3Cellipse cx='32' cy='15.6' rx='3.5' ry='6' fill='%231d1030' stroke='%23f0c868' stroke-width='.7' stroke-opacity='.95'/%3E%3Cpath d='M29.5 11.4L29.9 6L31.6 10ZM34.5 11.4L34.1 6L32.4 10Z' fill='%231d1030' stroke='%23f0c868' stroke-width='.6' stroke-opacity='.95' stroke-linejoin='round'/%3E%3Ccircle cx='30.8' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3Ccircle cx='33.2' cy='13.6' r='.95' fill='%23ffd36a'/%3E%3C/g%3E%3C/svg%3E");
+            --hw-spider: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9.4 11.6L4.2 8L1.8 4.6M9.4 12.8L3.4 11.4L0.8 10.8M9.4 14.1L3.6 15.7L1.2 18.1M9.4 15.3L4.6 18.9L3 22.3M14.6 11.6L19.8 8L22.2 4.6M14.6 12.8L20.6 11.4L23.2 10.8M14.6 14.1L20.4 15.7L22.8 18.1M14.6 15.3L19.4 18.9L21 22.3' fill='none' stroke='%23e2b45a' stroke-opacity='.75' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M9.4 11.6L4.2 8L1.8 4.6M9.4 12.8L3.4 11.4L0.8 10.8M9.4 14.1L3.6 15.7L1.2 18.1M9.4 15.3L4.6 18.9L3 22.3M14.6 11.6L19.8 8L22.2 4.6M14.6 12.8L20.6 11.4L23.2 10.8M14.6 14.1L20.4 15.7L22.8 18.1M14.6 15.3L19.4 18.9L21 22.3' fill='none' stroke='%23140a1f' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cellipse cx='12' cy='15' rx='4.3' ry='5' fill='%23140a1f' stroke='%23e2b45a' stroke-width='.8'/%3E%3Ccircle cx='12' cy='8.6' r='2.8' fill='%23140a1f' stroke='%23e2b45a' stroke-width='.7'/%3E%3Ccircle cx='11' cy='8.3' r='.7' fill='%23ff9a5a'/%3E%3Ccircle cx='13' cy='8.3' r='.7' fill='%23ff9a5a'/%3E%3Cpath d='M12 12.2v5.4' stroke='%23e2b45a' stroke-opacity='.55' stroke-width='.7'/%3E%3C/svg%3E");
+            --hw-web-r0: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cg transform='matrix(-1 0 0 1 80 0)'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M0 0L76 0M0 0L72.7 22.2M0 0L62.3 43.6M0 0L44.7 61.5M0 0L23.5 72.3M0 0L0 76' stroke='%230b0612' stroke-opacity='.55' stroke-width='2.2'/%3E%3Cpath d='M13 0Q10.8 1.6 12.4 3.8Q9.8 4.8 10.6 7.5Q7.8 7.7 7.6 10.5Q5 9.7 4 12.4Q1.7 10.8 0 13M25 0Q19.8 3 23.9 7.3Q18 8.8 20.5 14.3Q14.3 14 14.7 20.2Q9.1 17.8 7.7 23.8Q3.1 19.8 0 25M38 0Q31.6 4.7 36.3 11.1Q28.7 14 31.1 21.8Q22.8 22.4 22.3 30.7Q14.5 28.4 11.7 36.1Q5 31.5 0 38M51 0Q40.4 6 48.8 14.9Q36.7 17.9 41.8 29.3Q29.1 28.6 30 41.3Q18.5 36.4 15.8 48.5Q6.4 40.3 0 51M63 0Q52.3 7.8 60.2 18.4Q47.6 23.2 51.6 36.1Q37.7 37.1 37 51Q24 47.2 19.5 59.9Q8.3 52.3 0 63' stroke='%230b0612' stroke-opacity='.45' stroke-width='1.9'/%3E%3Cpath d='M0 0L76 0M0 0L72.7 22.2M0 0L62.3 43.6M0 0L44.7 61.5M0 0L23.5 72.3M0 0L0 76' stroke='%23efe8ff' stroke-opacity='.85' stroke-width='1.05'/%3E%3Cpath d='M13 0Q10.8 1.6 12.4 3.8Q9.8 4.8 10.6 7.5Q7.8 7.7 7.6 10.5Q5 9.7 4 12.4Q1.7 10.8 0 13M25 0Q19.8 3 23.9 7.3Q18 8.8 20.5 14.3Q14.3 14 14.7 20.2Q9.1 17.8 7.7 23.8Q3.1 19.8 0 25M38 0Q31.6 4.7 36.3 11.1Q28.7 14 31.1 21.8Q22.8 22.4 22.3 30.7Q14.5 28.4 11.7 36.1Q5 31.5 0 38M51 0Q40.4 6 48.8 14.9Q36.7 17.9 41.8 29.3Q29.1 28.6 30 41.3Q18.5 36.4 15.8 48.5Q6.4 40.3 0 51M63 0Q52.3 7.8 60.2 18.4Q47.6 23.2 51.6 36.1Q37.7 37.1 37 51Q24 47.2 19.5 59.9Q8.3 52.3 0 63' stroke='%23efe8ff' stroke-opacity='.7' stroke-width='.85'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            --hw-bolt: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 120'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M24 0L15 38L23 40L9 78L19 80L6 120M15 38L4 52M23 40L33 62' stroke='%23b48cff' stroke-opacity='.35' stroke-width='5'/%3E%3Cpath d='M24 0L15 38L23 40L9 78L19 80L6 120M15 38L4 52M23 40L33 62' stroke='%23e9dcff' stroke-opacity='.9' stroke-width='1.6'/%3E%3C/g%3E%3C/svg%3E");
         }
         #canvas.theme-concert {
             /* 💜 콘서트(응원봉) — 까만 무대 · 보라 조명 테두리 · 1등 응원봉 · 별 반짝이 */
@@ -697,8 +706,11 @@
              ② 장식   판 위 두 모서리 거미줄(오른쪽엔 매달린 거미) · 점수판 뒤로 떠오른 보름달 · 후원 카드 모서리 보름달 ·
                       모금함 깃발 끝 금테 박쥐 · 1등 배지에 왕관 쓴 유령 · 게이지 꼭대기 촛불
              ③ 글씨   이름 · 표 숫자 고딕 A1(또렷하게), 이름표 · 큰 금액 함렛(고딕 세리프) — 숫자는 촛불 금빛 한 색 + 그림자
-             ④ 움직임 테두리 빛이 촛불처럼 깜빡(투명도) · 판 밑 안개가 천천히 좌우로(위치 · 투명도) · 1등 유령이 둥실(위치) ·
-                      게이지 불꽃이 일렁(크기) · 박쥐 두 마리가 26초에 한 번 위쪽을 천천히 가로지른다(위치 · 투명도)
+             ④ 움직임 (B+ 10-19 대표님 "움직임있게" — 눈에 보이게, 글자는 안 가리게, 방송 PC 는 가볍게)
+                      늘 도는 것 15개 안팎(한 바퀴는 느리게): 날갯짓하는 박쥐 떼 · 큰 박쥐(판 아래 하늘, 9초 안팎마다) · 보름달 숨쉬기 ·
+                      달 앞 박쥐 그림자 · 먼 번개(47초) · 거미가 실 타고 오르내림(21초) · 촛불 테두리 깜빡(불규칙) · 판 밑 안개 ·
+                      1등 유령 둥실 + 기울기 · 깃발 살랑 · 깃발 뒤 유령 · 후원 순위 뒤 유령 · 게이지 불꽃
+                      뜰 때 한 번: 후원 카드 위로 박쥐 떼가 흩어짐 · 소액 띠 아래를 박쥐가 가로지름 · 시그 카드 촛불 일렁 · 1등이 바뀌면 유령 깜짝
            ⚠️ 움직임은 transform · opacity 만. 무한 반복은 느리고 폭이 작다. 판이 꺼져 있으면(투명) 같이 안 보인다.
            ⚠️ 판 뼈대(칸 · 자리 · 크기 · 글자 크기)는 그대로 — 그림 조각(::before · ::after)과 색 · 글꼴 · 그림자만 바꾼다.
            ⚠️ 그림 조각은 쌓임 순서를 새로 정하지 않는다: 같은 판 안에서 뒤에 오는 조각이 위에 그려지는 규칙만 쓴다.
@@ -706,21 +718,22 @@
            ⚠️ 계좌 띠는 은행 옷(기업은행 마크 · 파란 테)을 그대로 두고 유리 속만 밤빛으로. 지옥탈출은 지옥 옷 그대로(.hell 은 뺀다).
            ⚠️ 이 구역은 #canvas.theme-halloween 안에서만 — 다른 13벌은 안 바뀐다. */
 
-        /* ── ① 액자 · ④ 촛불 테두리 빛 — 판 바깥으로만 번지는 따뜻한 빛, 투명도만 흔들린다 ── */
+        /* ── ① 액자 · ④ 촛불 테두리 빛 — 판 바깥으로만 번지는 따뜻한 빛, 투명도만 흔들린다(B+ : 빛을 키우고 깜빡임을 분명하게) ── */
         #canvas.theme-halloween :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .sg-board, .slot-card, .dg-card)::before,
         #canvas.theme-halloween .hr-wrap:not(.hell) .home-race-box::before {
             content: ""; position: absolute; inset: calc(-1 * var(--frame-w, 3px)); height: auto; pointer-events: none;
             border-radius: calc(var(--glass-radius) + 3px); background: none;
-            box-shadow: 0 0 0 1px rgba(255, 222, 150, .32), 0 0 14px 1px rgba(255, 178, 76, .55), 0 0 38px 6px rgba(255, 150, 50, .18);
-            opacity: .62; animation: hwCandle 4.8s ease-in-out infinite;
+            box-shadow: 0 0 0 1px rgba(255, 226, 160, .5), 0 0 16px 2px rgba(255, 178, 76, .8), 0 0 46px 10px rgba(255, 146, 46, .3);
+            opacity: .6; animation: hwCandle 3.9s linear infinite;
         }
-        #canvas.theme-halloween .donor-rank-board::before { animation-duration: 5.6s; animation-delay: -2.1s; }
-        #canvas.theme-halloween .donation-popup-content::before { animation-duration: 4.2s; animation-delay: -1.3s; }
-        #canvas.theme-halloween :is(.sig-tally-board, .best-board)::before { animation-duration: 6.1s; animation-delay: -3.4s; }
-        /* 촛불 — 고르지 않게 숨 쉬는 밝기(0.55 ~ 0.95). 번쩍이지 않는다 */
+        #canvas.theme-halloween .donor-rank-board::before { animation-duration: 4.7s; animation-delay: -2.1s; }
+        #canvas.theme-halloween .donation-popup-content::before { animation-duration: 3.4s; animation-delay: -1.3s; }
+        #canvas.theme-halloween :is(.sig-tally-board, .best-board)::before { animation-duration: 5.3s; animation-delay: -3.4s; }
+        /* 촛불 — 고르지 않게 밝아졌다가 가끔 '훅' 꺼질 듯 줄어든다(0.38 ~ 1). 한 번에 0.1초 넘게 걸쳐 바뀌어 번쩍이지 않는다 */
         @keyframes hwCandle {
-            0%, 100% { opacity: .58; }  9% { opacity: .84; }  14% { opacity: .64; }  27% { opacity: .9; }  34% { opacity: .72; }
-            47% { opacity: .95; }  55% { opacity: .66; }  66% { opacity: .88; }  74% { opacity: .6; }  86% { opacity: .92; }
+            0%, 100% { opacity: .62; }  6% { opacity: .9; }  9% { opacity: .5; }  12% { opacity: .84; }  19% { opacity: .98; }
+            27% { opacity: .66; }  31% { opacity: .38; }  34% { opacity: .86; }  44% { opacity: 1; }  52% { opacity: .7; }
+            58% { opacity: .93; }  61% { opacity: .46; }  64% { opacity: .95; }  75% { opacity: .74; }  83% { opacity: 1; }  90% { opacity: .56; }
         }
 
         /* ── ② 장식 — 위 두 모서리 거미줄(공통 ::after 의 장식 자리를 거미줄로 바꾼다 · 쌓임 순서는 공통 규칙 그대로) ── */
@@ -734,71 +747,160 @@
             background: var(--hw-web-l) left top / 58px 58px no-repeat, var(--hw-web-r) right top / 58px 58px no-repeat;
         }
         /* 점수판은 머리 줄(플레이어 · 점수 · 기여도) 글자가 모서리 가까이 있다 — 거미줄을 작게 */
-        #canvas.theme-halloween .excel-board::after { background-size: 50px 50px, 50px 50px; }
+        #canvas.theme-halloween .excel-board::after { background: var(--hw-web-l) left top / 50px 50px no-repeat, var(--hw-web-r0) right top / 50px 50px no-repeat; }
+        /* 한 방 최고 후원 — 이름표 알약 양끝에 거미줄이 걸리지 않게 조금 작게 */
+        #canvas.theme-halloween .best-board::after { background-size: 52px 52px, 52px 52px; }
         /* 🎁 후원 카드 — 왼쪽 위 거미줄 + 오른쪽 위 모서리에 걸린 보름달(카드 밖으로 반쯤 나온다) */
         #canvas.theme-halloween .donation-popup-content::after {
             inset: -44px -44px -5px -5px;
             background: var(--hw-moon) right top / 88px 88px no-repeat, var(--hw-web-l) left 0 top 39px / 70px 70px no-repeat;
             filter: drop-shadow(0 0 14px rgba(255, 232, 170, .4));
         }
-        /* 🌕 점수판 뒤로 떠오른 보름달 — 칸(.layer-ranking)의 첫 조각이라 판 뒤에 깔리고 위로 반쯤 보인다(가만히) */
+        /* 🌕 점수판 뒤로 떠오른 보름달 — 칸(.layer-ranking)의 첫 조각이라 판 뒤에 깔리고 위로 반쯤 보인다.
+              달빛이 숨쉬듯 8초에 걸쳐 밝아졌다 어두워진다(투명도 · 크기 조금) */
         #canvas.theme-halloween .layer-ranking::before {
             content: ""; position: absolute; right: 64px; top: -52px; width: 104px; height: 104px; border-radius: 50%; pointer-events: none;
             background: var(--hw-moon) center / 100% no-repeat;
-            box-shadow: 0 0 26px 4px rgba(255, 236, 190, .32);
+            box-shadow: 0 0 30px 6px rgba(255, 236, 190, .42), 0 0 84px 26px rgba(186, 156, 255, .16);
+            animation: hwMoon 8s ease-in-out infinite alternate;
         }
-        /* 🌫️ 판 밑에 깔린 안개 — 판 아래 가장자리에서 흘러나오는 반투명 띠. 위쪽은 투명이라 마지막 줄 글자를 안 덮는다 */
-        #canvas.theme-halloween :is(.layer-ranking, .layer-donorRank)::after {
-            content: ""; position: absolute; left: -26px; right: -26px; bottom: -30px; height: 62px; pointer-events: none;
+        @keyframes hwMoon { from { opacity: .74; transform: scale(.985); } to { opacity: 1; transform: scale(1.035); } }
+        /* 🦇 달 앞을 지나는 박쥐 그림자 — 23초에 한 번(2.3초). 판 안 조각이지만 판 위쪽 바깥(달 윗부분)만 지난다 — 글자와 안 겹친다.
+              자리 = 판 속 상자 기준(액자 3px 안쪽): 달은 오른쪽 61 ~ 165 · 위 -55 ~ -3 */
+        #canvas.theme-halloween .excel-col:last-child::before {
+            content: ""; position: absolute; right: 20px; top: -46px; width: 46px; height: 20px; pointer-events: none; opacity: 0;
+            background: var(--hw-bat-shade) center / contain no-repeat;
+            animation: hwMoonBat 23s linear infinite; animation-delay: -4s;
+        }
+        @keyframes hwMoonBat {
+            0%, 54% { opacity: 0; transform: translate(0, 4px) rotate(-6deg); }
+            56% { opacity: 1; }
+            60% { transform: translate(-80px, -6px) rotate(4deg); }
+            64% { transform: translate(-160px, 2px) rotate(-4deg); }
+            66% { opacity: 1; }
+            68%, 100% { opacity: 0; transform: translate(-220px, -8px) rotate(5deg); }
+        }
+        /* ⚡ 먼 하늘 번개 — 47초에 한 번, 판 위 하늘에만 아주 옅은 보랏빛이 두 번 번쩍(가장 진할 때도 보라 36% 번짐 · 화면 전체는 안 밝힌다) */
+        #canvas.theme-halloween .excel-col:first-child::before {
+            content: ""; position: absolute; left: -80px; right: -80px; top: -250px; height: 240px; pointer-events: none; opacity: 0;
             background:
-                radial-gradient(28% 46% at 16% 64%, rgba(226, 216, 246, .34), rgba(226, 216, 246, 0) 72%),
-                radial-gradient(24% 40% at 43% 72%, rgba(226, 216, 246, .26), rgba(226, 216, 246, 0) 72%),
-                radial-gradient(30% 48% at 70% 62%, rgba(226, 216, 246, .32), rgba(226, 216, 246, 0) 72%),
-                radial-gradient(20% 38% at 92% 74%, rgba(226, 216, 246, .22), rgba(226, 216, 246, 0) 72%);
-            animation: hwFog 12s ease-in-out infinite alternate;
+                var(--hw-bolt) 15% 6% / 34px 102px no-repeat,
+                radial-gradient(42% 70% at 17% 2%, rgba(196, 160, 255, .36), rgba(196, 160, 255, 0) 70%),
+                radial-gradient(60% 62% at 58% 0%, rgba(170, 130, 255, .16), rgba(170, 130, 255, 0) 72%);
+            animation: hwLightning 47s linear infinite; animation-delay: -12s;
         }
-        #canvas.theme-halloween .layer-donorRank::after { animation-duration: 15s; animation-delay: -6s; }
-        @keyframes hwFog { from { transform: translateX(-18px); opacity: .68; } to { transform: translateX(18px); opacity: 1; } }
+        @keyframes hwLightning {
+            0%, 61.8% { opacity: 0; }  62.1% { opacity: .95; }  62.5% { opacity: .18; }  62.9% { opacity: .8; }  63.7% { opacity: 0; }
+            64.3% { opacity: 0; }  64.6% { opacity: .42; }  65.3%, 100% { opacity: 0; }
+        }
+        /* 🕷️ 오른쪽 위 거미줄의 거미 — 21초에 한 번 실을 타고 판 오른쪽 여백(숫자 바깥 4px)으로 2.5초 내려와 대롱대롱, 다시 올라간다.
+              실(::before)은 위에서부터 늘어나고(세로 크기), 거미(::after)는 실 끝을 따라 내려온다(위치) — 같은 박자표라 붙어 다닌다 */
+        #canvas.theme-halloween .excel-grid-container::before,
+        #canvas.theme-halloween .excel-grid-container::after { content: ""; position: absolute; pointer-events: none; }
+        #canvas.theme-halloween .excel-grid-container::before {
+            right: 7px; top: 14px; width: 2px; height: 150px; transform-origin: 50% 0; transform: scaleY(.06);
+            background: linear-gradient(180deg, rgba(239, 232, 255, .9), rgba(239, 232, 255, .55));
+            animation: hwSilk 21s ease-in-out infinite;
+        }
+        #canvas.theme-halloween .excel-grid-container::after {
+            right: -5px; top: 10px; width: 26px; height: 26px;
+            background: var(--hw-spider) center / contain no-repeat;
+            animation: hwSpider 21s ease-in-out infinite;
+        }
+        @keyframes hwSilk {
+            0%, 38% { transform: scaleY(.06); }  50% { transform: scaleY(1); }  54% { transform: scaleY(.94); }
+            58%, 64% { transform: scaleY(1); }  76%, 100% { transform: scaleY(.06); }
+        }
+        @keyframes hwSpider {
+            0%, 38% { transform: translateY(0) rotate(0deg); }  50% { transform: translateY(141px) rotate(0deg); }
+            54% { transform: translateY(132px) rotate(-10deg); }  58% { transform: translateY(141px) rotate(8deg); }
+            61% { transform: translateY(141px) rotate(-6deg); }  64% { transform: translateY(141px) rotate(0deg); }
+            76%, 100% { transform: translateY(0) rotate(0deg); }
+        }
+        /* 🌫️ 판 밑에 깔린 안개 — 판 아래 가장자리에서 흘러나오는 반투명 띠(B+ : 더 짙고 더 멀리 흐른다).
+              위쪽은 투명이라 마지막 줄 글자를 안 덮는다(보이는 안개는 판 아래끝 20px 위부터) */
+        #canvas.theme-halloween :is(.layer-ranking, .layer-donorRank)::after {
+            content: ""; position: absolute; left: -30px; right: -30px; bottom: -32px; height: 64px; pointer-events: none;
+            background:
+                radial-gradient(28% 46% at 16% 64%, rgba(226, 216, 246, .5), rgba(226, 216, 246, 0) 72%),
+                radial-gradient(24% 40% at 43% 72%, rgba(226, 216, 246, .4), rgba(226, 216, 246, 0) 72%),
+                radial-gradient(30% 48% at 70% 62%, rgba(226, 216, 246, .48), rgba(226, 216, 246, 0) 72%),
+                radial-gradient(20% 38% at 92% 74%, rgba(226, 216, 246, .36), rgba(226, 216, 246, 0) 72%);
+            animation: hwFog 11s ease-in-out infinite alternate;
+        }
+        #canvas.theme-halloween .layer-donorRank::after { animation-duration: 14s; animation-delay: -6s; }
+        @keyframes hwFog { from { transform: translateX(-34px); opacity: .6; } to { transform: translateX(34px); opacity: 1; } }
+        /* 👻 후원 순위 판 뒤에 숨은 유령 — 23초에 한 번 판 위 가장자리 뒤에서 고개를 내밀고 두리번, 다시 숨는다(칸의 첫 조각 = 판 뒤) */
+        #canvas.theme-halloween .layer-donorRank::before {
+            content: ""; position: absolute; right: 34px; top: 12px; width: 50px; height: 50px; pointer-events: none;
+            background: var(--hw-ghost) center / contain no-repeat;
+            animation: hwPeek 23s ease-in-out infinite; animation-delay: -15s;
+        }
+        @keyframes hwPeek {
+            0%, 60% { transform: translate(0, 0) rotate(0deg); }
+            65% { transform: translate(0, -46px) rotate(-8deg); }  70% { transform: translate(-3px, -44px) rotate(10deg); }
+            75% { transform: translate(2px, -46px) rotate(-6deg); }  80% { transform: translate(0, -42px) rotate(0deg); }
+            85%, 100% { transform: translate(0, 0) rotate(0deg); }
+        }
 
-        /* 🦇 박쥐 두 마리 — 26초에 한 번, 9초 동안 화면 위쪽(점수판 위 빈 하늘)을 왼쪽에서 오른쪽으로 천천히. 날갯짓은 세로 크기로.
-           캔버스 자체의 조각이라 모든 칸(판 · 알림)보다 **아래**에 그려진다 — 글자를 가리지 않는다. 다른 때는 투명. */
+        /* 🦇 박쥐 — 캔버스 자체의 조각이라 모든 칸(판 · 알림)보다 **아래**에 그려진다(판 · 글자 위로는 안 지난다).
+              날갯짓은 그림 속(SMIL)에서 날개 묶음만 세로로 접었다 편다 — 몸통 · 위치는 CSS 가 옮긴다(위치 · 기울기 · 크기 · 투명도).
+              ::before = 박쥐 떼 셋(26초에 두 번 — 높이 왼→오, 낮게 작게 오→왼) · ::after = 큰 박쥐 하나(44초에 두 번 — 크게 휘어 내려왔다 오르기,
+              작게 낮게). 둘을 합치면 9초 안팎마다 하늘(위 0 ~ 220)을 하나씩 지나간다. 다른 때는 투명. */
         #canvas.theme-halloween::before, #canvas.theme-halloween::after {
-            content: ""; position: absolute; left: 0; top: 0; width: 84px; height: 37px; pointer-events: none; opacity: 0;
-            background: var(--hw-bat) center / contain no-repeat;
-            transform: translate(-200px, 170px); animation: hwBatA 26s linear infinite;
+            content: ""; position: absolute; left: 0; top: 0; width: 210px; height: 84px; pointer-events: none; opacity: 0;
+            background: var(--hw-bats3) center / contain no-repeat;
+            transform: translate(-250px, 64px) rotate(-4deg) scale(1); animation: hwBatA 26s linear infinite;
         }
-        #canvas.theme-halloween::after { width: 56px; height: 25px; animation-name: hwBatB; animation-delay: 1.3s; }
+        #canvas.theme-halloween::after { width: 120px; height: 52px; background-image: var(--hw-bat-fly); animation-name: hwBatB; animation-duration: 44s; }
         @keyframes hwBatA {
-            0%   { opacity: 0;   transform: translate(-160px, 188px) rotate(-6deg) scale(1, 1); }
-            3%   { opacity: .94; }
-            7%   { transform: translate(60px, 150px) rotate(5deg) scale(1, .7); }
-            11%  { transform: translate(250px, 176px) rotate(-4deg) scale(1, 1); }
-            15%  { transform: translate(430px, 138px) rotate(6deg) scale(1, .7); }
-            19%  { transform: translate(610px, 164px) rotate(-5deg) scale(1, 1); }
-            23%  { transform: translate(790px, 124px) rotate(5deg) scale(1, .7); }
-            27%  { transform: translate(960px, 148px) rotate(-4deg) scale(1, 1); }
-            30%  { opacity: .94; }
-            32%, 100% { opacity: 0; transform: translate(1170px, 112px) rotate(4deg) scale(1, .8); }
+            0%   { opacity: 0; transform: translate(-250px, 64px) rotate(-4deg) scale(1); }
+            2%   { opacity: 1; }
+            6%   { transform: translate(110px, 34px) rotate(3deg) scale(1); }
+            10%  { transform: translate(400px, 70px) rotate(-3deg) scale(1); }
+            14%  { transform: translate(650px, 30px) rotate(4deg) scale(1); }
+            18%  { transform: translate(880px, 62px) rotate(-2deg) scale(1); }
+            21%  { opacity: 1; }
+            23%  { opacity: 0; transform: translate(1110px, 26px) rotate(3deg) scale(1); }
+            50%  { opacity: 0; transform: translate(1110px, 150px) rotate(5deg) scale(.7); }
+            52%  { opacity: .95; }
+            56%  { transform: translate(800px, 116px) rotate(-4deg) scale(.7); }
+            60%  { transform: translate(520px, 152px) rotate(4deg) scale(.7); }
+            64%  { transform: translate(240px, 112px) rotate(-3deg) scale(.7); }
+            67%  { opacity: .95; }
+            69%  { opacity: 0; transform: translate(-60px, 140px) rotate(2deg) scale(.7); }
+            100% { opacity: 0; transform: translate(-250px, 64px) rotate(-4deg) scale(1); }
         }
         @keyframes hwBatB {
-            0%   { opacity: 0;   transform: translate(-120px, 128px) rotate(4deg) scale(1, 1); }
-            3%   { opacity: .8; }
-            8%   { transform: translate(120px, 104px) rotate(-6deg) scale(1, .65); }
-            13%  { transform: translate(330px, 132px) rotate(5deg) scale(1, 1); }
-            18%  { transform: translate(540px, 96px) rotate(-5deg) scale(1, .65); }
-            23%  { transform: translate(760px, 120px) rotate(4deg) scale(1, 1); }
-            28%  { transform: translate(960px, 88px) rotate(-4deg) scale(1, .7); }
-            30%  { opacity: .8; }
-            32%, 100% { opacity: 0; transform: translate(1150px, 80px) rotate(3deg) scale(1, .8); }
+            0%, 30% { opacity: 0; transform: translate(1160px, 30px) rotate(12deg) scale(1); }
+            32%  { opacity: .96; }
+            36%  { transform: translate(900px, 78px) rotate(16deg) scale(1.08); }
+            40%  { transform: translate(640px, 124px) rotate(4deg) scale(1.16); }
+            44%  { transform: translate(380px, 96px) rotate(-10deg) scale(1.08); }
+            48%  { transform: translate(120px, 48px) rotate(-16deg) scale(1); }
+            50%  { opacity: .96; }
+            52%  { opacity: 0; transform: translate(-150px, 18px) rotate(-18deg) scale(1); }
+            78%  { opacity: 0; transform: translate(-150px, 150px) rotate(-6deg) scale(.62); }
+            80%  { opacity: .9; }
+            84%  { transform: translate(200px, 120px) rotate(5deg) scale(.62); }
+            88%  { transform: translate(520px, 150px) rotate(-5deg) scale(.62); }
+            92%  { transform: translate(830px, 112px) rotate(5deg) scale(.62); }
+            94%  { opacity: .9; }
+            96%  { opacity: 0; transform: translate(1120px, 136px) rotate(-3deg) scale(.62); }
+            100% { opacity: 0; transform: translate(1160px, 30px) rotate(12deg) scale(1); }
         }
 
-        /* ── 🏆 1등 배지 — 왕관 쓴 유령이 배지 모서리에서 둥실(3.6초, 4px). 배지에는 촛불 빛 ── */
+        /* ── 🏆 1등 배지 — 왕관 쓴 유령이 배지 왼쪽 위 모서리 바깥에서 둥실 + 갸웃(4.2초, 8px · -24 ~ -6도). 배지에는 촛불 빛.
+              배지 숫자 '1'(가운데 14 ~ 24px)에 안 닿게 왼쪽 위로 더 뺐다 ── */
         #canvas.theme-halloween .excel-row.rank-1 .r-rank { box-shadow: 0 0 0 2px #fff0bf, 0 0 14px rgba(255, 176, 72, .75); }
         #canvas.theme-halloween .excel-row.rank-1 .r-rank::after {
-            left: -18px; top: -25px; width: 36px; height: 36px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6));
-            animation: hwGhostBob 3.6s ease-in-out infinite;
+            left: -25px; top: -29px; width: 36px; height: 36px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6));
+            transform-origin: 60% 90%; animation: hwGhostBob 4.2s ease-in-out infinite;
         }
-        @keyframes hwGhostBob { 0%, 100% { transform: translateY(0) rotate(-18deg); } 50% { transform: translateY(-4px) rotate(-11deg); } }
+        @keyframes hwGhostBob {
+            0%, 100% { transform: translate(0, 0) rotate(-24deg); }  30% { transform: translate(-1px, -5px) rotate(-14deg); }
+            55% { transform: translate(0, -8px) rotate(-6deg); }  80% { transform: translate(1px, -3px) rotate(-16deg); }
+        }
         /* 후원 순위 줄 묶음은 넘치면 잘린다 — 유령을 조금 작게 안쪽에(움직이지 않는다) */
         #canvas.theme-halloween .dr-row.top1 .dr-no::after { left: -10px; top: -9px; width: 27px; height: 27px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
         #canvas.theme-halloween .dr-row.top1 .dr-no { box-shadow: 0 0 0 2px #fff0bf, 0 0 12px rgba(255, 176, 72, .7); }
@@ -838,6 +940,18 @@
         #canvas.theme-halloween .jar-line { background: rgba(233, 196, 110, .6); }
         #canvas.theme-halloween .jar-amt { color: #ffe3a3; text-shadow: 0 2px 0 #0b0512, 0 0 12px rgba(255, 176, 72, .5); }
         #canvas.theme-halloween .jar-unit { color: #e2d4f6; }
+        /* 🚩 깃발이 바람에 살랑 — 위 막대를 축으로 비스듬히(5.6초, ±2도 — 글자는 그대로 읽힌다). 금액이 오를 때 튀는 것(jarPop)은 그 위에 겹친다 */
+        #canvas.theme-halloween .jar-flag.on { transform-origin: 50% 0; animation: hwFlagSway 5.6s ease-in-out infinite; }
+        #canvas.theme-halloween .jar-flag.on.jar-pop { animation: hwFlagSway 5.6s ease-in-out infinite, jarPop .42s var(--ease-pop); }
+        @keyframes hwFlagSway {
+            0%, 100% { transform: skewX(0deg); }  25% { transform: skewX(2.2deg); }  60% { transform: skewX(-1.6deg); }  80% { transform: skewX(.8deg); }
+        }
+        /* 👻 깃발 막대 뒤에 숨은 유령 — 17초에 한 번 막대 위로 고개를 내밀고 두리번(깃발의 첫 조각 = 막대 · 천 뒤) */
+        #canvas.theme-halloween .jar-flag::before {
+            content: ""; position: absolute; left: 50%; top: 10px; width: 46px; height: 46px; margin-left: -23px; pointer-events: none;
+            background: var(--hw-ghost) center / contain no-repeat;
+            animation: hwPeek 17s ease-in-out infinite; animation-delay: -5s;
+        }
 
         /* ── 💬 소액 띠 — 밤하늘 띠 + 아래 금 테두리 · 화면 위 두 모서리 거미줄. 이름 · 금액은 촛불 금빛(검은 외곽선 그대로) ── */
         #canvas.theme-halloween .small-don {
@@ -960,13 +1074,46 @@
         }
 
         /* ── ⏸️ 안 보이는 판의 반복 움직임은 멈춰 둔다(방송 PC 부담) — 판이 다시 뜨면 그 자리부터 이어서 돈다.
-              꺼진 칸(.layer.off) · 시그니처 도는 동안 가린 칸(reaction-mode) · 안 뜬 게임판 · 내려간 후원 카드 · 시그 카드 ── */
+              꺼진 칸(.layer.off) · 시그니처 도는 동안 가린 칸(reaction-mode) · 안 뜬 게임판 · 내려간 후원 카드 · 시그 카드 · 꺼진 깃발 ·
+              시작 · 끝 화면(stage-mode)과 엔딩 크레딧이 덮는 동안의 하늘 박쥐 · 게임판이 점수판을 가리는 동안의 점수판 조각 ── */
         #canvas.theme-halloween :is(.gb-wrap:not(.gb-on), .gm-board:not(.on)) :is(.sg-board, .slot-card, .home-race-box)::before,
         #canvas.theme-halloween :is(.donation-popup-content, .dg-card):not(.show)::before,
         #canvas.theme-halloween .reaction-screen-overlay:not(.show) .reaction-img-box::after,
+        #canvas.theme-halloween .layer.off::before,
         #canvas.theme-halloween .layer.off::after,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction::before,
         #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction::after,
-        #canvas.theme-halloween .layer.off :is(.excel-board, .donor-rank-board, .sig-tally-board, .best-board)::before,
-        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction .excel-board::before,
+        #canvas.theme-halloween .layer.off :is(.excel-board, .donor-rank-board, .sig-tally-board, .best-board, .excel-grid-container, .excel-col, .jar-flag)::before,
+        #canvas.theme-halloween .layer.off .excel-grid-container::after,
+        #canvas.theme-halloween .layer.off .jar-flag,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction :is(.excel-board, .excel-grid-container, .excel-col, .jar-flag)::before,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction .excel-grid-container::after,
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction .jar-flag,
         #canvas.theme-halloween .layer.off :is(.excel-row.rank-1 .r-rank, .goal-rail-fill)::after,
-        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction :is(.excel-row.rank-1 .r-rank, .goal-rail-fill)::after { animation-play-state: paused; }
+        #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction :is(.excel-row.rank-1 .r-rank, .goal-rail-fill)::after,
+        #canvas.theme-halloween .jar-flag:not(.on)::before,
+        #canvas.theme-halloween:is(.stage-mode, .credits-mode)::before,
+        #canvas.theme-halloween:is(.stage-mode, .credits-mode)::after,
+        #canvas.theme-halloween:is(.stage-mode, .game-dicegame-mode, .game-home-mode, .game-hell-mode) .layer-ranking::before,
+        #canvas.theme-halloween:is(.stage-mode, .game-dicegame-mode, .game-home-mode, .game-hell-mode) .layer-ranking::after,
+        #canvas.theme-halloween:is(.stage-mode, .game-dicegame-mode, .game-home-mode, .game-hell-mode) .layer-ranking :is(.excel-board, .excel-grid-container, .excel-col)::before,
+        #canvas.theme-halloween:is(.stage-mode, .game-dicegame-mode, .game-home-mode, .game-hell-mode) .layer-ranking :is(.excel-grid-container, .excel-row.rank-1 .r-rank)::after { animation-play-state: paused; }
+
+        /* ── 🐢 움직임을 줄여 달라는 PC(prefers-reduced-motion) — 지나가는 것(박쥐 · 번개 · 거미 실 · 숨는 유령 · 흩어지는 박쥐)은 아예 안 띄우고,
+              제자리 움직임(촛불 · 안개 · 달 · 유령 · 깃발 · 불꽃)은 멈춘다. 거미는 거미줄에 가만히 앉아 있다 ── */
+        @media (prefers-reduced-motion: reduce) {
+            #canvas.theme-halloween::before, #canvas.theme-halloween::after,
+            #canvas.theme-halloween .excel-col::before,
+            #canvas.theme-halloween .excel-grid-container::before,
+            #canvas.theme-halloween .jar-flag::before,
+            #canvas.theme-halloween .layer-donorRank::before { animation: none; visibility: hidden; }
+            #canvas.theme-halloween :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .sg-board, .slot-card, .dg-card, .home-race-box)::before,
+            #canvas.theme-halloween :is(.layer-ranking, .layer-donorRank)::after,
+            #canvas.theme-halloween .layer-ranking::before,
+            #canvas.theme-halloween .excel-grid-container::after,
+            #canvas.theme-halloween .excel-row.rank-1 .r-rank::after,
+            #canvas.theme-halloween .goal-rail-fill::after,
+            #canvas.theme-halloween .jar-flag.on, #canvas.theme-halloween .jar-flag.on.jar-pop,
+            #canvas.theme-halloween .reaction-img-box::after,
+            #canvas.theme-halloween .ss-end-bg::after { animation: none; }
+        }
