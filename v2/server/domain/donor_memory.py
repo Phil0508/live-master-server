@@ -164,7 +164,7 @@ def _after_score(ctx):
     db = ctx.store.db
     try:
         d = ctx.store.donation(ref)
-        if not d or d.get('source') == 'toonation_test':
+        if not d or d.get('source') in ('toonation_test', 'practice', 'test_page'):   # 🎓 연습은 안 배운다(10-19)
             return
         rows = [r for r in ctx.store.score_rows(ref)
                 if r['field'] == 'score' and int(r['delta']) > 0 and r['list'] in ('list', 'main', 'extra')]

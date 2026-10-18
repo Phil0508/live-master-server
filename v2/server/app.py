@@ -182,13 +182,15 @@ def create_app(db_path=None, password=None, secret=None, sig_fetch=None):
     async def no_stale_screens(req: Request, call_next):
         resp = await call_next(req)
         p = req.url.path
-        if p.startswith(('/controller', '/overlay', '/shared', '/health', '/streamdeck', '/mobile')) and 'cache-control' not in resp.headers:
+        if p.startswith(('/controller', '/overlay', '/shared', '/health', '/streamdeck', '/mobile', '/practice')) and 'cache-control' not in resp.headers:
             resp.headers['Cache-Control'] = 'no-cache'
         return resp
 
     # ── 화면 ──
     # 🎛️ /streamdeck — 스트림덱 가상 단추판(단추는 로그인 쿠키로 /api/streamdeck/* 를 부른다)
-    for path, folder in (('/overlay', 'overlay'), ('/controller', 'controller'), ('/shared', 'shared'), ('/streamdeck', 'streamdeck')):
+    # 🧪🎓 /practice — 화면 테스트 · 연습 모드 페이지(10-19, 로그인 쿠키로 /api/donation/test · practice.* 를 부른다)
+    for path, folder in (('/overlay', 'overlay'), ('/controller', 'controller'), ('/shared', 'shared'), ('/streamdeck', 'streamdeck'),
+                         ('/practice', 'practice')):
         d = os.path.join(V2, 'web', folder)
         os.makedirs(d, exist_ok=True)
         app.mount(path, StaticFiles(directory=d, html=True), name=folder)

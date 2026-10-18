@@ -17,6 +17,7 @@ import uuid
 
 from ..bus import CommandError, command
 from ..state import slice_
+from . import donation as dn
 from . import session as ses
 
 TITLE_MAX, MINUTES_MAX, SNAP_DONORS = 40, 180, 8
@@ -64,6 +65,7 @@ def pending_to_jar(ctx, data):
     if it is None:
         ctx.notes['already'] = True
         return
+    dn.practice_guard(ctx, it)                 # 🎓 연습 중 진짜 후원은 손대지 않는다
     j = ctx.edit('fundjar')
     amt = int(it.get('amount') or 0)
     j['score'] += amt

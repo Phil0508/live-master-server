@@ -20,6 +20,11 @@
 🏷️ 장부 줄 번호(no, 10-17) — 장부에 줄이 들어가는 순간 store.add_donation 이 겹치지 않는 번호를 붙인다(답 notes.no).
    같은 tx 재전송 · 12초 중복은 위 1) 2) 에서 돌아가므로 새 번호가 없다. 번호는 조종실(장부 탭 · 토스트)에만 — 공개 조각엔 안 싣는다.
 ↻ 다시 송출(donation.replay {id}, 10-17) — 장부 줄 하나를 **방송 화면에만** 한 번 더(아래 donation_replay).
+🧪🎓 테스트 · 연습(10-19 대표님 — /practice/ 페이지, domain/practice.py):
+  - page_test: 페이지 [화면 테스트] — 3-b 와 같은 '화면에만' 길(장부 'display' · source 'test_page'). 로그인한 길만 보낸다.
+  - practice: 연습 후원 — 대기함 카드(practice:True) · 장부 source 'practice'(합계 · 기억 · 후원자 장부 밖, 연습 끝에 지운다).
+    연습 중엔 리스너(toon_) · 계좌 송출(manual_bank_) 이 아닌 손 송출도 연습으로 본다.
+  - 연습 중엔 진짜 카드를 주기 · 무시 · 모금함에 못 넣는다(409) — 연습 끝에 연습 전 판으로 되돌릴 때 진짜 후원을 잃지 않게.
 """
 import time
 import uuid
@@ -33,6 +38,7 @@ from .rules import DEDUPE_WINDOW, NOTICE_DONORS_MAX, SMALL_DISPLAY_MAX, derive_n
 
 slice_('pending', False, lambda: [])
 slice_('tallies', True, lambda: {'donors': {}, 'best': None, 'notice_donors': [], 'sigs': {}})
+slice_('practice', True, lambda: {'on': False})      # 🎓 연습 모드(practice.py) — 여기 두는 까닭: 받기 · 주기가 먼저 읽는다
 
 ENQUEUE = []        # 시그니처 대기줄에 넣는 함수(reaction 모듈이 건다)
 AFTER_DONATION = []  # 후원 하나가 장부에 들어간 뒤(특별 후원자 등급 다시 매기기 등)
@@ -42,6 +48,16 @@ ON_IGNORE = []       # 🤖 대기함 카드를 무시한 뒤 fn(ctx, 그 카드
 
 def _did(now):
     return 'don_%d_%s' % (int(now * 1000), uuid.uuid4().hex[:6])
+
+
+def practice_on(ctx):
+    return bool((ctx.read('practice') or {}).get('on'))
+
+
+def practice_guard(ctx, it):
+    """🎓 연습 중 진짜 후원 카드는 손대지 못하게 — 연습 끝에 연습 전 판으로 되돌릴 때 다시 얹는다."""
+    if it and not it.get('practice') and practice_on(ctx):
+        raise CommandError('연습 중에는 진짜 후원을 줄 수 없어요 — [연습 끝] 을 누른 뒤에 주세요', 409)
 
 
 @command('donation.add')
@@ -59,7 +75,9 @@ def donation_add(ctx, data):
         ctx.notes.update({'duplicate': True})
         return
     from_listener = tx.startswith('toon_')
-    if not from_listener and not (tx.startswith('manual_') and data.get('trusted')):
+    page_test = bool(data.get('page_test'))                      # 🧪 /api/donation/test 만 붙인다(로그인)
+    practice = bool(data.get('practice')) or (practice_on(ctx) and not from_listener and not tx.startswith('manual_bank_'))
+    if not from_listener and not practice and not (tx.startswith('manual_') and data.get('trusted')):
         since = ctx.now - DEDUPE_WINDOW
         for d in ctx.store.donations(limit=30):
             if d['at'] >= since and d['name'] == derive_name(name_in, msg_in, tx)[0] and d['amount'] == amount \
@@ -69,9 +87,11 @@ def donation_add(ctx, data):
     sid = ses.session_id(ctx)
     did = _did(ctx.now)
     # 🏷️ 칭호 · 레벨(화면에 실어도 됨) / 투네이션 VIP · 번호표(대기함 · 번호표 표에만) — 리스너가 보낸 것만 믿는다
-    pub, priv = dx.clean(data) if from_listener else ({}, {})
+    pub, priv = dx.clean(data) if (from_listener or page_test or practice) else ({}, {})
+    if practice:
+        priv = {}                                                # 연습엔 번호표 · VIP 를 안 남긴다
     # 💙 투네이션에서 온 후원 — 방송판 시그니처 카드 사진 왼쪽 위 '투네' 딱지(대표님 2026-10-13). 계좌 · 수동 송출은 안 붙는다.
-    via = {'via': 'toon'} if from_listener else {}
+    via = {'via': 'toon'} if from_listener or ((page_test or practice) and data.get('via') == 'toon') else {}
     # 화면에만 — 1만 원 미만(리스너가 표시해 보낸 것)
     if data.get('display_only') and from_listener and 0 < amount < SMALL_DISPLAY_MAX:
         nm = ' '.join(name_in.split()) or '익명'
@@ -83,11 +103,11 @@ def donation_add(ctx, data):
         return
     # 🔁🧪 다시 보기 · 후원 테스트 — 화면에만(위 3-b). 이름 보정 · 집계 · 대기함 · 등급 · 자동 진행 고리를 하나도 안 탄다.
     kind = dx.show_only_kind(data)
-    if kind and from_listener:
+    if kind and (from_listener or page_test):
         nm = ' '.join(name_in.split()) or '익명'
         msg = msg_in.strip()
         no = ctx.store.add_donation({'id': did, 'tx_id': tx or None, 'at': ctx.now, 'name': nm, 'amount': amount, 'message': msg,
-                                     'source': 'toonation_replay' if kind == 'replay' else 'toonation_dashtest',
+                                     'source': 'test_page' if page_test else ('toonation_replay' if kind == 'replay' else 'toonation_dashtest'),
                                      'status': 'display', 'player': None, 'session': sid})
         pop = dict({'id': did, 'name': nm, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000), 'show_only': kind}, **pub)
         sig = data.get('sig')
@@ -105,13 +125,18 @@ def donation_add(ctx, data):
     item = {'id': did, 'name': name, 'orig_name': orig, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}
     if test:
         item['test'] = True
+    if practice:
+        item['practice'] = True
+        if data.get('expect'):
+            item['expect'] = str(data['expect'])[:40]           # 🎓 기록상 정답(연습 끝 채점용 — 대기함은 비공개 조각)
     item.update(pub)          # 🏷️ 대기함 카드 이름 앞 칭호 · 뒤 Lv(조종실만 본다)
     item.update(priv)         # 투네이션 VIP 글자 · 번호표 — 대기함은 비공개 조각이라 방송판으로 안 나간다
     ctx.edit('pending').append(item)
     no = ctx.store.add_donation({'id': did, 'tx_id': tx or None, 'at': ctx.now, 'name': name, 'amount': amount, 'message': msg,
-                                 'source': 'toonation_test' if test else ('toonation' if from_listener else 'manual'),
+                                 'source': 'practice' if practice else ('toonation_test' if test else ('toonation' if from_listener else 'manual')),
                                  'status': 'pending', 'player': None, 'session': sid})
-    dx.record_key(ctx.store, tx, priv, pub, ctx.now)      # 🏷️ 번호표 한 줄 — 실패해도 후원은 그대로
+    if not practice:
+        dx.record_key(ctx.store, tx, priv, pub, ctx.now)  # 🏷️ 번호표 한 줄 — 실패해도 후원은 그대로
     floor = int(data.get('floor') or 0)
     sig = data.get('sig')
     sig_on = bool(sig and amount > 0 and not (floor and amount < floor))      # 아래 5) 시그니처 대기줄에 들어간다
@@ -194,6 +219,7 @@ def pending_assign(ctx, data):
     if it is None:
         ctx.notes['already'] = True            # 이미 처리된 것 — 두 번 눌러도 한 번
         return
+    practice_guard(ctx, it)
     if data.get('items'):
         items = [{'name': x.get('name'), 'delta': int(x.get('delta') or 0),
                   'contrib': int(x['contrib']) if x.get('contrib') is not None else None} for x in data['items']]
@@ -227,6 +253,7 @@ def pending_assign(ctx, data):
 
 @command('pending.ignore')
 def pending_ignore(ctx, data):
+    practice_guard(ctx, next((x for x in ctx.read('pending') if x['id'] == data.get('id')), None))
     it = _take_pending(ctx, data.get('id'))
     if it is None:
         ctx.notes['already'] = True
@@ -248,6 +275,8 @@ def _undo_back_to_pending(ctx, ref):
     if not any(x['id'] == ref for x in ctx.read('pending')):
         ctx.edit('pending').insert(0, {'id': ref, 'name': d['name'], 'orig_name': d['name'], 'amount': d['amount'],
                                        'message': d['message'], 'at': int(d['at'] * 1000), 'returned': True})
+        if d.get('source') == 'practice':
+            ctx.edit('pending')[0]['practice'] = True          # 🎓 되돌려 온 연습 카드도 연습 카드(안 그러면 '진짜' 로 막힌다)
     t = ctx.read('tallies')
     if t.get('best') and t['best'].get('id') == ref:
         ctx.edit('tallies')['best']['member'] = ''

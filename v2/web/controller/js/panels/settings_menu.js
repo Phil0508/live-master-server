@@ -18,6 +18,7 @@ const GROUPS = [
     ['시그니처 · 연출', ['sig-admin', 'sig-monitor', 'fx-lights', 'ops-opfx', 'clip']],
     ['기록', ['ledger', 'donorbook', 'donors', 'check', 'monthly', 'uistats']],
     ['AI · 자동', ['ai', 'auto']],
+    ['테스트 · 연습', ['@practice']],
     ['시스템', ['ops-bot', 'ops-version', 'ops-system', '@bank', 'ops-migrate']],
 ];
 
@@ -74,6 +75,14 @@ export function mountSettings(el, ctx) {
                 h('span', { class: 'st-emo', 'aria-hidden': 'true' }, '🏦'),
                 h('span', { class: 'st-tx' }, h('b', null, '은행 확장'), h('small', null, '계좌 입금 확장 · 폰 앱 상태')));
             tiles.set(id, { btn: b, lockId: 'ops-system' });
+            return b;
+        }
+        if (id === '@practice') {       // 🧪🎓 따로 페이지(/practice/, 10-19) — 방송 전에도 열린다
+            const b = h('button', { type: 'button', class: 'st-tile st-act', 'data-act': 'practice', 'data-zone': 'practice',
+                onclick: () => { window.open('/practice/', 'lm-practice'); } },
+                h('span', { class: 'st-emo', 'aria-hidden': 'true' }, '🧪'),
+                h('span', { class: 'st-tx' }, h('b', null, '테스트 · 연습'), h('small', null, '방송판 화면 테스트 · 가짜 후원으로 배정 연습')));
+            tiles.set(id, { btn: b, lockId: 'settings' });     // 설정 화면(pre)과 같이 — 방송 전에도 눌린다
             return b;
         }
         const p = byId.get(id);

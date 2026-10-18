@@ -18,7 +18,7 @@ import re
 
 from .rules import ANONYMOUS_NAMES
 
-NOT_REAL_SOURCES = ('mobile', 'toonation_test')
+NOT_REAL_SOURCES = ('mobile', 'toonation_test', 'practice', 'test_page')   # 🎓🧪 연습 · 화면 테스트(10-19)
 MANUAL_SCORE_MSG = '수동 점수 조작'
 TEST_TX_PREFIX = 'toon_t2_'          # 리스너가 투네이션 테스트에 붙이는 표
 

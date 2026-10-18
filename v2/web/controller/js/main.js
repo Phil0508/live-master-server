@@ -34,7 +34,8 @@ import { mountRxSwitch } from './rxswitch.js';         // [D] import { mountRxSw
 import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BGM ▶ 가 BGM 탭을 미리 그리게(ctx.tabs.prepare)
 import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 자동 진행 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17)
 import { guardRun, askBig } from './bigok.js';           // 🛡️ 큰 금액은 한 번 더 확인 — 점수가 들어가는 명령은 ctx.run 한 곳에서 거른다(10-17 bigok)
-import { mountRest } from './restmode.js';            // ☕ 휴식 모드 — 새 입금 · 보류가 오면 가장자리 초록 깜빡 · 가운데 카드(소리 없음, 10-17)
+import { mountRest } from './restmode.js';
+import { syncPracticeBand } from './practiceband.js';   // 🎓 연습 중 띠 · 연습 중 진짜 후원 빨간 띠(10-19 /practice/)            // ☕ 휴식 모드 — 새 입금 · 보류가 오면 가장자리 초록 깜빡 · 가운데 카드(소리 없음, 10-17)
 
 const lm = window.LM.connect({ kind: 'controller' });
 let status = 'connecting', snapped = false, slices = {}, scheduled = false;
@@ -113,6 +114,7 @@ function render() {
     if (view === 'setup') safe(() => views.setup.render(slices));
     if (view === 'live') for (const k of LIVE) if (views[k]) safe(() => views[k].render(slices));
     safe(() => syncHoldBand(slices, view));
+    safe(() => syncPracticeBand(slices, ctx));
     if (rest) safe(() => rest.render(slices, view));
     // 탭은 방송 전에도(열린 탭만 그리므로 가볍다) — 방송 전엔 pre 표시가 있는 탭만 열린다
     if (view === 'setup' || view === 'live') safe(() => views.tabs.render(slices, view));
