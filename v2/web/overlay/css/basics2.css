@@ -46,6 +46,11 @@
     font-size: 28px; line-height: 1;
     background: linear-gradient(120deg, var(--gold), var(--gold-deep));
 }
+/* 🏦 은행 옷 — 기업은행(10-19 대표님 시안 C: 판은 지금 유리 그대로, 마크 + 파란 포인트). 색은 로고에서 뽑은 #00489C · #0090D8 */
+.acc-box-v2.bank-ibk { border-color: rgba(0, 144, 216, 0.5);
+    box-shadow: var(--glass-shadow), inset 0 0 0 1px rgba(0, 144, 216, 0.2), 0 0 18px rgba(0, 72, 156, 0.45); }
+.acc-box-v2.bank-ibk .acc-ico { font-size: 0; background: #fff url("/vendor/bank/ibk-symbol.png") center / 80% no-repeat; }
+.acc-box-v2.bank-ibk .acc-who .acc-bank { color: #3fb6f2; }
 .acc-who { display: flex; align-items: baseline; gap: 8px; }
 /* ⚠️ 예금주는 '돈이 누구에게 가는가' 다 — 폰에서도 읽히게 27~28px(머리 줄 48px 이라 줄높이 1.15 기준 28px 이 한계) */
 .acc-who .acc-bank { font-weight: 900; color: var(--gold); font-size: 27px; }

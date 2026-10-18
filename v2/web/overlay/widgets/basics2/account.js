@@ -7,6 +7,8 @@
    → 칸이 둘(layer.place 'board' · 'head')이고 같은 위젯이 붙는다. 지금 자리에 맞는 쪽만 보인다.
    - 은행 · 번호가 둘 다 비면 안 보인다. 방송 중에만(liveOnly) · 고정 자리 스위치 [계좌](hud.account).
    - 테마를 입어도 계좌는 기본 모습(금색 유리판) — 돈이 가는 곳이라 한눈에 읽혀야 한다(대표님 2026-09-22).
+   - 🏦 은행 옷(10-19 대표님 시안 C): 은행 이름에 '기업' · 'IBK' 가 들어 있으면 bank-ibk — 왼쪽 칸에 기업은행 마크(vendor/bank/ibk-symbol.png),
+     은행 이름 · 테두리 빛만 기업은행 파랑. 판은 그대로 어두운 유리. 다른 은행이면 원래 금색으로 저절로 돌아간다.
    - 고액후원 영상이 떠 있는 동안 계좌가 영상 앞으로 나오면 안 된다(옛 acct-video-on, 10-05) — v2 에서는 층 표에서
      영상 칸(z 23)이 계좌 칸(z 14)보다 위라 따로 할 일이 없다.
    - 안 보일 때는 칸이 자리를 안 차지한다(게이지 금액 딱지가 비킬 판으로 안 센다). */
@@ -22,6 +24,12 @@ export const AWAY_SLICES = ['show', 'players', 'hell', 'home'];
 export function accountAway(lm) {
     const sh = lm.get('show') || {};
     return AWAY_STAGES.includes(sh.stage) || !!(lm.get('players') || {}).extra_active || raceAway(k => lm.get(k));
+}
+
+/** 은행 이름 → 은행 옷 이름('' 이면 기본 금색) */
+export function bankSkin(bank) {
+    const b = String(bank || '').replace(/\s+/g, '');
+    return /기업은행|^기업$|IBK/i.test(b) ? 'ibk' : '';
 }
 
 export function mount(root, lm, opts) {
@@ -43,6 +51,7 @@ export function mount(root, lm, opts) {
         const away = accountAway(lm);
         const mine = (place === 'head') === away;
         bankEl.textContent = a.bank || '';
+        box.classList.toggle('bank-ibk', bankSkin(a.bank) === 'ibk');
         numEl.textContent = a.acc_num || '';
         nameEl.textContent = a.name || '';
         const gone = !(has && mine);
