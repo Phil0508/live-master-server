@@ -38,8 +38,9 @@ const THEME_BURST = {
     chuseok:   { colors: ['#ffd76a', '#fff3c4', '#f2c230', '#ffe7a0'], shape: 'dust',   scalar: .75, moon: true },
     // 🎨 새 테마(2026-09-30) — 뉴스 · 한지는 조용한 옷이라 입자를 안 뿌린다
     hospital:  { colors: ['#13b3a1', '#ff4d5e', '#ffffff', '#bff3ea'], shape: 'cross',  scalar: 1.3 },
-    // 🏚️ 할로윈 — 박쥐(크게)와 촛불 불티(작게)를 따로 쏜다(layers — 크기가 달라서). 박쥐는 밤보라 · 금빛, 불티는 촛불색
-    halloween: { layers: [{ shapes: ['bat'], colors: ['#1d1030', '#3a2352', '#f3c969'], scalar: 3, share: 0.5 },
+    // 🏚️ 할로윈 — 박쥐(크게)와 촛불 불티(작게)를 따로 쏜다(layers — 크기가 달라서). 박쥐는 달빛 보라 · 연보라 · 금빛, 불티는 촛불색
+    //    (10-19 B+: 거의 검은 밤보라 박쥐는 작게 날 때 '검은 얼룩' 으로 보였다 — 달빛에 비친 색으로 밝혔다)
+    halloween: { layers: [{ shapes: ['bat'], colors: ['#7a5cb4', '#b49ce6', '#f3c969'], scalar: 3, share: 0.5 },
                           { shapes: ['circle'], colors: ['#f3c969', '#ffe7a8', '#ffb45c', '#f4ead6'], scalar: 1.1, share: 0.7 }],
                  gravity: 0.6, moon: true },
     concert:   { colors: ['#a07bff', '#52e3ff', '#ffffff', '#ff7ac8'], shape: 'star',   scalar: 1.4 },

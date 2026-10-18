@@ -264,8 +264,9 @@
             --rib-bg: linear-gradient(180deg, #3a2352 0%, #1d1030 100%); --rib-ink: #f6d58a; --rib-cut: none;
             --rib-ring: inset 0 0 0 1px rgba(233, 196, 110, .8), inset 0 0 0 4px rgba(20, 10, 30, .9), inset 0 0 0 5px rgba(233, 196, 110, .35), 0 3px 10px rgba(0, 0, 0, .5);
             --badge-bg: #1c1028; --badge-ink: #ecd08a; --badge-ring: rgba(233, 196, 110, .8); --badge-radius: 50%;
-            /* ③ 글씨 — 이름 · 표 숫자는 고딕 A1(폰에서 또렷), 이름표 · 큰 금액만 함렛(고딕 세리프). 기랑해랑(붓)은 뺐다 */
-            --face-name: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --name-weight: 800;
+            /* ③ 글씨 — 이름은 기본 테마와 같은 Pretendard(10-19 B+: 고딕 A1 은 한글이 1em 이라 '행복한걸' 4글자가 점수판 이름 칸에서
+                  '행복…' 으로 잘렸다), 표 숫자는 고딕 A1(폰에서 또렷), 이름표 · 큰 금액만 함렛(고딕 세리프). 기랑해랑(붓)은 뺐다 */
+            --face-name: "Pretendard", "Gothic A1", "Malgun Gothic", sans-serif; --name-weight: 800;
             --face-num: "Gothic A1", "Pretendard", "Malgun Gothic", sans-serif; --num-weight: 800;
             --face-big: "Hahmlet", "Gothic A1", "Malgun Gothic", serif; --big-weight: 800;
             --face-label: "Hahmlet", "Gothic A1", "Malgun Gothic", serif; --label-weight: 800;
@@ -834,17 +835,17 @@
             0%, 61.8% { opacity: 0; }  62.1% { opacity: .95; }  62.5% { opacity: .18; }  62.9% { opacity: .8; }  63.7% { opacity: 0; }
             64.3% { opacity: 0; }  64.6% { opacity: .42; }  65.3%, 100% { opacity: 0; }
         }
-        /* 🕷️ 오른쪽 위 거미줄의 거미 — 21초에 한 번 실을 타고 판 오른쪽 여백(숫자 바깥 4px)으로 2.5초 내려와 대롱대롱, 다시 올라간다.
+        /* 🕷️ 오른쪽 위 거미줄의 거미 — 21초에 한 번 실을 타고 판 오른쪽 금테 위로(숫자와 8px 떨어져) 2.5초 내려와 대롱대롱, 다시 올라간다.
               실(::before)은 위에서부터 늘어나고(세로 크기), 거미(::after)는 실 끝을 따라 내려온다(위치) — 같은 박자표라 붙어 다닌다 */
         #canvas.theme-halloween .excel-grid-container::before,
         #canvas.theme-halloween .excel-grid-container::after { content: ""; position: absolute; pointer-events: none; }
         #canvas.theme-halloween .excel-grid-container::before {
-            right: 7px; top: 14px; width: 2px; height: 150px; transform-origin: 50% 0; transform: scaleY(.06);
+            right: 2px; top: 14px; width: 2px; height: 150px; transform-origin: 50% 0; transform: scaleY(.06);
             background: linear-gradient(180deg, rgba(239, 232, 255, .9), rgba(239, 232, 255, .55));
             animation: hwSilk 21s ease-in-out infinite;
         }
         #canvas.theme-halloween .excel-grid-container::after {
-            right: -5px; top: 10px; width: 26px; height: 26px;
+            right: -10px; top: 10px; width: 26px; height: 26px;
             background: var(--hw-spider) center / contain no-repeat;
             animation: hwSpider 21s ease-in-out infinite;
         }
@@ -955,9 +956,57 @@
             70%  { transform: translate(-4px, -10px) rotate(-18deg) scale(1.3); }
             100% { opacity: 1; transform: translate(0, 0) rotate(-24deg) scale(1); }
         }
-        /* 후원 순위 줄 묶음은 넘치면 잘린다 — 유령을 조금 작게 안쪽에(움직이지 않는다) */
-        #canvas.theme-halloween .dr-row.top1 .dr-no::after { left: -10px; top: -9px; width: 27px; height: 27px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
+        /* 후원 순위 줄 묶음은 넘치면 잘린다 — 유령은 배지 왼쪽 위 모서리에 작게(움직이지 않는다).
+              배지 숫자 '1'(가운데 15 ~ 25px)에 안 닿게 오른끝 10px · 아래끝 13px 까지만 */
+        #canvas.theme-halloween .dr-row.top1 .dr-no::after { left: -12px; top: -9px; width: 22px; height: 22px; transform: rotate(-20deg); filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
         #canvas.theme-halloween .dr-row.top1 .dr-no { box-shadow: 0 0 0 2px #fff0bf, 0 0 12px rgba(255, 176, 72, .7); }
+
+        /* ── 🩸 번외 판 — 분홍 머리 줄 위 금빛 글씨(1.6:1) · 금 배지 위 분홍 숫자(2:1)가 안 읽혔다.
+              머리 줄은 검붉은 핏빛 띠 + 밝은 글씨(9:1), 1 · 2 · 3 배지 숫자는 원래 색(11:1), 나머지 배지 숫자 · 기여도는 연분홍(7:1).
+              '번외' 표시 = 핏빛 머리 줄 + 분홍 촛불 테두리 빛 ── */
+        #canvas.theme-halloween .excel-board.is-extra .excel-header {
+            background: linear-gradient(180deg, #a3214f 0%, #6d1236 100%); color: #fff0f4; text-shadow: 0 1px 0 #3a0a1d;
+            border-bottom: 2px solid rgba(255, 150, 180, .75); border-radius: 6px 6px 0 0;
+        }
+        #canvas.theme-halloween .excel-board.is-extra .rank-1 .r-rank { color: var(--on-gold); }
+        #canvas.theme-halloween .excel-board.is-extra .rank-2 .r-rank { color: var(--on-silver); }
+        #canvas.theme-halloween .excel-board.is-extra .rank-3 .r-rank { color: var(--on-bronze); }
+        #canvas.theme-halloween .excel-board.is-extra .excel-row:not(.rank-1):not(.rank-2):not(.rank-3) .r-rank { color: #ff9ab4; box-shadow: 0 0 0 2px rgba(255, 120, 160, .75); }
+        #canvas.theme-halloween .excel-board.is-extra .r-contrib { color: #ffa3bb; }
+        #canvas.theme-halloween .excel-board.is-extra::before {
+            box-shadow: 0 0 0 1px rgba(255, 176, 204, .55), 0 0 16px 2px rgba(255, 84, 136, .75), 0 0 46px 10px rgba(255, 60, 120, .3);
+        }
+
+        /* ── 🔥 'OO업' 배너(overlay.css 의 분홍 네온 --neon) — 흰 글씨 + 보랏빛 굵은 테 + 촛불 금빛 번짐, 20만 원 이상(tier-4)은 금 테 + 보랏빛 번짐.
+              위아래 가로줄도 같은 색으로(줄 색은 --neon · --neon-bright 를 따른다) ── */
+        #canvas.theme-halloween .reaction-title-banner { --neon: #7b3fe0; --neon-glow: 255, 168, 64; --neon-bright: #ffe7a8; color: #fff6e0; }
+        #canvas.theme-halloween .reaction-title-banner.tier-4 { --neon: #e0a234; --neon-glow: 168, 110, 255; --neon-bright: #fff3cf; color: #fffaf0; }
+
+        /* ── ⬆ UP 자막 — 금 글씨에 금빛 번짐이라 글자 테가 뭉개졌다 → 진보라 테(글자 뒤에 깐다) + 아래 그림자 + 보랏빛 · 촛불 번짐 ── */
+        #canvas.theme-halloween .cast-up .up-message {
+            color: #ffe7a8; -webkit-text-stroke: .1em #1d0f30; paint-order: stroke fill;
+            text-shadow: 0 6px 0 #0b0512, 0 0 26px rgba(150, 100, 255, .75), 0 0 64px rgba(255, 170, 70, .4);
+        }
+
+        /* ── 🔔 점수 팝업 '+5' — 오른다는 느낌: 도깨비불 연두(어두운 알약 위 14:1) + 뜰 때 살짝 솟는다(위치) ── */
+        #canvas.theme-halloween .center-popup-content .popup-score { color: #a6ff9a; text-shadow: 0 2px 0 #0b0512, 0 0 14px rgba(120, 255, 140, .65); }
+        #canvas.theme-halloween .center-popup-content.show .popup-score { animation: hwRise 1.6s ease-out 1 both; }
+        @keyframes hwRise { 0% { transform: translateY(10px); } 40% { transform: translateY(-6px); } 100% { transform: translateY(-3px); } }
+
+        /* ── 👑 1등 탈환 알약 — 왕관 쓴 유령이 알약 왼쪽 위에서 '깜짝' 튀어나온다(뜰 때 한 번) ── */
+        #canvas.theme-halloween .takeover-popup-content { position: relative; }
+        #canvas.theme-halloween .takeover-popup-content::before {
+            content: ""; position: absolute; left: -30px; top: -36px; width: 64px; height: 64px; pointer-events: none; opacity: 0;
+            background: var(--crown) center / contain no-repeat; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .6));
+        }
+        #canvas.theme-halloween .takeover-popup-content.show::before { animation: hwGhostPop 1.6s cubic-bezier(.2, .9, .3, 1.2) .15s 1 both; }
+        @keyframes hwGhostPop {
+            0%   { opacity: 0; transform: translate(30px, 30px) scale(.2) rotate(0deg); }
+            25%  { opacity: 1; transform: translate(0, 0) scale(1.15) rotate(-16deg); }
+            45%  { transform: translate(0, 0) scale(1) rotate(8deg); }
+            65%  { transform: translate(0, 0) scale(1.05) rotate(-8deg); }
+            100% { opacity: 1; transform: translate(0, 0) scale(1) rotate(-12deg); }
+        }
 
         /* ── 🏦 계좌 띠 — 은행 옷(마크 · 파란 테 · 파란 은행 이름)은 그대로, 유리 속만 밤빛으로 ── */
         #canvas.theme-halloween .b2-acc {
@@ -1186,6 +1235,7 @@
             #canvas.theme-halloween .layer-donorRank::before,
             #canvas.theme-halloween .donation-popup-content.show .donator-text::before,
             #canvas.theme-halloween .small-don.show .sd-line::before { animation: none; visibility: hidden; }
+            #canvas.theme-halloween .takeover-popup-content.show::before { animation: none; opacity: 1; transform: rotate(-12deg); }
             #canvas.theme-halloween :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .sg-board, .slot-card, .dg-card, .home-race-box)::before,
             #canvas.theme-halloween :is(.layer-ranking, .layer-donorRank)::after,
             #canvas.theme-halloween .layer-ranking::before,
@@ -1195,6 +1245,7 @@
             #canvas.theme-halloween .goal-rail-fill::after,
             #canvas.theme-halloween .jar-flag.on, #canvas.theme-halloween .jar-flag.on.jar-pop,
             #canvas.theme-halloween .reaction-img-box::after,
+            #canvas.theme-halloween .center-popup-content.show .popup-score,
             #canvas.theme-halloween .ss-end-bg::after { animation: none; }
             /* 큰 후원 보름달 앞 박쥐는 날갯짓 없는 그림으로 */
             #canvas.theme-halloween .theme-moon {
