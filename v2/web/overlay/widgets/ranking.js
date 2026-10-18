@@ -3,7 +3,9 @@
    - 순서는 서버가 정해 보낸다(기여도 큰 순). 순위 = 줄 번호 + 1. 1·2·3 은 금 · 은 · 동 배지, 1등 줄은 금빛 바탕.
    - 사람이 바뀌거나 순서가 바뀌면 다시 그리고 줄이 옛 자리에서 미끄러진다. 숫자만 바뀌면 0.8초 동안 세어 올린다.
    - 번외 판이 켜져 있으면(extra_active) 같은 자리에 번외 판을 분홍 옷으로 그린다(옛 것도 번외 판이 이 자리를 썼다).
-   - 운영비(bottom) 줄은 옛 방송판에서 뺐다(점수는 게이지 합에만 들어간다) — 여기도 안 그린다. */
+   - 운영비(bottom) 줄은 옛 방송판에서 뺐다(점수는 게이지 합에만 들어간다) — 여기도 안 그린다.
+   - 👻 1등이 바뀐 순간(처음 그림 · 번외 판 전환 · 새 방송은 빼고) 새 1등 줄에 top-new 를 붙인다 — 테마가 '깜짝' 연출을 건다(지금은 할로윈 유령, 10-19).
+     줄은 순서가 바뀔 때마다 새로 그리므로 표시는 그 줄이 있는 동안만 남고, 다음에 다시 그리면 사라진다(같은 1등이면 안 붙인다). */
 import { esc, setNum, animateVal, flipSnap, flipPlay } from '../util.js';
 
 const HEAD = '<div class="excel-header"><div></div><div>플레이어</div><div>점수</div><div>기여도</div></div>';
@@ -16,13 +18,14 @@ export function mount(root, lm) {
     const board = root.querySelector('.excel-board');
     const [colL, colR] = root.querySelectorAll('.rk-rows');
     let lastKey = null, lastExtra = null;
+    let lastTop = null;                             // 👻 지난 1등 이름(null = 아직 모름 — 처음 그림에서는 '깜짝' 이 없다)
     let rowsByName = new Map();
     let prev = {};                                  // 이름 → {score, contrib} — 세어 올리기의 출발점
     const keyOf = el => el.dataset.name || '';
 
-    function rowHtml(b, i) {
+    function rowHtml(b, i, fresh) {
         if (!b) return '<div class="excel-row"><div class="r-rank">-</div><div class="r-name"></div><div class="r-score"></div><div class="r-contrib"></div></div>';
-        const cls = i < 3 ? ' rank-' + (i + 1) : '';
+        const cls = (i < 3 ? ' rank-' + (i + 1) : '') + (fresh ? ' top-new' : '');
         return '<div class="excel-row' + cls + '" data-name="' + esc(b.name) + '"><div class="r-rank">' + (i + 1) + '</div>'
             + '<div class="r-name">' + esc(b.name) + '</div><div class="r-score"></div><div class="r-contrib"></div></div>';
     }
@@ -33,16 +36,19 @@ export function mount(root, lm) {
         const rows = ((extra ? p.extra : p.list) || []).slice(0, 10);
         board.classList.toggle('is-extra', extra);
         board.classList.toggle('big-num', rows.some(b => (Number(b.contribution) || 0) >= 1000000));
-        if (extra !== lastExtra) { lastExtra = extra; lastKey = null; prev = {}; }
+        if (extra !== lastExtra) { lastExtra = extra; lastKey = null; prev = {}; lastTop = null; }
 
         const key = rows.map(b => b.name).join('|');
         if (key !== lastKey) {
             lastKey = key;
             const before = flipSnap(root, '.excel-row[data-name]', keyOf);
             const half = Math.max(1, Math.ceil(rows.length / 2));
+            const top = rows.length ? String(rows[0].name) : null;
+            const fresh = lastTop !== null && top !== null && top !== lastTop;      // 👻 1등이 바뀌었다
+            lastTop = top;
             let l = '', r = '';
-            for (let i = 0; i < half; i++) l += rowHtml(rows[i], i);
-            for (let i = half; i < half * 2; i++) r += rowHtml(rows[i], i);
+            for (let i = 0; i < half; i++) l += rowHtml(rows[i], i, fresh && i === 0);
+            for (let i = half; i < half * 2; i++) r += rowHtml(rows[i], i, false);
             colL.innerHTML = l;
             colR.innerHTML = r;
             rowsByName = new Map();
@@ -79,7 +85,7 @@ export function mount(root, lm) {
     let lastSid = null;
     lm.on('session', s => {
         const sid = (s && s.id) || '';
-        if (lastSid !== null && sid !== lastSid) { prev = {}; lastKey = null; }
+        if (lastSid !== null && sid !== lastSid) { prev = {}; lastKey = null; lastTop = null; }
         lastSid = sid;
     });
     lm.on('players', render);

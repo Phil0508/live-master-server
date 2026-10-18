@@ -756,6 +756,47 @@
             background: var(--hw-moon) right top / 88px 88px no-repeat, var(--hw-web-l) left 0 top 39px / 70px 70px no-repeat;
             filter: drop-shadow(0 0 14px rgba(255, 232, 170, .4));
         }
+        /* 🎁 후원 카드 금액 등급(donation.js data-tier — 2 = 3만 · 3 = 10만 · 4 = 100만 원 이상) — 촛불 빛과 금테가 한 단계씩 진해진다.
+              10만 원부터 금테가 한 줄 더(바깥 고리), 100만 원은 금테 두 줄 + 안쪽 금선 + 크게 번지는 촛불 · 달빛 + 금액 빛. 판 크기는 그대로 */
+        #canvas.theme-halloween .donation-popup-content[data-tier="2"]::before {
+            box-shadow: 0 0 0 1px rgba(255, 226, 160, .6), 0 0 22px 4px rgba(255, 178, 76, .88), 0 0 64px 16px rgba(255, 146, 46, .36);
+        }
+        #canvas.theme-halloween .donation-popup-content[data-tier="3"] {
+            box-shadow: var(--frame-glow), 0 0 0 3px #150a22, 0 0 0 5px #e9c46e, 0 0 0 6px rgba(255, 240, 190, .55);
+            outline-color: rgba(243, 201, 105, .72);
+        }
+        #canvas.theme-halloween .donation-popup-content[data-tier="3"]::before {
+            inset: -9px; border-radius: calc(var(--glass-radius) + 9px);
+            box-shadow: 0 0 0 1px rgba(255, 232, 170, .7), 0 0 30px 6px rgba(255, 180, 80, .92), 0 0 92px 24px rgba(255, 146, 46, .4);
+            animation-duration: 3s;
+        }
+        #canvas.theme-halloween .donation-popup-content[data-tier="4"] {
+            box-shadow: var(--frame-glow), 0 0 0 3px #150a22, 0 0 0 6px #f3c969, 0 0 0 9px #150a22, 0 0 0 11px #ffe7a8;
+            outline: 2px solid rgba(255, 222, 140, .9);
+        }
+        #canvas.theme-halloween .donation-popup-content[data-tier="4"]::before {
+            inset: -15px; border-radius: calc(var(--glass-radius) + 15px);
+            box-shadow: 0 0 0 1px rgba(255, 238, 186, .85), 0 0 40px 10px rgba(255, 192, 92, .95), 0 0 130px 40px rgba(255, 150, 50, .42),
+                        0 0 220px 70px rgba(150, 100, 255, .2);
+            animation-duration: 2.6s;
+        }
+        #canvas.theme-halloween .donation-popup-content[data-tier="4"] .donation-amount {
+            color: #fff1c4; text-shadow: 0 2px 0 #0b0512, 0 0 16px rgba(255, 200, 100, .95), 0 0 44px rgba(255, 150, 50, .6);
+        }
+        /* 🦇 카드가 뜨는 순간 — 카드 위 가장자리에서 금테 박쥐 일곱이 위 · 양옆으로 흩어진다(1.8초 한 번, 크기 · 위치 · 투명도).
+              이름 줄 위 여백에서 출발해 카드 밖으로만 커진다 — 이름 · 금액 · 메시지와 안 겹친다 */
+        #canvas.theme-halloween .donation-popup-content .donator-text::before {
+            content: ""; position: absolute; left: 50%; top: -92px; width: 320px; height: 120px; margin-left: -160px; pointer-events: none;
+            background: var(--hw-bats-burst) center / contain no-repeat; transform-origin: 50% 100%; opacity: 0;
+        }
+        #canvas.theme-halloween .donation-popup-content.show .donator-text::before { animation: hwBatScatter 1.8s cubic-bezier(.2, .7, .3, 1) .1s 1 both; }
+        @keyframes hwBatScatter {
+            0%   { opacity: 0; transform: translateY(0) scale(.2); }
+            14%  { opacity: 1; }
+            70%  { opacity: .9; }
+            100% { opacity: 0; transform: translateY(-40px) scale(1.6); }
+        }
+
         /* 🌕 점수판 뒤로 떠오른 보름달 — 칸(.layer-ranking)의 첫 조각이라 판 뒤에 깔리고 위로 반쯤 보인다.
               달빛이 숨쉬듯 8초에 걸쳐 밝아졌다 어두워진다(투명도 · 크기 조금) */
         #canvas.theme-halloween .layer-ranking::before {
@@ -901,6 +942,19 @@
             0%, 100% { transform: translate(0, 0) rotate(-24deg); }  30% { transform: translate(-1px, -5px) rotate(-14deg); }
             55% { transform: translate(0, -8px) rotate(-6deg); }  80% { transform: translate(1px, -3px) rotate(-16deg); }
         }
+        /* 👻 1등이 바뀐 순간(ranking.js 가 새 1등 줄에 top-new) — 유령이 배지 왼쪽 위로 크게 '깜짝' 튀어나왔다가(1.5초) 제자리에서 다시 둥실.
+              크게 커질 때도 왼쪽 위(머리 줄 빈칸 · 판 바깥)로만 커져 배지 숫자 · 이름을 안 덮는다 */
+        #canvas.theme-halloween .excel-row.rank-1.top-new .r-rank::after {
+            animation: hwGhostBoo 1.5s cubic-bezier(.2, .9, .3, 1.2) 1, hwGhostBob 4.2s ease-in-out 1.5s infinite;
+        }
+        @keyframes hwGhostBoo {
+            0%   { opacity: 0; transform: translate(8px, 14px) rotate(0deg) scale(.2); }
+            18%  { opacity: 1; transform: translate(-12px, -26px) rotate(-10deg) scale(2.1); }
+            32%  { transform: translate(-10px, -24px) rotate(8deg) scale(1.9); }
+            46%  { transform: translate(-12px, -26px) rotate(-8deg) scale(2); }
+            70%  { transform: translate(-4px, -10px) rotate(-18deg) scale(1.3); }
+            100% { opacity: 1; transform: translate(0, 0) rotate(-24deg) scale(1); }
+        }
         /* 후원 순위 줄 묶음은 넘치면 잘린다 — 유령을 조금 작게 안쪽에(움직이지 않는다) */
         #canvas.theme-halloween .dr-row.top1 .dr-no::after { left: -10px; top: -9px; width: 27px; height: 27px; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .6)); }
         #canvas.theme-halloween .dr-row.top1 .dr-no { box-shadow: 0 0 0 2px #fff0bf, 0 0 12px rgba(255, 176, 72, .7); }
@@ -966,6 +1020,21 @@
         #canvas.theme-halloween .small-don::after { right: 0; background: var(--hw-web-r) right top / contain no-repeat; }
         #canvas.theme-halloween .small-don .sd-hl { color: #ffd66e; }
         #canvas.theme-halloween .small-don .sd-msg { color: #f1e8ff; }
+        /* 🦇 띠가 내려오면 박쥐 한 마리가 띠 아래 테두리를 따라 왼쪽에서 오른쪽으로(2.6초 한 번) — 몸 절반은 띠 밖, 글자 줄 아래 여백으로만 */
+        #canvas.theme-halloween .small-don .sd-line::before {
+            content: ""; position: absolute; left: 0; bottom: -15px; width: 66px; height: 29px; pointer-events: none; opacity: 0;
+            background: var(--hw-bat-fly) center / contain no-repeat;
+        }
+        #canvas.theme-halloween .small-don.show .sd-line::before { animation: hwSdBat 2.6s linear .3s 1 both; }
+        @keyframes hwSdBat {
+            0%   { opacity: 0; transform: translate(-80px, 4px) rotate(8deg); }
+            6%   { opacity: 1; }
+            25%  { transform: translate(200px, -4px) rotate(-6deg); }
+            50%  { transform: translate(480px, 5px) rotate(6deg); }
+            75%  { transform: translate(780px, -4px) rotate(-6deg); }
+            94%  { opacity: 1; }
+            100% { opacity: 0; transform: translate(1100px, 3px) rotate(4deg); }
+        }
 
         /* ── 🎵 시그니처 카드 — 사진에 금테 두 줄 액자(밤빛 매트) + 촛불 빛, 메시지 상자는 토큰이 밤 유리 · 금 고리로 ── */
         #canvas.theme-halloween .reaction-img-box::before {
@@ -975,9 +1044,16 @@
         }
         #canvas.theme-halloween .reaction-img-box::after {
             content: ""; position: absolute; inset: -11px; border-radius: calc(var(--r-m) + 11px); pointer-events: none;
-            box-shadow: 0 0 16px 2px rgba(255, 178, 76, .6), 0 0 44px 8px rgba(255, 150, 50, .2);
-            opacity: .62; animation: hwCandle 4.4s ease-in-out infinite;
+            box-shadow: 0 0 20px 4px rgba(255, 178, 76, .78), 0 0 60px 14px rgba(255, 150, 50, .3), 0 0 110px 30px rgba(140, 90, 255, .14);
+            opacity: .6; animation: hwSigGlow 3.6s ease-in-out infinite;
         }
+        /* 시그 카드 둘레 촛불 빛 — 밝기가 고르지 않게 오르내리며 빛 테가 살짝 부풀었다 줄어든다(일렁) */
+        @keyframes hwSigGlow {
+            0%, 100% { opacity: .55; transform: scale(1); }  18% { opacity: .95; transform: scale(1.012); }  30% { opacity: .62; transform: scale(1.004); }
+            46% { opacity: 1; transform: scale(1.02); }  60% { opacity: .5; transform: scale(1.003); }  78% { opacity: .9; transform: scale(1.016); }
+        }
+        #canvas.theme-halloween .reaction-text-donator { color: #ffe7a8; }
+        #canvas.theme-halloween .reaction-text-message { box-shadow: 0 0 0 2px rgba(233, 196, 110, .8), 0 0 0 5px rgba(18, 9, 28, .85), 0 0 0 6px rgba(233, 196, 110, .35), var(--sh-2); }
         #canvas.theme-halloween .sig-vignette { background: radial-gradient(ellipse at 50% 45%, rgba(12, 4, 22, 0) 38%, rgba(12, 4, 22, .9) 100%); }
 
         /* ── 🎡 룰렛 — 그림(금테 · 전구 · 바늘)은 그대로, 나무 제목판 · 바늘 아래 알약만 밤빛 명판으로 · 뒤 어둠은 보랏빛 ── */
@@ -994,7 +1070,7 @@
 
         /* ── 🎆 큰 후원(3만 원 이상)의 보름달 — 추석 달 대신 할로윈 달 + 달 앞을 지나는 박쥐 두 마리(burst.js 가 띄운다) ── */
         #canvas.theme-halloween .theme-moon {
-            background: var(--hw-bat) 20% 12% / 96px 42px no-repeat, var(--hw-bat) 76% 22% / 64px 28px no-repeat,
+            background: var(--hw-bat-fly) 20% 12% / 96px 42px no-repeat, var(--hw-bat-fly) 76% 22% / 64px 28px no-repeat,
                         var(--hw-moon) center / 66% no-repeat,
                         radial-gradient(circle, rgba(255, 236, 190, .5) 0%, rgba(200, 170, 255, .16) 46%, transparent 70%);
         }
@@ -1079,6 +1155,7 @@
         #canvas.theme-halloween :is(.gb-wrap:not(.gb-on), .gm-board:not(.on)) :is(.sg-board, .slot-card, .home-race-box)::before,
         #canvas.theme-halloween :is(.donation-popup-content, .dg-card):not(.show)::before,
         #canvas.theme-halloween .reaction-screen-overlay:not(.show) .reaction-img-box::after,
+        #canvas.theme-halloween .layer.off .excel-row.rank-1.top-new .r-rank::after,
         #canvas.theme-halloween .layer.off::before,
         #canvas.theme-halloween .layer.off::after,
         #canvas.theme-halloween.reaction-mode .layer.hide-in-reaction::before,
@@ -1106,14 +1183,23 @@
             #canvas.theme-halloween .excel-col::before,
             #canvas.theme-halloween .excel-grid-container::before,
             #canvas.theme-halloween .jar-flag::before,
-            #canvas.theme-halloween .layer-donorRank::before { animation: none; visibility: hidden; }
+            #canvas.theme-halloween .layer-donorRank::before,
+            #canvas.theme-halloween .donation-popup-content.show .donator-text::before,
+            #canvas.theme-halloween .small-don.show .sd-line::before { animation: none; visibility: hidden; }
             #canvas.theme-halloween :is(.excel-board, .donor-rank-board, .sig-tally-board, .donation-popup-content, .best-board, .sg-board, .slot-card, .dg-card, .home-race-box)::before,
             #canvas.theme-halloween :is(.layer-ranking, .layer-donorRank)::after,
             #canvas.theme-halloween .layer-ranking::before,
             #canvas.theme-halloween .excel-grid-container::after,
             #canvas.theme-halloween .excel-row.rank-1 .r-rank::after,
+            #canvas.theme-halloween .excel-row.rank-1.top-new .r-rank::after,
             #canvas.theme-halloween .goal-rail-fill::after,
             #canvas.theme-halloween .jar-flag.on, #canvas.theme-halloween .jar-flag.on.jar-pop,
             #canvas.theme-halloween .reaction-img-box::after,
             #canvas.theme-halloween .ss-end-bg::after { animation: none; }
+            /* 큰 후원 보름달 앞 박쥐는 날갯짓 없는 그림으로 */
+            #canvas.theme-halloween .theme-moon {
+                background: var(--hw-bat) 20% 12% / 96px 42px no-repeat, var(--hw-bat) 76% 22% / 64px 28px no-repeat,
+                            var(--hw-moon) center / 66% no-repeat,
+                            radial-gradient(circle, rgba(255, 236, 190, .5) 0%, rgba(200, 170, 255, .16) 46%, transparent 70%);
+            }
         }

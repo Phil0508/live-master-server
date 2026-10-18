@@ -150,6 +150,10 @@ export function mount(root, lm, opts) {
             if (lv) nameEl.appendChild(lv);
         } catch (e) { console.error('[후원 카드] 칭호 붙이기 실패:', e); }
         encoreEl.classList.toggle('on', !!d.encore);         // ↻ 조종실 '다시 송출' — 한 번 더 보여 주는 것임을 알린다(10-17)
+        // 🏷️ 금액 등급 표시(10-19) — 1 · 2 = 3만 원 이상 · 3 = 10만 원 이상 · 4 = 100만 원 이상. 테마가 촛불 빛 · 금테를 한 단계씩
+        //    진하게 입힌다(지금은 할로윈만 — css/themes.css). 자리 · 크기 · 글자는 안 바뀐다.
+        const amtN = Number(d.amount) || 0;
+        card.dataset.tier = amtN >= 1000000 ? '4' : (amtN >= 100000 ? '3' : (amtN >= 30000 ? '2' : '1'));
         let msg = String(d.message || '');
         const m = msg.match(/^\[시그니처 신청:\s*(.*?)\]/);
         if (m) {
