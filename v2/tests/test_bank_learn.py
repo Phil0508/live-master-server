@@ -193,6 +193,18 @@ class Learning(Base):
                          ['b0123456789ab', 'b0123456789ab', '', ''])
         self.assertNotIn('김가짜', bl.holder_key('김가짜'))
 
+    def test_pass_through_holders_never_learn(self):
+        # 10-21 토스 입금은 예금주가 '（주）비바리퍼블리카' — 한 번 배운 닉네임이 모든 토스 입금에 붙던 것
+        db = sqlite3.connect(':memory:')
+        self.addCleanup(db.close)
+        for h in ('（주）비바리퍼블리카', '(주)비바리퍼블리카', '㈜카카오페이', '네이버파이낸셜', '토스'):
+            self.assertFalse(bl.learn(db, h, '앞뒤', 'b9', at=100), h)
+            self.assertEqual(bl.lookup(db, h), '', h)
+            self.assertEqual(bl.holder_key(h), '', h)
+        self.assertTrue(bl.learn(db, '김토스', '사람', 'b8', at=100))          # 이름에 '토스' 가 들어간 사람은 그대로
+        self.assertEqual(bl.lookup(db, '김토스'), '사람')
+        self.assertTrue(bl.is_pass_through('（주） 비바리퍼블리카'))
+
 
 # ── 미리 배우기 도구 ──────────────────────────────────────
 OLD_SCHEMA = (

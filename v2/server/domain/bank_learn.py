@@ -34,10 +34,20 @@ def ensure(db):
     db.execute(SCHEMA)
 
 
+# 간편송금 회사 — 토스 · 카카오페이 등으로 보내면 예금주 칸에 사람이 아니라 회사 이름이 찍힌다.
+# 이걸로 짝을 배우면 그 회사로 오는 모든 입금이 한 닉네임으로 추천된다(10-21 토스 입금마다 '앞뒤' 로 채워지던 것).
+_PASS_THROUGH = re.compile(r'비바리퍼블리카|카카오페이|네이버파이낸셜|엔에이치엔페이코|페이코|쿠팡페이|^(?:\(주\)|（주）|㈜)?토스$')
+
+
+def is_pass_through(holder):
+    """예금주 칸이 사람 아닌 간편송금 회사인가."""
+    return bool(_PASS_THROUGH.search(''.join(str(holder or '').split())))
+
+
 def holder_key(holder):
-    """입금자명 → 지문. 띄어쓰기는 빼고 본다('김 진짜' = '김진짜'). 비었으면 ''."""
+    """입금자명 → 지문. 띄어쓰기는 빼고 본다('김 진짜' = '김진짜'). 비었거나 간편송금 회사면 ''(배우지도 찾지도 않는다)."""
     h = ''.join(str(holder or '').split())
-    if not h:
+    if not h or is_pass_through(h):
         return ''
     return hashlib.sha256(('lm2-bank-learn|' + h).encode('utf-8')).hexdigest()[:32]
 
