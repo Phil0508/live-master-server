@@ -22,7 +22,7 @@ SIGS = [{'id': 1, 'amount': 10300, 'title': '사쿠란보', 'image_url': 'a.png'
 
 class Rules(unittest.TestCase):
     def test_man_won(self):
-        self.assertEqual([man_won(a) for a in (5999, 6000, 15999, 16000, 0, 100000)], [0, 1, 1, 2, 0, 10])
+        self.assertEqual([man_won(a) for a in (5000, 5001, 15000, 15001, 0, 100000, 100009)], [0, 1, 1, 2, 0, 10, 10])
 
     def test_split(self):
         self.assertEqual(split_points(5, 3), [2, 2, 1])

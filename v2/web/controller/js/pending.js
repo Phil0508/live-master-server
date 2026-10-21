@@ -179,7 +179,7 @@ export function mountPending(root, ctx) {
             lvChip(it.donor_level),
             isC ? h('span', { class: 'pc-amt' }, '기여도 카드')
                 : h('span', { class: 'pc-amt' }, won(it.amount)),
-            h('span', { class: 'pc-pts' + (pts ? '' : ' zero'), title: isC ? '점수 없이 기여도만 오릅니다' : '1만 원 = 1점 (6천 원부터 올림)' },
+            h('span', { class: 'pc-pts' + (pts ? '' : ' zero'), title: isC ? '점수 없이 기여도만 오릅니다' : '1만 원 = 1점 (5,001원부터 올림)' },
                 isC ? '기여도 ' + num(pts) : pts + '점'),
             h('span', { class: 'q1-btns' }, isBusy ? h('span', { class: 'sending' }, '보내는 중…') : null, jarBtn, splitBtn, sel ? null : ignoreBtn(it, isBusy)));
 

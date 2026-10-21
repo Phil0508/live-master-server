@@ -27,9 +27,9 @@ def clock(t):
 
 class Pure(unittest.TestCase):
     def test_card_contrib(self):
-        # man_won(당첨 − 한 판 값): 6천 원부터 1점 올림, 0 아래는 0
-        self.assertEqual([sl.card_contrib(a, p) for a, p in ((50000, 20000), (10300, 20000), (20005, 20000), (25999, 20000),
-                                                            (26000, 20000), (20005, 4000), (14000, 4000), (50000, 0))],
+        # man_won(당첨 − 한 판 값): 5,001원부터 1점 올림(10-21), 0 아래는 0
+        self.assertEqual([sl.card_contrib(a, p) for a, p in ((50000, 20000), (10300, 20000), (20005, 20000), (25000, 20000),
+                                                            (25001, 20000), (20005, 4000), (14000, 4000), (50000, 0))],
                          [3, 0, 0, 0, 1, 2, 1, 5])
 
     def test_candidates(self):

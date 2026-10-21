@@ -44,10 +44,10 @@ export const won = n => '₩' + num(n);
 /** +5 · −3 (빼기는 눈에 잘 띄는 긴 줄표) */
 export const signed = n => (Number(n) < 0 ? '−' + num(Math.abs(n)) : '+' + num(n));
 
-/** 원 → 점수 — 서버 rules.man_won 과 같다: (금액 + 4000) // 10000. 5,999 → 0 · 6,000 → 1 · 16,000 → 2 */
+/** 원 → 점수 — 서버 rules.man_won 과 같다: (금액 + 4999) // 10000. 5,000 → 0 · 5,001 → 1 · 15,001 → 2 (10-21 대표님) */
 export function manWon(amount) {
     const a = Math.trunc(Number(amount) || 0);
-    return Math.floor((a + 4000) / 10000);
+    return Math.floor((a + 4999) / 10000);
 }
 
 /** 나눠 주기 — 서버 rules.split_points 와 같다: 똑같이 나누고 남는 점수는 앞사람부터 1점씩 */

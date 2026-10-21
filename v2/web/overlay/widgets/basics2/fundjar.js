@@ -1,6 +1,6 @@
 /* 🏺 모금함 — 금색 깃발(옛 2026-10-03 시안 B). fundjar 조각(name · enabled · seed · score(원)).
    - 회사 종잣돈(seed) + 시청자 후원(score) 을 **만원 단위**로 크게(1,234,000원 → 123만원). 폭 108 이라 원 단위는 안 들어간다.
-     반올림은 점수와 같은 규칙 — 5,000원대는 내리고 6,000원부터 올린다(옛 jarMan).
+     반올림은 점수와 같은 규칙 — 5,000원까지는 내리고 5,001원부터 올린다(10-21 대표님 · 옛 jarMan 은 6천부터).
      1,000만원(4자리)부터는 글씨를 줄인다(.jar-4).
    - 금액이 **오를 때만** 깃발이 한 번 튀고 반짝 + 쨍그랑(처음 그림에서는 안 튄다).
    - 보이기: 옛 shHud('fundjar') — 옛 서버는 show.hud.fundjar 와 fundjar.enabled 를 늘 같게 맞췄다.
@@ -20,7 +20,7 @@ function hudForce() {
     return f;
 }
 
-export const jarMan = won => Math.floor((Math.max(0, Number(won) || 0) + 4000) / 10000);
+export const jarMan = won => Math.floor((Math.max(0, Number(won) || 0) + 4999) / 10000);
 
 export function mount(root, lm, opts) {
     const FORCE = hudForce();

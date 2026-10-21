@@ -261,7 +261,7 @@ def build_facts(slices, today=None, vip=None, suggest=None, now=None):
     f = {
         '방송': '진행 중' if _sl(slices, 'session', {}).get('live') else '꺼짐',
         '판': '임시게임(엑스트라)' if extra else '본게임',
-        '단위': '점수 1점 = 후원 1만 원(5천 원대는 내리고 6천 원부터 올림). 순위는 기여도 순.',
+        '단위': '점수 1점 = 후원 1만 원(5,000원까지는 내리고 5,001원부터 올림). 순위는 기여도 순.',
         '순위': rank,
     }
 

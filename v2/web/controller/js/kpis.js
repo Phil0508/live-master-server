@@ -163,7 +163,7 @@ function mountSettle(ctx) {
             h('span', { class: 'st-ic' }, hicon('scale')),
             h('span', { class: 'st-k' }, '정산'),
             h('span', { class: 'st-it', title: '이번 방송 장부에 들어온 실제 돈 — 화면에만 · 다시 보기 · 테스트는 빼고' }, '실제 받은 돈 ', real),
-            h('span', { class: 'st-it', title: '배정한 후원마다 만 원 단위 점수((금액+4000)÷1만, 나머지 버림) × 1만 원' }, '점수로 들어간 돈 ', scored, pts),
+            h('span', { class: 'st-it', title: '배정한 후원마다 만 원 단위 점수((금액+4999)÷1만, 나머지 버림 — 5,001원부터 올림) × 1만 원' }, '점수로 들어간 돈 ', scored, pts),
             h('span', { class: 'st-it st-d' }, '차액 ', diff),
             toggle),
         pop);
@@ -218,7 +218,7 @@ function mountSettle(ctx) {
         if (!kids.length) kids.push(h('li', { class: 'st-empty' }, '차액이 없어요 — 받은 돈이 모두 점수로 들어갔어요'));
         list.replaceChildren(...kids);
         const parts = [];
-        if (data.small_zero_n) parts.push(`그중 ${num(data.small_zero_n)}건은 5,999원 이하라 0점이었어요.`);
+        if (data.small_zero_n) parts.push(`그중 ${num(data.small_zero_n)}건은 5,000원 이하라 0점이었어요.`);
         if (data.hand && data.hand.n) parts.push(`참고: 나눠 줄 때 점수를 손으로 바꾼 배정 ${num(data.hand.n)}건(${(data.hand.won > 0 ? '+' : '−') + num(Math.abs(data.hand.won))}원) — 위 셈은 만 원 규칙대로예요.`);
         parts.push('+ 는 받았지만 점수에 안 들어간 돈, − 는 받은 것보다 점수가 더 들어간 몫이에요. 합하면 차액과 같아요.');
         setText(note, parts.join(' '));

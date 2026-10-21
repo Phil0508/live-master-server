@@ -20,12 +20,12 @@ _EMOTICON_AFTER_COLON = set(')(dDpPoO3/\\|<>^_-*;')
 
 
 def man_won(amount):
-    """원 → 점수(만 원 단위, 6천 원부터 올림). 5,999 → 0 · 6,000 → 1 · 15,999 → 1 · 16,000 → 2"""
+    """원 → 점수(만 원 단위, 5,001원부터 올림 — 대표님 10-21, 전엔 6천 원부터). 5,000 → 0 · 5,001 → 1 · 15,000 → 1 · 15,001 → 2"""
     try:
         a = int(amount)
     except (TypeError, ValueError):
         return 0
-    return (a + 4000) // POINT_WON
+    return (a + 4999) // POINT_WON
 
 
 def norm_donor(name):

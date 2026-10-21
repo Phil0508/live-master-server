@@ -23,10 +23,10 @@ def why(s):
 
 class Pure(unittest.TestCase):
     def test_rule_is_man_won(self):
-        # 만 원 단위 규칙 — (금액 + 4000) // 10000
-        for a, p in [(5999, 0), (6000, 1), (15999, 1), (16000, 2), (100009, 10), (0, 0)]:
+        # 만 원 단위 규칙 — (금액 + 4999) // 10000 (10-21 5,001원부터 올림)
+        for a, p in [(5000, 0), (5001, 1), (15000, 1), (15001, 2), (100009, 10), (0, 0)]:
             self.assertEqual(man_won(a), p, a)
-            self.assertEqual(man_won(a), (a + 4000) // 10000)
+            self.assertEqual(man_won(a), (a + 4999) // 10000)
 
     def test_sum_of_reasons_is_diff(self):
         rows = [
