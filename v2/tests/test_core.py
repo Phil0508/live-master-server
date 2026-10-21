@@ -82,6 +82,13 @@ class Core(unittest.TestCase):
         self.assertEqual(self.c.post('/api/cmd', json={'type': 'session.end'}, headers=BEARER).status_code, 200)
         self.assertEqual(self.c.get('/api/deploy/ok').status_code, 200)
 
+    def test_root_opens_overlay_like_old_server(self):
+        # OBS 에 큰 주소만 넣어 둔 방송판 소스가 로그인 창으로 가면 안 된다(옛 서버 '/' = 방송판)
+        r = self.c.get('/?theme=halloween', follow_redirects=False)
+        self.assertIn(r.status_code, (302, 307))
+        self.assertEqual(r.headers['location'], '/overlay/?theme=halloween')
+        self.assertEqual(self.c.get('/', follow_redirects=False).headers['location'], '/overlay/')
+
     def test_persist(self):
         self.c.post('/api/cmd', json={'type': 't.set', 'data': {'answer': 'a'}}, headers=BEARER)
         self.c.post('/api/cmd', json={'type': 'session.start', 'data': {'names': ['하율', '서아']}}, headers=BEARER)

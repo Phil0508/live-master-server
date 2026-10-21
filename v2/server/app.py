@@ -199,8 +199,11 @@ def create_app(db_path=None, password=None, secret=None, sig_fetch=None):
         app.mount('/vendor', StaticFiles(directory=vendor), name='vendor')
 
     @app.get('/')
-    async def root():
-        return RedirectResponse('/controller/')
+    async def root(req: Request):
+        # 옛 서버는 '/' 에서 방송판을 띄웠다 — OBS 에 큰 주소만 넣어 둔 소스가 있다(10-21 로그인 창이 뜬 것).
+        # 조종실은 /controller 로 들어간다.
+        q = req.url.query
+        return RedirectResponse('/overlay/' + ('?' + q if q else ''))
 
     return app
 
