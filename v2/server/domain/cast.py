@@ -22,7 +22,10 @@ UP_MAX = 60
 FX_KINDS = ('banner', 'flash', 'ticker', 'card', 'shock', 'glitch', 'warn')
 FX_NAME_MAX, FX_MSG_MAX = 40, 120
 
-slice_('cast', True, lambda: {'say': None, 'up': None, 'fx': None, 'fx_clear': None, 'n': 0})
+slice_('cast', True, lambda: {'say': None, 'up': None, 'fx': None, 'fx_clear': None, 'video': None, 'n': 0})
+
+# 🐉 대형 연출 영상(10-23 대표님 — 드리미나로 만든 영상, 검은 배경을 뺀 투명 webm) — 방송판 widgets/cast/video.js 가 /overlay/fxvideos/<이름>.webm 을 튼다
+VIDEO_FX = {'dragon': '🐉 용 연출'}
 
 
 def _one_line(v, n):
@@ -76,3 +79,18 @@ def fx(ctx, data):
 @command('cast.fx_clear')
 def fx_clear(ctx, data):
     _fire(ctx, 'fx_clear', {})
+
+
+@command('cast.video')
+def video(ctx, data):
+    """🐉 대형 연출 영상 틀기 {name} — 방송 화면 위에 투명 영상(용 연출 등)을 한 번."""
+    name = str(data.get('name') or '')
+    if name not in VIDEO_FX:
+        raise CommandError('모르는 연출 영상입니다: %s' % name[:20])
+    _fire(ctx, 'video', {'name': name})
+
+
+@command('cast.video_stop')
+def video_stop(ctx, data):
+    """틀고 있는 연출 영상을 바로 걷는다."""
+    _fire(ctx, 'video', {'name': '', 'stop': True})

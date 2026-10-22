@@ -14,4 +14,6 @@ export const LAYERS = [
     { id: 'castUp',  widget: 'cast/up',   z: 34, x: 0, y: 0, w: 1080, h: 1920, liveOnly: true },
     { id: 'castSay', widget: 'cast/say',  z: 56, x: 0, y: 0, w: 1080, h: 1920 },
     { id: 'castFx',  widget: 'cast/opfx', z: 57, x: 0, y: 0, w: 1080, h: 1920 },
+    // 🐉 대형 연출 영상(10-23) — 화면 전체를 잠깐 덮는 투명 영상. 계엄령 경보(58) 위 · 자동재생 경고 띠(60) 아래
+    { id: 'castVideo', widget: 'cast/video', z: 59, x: 0, y: 0, w: 1080, h: 1920 },
 ];

@@ -38,9 +38,10 @@ ABOVE_DONATION_OK = {
     'sigDisp': '📺 출연진 전광판 — 따로 띄우는 화면(?only=sig)에만',
     'castSay': '💬 화면에 한마디 — 1초(옛 궁서 글씨 맨 위)',
     'castFx': '👑 조종실 후원 연출 — 대표님이 쏘는 연출(잠깐)',
+    'castVideo': '🐉 대형 연출 영상 — 투명 영상 한 번(용 연출 등, 10-23)',
 }
 # 시그니처 카드보다 위에 있어도 되는 칸 — 일부러 화면 전체를 잠깐 덮는 연출 · 따로 띄우는 화면만
-ABOVE_SIGNATURE_OK = {'sigfx', 'sigWarn', 'sigUnlock', 'sigDisp', 'castSay', 'castFx'}
+ABOVE_SIGNATURE_OK = {'sigfx', 'sigWarn', 'sigUnlock', 'sigDisp', 'castSay', 'castFx', 'castVideo'}
 # 자기 칸을 벗어나 화면 전체에 그리는 곳 — 옛 방송판과 같은 것만
 ESCAPE_OK = {
     os.path.join('games', 'slot-roulette-kit.js'): '룰렛 · 슬롯 · 핀볼 우승 폭죽(canvas-confetti 전역, 옛 방송판과 같이 잠깐 모든 층 위)',

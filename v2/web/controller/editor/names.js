@@ -32,6 +32,7 @@ const V2 = {
     'rouletteWin': '🎡 룰렛 당첨 글씨',
     'matchFire': '⚔️ 대결 불꽃(바탕)',
     'frame': '🖼 방송 테두리(화면 전체)',
+    'castVideo': '🐉 대형 연출 영상(화면 전체)',
     'matchFx': '⚔️ 대결 연출',
     'acctVideo': '🎬 고액후원 영상',
     'sigTally': '📊 오늘의 시그니처',

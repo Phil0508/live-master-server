@@ -155,3 +155,8 @@
 @keyframes op-warn-blink { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 .op-warn-sub { font-size: 44px; font-weight: 900; color: #fff; margin-top: 12px;
     text-shadow: 0 0 24px rgba(255,60,60,.8), 0 3px 0 rgba(0,0,0,.6); }
+
+/* 🐉 대형 연출 영상(10-23) — 투명 webm 을 화면 전체에. 켤 때 바로 · 끝나면 0.3초 스러짐 */
+.cast-video { pointer-events: none; }
+.cv-video { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; object-fit: cover; opacity: 0; transition: opacity 0.3s ease; }
+.cv-video.on { opacity: 1; transition: none; }

@@ -71,6 +71,25 @@ class Commands(Base):
         self.assertGreater(s['fx_clear']['id'], s['fx']['id'])
         self.assertEqual(self.st()['players']['list'][0]['score'], 0)              # 점수 · 장부는 안 바뀐다
 
+    def test_video(self):
+        """🐉 대형 연출 영상(10-23) — 아는 이름만 틀고, 멈추기는 stop 으로 같은 칸을 덮는다. 파일도 있어야 한다."""
+        c, r = self.cmd('cast.video', name='dragon')
+        self.assertEqual(c, 200, r)
+        v = self.st(auth=False)['cast']['video']                                   # 방송판(로그인 없음)이 받는다
+        self.assertEqual((v['name'], v.get('stop')), ('dragon', None))
+        self.assertEqual(self.cmd('cast.video', name='nope')[0], 400)
+        self.assertEqual(self.cmd('cast.video')[0], 400)
+        r = self.c.post('/api/cmd', json={'type': 'cast.video', 'data': {'name': 'dragon'}})
+        self.assertEqual(r.status_code, 401)                                       # 주소만 아는 사람은 못 튼다
+        c, r = self.cmd('cast.video_stop')
+        self.assertEqual(c, 200)
+        v2 = self.st()['cast']['video']
+        self.assertTrue(v2['stop'])
+        self.assertGreater(v2['id'], v['id'])
+        from v2.server.domain import cast
+        for name in cast.VIDEO_FX:
+            self.assertTrue(os.path.exists(os.path.join(ROOT, 'v2', 'web', 'overlay', 'fxvideos', name + '.webm')), name)
+
 
 class OverlayJs(unittest.TestCase):
     def test_opfx_texts(self):
@@ -119,7 +138,7 @@ class Wiring(unittest.TestCase):
         self.assertIn("from './groups/cast.js'", lay)
         self.assertIn('...CAST', lay)
         grp = self._src('v2', 'web', 'overlay', 'groups', 'cast.js')
-        for wid in ('cast/up', 'cast/say', 'cast/opfx'):
+        for wid in ('cast/up', 'cast/say', 'cast/opfx', 'cast/video'):
             self.assertIn("'%s'" % wid, grp)
             self.assertTrue(os.path.exists(os.path.join(ROOT, 'v2', 'web', 'overlay', 'widgets', wid + '.js')), wid)
         self.assertIn('/overlay/css/cast.css', self._src('v2', 'web', 'overlay', 'index.html'))
