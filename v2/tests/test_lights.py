@@ -74,6 +74,17 @@ class Lights(Base):
         self.cmd('look.fx', on=True)
         self.assertIs(self.st()['look']['fx'], True)
 
+    def test_frame_switch(self):
+        """🖼 방송 테두리(10-23) — look.frame {on}, 방송판(공개)이 받는다 · 없으면 꺼짐 · 테마를 바꿔도 그대로"""
+        self.assertFalse(self.st(auth=False)['look'].get('frame', False))
+        self.assertEqual(self.cmd('look.frame', on='yes')[0], 400)
+        self.cmd('look.frame', on=True)
+        self.assertIs(self.st(auth=False)['look']['frame'], True)
+        self.cmd('look.theme', theme='rose')
+        self.assertIs(self.st()['look']['frame'], True)
+        self.cmd('look.frame', on=False)
+        self.assertIs(self.st()['look']['frame'], False)
+
     def test_kept_across_broadcasts(self):
         """옛 BROADCAST_KEEP_KEYS(neon_speed · saved_colors · theme_fx_enabled) — 방송을 끝내고 다시 시작해도 그대로"""
         self.cmd('lights.set', speed=3.2)

@@ -352,3 +352,8 @@
 .layer-donation .hdr-r { font-size: 38px; letter-spacing: -1px; }
 /* 머리띠가 이미 등급 색을 크게 쓴다 — 이름까지 같은 색이면 둘이 싸운다 */
 .layer-donation .vip-rank-mid .donator-name { color: #fff !important; text-shadow: var(--ts-1); }
+
+/* 🖼 방송 테두리(10-23) — 켜고 끌 때 0.4초 스며든다 */
+.ov-frame { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; user-select: none;
+            opacity: 0; transition: opacity 0.4s ease; }
+.ov-frame.on { opacity: 1; }

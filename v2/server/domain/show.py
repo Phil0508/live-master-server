@@ -172,6 +172,14 @@ def look_theme(ctx, data):
     ctx.edit('look')['theme'] = str(data.get('theme') or 'default')[:30]
 
 
+@command('look.frame')
+def look_frame(ctx, data):
+    """🖼 방송 테두리 켜기/끄기 {on} — 방송판 widgets/basics2/frame.js(10-23 대표님). 값이 없으면 꺼짐."""
+    if not isinstance(data.get('on'), bool):
+        raise CommandError('on 은 true/false 로 보내 주세요')
+    ctx.edit('look')['frame'] = data['on']
+
+
 def _reset(ctx, data):
     s = ctx.edit('show')
     s['stage'], s['ret'] = None, None

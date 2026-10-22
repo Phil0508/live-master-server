@@ -10,6 +10,9 @@
      32~33  목표 달성 · 퇴근 — 알림 무리. ⚠️ 옛 것은 후원 카드보다 위였다(100050 · 999999) — 표의 약속(알림 < 후원 카드)을 따랐다
    옛 기본 자리 출처: overlay.html 의 컨테이너 style · tests/acct_video_layer_test.py 의 운영 배치(계좌 영상 0,380 · 0.84). */
 export const LAYERS = [
+    // 🖼 방송 테두리 — 화면 전체 장식 틀(10-23). 맨 아래 층(z 1) — 판 · 알림 · 시그니처가 다 테두리 위에 뜬다.
+    //    같은 z 1 인 대결 불꽃(games_b)은 층 표에서 뒤라 테두리 위에 그려진다.
+    { id: 'frame',       widget: 'basics2/frame',        z: 1,  x: 0,    y: 0,   w: 1080, h: 1920 },
     // 🏺 모금함 깃발 — 옛 #fundjar-container 40,167(점수판 왼쪽 빈자리, 깃발 108×262). 보이기는 위젯이 정한다(hud.fundjar 또는 fundjar.enabled).
     //    시그니처가 도는 동안은 점수판 · 게이지와 함께 숨는다(대표님 10-07, 옛 77a3aba — 깃발만 혼자 남았다).
     { id: 'fundjar',     widget: 'basics2/fundjar',      z: 13, x: 40,   y: 167, liveOnly: true, hideInReaction: true },

@@ -65,6 +65,12 @@ export function mountStage(el, ctx) {
         if (res.ok) ctx.toast(on ? '✨ 테마 연출을 켰어요 — 테마를 입었을 때만 입자가 나와요' : '✨ 테마 연출을 껐어요', on ? 'ok' : 'info');
         else { lastSig = ''; ctx.rerender(); }
     }, '테마를 입었을 때 후원 알림에 테마 모양 입자(하트 · 리본 · 보석 · 금가루)를 조금 뿌립니다. 기본 테마에서는 원래대로 아무것도 안 나옵니다.');
+    // 🖼 방송 테두리(10-23) — look.frame {on}(서버 show.py · 방송판 widgets/basics2/frame.js)
+    const frameSw = switchEl('🖼 방송 테두리', async on => {
+        const res = await ctx.run('look.frame', { on });
+        if (res.ok) ctx.toast(on ? '🖼 방송 테두리를 씌웠어요' : '방송 테두리를 뺐어요', on ? 'ok' : 'info');
+        else { lastSig = ''; ctx.rerender(); }
+    }, '화면 가장자리에 파란 크리스탈 · 금장식 테두리를 씌워요. 가운데는 방송 화면이 그대로 보이고, 점수판 · 알림은 테두리 위에 떠요.');
 
     el.classList.add('ops', 'ops-stage');
     el.append(
@@ -76,7 +82,7 @@ export function mountStage(el, ctx) {
         h('section', { class: 'ops-blk' }, blockHead('알림', '들어올 때 잠깐 뜨는 것'), alertRow,
             h('div', { class: 'ops-row wrap' }, sfxSw.el,
                 h('span', { class: 'ops-hint inline' }, '주사위 · 목표 · 모금함 · 시그뒤집기 · 대결 삑 — 시그니처 · 노래방 · 영상 소리는 안 꺼져요'))),
-        h('section', { class: 'ops-blk' }, blockHead('테마', '방송판 위젯의 옷만 바뀌어요 — 자리 · 크기는 그대로'), h('div', { class: 'ops-row wrap' }, themeSel, fxSw.el)),
+        h('section', { class: 'ops-blk' }, blockHead('테마', '방송판 위젯의 옷만 바뀌어요 — 자리 · 크기는 그대로'), h('div', { class: 'ops-row wrap' }, themeSel, fxSw.el, frameSw.el)),
     );
 
     async function setStage(k) {
@@ -110,6 +116,7 @@ export function mountStage(el, ctx) {
         cues.render(slices);
         sfxSw.set((slices.look || {}).sfx !== false);      // 값이 없는 옛 상태는 켜짐
         fxSw.set((slices.look || {}).fx !== false);        // ✨ 테마 연출 — 값이 없으면 켜짐(옛 theme_fx_enabled !== false)
+        frameSw.set(!!(slices.look || {}).frame);          // 🖼 방송 테두리 — 값이 없으면 꺼짐
         const s = slices.show || {};
         const theme = (slices.look || {}).theme || 'default';
         const hl = slices.hell || {}, hm = slices.home || {};
