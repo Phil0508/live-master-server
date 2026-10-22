@@ -15,7 +15,12 @@
      전선 자리 = lead[0] 칸에서 2위가 있는 쪽 모서리.
    - 순간 글씨: flash.at 이 처음 보는 값이고 실시간(또는 3초 안)이면 flash.text('역전!' · '동점!') 한 번.
    - 점수가 바뀌면 0.7초 세어 올리고, 오르면 카드가 번쩍(m-bump). 전 점수는 team.id 로 기억한다.
-   - 불꽃 테두리(피버 · 수동 불꽃)는 match_fire 칸이 따로 그린다. */
+   - 불꽃 테두리(피버 · 수동 불꽃)는 match_fire 칸이 따로 그린다.
+   ⭐ 10-23 대표님 '다른 방송 대결판 구도 + 우리 옷' — 시안 B · 시계 2번:
+     유리판 하나 안에 ① 제목(match.title, 비면 숨김) ② 남은 시간 금색 줄(남은/restart_ms) ③ 막대(점수 비율 · 1등 👑) 위
+     가운데에 걸친 금테 시계 배지(⏱ mm:ss — 마지막 10초는 지금처럼 빨개지며 커지고 삐) ④ 아랫줄 = 왼쪽 팀원 · 가운데 차이 ·
+     오른쪽 팀원. 팀원 옆 숫자 = 이번 판 그 사람 몫(서버 pts — 연동 점수만, 개인전이면 팀 점수). 팀원이 없으면 대결자 이름 · 점수.
+     대결자가 3~4명이면 아랫줄 대신 예전 카드 줄 + 막대 밑에 매단 차이(전선) 그대로. */
 import { esc, formatNum, animateVal, restartClass } from '../../util.js';
 import { startClock, serverNow, soundInit, beep, explosion, makeFader, coverOn, isLive, canvasRect } from './dice_kit.js';
 
@@ -28,16 +33,26 @@ export function mount(root, lm, opts) {
     soundInit(opts);
     const stage = opts.stage;
     root.innerHTML = '<div class="gb-wrap match-box"><div class="match-wrapper">'
-        + '<div class="m-timer-pill">00:00</div>'
-        + '<div class="m-front"><div class="m-gauge"></div><div class="m-front-line"></div>'
+        + '<div class="m-title" hidden></div>'
+        + '<div class="m-tline" aria-hidden="true"><b></b></div>'
+        + '<div class="m-front"><div class="m-clock"><div class="m-timer-pill"><i class="m-ti" aria-hidden="true">⏱</i><span class="m-tt">00:00</span></div></div>'
+        +   '<div class="m-gauge"></div><div class="m-front-line"></div>'
         +   '<div class="m-front-mark"><div class="m-front-tail"></div>'
         +     '<div class="m-front-num"><span class="m-fn">0</span><span class="unit">차이</span></div>'
         +     '<div class="m-front-hint"></div></div></div>'
+        + '<div class="m-duo"><div class="m-side m-l"></div><div class="m-mid"></div><div class="m-side m-r"></div></div>'
         + '<div class="m-cards"></div>'
         + '<div class="m-flash">역전!</div>'
         + '</div></div>';
     const wrap = root.firstElementChild;
+    const box = root.querySelector('.match-wrapper');
+    const titleEl = root.querySelector('.m-title');
+    const tlineBar = root.querySelector('.m-tline b');
     const timerEl = root.querySelector('.m-timer-pill');
+    const ttEl = root.querySelector('.m-tt');
+    const numBox = root.querySelector('.m-front-num');
+    const midEl = root.querySelector('.m-mid');
+    const sideEls = [root.querySelector('.m-l'), root.querySelector('.m-r')];
     const front = root.querySelector('.m-front');
     const gauge = root.querySelector('.m-gauge');
     const line = root.querySelector('.m-front-line');
@@ -74,6 +89,11 @@ export function mount(root, lm, opts) {
         if (key !== teamKey) {
             teamKey = key;
             prevGap = null;
+            const duo = teams.length === 2;
+            box.classList.toggle('duo', duo);
+            if (duo) midEl.append(numBox, hintEl);                      // 차이는 아랫줄 가운데
+            else mark.append(numBox, hintEl);                           // 3~4명: 막대 밑 전선에 매단다(예전 그대로)
+            sideEls.forEach(el => { el.dataset.sig = ''; });
             gauge.innerHTML = teams.map((t, i) =>
                 '<div class="m-seg" style="--c:' + M_COLS[i % 6] + '; --rgb:' + M_RGB[i % 6] + ';"><span class="m-seg-amt">0</span></div>').join('');
             cardsEl.innerHTML = teams.map((t, i) =>
@@ -97,6 +117,7 @@ export function mount(root, lm, opts) {
             const memEl = card.querySelector('.m-card-members');
             const mem = (m.link && m.link !== 'off') ? (t.members || []).filter(Boolean).join(' · ') : '';
             if (memEl.textContent !== mem) memEl.textContent = mem;
+            if (teams.length === 2 && i < 2) renderSide(sideEls[i], m, t);
             const frac = total > 0 ? Math.max(0.05, Math.max(0, sc) / total) : (1 / Math.max(1, teams.length));
             fracs.push(frac);
             seg.style.flex = frac.toFixed(4);
@@ -107,7 +128,10 @@ export function mount(root, lm, opts) {
             if (pv !== undefined && pv !== sc) {
                 animateVal(amtEl, pv, sc, 700);
                 animateVal(segAmt, pv, sc, 700);
-                if (sc > pv) { restartClass(card, 'm-bump'); setTimeout(() => card.classList.remove('m-bump'), 700); }
+                if (sc > pv) {
+                    restartClass(card, 'm-bump'); setTimeout(() => card.classList.remove('m-bump'), 700);
+                    restartClass(seg, 'm-bump'); setTimeout(() => seg.classList.remove('m-bump'), 700);
+                }
             } else if (pv === undefined || amtEl.textContent === '0') {
                 amtEl.textContent = formatNum(sc);
                 segAmt.textContent = formatNum(sc);
@@ -117,15 +141,31 @@ export function mount(root, lm, opts) {
         renderGap(m, teams, total, fracs);
     }
 
+    // 아랫줄 한쪽 — 팀원 · 이번 판 몫(서버 pts). 개인전은 팀 점수가 그 사람 몫. 팀원이 없으면 대결자 이름 · 점수
+    function renderSide(el, m, t) {
+        const members = (m.link && m.link !== 'off') ? (t.members || []).filter(Boolean) : [];
+        const pts = t.pts || {};
+        const rows = members.length
+            ? members.map(n => [n, m.link === 'solo' ? (Number(t.score) || 0) : (Number(pts[n]) || 0)])
+            : [[t.name || '', Number(t.score) || 0]];
+        const sig = JSON.stringify(rows);
+        if (el.dataset.sig === sig) return;
+        el.dataset.sig = sig;
+        el.innerHTML = rows.slice(0, 4).map(([n, v]) =>
+            '<div class="m-row"><span class="m-nm">' + esc(n) + '</span><span class="m-sc">' + formatNum(v) + '</span></div>').join('');
+    }
+
     function renderGap(m, teams, total, fracs) {
         const lead = Array.isArray(m.lead) ? m.lead : [];
         const gap = (m.gap === null || m.gap === undefined) ? null : Number(m.gap);
         if (teams.length < 2 || !lead.length || gap === null) {
             front.classList.remove('on', 'tight');
             gauge.classList.remove('tight');
+            box.classList.remove('tight', 'gap-on');
             prevGap = null;
             return;
         }
+        box.classList.add('gap-on');
         const leadIdx = teams.findIndex(t => t.id === lead[0]);
         let secondIdx = -1;
         teams.forEach((t, i) => {
@@ -150,13 +190,14 @@ export function mount(root, lm, opts) {
             unitEl.textContent = teams.length > 2 ? '1·2위 차이' : '차이';
             if (prevGap !== null && prevGap !== gap) animateGap(numEl, prevGap, gap, 700);
             else { bumpGen(numEl); numEl.textContent = formatNum(gap); }
-            hintEl.textContent = formatNum(gap + 1) + '점시 역전!';
+            hintEl.textContent = formatNum(gap + 1) + '점이면 역전!';
         }
         prevGap = gap;
         const tight = total > 0 && (gap / total) <= M_TIGHT_RATIO;
         front.classList.add('on');
         front.classList.toggle('tight', tight);
         gauge.classList.toggle('tight', tight);
+        box.classList.toggle('tight', tight);
     }
 
     function flashMaybe(m) {
@@ -206,9 +247,13 @@ export function mount(root, lm, opts) {
         const left = running ? Math.max(0, (Number(t.end_ms) || 0) - serverNow()) : (Number(t.left_ms) || 0);
         const sec = Math.ceil(left / 1000);
         const mmss = String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0');
+        const full = Math.max(Number(t.restart_ms) || 0, left, 1);
+        const w = (Math.min(1, left / full) * 100).toFixed(1) + '%';       // 남은 시간 금색 줄
+        if (tlineBar.style.width !== w) tlineBar.style.width = w;
         if (left <= 0) {
             timerEl.removeAttribute('style');
-            if (timerEl.textContent !== '시간종료') timerEl.textContent = '시간종료';
+            timerEl.classList.remove('hot');
+            if (ttEl.textContent !== '시간종료') ttEl.textContent = '시간종료';
             const endMs = Number(t.end_ms) || 0;
             if (running && endMs && exploded !== endMs) {
                 exploded = endMs;
@@ -217,6 +262,7 @@ export function mount(root, lm, opts) {
             }
             return;
         }
+        timerEl.classList.toggle('hot', running && left <= 10000);       // 배지 바탕도 빨갛게(시안 B 시계 2번)
         if (running && left <= 10000) {
             const k = (10000 - left) / 10000;
             timerEl.style.backgroundColor = 'rgba(255, ' + (255 * (1 - k)) + ', ' + (255 * (1 - k)) + ', 0.5)';
@@ -232,7 +278,7 @@ export function mount(root, lm, opts) {
             timerEl.removeAttribute('style');
             lastBeepSec = -1;
         }
-        if (timerEl.textContent !== mmss) timerEl.textContent = mmss;
+        if (ttEl.textContent !== mmss) ttEl.textContent = mmss;
     }
 
     function render() {
@@ -249,6 +295,9 @@ export function mount(root, lm, opts) {
             if (fresh && exploded !== ea && exploded !== endMs && onStage && !coverOn(lm)) { exploded = ea; boom(); }
         } else if (!ea) seenEndedAt = 0;
         if (!onStage) { prevGap = null; teamKey = null; prevScores = {}; return; }   // 껐다 켜면 새 판 — 옛 1등을 기억한 채 '역전!' 이 안 뜨게
+        const title = String(m.title || '').trim();
+        if (titleEl.textContent !== title) titleEl.textContent = title;
+        titleEl.hidden = !title;
         renderBoard(m);
         flashMaybe(m);
         tick();

@@ -687,6 +687,7 @@
         /* ⚔️ 대결 — 팀 색(카드 테두리 · 게이지)은 그대로, 속과 글씨만 */
         #canvas.themed .m-card { background: var(--game-fill); }
         #canvas.themed .m-timer-pill { background: var(--game-fill); border-color: rgba(var(--gold-rgb), .6); }
+        #canvas.themed .match-wrapper { background: var(--game-fill); border-color: rgba(var(--gold-rgb), .45); }   /* 10-23 시안 B 유리판 */
         #canvas.themed :is(.m-card-name, .m-vs) { font-family: var(--face-name); font-weight: var(--name-weight); }
         /* 🏃 퇴근빵 — 막대 색은 --race 토큰(테마 블록)이 바꾼다 */
         #canvas.themed .home-race-title {

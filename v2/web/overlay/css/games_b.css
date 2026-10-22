@@ -348,6 +348,47 @@
     0%, 100% { box-shadow: var(--sh-2), inset 0 0 0 1px rgba(255,255,255,0.08); }
     50% { box-shadow: var(--sh-2), inset 0 0 0 2px rgba(var(--gold-rgb), 0.9), 0 0 26px rgba(var(--gold-rgb), 0.45); }
 }
+/* ── 10-23 대표님 시안 B · 시계 2번 — 유리판 하나: 제목 / 남은 시간 줄 / 막대(위에 시계 배지) / 팀원 · 차이 · 팀원 ── */
+.match-wrapper {
+    width: 756px; box-sizing: border-box; padding: 14px 18px 18px; gap: 12px; border-radius: var(--r-l);
+    background: var(--glass-bg); border: 1px solid var(--glass-border); box-shadow: var(--sh-2), inset 0 1px 0 var(--glass-top-light);
+}
+.m-title { width: 100%; text-align: center; font-family: var(--font-ui); font-weight: 900; font-size: 28px; letter-spacing: -0.3px;
+           color: var(--gold); text-shadow: var(--ts-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-title[hidden] { display: none; }
+.m-tline { width: 100%; height: 5px; border-radius: 4px; background: rgba(255,255,255,0.12); overflow: hidden; }
+.m-tline b { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, rgba(var(--gold-rgb), 0.5), var(--gold)); transition: width 0.25s linear; }
+.m-front { margin-top: 24px; }                                 /* 시계 배지가 막대 위에 걸칠 자리 */
+.m-clock { position: absolute; left: 0; right: 0; top: -36px; display: flex; justify-content: center; z-index: 4; pointer-events: none; }
+.m-clock .m-timer-pill {
+    display: flex; align-items: center; gap: 8px; padding: 2px 24px; border-radius: 999px; font-size: 33px; letter-spacing: 0.5px;
+    background: linear-gradient(180deg, #23232f, #101017); border: 2px solid rgba(var(--gold-rgb), 0.85);
+    box-shadow: 0 0 14px rgba(var(--gold-rgb), 0.35), var(--sh-2);
+}
+.m-ti { font-style: normal; font-size: 24px; }
+.m-clock .m-timer-pill.hot { background: linear-gradient(180deg, #5a0f1c, #2a070e); border-color: rgba(255, 59, 92, 0.95); }
+.m-seg.lead .m-seg-amt::after { content: ' 👑'; }
+.m-seg.m-bump { animation: mBump 0.6s ease; }
+.m-duo { display: none; }
+/* 둘이 겨룰 때(duo) — 막대 숫자는 양 끝 · 차이는 아랫줄 가운데 · 카드 대신 팀원 줄 */
+.match-wrapper.duo .m-gauge { height: 60px; }
+.match-wrapper.duo .m-seg:first-child { justify-content: flex-start; padding-left: 18px; }
+.match-wrapper.duo .m-seg:nth-child(2) { justify-content: flex-end; padding-right: 18px; }
+.match-wrapper.duo .m-seg-amt { font-size: 32px; }
+.match-wrapper.duo .m-seg.lead .m-seg-amt { font-size: 34px; }
+.match-wrapper.duo .m-front.on { margin-bottom: 0; }
+.match-wrapper.duo .m-front-mark, .match-wrapper.duo .m-cards { display: none; }
+.match-wrapper.duo .m-duo { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 14px; width: 100%; }
+.m-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.m-row { display: flex; gap: 12px; align-items: baseline; white-space: nowrap; font-family: var(--font-ui); font-size: 28px; text-shadow: var(--ts-1); font-variant-numeric: tabular-nums; min-width: 0; }
+.m-r .m-row { flex-direction: row-reverse; }
+.m-nm { font-weight: 800; color: rgba(255,255,255,0.9); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.m-sc { font-weight: 900; color: #fff; flex: none; }
+.m-mid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.match-wrapper:not(.gap-on) .m-mid { visibility: hidden; }
+.match-wrapper.duo .m-front-num { font-size: 36px; color: var(--gold); border-color: rgba(var(--gold-rgb), 0.7); padding: 2px 14px; }
+.match-wrapper.duo .m-front-hint { font-size: 16px; margin-top: 0; }
+.match-wrapper.duo.tight .m-front-num { animation: mGapPulse 1s ease-in-out infinite; }
 /* 역전 · 동점 — 그 순간에만 */
 .m-flash {
     position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%) scale(0.7);

@@ -2,10 +2,12 @@
 """⚔️ 대결 — 대결자(또는 팀) 2~4명이 점수를 겨룬다 · 타이머 · 후원판 점수 연동.
 
 조각
-  match      (공개)   active · title · fire · link · teams[{id, name, score, members}] ·
+  match      (공개)   active · title · fire · link · teams[{id, name, score, members, pts?}] ·
                       timer{running, end_ms, left_ms, restart_ms, held, ended_at} · lead · gap · leader · flash
   match_logs (비공개) 대결 점수 기록(최근 200줄) [{at, team, name, val, before, after, ref, kind, member?, src?}]
                       kind 'manual' = 조종실 손 점수 · 'link' = 후원판 점수를 따라 올라간 것(src = 장부 score_log 줄 번호)
+  pts      팀원별 이번 판 점수 {이름: 점수} — 연동(link)으로 따라온 점수만 그 사람 몫으로 센다(손 점수는 팀 점수에만).
+           방송판 대결판이 팀원 이름 옆에 보여 준다(10-23 대표님 '다른 방송 구도' — 시안 B). 없으면 아직 0.
   ⚠️ 비밀은 없다. 기록만 비공개다(옛 PRIVATE_STATE_FIELDS 의 match_logs 와 같다 — server.py:864).
 
 명령(팀은 id 로 고른다. name 으로도 되지만 같은 이름이 둘이면 409)
@@ -202,10 +204,23 @@ def _board(m, now_ms):
 def _add(ctx, team, delta, ref, kind, **extra):
     before = team['score']
     team['score'] += delta
+    who = extra.get('member')
+    if kind == 'link' and who:
+        _pts(team, who, delta)
     logs = ctx.edit('match_logs')
     logs.insert(0, dict({'at': ctx.now, 'team': team['id'], 'name': team['name'], 'val': delta, 'before': before,
                          'after': team['score'], 'ref': ref, 'kind': kind}, **extra))
     del logs[LOG_MAX:]
+
+
+def _pts(team, who, delta):
+    """팀원별 이번 판 점수(공개) — 0 이 되면 지운다."""
+    pts = team.setdefault('pts', {})
+    v = int(pts.get(who) or 0) + int(delta)
+    if v:
+        pts[who] = v
+    else:
+        pts.pop(who, None)
 
 
 def _freeze(t, now_ms):
@@ -385,6 +400,7 @@ def match_reset(ctx, data):
     m = _edit(ctx)
     for t in m['teams']:
         t['score'] = 0
+        t.pop('pts', None)
     _forget_lead(m)
     m['flash'] = None
     _board(m, _ms(ctx))
@@ -522,6 +538,8 @@ def undo_link(ctx, ref):
         t = next((x for x in m['teams'] if x['id'] == r['team']), None)
         if t is not None:
             t['score'] -= r['val']
+            if r.get('member'):
+                _pts(t, r['member'], -r['val'])
     ctx.put('match_logs', [r for r in logs if not (r.get('ref') == ref and r.get('kind') == 'link')])
     _board(m, _ms(ctx))
 

@@ -377,6 +377,22 @@ class Link(MatchBase):
         self.ok('pending.assign', id=pid, name='채원')                     # 다시 주면 지금 소속(A)으로
         self.assertEqual((self.score(a), self.score(b)), (3, 0))
 
+    def test_member_points_for_board(self):
+        """10-23 대결판 시안 B — 팀원 이름 옆 '이번 판 점수'(공개 pts). 연동 점수만 · 되돌리면 빼고 · 새 판이면 비움."""
+        a, b = self.two('team')
+        self.ok('match.member', id=a, member='하율')
+        self.ok('match.member', id=a, member='서아')
+        self.ok('match.member', id=b, member='채원')
+        self.assign(50000, 'toon_p1', name='서아')
+        pid = self.assign(30000, 'toon_p2', names=['하율', '채원'])
+        self.ok('match.score', id=a, delta=10)                            # 손 점수는 팀에만
+        self.assertEqual((self.team(a)['pts'], self.team(b)['pts'], self.score(a)), ({'서아': 5, '하율': 2}, {'채원': 1}, 17))
+        self.assertIn('pts', self.team(a, self.st(auth=False)))           # 방송판(공개)이 받는다
+        self.ok('score.undo', ref=pid)
+        self.assertEqual((self.team(a)['pts'], self.team(b)['pts']), ({'서아': 5}, {}))
+        self.ok('match.reset')
+        self.assertNotIn('pts', self.team(a))
+
     def test_no_follow_when_off_or_closed(self):
         a, b = self.two('team')
         self.ok('match.member', id=a, member='하율')
