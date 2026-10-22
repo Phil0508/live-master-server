@@ -139,3 +139,16 @@
 .au-capl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .au-cap { width: 110px; height: 34px; text-align: right; }
 .au-aiscore { margin: 6px 0 0; overflow-wrap: anywhere; }
+
+/* ── 10-22 📚 학습 · ☕ 휴식 — 고급 접기 · 지난 방송 성적 ── */
+.au-adv { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.au-adv > summary { cursor: pointer; font-weight: 700; color: var(--muted); font-size: 13px; padding: 4px 0; }
+.au-adv > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.au-adv[open] > summary { margin-bottom: 8px; }
+.au-adv-games { margin: 0; }
+.au-days-h { margin: 12px 0 6px; font-size: 14px; }
+.au-days { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.au-days li { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; font-size: 13px; padding: 6px 10px; border-radius: 10px; background: rgba(255,255,255,.04); font-variant-numeric: tabular-nums; }
+.au-day-d { font-weight: 800; min-width: 3.2em; }
+.au-day-v { color: var(--muted); }
+.au-day-v b { color: var(--text); font-weight: 900; }

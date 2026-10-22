@@ -1,4 +1,8 @@
-/* ☕ 휴식 모드 — 조종 줄(위에서 둘째 줄) [☕ 휴식] 단추로 켜고 끈다. 이 기기(브라우저)마다 따로 기억(localStorage — 못 읽으면 끔).
+/* ☕ 휴식 모드 — 조종 줄(위에서 둘째 줄) [☕ 휴식] 단추로 켜고 끈다.
+   ⭐ 10-22 대표님 "휴식모드: 투네는 자동, 계좌입금되면 지금처럼 초록색" — 휴식 = 서버 자동 진행 '켬'(autopilot.mode 'on').
+     켜면 확실한 투네 후원은 서버가 바로 점수를 넣고(autopilot.py), 이 화면은 아래처럼 사람을 부른다. 끄면 📚 학습('shadow').
+     모든 기기가 같은 값을 본다(예전엔 기기마다 localStorage 였다). 켤 때만 화면 안 상자로 묻는다(panels/auto/rest.js — 학습·휴식 탭과 같은 길).
+     방송이 끝나면 서버가 저절로 학습으로 돌린다.
    켜 두면, 새 계좌 입금(bankext.js 가 읽는 /api/bank/ext — onExt 로 같이 받는다) · 새 '🙋 확인할 후원(보류)'(holdband.js heldCards)이 올 때
      ① 화면 가장자리 전체가 초록으로 천천히 깜빡(움직임 줄이기 설정이면 깜빡이지 않고 굵은 테두리)
      ② 가운데 큰 카드 '🏦 계좌 입금 30,000원 · 영원(추정)' + [확인]
@@ -10,17 +14,14 @@
 import { h } from './util.js';
 import { onExt } from './bankext.js';
 import { heldCards } from './panels/auto/holdband.js';
-import { readRest, writeRest, bankTrack, holdTrack, holdLine, pushAlert, emptyAlert, titleText, cardView, REST_KEY } from './restcore.js';
+import { bankTrack, holdTrack, holdLine, pushAlert, emptyAlert, titleText, cardView } from './restcore.js';
+import { setRest } from './panels/auto/rest.js';
 
 const BLINK_MS = 1000;      // 탭 제목 번갈아
 
-function store() {
-    try { return window.localStorage; } catch (e) { return null; }
-}
-
 export function mountRest(ctx) {
     const st = {
-        on: readRest(store()),
+        on: false,           // 서버 autopilot.mode === 'on' 을 render 가 따라간다
         authed: false,
         bank: null,          // bankTrack 상태
         hold: null,          // holdTrack 본 것
@@ -34,14 +35,20 @@ export function mountRest(ctx) {
     const lbl = h('span', { class: 'rest-t' }, '휴식');
     const state = h('span', { class: 'rest-s' });
     const btn = h('button', { type: 'button', class: 'btn sm rest-btn', id: 'ctl-rest', 'aria-pressed': 'false',
-        title: '휴식 모드 — 켜 두면 새 계좌 입금 · 확인할 후원이 올 때 화면 가장자리가 초록으로 깜빡이고 가운데 카드가 떠요(소리 없음). 이 기기에만 기억해요.' },
+        title: '휴식 모드 — 확실한 투네 후원은 기계가 바로 점수를 넣고, 애매한 후원 · 계좌 입금이 오면 화면 가장자리가 초록으로 깜빡이며 가운데 카드가 떠요(소리 없음). 방송이 끝나면 저절로 꺼져요.' },
     h('span', { class: 'rest-ic', 'aria-hidden': 'true' }, '☕'), lbl, state);
-    btn.addEventListener('click', () => setOn(!st.on, true));
+    let busy = false;
+    btn.addEventListener('click', async () => {
+        if (busy) return;
+        busy = true;
+        btn.disabled = true;
+        try { await setRest(ctx, !st.on); } finally { busy = false; btn.disabled = false; }
+    });
     // PC · 반 화면: 조종 줄 맨 오른쪽(에디터 뒤). 폰(900 아래): 조종 줄이 꽉 차서(리액션 · 중단 · 건너뛰기 · 더보기)
     // BGM · 클립처럼 [⋯ 더보기] 판 안 한 줄로 옮긴다 — 켜 두면 [더보기] 단추에 ☕ 표시(.rest-on)
     const cb = document.querySelector('#hdr .cb');
     const moreBtn = cb ? cb.querySelector('.cb-more') : null;
-    const sheetRow = h('div', { class: 'cbs-row cbs-rest' }, h('small', { class: 'cbs-cap' }, '휴식 모드 — 자리를 비울 때 켜 두면 새 입금 · 확인할 후원을 화면 깜빡임으로 알려요(소리 없음)'));
+    const sheetRow = h('div', { class: 'cbs-row cbs-rest' }, h('small', { class: 'cbs-cap' }, '휴식 모드 — 자리를 비울 때: 확실한 투네 후원은 기계가 넣고, 애매한 것 · 계좌 입금은 화면 깜빡임으로 알려요(소리 없음)'));
     const panel = document.querySelector('#ctl-more .cbs-panel');
     if (panel) panel.insertBefore(sheetRow, panel.querySelector('.cbs-foot'));
     const mq = window.matchMedia ? window.matchMedia('(max-width: 899px)') : { matches: false };
@@ -66,9 +73,6 @@ export function mountRest(ctx) {
     document.body.append(edge, card);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !card.hidden) clear(); });
 
-    // 다른 탭에서 켜고 끄면 따라간다(같은 기기)
-    window.addEventListener('storage', e => { if (e.key === REST_KEY) setOn(readRest(store()), false); });
-
     // ── 새 계좌 입금 — bankext.js 가 읽을 때마다(로그인한 화면에서만 읽는다) ──
     onExt(d => {
         if (!d) return;
@@ -77,13 +81,9 @@ export function mountRest(ctx) {
         if (r.add && r.line && st.on && st.authed) ping(r.line, r.add);
     });
 
-    function setOn(on, byHand) {
+    function setOn(on) {
+        if (!!on === st.on) return;
         st.on = !!on;
-        if (byHand) {
-            const saved = writeRest(store(), st.on);
-            if (ctx && ctx.toast) ctx.toast(st.on ? '☕ 휴식 모드 켬 — 새 계좌 입금 · 확인할 후원이 오면 화면이 초록으로 깜빡여요(소리 없음)'
-                + (saved ? '' : ' · 이 창에서만(기억 못 함)') : '휴식 모드 끔 — 지금처럼 위 띠로만 알려요', 'ok', 3500);
-        }
         if (!st.on) clear();
         paintBtn();
     }
@@ -134,13 +134,14 @@ export function mountRest(ctx) {
 
     return {
         render(slices, view) {
+            const ap = (slices && slices.autopilot) || {};
+            setOn(ap.mode === 'on');                          // 서버 값을 따라간다(다른 기기에서 켜고 꺼도)
             const authed = (view === 'setup' || view === 'live') && !!(ctx.lm && ctx.lm.authed);
             if (authed !== st.authed) { st.authed = authed; paint(); }
             if (!authed) return;
             // 새 '🙋 확인할 후원(보류)' — 방송 중 대기함에만 생긴다. 처음 본 것(페이지를 열 때 있던 것)은 알리지 않는다
             if (view !== 'live') return;
-            const ap = (slices && slices.autopilot) || {};
-            const r = holdTrack(st.hold, heldCards(slices), !ap.mode || ap.mode === 'off');   // 자동 진행 끔 → 본 것 그대로
+            const r = holdTrack(st.hold, heldCards(slices), ap.mode !== 'on');   // 휴식이 아니면(보류 띠 없음) 본 것 그대로
             st.hold = r.seen;
             if (st.on) for (const it of r.fresh) ping(holdLine(it), 1);
         },

@@ -3,18 +3,7 @@
    ⚠️ 소리 · 진동 · 알림 권한 없음. 눈으로만(가장자리 초록 깜빡 · 가운데 카드 · 탭 제목).
    ⚠️ 입금자 실명(holder)은 쓰지 않는다 — 메모에서 나눈 추정 닉네임 · 금액만. 이름이 실명일 수 있는 경우(메모 없음 · 이름만)는 이름을 빼고 금액만. */
 
-export const REST_KEY = 'lm2_rest';           // 이 기기(브라우저)마다 — '1' 이면 켬
 export const MAX_LINES = 5;                   // 카드에 줄로 보여 줄 건수(나머지는 '외 N건')
-
-/** 켜 둔 상태 읽기 — 개인 창 · 막힌 저장소면 끔 */
-export function readRest(storage) {
-    try { return !!storage && storage.getItem(REST_KEY) === '1'; } catch (e) { return false; }
-}
-
-/** 켜고 끄기 기억 — 못 적어도(개인 창) 이번 화면에서는 그대로 돈다. 적었으면 true */
-export function writeRest(storage, on) {
-    try { storage.setItem(REST_KEY, on ? '1' : '0'); return true; } catch (e) { return false; }
-}
 
 const won = n => Math.max(0, Math.round(Number(n) || 0)).toLocaleString('ko-KR') + '원';
 // 메모가 없거나 이름만 있으면 그 이름이 입금자 실명일 수 있다(BANK_HOW no_memo · name_only)

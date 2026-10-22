@@ -71,8 +71,12 @@ class Wiring(unittest.TestCase):
         self.assertIn("querySelector('#hdr .cb')", src)          # 조종 줄(둘째 줄)
         self.assertIn('cb.insertBefore(btn, moreBtn)', src)                 # PC: 조종 줄 [더보기] 앞
         self.assertIn("document.querySelector('#ctl-more .cbs-panel')", src)  # 폰: 조종 줄 [⋯ 더보기] 판 안
-        self.assertIn('readRest(store())', src)                   # 기기마다 기억
-        self.assertNotIn('confirm(', code(src))
+        # 10-22: 휴식 = 서버 자동 진행 '켬' — 모든 기기가 같은 값, 켜고 끄기는 학습 · 휴식 탭과 같은 길(panels/auto/rest.js)
+        self.assertIn("import { setRest } from './panels/auto/rest.js'", src)
+        self.assertIn('setRest(ctx, !st.on)', src)
+        self.assertIn("setOn(ap.mode === 'on')", src)
+        self.assertNotIn('localStorage', code(src))
+        self.assertNotIn('confirm(', code(src))                    # 묻는 상자는 rest.js 한 곳에만
         self.assertNotIn('alert(', code(src).replace('emptyAlert(', '').replace('pushAlert(', ''))
 
     def test_signals_hooked(self):
@@ -80,11 +84,22 @@ class Wiring(unittest.TestCase):
         self.assertIn("import { onExt } from './bankext.js'", src)                       # 계좌 띠와 같은 신호
         self.assertIn("import { heldCards } from './panels/auto/holdband.js'", src)     # 보류 띠와 같은 고르기
         self.assertIn('st.on', src)
-        # 자동 진행 끔인 동안은 본 것을 잊지 않는다(다시 켤 때 남은 보류가 한꺼번에 울리지 않게)
-        self.assertIn("holdTrack(st.hold, heldCards(slices), !ap.mode || ap.mode === 'off')", src)
+        # 휴식이 아닌 동안은 본 것을 잊지 않는다(다시 켤 때 남은 보류가 한꺼번에 울리지 않게)
+        self.assertIn("holdTrack(st.hold, heldCards(slices), ap.mode !== 'on')", src)
         main = read('js', 'main.js')
         self.assertIn("import { mountRest } from './restmode.js'", main)
         self.assertIn('rest.render(slices, view)', main)
+
+    def test_rest_switch_is_server_mode(self):
+        """10-22 대표님 '휴식 = 투네는 자동 · 계좌는 초록' — 켤 때만 묻고, 서버 auto.set {mode} 하나로."""
+        r = code(read('js', 'panels', 'auto', 'rest.js'))
+        self.assertIn("ctx.run('auto.set', { mode: on ? 'on' : 'shadow' })", r)
+        self.assertIn('ctx.confirm(', r)
+        self.assertLess(r.index('if (on)'), r.index('ctx.confirm('))
+        m = code(read('js', 'panels', 'auto', 'mode.js'))
+        self.assertIn('setRest(ctx, mode === ', m)                  # 탭도 같은 길
+        self.assertNotIn("Object.entries(MODES)", m)                 # 끔은 단추로 안 보인다
+        self.assertFalse(os.path.exists(os.path.join(WEB, 'js', 'panels', 'ai', 'autopilot.js')))   # 🚗 은 휴식으로 합쳤다
 
     def test_css_linked_and_reduced_motion(self):
         idx = read('index.html')

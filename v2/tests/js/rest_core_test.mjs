@@ -11,15 +11,8 @@ function chk(name, cond, detail) {
 }
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// ── 기억(localStorage) — 못 읽으면 끔 ──
-const mem = () => { const m = {}; return { getItem: k => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
-const boom = { getItem() { throw new Error('막힘'); }, setItem() { throw new Error('막힘'); } };
-let s = mem();
-chk('처음엔 끔', M.readRest(s) === false);
-chk('켬 기억', M.writeRest(s, true) === true && M.readRest(s) === true);
-chk('끔 기억', M.writeRest(s, false) === true && M.readRest(s) === false);
-chk('막힌 저장소 — 읽기는 끔 · 쓰기는 false(던지지 않음)', M.readRest(boom) === false && M.writeRest(boom, true) === false);
-chk('저장소 없음 — 끔', M.readRest(null) === false && M.readRest(undefined) === false);
+// ── 10-22 휴식 켜고 끄기는 서버 값(autopilot.mode 'on')을 따라간다 — 기기마다 기억하던 것은 뺐다 ──
+chk('기기마다 기억하던 함수는 없다', M.readRest === undefined && M.writeRest === undefined && M.REST_KEY === undefined);
 
 // ── 카드 줄 — 실명은 안 쓴다 ──
 let l = M.bankLine({ id: 'b1', amount: 30000, name: '영원', holder: '김진짜', how: 'known', message: '밍밍화이팅' });

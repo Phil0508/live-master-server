@@ -6,7 +6,6 @@
         #ctl-misc 클립(clipbtn.js) · 에디터(새 창 /controller/editor/)
         [⋯ 더보기] — 폰(900 아래)에서만. BGM · 클립 · 에디터 · 방송 끝 · 로그아웃을 아래에서 올라오는 판(#ctl-more)으로 옮긴다
                    (노드를 옮긴다 — 다시 만들지 않아 누르는 길 · 클릭 기록이 그대로). 시그 소리 막대 자리는 #ctl-more-sig([C]).
-   🚗 오토파일럿 띠는 panels/ai/autopilot.js 가 이 머리 맨 아래에 붙인다(그대로).
    [방송 끝] 은 점수판 · 대기함 · 시그니처 대기줄을 비운다(서버 session.end) → 화면 안 확인 상자로 한 번 묻는다.
    ⚠️ 경보 · 알림에 소리 없음(alarm.js · bankext.js). ⚠️ 로그인 전(연결 중 · 로그인)에는 연결 점만 — 비공개 값을 그리지 않는다.
    💰 이번 방송 후원 알약은 뺐다 — 숫자 카드 ①(kpis.js, [B])로 간다. */
@@ -15,7 +14,7 @@ import { icon } from './icons.js';
 import { mountAlarm } from './alarm.js';
 import { mountBgmMini } from './panels/records/bgm.js';
 import { mountClipButton } from './clipbtn.js';            // ✂️ 어느 탭에서든 클립(옛 머리줄 단추)
-import { mountAutoPill } from './panels/auto/pill.js';     // 🤖 자동 진행 '그림자 · 켬' 표시(끔이면 숨김) — 누르면 그 탭
+import { mountAutoPill } from './panels/auto/pill.js';     // ☕ 휴식 중일 때만 표시 — 누르면 학습 · 휴식 탭
 import { mountBankAlarm } from './bankext.js';            // 🏦 은행 확장 점 · 계좌 입금 띠(로그인한 조종실에만)
 import { logout } from './panels/settings_menu.js';
 

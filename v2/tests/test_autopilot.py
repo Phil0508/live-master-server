@@ -165,7 +165,8 @@ class Shadow(AutoBase):
                                d6: ('agree', '하율 · 서아'), d7: ('disagree', '하율 · 채원')})
         self.assertTrue(self.row(d6)['split'])
         want = {'n': 7, 'agree': 2, 'disagree': 3, 'unknown': 1, 'ignored': 1, 'auto_done': 0, 'auto_undone': 0, 'games': 0,
-                'held': 0, 'ai_agree': 0, 'ai_disagree': 0, 'ai_held': 0, 'ai_done': 0, 'ai_undone': 0}   # AI 칸은 AI 를 안 불러 0
+                'held': 0, 'ai_agree': 0, 'ai_disagree': 0, 'ai_held': 0, 'ai_done': 0, 'ai_undone': 0,   # AI 칸은 AI 를 안 불러 0
+                'guess_hit': 2, 'guess_miss': 2}      # 📚 학습: 기계 1순위 답 — d1 · d6 맞힘, d2 · d7 틀림, d3 은 답 없음(안 셈)
         self.assertEqual(self.stats(), want)
         self.assertEqual(self.stats('total'), want)
 
@@ -544,6 +545,47 @@ class Commands(AutoBase):
         self.assertEqual(self.row(pid)['outcome'], 'agree')                           # 기록 줄도 남는다
         self.cmd('auto.reset_stats', scope='total')
         self.assertEqual(self.stats('total'), apm._zero())
+
+
+# ══ 10-22 대표님 정리 — 📚 학습(그림자) · ☕ 휴식(켬) 두 가지 ══
+class LearnAndRest(AutoBase):
+    def test_learning_grades_every_guess_and_undo_takes_it_back(self):
+        d1 = self.give('a', 10000, '서아 화이팅')          # 확실한 답(서아)
+        d2 = self.give('b', 10000, '오늘도 응원해요')      # 답 없음(AI 꺼짐) — 안 센다
+        self.drain()
+        self.cmd('pending.assign', id=d1, name='하율')
+        self.cmd('pending.assign', id=d2, name='서아')
+        self.assertEqual((self.row(d1)['guess'], 'guess' in self.row(d2)), ('miss', False))
+        self.assertEqual((self.stats()['guess_hit'], self.stats()['guess_miss']), (0, 1))
+        self.cmd('score.undo', ref=d1)                       # 되돌리면 채점을 뺀다
+        self.assertEqual(self.stats()['guess_miss'], 0)
+        self.assertNotIn('guess', self.row(d1))
+        self.cmd('pending.assign', id=d1, name='서아')        # 다시 주면 다시 센다
+        self.assertEqual((self.stats()['guess_hit'], self.stats('total')['guess_hit']), (1, 1))
+
+    def test_day_report_on_end_and_rest_turns_off(self):
+        pid = self.give('별빛', 20000, '서아 화이팅')
+        self.drain()
+        self.cmd('pending.assign', id=pid, name='서아')
+        self.cmd('auto.set', mode='on')                      # ☕ 휴식
+        c, r = self.cmd('session.end')
+        self.assertEqual(c, 200, r)
+        ap = self.ap()
+        self.assertEqual(ap['mode'], 'shadow')               # 방송이 끝나면 저절로 📚 학습으로
+        day = ap['days'][0]
+        self.assertEqual((day['stats']['n'], day['stats']['agree'], day['stats']['guess_hit']), (1, 1, 1))
+        self.assertRegex(day['date'], r'^\d{4}-\d{2}-\d{2}$')
+        self.cmd('session.start', names=['하율', '서아'])
+        self.cmd('session.end')                              # 후원이 하나도 없던 방송은 줄을 안 남긴다
+        self.assertEqual(len(self.ap()['days']), 1)
+
+    def test_end_undo_brings_rest_back(self):
+        self.cmd('auto.set', mode='on')
+        self.cmd('session.end')
+        self.assertEqual(self.ap()['mode'], 'shadow')
+        c, r = self.cmd('session.undo_end')                  # [방송 끝] 되살리기 — 끝내기 직전 그대로(휴식도)
+        self.assertEqual(c, 200, r)
+        self.assertEqual(self.ap()['mode'], 'on')
 
 
 # ══ 진짜 예약(ctx.later → loop.call_later)이 도는지 — 붙잡지 않는다 ══

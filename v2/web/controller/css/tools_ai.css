@@ -9,7 +9,6 @@
 .ai-title h3 { font-size: 17px; font-weight: 900; margin: 0; }
 .ai-tools { display: flex; gap: 6px; flex-wrap: wrap; }
 .ai-tools .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
-.ai-tools .ai-ap-btn.on { background: linear-gradient(135deg, #b3261e, #e8543f); border-color: transparent; color: #fff; }
 .ai-tools .ai-al-btn:not(.on) { color: var(--muted); }
 
 .ai-health { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); white-space: nowrap; }
@@ -72,8 +71,6 @@
 .ai-src-calc { background: rgba(61, 220, 132, 0.14); color: #8ef0b8; }
 .ai-src-ai { background: rgba(124, 178, 255, 0.16); color: #b9d5ff; }
 .ai-src-none { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
-.ai-ap-undo { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
-.ai-ap-undo .btn { justify-content: flex-start; white-space: normal; text-align: left; min-height: 38px; height: auto; padding: 6px 12px; }
 
 .ai-quick { display: flex; flex-wrap: wrap; gap: 6px; }
 .ai-q {
@@ -113,16 +110,7 @@
 
 /* '지급할까요?' 줄(.ai-asks)은 10-17 시안 B 로 없앴다 — AI 가 고른 사람은 대기함 카드 선수 단추의 '추천'(css/side.css .pbtn.rec) */
 
-/* ── 머리줄 — 🚗 오토파일럿 띠(켜져 있는 동안) · 💰 이번 방송 후원 칸 ── */
-.ap-banner {
-    flex: 1 1 100%; order: 99; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; padding: 8px 8px 8px 14px; border-radius: 18px;
-    background: linear-gradient(135deg, #b3261e, #e8543f); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 8px 22px rgba(179, 38, 30, 0.35);
-}
-.ap-banner .ap-text { flex: 1 1 260px; min-width: 0; }
-.ap-banner .ap-count { font-weight: 900; white-space: nowrap; }
-.ap-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; flex: none; animation: blink 1.2s ease-in-out infinite; }
-.ap-banner .ap-off { background: #fff; color: #b3261e; border-color: transparent; }
-.ap-banner .ap-off:hover:not(:disabled) { background: #ffe9e6; }
+/* ── 머리줄 — 💰 이번 방송 후원 칸 (🚗 오토파일럿 띠는 10-22 ☕ 휴식으로 합쳐 뺐다) ── */
 .today-pill { color: #ffe0bf; background: rgba(255, 179, 107, 0.12); border-color: rgba(255, 179, 107, 0.32); font-variant-numeric: tabular-nums; }
 .today-pill b { font-weight: 900; color: var(--gold); }
 .today-pill .tp-s { color: var(--muted); font-weight: 700; }
@@ -133,11 +121,6 @@
     .ai-log { max-height: 55vh; min-height: 160px; }
     .ai-msg { max-width: 96%; font-size: 14px; }
     .ai-tile .v { font-size: 16px; }
-    /* 머리줄이 화면 위에 붙어 있다 — 띠는 한 줄로(긴 설명은 뺀다) */
-    .ap-banner { flex-wrap: nowrap; font-size: 13px; padding: 6px 6px 6px 12px; border-radius: 16px; }
-    .ap-banner .ap-text { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ap-banner .ap-long { display: none; }
-    .ap-banner .ap-off { min-height: 34px; padding: 0 12px; }
 }
 
 /* ── 🗣️ 말로 조종 카드(panels/ai/cards.js — 대화창 · Ctrl+K 같이 씀) ── 넘치지 않게: 글은 줄바꿈, 단추는 오른쪽에 붙고 좁으면 아래로 */

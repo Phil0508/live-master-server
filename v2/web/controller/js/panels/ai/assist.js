@@ -1,6 +1,6 @@
 /* 🤖 대기함 쪽 AI 서포트 — pending.js 가 부르는 곳은 여기 하나다(화면 약속 1).
      attach(ctx)         대기함이 처음 붙을 때 한 번(연결 묶음을 넣는다)
-     sync(slices)        대기함이 바뀔 때마다: 새 후원 묻기 · 🚗 오토파일럿 · 🔔 먼저 알림
+     sync(slices)        대기함이 바뀔 때마다: 새 후원 묻기 · 🔔 먼저 알림 (🚗 오토파일럿은 10-22 ☕ 휴식으로 합쳐 뺐다)
      pick(it)            카드 한 장에 쓸 AI 판단 {level, target, text, title, more, game} (없으면 null) — 추천 단추 · AI 한 줄
      sig(id)             판단이 바뀌었는지(카드를 다시 그릴지) 보는 글자
      okToGive(it, name)  오배정 경고 — 메시지가 다른 사람을 가리키면 한 번 묻는다(옛 assignPending 의 'AI 기입 검증')
@@ -15,7 +15,6 @@
       누르려던 자리에 다른 사람이 온다(돈이 걸린 오배정). 손을 떼면 그때 바뀐다. */
 import { josaRo, isDonation, setCtx, getCtx } from './common.js';
 import * as sug from './suggest.js';
-import * as ap from './autopilot.js';
 import * as watch from './watch.js';
 import { autoBadge } from '../auto/badge.js';            // 🤖 자동 진행(서버 autopilot) 판단 배지 — 글자 규칙을 그대로 빌린다
 
@@ -33,13 +32,9 @@ export function sync(slices) {
         sug.sync(pend);
         const ids = new Set(pend.map(x => x && x.id));
         for (const id of [...shown.keys()]) if (!ids.has(id)) shown.delete(id);
-        ap.sweep().catch(e => console.error('[오토파일럿]', e));
     } catch (e) { console.error('[AI 제안]', e); }
     try { watch.check(slices); } catch (e) { console.error('[AI 알림]', e); }
 }
-
-// 답이 들어오면 오토파일럿을 한 번 더 훑는다(카드는 suggest 의 version 이 바뀌어 다시 그려진다)
-sug.onAnswer(() => { ap.sweep().catch(e => console.error('[오토파일럿]', e)); });
 
 // 🔔 시간이 지나야 걸리는 알림(3분째 대기 · 대결 30초)은 조각이 안 바뀌어도 본다
 setInterval(() => {
@@ -118,7 +113,7 @@ function autoPick(a, history, hist) {
     const holdText = level === 'hold' ? (a.target ? `${a.target}${josaRo(a.target)} 보임 · 까닭 보기` : '까닭 보기') : '';
     return {
         level, target, text: holdText || (plain ? `${target} ${LV_TEXT[level]}` : text), more, auto: !plain,
-        title: [text, more, a.source ? '판단 근거: ' + a.source : '', '자동 진행 탭에서 기록을 볼 수 있어요'].filter(Boolean).join('\n'),
+        title: [text, more, a.source ? '판단 근거: ' + a.source : '', '학습 · 휴식 탭에서 기록을 볼 수 있어요'].filter(Boolean).join('\n'),
         game: gameEl ? { text: gameEl.textContent, cls: gameEl.className } : null,
     };
 }

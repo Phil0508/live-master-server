@@ -2,7 +2,7 @@
    서버 자동 진행(autopilot)이 기계로 안 주고 '⏸ 보류' 로 남긴 카드(auto.hold 가 있는 것)가 대기함에 있으면
    상태 줄 경보 띠(alarm.js bandAdd — PC 상태 줄 가운데 · 폰 상태 점 밑)에 '🙋 확인할 후원 N건' + [보기](대기함으로).
    ⚠️ 소리는 절대 내지 않는다(대표님 규칙 — 경보 소리 금지). 처리하면(대기함에서 빠지면) 띠가 저절로 내려간다.
-   자동 진행이 '끔' 이면 띄우지 않는다(서버도 보류 표시를 안 붙인다). */
+   ☕ 휴식(자동 진행 '켬')일 때만 띄운다 — 10-22 대표님 정리: 평소(📚 학습)엔 사람이 다 정하니 띠가 필요 없다. */
 import { bandAdd, bandRemove } from '../../alarm.js';
 
 const KEY = 'ap-hold';
@@ -10,7 +10,7 @@ const KEY = 'ap-hold';
 /** 순수 — 대기함 → 보류 카드들(검사용) */
 export function heldCards(slices) {
     const ap = (slices && slices.autopilot) || {};
-    if (!ap.mode || ap.mode === 'off') return [];
+    if (ap.mode !== 'on') return [];
     return ((slices && slices.pending) || []).filter(it => {
         const a = it && it.auto;
         return a && typeof a === 'object' && !a.asking && Array.isArray(a.hold) && a.hold.length && it.kind !== 'contrib';

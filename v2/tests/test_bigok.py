@@ -116,10 +116,10 @@ class Wiring(unittest.TestCase):
         c = code(read('panels', 'ai', 'cards.js'))
         self.assertLess(c.index('askBig(ctx, bigs)'), c.index('runCard(ctx, c, { bigOk: true })'))
 
-    def test_autopilot_untouched(self):
-        a = code(read('panels', 'ai', 'autopilot.js'))
-        self.assertIn("via: 'ap'", a)
-        self.assertNotIn('bigOk', a)
+    def test_client_autopilot_gone(self):
+        # 10-22 🚗 조종실 오토파일럿은 ☕ 휴식(서버 자동 진행)으로 합쳐 뺐다 — 기계 쪽은 상한 이상을 이미 보류한다
+        with self.assertRaises(OSError):
+            read('panels', 'ai', 'autopilot.js')
 
     def test_settings_block(self):
         s = code(read('panels', 'settings_menu.js'))

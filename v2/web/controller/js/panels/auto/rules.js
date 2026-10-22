@@ -18,7 +18,7 @@ export function mountRules(ctx) {
     const undoBtn = h('button', { type: 'button', class: 'btn sm', onclick: () => { dirty = false; last = ''; ctx.rerender(); } }, '되돌리기');
     const state = h('span', { class: 'ops-hint inline au-dirty' });
     const help = h('ul', { class: 'au-help' },
-        h('li', null, h('b', null, '👀 그림자'), " — 게임은 안 하고 '이 후원이면 룰렛을 돌렸을 거예요' 만 적어요."),
+        h('li', null, h('b', null, '📚 학습'), " — 게임은 안 하고 '이 후원이면 룰렛을 돌렸을 거예요' 만 적어요. ☕ 휴식일 때만 진짜로 돌려요."),
         h('li', null, h('b', null, '🎡 룰렛'), ' — 무대가 비었을 때 돌리고 6초 뒤 저절로 멈춰요. 이미 돌고 있거나 다른 판(주사위 · 대결 …)이 올라가 있으면 건너뛰고 까닭을 적어요.'),
         h('li', null, h('b', null, '🎰 슬롯'), ' — 무대가 비었을 때 한 판 돌려요(당첨 시그는 평소처럼 대기줄로).'),
         h('li', null, h('b', null, '🎲 주사위'), ' — 주사위판이 무대에 있을 때, 받는 사람이 정해지면(기계든 사람이든) 그 사람 말을 굴려요. 한 판 값보다 적으면 안 굴려요.'));

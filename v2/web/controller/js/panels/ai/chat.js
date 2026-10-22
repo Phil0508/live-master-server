@@ -10,7 +10,6 @@
    한 번에 하나만 묻는다(답을 기다리는 동안 다른 단추 · 보내기는 잠깐 쉰다). */
 import { h, call, replyNodes, SRC } from './common.js';
 import * as chat from './chatlog.js';
-import * as ap from './autopilot.js';
 import { useLm } from '../games/common.js';
 import { runCommand } from './commands.js';
 import { askCommand, autoClient, cardsView, summary } from './cards.js';
@@ -71,24 +70,6 @@ export function mountChat(ctx, board) {
             String(r.text).split('\n').forEach((ln, i) => { if (i) kids.push(h('br')); kids.push(ln); });
             el.replaceChildren(...kids);
         }
-        // 🚗 끌 때 보고 — 잘못 간 것을 그 자리에서 되돌린다(이 화면을 연 동안만 단추가 있다)
-        if (r.apReport && r.apReport.length) el.append(apButtons(r.apReport));
-    }
-    function apButtons(ids) {
-        const wrap = h('div', { class: 'ai-ap-undo' });
-        ids.forEach(id => {
-            const e = ap.entry(id);
-            if (!e) return;
-            const b = h('button', { type: 'button', class: 'btn sm', disabled: e.undone || null }, e.undone ? '↩ 되돌림 — 대기함에서 다시 주세요' : `↩ ${e.donor} → ${e.target} (+${e.pts}) 되돌리기`);
-            b.addEventListener('click', async () => {
-                b.disabled = true;
-                const ok = await ap.undo(id);
-                if (ok) b.textContent = '↩ 되돌림 — 대기함에서 다시 주세요';
-                else b.disabled = false;
-            });
-            wrap.append(b);
-        });
-        return wrap;
     }
     const EMPTY = () => h('div', { class: 'ai-msg ai-msg-sys ai-empty' }, '위 칸이나 아래 단추를 누르면 바로 알려줘요 · 그 밖의 것은 글로 물어보세요');
 

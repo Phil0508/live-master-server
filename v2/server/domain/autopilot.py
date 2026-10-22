@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
 """🤖 무인 방송(자동 진행 · autopilot) — 대표님 10-07 "모든 걸 맡기고 쉴 정도의 자동화".
 
+⭐ 10-22 대표님 정리 — 조종실에서 보이는 건 딱 두 가지다("이정도야"):
+   📚 학습(= mode 'shadow', 평소) — 기계도 후원마다 답(1순위)을 적어 두고, 사람이 준 것과 맞춰 채점한다 → 그날 몇 개 맞혔나.
+      채점 숫자 guess_hit · guess_miss(확실하든 아니든 기계의 1순위 답) — 아래 agree · disagree 는 '확실한 것만' 의 채점.
+   ☕ 휴식(= mode 'on') — 투네이션 후원 중 확실한 것은 기계가 바로 점수를 넣는다. 애매한 것 · 계좌 입금은 조종실이
+      초록 깜빡임으로 부른다(restmode.js). 조종실 [☕ 휴식] 단추가 auto.set {mode} 를 보낸다(모든 기기가 같은 값).
+      ⚠️ 방송이 끝나면 저절로 학습으로 돌아간다(_on_end) — 켜진 걸 모른 채 다음 방송을 시작하지 않게.
+   그날 성적은 방송 끝에 days 에 한 줄씩 남는다(최근 30번 방송). 'off' 는 검사 · 비상용으로만 남겼다(조종실엔 안 보임).
+   옛 조종실 🚗 오토파일럿(브라우저 쪽 · via 'ap')은 휴식과 하는 일이 같아 10-22 에 뺐다 — 서버는 옛 기록을 위해 via 'ap' 를 그대로 받는다.
+
 고른 것 두 가지
   (1) 후원 → 누구 점수인지를 **기계가** 정한다(사람이 누르던 대기함 이름 단추)
   (2) 후원 금액으로 게임을 건다(룰렛 · 슬롯 · 주사위)
@@ -12,7 +21,9 @@
   games    [{id, min, max(0 = 끝없음), game: roulette|slot|dice, on}] — 위에서부터 처음 맞는 줄 하나만
   stats    {session:{…}, total:{…}} — n(본 후원) · agree(맞힘) · disagree(틀림) · unknown(몰라서 보류) · ignored(무시)
            · auto_done(자동으로 줌) · auto_undone(자동으로 준 것을 사람이 되돌림) · games(게임 — 그림자는 '했을 것')
+           · guess_hit · guess_miss(📚 학습 — 기계의 1순위 답이 사람과 같았나, 확실하지 않은 답까지)
            ⚠️ session 은 방송 시작 때 0 으로, total 은 지우기 전까지 남는다. 시험 후원(toon_t2_)은 안 센다.
+  days     방송 끝마다 그날 성적 [{sid, date(한국 날짜), stats}] — 최근 30번(새 것이 앞)
   log      최근 60건 [{at(ms), id, name, amount, sid, mode, target, confidence, tier, source, why, act, held?,
                        outcome: pending|agree|disagree|unknown|ignored|auto, human?, by?, game?, undone?, …}]
 대기함 카드(pending 조각)에 붙는 것: auto {target, confidence, tier, source, why, history, at, act, mode, held?, retry?,
@@ -85,7 +96,9 @@ AI_RETRY_MAX, AI_RETRY_SEC = 3, 20          # 조종실 배지(suggest.js)와 �
 ROULETTE_STOP_SEC = 6.0                     # 룰렛을 돌리고 저절로 멈추기까지
 DICE_RETRY_MAX, DICE_RETRY_SEC = 5, 2.5     # 앞 굴림 연출이 안 끝났으면(429) 조금 뒤 다시
 STAT_KEYS = ('n', 'agree', 'disagree', 'unknown', 'ignored', 'auto_done', 'auto_undone', 'games',
-             'held', 'ai_agree', 'ai_disagree', 'ai_held', 'ai_done', 'ai_undone')
+             'held', 'ai_agree', 'ai_disagree', 'ai_held', 'ai_done', 'ai_undone',
+             'guess_hit', 'guess_miss')             # 📚 학습 채점 — 기계의 1순위 답(확실하든 아니든)이 사람과 같았나
+DAYS_MAX = 30                               # 방송마다 남기는 '그날 성적' 줄 수
 AI_ASSIGN_CONF = 0.9                        # AI 가 스스로 주는 문턱(날값 — donor_memory 가 0.88 로 깎기 전)
 AI_DEADLINE_SEC = 10.0                      # 이보다 늦게 온 AI 답으로는 안 준다(사람 몫)
 ASSIGN_MAX_DEFAULT = 100000                 # 금액 상한 — 이 금액 **미만**만 기계가 준다(규칙 · AI 둘 다)
@@ -109,7 +122,7 @@ def _default():
     m = (os.environ.get('LM2_AUTOPILOT') or 'shadow').strip().lower()
     return {'mode': m if m in MODES else 'shadow', 'use_ai': True, 'use_ai_assign': False, 'assign_max': ASSIGN_MAX_DEFAULT,
             'games': [],
-            'stats': {'session': _zero(), 'total': _zero()}, 'log': []}
+            'stats': {'session': _zero(), 'total': _zero()}, 'log': [], 'days': []}
 
 
 slice_('autopilot', False, _default)
@@ -778,6 +791,21 @@ def _judge_ai(ctx, it, got):
         _bump(ctx, ap, k, row)
 
 
+def _judge_guess(ctx, it, got):
+    """📚 학습 채점 — 기계의 1순위 답이 사람이 준 사람(나눠 주면 그 안)과 같으면 맞힘. 답이 없었으면(몰라서) 안 센다."""
+    ap = ctx.edit('autopilot')
+    row = _row(ap, it.get('id'))
+    if row is None or row.get('guess'):
+        return
+    a = it.get('auto') if isinstance(it.get('auto'), dict) else {}
+    target = row.get('target') or a.get('target')
+    if not target:
+        return
+    hit = target in got
+    row['guess'] = 'hit' if hit else 'miss'
+    _bump(ctx, ap, 'guess_hit' if hit else 'guess_miss', row)
+
+
 @_safe
 def _on_assign(ctx, it, items, data):
     a = it.get('auto') if isinstance(it, dict) else None
@@ -802,6 +830,8 @@ def _on_assign(ctx, it, items, data):
     _judge(ctx, it, outcome, ' · '.join(got), extra)
     if via != 'ap':
         _judge_ai(ctx, it, got)
+        if not a.get('asking'):
+            _judge_guess(ctx, it, got)
     _dice_after_assign(ctx, it['id'], it.get('amount'), got)
 
 
@@ -882,6 +912,9 @@ def _on_undo(ctx, ref):
         _bump(ctx, ap, prev, row, -1)
         if ai_prev:
             _bump(ctx, ap, ai_prev, row, -1)
+    g = row.pop('guess', None)
+    if g:
+        _bump(ctx, ap, 'guess_hit' if g == 'hit' else 'guess_miss', row, -1)
     row['outcome'] = 'pending'
     row['undone'] = int(row.get('undone') or 0) + 1
     for k in ('human', 'decided_at', 'split', 'early', 'by'):
@@ -906,6 +939,27 @@ def _on_start(ctx, data):
 
 
 ses.ON_START.append(_on_start)
+
+
+# ── 방송 끝 — 그날 성적을 days 에 한 줄 · ☕ 휴식은 저절로 📚 학습으로(켜진 걸 모른 채 다음 방송을 시작하지 않게) ──
+@_safe
+def _on_end(ctx, data):
+    ap = ctx.edit('autopilot')
+    s = dict((ap.get('stats') or {}).get('session') or {})
+    if int(s.get('n') or 0) > 0:
+        sid = ses.session_id(ctx)
+        started = float((ctx.read('session') or {}).get('started_at') or ctx.now)
+        day = {'sid': sid, 'date': time.strftime('%Y-%m-%d', time.gmtime(started + 9 * 3600)),
+               'stats': {k: int(s.get(k) or 0) for k in STAT_KEYS}}
+        days = [d for d in ap.get('days') or [] if isinstance(d, dict) and d.get('sid') != sid]
+        days.insert(0, day)
+        ap['days'] = days[:DAYS_MAX]
+    if ap.get('mode') == 'on':
+        ap['mode'] = 'shadow'
+        ctx.notes['rest_off'] = True
+
+
+ses.ON_END.append(_on_end)
 
 
 # ── 금액 게임 — 서버가 스스로 부르는 명령 ──

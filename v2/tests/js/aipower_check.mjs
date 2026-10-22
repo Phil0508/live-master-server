@@ -22,7 +22,7 @@ const held = { hold: ['점수가 딱 떨어지지 않는 금액'], check: ['점�
 chk('보류 카드만 센다', HB.heldCards(S('on', [card('a', held), card('b', { target: '하율', act: true }), card('c', null)])).map(x => x.id).join() === 'a');
 chk('판단 중은 안 센다', HB.heldCards(S('on', [card('a', Object.assign({ asking: true }, held))])).length === 0);
 chk('자동 진행 끔이면 띠 없음', HB.heldCards(S('off', [card('a', held)])).length === 0);
-chk('그림자에서도 애매한 건 센다', HB.heldCards(S('shadow', [card('a', held)])).length === 1);
+chk('📚 학습(그림자)에서는 띠 없음 — 사람이 다 정한다(10-22)', HB.heldCards(S('shadow', [card('a', held)])).length === 0);
 chk('기여도 카드는 안 센다', HB.heldCards(S('on', [card('a', held, { kind: 'contrib' })])).length === 0);
 chk('빈 까닭 목록은 안 센다', HB.heldCards(S('on', [card('a', { hold: [] })])).length === 0);
 chk('요약 글자', CARDS.summary({ cards: [{ text: '하율에게 +5점' }, { text: '⚔️ 대결 타이머 시작' }] }) === '하율에게 +5점 · ⚔️ 대결 타이머 시작');

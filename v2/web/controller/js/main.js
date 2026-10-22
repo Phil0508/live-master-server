@@ -32,7 +32,7 @@ import { mountDrawer } from './drawer.js';   // [C] 🗄 오른쪽 칸 자리(�
 import { mountCmdk } from './cmdk.js';                 // [D] import { mountCmdk } — ⌨️ Ctrl+K 빠른 명령(w2feat 채움)
 import { mountRxSwitch } from './rxswitch.js';         // [D] import { mountRxSwitch } — 🙈 조종 줄 리액션 모드 스위치(w2feat 채움)
 import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BGM ▶ 가 BGM 탭을 미리 그리게(ctx.tabs.prepare)
-import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 자동 진행 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17)
+import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 ☕ 휴식 중 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17 · 10-22 휴식만)
 import { guardRun, askBig } from './bigok.js';           // 🛡️ 큰 금액은 한 번 더 확인 — 점수가 들어가는 명령은 ctx.run 한 곳에서 거른다(10-17 bigok)
 import { mountRest } from './restmode.js';
 import { syncPracticeBand } from './practiceband.js';   // 🎓 연습 중 띠 · 연습 중 진짜 후원 빨간 띠(10-19 /practice/)            // ☕ 휴식 모드 — 새 입금 · 보류가 오면 가장자리 초록 깜빡 · 가운데 카드(소리 없음, 10-17)

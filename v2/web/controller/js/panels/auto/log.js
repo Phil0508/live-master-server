@@ -5,7 +5,7 @@ import { h, num, won, GAMES, HELD, outcomeOf, hm } from './common.js';
 import { josaRo } from '../ai/common.js';
 import { blockHead, sigOf, fill } from '../ops/common.js';
 
-const FILTERS = [['all', '전체'], ['bad', '✗ 틀린 것만'], ['hold', '보류만'], ['auto', '🤖 자동으로 준 것']];
+const FILTERS = [['all', '전체'], ['bad', '✗ 틀린 것만'], ['hold', '보류만'], ['auto', '☕ 기계가 준 것']];
 const KEY = 'lm2_auto_log_filter';
 
 export function mountLog(ctx) {
@@ -57,7 +57,7 @@ export function mountLog(ctx) {
                 h('span', { class: 'au-t' }, hm(r.at)),
                 h('b', { class: 'au-who' }, r.name || '익명'),
                 h('span', { class: 'au-amt' }, won(r.amount)),
-                r.mode === 'on' ? h('span', { class: 'au-tagm on' }, '켬') : h('span', { class: 'au-tagm' }, '그림자'),
+                r.mode === 'on' ? h('span', { class: 'au-tagm on' }, '☕ 휴식') : h('span', { class: 'au-tagm' }, '📚 학습'),
                 h('span', { class: 'au-o ' + cls }, txt)),
             h('div', { class: 'au-r2' }, machine(r)),
             r.why ? h('div', { class: 'au-why' }, '까닭: ' + r.why + (r.held_err ? ` (${r.held_err})` : '')) : null,
@@ -78,7 +78,7 @@ export function mountLog(ctx) {
         const shown = rows.filter(pass);
         fill(list, shown.map(r => line(r, sid)));
         empty.hidden = shown.length > 0;
-        empty.textContent = rows.length ? '이 조건에 맞는 기록이 없어요' : '아직 판단한 후원이 없어요 — 자동 진행이 그림자 · 켬이면 후원이 들어올 때마다 여기에 적혀요';
+        empty.textContent = rows.length ? '이 조건에 맞는 기록이 없어요' : '아직 판단한 후원이 없어요 — 후원이 들어올 때마다 기계 답이 여기에 적혀요';
     }
     return { el, render };
 }

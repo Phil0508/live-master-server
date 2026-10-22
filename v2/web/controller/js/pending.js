@@ -30,7 +30,7 @@
         3) 새로 온 카드(되돌려 돌아온 것 포함)는 맨 아래에만 붙인다.
       손을 빼면 그때 최신 순위 · 순서로 정리된다. */
 import { h, won, num, manWon, splitPoints, clock } from './util.js';
-import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드의 AI 판단 · 추천 · 🚗 오토파일럿 · 오배정 경고
+import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드의 AI 판단 · 추천 · 오배정 경고
 import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
 import { needFor, askBig } from './bigok.js';     // 🛡️ 큰 금액은 한 번 더 확인(카드가 '보내는 중' 이 되기 **전에** 묻는다)
 import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from './mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
@@ -89,7 +89,7 @@ export function mountPending(root, ctx) {
     /* ── 그리기 ── */
     function render(slices) {
         const pend = slices.pending || [];
-        ai.sync(slices);                               // 🤖 새 후원 묻기 · 제안 줄 정리 · 오토파일럿 · 먼저 알림(안에서 감싼다)
+        ai.sync(slices);                               // 🤖 새 후원 묻기 · 제안 줄 정리 · 먼저 알림(안에서 감싼다)
         const P = slices.players || {};
         const key = P.extra_active ? 'extra' : 'list';
         const names = (P[key] || []).map(r => r.name);
