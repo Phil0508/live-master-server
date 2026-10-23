@@ -33,6 +33,10 @@
         🔁 이어 틀기 줄(seq_base) — '2 / 3' 부터 센다(옛 rxComboSync)
         ↻ 다시 송출 줄(it.encore, 10-17) — 사진 오른쪽 위 '↻ 다시 보기' 딱지 · 앞 후원 카드에도 같은 딱지(장부 번호는 화면에 없다)
 
+    10) 🏦🐉 계좌 입금 대형 연출(10-24 — 서버 cast.bank_fx 가 줄에 fx_video · fx_frame 을 싣는다): 그 줄이 맨 앞이 되면
+        카드 · 소리보다 먼저 영상(stage 'castVideo')을 한 번 — 다 틀고 나서 평소처럼 시작한다. 영상 동안은 가운데를 붙잡는다(후원 카드가 기다린다).
+        fx_frame 이면 시그니처가 도는 동안 방송 테두리(stage 'frame' hold). 되풀이(replay) · 영상 칸이 없는 화면(?only=…)은 영상 없이 곧장.
+
      9) 🔊 자동재생이 막히면(브라우저 정책) 소리 없이라도 끝까지 튼다(사진 · 길이 · 차례 그대로). 방송판을 **한 번 누르면**(클릭 · 키 · 터치)
         음소거를 풀어 그 자리부터 소리를 살린다 — 음소거 재생마저 막혀 멈춰 있었으면 지금 시그니처 소리를 처음부터 다시 튼다(옛 recoverFromAutoplayBlock).
         빨간 경고 띠는 알림창 화면(?only=alert)에만 뜬다(sigfx/unlock.js) — 방송판에는 옛 것처럼 안 띄운다(대표님 08-13 요청).
@@ -256,6 +260,8 @@ export function mount(root, lm, opts) {
         silence();
         setPlaying(null);
         try { const neon = opts.stage.use('neon'); if (neon) neon.sigEnd(); } catch (e) {}   // 💡 사진 색 · 비트 정리(옛 stopReaction)
+        if (cur.phase === 'intro') { try { const v = opts.stage.use('castVideo'); if (v) v.stop(); } catch (e) {} }   // 🏦🐉 영상 중에 끊김
+        if (cur.frameHeld) { cur.frameHeld = false; try { const fr = opts.stage.use('frame'); if (fr) fr.hold(false); } catch (e) {} }
     }
     // 담당이 바뀌면(다른 창이 닫히거나 숨거나 새로 뜸) 지금 틀던 소리의 음소거만 다시 맞춘다
     onLeaderChange(lead => { if (cur && !cur.forcedMute) audio.muted = !!opts.monitor || !lead; });
@@ -272,7 +278,10 @@ export function mount(root, lm, opts) {
     const now = () => { try { const v = Number(lm.serverNow && lm.serverNow()); if (isFinite(v) && v > 0) return v; } catch (e) {} return Date.now(); };
 
     /* 🚦 가운데 — 지금 시그가 가운데를 붙잡고 있나(줄어들기 전 · 배너 · 연출 · 경보). 시각으로 본다(타이머를 놓쳐도 영영 막지 않게) */
-    function centerBusy() { const n = Date.now(); return !!(cur && cur.phase === 'play' && n < (cur.centerUntil || 0)) || n < tailUntil; }
+    function centerBusy() {
+        const n = Date.now();
+        return !!(cur && cur.phase === 'intro') || !!(cur && cur.phase === 'play' && n < (cur.centerUntil || 0)) || n < tailUntil;
+    }
     function centerFreed() { freeFns.slice().forEach(fn => { try { fn(); } catch (e) { console.error('[시그니처] 가운데 비움 알림 실패:', e); } }); }
     /* 🚦 지금 것을 내려놓은 뒤(끝 · 끊음 — cur 를 비운 다음에 부른다) — 가운데에 있었으면(wasCenter)
           카드가 사라질 때(ms)까지 더 붙잡았다가 놓아준다(짧은 시그 · 건너뛰기) */
@@ -331,13 +340,27 @@ export function mount(root, lm, opts) {
         const repeat = cur.replay > 0;
         const big = (Number(it.amount) || 0) >= BIG_DONATION_MIN;
         const backlog = qlen > 1;
-        const card = opts.stage.use('donationCard');
-        if (card && !it.skip_popup && !backlog && !big && !repeat) {
-            card.show({ name: it.donator || '익명', amount: it.amount || 0, message: it.message || '', encore: !!it.encore, rq: it.id })
-                .then(() => { if (cur && cur.token === token) begin(); });
-        } else {
-            begin();
+        const go = () => {
+            if (!cur || cur.token !== token) return;
+            cur.phase = 'card';
+            const card = opts.stage.use('donationCard');
+            if (card && !it.skip_popup && !backlog && !big && !repeat) {
+                card.show({ name: it.donator || '익명', amount: it.amount || 0, message: it.message || '', encore: !!it.encore, rq: it.id })
+                    .then(() => { if (cur && cur.token === token) begin(); });
+            } else {
+                begin();
+            }
+        };
+        // 🏦🐉 계좌 입금 대형 연출 — 시그니처 앞에 영상 한 번(머리말 10)
+        let vid = null;
+        try { vid = !repeat && it.fx_video ? opts.stage.use('castVideo') : null; } catch (e) { vid = null; }
+        if (vid && vid.has(it.fx_video)) {
+            cur.phase = 'intro';
+            log('대형 연출', it.fx_video, it.donator, it.amount);
+            vid.play(it.fx_video).then(go, go);
+            return;
         }
+        go();
     }
 
     function begin() {
@@ -372,6 +395,8 @@ export function mount(root, lm, opts) {
         cur.centerUntil = Date.now() + holdMs;
         cur.timers.push(setTimeout(() => { if (cur && cur.token === token) centerFreed(); }, holdMs + 20));
         sendStarted(it);
+        // 🏦🐉 '용 + 테두리' 세트 — 이 시그니처가 도는 동안 방송 테두리(끝 · 끊김에 clearCur 가 놓는다)
+        if (it.fx_frame) { try { const fr = opts.stage.use('frame'); if (fr) { fr.hold(true); cur.frameHeld = true; } } catch (e) {} }
 
         const durMs = Math.max(1, Number(it.duration) || 5) * 1000;
         if (!it.audio_url) { finishAfter(token, durMs, '사진만(duration)'); return; }

@@ -24,6 +24,7 @@ import uuid
 
 from ..bus import CommandError, command
 from ..state import slice_
+from . import cast
 from . import donation as dn
 from . import session as ses
 from .rules import QUEUE_MAX, norm_donor
@@ -40,7 +41,8 @@ def enqueue(ctx, sig, amount=0, donator='', message='', skip_popup=False, play_a
     q = ctx.edit('queue')
     items = q['items']
     last = items[-1] if items else None
-    if (count_tally and not skip_popup and not play_after and last and not last.get('skip_popup') and not last.get('play_after')
+    fx_new = isinstance(extra, dict) and bool(extra.get('fx_video'))     # 🏦🐉 대형 연출이 붙은 후원은 앞줄에 안 묶는다(연출이 사라지지 않게)
+    if (count_tally and not skip_popup and not play_after and not fx_new and last and not last.get('skip_popup') and not last.get('play_after')
             and str(last.get('sig_id')) == str(sig.get('id')) and norm_donor(last.get('donator')) == norm_donor(donator)):
         last['count'] += 1
         # 💬 메시지는 후원마다 따로 모은다 — 예전엔 첫 메시지만 남아 '아버지' 다음 '어머니' 가 화면 어디에도 안 떴다(대표님 10-11)
@@ -235,6 +237,9 @@ def signature_play(ctx, data):
     sig = data.get('sig')
     if not sig:
         raise CommandError('재생할 시그니처를 찾지 못했습니다', 404)
-    enqueue(ctx, sig, amount=amount or int(sig.get('amount') or 0), donator=name, message=msg, count_tally=False)
+    fx = cast.bank_fx(data.get('bank_total')) if data.get('bank_total') is not None else {}     # 🏦🐉 계좌 카드에서 '시그니처만' 보낼 때
+    enqueue(ctx, sig, amount=amount or int(sig.get('amount') or 0), donator=name, message=msg, count_tally=False, extra=fx or None)
     ctx.edit('queue')['items'][-1]['count'] = count
+    if fx:
+        ctx.notes['fx_video'] = fx['fx_video']
     ctx.notes.update({'title': sig.get('title'), 'count': count})

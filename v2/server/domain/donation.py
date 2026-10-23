@@ -31,6 +31,7 @@ import uuid
 
 from ..bus import CommandError, command
 from ..state import slice_
+from . import cast
 from . import donor_extras as dx
 from . import players as pl
 from . import session as ses
@@ -92,6 +93,9 @@ def donation_add(ctx, data):
         priv = {}                                                # 연습엔 번호표 · VIP 를 안 남긴다
     # 💙 투네이션에서 온 후원 — 방송판 시그니처 카드 사진 왼쪽 위 '투네' 딱지(대표님 2026-10-13). 계좌 · 수동 송출은 안 붙는다.
     via = {'via': 'toon'} if from_listener or ((page_test or practice) and data.get('via') == 'toon') else {}
+    # 🏦🐉 계좌 입금 대형 연출(10-24) — 로그인한 후원 콘솔이 계좌 카드를 보낼 때 첫 건에만 bank_total(금액 × 건수)을 붙인다
+    fx = cast.bank_fx(data.get('bank_total')) if (data.get('trusted') and tx.startswith('manual_bank_') and not practice
+                                                  and data.get('bank_total') is not None) else {}
     # 화면에만 — 1만 원 미만(리스너가 표시해 보낸 것)
     if data.get('display_only') and from_listener and 0 < amount < SMALL_DISPLAY_MAX:
         nm = ' '.join(name_in.split()) or '익명'
@@ -155,7 +159,9 @@ def donation_add(ctx, data):
         del t['notice_donors'][:-NOTICE_DONORS_MAX]
     elif sig and amount > 0:
         for fn in ENQUEUE:
-            fn(ctx, sig, amount=amount, donator=name, message=msg, extra=dict(pub, **via) or None, don_id=did)
+            fn(ctx, sig, amount=amount, donator=name, message=msg, extra=dict(pub, **via, **fx) or None, don_id=did)
+        if fx:
+            ctx.notes['fx_video'] = fx['fx_video']
     ctx.notes.update({'id': did, 'no': no})
     for fn in AFTER_DONATION:
         fn(ctx, name, amount)

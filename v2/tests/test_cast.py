@@ -10,7 +10,7 @@ import shutil
 import subprocess
 import unittest
 
-from v2.tests.test_flow import Base
+from v2.tests.test_flow import Base, H
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CAST = os.path.join(ROOT, 'v2', 'web', 'overlay', 'widgets', 'cast')
@@ -89,6 +89,70 @@ class Commands(Base):
         from v2.server.domain import cast
         for name in cast.VIDEO_FX:
             self.assertTrue(os.path.exists(os.path.join(ROOT, 'v2', 'web', 'overlay', 'fxvideos', name + '.webm')), name)
+
+
+class BankFx(Base):
+    """🏦🐉 계좌 입금 대형 연출(10-24 대표님) — 후원 콘솔이 계좌 카드를 보낼 때만, 첫 건의 합계(bank_total)로 고른다.
+       50만 원↑ 용(+ 시그니처 동안 테두리) · 100만 원↑ 엔젤 방패. 투네이션 · 손 송출 · 기준 미만은 안 붙는다."""
+
+    def last(self):
+        return self.st()['queue']['items'][-1]
+
+    def test_tiers(self):
+        from v2.server.domain import cast
+        self.assertEqual(cast.bank_fx(499999), {})
+        self.assertEqual(cast.bank_fx(500000), {'fx_video': 'dragon', 'fx_frame': True})
+        self.assertEqual(cast.bank_fx(999999)['fx_video'], 'dragon')
+        self.assertEqual(cast.bank_fx(1000000), {'fx_video': 'emblem', 'fx_frame': False})
+        self.assertEqual((cast.bank_fx(None), cast.bank_fx('abc')), ({}, {}))
+        for _, name, _ in cast.BANK_FX:
+            self.assertIn(name, cast.VIDEO_FX)
+
+    def test_bank_send_gets_effect(self):
+        c, r = self.don('입금자', 500000, 'manual_bank_b1', bank_total=500000)
+        self.assertEqual(c, 200, r)
+        it = self.last()
+        self.assertEqual((it.get('fx_video'), it.get('fx_frame')), ('dragon', True))
+        self.don('큰손', 1000000, 'manual_bank_b2', bank_total=1000000)
+        it = self.last()
+        self.assertEqual((it.get('fx_video'), it.get('fx_frame')), ('emblem', False))
+        self.assertIn('fx_video', self.st(auth=False)['queue']['items'][-1])          # 방송판(로그인 없음)이 받는다
+
+    def test_no_effect(self):
+        self.don('작은손', 300000, 'manual_bank_b3', bank_total=300000)                 # 기준 미만
+        self.assertNotIn('fx_video', self.last())
+        self.don('투네', 500000, 'toon_x1', bank_total=500000)                          # 투네이션은 안 붙는다
+        self.assertNotIn('fx_video', self.last())
+        self.don('손', 500000, 'manual_123')                                           # 손 송출(계좌 카드 아님)
+        self.assertNotIn('fx_video', self.last())
+        r = self.c.post('/api/donation', json={'name': '남', 'amount': 500000, 'tx_id': 'manual_bank_b9', 'bank_total': 500000})
+        if r.status_code == 200:                                                       # 로그인 없이 들어온 길이면 연출은 안 붙는다
+            self.assertNotIn('fx_video', self.last())
+
+    def test_split_send_counts_total(self):
+        """10만 원 × 5건으로 보낸 50만 원 입금 — 첫 건의 합계로 용, 나머지 건은 같은 줄 ×N 으로 묶인다."""
+        self.don('나눠', 100000, 'manual_bank_b4_1', bank_total=500000)
+        for i in range(2, 6):
+            self.don('나눠', 100000, 'manual_bank_b4_%d' % i)
+        items = self.st()['queue']['items']
+        self.assertEqual(len(items), 1)
+        self.assertEqual((items[0]['fx_video'], items[0]['count']), ('dragon', 5))
+
+    def test_effect_line_not_merged_into_earlier(self):
+        self.don('같은분', 500000, 'toon_y1')
+        self.don('같은분', 500000, 'manual_bank_b5', bank_total=500000)
+        items = self.st()['queue']['items']
+        self.assertEqual(len(items), 2)                                                # 앞줄에 묶이면 연출이 사라진다
+        self.assertNotIn('fx_video', items[0])
+        self.assertEqual(items[1]['fx_video'], 'dragon')
+
+    def test_signature_only_path(self):
+        r = self.c.post('/api/signature/play', json={'amount': 500000, 'name': '시그만', 'count': 2, 'bank': 1, 'bank_total': 1000000}, headers=H)
+        self.assertEqual(r.status_code, 200, r.text)
+        it = self.last()
+        self.assertEqual((it.get('fx_video'), it.get('count')), ('emblem', 2))
+        self.c.post('/api/signature/play', json={'amount': 500000, 'name': '그냥', 'bank_total': 1000000}, headers=H)
+        self.assertNotIn('fx_video', self.last())                                     # 계좌 카드에서 보낸 게 아니면(bank 없음) 안 붙는다
 
 
 class OverlayJs(unittest.TestCase):

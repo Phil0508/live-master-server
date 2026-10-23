@@ -27,6 +27,23 @@ slice_('cast', True, lambda: {'say': None, 'up': None, 'fx': None, 'fx_clear': N
 # 🐉 대형 연출 영상(10-23 대표님 — 드리미나로 만든 영상, 검은 배경을 뺀 투명 webm) — 방송판 widgets/cast/video.js 가 /overlay/fxvideos/<이름>.webm 을 튼다
 VIDEO_FX = {'dragon': '🐉 용 연출', 'angel': '👼 천사 날개', 'emblem': '🛡 엔젤 방패'}
 
+# 🏦 계좌 입금 대형 연출(10-24 대표님) — 후원 콘솔에서 계좌 입금 카드를 채워 보낼 때만(투네이션 · 손 송출엔 안 나온다).
+#    큰 금액부터 본다. 합계 = 금액 × 건수(콘솔이 첫 건에 bank_total 로 붙인다). frame = 그 시그니처가 도는 동안 방송 테두리
+#    (look.frame 이 꺼져 있어도 — 🐉 용 + 테두리 세트). 방송판 widgets/signature.js 가 시그니처 앞에 영상을 먼저 튼다.
+BANK_FX = [(1000000, 'emblem', False), (500000, 'dragon', True)]
+
+
+def bank_fx(total):
+    """계좌 입금 합계(원) → 시그니처 대기줄 줄에 실을 {fx_video, fx_frame}. 기준 미만 · 이상한 값이면 {}."""
+    try:
+        total = int(total or 0)
+    except (TypeError, ValueError):
+        return {}
+    for lo, name, frame in BANK_FX:
+        if total >= lo:
+            return {'fx_video': name, 'fx_frame': frame}
+    return {}
+
 
 def _one_line(v, n):
     return ' '.join(str(v or '').split())[:n]

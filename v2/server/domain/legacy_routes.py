@@ -67,6 +67,8 @@ async def donation(req, bus, authed, answer):
     for k in ('title', 'level', 'vip', 'donor_key', 'replay', 'test'):
         if k in body:
             cmd[k] = body[k]
+    if a and 'bank_total' in body:
+        cmd['bank_total'] = body['bank_total']          # 🏦🐉 계좌 입금 대형 연출 — 로그인한 후원 콘솔만(donation.add 가 manual_bank_ 인지 본다)
     res = await bus.run('donation.add', cmd, by='listener' if tx.startswith('toon_') else 'http', authed=True)
     if not res.get('ok'):
         return _err(res.get('error') or '실패', int(res.get('code') or 400))
@@ -144,7 +146,8 @@ async def signature_play(req, bus, authed, answer):
         else:
             sig = await asyncio.to_thread(sigs.match, amount)
     res = await bus.run('signature.play', {'sig': sig, 'amount': amount, 'name': body.get('name'), 'message': body.get('message'),
-                                           'count': body.get('count'), 'display': display}, by='console', authed=True)
+                                           'count': body.get('count'), 'display': display,
+                                           'bank_total': body.get('bank_total') if body.get('bank') else None}, by='console', authed=True)
     if not res.get('ok'):
         return _err(res.get('error') or '실패', int(res.get('code') or 400))
     if res.get('display_only'):

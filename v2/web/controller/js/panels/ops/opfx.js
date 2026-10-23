@@ -50,6 +50,7 @@ export function mountOpFx(el, ctx) {
     h('section', { class: 'ops-blk' },
         blockHead('🎬 대형 연출 영상', '방송 화면 위에 투명하게 한 번 — 🐉 용이 내려와 브레스를 뿜고 솟구쳐요(8초) · 👼 등 뒤로 천사 날개가 펼쳐져요(6초) · 🛡 엔젤컴퍼니 방패 로고가 번개와 함께 쾅 나타나요(7초)'),
         h('p', { class: 'ops-note' }, '방송 화면 위에 잠깐 겹쳐요. 소리도 같이 나와요. 잘못 눌렀으면 [멈추기].'),
+        h('p', { class: 'ops-note gold' }, '🏦 계좌 입금 자동 — 후원 콘솔에서 계좌 카드를 채워 보낼 때만: 50만 원↑ 🐉 용 → 시그니처(테두리 씌움) · 100만 원↑ 🛡 엔젤 방패 → 시그니처. 투네이션은 안 나와요.'),
         h('div', { class: 'ops-row fx-btns' }, ...vBtns, vStop),
         vOut));
 
