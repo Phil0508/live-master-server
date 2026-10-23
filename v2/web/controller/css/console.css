@@ -1,0 +1,71 @@
+/* 💸 따로 연 후원 콘솔(console.html · js/consolepage.js) — 옛 manual_send.html 의 탭 줄 · 순위 카드 · 대기열 모습.
+   속(탭 안)은 조종실 탭 그대로라 생김새도 그 css(tools_ops · tools_bank · tools_cast · tools_records · donate · tools_sig)를 같이 쓴다.
+   여기는 이 페이지에만 있는 것 — 탭 줄 · 대기열 멈춤 안내 · 시그 사진 · 순위 합계 카드 · 메달 · 접힌 은행 확장 칸.
+   색은 controller.css 의 이름표(--accent · --gold · --good · --bad …)만 쓴다. 바깥에서 불러오는 것 없음. */
+
+.app.cp-page { max-width: 1160px; }      /* 옛 후원 콘솔처럼 머리줄까지 가운데 1120px 안에(.app 은 양옆 20px) */
+.cp-page .hdr-right a.btn { text-decoration: none; }
+.cp-login { display: flex; justify-content: center; padding: 5vh 0 4vh; }
+
+/* ── 탭 줄 — 옛 후원 콘솔처럼 한 줄 · 넘치면 옆으로 민다(글자가 세로로 꺾이지 않게). 머리줄 밑에 붙어 따라온다 ── */
+.cp-tabs {
+    position: sticky; top: calc(var(--hdr-h) + 16px); z-index: 30;
+    display: flex; gap: 4px; max-width: 100%; margin: 0 0 16px; padding: 5px; overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    background: rgba(28, 21, 18, 0.94); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.25);
+}
+.cp-tabs::-webkit-scrollbar { display: none; }
+.cp-tab {
+    flex: none; display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 13px;
+    background: transparent; color: var(--muted); font: inherit; font-size: 15px; font-weight: 800; white-space: nowrap; cursor: pointer;
+}
+.cp-tab:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.cp-tab.on { background: linear-gradient(135deg, var(--accent), var(--accent-hi)); color: var(--on-accent); box-shadow: 0 6px 18px rgba(240, 123, 63, 0.35); }
+.cp-tab .cp-ic { font-size: 16px; line-height: 1; }
+.cp-tab.on .tab-badge { background: #fff; color: var(--accent-ink); }
+.tab-badge.q { background: var(--bad); color: #fff; }       /* 대기열 수 — 옛 분홍 배지 */
+
+/* ── 대기열 ── */
+.cp-note { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: rgba(61, 220, 132, 0.1); border: 1px solid rgba(61, 220, 132, 0.35); color: #8ef0b8; font-size: 14px; font-weight: 700; }
+.cp-queue .q-ctrl .btn { min-height: 44px; }
+.cp-queue .qitem.has-thumb { grid-template-columns: 52px minmax(0, 1fr) auto; grid-template-areas: "thumb main btns" "thumb sub btns"; }
+.cp-qthumb { grid-area: thumb; width: 52px; height: 52px; border-radius: 12px; object-fit: cover; background: #120e0c; border: 1px solid var(--line); }
+.cp-qthumb.none { display: grid; place-items: center; color: var(--dim); font-size: 20px; }
+
+/* ── 후원 순위 ── */
+.cp-stats { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin: 0 0 14px; }
+.cp-stat { flex: 1 1 150px; display: flex; flex-direction: column; gap: 2px; padding: 12px 18px; border-radius: 16px; background: rgba(0, 0, 0, 0.18); border: 1px solid var(--line-soft); }
+.cp-stat .k { color: var(--muted); font-size: 12.5px; font-weight: 700; }
+.cp-stat .v { font-size: 23px; font-weight: 900; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; }
+.cp-stat .v.gold { color: var(--gold); }
+.cp-live { flex: 1 1 100%; margin: 0; color: var(--dim); font-size: 12.5px; }
+/* ⏸️ 'VIP 등급 꺼져 있어요' 안내는 조종실 👑 후원자 탭에서만 — 옛 후원 순위에는 등급 이야기가 없었다(순위 · 순위에서 빼기만) */
+.cp-rank .dn-vip-off { display: none; }
+.cp-rank .dn-row[data-medal] .dn-rank { font-size: 0; background: transparent; }
+.cp-rank .dn-row[data-medal] .dn-rank::after { font-size: 22px; line-height: 1; }
+.cp-rank .dn-row[data-medal="1"] .dn-rank::after { content: '🥇'; }
+.cp-rank .dn-row[data-medal="2"] .dn-rank::after { content: '🥈'; }
+.cp-rank .dn-row[data-medal="3"] .dn-rank::after { content: '🥉'; }
+.cp-rank .dn-row[data-medal="1"] { background: linear-gradient(100deg, rgba(255, 203, 69, 0.22), transparent 60%); }
+.cp-rank .dn-row[data-medal="2"] { background: linear-gradient(100deg, rgba(170, 180, 200, 0.22), transparent 60%); }
+.cp-rank .dn-row[data-medal="3"] { background: linear-gradient(100deg, rgba(214, 150, 90, 0.2), transparent 60%); }
+
+/* ── 수동 송출 아래 접힌 칸 — 🏦 은행 확장 거울 · 📱 폰 앱 ── */
+.cp-more { border-radius: 18px; border: 1px dashed var(--line); background: rgba(0, 0, 0, 0.1); }
+.cp-more > summary { min-height: 48px; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; padding: 8px 14px; cursor: pointer; font-weight: 800; }
+.cp-more > summary small { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+.cp-more-body { display: flex; flex-direction: column; gap: 12px; padding: 0 10px 12px; }
+
+/* 🎤 노래방 음량 막대 — 조종실에선 games.css 의 것(여기는 그 파일을 안 부른다) */
+.cp-page .gm-range { flex: 1 1 160px; accent-color: var(--accent); min-width: 120px; }
+
+/* ── 📱 폰(900px 아래) ── */
+@media (max-width: 899px) {
+    .cp-tabs { top: calc(var(--hdr-h) + 10px); margin-bottom: 12px; border-radius: 16px;
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); padding-right: 26px; }
+    .cp-tab { min-height: 42px; padding: 0 13px; font-size: 14.5px; }
+    .cp-stat { padding: 10px 14px; }
+    .cp-stat .v { font-size: 20px; }
+    .cp-queue .qitem.has-thumb { grid-template-columns: 44px minmax(0, 1fr); grid-template-areas: "thumb main" "thumb sub" "btns btns"; }
+    .cp-qthumb { width: 44px; height: 44px; }
+}

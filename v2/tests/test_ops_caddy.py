@@ -117,7 +117,8 @@ class Fragments(unittest.TestCase):
         for name, (url, code) in targets.items():
             self.assertTrue(url.startswith('https://{host}:8443/'), url)
             self.assertEqual(code, '302', name)                # 잠깐 옮김 — 되돌리면 바로 풀린다
-        want = {'/controller': '/controller/', '/manual': '/controller/', '/uistats.html': '/controller/',
+        want = {'/controller': '/controller/', '/manual': '/controller/console.html', '/manual_send': '/controller/console.html',
+                '/manual_send.html': '/controller/console.html', '/uistats.html': '/controller/',
                 '/admin': '/controller/editor/', '/노래등록': '/controller/sig.html', '/upload': '/controller/sig.html',
                 '/streamdeck': '/streamdeck/', '/mobile': '/mobile', '/health': '/health'}
         for old_path, new_path in want.items():
@@ -151,6 +152,7 @@ class Fragments(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(web, 'controller', 'index.html')))
         self.assertTrue(os.path.isfile(os.path.join(web, 'controller', 'editor', 'index.html')))
         self.assertTrue(os.path.isfile(os.path.join(web, 'controller', 'sig.html')))
+        self.assertTrue(os.path.isfile(os.path.join(web, 'controller', 'console.html')))
         self.assertTrue(os.path.isfile(os.path.join(web, 'streamdeck', 'index.html')))
         self.assertIn("@app.get('/health')", app)
         sigadmin = read(os.path.join(REPO, 'v2', 'server', 'domain', 'sigadmin.py'))

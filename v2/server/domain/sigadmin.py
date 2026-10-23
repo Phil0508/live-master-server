@@ -644,12 +644,21 @@ async def sig_revert(req, bus, authed, answer):
 # 옛 주소 호환 — 폰 즐겨찾기 · 북마크가 그대로 열리게
 #   /upload (음원 · 사진 등록 센터) → 시그니처 관리(따로 연 화면)
 #   /mobile (폰 조종실)            → 조종실 — v2 조종실이 폰 화면(900px 아래)을 한 줄로 그린다(js/phone.js)
+#   /manual · /manual_send · /manual_send.html (옛 후원 콘솔) → 후원 콘솔(따로 연 화면 — 옛 탭 여섯 그대로, 10-24)
 #   ⚠️ 옛 폰 주소의 ?token= 은 넘기지 않는다(주소창 · 기록에 열쇠가 남지 않게) — 처음 한 번 비밀번호로 들어가면 30일 간다.
 # ══════════════════════════════════════════════════════════════
 @route('/upload', methods=('GET',))
 async def old_upload(req, bus, authed, answer):
     from fastapi.responses import RedirectResponse
     return RedirectResponse('/controller/sig.html', status_code=302)
+
+
+@route('/manual', methods=('GET',))
+@route('/manual_send', methods=('GET',))
+@route('/manual_send.html', methods=('GET',))
+async def old_manual(req, bus, authed, answer):
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse('/controller/console.html', status_code=302)
 
 
 @route('/mobile', methods=('GET',))

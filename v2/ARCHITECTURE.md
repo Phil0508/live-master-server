@@ -131,6 +131,16 @@ donor_rules.names 는 뺄 때 보이던 이름(키는 '님' 을 뗀 정규화 �
 - 바뀌면 서버 매칭 목록(bus.sigs.refresh)과 조종실 목록(sig_admin.ver)을 바로 새로 받는다.
 - 조종실 탭 💿 시그니처 관리 · 👀 방송 화면 보기, 방송 전에도 쓰는 단독 화면 /controller/sig.html(옛 /upload 는 여기로 넘긴다).
 
+## 💸 후원 콘솔 따로 열기(10-24) — 옛 /manual 화면
+- /controller/console.html(js/consolepage.js · css/console.css) — 옛 manual_send.html 의 탭 여섯을 같은 순서 · 같은 이름으로:
+  수동 송출(panels/ops/console.js `{solo:true}` + 접힌 은행 확장 거울 · 폰 앱) · 대기열(queue.js + 멈춤 안내 · 시그 사진) ·
+  후원 순위(records/donors.js + 합계 · 후원자 수 · 🥇🥈🥉) · 이펙트(ops/opfx.js) · 고액 영상(ops/media.js) · 시그니처 관리(sig/admin.js).
+  속은 조종실 탭 그대로(사본 없음) — 보내는 길 · 명령이 하나. 배지: 수동 송출 '🏦 N'(bankBadge) · 대기열 수. 마지막 탭 기억 `lm2_console_tab` · 주소 끝 `#queue`.
+  연결 이름표 kind 'console'(🖥️ 시스템 탭 '💸 후원 콘솔'). 로그인 안 됐으면 그 자리에서 비밀번호(login.js).
+- 옛 주소 /manual · /manual_send · /manual_send.html → 302 /controller/console.html(sigadmin.py). 조종실 후원 콘솔 탭 머리에 [따로 열기 ↗].
+  Caddyfile.switch 도 큰 주소의 /manual 을 :8443/controller/console.html 로(운영 Caddy 에는 revert → apply 해야 들어간다).
+- 검사 v2/tests/test_console_page.py.
+
 ## 시험 서버 스위치
 - `ANTHROPIC_API_KEY` — 있으면 AI 를 **Claude 먼저**(`CLAUDE_MODEL`, 기본 claude-haiku-4-5), 막히면 NVIDIA. 넣는 법은 deploy/README '🤖 AI 를 Claude 로'.
 - `LM2_AI_OFF=1` — AI 열쇠(Claude · NVIDIA 둘 다)를 안 읽는다(서버 계산만). `LM2_NIM_URL` — 가짜 AI 주소. ⚠️ 저장소의 NVIDIA_CREDENTIALS.txt · SUPABASE_CREDENTIALS.txt 를
