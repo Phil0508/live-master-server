@@ -33,6 +33,8 @@
 #pending .q1 .pc-pts { flex: none; margin: 0; padding: 1px 7px; font-size: 12px; }
 #pending .q1 .pc-dtitle { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 11px; padding: 0 7px; }
 #pending .q1 .pc-lv { flex: none; font-size: 11px; padding: 0 4px; }
+#pending .q1 .src-chip { font-size: 10.5px; padding: 0 5px; }          /* 💙🏦✋ 좁은 칸 — 글자만(그림 글자 숨김) */
+#pending .q1 .src-chip .src-ico { display: none; }
 #pending .q1-btns { flex: none; margin-left: auto; display: flex; align-items: center; gap: 5px; }
 #pending .q1-btns .btn.xs { min-height: 24px; height: 24px; padding: 0 8px; border-radius: 7px; font-size: 12px; font-weight: 700; }
 #pending .q1-btns .sending { margin: 0; font-size: 12px; }

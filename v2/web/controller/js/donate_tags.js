@@ -22,13 +22,14 @@ export function titleChip(t) {
 /* 💙🏦✋ 어디서 온 후원인가(10-24 대표님 '계좌랑 투네 구분') — 대기함 카드 · 시그니처 대기열 · 장부.
    via: 'toon'(투네이션) · 'bank'(후원 콘솔에서 계좌 입금 카드로 보낸 것) · 'hand'(그 밖의 손 송출). 생김새는 css/donate.css(.src-chip) */
 const SRC = {
-    toon: ['💙 투네', '투네이션으로 들어온 후원'],
-    bank: ['🏦 계좌', '계좌 입금 — 후원 콘솔에서 계좌 카드로 보낸 것'],
-    hand: ['✋ 손', '후원 콘솔에서 손으로 넣은 것'],
+    toon: ['💙', '투네', '투네이션으로 들어온 후원'],
+    bank: ['🏦', '계좌', '계좌 입금 — 후원 콘솔에서 계좌 카드로 보낸 것'],
+    hand: ['✋', '손', '후원 콘솔에서 손으로 넣은 것'],
 };
 export function srcChip(via) {
     const s = SRC[via];
-    return s ? h('span', { class: 'src-chip src-' + via, title: s[1] }, s[0]) : null;
+    // 그림 글자는 따로 — 좁은 대기함 칸에선 숨겨 이름 자리를 남긴다(css/side.css)
+    return s ? h('span', { class: 'src-chip src-' + via, title: s[2] }, h('span', { class: 'src-ico', 'aria-hidden': 'true' }, s[0] + ' '), s[1]) : null;
 }
 /** 장부 줄 → via(장부엔 via 칸이 없다 — tx_id · source 로 가린다). 모르면 '' */
 export function viaOfRow(r) {
