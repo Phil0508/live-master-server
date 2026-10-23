@@ -36,8 +36,10 @@ xn--9i1b547a0ublxlz4f.xn--h32bi4v.xn--3e0b707e {
 	}
 
 	# ② 옛 운영자 화면 → v2 의 같은 화면(:8443) — 302
-	@lm2_ctl path /controller /controller/ /controller.html /manual /manual_send /manual_send.html /uistats.html
+	@lm2_ctl path /controller /controller/ /controller.html /uistats.html
 	redir @lm2_ctl https://{host}:8443/controller/?{query} 302
+	@lm2_console path /manual /manual_send /manual_send.html
+	redir @lm2_console https://{host}:8443/controller/console.html?{query} 302
 	@lm2_mobile path /mobile
 	redir @lm2_mobile https://{host}:8443/mobile?{query} 302
 	@lm2_editor path /admin /admin.html

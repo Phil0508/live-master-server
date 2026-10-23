@@ -13,7 +13,9 @@
       같은 입금을 이미 송출했거나(장부 manual_bank_<번호> · 카드 '씀') 30분 안 같은 이름 · 같은 금액 장부 줄이 있거나
       '장부에 넣기' 를 끈 채 5만 원 이상이면 '그래도 보낼까요?' 를 한 번 묻는다. 막지는 않는다(묻는 길이 안 닿으면 그냥 보낸다).
    📦 미니(opts.mini — 오른쪽 칸 '후원 콘솔 미니' #con-mini · 폰 서랍 '시그 송출'): 같은 함수 · 같은 보내는 길.
-      갤러리 · 긴 설명 · 계좌 입금 추천 칸은 안 그리고, 미리보기는 72px 사진만. [전체 열기] = 후원 콘솔 탭. */
+      갤러리 · 긴 설명 · 계좌 입금 추천 칸은 안 그리고, 미리보기는 72px 사진만. [전체 열기] = 후원 콘솔 탭.
+   🪟 따로 열기(opts.solo — 10-24): 옛 /manual 처럼 후원 콘솔만 있는 페이지(controller/console.html · js/consolepage.js)가 이 탭을 그대로 얹는다.
+      조종실 탭 머리에는 [따로 열기 ↗] 링크, 그 페이지 안에서는(solo) 안 붙인다. */
 import { h, num, won, sigOf, onEnter, once, api, parseWon, blockHead } from './common.js';
 import { manWon } from '../../util.js';
 import { mountBankBox } from './bank.js';
@@ -23,6 +25,14 @@ const SIG_ROUND_FLOOR = 10000;      // 서버 rules.SIG_ROUND_FLOOR — 최저�
 
 // 미니에는 계좌 입금 추천 칸이 없다 — 같은 모양의 빈 상자(고른 입금 없음)
 const NO_BANK = { el: null, note: null, pick: () => null, used() {}, render() {} };
+
+/* 🪟 [따로 열기 ↗] — 후원 콘솔만 있는 페이지(controller/console.html · 옛 /manual 과 같은 탭 여섯)를 새 창으로.
+   그 페이지 안에서는 안 붙인다(opts.solo — js/consolepage.js) */
+function withSoloLink(head, solo) {
+    if (!solo) head.append(h('a', { class: 'ops-mini con-solo', href: '/controller/console.html', target: '_blank', rel: 'noopener',
+        title: '수동 송출 · 대기열 · 후원 순위 · 이펙트 · 고액 영상 · 시그니처 관리 탭이 있는 후원 콘솔 페이지를 새 창으로 엽니다' }, '따로 열기 ↗'));
+    return head;
+}
 
 export function mountConsole(el, ctx, opts = {}) {
     const mini = !!opts.mini;
@@ -63,7 +73,7 @@ export function mountConsole(el, ctx, opts = {}) {
         info);
     else el.append(bank.el, h('div', { class: 'con-grid' },
         h('section', { class: 'ops-blk con-form' },
-            blockHead('💸 후원 콘솔', '계좌 후원 · 놓친 후원을 손으로 넣어요'),
+            withSoloLink(blockHead('💸 후원 콘솔', '계좌 후원 · 놓친 후원을 손으로 넣어요'), opts.solo),
             h('label', { class: 'ops-field' }, h('span', null, '후원 금액 (원)'), amtIn),
             info,
             h('label', { class: 'ops-field' }, h('span', null, '후원자'), nameIn),

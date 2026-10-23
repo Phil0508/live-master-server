@@ -92,6 +92,9 @@
 .ops-mini:disabled { opacity: 0.35; cursor: default; }
 .ops-mini.go { color: var(--gold); border-color: rgba(255, 179, 107, 0.4); }
 .ops-mini.del { color: #ff9e9e; border-color: rgba(255, 107, 107, 0.35); }
+/* 💸 후원 콘솔 [따로 열기 ↗](console.js) — 링크라 밑줄 없이 단추 모양으로 */
+a.ops-mini.con-solo { display: inline-flex; align-items: center; height: 34px; font-size: 13px; color: var(--muted); text-decoration: none; }
+a.ops-mini.con-solo:hover { color: var(--text); }
 
 /* 공지 목록 */
 .ntc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
