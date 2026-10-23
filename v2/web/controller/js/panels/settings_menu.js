@@ -13,7 +13,8 @@ import { openBankExt } from '../bankext.js';
 import { mountBigokSettings } from '../bigok.js';   // 🛡️ 큰 금액 확인 기준 칸(10-17 bigok)
 
 // [묶음 이름, [탭 id …]] — '@bank' 는 탭이 아니라 시스템 탭 안의 은행 확장 칸으로 가는 길
-const GROUPS = [
+// ⌨️ GROUPS · DESC · ACTS 는 Ctrl+K 찾기(cmdk.js)도 읽는다 — 타일 설명 · 묶음 이름으로도 탭을 찾게
+export const GROUPS = [
     ['방송 화면', ['ops-stage', 'ops-notice', 'ops-fundjar', 'ops-screen', 'ops-media', 'ops-mask']],
     ['시그니처 · 연출', ['sig-admin', 'sig-monitor', 'fx-lights', 'ops-opfx', 'clip']],
     ['기록', ['ledger', 'donorbook', 'donors', 'check', 'monthly', 'uistats']],
@@ -22,7 +23,13 @@ const GROUPS = [
     ['시스템', ['ops-bot', 'ops-version', 'ops-system', '@bank', 'ops-migrate']],
 ];
 
-const DESC = {
+// 탭이 아닌 타일 — [그림, 이름, 설명]
+export const ACTS = {
+    '@bank': ['🏦', '은행 확장', '계좌 입금 확장 · 폰 앱 상태'],
+    '@practice': ['🧪', '테스트 · 연습', '방송판 화면 테스트 · 가짜 후원으로 배정 연습'],
+};
+
+export const DESC = {
     'ops-stage': '방송판에 띄울 것 · 순서표',
     'ops-notice': '방송판 아래로 흐르는 안내',
     'ops-fundjar': '모금함 켜기 · 금액 · 깃발 자리',
@@ -72,16 +79,16 @@ export function mountSettings(el, ctx) {
                 if (tabs() && tabs().locked('ops-system')) { ctx.toast('방송을 시작하면 열려요', 'info'); return; }
                 openBankExt();
             } },
-                h('span', { class: 'st-emo', 'aria-hidden': 'true' }, '🏦'),
-                h('span', { class: 'st-tx' }, h('b', null, '은행 확장'), h('small', null, '계좌 입금 확장 · 폰 앱 상태')));
+                h('span', { class: 'st-emo', 'aria-hidden': 'true' }, ACTS['@bank'][0]),
+                h('span', { class: 'st-tx' }, h('b', null, ACTS['@bank'][1]), h('small', null, ACTS['@bank'][2])));
             tiles.set(id, { btn: b, lockId: 'ops-system' });
             return b;
         }
         if (id === '@practice') {       // 🧪🎓 따로 페이지(/practice/, 10-19) — 방송 전에도 열린다
             const b = h('button', { type: 'button', class: 'st-tile st-act', 'data-act': 'practice', 'data-zone': 'practice',
                 onclick: () => { window.open('/practice/', 'lm-practice'); } },
-                h('span', { class: 'st-emo', 'aria-hidden': 'true' }, '🧪'),
-                h('span', { class: 'st-tx' }, h('b', null, '테스트 · 연습'), h('small', null, '방송판 화면 테스트 · 가짜 후원으로 배정 연습')));
+                h('span', { class: 'st-emo', 'aria-hidden': 'true' }, ACTS['@practice'][0]),
+                h('span', { class: 'st-tx' }, h('b', null, ACTS['@practice'][1]), h('small', null, ACTS['@practice'][2])));
             tiles.set(id, { btn: b, lockId: 'settings' });     // 설정 화면(pre)과 같이 — 방송 전에도 눌린다
             return b;
         }

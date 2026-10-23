@@ -4,6 +4,7 @@
         #ctl-bgm  BGM(panels/records/bgm.js 미니 — 영상이 올라와 있을 때만, 없으면 [BGM 고르기])  ← [D] 가 시안 모양으로
         #ctl-sig  시그: #ctl-rx(리액션 모드 스위치 — [D]) · 시그 소리 · 중단 · 건너뛰기(queue.js — [C])
         #ctl-misc 클립(clipbtn.js) · 에디터(새 창 /controller/editor/)
+        [🔍 찾기] — Ctrl+K 상자(cmdk.js)를 연다('lm:cmdk'). 폰은 단축키가 없어 이 단추가 길 — 조종 줄이 꽉 차서 상태 줄 오른쪽 끝으로 옮긴다(10-24)
         [⋯ 더보기] — 폰(900 아래)에서만. BGM · 클립 · 에디터 · 방송 끝 · 로그아웃을 아래에서 올라오는 판(#ctl-more)으로 옮긴다
                    (노드를 옮긴다 — 다시 만들지 않아 누르는 길 · 클릭 기록이 그대로). 시그 소리 막대 자리는 #ctl-more-sig([C]).
    [방송 끝] 은 점수판 · 대기함 · 시그니처 대기줄을 비운다(서버 session.end) → 화면 안 확인 상자로 한 번 묻는다.
@@ -53,9 +54,13 @@ export function mountHeader(root, ctx) {
     const ctlMisc = h('div', { class: 'cb-grp cb-misc', id: 'ctl-misc', role: 'group', 'aria-label': '클립 · 에디터' }, editor);
     const moreBtn = h('button', { type: 'button', class: 'btn cb-more', 'aria-expanded': 'false', 'aria-controls': 'ctl-more', title: 'BGM · 클립 · 에디터 · 방송 끝 · 로그아웃' },
         icon('more'), h('span', { class: 'cb-more-t' }, '더보기'));
+    // 🔍 찾기 — Ctrl+K 상자(cmdk.js)를 연다. 폰은 키보드 단축키가 없어서 이 단추가 들어가는 길(폰은 상태 줄 오른쪽 끝 — place())
+    const findBtn = h('button', { type: 'button', class: 'btn sm cb-find', title: '무엇이든 찾기 · 말로 시키기 (Ctrl+K)', 'aria-label': '찾기 (Ctrl+K)',
+        onclick: () => { closeSheet(); document.dispatchEvent(new CustomEvent('lm:cmdk')); } },
+        icon('search'), h('span', { class: 'cb-find-t' }, '찾기'), h('kbd', { class: 'cb-find-k', 'aria-hidden': 'true' }, 'Ctrl K'));
     const sepSig = h('span', { class: 'vsep', 'aria-hidden': 'true' });
     const sepMisc = h('span', { class: 'vsep', 'aria-hidden': 'true' });
-    const cb = h('div', { class: 'cb', hidden: true }, ctlBgm, sepSig, ctlSig, sepMisc, ctlMisc, moreBtn);
+    const cb = h('div', { class: 'cb', hidden: true }, ctlBgm, sepSig, ctlSig, sepMisc, ctlMisc, findBtn, moreBtn);
 
     // ── ⋯ 판(폰) ──
     const sheetBgm = h('div', { class: 'cbs-row cbs-bgm' }, h('small', { class: 'cbs-cap' }, 'BGM — 이 기기(폰)에서 소리가 나요'));
@@ -101,9 +106,11 @@ export function mountHeader(root, ctx) {
             if (ctlBgm.parentNode !== sheetBgm) sheetBgm.append(ctlBgm);
             if (ctlMisc.parentNode !== sheetMisc) sheetMisc.append(ctlMisc);
             if (endBtn.parentNode !== sheetEnd) sheetEnd.append(endBtn);
+            if (findBtn.parentNode !== sb) sb.append(findBtn);          // 🔍 폰: 조종 줄이 꽉 차서 상태 줄 오른쪽 끝(css 가 셋째 칸으로)
         } else {
             if (ctlBgm.parentNode !== cb) cb.insertBefore(ctlBgm, sepSig);
             if (ctlMisc.parentNode !== cb) cb.insertBefore(ctlMisc, moreBtn);
+            if (findBtn.parentNode !== cb) cb.insertBefore(findBtn, ctlMisc.nextSibling);
             if (endBtn.parentNode !== endSlot) endSlot.append(endBtn);
             closeSheet();
         }
@@ -156,6 +163,7 @@ export function mountHeader(root, ctx) {
             const sess = slices.session || {};
             const live = !!sess.live && view === 'live';
             if (cb.hidden === authed) cb.hidden = !authed;
+            if (findBtn.hidden === authed) findBtn.hidden = !authed;      // 🔍 로그인 전엔 안 보인다(폰은 상태 줄에 있다)
             if (!authed) closeSheet();
             onair.hidden = !live;
             endBtn.hidden = !live;
