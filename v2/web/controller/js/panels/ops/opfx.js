@@ -3,7 +3,7 @@
    [걷기] → cast.fx_clear — 잘못 눌렀을 때 바로 걷는다.
    기본으로 골라 둔 것(옛 것과 같다): 큰 배너 · 번쩍 + 테두리 빛 · 전광판 문구. 화려한 것(화면을 크게 덮는다): 카드 · 충격파 · 글리치 · 경보.
    시그니처 재생과 따로 도는 연출이라 시그니처가 나오는 중에 쏴도 서로 끊기지 않는다. 장부 · 점수는 안 바뀐다.
-   🎬 대형 연출 영상(10-23) — [🐉 용 연출] · [👼 천사 날개] → cast.video {name} · [멈추기] → cast.video_stop. 방송판 widgets/cast/video.js 가 튼다. */
+   🎬 대형 연출 영상(10-23) — [🐉 용 연출] · [👼 천사 날개] · [🛡 엔젤 방패] → cast.video {name} · [멈추기] → cast.video_stop. 방송판 widgets/cast/video.js 가 튼다. */
 import { h, once, blockHead, parseWon, onEnter, num } from './common.js';
 
 const BASIC = [['banner', '화면 가운데 ', '큰 배너', true], ['flash', '화면 ', '번쩍 + 테두리 빛', true], ['ticker', '', '전광판에 흐르는 문구', true]];
@@ -25,7 +25,7 @@ export function mountOpFx(el, ctx) {
     const fire = h('button', { type: 'button', class: 'btn pri big fx-fire' }, '✨ 연출 쏘기');
     const clear = h('button', { type: 'button', class: 'btn danger fx-clear' }, '걷기');
     const out = h('p', { class: 'ops-hint fx-out', 'aria-live': 'polite' });
-    const VIDEOS = [['dragon', '🐉 용 연출', 8], ['angel', '👼 천사 날개', 6]];
+    const VIDEOS = [['dragon', '🐉 용 연출', 8], ['angel', '👼 천사 날개', 6], ['emblem', '🛡 엔젤 방패', 7]];
     const vBtns = VIDEOS.map(([name, label, sec]) => {
         const b = h('button', { type: 'button', class: 'btn pri big fx-video' }, label);
         b.addEventListener('click', () => once(b, () => playVideo(name, label, sec)));
@@ -48,7 +48,7 @@ export function mountOpFx(el, ctx) {
         h('div', { class: 'ops-row fx-btns' }, fire, clear),
         out),
     h('section', { class: 'ops-blk' },
-        blockHead('🎬 대형 연출 영상', '방송 화면 위에 투명하게 한 번 — 🐉 용이 내려와 브레스를 뿜고 솟구쳐요(8초) · 👼 등 뒤로 천사 날개가 펼쳐져요(6초)'),
+        blockHead('🎬 대형 연출 영상', '방송 화면 위에 투명하게 한 번 — 🐉 용이 내려와 브레스를 뿜고 솟구쳐요(8초) · 👼 등 뒤로 천사 날개가 펼쳐져요(6초) · 🛡 엔젤컴퍼니 방패 로고가 번개와 함께 쾅 나타나요(7초)'),
         h('p', { class: 'ops-note' }, '방송 화면 위에 잠깐 겹쳐요. 소리도 같이 나와요. 잘못 눌렀으면 [멈추기].'),
         h('div', { class: 'ops-row fx-btns' }, ...vBtns, vStop),
         vOut));
