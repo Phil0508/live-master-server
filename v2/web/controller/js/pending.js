@@ -31,7 +31,7 @@
       손을 빼면 그때 최신 순위 · 순서로 정리된다. */
 import { h, won, num, manWon, splitPoints, clock } from './util.js';
 import * as ai from './panels/ai/assist.js';     // 🤖 AI 서포트 — 카드의 AI 판단 · 추천 · 오배정 경고
-import { titleChip, lvChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml)
+import { titleChip, lvChip, srcChip } from './donate_tags.js';   // 🏷️ 투네이션 칭호 · Lv(옛 pdTitleHtml) · 💙🏦✋ 어디서 온 후원(10-24)
 import { needFor, askBig } from './bigok.js';     // 🛡️ 큰 금액은 한 번 더 확인(카드가 '보내는 중' 이 되기 **전에** 묻는다)
 import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from './mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
 import { donorName, donorChips } from './donorcard.js';   // 📇 후원자 딱지 · 이름 누르면 후원자 카드(10-17 후원자 장부)
@@ -174,6 +174,7 @@ export function mountPending(root, ctx) {
         // q1 — 시각 · 후원자 · 금액 · 점수 · 단추 묶음
         const q1 = h('div', { class: 'pc-head q1' },
             h('span', { class: 'pc-time' }, clock(it.at)),
+            srcChip(it.via),
             titleChip(it.donor_title),
             donorName(ctx, it.name, 'pc-name'),
             lvChip(it.donor_level),

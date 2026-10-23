@@ -16,6 +16,7 @@ import { askUndo, byLabel, undoBusy } from '../../undopick.js';   // ↩ 골라 
 import { hiddenSet, maskSig, shownText, warnChip, hideBtn } from '../../mask.js';   // 🙈 금칙어 ⚠ · [가리기](10-17)
 import { donorName, donorChips } from '../../donorcard.js';   // 📇 후원자 딱지 · 이름 누르면 후원자 카드(10-17 후원자 장부)
 import { tagSig } from '../../donorcore.js';
+import { srcChip, viaOfRow } from '../../donate_tags.js';     // 💙🏦✋ 어디서 온 후원(10-24 '계좌랑 투네 구분')
 
 const CSV_MAX = 2000;           // 서버가 한 번에 주는 끝(/api/ledger · /api/scores limit)
 
@@ -159,7 +160,7 @@ function donationView(ctx, session) {
                     h('span', { class: 'rc-amt' }, won(r.amount)),
                     h('span', { class: 'tag ' + cls }, label),
                     r.player ? h('span', { class: 'rc-to' }, '→ ' + r.player) : null,
-                    r.src ? h('span', { class: 'rc-src' }, r.src) : null,
+                    r.via ? srcChip(r.via) : (r.src ? h('span', { class: 'rc-src' }, r.src) : null),
                     // 🏷️ 장부 줄 번호 — 줄을 구별하는 조용한 꼬리표(작은 회색). ↻ 다시 송출은 이번 방송 줄에만
                     r.no ? h('span', { class: 'rc-no', title: '장부 줄 번호' }, '#' + r.no) : null,
                     r.re ? h('button', { type: 'button', class: 'btn xs rc-replay', title: '방송 화면에만 한 번 더 띄워요 (점수 · 정산엔 안 들어가요)',
@@ -226,7 +227,7 @@ function donationView(ctx, session) {
         const hid = hiddenSet(ctx.slices);
         const view = pick.slice(0, shown).map(r => ({
             key: r.id, t: hms(r.at), name: r.name, amount: r.amount, status: r.status, player: r.player || '',
-            message: r.message || '', src: SOURCE[r.source] || '', no: r.no || 0, dt: tagSig(ctx.slices.donor_tags, r.name),
+            message: r.message || '', src: SOURCE[r.source] || '', via: viaOfRow(r), no: r.no || 0, dt: tagSig(ctx.slices.donor_tags, r.name),
             // 🙈 걸린 메시지는 가린 글(⚠ 누르면 원문) · 가린 후원은 흐리게 — 다시 송출 기록 줄은 원래 줄에서 가린다
             shown: r.message ? shownText(r) : '', hid: hid.has(r.id), ms: maskSig(ctx.slices, r.id),
             canHide: session === 'current' && !!r.message && String(r.id || '').startsWith('don_') && r.source !== 'replay',

@@ -16,6 +16,7 @@
      [중단] = reaction.stop — 대기줄이 2개 이상이면 한 번 묻고, 1개(지금 도는 것)면 바로 멈춘다(옛 머리줄 '중단' 은 긴급이라 안 물었다).
      목록 · [멈춤] · [전부 지우기](늘 묻는다)는 오른쪽 칸 맨 아래 접힘(#queue-fold) — 0개면 접히고, 새로 생기면 펼친다. */
 import { h, won } from './util.js';
+import { srcChip } from './donate_tags.js';     // 💙🏦 어디서 온 후원(10-24) — 대기줄 줄엔 투네 · 계좌만 실린다
 
 const VOL_DEBOUNCE_MS = 250;
 const VOL_HOLD_MS = 1500;
@@ -128,6 +129,7 @@ export function mountQueue(root, ctx, opts = {}) {
                 h('b', { class: 'q-title' }, it.title || '시그니처'),
                 it.count > 1 ? h('span', { class: 'q-count' }, '×' + it.count) : null),
             h('div', { class: 'q-sub' },
+                srcChip(it.via),
                 h('span', { class: 'q-who' }, it.donator || '익명'),
                 it.amount ? h('span', { class: 'q-amt' }, won(it.amount)) : null),
             h('div', { class: 'q-btns' },

@@ -238,8 +238,10 @@ def signature_play(ctx, data):
     if not sig:
         raise CommandError('재생할 시그니처를 찾지 못했습니다', 404)
     fx = cast.bank_fx(data.get('bank_total')) if data.get('bank_total') is not None else {}     # 🏦🐉 계좌 카드에서 '시그니처만' 보낼 때
+    if data.get('bank_total') is not None:
+        fx['via'] = 'bank'                                                                     # 💙🏦 조종실 대기열 딱지(방송판엔 안 보인다)
     enqueue(ctx, sig, amount=amount or int(sig.get('amount') or 0), donator=name, message=msg, count_tally=False, extra=fx or None)
     ctx.edit('queue')['items'][-1]['count'] = count
-    if fx:
+    if fx.get('fx_video'):
         ctx.notes['fx_video'] = fx['fx_video']
     ctx.notes.update({'title': sig.get('title'), 'count': count})

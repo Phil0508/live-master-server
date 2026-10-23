@@ -13,3 +13,12 @@
 .q-again li { padding: 10px 12px; border-radius: 14px; border: 1px dashed rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.04); }
 .q-again .qa-t { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; }
 .q-again .qa-b { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 💙🏦✋ 어디서 온 후원인가(10-24 '계좌랑 투네 구분') — 대기함 카드(흰 종이) · 시그니처 대기열 · 장부(어두운 판) 둘 다에서 보이게 꽉 찬 색.
+   투네 = 방송판 '투네' 딱지 색(#519CFF) · 계좌 = 금색 · 손 = 회색 */
+.src-chip { display: inline-flex; align-items: center; flex: none; align-self: center; padding: 0 7px; border-radius: 6px; font-size: 11.5px;
+            font-weight: 800; line-height: 1.6; white-space: nowrap; }
+.src-chip.src-toon { background: #519cff; color: #ffffff; }
+.src-chip.src-bank { background: #f0b429; color: #2a1a00; }
+.src-chip.src-hand { background: #8c8078; color: #ffffff; }
+.q-sub .src-chip { margin-right: 6px; }

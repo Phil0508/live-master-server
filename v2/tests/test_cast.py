@@ -146,6 +146,17 @@ class BankFx(Base):
         self.assertNotIn('fx_video', items[0])
         self.assertEqual(items[1]['fx_video'], 'dragon')
 
+    def test_source_via(self):
+        """💙🏦✋ 계좌랑 투네 구분(10-24) — 대기함 카드엔 toon · bank · hand, 시그니처 대기줄엔 toon · bank 만(방송판은 toon 만 딱지)."""
+        self.don('투네손님', 30000, 'toon_v1')
+        self.don('계좌손님', 30000, 'manual_bank_v2')
+        self.don('손님', 30000, 'manual_v3')
+        s = self.st()
+        via = {p['name']: p.get('via') for p in s['pending']}
+        self.assertEqual((via['투네손님'], via['계좌손님'], via['손님']), ('toon', 'bank', 'hand'))
+        q = {it['donator']: it.get('via') for it in s['queue']['items']}
+        self.assertEqual((q['투네손님'], q['계좌손님'], q.get('손님')), ('toon', 'bank', None))
+
     def test_signature_only_path(self):
         r = self.c.post('/api/signature/play', json={'amount': 500000, 'name': '시그만', 'count': 2, 'bank': 1, 'bank_total': 1000000}, headers=H)
         self.assertEqual(r.status_code, 200, r.text)

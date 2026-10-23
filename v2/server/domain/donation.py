@@ -17,6 +17,8 @@
   5) 시그니처 — 최저선 미만이면 안 틀고 소액 띠로, 아니면 대기줄(reaction)
 🏷️ 리스너(toon_)가 보낸 칭호 · 레벨(pub — 팝업 · 소액 띠 · 시그니처 카드) / 투네이션 VIP · 번호표(priv — 대기함 · donor_keys 표만)
    — domain/donor_extras.py. 💙 리스너 후원은 시그니처 대기줄 항목에 via:'toon'(방송판 '투네' 딱지, 옛 97cbc4c).
+💙🏦✋ 어디서 온 후원인가(10-24 대표님 '계좌랑 투네 구분') — 대기함 카드에 via: 'toon'(투네이션) · 'bank'(후원 콘솔 계좌 카드 송출
+   manual_bank_) · 'hand'(그 밖의 손 송출). 시그니처 대기줄 줄은 'toon' · 'bank' 만(방송판은 'toon' 일 때만 '투네' 딱지 — 계좌는 안 보인다).
 🏷️ 장부 줄 번호(no, 10-17) — 장부에 줄이 들어가는 순간 store.add_donation 이 겹치지 않는 번호를 붙인다(답 notes.no).
    같은 tx 재전송 · 12초 중복은 위 1) 2) 에서 돌아가므로 새 번호가 없다. 번호는 조종실(장부 탭 · 토스트)에만 — 공개 조각엔 안 싣는다.
 ↻ 다시 송출(donation.replay {id}, 10-17) — 장부 줄 하나를 **방송 화면에만** 한 번 더(아래 donation_replay).
@@ -92,7 +94,8 @@ def donation_add(ctx, data):
     if practice:
         priv = {}                                                # 연습엔 번호표 · VIP 를 안 남긴다
     # 💙 투네이션에서 온 후원 — 방송판 시그니처 카드 사진 왼쪽 위 '투네' 딱지(대표님 2026-10-13). 계좌 · 수동 송출은 안 붙는다.
-    via = {'via': 'toon'} if from_listener or ((page_test or practice) and data.get('via') == 'toon') else {}
+    via = {'via': 'toon'} if from_listener or ((page_test or practice) and data.get('via') == 'toon') else (
+        {'via': 'bank'} if tx.startswith('manual_bank_') else {})
     # 🏦🐉 계좌 입금 대형 연출(10-24) — 로그인한 후원 콘솔이 계좌 카드를 보낼 때 첫 건에만 bank_total(금액 × 건수)을 붙인다
     fx = cast.bank_fx(data.get('bank_total')) if (data.get('trusted') and tx.startswith('manual_bank_') and not practice
                                                   and data.get('bank_total') is not None) else {}
@@ -126,7 +129,8 @@ def donation_add(ctx, data):
         return
     name, orig, msg = derive_name(name_in, msg_in, tx)
     test = tx.startswith('toon_t2_')
-    item = {'id': did, 'name': name, 'orig_name': orig, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000)}
+    item = {'id': did, 'name': name, 'orig_name': orig, 'amount': amount, 'message': msg, 'at': int(ctx.now * 1000),
+            'via': via.get('via') or 'hand'}
     if test:
         item['test'] = True
     if practice:
