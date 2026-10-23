@@ -21,6 +21,27 @@ export const COMMAND_HINTS = ['슬롯 돌려', '룰렛 돌려', '대결 시작',
 
 const SCORE_RE = /^([가-힣A-Za-z0-9]+?)\s*(?:한테|에게)?\s*\+?(\d+)\s*점?\s*(?:줘|주기|추가)?$/;
 const TIME_RE = /^([+-])?\s*(\d+)\s*(분|초)\s*(추가|더|빼기|빼|줄이기)?$/;
+// 말 모양 — runCommand 와 isCommandForm 이 같이 쓴다(규칙은 여기 한 곳)
+const SLOT_RE = /^슬롯\s*(돌려|시작|고)?!?$/;
+const ROUL_RE = /^룰렛\s*(돌려|시작|고)?!?$/;
+const MATCH_RE = /^(대결|타이머)\s*(시작|정지|스톱|멈춰)?$/;
+const SKIP_RE = /^(건너뛰|스킵|넘겨)/;
+const ALLCLEAR_RE = /^올\s*클리어|^올클/;
+const CLIP_RE = /^(클립|✂)\s*(따|저장|해)?줘?!?$/;
+const CUE_RE = /^(다음|이전)\s*(단계|순서)?\s*(로|으로)?$/;
+
+/** 이 말이 바로 하는 말(명령 꼴)인가 — 보내지 않고 모양만 본다(순수 · 검사용).
+ *  ⌨️ Ctrl+K 찾기 상자가 '그대로 하기' 를 맨 위로 올릴지 정할 때 쓴다(찾은 설정 · 후원자가 Enter 를 가로채지 않게).
+ *  names: 지금 판 선수 — '하율 3' 은 선수 이름이 맞을 때만 명령(아니면 runCommand 도 AI 에게 넘긴다) */
+export function isCommandForm(q, names) {
+    q = String(q || '').trim();
+    if (!q) return false;
+    const m = q.match(SCORE_RE);
+    if (m && (names || []).some(n => n.indexOf(m[1]) !== -1)) return true;
+    if (SLOT_RE.test(q) || ROUL_RE.test(q) || MATCH_RE.test(q) || SKIP_RE.test(q) || ALLCLEAR_RE.test(q) || CLIP_RE.test(q) || CUE_RE.test(q)) return true;
+    const tt = q.replace(/^대결\s*/, '').match(TIME_RE);
+    return !!(tt && (tt[1] || tt[4]));
+}
 
 /** 말 하나 → 명령. 맞으면 true(보냈거나 · 안 하기로 했거나 · 왜 못 하는지 알렸거나), 아니면 false */
 export async function runCommand(ctx, q, out) {
@@ -51,7 +72,7 @@ export async function runCommand(ctx, q, out) {
         if (hit.length > 1) { said(`⚠️ '${m[1]}' 이(가) 여럿이에요: ${hit.join(', ')} — 이름을 정확히 적어 주세요`); return true; }
         // 선수 이름이 아니면 질문으로 본다(예: '1등 3' 같은 말) — 부른 쪽이 AI 에게 넘긴다
     }
-    if (/^슬롯\s*(돌려|시작|고)?!?$/.test(q)) {
+    if (SLOT_RE.test(q)) {
         if (!(await okToTake(ctx, 'slot', '슬롯머신'))) { said('🎰 슬롯은 그대로 뒀어요'); return true; }
         const row = said('🎰 슬롯을 돌려요…');
         const r = await call('/api/slot/spin', {});
@@ -59,14 +80,14 @@ export async function runCommand(ctx, q, out) {
         done(row, r.ok ? `🎰 돌려요${w ? ` — 당첨 ${w.title || ''}` : ''}` : `⚠️ 못 돌렸어요 — ${(r.data && (r.data.message || r.data.error)) || '실패 (' + r.status + ')'}`);
         return true;
     }
-    if (/^룰렛\s*(돌려|시작|고)?!?$/.test(q)) {
+    if (ROUL_RE.test(q)) {
         if (!(await okToTake(ctx, 'roulette', '룰렛'))) { said('🎡 룰렛은 그대로 뒀어요'); return true; }
         const row = said('🎡 룰렛을 돌려요…');
         const res = await ctx.run('roulette.spin', {}, { quiet: true });
         done(row, res.ok ? (res.already ? '🎡 이미 돌고 있어요' : '🎡 돌려요 — 룰렛 탭의 [정지!!] 로 세워요') : `⚠️ 못 돌렸어요 — ${res.error || '실패'}`);
         return true;
     }
-    const mt = q.match(/^(대결|타이머)\s*(시작|정지|스톱|멈춰)?$/);
+    const mt = q.match(MATCH_RE);
     if (mt) {
         const tm = ((slices.match || {}).timer) || {};
         const want = mt[2] ? (mt[2] === '시작' ? 'start' : 'pause') : (tm.running ? 'pause' : 'start');
@@ -90,13 +111,13 @@ export async function runCommand(ctx, q, out) {
         if (res.ok) pop(`⏱ 대결 시간 ${label}`);
         return true;
     }
-    if (/^(건너뛰|스킵|넘겨)/.test(q)) {
+    if (SKIP_RE.test(q)) {
         const row = said('⏭ 재생 중인 시그니처를 넘겨요…');
         const res = await ctx.run('reaction.skip', {}, { quiet: true });
         done(row, res.ok ? '⏭ 넘겼어요' : `⚠️ 못 넘겼어요 — ${res.error || '실패'}`);
         return true;
     }
-    if (/^올\s*클리어|^올클/.test(q)) {
+    if (ALLCLEAR_RE.test(q)) {
         const g = slices.siggame || {};
         const left = (g.cards || []).filter(c => c && c.flippedAt && !c.doneAt).length;
         if (left > 0) {
@@ -108,14 +129,14 @@ export async function runCommand(ctx, q, out) {
         done(row, res.ok ? `🎉 ALL CLEAR!${res.count ? ` (${res.count}장)` : ''}` : `⚠️ 못 했어요 — ${res.error || '실패'}`);
         return true;
     }
-    if (/^(클립|✂)\s*(따|저장|해)?줘?!?$/.test(q)) {
+    if (CLIP_RE.test(q)) {
         const row = said('✂️ 클립을 남겨요…');
         const res = await ctx.run('clip.now', {}, { quiet: true });
         done(row, res.ok ? '✂️ 앞 90초 + 뒤 90초 — 90초 뒤에 OBS 가 저장해요' : `⚠️ 못 했어요 — ${res.error || '실패'}`);
         if (res.ok) pop('✂️ 클립을 남겼어요');
         return true;
     }
-    const cue = q.match(/^(다음|이전)\s*(단계|순서)?\s*(로|으로)?$/);
+    const cue = q.match(CUE_RE);
     if (cue) {
         const dir = cue[1] === '다음' ? 'next' : 'prev';
         const row = said(dir === 'next' ? '▶ 순서표 다음 단계로…' : '◀ 순서표 이전 단계로…');

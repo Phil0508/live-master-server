@@ -35,6 +35,7 @@ const SHAPES = {
     stop: [['rect', { x: 6, y: 6, width: 12, height: 12, rx: 2.5, fill: 1 }]],
     logout: [['path', { d: 'M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10' }]],
     back: [['path', { d: 'M15 5l-7 7 7 7' }]],
+    search: [['circle', { cx: 10.5, cy: 10.5, r: 6.5 }], ['path', { d: 'M15.5 15.5L20.5 20.5' }]],     // 🔍 찾기(Ctrl+K — cmdk.js)
 };
 
 /** 아이콘 하나 — 없는 이름이면 null */
