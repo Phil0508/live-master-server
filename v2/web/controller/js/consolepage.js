@@ -22,6 +22,7 @@ import { mountDonors } from './panels/records/donors.js';
 import { mountOpFx } from './panels/ops/opfx.js';
 import { mountMedia } from './panels/ops/media.js';
 import { mountSigAdmin } from './panels/sig/admin.js';
+import { initBack, tabChanged } from './backnav.js';       // ◀ 뒤로가기 — 창 닫기 → 이전 탭 → '한 번 더 누르면 나가요'(10-24)
 
 const KEY = 'lm2_console_tab';
 
@@ -213,6 +214,7 @@ function ensure(id) {
 function open(id, user) {
     if (!TABS.some(t => t.id === id)) return false;
     if (!built) return false;
+    if (user && active && id !== active) tabChanged(active, id);      // ◀ 뒤로가기가 돌아올 탭(10-24)
     active = id;
     const m = ensure(id);
     for (const [k, x] of Object.entries(made)) x.el.hidden = k !== id;
@@ -280,6 +282,8 @@ function render() {
 
 window.addEventListener('resize', schedule);
 // 주소 끝 #queue 처럼 바꾸면 그 탭으로(즐겨찾기 · 다른 화면에서 건 링크)
+initBack({ name: '후원 콘솔', toast, goTab: id => open(id, false) });
+
 window.addEventListener('hashchange', () => {
     const id = decodeURIComponent((location.hash || '').slice(1));
     if (built && id !== active && TABS.some(t => t.id === id)) open(id, false);

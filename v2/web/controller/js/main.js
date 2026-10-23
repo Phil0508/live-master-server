@@ -35,6 +35,7 @@ import { bindBgm } from './panels/records/bgm.js';     // [D] 🎵 조종 줄 BG
 import { syncHoldBand } from './panels/auto/holdband.js'; // 🙋 ☕ 휴식 중 '⏸ 보류' 카드 → 상태 줄 띠(소리 없음, 10-17 · 10-22 휴식만)
 import { guardRun, askBig } from './bigok.js';           // 🛡️ 큰 금액은 한 번 더 확인 — 점수가 들어가는 명령은 ctx.run 한 곳에서 거른다(10-17 bigok)
 import { mountRest } from './restmode.js';
+import { initBack } from './backnav.js';               // ◀ 뒤로가기 — 창 닫기 → 이전 탭 → '한 번 더 누르면 나가요'(10-24)
 import { syncPracticeBand } from './practiceband.js';   // 🎓 연습 중 띠 · 연습 중 진짜 후원 빨간 띠(10-19 /practice/)            // ☕ 휴식 모드 — 새 입금 · 보류가 오면 가장자리 초록 깜빡 · 가운데 카드(소리 없음, 10-17)
 
 const lm = window.LM.connect({ kind: 'controller' });
@@ -70,6 +71,7 @@ const views = {
     drawer: mountDrawer(ctx),     // [C] pending · undo 를 옮기므로 그 둘 뒤에
 };
 ctx.tabs = views.tabs;
+safe(() => initBack({ name: '조종실', toast, goTab: id => views.tabs.back(id) }));   // ◀ 뒤로가기 — 창 닫기 → 이전 탭 → '한 번 더 누르면 나가요'(10-24)
 safe(() => mountPhone(ctx));               // 📱 phone.js — 넘어져도 조종실은 그대로
 safe(() => mountCastBox(ctx));             // 💬 castbox.js — 넘어져도 조종실은 그대로
 safe(() => mountCmdk(ctx));                // [D] safe(() => mountCmdk(ctx)); — ⌨️ Ctrl+K(w2feat 채움)

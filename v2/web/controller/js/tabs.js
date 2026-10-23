@@ -16,6 +16,7 @@
    클릭 기록(uistats)은 단추 class `tab` + data-tab 으로 센다 → 탭 id 를 바꾸지 말 것. */
 import { h } from './util.js';
 import { icon } from './icons.js';
+import { tabChanged } from './backnav.js';     // ◀ 뒤로가기 — 지나온 탭(10-24)
 
 const KEY = 'lm2_tab';
 const PHONE = '(max-width: 899px)';
@@ -139,6 +140,7 @@ export function mountTabs(els, ctx, panels) {
             return false;
         }
         if (!p.rail && !p.home && id !== 'settings') remember(id);
+        if (user && id !== active) tabChanged(active, id);       // ◀ 뒤로가기가 돌아올 탭
         active = id;
         center.dataset.tab = id;
         for (const [k, m] of Object.entries(made)) m.el.hidden = k !== id;
@@ -215,6 +217,8 @@ export function mountTabs(els, ctx, panels) {
             draw(slices);
         },
         open: id => open(id, true),
+        /** ◀ 뒤로가기로 돌아가기 — 지나온 길에 또 적지 않는다 */
+        back: id => open(id, false),
         /** 탭을 열지 않고 미리 그려만 둔다(숨긴 채) — 조종 줄 BGM ▶ 가 플레이어 자리를 만들 때([D] bgm.js) */
         prepare: id => { const p = byId.get(id); if (!p || p.home || isLocked(p)) return false; ensure(id); return true; },
         active: () => active,
