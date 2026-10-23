@@ -3,7 +3,7 @@
    [걷기] → cast.fx_clear — 잘못 눌렀을 때 바로 걷는다.
    기본으로 골라 둔 것(옛 것과 같다): 큰 배너 · 번쩍 + 테두리 빛 · 전광판 문구. 화려한 것(화면을 크게 덮는다): 카드 · 충격파 · 글리치 · 경보.
    시그니처 재생과 따로 도는 연출이라 시그니처가 나오는 중에 쏴도 서로 끊기지 않는다. 장부 · 점수는 안 바뀐다.
-   🐉 대형 연출 영상(10-23) — [🐉 용 연출] → cast.video {name:'dragon'} · [멈추기] → cast.video_stop. 방송판 widgets/cast/video.js 가 튼다. */
+   🎬 대형 연출 영상(10-23) — [🐉 용 연출] · [👼 천사 날개] → cast.video {name} · [멈추기] → cast.video_stop. 방송판 widgets/cast/video.js 가 튼다. */
 import { h, once, blockHead, parseWon, onEnter, num } from './common.js';
 
 const BASIC = [['banner', '화면 가운데 ', '큰 배너', true], ['flash', '화면 ', '번쩍 + 테두리 빛', true], ['ticker', '', '전광판에 흐르는 문구', true]];
@@ -25,7 +25,12 @@ export function mountOpFx(el, ctx) {
     const fire = h('button', { type: 'button', class: 'btn pri big fx-fire' }, '✨ 연출 쏘기');
     const clear = h('button', { type: 'button', class: 'btn danger fx-clear' }, '걷기');
     const out = h('p', { class: 'ops-hint fx-out', 'aria-live': 'polite' });
-    const dragon = h('button', { type: 'button', class: 'btn pri big fx-video' }, '🐉 용 연출');
+    const VIDEOS = [['dragon', '🐉 용 연출', 8], ['angel', '👼 천사 날개', 6]];
+    const vBtns = VIDEOS.map(([name, label, sec]) => {
+        const b = h('button', { type: 'button', class: 'btn pri big fx-video' }, label);
+        b.addEventListener('click', () => once(b, () => playVideo(name, label, sec)));
+        return b;
+    });
     const vStop = h('button', { type: 'button', class: 'btn danger fx-video-stop' }, '멈추기');
     const vOut = h('p', { class: 'ops-hint fx-out', 'aria-live': 'polite' });
 
@@ -43,9 +48,9 @@ export function mountOpFx(el, ctx) {
         h('div', { class: 'ops-row fx-btns' }, fire, clear),
         out),
     h('section', { class: 'ops-blk' },
-        blockHead('🐉 대형 연출 영상', '하늘에서 용이 내려와 브레스를 뿜고 위로 솟구쳐요 — 8초, 방송 화면 위에 투명하게'),
-        h('p', { class: 'ops-note' }, '방송 화면 전체를 잠깐 덮어요. 소리도 같이 나와요. 잘못 눌렀으면 [멈추기].'),
-        h('div', { class: 'ops-row fx-btns' }, dragon, vStop),
+        blockHead('🎬 대형 연출 영상', '방송 화면 위에 투명하게 한 번 — 🐉 용이 내려와 브레스를 뿜고 솟구쳐요(8초) · 👼 등 뒤로 천사 날개가 펼쳐져요(6초)'),
+        h('p', { class: 'ops-note' }, '방송 화면 위에 잠깐 겹쳐요. 소리도 같이 나와요. 잘못 눌렀으면 [멈추기].'),
+        h('div', { class: 'ops-row fx-btns' }, ...vBtns, vStop),
         vOut));
 
     amtIn.addEventListener('blur', () => { const v = parseWon(amtIn.value); if (v != null && v > 0) amtIn.value = num(v); });
@@ -70,17 +75,16 @@ export function mountOpFx(el, ctx) {
         out.className = 'ops-hint fx-out' + (res.ok ? '' : ' bad');
         out.textContent = res.ok ? '연출을 걷었어요.' : (res.error || '걷지 못했어요');
     }
-    async function playVideo() {
-        const res = await ctx.run('cast.video', { name: 'dragon' });
+    async function playVideo(name, label, sec) {
+        const res = await ctx.run('cast.video', { name });
         vOut.className = 'ops-hint fx-out' + (res.ok ? ' good' : ' bad');
-        vOut.textContent = res.ok ? '🐉 용 연출을 틀었어요 (8초)' : (res.error || '틀지 못했어요');
+        vOut.textContent = res.ok ? label + ' — 틀었어요 (' + sec + '초)' : (res.error || '틀지 못했어요');
     }
     async function stopVideo() {
         const res = await ctx.run('cast.video_stop', {});
         vOut.className = 'ops-hint fx-out' + (res.ok ? '' : ' bad');
         vOut.textContent = res.ok ? '연출 영상을 멈췄어요.' : (res.error || '멈추지 못했어요');
     }
-    dragon.addEventListener('click', () => once(dragon, playVideo));
     vStop.addEventListener('click', () => once(vStop, stopVideo));
     fire.addEventListener('click', () => once(fire, shoot));
     clear.addEventListener('click', () => once(clear, wipe));

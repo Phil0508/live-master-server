@@ -25,7 +25,7 @@ FX_NAME_MAX, FX_MSG_MAX = 40, 120
 slice_('cast', True, lambda: {'say': None, 'up': None, 'fx': None, 'fx_clear': None, 'video': None, 'n': 0})
 
 # 🐉 대형 연출 영상(10-23 대표님 — 드리미나로 만든 영상, 검은 배경을 뺀 투명 webm) — 방송판 widgets/cast/video.js 가 /overlay/fxvideos/<이름>.webm 을 튼다
-VIDEO_FX = {'dragon': '🐉 용 연출'}
+VIDEO_FX = {'dragon': '🐉 용 연출', 'angel': '👼 천사 날개'}
 
 
 def _one_line(v, n):

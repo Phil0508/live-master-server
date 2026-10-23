@@ -6,7 +6,7 @@
 import { watchCast } from './fresh.js';
 import { isLeader } from '../../audio_lead.js';
 
-const FILES = { dragon: '/overlay/fxvideos/dragon.webm' };
+const FILES = { dragon: '/overlay/fxvideos/dragon.webm', angel: '/overlay/fxvideos/angel.webm' };
 const SAFETY_MS = 20000;
 const PRELOAD_MS = 5000;
 
